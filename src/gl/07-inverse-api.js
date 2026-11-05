@@ -145,6 +145,26 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 }
 `;
   }
+  // The NEWT roots pass (#938): when the plan's first inverted op is a NEWT op (inverse.nr = {j, targets, main}, from
+  // GLChain.buildInverse), a roots program (nr.main, IX_NR_PASS) writes that op's members for each pixel's w into
+  // IX_NR_N RGBA32F targets, seeded from the previous frame's (uNrPrev*, uNrPrevOn, uNrPrevT), and the inverse program
+  // reads them (uNrTex*, uNrRead) where the op's input is the pixel's own w (ixPixW) instead of walking. Texel:
+  // ixNrTexel, the pixel relative to the pass's viewport. IX_NR_N: the targets drawn, at most nr.targets, the GPU's draw
+  // buffers and 6; the GLSL walks any members beyond them in place.
+  let nrMaxDb = 0;
+  function nrCount(nr) {
+    if (!nr || !(nr.targets > 0) || !rtOK) return 0;
+    if (!nrMaxDb) nrMaxDb = gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1;
+    return Math.min(nr.targets, nrMaxDb, 6);
+  }
+  function nrDecl(n, pass) {
+    const k = Array.from({ length: n }, (_, i) => i);
+    return `#define IX_NR_N ${n}\n${pass ? '#define IX_NR_PASS 1\n' : ''}vec2 ixPixW = vec2(3.0e38);\nivec2 ixNrTexel = ivec2(0);\n`
+      + (pass ? k.slice(1).map((i) => `layout(location = ${i}) out vec4 o${i};\n`).join('') + k.map((i) => `uniform highp sampler2D uNrPrev${i};\n`).join('') + 'uniform int uNrPrevOn; uniform float uNrPrevT;\n'
+        : k.map((i) => `uniform highp sampler2D uNrTex${i};\n`).join('') + 'uniform int uNrRead;\n');
+  }
+  // the part of an inverse program's key that its extra source adds
+  const extraKey = (extra) => (extra ? (extra.carry ? 'carry|' + (extra.nrPass ? 'nr:' + hashStr(extra.main) + '|' : '') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '');
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
@@ -154,6 +174,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
+    const nrN = globe ? 0 : nrCount(info.inverse.nr);
+    if (nrN) pre = nrDecl(nrN, !!(extra && extra.nrPass)) + pre;
     const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns() : '') + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
@@ -203,9 +225,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
-    const ik = inv.key + (extra && extra.carry ? '|carry' : '');
+    const ik = inv.key + (extra && extra.carry ? '|carry' : '') + (extra && extra.nrPass ? '|nr' : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
-    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
@@ -240,7 +262,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
     if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
-    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const order = [3, 5, INV_B_MAX].filter((b) => b !== Bwant).sort((a, b) => (a > Bwant) !== (b > Bwant) ? (a > Bwant ? -1 : 1) : (a > Bwant ? a - b : b - a));
     for (const B of order) {
       const e = progs.get(invProgKey(inv, B, globe, fk));
@@ -432,6 +454,85 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // 'pending' (a compile in flight or not yet allowed to start) sets frameStatus().pending; 'error': the shape cannot
   // be drawn inverse this frame (no program, a failed compile, a side draw without a ready program, a plan / prep
   // mismatch); both fall through to the forward draw.
+  // the roots pass's targets: two sets (ping-pong) of n RGBA32F textures of the pass's size, each set with its
+  // framebuffer; nrLast: the set the last pass wrote, its key (size, view, op list, plan) and t, and token, which a
+  // drawInverse of that frame names (st.nr) to read it
+  const nrSets = [null, null];
+  let nrLast = null, nrToken = 0;
+  function nrSet(i, n, W, H) {
+    let S = nrSets[i];
+    if (S && S.n === n && S.W === W && S.H === H) return S;
+    if (S) { S.tex.forEach((t) => gl.deleteTexture(t)); gl.deleteFramebuffer(S.fbo); }
+    S = { n, W, H, tex: [], fbo: gl.createFramebuffer() };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
+    for (let k = 0; k < n; k++) {
+      const t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE15);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + k, gl.TEXTURE_2D, t, 0);
+      S.tex.push(t);
+    }
+    S.ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    nrSets[i] = S;
+    if (nrLast && nrLast.set === i) nrLast = null;
+    return S;
+  }
+  function nrBind(S, n) {
+    for (let k = 0; k < n; k++) { gl.activeTexture(gl.TEXTURE6 + k); gl.bindTexture(gl.TEXTURE_2D, S ? S.tex[k] : null); }
+  }
+  // The NEWT roots pass of a flat inverse draw st (drawInverse's: map, plan, prep, inv, view, dpr; t: the NEWT op's t;
+  // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
+  // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
+  // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
+  function newtRoots(st) {
+    const inv = st && st.inv, nr = inv && inv.nr, n = ok ? nrCount(nr) : 0;
+    if (!n || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return { state: 'none' };
+    const pr = invProgram(INV_B_MAX, false, true, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
+    if (pr.state !== 'ready') return { state: pr.state };
+    const W = Math.max(1, Math.round(st.pw)), H = Math.max(1, Math.round(st.ph));
+    const v = st.view || { cx: 0, cy: 0, s: 1 }, dpr = st.dpr || 1, map = st.map || {};
+    const key = [W, H, v.cx, v.cy, v.s, dpr, inv.key, map.a || 0, map.b || 0, cur.key, cur.hash].join('|');
+    const prev = nrLast && nrLast.key === key ? nrLast : null;
+    const wi = nrLast ? 1 - nrLast.set : 0, S = nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
+    if (!S.ok) return { state: 'error' };
+    flushHalf();
+    const P = pr.P;
+    P.warm = true;
+    gl.useProgram(P.p);
+    // (the prior set is bound for reading even when it is not the same frame's: never the set drawn into)
+    nrBind(Sp || nrSets[1 - wi], n);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
+    gl.drawBuffers(Array.from({ length: n }, (_, k) => gl.COLOR_ATTACHMENT0 + k));
+    gl.viewport(0, 0, W, H);
+    // (every channel written: a frame's colour mask may leave alpha out, and a target's .w holds a root's part)
+    // (the frame's colour mask is the renderer's record, maskRGB / maskA: getParameter would wait on the GPU process)
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
+    if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
+    else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
+    if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
+    if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+    u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
+    u4f(P, 'uVp', 0, 0, W, H);
+    u2f(P, 'uCenter', hi32(v.cx), hi32(v.cy));
+    u2f(P, 'uCenterLo', v.cx - hi32(v.cx), v.cy - hi32(v.cy));
+    u2f(P, 'uInvScale', 1 / (v.s * dpr), 1 / (v.s * dpr));
+    u1i(P, 'uNrPrevOn', prev ? 1 : 0); u1f(P, 'uNrPrevT', prev ? prev.t : 0);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(vpX, vpY, fw, fh);
+    if (scOn) gl.enable(gl.SCISSOR_TEST);
+    if (blOn) gl.enable(gl.BLEND);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
+    return { state: 'drawn', token: nrLast.token };
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe';
@@ -474,6 +575,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
     if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
     u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
+    // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
+    if (P.loc.uNrRead) {
+      const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;
+      u1i(P, 'uNrRead', R ? 1 : 0);
+      if (R) nrBind(nrSets[R.set], R.n);
+    }
     if (P.loc.uIxRef) gl.uniform2fv(P.loc.uIxRef, d.ref);
     if (P.loc.uIxN) gl.uniform1iv(P.loc.uIxN, d.N);
     if (P.loc.uIxRK) gl.uniform1iv(P.loc.uIxRK, d.RK);
@@ -817,7 +924,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsOn, fillPointsRuns, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,

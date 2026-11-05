@@ -190,7 +190,7 @@ for (const mk of mapsFor) {
     await grab();
   } else if (part === 'urlbar') {
     // Android Chrome's URL bar showing and hiding: the layout viewport's height changes by its 56 px
-    // (each resize is followed by a wait until the page has the new height and the plane windows W reads exist)
+    // (each resize is followed by a wait until the page has the new height and the plane windows W reads exist; a throw while they are not there yet is "not ready", and the wait's own limit reports a real failure)
     const resized = (h) => settled({ max: 20000, until: `innerHeight === ${h} && (() => { try { return !!(Phone._state() && __cmwPlaneMenu() && __cmwLayout()); } catch (e) { return false; } })()` });
     const hide = async () => { await view(390, 900, false, true); await resized(900); };
     const show = async () => { await view(390, 844, false, true); await resized(844); };
