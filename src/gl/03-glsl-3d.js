@@ -534,8 +534,8 @@ void main() {
 }
 `;
   // (#846) The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
-  // under the glide's map from plane s (mapPoint: uBase = s) and at the height of G = the stages (s, T] there (uGs,
-  // uGt), so every point keeps its height and colour while the plane moves. tfOut: (place x, y, height, finite).
+  // under the glide's map from plane s (mapPoint: uBase = s) and at the height of the stages (uGs, uGt] there (s to
+  // the plane the heights read, hT), so every point keeps its height while the plane moves. tfOut: (place x, y, height, finite).
   const LAND_CARRY_TF_VS = `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
@@ -548,8 +548,8 @@ void main() {
 }
 `;
   // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
-  // s), without a height: (place x, y, 0, finite). The sheets keep the heights of plane s's own surface (LAND_SHEET_VS,
-  // uCarry 1 reads these places)
+  // s), without a height: (place x, y, 0, finite). The sheets keep their heights at plane s, of the stages (s, hT]
+  // (LAND_SHEET_VS, uCarry 1 reads these places)
   const LAND_CARRY_PLACE_TF_VS = `
 uniform int uN; uniform vec4 uSrc;
 out vec4 tfOut;
@@ -1115,7 +1115,7 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${sheet ? ' uniform int uCarry; uniform vec2 uClipA;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
 ${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
@@ -1162,10 +1162,10 @@ void main() {
 ${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
-  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = facetW(w0);
+  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
-  float la = ht.y > 0.5 ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
+  float la = ht.y > 0.5${sheet ? ' && uCarryCol == 0' : ''} ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
   float r = wabs(w);
   float q = TAU / max(uSectors, 1.0);
   // (the lines' widths: the smaller of w's and F's as it is. On a silhouette the helper fragments of a quad sit off the
