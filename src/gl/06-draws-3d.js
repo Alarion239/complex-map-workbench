@@ -252,7 +252,7 @@
   // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
-  // (polar [x, y, r0, r1, …]: a patch (CARRY_Z), into the textures of o, else the box's grid into landC)
+  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
@@ -265,7 +265,7 @@
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    u4f(P1, 'uPolar', ...(polar ? polar.slice(0, 4) : [0, 0, 0, 0]));
+    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.hT == null ? c.T : c.hT);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -273,7 +273,7 @@
     u1i(P2, 'uN', N);
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
-    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim);
+    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
@@ -294,7 +294,7 @@
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP);
     return true;
   }
-  // the carry's patches (st.carry.polar [[x, y, r0, r1, past]], at most CARRY_POLES; CARRY_Z; past: the patch past the box, last): their textures, kept between frames
+  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z): their textures, kept between frames
   const CARRY_POLES = 5, CARRY_POLE_N = 96, landPP = [];
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
@@ -1187,7 +1187,7 @@
     // its own first, and the GPU process stalled once for them and once more for the sheets', r2 review verify-2)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
     const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
-    // (the carry's patches, made before the draw: each a TF pass of its own)
+    // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
     if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
       const o = landPP[pp.length] || (landPP[pp.length] = {});
@@ -1262,24 +1262,17 @@
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
       u4f(Pc, 'uPolar', 0, 0, 0, 0); u1f(Pc, 'uPatch', 0);
-      // (the patches (CARRY_Z): about each pole of the glide's map, the far plane the box's cells are torn over, a little
-      // behind the box's cells; then the patch past the box, only on the pixels neither drew (stencil 0): its coarse cells
-      // can also carry copies of what the box covers, as a periodic map does)
-      if (pp.length) {
-        gl.enable(gl.STENCIL_TEST); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
-        gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-      }
       gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+      // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
+      // the box's cells, so a patch shows only where they leave a hole)
       if (pp.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8); }
       for (let i = 0; i < pp.length; i++) {
-        const [x, y, r0, r1, past] = pp[i].polar;
-        if (past) gl.stencilFunc(gl.EQUAL, 0, 0xff);
-        u4f(Pc, 'uPolar', x, y, r0, r1); u1i(Pc, 'uN', CARRY_POLE_N); u1f(Pc, 'uPatch', 1);
+        u4f(Pc, 'uPolar', ...pp[i].polar); u1i(Pc, 'uN', CARRY_POLE_N); u1f(Pc, 'uPatch', 1);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, pp[i].o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, pp[i].o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (CARRY_POLE_N - 1) * (CARRY_POLE_N - 1));
       }
-      if (pp.length) { gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST); }
+      if (pp.length) gl.disable(gl.POLYGON_OFFSET_FILL);
       info.refine = null;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N;
     }

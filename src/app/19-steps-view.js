@@ -315,14 +315,10 @@
     render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
-  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1, past] each, in plane s's carried box src
-  // (plane s's points the box's N x N grid leaves out, which the carry's map, from plane s, takes into the block):
-  // - about each pole of the map in src, from a ten-thousandth of a cell to eight cells, nearest the box's centre first,
-  //   at most 4. Near a pole the map carries a small disc over the far plane, where the box's cells stretch past the
-  //   tear limit and are left out;
-  // - past the box (past = 1, last): about the box's centre, from the circle inside the box to a thousand times the
-  //   box's size, plane s outside the box, which the map can carry into the block (a Möbius step takes it to a disc
-  //   about the image of ∞).
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
+  // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
+  // cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far plane, where
+  // the box's cells stretch past the tear limit and are left out.
   // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
@@ -335,10 +331,10 @@
     let poles;
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || p);
     else poles = svDrain(svPolesIn(F, src, 16, src, E));
-    const W = src.x1 - src.x0, H = src.y1 - src.y0, cell = Math.max(W, H) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
-    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8, 0]).concat([[cx, cy, Math.min(W, H) / 2, 1000 * Math.max(W, H), 1]]);
+    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8]);
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)

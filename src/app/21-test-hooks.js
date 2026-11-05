@@ -269,10 +269,10 @@
   // the last frame's carried landscape over its block, on the CPU: an nx x ny grid of points over the block, each covered
   // when it lies in the image of a carried triangle the draw keeps (LAND_CARRY_VS: its corners' images finite, its edges at
   // most lim long), of the box grid (cells x cells vertices over src) or of a pole patch (patchN x patchN vertices,
-  // CARRY_Z; left out with patches false). {n, bare: the points no kept triangle covers, at: the first of them}, or null
-  // with no carry. (The heights'
+  // CARRY_Z; left out with patches false), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
+  // CPU only). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
-  window.__cmwLandCover = (nx = 480, ny = 400, patches = true) => {
+  window.__cmwLandCover = (nx = 480, ny = 400, patches = true, more = []) => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets) return null;
     const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
@@ -307,9 +307,9 @@
     };
     const s = c.src, n = c.cells;
     grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)]);
-    for (const [px, py, r0, r1] of patches ? (c.polar || []).slice(0, c.patches || 0) : []) {
-      const m = c.patchN - 1;
-      grid(c.patchN, (i, j) => { const th = (2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return [px + r * Math.cos(th), py + r * Math.sin(th)]; });
+    for (const [px, py, r0, r1] of (patches ? (c.polar || []).slice(0, c.patches || 0) : []).concat(more)) {
+      const m = (c.patchN || 96) - 1;
+      grid(m + 1, (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return [px + r * Math.cos(th), py + r * Math.sin(th)]; });
     }
     let bare = 0;
     const at = [];

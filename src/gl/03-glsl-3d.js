@@ -537,16 +537,16 @@ void main() {
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of the stages (uGs, uGt] there (s to
   // the plane the heights read, hT), so every point keeps its height while the plane moves. tfOut: (place x, y, height, finite).
   // The carried grid's point of plane s at grid place ij (0 to uN - 1 each way): over the box uSrc, or, with uPolar
-  // (centre x, y, r0, r1; r1 > 0), a patch about a point of plane s: the angle once round with i, the radius from r0 to
-  // r1 geometrically with j. About a pole of the glide's map it covers, with small cells, the far plane the pole's
-  // neighbourhood is carried to, where the box's cells stretch past uLim and are left out; about the box's centre, from
-  // inside the box outwards, it covers what the map carries from past the box
+  // (pole x, y, r0, r1; r1 > 0), a patch about a pole of the glide's map: the angle once round clockwise with i (so its
+  // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
+  // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
+  // are left out
   const CARRY_Z = `
 uniform vec4 uPolar;
 vec2 carryZ(vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return uSrc.xy + ij * f * uSrc.zw;
-  float th = 6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
+  float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
   return uPolar.xy + r * vec2(cos(th), sin(th));
 }
 `;
@@ -581,6 +581,7 @@ void main() {
   // the grid (LAND_AO, as at rest)
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
+uniform float uPatch;
 out vec4 tfOut;
 ` + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
@@ -598,7 +599,8 @@ void main() {
   vec3 dx = (oR ? placeOf(R) : P0) - (oL ? placeOf(L) : P0), dy = (oU ? placeOf(U) : P0) - (oD ? placeOf(D) : P0);
   vec3 n = cross(dx, dy);
   n = length(n) > 1e-20 ? normalize(n) : vec3(0.0, 0.0, 1.0);
-  tfOut = vec4(n, landAO(p, c.z));
+  // (no occlusion on a patch (CARRY_Z): its 9 x 9 neighbours span radii many times apart, not a neighbourhood)
+  tfOut = vec4(n, uPatch > 0.5 ? 1.0 : landAO(p, c.z));
 }
 `;
   // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle

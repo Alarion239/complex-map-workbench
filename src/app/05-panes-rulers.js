@@ -743,7 +743,7 @@
     // (the carried grid: over plane s's block)
     const src = carry ? landBox(carry.vs) : null;
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
-    // (the carried grid's patches about the glide map's poles and past the box: svLandPatches)
+    // (the carried grid's patches about the glide map's poles: svLandPatches)
     const polar = carry ? svLandPatches(carry.map, src, cells) : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)

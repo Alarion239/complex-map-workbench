@@ -4,7 +4,7 @@
     canvas = cnv || document.createElement('canvas');
     if (!cnv) { canvas.width = 640; canvas.height = 480; }
     try {
-      gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+      gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
@@ -97,7 +97,6 @@
     gl.depthMask(true);
     gl.depthFunc(gl.LESS);
     gl.disable(gl.CULL_FACE);
-    gl.disable(gl.STENCIL_TEST);
     gl.disable(gl.POLYGON_OFFSET_FILL);
   }
   // a promise that settles once the GPU has finished every command issued so far: a fence polled between tasks,
