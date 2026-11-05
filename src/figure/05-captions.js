@@ -157,6 +157,13 @@
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
   // the thread of a steps-view filmstrip, z → w₁ → w₂ with each step's name over its arrow, in TeX
   const svChain = (frames) => `$${frames.map((f) => (f.f ? `\\xrightarrow{${f.f}} ${f.name}` : f.name)).join(' ')}$`;
+  // a two-plane figure's accessible words, plain text: the title ("z and w₂, joined by F") and the sentence of the
+  // caption, for the SVG's title and desc and the PDF's title
+  const svTwoWords = (fi, lang) => {
+    if (!fi || !fi.svTwo) return {};
+    const a = plainName(fi.frames[0].name), b = plainName(fi.frames[1].name), map = plainName(fi.arrow);
+    return using(lang, () => ({ title: $t('%{a} and %{b}, joined by %{map}', { a, b, map }), desc: $t('The planes %{a} and %{b}, joined by %{map}.', { a, b, map }) }));
+  };
   // the caption of a two-plane figure: its two planes and the map between them, in TeX
   const svTwoSentence = (fi) => $t('The planes %{a} and %{b}, joined by %{map}.', { a: `$${fi.frames[0].name}$`, b: `$${fi.frames[1].name}$`, map: `$${fi.arrow}$` });
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
@@ -453,7 +460,7 @@
       items.push(c.markup); H += 7 + c.h + 2;
     }
     const meta = { app: 'Complex Map Workbench', name, preset: o.for, ink: o.ink, view, width: `${Wtex}pt`, scene: A.sceneMeta() };
-    const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta, title: body.info && body.info.svTwo ? using(lang, () => $t('%{a} and %{b}, joined by %{map}', { a: plainName(body.info.frames[0].name), b: plainName(body.info.frames[1].name), map: plainName(body.info.arrow) })) : null });
+    const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta, ...svTwoWords(body.info, lang) });
     // (box: the picture's world window, a plane panel's, for a check against the screen)
     return Object.assign(fig, { box: (body.info && (body.info.box || (body.info.boxes && body.info.boxes.L))) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
   }

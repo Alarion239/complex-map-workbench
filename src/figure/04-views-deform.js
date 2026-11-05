@@ -314,9 +314,9 @@
   // infinity, as exp sends a strip, would be a speck in it)
   const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10, SV_FILM_OVER = 1.5;
   const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
-  // the windows of the planes idx (indexes into A.svFrames()) when each is framed on its own (Fit, on the plane):
-  // {boxes: one per plane, or null when every plane keeps the camera's window, fellBack: some plane kept it because
-  // no shape is in view or its box was too wide}
+  // the windows of the planes idx (indexes into A.svFrames()) when each is framed on its own (Fit, on the plane): the
+  // boxes, one per plane, or null when every plane keeps the camera's window; and fellBack, true when a plane keeps it
+  // because no shape is in view or its box is too wide
   function svFitBoxes(o, idx) {
     if (o.crop === 'screen' || A.svSurf() !== 'plane') return { boxes: null, fellBack: false };
     // (the shapes are traced in the camera's window grown 3 times each way, as the other views trace them, so a shape
@@ -448,10 +448,7 @@
     }
     // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
     const oys = axes === 'cross' ? boxes.map((b) => Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h))) : [];
-    const lab = arrowLab.a + arrowLab.d + 3;
-    const ay = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => y + f * h).find((v) => oys.every((oy) => v - oy > lab + 6 || oy - v > 6)) || y + h / 2;
-    const a0 = axes === 'box' ? xs[0] + h * asp[0] + 5 : axes === 'cross' ? xs[0] + h * asp[0] + ah * 0.3 + 2 + XD.tex(titles[0][0], lp).w + 8 : xs[0] + h * asp[0] + 8;
-    const a1 = axes === 'box' ? a0 + arrowSpan : xs[1] - 8;
+    const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs[0] + h * asp[0], xn: xs[1], y, h, oys, label: arrowLab, span: arrowSpan, off: axes === 'cross' ? ah * 0.3 + 2 + XD.tex(titles[0][0], lp).w + 8 : 8 });
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     const ownWin = !!fit.boxes && !sameBox(boxes[0], boxes[1]);
     return { items, defs, lines, H: y + h + bottom, info: { svTwo: true, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };

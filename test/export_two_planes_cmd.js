@@ -51,6 +51,7 @@ for (const c of CASES) {
   ok(`${tag}: the caption names the planes and the map`, /joined by/.test(r.cap) && r.cap.includes(`$${c.arrow}$`) && c.names.every((n) => r.cap.includes(`$${n}$`)), r.cap);
   const plain = (n) => n.replace(/_\{(\d)\}/, (m, d) => '₀₁₂₃₄₅₆₇₈₉'[+d]);
   ok(`${tag}: the SVG has two pictures and a title that names the planes and the map`, (r.svg.match(/<image\b/g) || []).length === 2 && r.svg.includes(`<title>${plain(c.names[0])} and ${plain(c.names[1])}, joined by ${SPEC[c.arrow]}</title>`), { images: (r.svg.match(/<image\b/g) || []).length, title: (/<title>[^<]*<\/title>/.exec(r.svg) || [])[0] });
+  ok(`${tag}: the SVG's desc is the caption's sentence`, r.svg.includes(`<desc>The planes ${plain(c.names[0])} and ${plain(c.names[1])}, joined by ${SPEC[c.arrow]}.</desc>`), (/<desc>[^<]*<\/desc>/.exec(r.svg) || [])[0]);
   if (c.clamp) continue;
   // each panel is the Shown plane export of its plane (the camera's window)
   const g2 = await grids(r.svg);
