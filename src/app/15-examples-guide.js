@@ -923,7 +923,7 @@
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
-    // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it replaces nothing)
+    // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it covers no control of the strip)
     const plot = document.documentElement.classList.contains('sv') ? box($('plotL')) : null;
     if (plot && plot.width >= 240) {
       const sb = box($('svStrip')), floor = sb && sb.top > plot.top ? Math.min(plot.bottom, sb.top) : plot.bottom;
@@ -983,8 +983,21 @@
     st.bottom = Math.round(H - top + 8) + 'px';
     st.maxWidth = Math.round(hi - lo) + 'px';
   }
+  // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
+  const TOAST_OUT_MS = 150;
+  function closeToast(t) {
+    if (!t.isConnected || t.classList.contains('toast-out')) return;
+    t.classList.add('toast-out');
+    setTimeout(() => t.remove(), TOAST_OUT_MS);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.repeat || document.querySelector('.modal-bg, #popHost > *, .hdr-menu:popover-open')) return;
+    const t = document.querySelector('#toastHost .toast:not(.toast-out)');
+    if (t) closeToast(/** @type {HTMLElement} */ (t));
+  });
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
-  // o.ms: how long an ordinary one stays)
+  // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
+  // message or the focus is in it)
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -992,11 +1005,16 @@
     host.innerHTML = '';
     const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
     if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { t.remove(); action(); } }, actionLabel));
-    if (o && o.sticky) { t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => t.remove() })); host.append(t); return t; }
+    if (o && o.sticky) { t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) })); host.append(t); return t; }
     host.append(t);
-    let left = (o && o.ms) || 5000, t0 = performance.now(), timer = setTimeout(() => t.remove(), left);
-    t.addEventListener('pointerenter', () => { clearTimeout(timer); left -= performance.now() - t0; });
-    t.addEventListener('pointerleave', () => { t0 = performance.now(); timer = setTimeout(() => t.remove(), Math.max(800, left)); });
+    let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
+    const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
+    const hold = (d) => { held += d; if (held === 1 && d > 0) { clearTimeout(timer); left -= performance.now() - t0; } else if (held === 0) run(Math.max(800, left)); };
+    run(left);
+    t.addEventListener('pointerenter', () => hold(1));
+    t.addEventListener('pointerleave', () => hold(-1));
+    t.addEventListener('focusin', () => hold(1));
+    t.addEventListener('focusout', () => hold(-1));
     return t;
   }
   // what the examples and the guide (src/examples.js) need from the app: its functions and constants, and the state
