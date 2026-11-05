@@ -79,6 +79,7 @@ const VIEWS = {
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),
   'toast_keys_cmd.js': steps(),
+  'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
