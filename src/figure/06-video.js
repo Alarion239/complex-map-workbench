@@ -96,16 +96,18 @@
   // the plan of the steps view's glide along its thread (gl: A.svGlide): the left pane at the screen's window widened to
   // the frame's aspect; video time t is the thread position gl.lo + t, so m is the number of steps. The pane's own
   // paths and outlines come with its picture (the strip's state), so no vector marks are drawn over it
-  function glidePlan(o, v, gl) {
+  async function glidePlan(o, v, gl) {
     const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo;
+    // the window is the still figure's, so the first frame frames the picture the PNG of the first plane does
+    const still = await build({ svPic: 'shown' });
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(A.svBox(), W / H), times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(still && still.box ? still.box : A.svBox(), W / H), times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), Hof: (t) => (z) => z };
   }
   // the plan of a video: what is drawn, where, the tracked points
   async function videoPlan(opts) {
     const o = Object.assign(defaults(), opts || {}), v = Object.assign(vdefaults(), o.video || {});
     const gl = !o.view && A.svOn && A.svOn() && A.svGlide ? A.svGlide() : null;
-    if (gl) return glidePlan(o, v, gl);
+    if (gl) return await glidePlan(o, v, gl);
     const view = o.view || A.viewKind(), kind = defoOf(view);
     if (!kind) throw new Error('The deformation is off');
     const [Wpx, Hpx] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'];
@@ -224,7 +226,7 @@
     const line = (pts, color, width, dash) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []); ctx.lineCap = dash ? 'butt' : 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); let pen = false; for (const p of pts) { if (!p) { pen = false; continue; } if (pen) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); pen = true; } ctx.stroke(); ctx.setLineDash([]); };
     const fs = Math.round(0.028 * H);
     // (editor-6) the print look's axes, and tick numbers in both looks: the window is fixed, so they are too
-    if (plan.box && kind !== 'glide') {
+    if (plan.box) {
       const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), dec = XD.decimals(step);
       const ox = Math.min(Math.max(P(C(0, 0))[0], 0), W), oy = Math.min(Math.max(P(C(0, 0))[1], 0), H);
       if (look === 'print') { line([[0, oy], [W, oy]], '#555555', 1.2 * lw); line([[ox, 0], [ox, H]], '#555555', 1.2 * lw); }

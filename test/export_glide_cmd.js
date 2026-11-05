@@ -36,6 +36,23 @@ for (const exN of [1, 18]) {
   ok(`${tag}: 1280 x 720 at 30 fps, H.264 or VP9`, v.W === 1280 && v.H === 720 && v.fps === 30 && /^(avc1|vp0?9|vp8)/.test(v.codec), v);
   ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < 12, v);
   ok(`${tag}: the thread's place is where it was`, v.at0 === v.at1, v);
+  // ruling 2 (#635): the video's first frame, at rest on the first plane, is the still export's PNG of that plane (both at
+  // 320 x 180, so the pixel comparison is of the same picture; the still's framing is its own)
+  const fp = await ev(`await (async () => { try {
+    const chk = await __cmwFig.videoCheck(0, 320, 180);
+    const f = await __cmwFig.build({});
+    if (!f) return { none: 1 };
+    const bmp = await createImageBitmap(await __cmwFig.png(f, 150));
+    const ld = (u) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = u; });
+    const dv = await ld(chk.decoded), still = document.createElement('canvas');
+    still.width = 320; still.height = 180; still.getContext('2d').drawImage(bmp, 0, 0, 320, 180);
+    const dc = document.createElement('canvas'); dc.width = 320; dc.height = 180; dc.getContext('2d').drawImage(dv, 0, 0);
+    const a = dc.getContext('2d').getImageData(0, 0, 320, 180).data, b = still.getContext('2d').getImageData(0, 0, 320, 180).data;
+    let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+    return { mad: s / (320 * 180 * 3), W: f.W, H: f.H, t: chk.t };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
+  info[tag + ' first frame vs PNG'] = fp;
+  ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
   // a parked frame against the screen at the same place
   const s = await ev(`await (async () => {
     __cmwSteps({ park: 0.5 });
@@ -57,6 +74,16 @@ for (const exN of [1, 18]) {
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
+// UX60 (classic's check, ported to the steps view): Video is listed with no step to record too; it is aria-disabled with
+// the reason "Add a step to make a video", and a click neither chooses it nor opens the dialog on it
+// (a chain of one plane: an empty steps chain saved as the page's state, as steps_empty_cmd.js does)
+await loadView('steps', 'xgl0' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 90 } }, { lang: 'en' });
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+const bare = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; const n = __cmwSteps().planes.length; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); const fmts = [...document.querySelectorAll('#xfFmt > button')].map((x) => x.dataset.v); b.click(); await new Promise((r) => setTimeout(r, 200)); return { n, fmts, aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
+info['video with no step'] = bare;
+ok('no step: the chain has one plane and Video is listed in the Format row', bare && bare.n < 2 && bare.fmts && bare.fmts.includes('video'), bare);
+ok('no step: Video is aria-disabled with "Add a step to make a video" as its tip, a click does not choose it', bare && bare.aria === 'true' && bare.tip === 'Add a step to make a video' && bare.checked === 'false' && bare.still && !bare.vsum, bare);
+await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 // the sphere: no silent 2D
 await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 await open(1, 'sphere');
