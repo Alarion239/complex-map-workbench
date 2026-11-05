@@ -116,7 +116,11 @@ const park = async (x, scope) => {
     await ready();
     await ev(`__cmwExample(${ex}); 1`); await settled({ max: 20000 });
     await park(0.5, 'all');
+    // The ray is scanned from RAY_START px out to RAY_END of the smaller canvas side, over +-RAY_HALF px across it; a pixel is a crack when its
+    // own saturation is under CRACK_SAT while the pixels FLANK px to both sides of the ray are above FLANK_SAT.
+    const RAY_START = 30, RAY_END = 0.45, RAY_HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500;
     info.cracks = await ev(`(() => {
+      const RAY_START = ${RAY_START}, RAY_END = ${RAY_END}, RAY_HALF = ${RAY_HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT};
       const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
       const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), O = [(o[0] - r.left) * k, (o[1] - r.top) * k];
       const sat = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return -1; const i = (y * W + x) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
@@ -124,11 +128,11 @@ const park = async (x, scope) => {
       for (const a0 of [135, 225]) {
         const A = a0 * Math.PI / 180, u = [Math.cos(A), -Math.sin(A)], n = [-u[1], u[0]];
         let samples = 0, cracks = 0, first = null;
-        for (let rr = 30; rr < Math.min(W, H) * 0.45; rr++) for (let t = -4; t <= 4; t++) {
+        for (let rr = RAY_START; rr < Math.min(W, H) * RAY_END; rr++) for (let t = -RAY_HALF; t <= RAY_HALF; t++) {
           const p = [O[0] + rr * u[0] + t * n[0], O[1] + rr * u[1] + t * n[1]], s = sat(...p);
           if (s < 0) continue;
           samples++;
-          if (s < 20 && sat(p[0] - 3 * n[0], p[1] - 3 * n[1]) > 40 && sat(p[0] + 3 * n[0], p[1] + 3 * n[1]) > 40) { cracks++; if (!first) first = [Math.round(p[0]), Math.round(p[1])]; }
+          if (s < CRACK_SAT && sat(p[0] - FLANK * n[0], p[1] - FLANK * n[1]) > FLANK_SAT && sat(p[0] + FLANK * n[0], p[1] + FLANK * n[1]) > FLANK_SAT) { cracks++; if (!first) first = [Math.round(p[0]), Math.round(p[1])]; }
         }
         out[a0] = { samples, cracks, first };
       }
@@ -137,7 +141,7 @@ const park = async (x, scope) => {
     })()`);
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
-      ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > 500, q);
+      ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
       ok(`cracks: Square root, parked half-way: no uncovered pixel along the cut's image at ${a0}°`, q.cracks === 0, q);
     }
   }
