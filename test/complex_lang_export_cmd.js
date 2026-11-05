@@ -9,6 +9,7 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
 const P = () => ev('__cmwP()');
 const NS = 'cxlg' + (Date.now() % 1000000);
 const STATE = {
@@ -25,8 +26,8 @@ const lang = async (l) => { await ev(`I18N.setPref('${l}'), 1`); await settle(15
 await view(1440, 900, false, false);
 await load(NS, STATE);
 await settle(1200);
-// open step 1 in the Inspector so its numbers line is built
-await clickSel('#pipeline .card[data-k="1"]');
+// open step 1 in the Inspector (its chip on the thread, the pick asserted) so its numbers line is built
+await selectStep(1);
 await settle(500);
 const en0 = await pics();
 let s = await P();
@@ -35,7 +36,7 @@ ok('en: the numbers line shows the complex value', /a = 0\.5 \+ 0\.3i/.test(awai
 ok('en: the row holds the value as text', (await rowValue()).replace('−', '-') === '0.5+0.3i', await rowValue());
 for (const l of ['ru', 'it']) {
   await lang(l);
-  await clickSel('#pipeline .card[data-k="1"]');
+  await selectStep(1);
   await settle(500);
   s = await P();
   ok(`${l}: no step error`, s.errors.every((e) => !e), s.errors);

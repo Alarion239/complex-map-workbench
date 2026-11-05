@@ -12,6 +12,8 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (until: wait for one condition, polled, and say which one when it never comes true)
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails, max: 15000, only: true });
 const txt = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); return e ? e.textContent.replace(/\\s+/g, ' ').trim() : null; })()`);
 const num = (s) => parseFloat(String(s).replace(',', '.').replace('−', '-'));
 const NUM = '(\\d+[.,]\\d+)';
@@ -106,14 +108,24 @@ for (const lang of ['en', 'ru']) {
 // the phone: the probe hint names the map into the colour plane (T = w₂ on z: F(z); on w₁: f₂(w₁))
 for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
   await view(pw, 844, false, true);
+  // (the chain is loaded and saved first and the page opened again: the hint is on screen for 8 s from the phone's first idle
+  // readout, and what is read, two planes drawn, comes soon after the page is ready)
+  const url = `${U}/test.html?ns=stepnames-ph-${lang}-${Date.now()}&view=steps&lang=${lang}`, key = /ns=([^&]+)/.exec(url)[1];
+  await nav(url);
+  await until('!!window.__cmwSteps && !!window.__cmwExample && !!window.Phone');
+  await ev('__cmwExample(8)');
+  await until(`(() => { try { return JSON.parse(localStorage.getItem('complex-map-workbench-v1:${key}')).steps.length >= 2; } catch (e) { return false; } })()`);
   // (the hint shows once a session, and never after a first probe: both memories cleared)
-  await nav(`${U}/gl-helpers.html`); await sleep(300);
   await ev(`(() => { try { sessionStorage.removeItem('cmw-probe-taught'); localStorage.removeItem('cmw-probe-learned'); } catch (e) { /* */ } return 1; })()`);
-  await nav(`${U}/test.html?ns=stepnames-ph-${lang}-${Date.now()}&view=steps&lang=${lang}`); await settle(2000);
-  await ev('__cmwExample(8)'); await settle(500);
+  await nav(url);
+  await until('!!window.__cmwSteps && !!window.Phone && Phone._state().on && __cmwSteps().planes.length >= 2 && !!document.querySelector(\'#leftReadout .rteach\')');
   ok(`${lang} ${pw} phone: the phone layout`, await ev('!!Phone._state().on'), null);
-  const hint = async (k) => { await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: ${k}, now: true }); 1`); await settle(300); return txt('#leftReadout .rteach'); };
-  const h0 = await hint(0), h1 = await hint(1);
+  const hint = async (k, re) => {
+    await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: ${k}, now: true }); 1`);
+    await until(`__cmwSteps().i === ${k} && /${re}/.test((document.querySelector('#leftReadout .rteach') || { textContent: '' }).textContent)`);
+    return txt('#leftReadout .rteach');
+  };
+  const h0 = await hint(0, 'F\\(z\\)'), h1 = await hint(1, 'f₂\\(w₁\\)');
   ok(`${lang} ${pw} phone: the hint on z names F(z)`, h0 !== null && /F\(z\)/.test(h0), h0);
   ok(`${lang} ${pw} phone: the hint on w₁ names f₂(w₁)`, h1 !== null && /f₂\(w₁\)/.test(h1), h1);
   // (the hint wraps inside its chip, and the probing readout is two lines, none of them cut)
@@ -125,6 +137,27 @@ for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
   ok(`${lang} ${pw} phone: the probing readout is two lines, none cut`, cut.n === 2 && cut.cut === 0, cut);
   info[`${lang} ${pw} phone`] = { h0, h1, cut };
 }
+// the Landscape's title carries the sheets clause when All sheets is on, as the classic title and the caption do
+const SHEETS = [
+  ['en', [{ type: 'root', params: { n: 2, cut: 180 } }], /, both sheets$/],
+  ['en', [{ type: 'root', params: { n: 3, cut: 180 } }], /, all 3 sheets$/],
+  ['ru', [{ type: 'root', params: { n: 2, cut: 180 } }], /, оба листа$/],
+  ['it', [{ type: 'root', params: { n: 2, cut: 180 } }], /, entrambi i fogli$/],
+];
+for (const [lang, steps, want] of SHEETS) {
+  await view(1440, 900, false);
+  const ns = `stepsheets-${lang}-${steps[0].params.n}-${Date.now()}`;
+  await nav(`${U}/gl-helpers.html`); await sleep(300);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify({ v3: true, v4: true, nextId: 50, focus: 0, steps, sheets: true, height: 'im', shapes: [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }] }))}); 1`);
+  await nav(`${U}/test.html?ns=${ns}&view=steps&lang=${lang}`);
+  for (let i = 0; i < 80 && !(await ev('typeof __cmwSteps === "function" && __cmwSteps().on')); i++) await sleep(250);
+  await ev(`__cmwSteps({ T: 1 }); __cmwSteps({ go: 0, now: true }); __cmwSteps({ surf: 'land' }); 1`);
+  for (let i = 0; i < 40 && !(await ev(`__cmwSteps().main === 'land' && /sheets|листа|fogli/.test(document.querySelector('.sv-title').textContent)`)); i++) await sleep(250);
+  const t = await txt('.sv-title');
+  const st = await ev('(() => { const s = __cmwSteps(); return { surf: s.surf, main: s.main, T: s.T, i: s.i, planes: s.planes }; })()');
+  ok(`${lang} ${steps[0].params.n} sheets: the steps view's Landscape title says which sheets`, want.test(t || ''), { t, st });
+}
+
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors', errs.length === 0, errs.slice(0, 3));
 return { pass: fails.length === 0, fails, info };

@@ -27,7 +27,7 @@
     if (!el || !s || !s.trim() || typed(el) || !shown(el)) continue;
     n++; const k = hit(s); if (k) out.push({ where: 'text ' + where(el), k, s: s.trim().slice(0, 140) });
   }
-  // (a tooltip is read whether or not its element is shown at that moment: it shows on hover)
+  // (a tooltip is read whether or not its element is shown now: it shows on hover)
   for (const el of document.querySelectorAll('[aria-label], [title], [data-tip], [alt]')) {
     if (el.closest('mjx-container, svg') || (!shown(el) && !el.hasAttribute('data-tip'))) continue;
     for (const a of ['aria-label', 'title', 'data-tip', 'alt']) { const s = el.getAttribute(a); if (!s) continue; n++; const k = hit(s); if (k) out.push({ where: a + ' ' + where(el), k, s: s.slice(0, 140) }); }
