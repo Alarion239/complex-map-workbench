@@ -311,6 +311,43 @@
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
   }
+  // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points (null
+  // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
+  // points {re, im}
+  function cutBank(pane, c, F, side, win, proj) {
+    const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
+    const pts = [], ws = [];
+    for (let i = 0; i <= 480; i++) {
+      const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
+      const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
+      pts.push(CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
+      if (CX.isFin(w)) ws.push([w.re, w.im]);
+    }
+    return { pts, ws };
+  }
+  // The cuts' image curves with no handle, in the picture mapFor describes: mapFor(j - 1) is the map from the plane the
+  // cut of step j lives in to the picture (null: that cut has no image there); proj lifts a plane point to the screen (a
+  // globe's), the plane's own scale without it. The banks are stroked as drawCarriedCuts draws them
+  function drawCutCurvesAt(pane, mapFor, proj) {
+    if (artMode) return;
+    carriedCuts = [];
+    pane.ctx.save();
+    pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
+    for (let j = 1; j <= S.steps.length; j++) {
+      const st = S.steps[j - 1], b = built[j - 1], F = st && st.on !== false && b && !b.error ? mapFor(j - 1) : null;
+      if (!F) continue;
+      for (const c of b.cuts) {
+        if (c.kind !== 'ray') continue;
+        const win = stageWin(j - 1);
+        for (const side of [-1, 1]) {
+          const { pts, ws } = cutBank(pane, c, F, side, win, proj);
+          carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
+          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+        }
+      }
+    }
+    pane.ctx.restore();
+  }
   let carriedCuts = [];
   // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
   // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
@@ -329,17 +366,10 @@
       const F = rangeF(j - 1, k);
       for (const c of b.cuts) {
         if (c.kind !== 'ray') continue;
-        const win = stageWin(j - 1), Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
+        const win = stageWin(j - 1);
         for (const side of [-1, 1]) {
-          const a = c.ang + side * 1e-7;
-          const pts = [], ws = [];
-          for (let i = 0; i <= 480; i++) {
-            const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
-            const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
-            pts.push(CX.isFin(w) ? pane.w2s(w) : null);
-            if (CX.isFin(w)) ws.push([w.re, w.im]);
-          }
-          carriedCuts.push({ step: j, solid: side > 0, w: ws });
+          const { pts, ws } = cutBank(pane, c, F, side, win);
+          carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
           strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
         if (!c.editable) continue;

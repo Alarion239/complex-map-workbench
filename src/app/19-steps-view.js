@@ -353,6 +353,18 @@
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
   }
+  // The map from the plane j0 (a cut's own plane) to the picture of a svBetween result bt, for the cuts' image curves: the
+  // chain's steps between, then the glide's homotopy at its u; null where the picture has no image of that plane (past the
+  // plane, or across a d/dz step, or between the planes of an All-at-once run)
+  function svCutMapFor(bt) {
+    const P = svPlanes(), { a, b, u, H, all, near } = bt, still = u <= 1e-6 || b === a;
+    return (j0) => {
+      const upto = (k) => (j0 <= k && !derivIn(j0, k) ? rangeF(j0, k) : null);
+      if (still || isDeriv(b)) return upto(still ? a : near);
+      const base = upto(all ? P[bt.x0] : b - 1);
+      return base ? (z) => H(base(z)) : null;
+    };
+  }
   // The steps view's deformation source for the paths t -> H_t(z) (classicSource's fields): the glide's run of planes
   // [lo, hi] (thread places), from where it started to where it goes (play: from its start; a glide: both ends; parked
   // or dragged between two planes: those two), with T the thread's place in it, so a glide over several planes keeps one
@@ -1114,7 +1126,7 @@
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
-    const { a, b, u, map, F, H: Hb, near } = svBetween(hold == null ? SV.g.x : hold), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
@@ -1210,6 +1222,7 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
+    if (!(still && rest)) drawCutCurvesAt(pane, svCutMapFor(bt));
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
@@ -1327,7 +1340,7 @@
   // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
   let svFadeCv = null;
   function svSphereMoving(pane) {
-    const { a, b, u, map, F, near } = svBetween();
+    const bt = svBetween(), { a, b, u, map, F, near } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
@@ -1350,6 +1363,7 @@
         drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
       } catch (e) { console.error('steps view globe paths', e); mfGlobeDrawn = { T: paths.T, heads: 0, error: String((e && e.message) || e) }; }
     }
+    if (info) drawCutCurvesAt(pane, svCutMapFor(bt), sphereProj(pane, info));
     leftSphereInfo = info;
   }
   // Inside regions: the region mask of plane k, drawn opaque into a canvas the size of the pane's
