@@ -148,20 +148,23 @@ const taskT = async (id, text, fn, ready) => {
     check(`phone ${id}: a finger ticks it`, t != null, [await cur(), await l2()]);
   } catch (e) { check(`phone ${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 };
-// y: a finger drags Y (the large plane on a phone at this step)
-await taskT('y', 'Pinch in Y, or drag.', async () => {
+// y: a finger drags Y (the large plane on a phone at this step; the steps view's tour has no Y step)
+if (!SV) await taskT('y', 'Pinch in Y, or drag.', async () => {
   const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
   await tdrag(b[0] + 120, b[1] + 200, b[0] + 190, b[1] + 160);
 });
-// domain: a tap on the F tile (in the chain sheet, which a tap on the steps button opens)
-await taskT('domain', 'Tap the F tile.', async () => {
+// domain: a tap on the F tile (in the chain sheet, which a tap on the steps button opens; the steps view's phone has no F control to tap yet: #831)
+if (!SV) await taskT('domain', 'Tap the F tile.', async () => {
   if (!(await center('#pipeline .ftile'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(800); } }
   const f = await center('#pipeline .ftile');
   await tap(f[0], f[1]);
 });
 // deriv: the chain, the card d/dz, then Show alone in its sheet
 await open('tt5', 390, 844, false, true);   // (a fresh page: the F tile's sheet above is no part of it)
-await taskT('deriv', 'Open the chain, tap d/dz, then Show alone.', async () => {
+await taskT('deriv', SV ? 'Tap the chip d/dz.' : 'Open the chain, tap d/dz, then Show alone.', SV ? async () => {
+  const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip');
+  await tap(c[0], c[1]);
+} : async () => {
   if (!(await center('#pipeline .card[data-k="2"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(1500); } }
   const c = await center('#pipeline .card[data-k="2"]');
   await tap(c[0], c[1]); await settle(2000);   // (the editor sheet slides up: its lens is tapped where it rests)

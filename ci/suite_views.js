@@ -186,7 +186,8 @@ const VIEWS = {
   'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour has 42 steps), and'
     + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
-  'tour_tasks_cmd.js': port('words', 'its Y, Targets and Cauchy cases and the phone cases address classic controls (the Y pane tool row, the chain sheet); the F tile and d/dz cases at 1440 pass; it waits on the tour chapters (#717)'),
+  'tour_tasks_cmd.js': steps({ pin: true }),
+  'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
