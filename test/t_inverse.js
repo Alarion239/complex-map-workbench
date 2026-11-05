@@ -6,6 +6,7 @@ global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
 const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
+const { InvOps } = require('../src/invops.js');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
 const QUICK = process.argv.includes('--quick');
@@ -1035,7 +1036,7 @@ section('singularAfter (ζ after an injective plan)');
 // a straight-line homotopy and a step with no ops have none
 {
   const cases = [['exp', {}], ['mobius', { a: '1', b: '-1', c: '1', d: '1' }], ['affine', { a: '2i', b: '1' }], ['pown', { n: 3 }], ['sin', {}],
-    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }]];
+    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}]];
   for (const [type, params] of cases) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1080,15 +1081,21 @@ section('singularAfter (ζ after an injective plan)');
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
 }
 
-// Inverse.homOps by Newton (InvOps.opNewt) with seeds: Joukowski's homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
-// disc and coth((1 + t) arcoth z) outside it, has one or two points over w; its NEWT op walks from w and back from
-// f's two points over w, and finds every one on a 40 x 26 grid of w over [-6.2, 6.2] x [-4, 4] at t = .25, .5, .75
+// Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
+// homotopy with no exact ops, and by Inverse.homOps' exact chain C^-1((Cz)^(1+t)) (MOB C, ROOTPOW 1 + t on the branch
+// arg Cz in (-pi/2, 3pi/2], MOB C^-1). The homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
+// disc and coth((1 + t) arcoth z) outside it, has one or two points over w; the NEWT op walks from w and back from
+// f's two points over w. Each finds every one on a 40 x 26 grid of w over [-6.2, 6.2] x [-4, 4] at t = .25, .5, .75
 // (the points within 0.02 of the unit circle, where the path has its cut, left out), and no other
 {
   const b = Funcs.build(St('joukowski'));
   const tanh = CX.tanh, atanh = CX.atanh;
   for (const t of [0.25, 0.5, 0.75]) {
-    const o = Inverse.homOps(b, t).ops[0], Hh = b.hom(t);
+    const o = InvOps.opNewt(t, b.hom, Inverse.stepOps(b).ops), Hh = b.hom(t);
+    const h = Inverse.homOps(b, t), kinds = h.ok ? h.ops.map((q) => q.kind).join() : h.reason;
+    // (the exact chain's points over w: every member of each op's family, a log family's within its range)
+    const preOf = (q, x) => (q.fam && q.fam.type === 'log' ? [...Array(2 * q.fam.count + 1).keys()].map((m) => q.fam.member(x, m - q.fam.count, q.fam.L0(x))).filter((r) => r.lam.im > q.fam.lo - 1e-12 && r.lam.im <= q.fam.hi + 1e-12) : q.pre(x));
+    const exactPre = (w) => { let us = [w]; for (let k = h.ops.length - 1; k >= 0; k--) us = us.flatMap((x) => preOf(h.ops[k], x).map((r) => r.u)); return us.filter((u) => CX.isFin(u)); };
     // (each branch's points over w: z = tanh((artanh w + i pi (k + t / 2)) / (1 + t)) on the disc, 1 / tanh((artanh(1 / w)
     // + i pi k) / (1 + t)) outside it, kept where H gives w back)
     const pts = (w) => {
@@ -1101,7 +1108,7 @@ section('singularAfter (ζ after an injective plan)');
       }
       return out;
     };
-    let miss = 0, extra = 0, n2 = 0;
+    let miss = 0, extra = 0, n2 = 0, xMiss = 0, xExtra = 0, xErr = 0;
     for (let i = 0; i < 40; i++) {
       for (let j = 0; j < 26; j++) {
         const w = C(-6.2 + (i + 0.5) * 12.4 / 40, -4 + (j + 0.5) * 8 / 26), T = pts(w), G = o.pre(w).map((m) => m.u);
@@ -1109,9 +1116,16 @@ section('singularAfter (ζ after an injective plan)');
         if (T.length > 1) n2++;
         if (T.some((z) => far(z) && !G.some((g) => CX.abs(CX.sub(g, z)) < 1e-6))) miss++;
         if (G.some((g) => !T.some((z) => CX.abs(CX.sub(g, z)) < 1e-6))) extra++;
+        if (h.ok) {
+          const X = exactPre(w);
+          for (const x of X) xErr = Math.max(xErr, CX.abs(CX.sub(Hh(x), w)) / (1 + CX.abs(w)));
+          if (T.some((z) => far(z) && !X.some((x) => CX.abs(CX.sub(x, z)) < 1e-6))) xMiss++;
+          if (X.some((x) => !T.some((z) => CX.abs(CX.sub(x, z)) < 1e-6))) xExtra++;
+        }
       }
     }
-    check(`homOps joukowski at t = ${t}: NEWT seeded by JOUK finds every point over w, and no other`, o.kind === 'NEWT' && o.fam.count === 3 && miss === 0 && extra === 0 && n2 > 100, { miss, extra, n2 });
+    check(`homOps joukowski at t = ${t}: the exact chain MOB, ROOTPOW, MOB (no NEWT) gives H_t(z) = w and finds every point over w, and no other`, kinds === 'MOB,ROOTPOW,MOB' && xErr < 1e-12 && xMiss === 0 && xExtra === 0, { kinds, xErr, xMiss, xExtra });
+    check(`opNewt joukowski at t = ${t}: NEWT seeded by JOUK finds every point over w, and no other`, o.kind === 'NEWT' && o.fam.count === 3 && miss === 0 && extra === 0 && n2 > 100, { miss, extra, n2 });
   }
 }
 
