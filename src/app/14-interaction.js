@@ -242,7 +242,7 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
@@ -1183,6 +1183,8 @@
       }
     }
     // hover
+    if (side === 'L') probeHover = { pane, e };
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
@@ -1276,6 +1278,14 @@
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
   let rHover = null; // a point hovered in the right (image) plane
   const copyValue = { L: '', R: '' };
+  // (#955) While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
+  // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
+  // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
+  let probeHover = null, probeHeld = false;
+  function probeMoving() {
+    if (probe) { probe = null; setReadouts(null); }
+    probeHeld = !!probeHover;
+  }
   function setReadouts(z) {
     const lr = $('leftReadout'), ro = $('rightReadout');
     if (!lr || !ro) return;
@@ -1384,6 +1394,11 @@
   // idle readouts show the scale; refreshed after every render when nothing is probed (the left readout keeps the
   // preimage count while the right plane is hovered)
   function idleReadouts() {
+    // (#955) the thread came to rest: the probe reads the pointer's point of this frame
+    if (probeHeld && SV.on && !svMoving()) {
+      probeHeld = false;
+      if (probeHover && !drag) { onMove(probeHover.pane, 'L', probeHover.e); return; }
+    }
     // (a globe gesture's chip shows the set being drawn or edited until release)
     if (probe || (drag && /^g(draw|handle|move)$/.test(drag.mode))) return;
     const lr = $('leftReadout'), ro = $('rightReadout');
@@ -1442,7 +1457,7 @@
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
-    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
     if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
