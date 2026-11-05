@@ -18,6 +18,12 @@ const cur = () => ev('Tour.current()');
 const shaded = async () => { for (let i = 0; i < 320; i++) { if (await ev(`(() => { const s = document.querySelector('.tour-shade'); return !!(s && s.getAttribute('d')); })()`)) return true; await sleep(25); } return false; };
 // (a condition wait: polls fn until it is truthy, up to max ms)
 const waitFor = async (fn, max = 8000) => { for (const t0 = Date.now(); Date.now() - t0 < max;) { if (await fn()) return true; await sleep(30); } return false; };
+// (the tour's current step, as { chapter, id })
+const stepNow = async () => { const c = await cur(); return c ? c.chapter + '/' + c.id : null; };
+// (Next, then the step has changed and the strip has its shade)
+const nextStep = async () => { const was = await stepNow(); await ev('Tour.next()'); await waitFor(async () => (await stepNow()) !== was); await shaded(); };
+// (Tour.start at a step or chapter, then the tour is on it and the strip has its shade)
+const startAndWait = async (a) => { await ev(`Tour.start(${JSON.stringify(a)})`); await waitFor(async () => { const c = await cur(); return !!c && c.chapter === a.chapter && (a.step == null || c.step === a.step); }); await shaded(); };
 const open = async (ns, at, w = 1440, h = 900, dark = false, mobile = false) => {
   await view(w, h, dark, mobile); await nav(U + '?ns=' + ns); await settle(1800);
   await ev('Tour.auto(false)');   // (tour_cmd checks the walk without the auto-advance; tour_auto_cmd.js checks it)
@@ -62,9 +68,9 @@ check('the strip does not take the focus', await ev(`!document.querySelector('.t
 // (← → step the tour from its strip in the classic views; in the steps view they glide the planes, the thread step's task)
 if (!SV) {
   await ev(`document.querySelector('.ts-next').focus()`);
-  await key('ArrowRight'); await settle(700);
+  await key('ArrowRight'); await waitFor(async () => (await cur()).id !== 'x');
   check('ArrowRight: next step', (await cur()).id === 'y', await cur());
-  await key('ArrowLeft'); await settle(700);
+  await key('ArrowLeft'); await waitFor(async () => (await cur()).id === 'x');
   check('ArrowLeft: back', (await cur()).id === 'x', await cur());
 } else {
   const first = (await cur()).id;
@@ -83,7 +89,7 @@ await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push
 g = await ev(`({ restore: __calls.filter((c) => c === 'call:restore').length, active: Tour.isActive() })`);
 check('Tour.init during a tour: no restore, the stash stays', g.restore === 0 && g.active && (await st('cmw-tour-stash:t1')) === stash1, g);
 // a chapter started from inside the tour keeps the first snapshot (not the tour's scene)
-await ev(`Tour.start({ chapter: '${SECOND.id}' })`); await settle(1500);
+await startAndWait({ chapter: SECOND.id });
 check('restart inside the tour: the stash is still the user\'s work', (await st('cmw-tour-stash:t1')) === stash1);
 await key('Escape'); await settle(400);
 check('Escape ends the tour', !(await ev('Tour.isActive()')) && !(await ev(`!!document.querySelector('.tour-root')`)));
@@ -143,16 +149,16 @@ check('Escape with the focus in the callout ends the tour, busy or not', !(await
 // end of a chapter with a task: Phase key, or in the steps view Edit a step
 if (!SV) {
   await open('t3', { chapter: 'views', step: 0 }, 1440, 900, true);
-  // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look (#363:
+  // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look (
   // the regions' fill is the phase, there is no pattern to choose)
-  await ev(`__cmwSet('alpha', 0.3), 1`); await settle(300);
-  await ev(`Tour.start({ chapter: 'views' })`); await settle(1600);
+  await ev(`__cmwSet('alpha', 0.3), 1`); await waitFor(() => ev('__cmwRegions().alpha === 0.3'));
+  await startAndWait({ chapter: 'views' });
   g = await ev(`__cmwRegions()`);
   check('a scene sets its look: the default opacity even after the user chose 0.3, and the phase fill', g && g.alpha === 0.85 && g.pattern === 'phase', g);
   await snap('tour-views-switch-dark');
   // (a door respects Move on by itself, which this walk turns off: on for the door)
   await ev('Tour.auto(true)');
-  await ev(`window.__cmwSetMain('phase')`); await settle(1500);
+  await ev(`window.__cmwSetMain('phase')`); await waitFor(async () => ((await cur()) || {}).id === 'phase');   // (the door moves on 0.7 s after Choose Phase)
   g = await cur();
   check('Try it "Choose Phase" advances to the portrait', g && g.id === 'phase', g);
   await ev('Tour.auto(false)');
@@ -161,20 +167,20 @@ if (!SV) {
   check('Phase portrait: the strip is above the panel, not over it', !meet(card, panes) && card.b <= panes.t + 0.5, { card, panes });
   await snap('tour-phase-dark');
   // the sphere: the panel is lit, its Plane · Sphere control has a ring of its own
-  await ev('Tour.next()'); await settle(1200); await ev('Tour.next()'); await settle(1500);
+  await nextStep(); await nextStep();
   g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
   check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
   await snap('tour-sphere-dark');
   // the Phase key: Y is lit, and (the check is a toggle in Y's pane head, or behind the head's ⋯ button)
   // the check, or that button, has a ring of its own
-  await ev('Tour.next()'); await settle(1600);
+  await nextStep();
   g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); const a = L && L.anchor, el = k && k.getClientRects().length ? k.closest('label') : ob, b = el.getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!el.closest('.pane-head'), y: (Tour.lit() || {}).body }; })()`);
   check('Phase key: Y lit, its toggle (or the head\'s ⋯) ringed in the pane head, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
   await snap('tour-phasekey-dark');
   // the Phase key ends the chapter: Choose Phase key ticks its Try it
   // (the check, in Y's head or behind its ⋯ / Regions button, whose pop-up holds it while open)
   if (!(await ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`))) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400); }
-  await clickSel('label:has(#wKeyChkR)'); await settle(700);
+  await clickSel('label:has(#wKeyChkR)'); await waitFor(() => ev(`document.querySelector('.ts-l2').classList.contains('done')`));
   check('Phase key: turning it on ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
   g = await ev(`({ count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent, label: document.querySelector('.ts-next').getAttribute('aria-label'), h: Math.round(document.querySelector('.ts-row').getBoundingClientRect().height) })`);
   check('end of a chapter: "Next: Editing the chain" (or Next → with that name) on the strip\'s one row', /5 of 5/.test(g.count) && (g.next === 'Next: Editing the chain' || g.label === 'Next: Editing the chain') && g.h <= 62, g);
@@ -182,7 +188,7 @@ if (!SV) {
 } else {
   await open('t3', null, 1440, 900, true);
   // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look
-  await ev(`__cmwSet('alpha', 0.3), 1`); await settle(300);
+  await ev(`__cmwSet('alpha', 0.3), 1`); await waitFor(() => ev('__cmwRegions().alpha === 0.3'));
   await ev(`Tour.start({ chapter: 'planes' })`); await shaded();
   g = await ev(`__cmwRegions()`);
   check('a scene sets its look: the default opacity even after the user chose 0.3', g && g.alpha === 0.85, g);
@@ -210,18 +216,18 @@ check('a tooltip over the callout is hidden, and shows again away from it', g.ov
 if (!SV) {
   await open('t4', { chapter: 'deform', step: 2 });
   g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
-  check('Paths is step 3 of 5 of Deformation (v16: + Part of the chain)', g.id === 'paths' && /3 of 5$/.test(g.count) && (g.next === 'Next' || g.next === 'Skip'), g);
+  check('Paths is step 3 of 5 of Deformation (with Part of the chain)', g.id === 'paths' && /3 of 5$/.test(g.count) && (g.next === 'Next' || g.next === 'Skip'), g);
   await snap('tour-paths-light');
-  await ev(`Tour.next()`); await settle(1600);
+  await nextStep();
   g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, lit: (() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return !!a && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })(), sel: !!document.querySelector('#homOrderSel') })`);
   check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && (g.next === 'Next' || g.next === 'Skip'), g);
   await snap('tour-order-light');
-  await ev(`Tour.next()`); await settle(1600);
+  await nextStep();
   // (notes/deform-range/SPEC.md 10.2) Part of the chain: the bracket's left end lit, every step bracketed
   g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, body: (Tour.lit() || {}).body, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
   check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && (g.next === 'Next: Analysis' || g.next === 'Skip') && /The bracket over the cards/.test(g.body) && g.range === null, g);
   await snap('tour-range-light');
-  await ev(`Tour.next()`); await settle(1600);
+  await nextStep();
   g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 } else {
   await open('t4', at('playing/range'));
@@ -229,9 +235,9 @@ if (!SV) {
   const n = chOf('playing').steps.length, nx = 'Next: ' + CH[3].title;
   check(`Part of the chain ends Playing the chain: "${nx}"`, g.id === 'range' && new RegExp(`${n} of ${n}$`).test(g.count) && (g.next === nx || g.next === 'Skip'), g);
   await snap('tour-range-light');
-  await ev(`Tour.next()`); await settle(1600);
+  await nextStep();
   check('Next on Part of the chain starts Editing the chain', ((await cur()) || {}).chapter === CH[3].id, await cur());
-  await ev(`Tour.start({ chapter: 'analysis' })`); await settle(1600);
+  await startAndWait({ chapter: 'analysis' });
   g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 }
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
@@ -248,7 +254,7 @@ check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, t
 await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(300);
 await snap('tour-cauchy-light');
 // (Zeros and poles moved to the chapter Editing the chain, step 3; v15.2: step 4, after A formula in steps)
-await ev(`Tour.start(${JSON.stringify(at('edit/zp'))})`); await settle(1800);
+await startAndWait(at('edit/zp'));
 check('Zeros and poles: its scene brings the Tiles style back', (await ev('__cmwState().dc')) === 'enhanced');
 // (the zeros and poles are edited in the Inspector: the lit anchor is its parameter block)
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), card = document.querySelector('#propsPanel .params.zp'); return { c, scene: L && L.scene, card: !!(card && L && L.anchor && Math.abs(card.getBoundingClientRect().left - L.anchor.l) < 1) }; })()`);
@@ -265,7 +271,7 @@ if (sl) { await drag(sl.x, sl.y, sl.x + 40, sl.y, 8, 16); await settle(700); }
 g = await ev(`({ id: Tour.current().id, done: document.querySelector('.ts-l2').classList.contains('done'), a: (__cmwP().params || [])[0], r: (__cmwP().shapes.find((s) => s.kind === 'circle') || {}).r })`);
 check('Shared numbers: the slider ticks the Try it, and the circle follows a', g.id === 'numbers' && g.done && g.a && Math.abs(g.a.value - g.r) < 1e-9 && g.a.value !== 1, g);
 await snap('tour-numbers-light');
-await ev(`Tour.start(${JSON.stringify(at('analysis/cauchy'))})`); await settle(1800);   // (Cauchy; Next is Integrals)
+await startAndWait(at('analysis/cauchy'));   // (Cauchy; Next is Integrals)
 await ev(`Tour.next()`); await settle(1800);
 g = await ev(`({ c: Tour.current(), scene: Tour.lit() && Tour.lit().scene })`);
 check('Integrals: the zp form of the residue scene', g.c && g.c.id === 'integral' && g.scene === 'residueZp', g);
@@ -388,7 +394,7 @@ await view(1440, 900, false);
 await view(1440, 900, false);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 // (a step whose next lights another area: X → Y, or in the steps view the thread → the ring)
-await nav(U + '?ns=t9'); await settle(1800); await ev(`Tour.start(${JSON.stringify(at(SV ? 'planes/thread' : PAN))})`); await settle(1600);
+await nav(U + '?ns=t9'); await waitFor(() => ev('!!window.Tour')); await startAndWait(at(SV ? 'planes/thread' : PAN));
 const d0 = await ev(`document.querySelector('.tour-shade').getAttribute('d')`);
 // (review verify-10: not a fixed 320 ms wait, which failed once under load while the step was still being placed: every
 // frame's shade path is recorded until it has changed and then held for two frames (at most 3 s). A jump shows at
@@ -432,7 +438,7 @@ await snap('tour-phone-draw-dark');
 const phoneText = [];
 const PHONE_STEPS = SV ? ['planes/plane', 'planes/park', 'planes/carried', 'basics/draw', 'analysis/targets', 'analysis/integral'] : ['basics/x', 'basics/y', 'basics/preimages', 'basics/draw', 'analysis/targets', 'analysis/integral'];
 for (const p of PHONE_STEPS) {
-  await ev(`Tour.start(${JSON.stringify(at(p))})`); await settle(1300);
+  await startAndWait(at(p));
   phoneText.push(await ev(`Tour.current().id + ': ' + (Tour.lit() || {}).body + ' ' + document.querySelector('#tourLead').textContent`));
 }
 check('phone: no left, right or hover in what the steps say', phoneText.length === 6 && phoneText.every((t) => !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(t)), phoneText);

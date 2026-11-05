@@ -140,7 +140,7 @@ check('palette: no advance while it stays open (6 s)', await stays('keys/palette
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
 // (no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
-// #tourSay, which a chapter's end creates: #363 made Phase key the end of Views)
+// #tourSay, which a chapter's end creates: Phase key is the end of Views in the classic views)
 const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
