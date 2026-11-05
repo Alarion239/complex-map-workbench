@@ -16,22 +16,9 @@ await view(1200, 800, false, false);
 const wait = async () => { await settled({ max: 20000, until: '__cmwSvFixed()' }); };
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwCards === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-// the left pane's pixels at plane points (3 x 3 device pixels about each, null off the canvas) and its camera, read
-// from its 2-D canvas (#canvasL) with the main card's view and dpr: {view, pw, ph, dpr, px}
-const LPX = `((pts) => {
-  const m = __cmwCards().main, v = m.view, d = m.dpr, c = document.getElementById('canvasL'), W = c.width, H = c.height;
-  const img = pts.length ? c.getContext('2d').getImageData(0, 0, W, H).data : null;
-  return { view: v, pw: W, ph: H, dpr: d, px: pts.map(([x, y]) => {
-    const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
-    if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
-    const out = [];
-    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
-    return out;
-  }) };
-})`;
-const lpx = (pts) => ev(`${LPX}(${JSON.stringify(pts)})`);
-// the pane's camera and size, and whether z is where plane z's picture shows it
-const paneOf = async () => { const q = await lpx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; };
+// the left pane's pixels (lpx), its camera and size (paneOf), and the pixel compare (nearest, bare): test/lib/carry_kit.js
+const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// whether z is where plane z's picture shows it
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
 // for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
 // the page; sing: the key's points in place of plane b's), -1 for none
@@ -148,9 +135,8 @@ async function farFrames(P0, J) {
       if (!got[k] || !ref[k]) continue;
       n++;
       const p = got[k][4];
-      if (Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6) paper++;
-      let best = 1e9;
-      for (const q of ref[k]) best = Math.min(best, Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2])));
+      if (bare(p)) paper++;
+      const best = nearest(p, ref[k]);
       worst = Math.max(worst, best);
       if (best > 14) wrong++;
     }
@@ -200,7 +186,7 @@ async function keyAlongT(P0, J) {
 }
 
 // ---- the Joukowski airfoil ----
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=cfar${Date.now()}`);
@@ -236,7 +222,7 @@ await wait();
   await steps({ scope: 'all', surf: 'plane', park: 0.5 });
   const k = await ev('(() => { const t0 = performance.now(); const a = __cmwSvKey(1, 0.5); const t1 = performance.now(); __cmwSvKey(1, 0.5); return { sing: a.sing, again: performance.now() - t1, ring: __cmwSvRing() }; })()');
   const px = (await lpx(pts)).px;
-  const paper = px.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) < 6).length;
+  const paper = px.filter((q) => q && bare(q[4])).length;
   info['tan all parked 0.5'] = Object.assign(k, { paper, n: px.filter(Boolean).length });
   ok('tan all parked 0.5: the key has at most 4 points, all finite', Array.isArray(k.sing) && k.sing.length <= 4 && k.sing.every((p) => p.every(Number.isFinite)), k);
   ok('tan all parked 0.5: the ring, if any, reaches at most 4 times the window', !k.ring || (k.ring.m >= 1.5 && k.ring.m <= 4), k.ring);

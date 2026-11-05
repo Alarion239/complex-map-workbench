@@ -24,7 +24,7 @@ const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() &&
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the points of a grid over the inner 80 % of the pane, and whether z is where plane z's picture shows it
-const paneOf = async () => ev('(() => { const q = __cmwLPx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; })()');
+const { paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const grid = (P, nx, ny) => { const out = []; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push([P.v.cx + (i / (nx - 1) - 0.5) * 0.8 * P.w / P.v.s, P.v.cy + (j / (ny - 1) - 0.5) * 0.8 * P.h / P.v.s]); return out; };
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
 // for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
@@ -63,9 +63,8 @@ async function compare(at, W, Z) {
     if (!got[k] || !ref[k]) continue;
     n++;
     const p = got[k][4];
-    if (Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6) { paper++; if (ex.length < 6) ex.push({ paper: true, w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3) }); }
-    let best = 1e9;
-    for (const q of ref[k]) best = Math.min(best, Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2])));
+    if (bare(p)) { paper++; if (ex.length < 6) ex.push({ paper: true, w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3) }); }
+    const best = nearest(p, ref[k]);
     worst = Math.max(worst, best);
     if (best > 14) { wrong++; if (ex.length < 6) ex.push({ w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3), want: ref[k][4].slice(0, 3) }); }
   }
@@ -100,7 +99,7 @@ async function check(tag, at, b, P, pts, cand, min) {
 }
 
 // ---- the Joukowski airfoil ----
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
@@ -128,7 +127,7 @@ await wait();
   // (Inside regions: every region point coloured, past the reference's window too)
   const A = pts.filter((w) => both(w).some((e) => outside(e.z) > 0.12) && !labelAt(w));
   const all = await ev(`__cmwLPx(${JSON.stringify(A)}).px`);
-  const paper = all.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) < 6).length;
+  const paper = all.filter((q) => q && bare(q[4])).length;
   info['Joukowski in rest'].regionPoints = { n: all.length, paper };
   ok('Joukowski in rest: every region point is coloured, past the window too', all.length > 1500 && paper === 0, { n: all.length, paper });
   await check('Joukowski all rest', { scope: 'all', go: 1, now: true }, 1, P, pts, both, 400);
