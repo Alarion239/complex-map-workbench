@@ -315,6 +315,20 @@
     render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one around each pole of the
+  // carry's map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to
+  // three cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far
+  // plane, where the box's cells stretch past the tear limit and are left out
+  function svLandPoles(map, src, N) {
+    const F = cpuMap(map);
+    if (!F) return [];
+    const E = { n: 0, at: 0 }, it = svPolesIn(F, src, 16, src, E);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    const W = src.x1 - src.x0, H = src.y1 - src.y0, cell = Math.max(W, H) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    const near = r.value.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
+    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 3]);
+  }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
