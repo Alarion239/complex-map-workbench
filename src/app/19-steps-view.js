@@ -2583,7 +2583,7 @@
         try { r = run(); } finally { SV.quiet = false; }
         if (!SV.want) SV.own = false;
         else if (it.id === 'insert' || it.id === 'replace') svWatchPalette();
-        // (what the item says: an element it shows; the chain's own return is a hidden card)
+        // (what the item says: an element it shows)
         if (r instanceof Element && r.getClientRects().length) return r;
         if (it.id === 'dup') return svEl(k + 1, 'chip');
         // (a palette, a toast's Undo…: the keyboard goes to the chip unless a layer took it)
@@ -2601,7 +2601,7 @@
     setTimeout(() => { if (SV.els) SV.els.live.textContent = msg; }, 30);
     return true;
   }
-  // open step k in the Inspector; on a phone its sheet (a card's tap does it there, the thread's chip is not a card)
+  // open step k in the Inspector; on a phone its sheet too
   function svInspect(k) {
     inspectStep(k);
     if (document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined' && Phone.open) Phone.open('edit');
@@ -2641,15 +2641,14 @@
     const st = S.steps[k - 1], d = defOf(st);
     // (D1, issue #23: Replace… first: the palette, ready to replace this step)
     const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
-    // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
+    // (v15: the Inspector's menu also holds Inverse and Bypass)
     if (opt && opt.full) {
       const b0 = built[k - 1];
       if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
       items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
-      // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
-      // none on a touch screen)
+      // (v16.5 UX97 / UX81: the keys a focused chip takes, Alt+← / Alt+→; none on a touch screen)
       { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
       { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
       { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
@@ -2837,7 +2836,7 @@
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }
-  // a step's chip: its pill (the chip opens the step, ⋯ its menu), with the card's keys
+  // a step's chip: its pill (the chip opens the step, ⋯ its menu), with the step's keys
   function svStepEl(k) {
     const st = S.steps[k - 1], d = defOf(st), off = st.on === false, name = cardName(st, d);
     const chip = svChipBtn('sv-fchip', { 'data-tip': `${name} · ${$t('Edit step {k}', { k })}`,

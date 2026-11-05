@@ -20,11 +20,9 @@
   }
   // CPU samples of what a stage shows, restricted to the part that comes from the visible z-window
   // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
-  function stageSamples(F0, xs, ys, k, few) { const it = stageSampler(F0, xs, ys, k, few); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples ([#243] a costly fit runs in slices, fitRightSliced); few:
-  // an eighth of the samples (a chain card's picture of a costly chain)
-  function* stageSampler(F0, xs, ys, k, few) {
-    const per = few ? 8 : 1;
+  function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
+  // the same, a step at a time: it yields every 16 samples ([#243] a costly fit runs in slices, fitRightSliced)
+  function* stageSampler(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
     let got = 0;
@@ -41,7 +39,7 @@
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
-        const stride = Math.max(1, Math.floor(nv * per / 2500));
+        const stride = Math.max(1, Math.floor(nv / 2500));
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
@@ -53,14 +51,14 @@
       let unbounded = s.kind === 'line' || s.kind === 'ray' || s.kind === 'fcurve';
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
-        const n = p.length / 2, stride = Math.max(1, Math.floor(n * per / 400));
+        const n = p.length / 2, stride = Math.max(1, Math.floor(n / 400));
         for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
       }
     }
   }
-  function fitPane(pane, k, extraKs = [], F, few) {
+  function fitPane(pane, k, extraKs = [], F) {
     const xs = [], ys = [];
-    stageSamples(F || stageF(k), xs, ys, k, few);
+    stageSamples(F || stageF(k), xs, ys, k);
     for (const k2 of extraKs) stageSamples(stageF(k2), xs, ys, k2);
     const b = robustBox(xs, ys);
     if (b) pane.fitBox(b, 0.07);

@@ -328,7 +328,7 @@
   const invWaiting = new Set();
   // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
   // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
-  // may be the other pane's or a card's; the quality harness reads this pane's own (a test hook)
+  // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
   let lastRecs = null;     // the shape records of the last packShapes (GLR.packShapes: once per scene draw)

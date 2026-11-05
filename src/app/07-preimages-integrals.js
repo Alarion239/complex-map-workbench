@@ -66,7 +66,7 @@
     }
     if (!by.size || !GLR.ok || typeof GLR.drawPreimage !== 'function') return false;
     // (one frame for every plane's pass, one blit: a pass per plane s, never a blit per plane; its pending is the
-    // caller's, since a card is cached as final only when nothing it drew is still linking)
+    // caller's)
     let pending = false;
     try {
       if (!inFrame) GLR.begin(pane.pw, pane.ph);
