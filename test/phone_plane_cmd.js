@@ -12,7 +12,17 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const part = typeof PART !== 'undefined' ? PART : 'rotate';
 const fails = [], info = {};
-const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// the plane's window and the viewport read the same on two polls in a row, and `extra` holds: the page has finished the
+// change (a sheet's slide, a resize, a refit) that the step asked for; a reload that destroys the page is waited out
+const STABLE = `(() => { const v = __cmwPlaneMenu().view('L'), k = [v.cx, v.cy, v.s, __cmwLayout().wL, innerWidth, innerHeight].join(); const same = window.__pk === k; window.__pk = k; return same; })()`;
+const settle = async (extra = 'true', max = 20000) => {
+  const t0 = Date.now();
+  for (;;) {
+    const r = await settled({ max: 4000, until: `${STABLE} && (${extra})` });
+    if (r && r.ok) return true;
+    if (Date.now() - t0 > max) { fails.push({ name: 'the page did not settle', got: extra }); return false; }
+  }
+};
 const TOL = 0.005;
 const SHAPES = [
   { id: 's1', kind: 'formula', ci: 0, visible: true, expr: '|\\Im z|<1' },
@@ -31,7 +41,7 @@ const open = async (ns, steps) => {
   const o = { v3: true, v4: true, shapes: SHAPES, steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 52 } };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); try { sessionStorage.clear(); } catch (e) {} ; 1`);
   await nav(URL0(ns));
-  await settle(900);
+  await settle();
 };
 // the plane's world window: centre and units per pane width (u), and the pane's width
 const W = () => ev(`(() => {
@@ -40,6 +50,7 @@ const W = () => ev(`(() => {
 })()`);
 const same = (a, b, tol = TOL) => !!a && !!b && Math.abs(a.u / b.u - 1) <= tol && Math.abs(a.cx - b.cx) <= tol * b.u && Math.abs(a.cy - b.cy) <= tol * b.u;
 const fmt = (p) => p && `${p.cx.toFixed(3)},${p.cy.toFixed(3)} u=${p.u.toPrecision(5)} w=${p.w}`;
+// (a touch lasts ms: the press the app reads, not a wait)
 const touch = async (x, y, ms = 60) => {
   const t0 = Date.now() / 1000;
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }], timestamp: t0 });
@@ -47,7 +58,7 @@ const touch = async (x, y, ms = 60) => {
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + ms / 1000 });
 };
 const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-const tapSel = async (sel, wait = 450) => { const c = await center(sel); if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; } await touch(c[0], c[1]); await settle(wait); return true; };
+const tapSel = async (sel) => { const c = await center(sel); if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; } await touch(c[0], c[1]); return true; };
 // rounds: run the steps, read the window after each; the last read of a round equals the start, every read equals the
 // same read of the first round (no drift)
 async function rounds(name, n, steps) {
@@ -82,30 +93,34 @@ for (const mk of mapsFor) {
   await open(ns, MAPS[mk]);
   await logs();
   if (part === 'sheet') {
-    const sheet = async () => { await ev(`Phone.open('display')`); await settle(1000); };
-    const shut = async () => { await ev(`Phone.close()`); await settle(800); };
+    const shown = `(() => { const e = document.querySelector('.ph-sheet'); return !!e && e.getClientRects().length > 0; })()`;
+    const sheet = async () => { await ev(`Phone.open('display')`); await settle(shown); };
+    const shut = async () => { await ev(`Phone.close()`); await settle(`!${shown}`); };
     await rounds(mk + ' sheet', 20, [sheet, shut]);
   } else if (part === 'rotate') {
-    const land = async () => { await view(844, 390, false, true); await settle(700); };
-    const port = async () => { await view(390, 844, false, true); await settle(700); };
+    const land = async () => { await view(844, 390, false, true); await settle('innerWidth === 844 && innerHeight === 390'); };
+    const port = async () => { await view(390, 844, false, true); await settle('innerWidth === 390 && innerHeight === 844'); };
     await rounds(mk + ' rotation', 20, [land, port]);
   } else if (part === 'urlbar') {
-    // (each resize is followed by a wait until the page has the new height and the plane window W reads exists)
-    const resized = (h) => settled({ max: 20000, until: `innerHeight === ${h} && (() => { try { return !!(__cmwPlaneMenu() && __cmwLayout()); } catch (e) { return false; } })()` });
-    const hide = async () => { await view(390, 900, false, true); await resized(900); };
-    const show = async () => { await view(390, 844, false, true); await resized(844); };
+    // (each resize is followed by a wait until the page has the new height)
+    const hide = async () => { await view(390, 900, false, true); await settle('innerHeight === 900'); };
+    const show = async () => { await view(390, 844, false, true); await settle('innerHeight === 844'); };
     await rounds(mk + ' URL bar', 20, [hide, show]);
   } else if (part === 'lang') {
     const pick = (v) => async () => {
-      await ev(`Phone.open('more')`); await settle(400);
-      await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`, 200);
-      await sleep(2600); await settle(600);
-      await ev(`Phone.close()`); await settle(400);
+      await ev(`Phone.open('more')`);
+      await settle(`!!document.querySelector('.ph-sheet .ph-seg button[data-v="${v}"]')`);
+      // (the sheet scrolls: the row may start below the fold)
+      await ev(`document.querySelector('.ph-sheet .ph-seg button[data-v="${v}"]').scrollIntoView({ block: 'center' }), 1`);
+      await settle();
+      await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`);
+      await settle(`(document.documentElement.lang || 'en') === '${v}'`);
+      await ev(`Phone.close()`);
     };
     await rounds(mk + ' language', 10, [pick('ru'), pick('en')]);
   } else if (part === 'tablet') {
-    const a = async () => { await view(1180, 820, false, true); await settle(700); };
-    const b = async () => { await view(820, 1180, false, true); await settle(700); };
+    const a = async () => { await view(1180, 820, false, true); await settle('innerWidth === 1180 && innerHeight === 820'); };
+    const b = async () => { await view(820, 1180, false, true); await settle('innerWidth === 820 && innerHeight === 1180'); };
     await rounds(mk + ' tablet rotation', 20, [a, b]);
     await view(390, 844, false, true);
   }
