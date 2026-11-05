@@ -17,8 +17,8 @@ const ns = 'tourlane' + Date.now();
 await openPage(ns);
 if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'] };
 
-// ---- UX76: a reload in the middle of the Views chapter
-await ev(`Tour.start({ chapter: 'views' })`); await settled({ until: `Tour.isActive()` });
+// ---- UX76: a reload in the middle of the Playing the chain chapter
+await ev(`Tour.start({ chapter: 'playing' })`); await settled({ until: `Tour.isActive()` });
 await ev(`Tour.next()`); await settled({ until: `Tour.current().step >= 1` });
 const at = await ev(`Tour.current()`);
 await reload();
@@ -27,16 +27,16 @@ ok('the page knows the tour was cut short', await ev(`Tour._t.cutShort()`), at);
 ok('the line is offered', await ev(`Tour.offerContinue()`), at);
 await settled({ until: LANE });
 let l = await lane();
-ok('the line says Continue the tour: Views, with Continue and ×', l && l.vis && /^Continue the tour: Views/.test(l.text) && l.acts.includes('Continue') && l.x, l);
+ok('the line says Continue the tour: Playing the chain, with Continue and ×', l && l.vis && /^Continue the tour: Playing the chain/.test(l.text) && l.acts.includes('Continue') && l.x, l);
 await ev(`document.querySelector('.tour-lane[data-lane="continue"] .tl-act').click()`); await settled({ until: `Tour.isActive()` });
 const cur = await ev(`Tour.current()`);
-ok('Continue picks the tour up at the step it stopped at', cur && at && cur.chapter === 'views' && cur.step === at.step, { cur, at });
+ok('Continue picks the tour up at the step it stopped at', cur && at && cur.chapter === 'playing' && cur.step === at.step, { cur, at });
 ok('... and the line is gone', !(await lane()), null);
 await ev(`Tour.stop()`); await settled({ until: `!Tour.isActive()` });
 await reload();
 ok('a tour ended by the user is not offered after a reload', !(await ev(`Tour._t.cutShort()`)), null);
 // × forgets where it stopped: the help menu has no Continue the tour any more
-await ev(`Tour.start({ chapter: 'views' })`); await settled({ until: `Tour.isActive()` });
+await ev(`Tour.start({ chapter: 'playing' })`); await settled({ until: `Tour.isActive()` });
 await reload();
 await ev(`Tour.offerContinue()`); await settled({ until: LANE });
 await ev(`document.querySelector('.tour-lane[data-lane="continue"] .tl-x').click()`); await settled({ until: `!(${LANE})` });
