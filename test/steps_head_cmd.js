@@ -127,9 +127,10 @@ for (const lang of ['en', 'ru', 'it']) {
   for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-title')`)); i++) await sleep(100);
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`); await settle(1500);
   const title = await ev(`(() => { const t = document.querySelector('#svHead .sv-title'), r = t.getBoundingClientRect();
-    return { surf: __cmwSteps().surf, w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
+    return { surf: __cmwSteps().surf, hh: Math.round(document.querySelector('#paneL .pane-head').getBoundingClientRect().height), w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
   info.title1024 = title;
   ok('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its words, "z · landscape of …"', title.surf === 'land' && /landscape of/.test(title.text || ''), title);
+  ok('1024 × 768 Landscape, All sheets: the head is one row (under 48 px)', title.hh < 48, title);
   ok('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 100 px or more)', title.cw >= 100, title);
   // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
   const fold = await ev(`(() => { const b = document.getElementById('svHead'), c = b.classList, m = b.querySelector('.sv-scope-menu'), sg = b.querySelector('.sv-scope:not(.sv-scope-menu)');

@@ -1843,14 +1843,14 @@
     E.tnote.classList.remove('tn-chip', 'tn-icon');
     const head = E.head, cs = getComputedStyle(head), gap = parseFloat(cs.columnGap) || 8;
     const room = head.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    // (what the rest of the head takes at the least: the strip as its style row and a ⋯, every other shown item as it is,
+    // (what the rest of the head takes at the least: the strip as its first row (the style row, or the Landscape's height) and a ⋯, every other shown item as it is,
     // a stretchy spacer as nothing; a gap before each)
-    const dc = $('dcSeg'), foot = $('leftFoot');
+    const dc = $('dcSeg'), hs = $('heightSeg'), foot = $('leftFoot');
     let keep = 0;
     for (const c of head.children) {
       if (c === E.bar || !c.getClientRects().length) continue;
       const m = getComputedStyle(c);
-      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : 0) + 4 + 26 : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
+      const w = c === foot ? (dc && dc.getClientRects().length ? dc.getBoundingClientRect().width : hs && hs.getClientRects().length ? hs.getBoundingClientRect().width : 0) + 4 + 26 : c.classList.contains('grow') ? 0 : c.getBoundingClientRect().width;
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
