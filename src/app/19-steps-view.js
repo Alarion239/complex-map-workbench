@@ -1973,6 +1973,10 @@
     SV.anim = null;
     SV.g.set(x);
     SV.i = r;
+    // (parked nearer a plane past the first, a pan or a zoom changes V.left, which the parked frames hand to the camera
+    // every plane shares (svKeepView): V.left starts as that camera, as svApply sets it, so the parked frame keeps the
+    // view the held one had)
+    if (svStage() > 0) Object.assign(V.left, S.srcView);
     svSync();
     requestRender('L', 'OL');
     const live = SV.els && SV.els.live;
