@@ -1,7 +1,6 @@
 // The workflows' jobs on our own machines (runs-on self-hosted) stop when their run is cancelled: no job-level `if`
 // of theirs uses always(), which is true after a cancel too, so a cancelled run's later jobs would still be created
-// and run in full on the laptop or the Mac (the GPU gate's quality job was still queued after run 41015822380 was
-// cancelled). !cancelled() lets a failure through and stops at a cancel. Step-level ifs inside a running job are not
+// and run in full on the laptop or the Mac (a cancelled GPU gate run still had its quality job queued). !cancelled() lets a failure through and stops at a cancel. Step-level ifs inside a running job are not
 // job conditions and stay.
 // Node, no YAML library: the workflows' own layout (two-space indent, jobs at 2, job keys at 4). Run: node test/t_workflow_cancel.js
 'use strict';
