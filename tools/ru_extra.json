@@ -666,5 +666,8 @@
  "Click ▶ to turn sound on and hear the loop wind round the zero.": "Нажмите ▶ — включится звук, и петля обойдёт нуль.",
  "Go to {p}": "Перейти к %{p}",
  "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}",
- "Label": "Подпись"
+ "Label": "Подпись",
+ "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
+ "Video of the Landscape is not ready yet": "Видео рельефа пока не готово",
+ "Video of the sphere is not ready yet": "Видео сферы пока не готово"
 }
