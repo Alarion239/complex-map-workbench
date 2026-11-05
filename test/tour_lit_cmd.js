@@ -22,7 +22,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
       const c = Tour.current(), L = Tour.lit();
       if (!L) return { id: c.chapter + '/' + c.id, none: true };
       const a = L.anchor;
-      // (the welcome step draws no shade; every step's strip is a window of the shade: the strip is on top there)
+      // (v16.4: the welcome step draws no shade; every step's strip is a window of the shade: the strip is on top there)
       const s = document.querySelector('.tour-strip').getBoundingClientRect(), top = document.elementFromPoint(s.left + s.width / 2, s.top + 12);
       const win = !!top && !!top.closest('.tour-strip');
       if (!a) return { id: c.chapter + '/' + c.id, centred: true, noShade: getComputedStyle(document.querySelector('.tour-root svg')).display === 'none', win };

@@ -24,7 +24,7 @@ const count = (list, name) => list.filter((x) => x === name).length;
 const spy = () => ev(`(() => {
   window.__made = []; window.__vset = [];
   for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; }
-  // (Hear the function: F at the probe goes
+  // (v16.5, Hear the function, SOUND-PLAN 2.3: the harp, the tone and the Height voice are retired; F at the probe goes
   // to Sound.hear's seat / step / cut / pathless, one call per update, [time, arg in turns, ln|F|])
   const hw = (fn) => function (s) { __vset.push([performance.now(), s && s.phi, s && s.ln, __cmwState().morph.T]); return fn.apply(this, arguments); };
   if (!Sound.hear.__w) { for (const k of ['seat', 'step', 'cut', 'pathless']) Sound.hear[k] = hw(Sound.hear[k]); Sound.hear.__w = 1; }

@@ -239,7 +239,7 @@ for (const dark of [false]) for (const [w, hgt] of [[1440, 900], [1280, 800], [1
   // at 768 px (frame f6, or the More menu of the lead default) is the user's call; this check holds for either.
   if (w <= 1024) {
     const HD = await ev(`(() => { const top = document.querySelector('.top'), tr = top.getBoundingClientRect(), vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-      // (Theme, the panel buttons and the globe are in Settings: the bar has Share and Settings instead)
+      // ([v17 D5] Theme, the panel buttons and the globe are in Settings: the bar has Share and Settings instead)
       const ids = ['examplesBtn', 'cmdBtn', 'exportBtn', 'shareBtn', 'soundBtn', 'settingsBtn', 'helpBtn'], more = document.getElementById('hdrMoreBtn'), menu = document.getElementById('hdrMenu');
       const inMenu = (el) => !!el && !!menu && menu.contains(el);
       return { over: Math.max(0, ...[...top.querySelectorAll('button')].filter(vis).filter((b) => !menu || !menu.contains(b)).map((b) => Math.round(b.getBoundingClientRect().right - Math.min(tr.right, innerWidth)))),

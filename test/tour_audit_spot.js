@@ -101,7 +101,7 @@ const SPOT = String.raw`(() => {
     };
     const a = resolve(st.anchor);
     add('anchor', a);
-    // (a Try it's control in the anchor's own scrolling panel, both too tall for it together: the control shows
+    // (v16.1: a Try it's control in the anchor's own scrolling panel, both too tall for it together: the control shows
     // whole and the anchor from its top, so the anchor's cut is not a failure)
     const scr = (e) => { for (let p = e && e.parentElement; p && p !== document.body; p = p.parentElement) { const cs = getComputedStyle(p); if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 1) return p; } return null; };
     const trc = st.try && !(st.tryWide && innerWidth < 640) && !st.try.after && st.try.ctl ? [].concat(st.try.ctl) : [];
@@ -126,18 +126,18 @@ const SPOT = String.raw`(() => {
       }
       return n > 0;
     };
-    // (on a touch screen the parts a Try it's touch task names, try.work, are lit too: the
+    // (v15.1, review-phone phone-2: on a touch screen the parts a Try it's touch task names, try.work, are lit too: the
     // lens in the Inspector once the card is tapped)
     const tr = st.try && !(st.tryWide && innerWidth < 640) && !st.try.after ? st.try : null;
     const tw = tr && tr.work && tr.touch && matchMedia('(pointer: coarse)').matches ? tr.work : [];
-    // (the controls a Try it names, try.ctl, are lit while it shows)
+    // (v16.1, user 5: the controls a Try it names, try.ctl, are lit while it shows)
     // (one under an open layer it is not in, a phone's tool row under the Editor sheet, is not: it cannot be reached)
     const tc = tr && tr.ctl ? [].concat(tr.ctl) : [];
     for (const n of [].concat(st.also || [], tc, tw)) { const e = resolve(n); if (e && e !== a && !covered(e) && !(tc.includes(n) && e instanceof Element && underLay(e))) { const k0 = out.length; add(n, e); for (let i = k0; i < out.length; i++) sideCut(e, out[i]); } }
     return out;
   }
   // the drawn holes (the shade's sub-paths after the first) and the inner mark: bounding boxes and arc radii
-  // (a phone: a lit part inside a scrolling panel is drawn by an SVG inside that panel, svg.tour-host, and the
+  // (v15.1, a phone: a lit part inside a scrolling panel is drawn by an SVG inside that panel, svg.tour-host, and the
   // shade over the page has a window over the panel's visible box: every path counts, and a window is no lit area)
   function paths(sel, skipFirst) {
     const out = [];
@@ -169,7 +169,7 @@ const SPOT = String.raw`(() => {
         else if (cmd === 'Z' || cmd === 'z') { /* */ }
         else i++;
       }
-      // (a path drawn inside a panel is clipped by the panel: what shows is its part inside the panel's box)
+      // (a path drawn inside a panel, v15.1, is clipped by the panel: what shows is its part inside the panel's box)
       const host = !!(svg && svg.classList.contains('tour-host'));
       let q = { l: X(l, t), t: Y(l, t), r: X(r, b), b: Y(r, b) };
       if (host && !skipFirst) { /* rings and marks: as drawn */ }
@@ -231,7 +231,7 @@ const SPOT = String.raw`(() => {
     const cuts = paths('.tour-rings mask path', false);
     const covered = cuts.some((h) => h.l <= b.left + 1 && h.t <= b.top + 1 && h.r >= b.right - 1 && h.b >= b.bottom - 1);
     if (covered) return true;
-    // (a ring drawn inside a panel of the app is painted under a layer that covers it: what shows there is the layer)
+    // (a ring drawn inside a panel of the app, v15.1, is painted under a layer that covers it: what shows there is the layer)
     const under = (h) => { if (!h.host) return false; const x = Math.max(b.left + 1, Math.min(b.right - 1, (h.l + h.r) / 2)), y = Math.max(b.top + 1, Math.min(b.bottom - 1, (h.t + h.b) / 2)); const e = document.elementFromPoint(x, y); return !!e && L.contains(e); };
     const rings = paths('.tour-glow', false).concat(paths('.tour-ring', false), paths('.tour-mark', false)).filter((h) => !under(h));
     return !rings.some((h) => h.l < b.right && h.r > b.left && h.t < b.bottom && h.b > b.top);
