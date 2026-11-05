@@ -42,7 +42,7 @@ const snap = async (name) => { SHOTS.push(name); await shot(name); };
 
 // a clean slate: this kit's own browser profile, file:// origin
 await nav(U + '?ns=t0'); await ev('localStorage.clear()');
-await settle(1200);
+await waitFor(() => ev(`document.readyState === 'complete'`));
 const SV = await isSteps();
 // the tour's chapters in this view: [{ id, title, rev, steps: [ids] }]
 const CH = await ev(`Tour._t.CHAPTERS.map((c) => ({ id: c.id, title: c.title, rev: c.rev, steps: c.steps.map((s) => s.id) }))`);
@@ -162,7 +162,7 @@ if (!SV) {
   g = await cur();
   check('Try it "Choose Phase" advances to the portrait', g && g.id === 'phase', g);
   await ev('Tour.auto(false)');
-  await settle(500);
+  await shaded();
   const panes = await box('#panes'), card = await box('.tour-strip');
   check('Phase portrait: the strip is above the panel, not over it', !meet(card, panes) && card.b <= panes.t + 0.5, { card, panes });
   await snap('tour-phase-dark');
@@ -179,7 +179,7 @@ if (!SV) {
   await snap('tour-phasekey-dark');
   // the Phase key ends the chapter: Choose Phase key ticks its Try it
   // (the check, in Y's head or behind its ⋯ / Regions button, whose pop-up holds it while open)
-  if (!(await ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`))) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400); }
+  if (!(await ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`))) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await waitFor(() => ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`)); }
   await clickSel('label:has(#wKeyChkR)'); await waitFor(() => ev(`document.querySelector('.ts-l2').classList.contains('done')`));
   check('Phase key: turning it on ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
   g = await ev(`({ count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent, label: document.querySelector('.ts-next').getAttribute('aria-label'), h: Math.round(document.querySelector('.ts-row').getBoundingClientRect().height) })`);
@@ -471,7 +471,7 @@ check('no exceptions or tour warnings in the console (sections 1 to 12)', !L0.so
 await open('t11');
 await ev(`Tour.dismissSuggestion()`);
 await ev(`window.__anchor0 = __tourApi.anchor; __tourApi.anchor = (n) => (n === 'paneL' ? null : __anchor0(n))`);
-await ev(`Tour.start(${JSON.stringify(at(PAN))}); Tour.start({ chapter: 'keys' })`); await settle(2200);
+await ev(`Tour.start(${JSON.stringify(at(PAN))}); Tour.start({ chapter: 'keys' })`); await waitFor(async () => ((await cur()) || {}).chapter === 'keys'); await shaded();
 g = await cur();
 check('two starts in a row with a missing anchor: the tour ends on the second chapter', g && g.chapter === 'keys' && g.id === 'palette', g);
 await ev(`__tourApi.anchor = __anchor0`);

@@ -25,7 +25,9 @@ const goStep = async (path) => {
   const [chapter, id] = path.split('/');
   const i = await ev(`(() => { const c = Tour._t.CHAPTERS.find((x) => x.id === ${JSON.stringify(chapter)}); return c ? c.steps.findIndex((s) => s.id === ${JSON.stringify(id)}) : -1; })()`);
   if (i < 0) throw new Error('no step ' + path);
-  await ev(`Tour.start({ chapter: '${chapter}', step: ${i} })`); await settle(1500);
+  await ev(`Tour.start({ chapter: '${chapter}', step: ${i} })`);
+  // (the tour is on the step, its shade is drawn and the page is quiet: the planes' frames done, no animation running)
+  await settled({ max: 15000, until: `(() => { const c = Tour.current(), s = document.querySelector('.tour-shade'); return !!c && c.chapter === ${JSON.stringify(chapter)} && c.step === ${i} && !!s && !!s.getAttribute('d'); })()` });
 };
 // polls until f() (an expression) is truthy; returns the ms waited, or null after max ms
 const until = async (expr, max = 8000, dt = 40) => { const t0 = Date.now(); while (Date.now() - t0 < max) { if (await ev(expr)) return Date.now() - t0; await sleep(dt); } return null; };
@@ -117,7 +119,7 @@ await goStep(KEYSTEP);
 // (on a desktop the Phase key check is a toggle in Y's pane head; when the head has no room it is behind the
 // head's ⋯ button, which is opened first)
 const ob = SV || (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
-if (ob) { await click(ob[0], ob[1]); await sleep(400); }
+if (ob) { await click(ob[0], ob[1]); await until(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`, 3000); }
 const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : '#wKeyChkR');
 check(SV ? 'key: the chip f₁ is there' : 'key: the Phase key check is there', !!kc, kc);
 if (kc) {
@@ -465,13 +467,13 @@ check('phone: × End in the portrait row (44 px), a chevron after the count, Nex
 if (!SV) {
   await goStep('basics/chain');
   // (the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
-  if (!(await center('#pipeline .card[data-k="1"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(800); } }
+  if (!(await center('#pipeline .card[data-k="1"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settled({ max: 5000, until: `(() => { const c = document.querySelector('#pipeline .card[data-k="1"]'); return !!(c && c.getClientRects().length && c.offsetParent !== null); })()` }); } }
   const c1 = await center('#pipeline .card[data-k="1"]');
-  await tap(c1[0], c1[1]); await settle(1000);
+  await tap(c1[0], c1[1]); await settled({ max: 5000, until: `(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .alone-btn'); return !!(b && b.getClientRects().length && b.offsetParent !== null); })()` });
   const ln = await center('#propsPanel .insp-step .ihead .alone-btn');
   await tap(ln[0], ln[1]); t0 = Date.now();
   const dC = await doneAt(t0);
-  await sleep(400);
+  await until(`Tour.lit().countdown.state === 'running'`, 3000);
   const ch = await lit();
   check('phone chain: the lens ticks it and nothing holds the countdown (the sheet is part of the step)', ch.done && ch.countdown.state === 'running' && !ch.countdown.held.length, ch.countdown);
   const xb = await ev(`(() => { const e = [...document.querySelectorAll('.ph-sheet:not([hidden]) .ph-x, .ph-sheet:not([hidden]) [aria-label="Close"]')].find((x) => x.getClientRects().length); if (!e) return null; const b = e.getBoundingClientRect(); const h = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { hit: !!h && (h === e || e.contains(h)) }; })()`);
@@ -499,7 +501,7 @@ if (!SV) {
   await goStep('basics/preimages');
   const pr = await paneBox('#paneR');
   await tdrag(pr.l + (pr.r - pr.l) / 2, pr.t + (pr.b - pr.t) / 2, pr.l + (pr.r - pr.l) / 2 + 60, pr.t + (pr.b - pr.t) / 2 + 20, 250);
-  await sleep(500);
+  await until(`/ring fills/.test(document.querySelector('#tourLead').textContent)`, 3000);
   const hl = await ev(`document.querySelector('#tourLead').textContent`);
   check('phone preimages: a short hold that pans Y shows the hint', /ring fills/.test(hl) && /moved Y/.test(hl), hl);
 }
@@ -546,7 +548,7 @@ await ev('Tour.stop()'); await settle(300);
 try {
 // the screen-reader line of the tour (class tour-sr, #tourSay) is out of the flow: at 1366 × 768 the page is not taller than the window
 await open('au8', 1366, 768, false, false);
-await goStep('analysis/targets'); await ev('Tour.stop()'); await settle(300); // the tour's CSS is injected on first use
+await goStep('analysis/targets'); await ev('Tour.stop()'); await until('!Tour.isActive()', 3000); // the tour's CSS is injected on first use
 const sh = await ev(`(() => { const n = document.createElement('div'); n.className = 'tour-sr'; n.textContent = 'x'; document.body.append(n); const r = { sh: document.documentElement.scrollHeight, ih: innerHeight, top: Math.round(n.getBoundingClientRect().top) }; n.remove(); return r; })()`);
 check('1366 × 768: a tour-sr line at the end of the body does not make the page taller than the window', sh.sh <= sh.ih, sh);
 } catch (e) { check('1366 × 768 page height' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
