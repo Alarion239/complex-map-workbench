@@ -1004,9 +1004,11 @@
     if (!host) return;
     host.innerHTML = '';
     const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
-    if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { t.remove(); action(); } }, actionLabel));
-    if (o && o.sticky) { t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) })); host.append(t); return t; }
+    if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
+    // (a phone's timed message keeps its bar's room for the words; the phone dismisses it by a swipe down)
+    if ((o && o.sticky) || !document.documentElement.classList.contains('ph')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
     host.append(t);
+    if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
     const hold = (d) => { held += d; if (held === 1 && d > 0) { clearTimeout(timer); left -= performance.now() - t0; } else if (held === 0) run(Math.max(800, left)); };

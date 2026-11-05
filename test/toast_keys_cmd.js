@@ -61,7 +61,17 @@ ok('the focus in it keeps it past its time', await has(), null);
 await ev(`document.activeElement.blur(), 1`);
 ok('it goes after the focus leaves', await gone(4000), null);
 
-// the close button
+// the close button, on a timed message too
+await show('Timed', 'Do');
+const xt = await ev(`(() => { const b = ${T}.querySelector('.toast-x'); if (!b) return null; const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()`);
+ok('a timed message has a × of 24 px', JSON.stringify(xt) === '[24,24]', xt);
+await ev(`${T}.querySelector('.toast-x').click(), 1`);
+ok('× closes it with the slide and fade out', await ev(`(() => { const t = ${T}; return !t || (t.classList.contains('toast-out') && getComputedStyle(t).animationName === 'toast-out'); })()`), null);
+ok('and it is gone', await gone(1000), null);
+await show('Action', 'Do');
+await ev(`${T}.querySelector('.toast-act').click(), 1`);
+ok('its action leaves with the slide and fade out too', await ev(`(() => { const t = ${T}; return !t || t.classList.contains('toast-out'); })()`), null);
+await gone(1000);
 await show('Sticky', null, { sticky: true });
 const x = await ev(`(() => { const b = ${T}.querySelector('.toast-x'); if (!b) return null; const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })()`);
 ok('× is 24 px', JSON.stringify(x) === '[24,24]', x);
