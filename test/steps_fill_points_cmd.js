@@ -1,9 +1,9 @@
 // The steps view's carried colour mid-glide with the cut fill's values from its point pass (GLR.fillPointsOn, on by
 // default: the chain once per point of a torn sub-triangle) against the fill evaluating its own (off): the left pane's
 // pixels identical, Inside regions and Everywhere, held at x = 1/4 and 1/2, on two chains whose path has a cut the
-// sheets continue (Sheets of the logarithm, Square root and its sheets). Everywhere the carried mesh draws the frame
-// (a Newton inverse covers two of H_t's points, not all of them) and the point pass ran (GLR.fillPointsRuns); Inside
-// regions the inverse pass draws it (the homotopy inverted by Newton), the exact picture with no mesh fill.
+// sheets continue (Sheets of the logarithm, Square root and its sheets). Inside regions and Everywhere alike the
+// inverse pass draws the frame (the root and log homotopies inverted by their own exact ops), the exact picture with
+// no mesh fill, so the point pass does not run (GLR.fillPointsRuns).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -64,8 +64,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
     const d = a && b ? await diff('on', 'off') : null;
     info[tag] = { d, runs: n1 - n0, path };
     ok(`${tag}: the left pane settles under each setting`, a && b, { a, b });
-    if (scope === 'all') ok(`${tag}: the carried mesh draws the frame, its fill taking its values from its point pass`, path === 'mesh' && n1 > n0, info[tag]);
-    else ok(`${tag}: the inverse pass draws the frame`, path === 'inverse', info[tag]);
+    ok(`${tag}: the inverse pass draws the frame, with no point pass`, path === 'inverse' && n1 === n0, info[tag]);
     ok(`${tag}: the pixels are the same as the fill evaluating its own`, !!d && d.px === 0, info[tag]);
   }
 }
