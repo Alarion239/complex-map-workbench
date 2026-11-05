@@ -13,6 +13,12 @@
 // a blend of two globes.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
+// (the limits: END_MEAN, the mean over a frame's pixels of the channels' differences (levels of 255) that the moving globe
+// may be from the resting one, as steps_glide_inverse's ends; SAT_MIN, the spread between a sample's largest and smallest
+// channel that makes it coloured and not grey paper; OVER_DIFF, the largest channel difference (levels) under which two
+// pixels count as the same; HUE_TOL, the chromaticity distance within which a point keeps its hue, for HUE_MIN of its
+// four samples)
+const END_MEAN = 1.5, SAT_MIN = 40, OVER_DIFF = 32, HUE_TOL = 0.06, HUE_MIN = 3;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const quiet = () => settled({
@@ -50,9 +56,9 @@ const Z = [[0.3, 0.3], [0.6, 0.2], [0.4, -0.2], [0.2, 0.5]];
 const rest = [];
 for (const [x, y] of Z) rest.push(await pixelAt(x, y));
 R.rest = rest;
-ok('at rest on plane z: the sample points are in colour on the globe', rest.every((p) => p && sat(p) > 40), rest);
+ok('at rest on plane z: the sample points are in colour on the globe', rest.every((p) => p && sat(p) > SAT_MIN), rest);
 // (the left canvas kept under a name; two kept frames' mean difference per pixel (levels of 255, the channels' mean)
-// and the share of pixels that differ by more than 32)
+// and the share of pixels that differ by more than OVER_DIFF)
 const grab = (tag) => ev(`(() => { const c = document.getElementById('canvasL'), s = document.createElement('canvas');
   s.width = c.width; s.height = c.height;
   const g = s.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0);
@@ -66,7 +72,7 @@ const differ = (a, b) => ev(`(() => {
     const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
     n++;
     sum += (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2])) / 3;
-    if (d > 32) m++;
+    if (d > ${OVER_DIFF}) m++;
   }
   return { mean: +(sum / n).toFixed(3), over32: +(m / n).toFixed(5) }; })()`);
 await grab('rest');
@@ -75,8 +81,8 @@ await quiet();
 for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
 await grab('start');
 R.start = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await differ('rest', 'start') };
-ok('just past plane z the moving globe is the resting globe (a mean within 1.5 levels), with no blend',
-  R.start.path === 'inverse' && R.start.differ.mean <= 1.5, R.start);
+ok(`just past plane z the moving globe is the resting globe (a mean within ${END_MEAN} levels), with no blend`,
+  R.start.path === 'inverse' && R.start.differ.mean <= END_MEAN, R.start);
 R.parked = {};
 for (const u of [0.25, 0.5, 0.75]) {
   await ev(`__cmwSteps({ park: ${u} }); 1`);
@@ -94,8 +100,8 @@ for (const u of [0.25, 0.5, 0.75]) {
   }
   R.parked[u] = { carried: !!(g && g.carried), u: g && g.u, rows };
   ok(`u = ${u}: the globe draws the carried colour per pixel (the inverse pass)`, !!(g && g.path === 'inverse'), g);
-  const near = rows.filter((r) => r.d != null && r.d <= 0.06).length;
-  ok(`u = ${u}: a point keeps its colour's hue as it moves (3 of 4 within 0.06)`, near >= 3, rows);
+  const near = rows.filter((r) => r.d != null && r.d <= HUE_TOL).length;
+  ok(`u = ${u}: a point keeps its colour's hue as it moves (${HUE_MIN} of 4 within ${HUE_TOL})`, near >= HUE_MIN, rows);
 }
 // (the other end: just before plane w1, against plane w1 at rest)
 await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
@@ -105,8 +111,8 @@ await quiet();
 for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
 await grab('end');
 R.end = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await differ('rest1', 'end') };
-ok('just before plane w1 the moving globe is the resting globe of w1 (a mean within 1.5 levels on the whole frame)',
-  R.end.path === 'inverse' && R.end.differ.mean <= 1.5, R.end);
+ok(`just before plane w1 the moving globe is the resting globe of w1 (a mean within ${END_MEAN} levels on the whole frame)`,
+  R.end.path === 'inverse' && R.end.differ.mean <= END_MEAN, R.end);
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
 return { pass: fails.length === 0, fails, results: R };
