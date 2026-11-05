@@ -31,7 +31,7 @@ if (m) {
   ok('windows-hosted, glprof: the hosted machine', machines('windows-hosted', 'glprof').out === 'machines=["Windows-hosted"]', machines('windows-hosted', 'glprof'));
   const g = machines('windows-hosted', 'gate');
   ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /glprof only/.test(g.err), g);
-  // (#169: the Windows GPU runner was removed: nothing may be sent to it, it would queue forever)
+  // (#169: there is no Windows GPU runner: nothing may be sent to it, it would queue forever)
   const w = machines('windows', 'gate');
   ok('windows: refused at once, naming #169 (no machine would take it)', w.status !== 0 && w.out === '' && /Windows GPU runner removed \(#169\)/.test(w.err), w);
   const b = machines('both', 'gate');

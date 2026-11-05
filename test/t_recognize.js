@@ -7,7 +7,7 @@
 //  - the traps keep their branches (sqrt(z^2) is not z, log(e^z) is not z, ...), identities that would move a cut
 //    are refused, and a removable point is never filled in;
 //  - a shared exponent or root index keeps one chain and one program key at every value (integers included);
-//  - the review fixes (notes/formula-recognition/ledger.json): the step's CPU values are the formula's bit for bit
+//  - the review checks (notes/formula-recognition/ledger.json): the step's CPU values are the formula's bit for bit
 //    (signed zeros on the cuts, raw cut angles, overflow), the groups replay it exactly, merged Möbius runs never fill a
 //    removable point, a shared number never changes the chain's shape, decimal cancellations are not read as a lower
 //    degree, and factored products are read in product form;
@@ -118,7 +118,7 @@ let fails = 0;
 const fail = (msg) => { fails++; console.log('FAIL', msg); };
 const stats = { formulas: 0, spellings: 0, recognized: 0, partial: 0, inverse: 0, inverseBefore: 0, points: 0 };
 const kinds = {};
-// with Recognize hidden: the formula as it was (for the "inverse before" count)
+// with Recognize hidden: the formula without recognition (for the "inverse before" count)
 const without = (fn) => { const R0 = global.Recognize; global.Recognize = undefined; try { return fn(); } finally { global.Recognize = R0; } };
 
 for (const e of all) {
@@ -272,7 +272,7 @@ for (const [t1, t2, al] of [['z^{i}', 'z^i', C(0, 1)], ['z^{1+i}', 'z^(1+i)', C(
 // continuous where its steps join (t = j/n). Skipped: points where a step's input is a branch point of that step (0 for
 // log, root and powers, ±1 or ±i for the inverse trigonometric steps: the function is infinite or not analytic there
 // and its path converges only logarithmically), and the end of a formula part (a 'custom' step): its natural path is the
-// formula's zoom path, which approaches a point on its cut from the side of its centre, as v15 does for any formula.
+// formula's zoom path, which approaches a point on its cut from the side of its centre, as for any formula.
 // Distances are chordal (on the Riemann sphere), so a point near a pole, where the path converges in the chordal sense
 // (pown(-2)'s elliptic Möbius part near 0), is not mistaken for a branch error.
 const chordal = (u, v) => CX.abs(CX.sub(u, v)) / (Math.sqrt(1 + CX.abs2(u)) * Math.sqrt(1 + CX.abs2(v)));
@@ -366,9 +366,9 @@ expect('z^3+az^2+z', 'poly');
   }
 }
 // ---- review math-5, frperf-1, frperf-2: a shared number never changes the chain while a slider moves ----
-// The GPU key is counted raw (review verify-4). keyAt: the values where the program may change, because the catalog
+// The GPU key is counted raw. keyAt: the values where the program may change, because the catalog
 // step's natural path changes kind there (poly and zp take the monomial's own path, 'pow', where they are one monomial
-// about a point: z^2 + az at a = 0, (z - a)^3 (z + 1) at a = -1), as for the catalog steps themselves and v15.
+// about a point: z^2 + az at a = 0, (z - a)^3 (z + 1) at a = -1), as for the catalog steps themselves.
 {
   const sweeps = [['\\frac{(z+a)^{12}}{(z-a)^{12}}', 0.5, 0.9, 'zp', []], ['\\frac{(z+a)^{8}}{(z-a)^{8}}', 0.5, 0.9, 'zp', []],
     ['z^{2}+az', -0.3, 0.3, 'poly', [], [0]], ['\\frac{z^2-a}{z+1}', 0.7, 1.3, 'affine>joukowski>affine', [1]],
@@ -385,7 +385,7 @@ expect('z^3+az^2+z', 'poly');
       if (special.includes(A)) { if (s === sig && sig) fail(`${t} at a = ${A}: the formula changes kind here, but the chain was kept`); continue; }
       seen.add(s);
       // (the catalog poly and zp steps take the monomial's own path, 'pow', at the value where they are one monomial
-      // about a point: their natural path's kind, as for the catalog steps themselves and v15 without recognition)
+      // about a point: their natural path's kind, as for the catalog steps themselves without recognition)
       if (b.rec && !keyAt.includes(A)) { const k = GLChain.build([{ type: 'custom', on: true }], [b]).key; keys.add(typeof k === 'string' ? k : JSON.stringify(k)); }
       if (b.rec && exactDiff(Expr.compile(Expr.parse(t)), b.f, BASE.slice(0, 60))) fail(`${t} at a = ${A}: CPU values are not the formula's`);
     }

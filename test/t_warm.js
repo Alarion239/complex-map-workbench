@@ -49,7 +49,7 @@ const eq = (a, b, name) => check(name, JSON.stringify(a) === JSON.stringify(b), 
   const r2 = read();
   eq([r0.done, r1.done, r2.done], [0, 1, 2], 'a program finishing between reads: done only goes up');
   check('the pending count follows', r0.pending === 2 && r1.pending === 1 && r2.pending === 0);
-  // a new chain mid warm-up: the group's list is the new chain's; the old ones are no longer counted
+  // a new chain mid warm-up: the group's list is the new chain's; the old ones are not counted
   ids = ['x|k2|m1', 'y|k2|m1', 'z|k2|m1'];
   const r3 = read();
   eq([r3.done, r3.total], [0, 3], 'a chain change mid warm-up: the new chain\'s programs, none linked yet (the total grew)');

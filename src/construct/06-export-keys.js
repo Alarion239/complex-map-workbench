@@ -9,7 +9,7 @@
     const base = m[1] === 'ζ' ? '\\zeta' : m[1];
     return `${base}_{${[...m[2]].map((c) => SUBR[c]).join('')}}${"'".repeat([...m[3]].reduce((n, c) => n + ('′″‴'.indexOf(c) + 1), 0))}`;
   }
-  // [review picture-7] a caption names each point once with its value (a point shape's own phrase does: "the point
+  // a caption names each point once with its value (a point shape's own phrase does: "the point
   // $z_0=-1.5$"), so a definition names point shapes by their label only (the figure labels them), a zero by name and
   // value, a handle by its value; curves by their maths (the app's own phrase of the curve, in the genitive), never by
   // a row name; a line bound at both ends by its points
@@ -87,13 +87,13 @@
     }
     if (d.op === 'perp') {
       const p = { a: P(1), b: P(2), c: carrier(d.args[0]) };
-      // [v16.4 segments SPEC 6.2] the hyperbolic line in the domain {r} (C's open side, as maths); through P and Q when both
+      // the hyperbolic line in the domain {r} (C's open side, as maths); through P and Q when both
       // lie on the drawn arc, else on K ({k}: K's whole caption, in the genitive)
       if (d.seg && d.fill !== 'in' && s._seg) {
         const info = segInfo(s), C = find(d.args[0].s), cpc = C && piecesOf(C)[d.args[0].part], kpc = piecesOf(s)[0];
         let r = null;
         try {
-          // (review math-3: the outside of a circle is a disc of the sphere, infinity included)
+          // (the outside of a circle is a disc of the sphere, infinity included)
           if (info && cpc && cpc.kind === 'circle' && isXY(cpc.c)) { r = Region.KINDS.disc.tex({ kind: 'disc', c: cpc.c, r: cpc.r }); if (info.word === 'out') r = `\\{${r.replace(/</g, '>')}\\}\\cup\\{\\infty\\}`; }
           else if (info && cpc && cpc.kind === 'line' && isXY(cpc.a) && isXY(cpc.b)) {
             const L = [cpc.a[0] - (cpc.b[1] - cpc.a[1]), cpc.a[1] + (cpc.b[0] - cpc.a[0])], left = info.seg * Constr.fOf(info.Gc, L) < 0;
@@ -101,7 +101,7 @@
           }
         } catch (e) { r = null; }
         if (r) {
-          // (review math-7: through P and Q only when both are points of the domain; review user-2, user-3: close: the phrase
+          // (through P and Q only when both are points of the domain; close: the phrase
           // ends with a comma when more words follow it)
           if (kpc && segThru(s, info)) return { src: 'the hyperbolic line through {a} and {b} in the domain {r}', params: { a: p.a, b: p.b, r: { m: r } }, close: true };
           const g = Constr.geomOf(s._g), copy = Object.assign({ id: '', _capT: isT(s), def: Object.assign({}, d, { seg: undefined }) }, g.line ? { kind: 'line', a: g.p, b: [g.p[0] + g.d[0], g.p[1] + g.d[1]] } : { kind: 'circle', c: g.c, r: g.r });
@@ -142,7 +142,7 @@
     perp: tsvg('<path d="M2.5 14.5h15"/><path d="M4.5 14.5a5.5 5.5 0 0 1 11 0"/><path d="M15.5 12.4h2.1v2.1" stroke-width="1.1"/>' + dot(6.1, 10.62) + dot(12.8, 9.77)),
     // a circle and a smaller one touching it from outside, a dot at the touching point (exactly on both)
     touch: tsvg('<circle cx="8" cy="10" r="5.5"/><circle cx="16" cy="10" r="2.5"/>' + dot(13.5, 10)),
-    // [v16.5 UX55] a circle (the boundary, faint) and the arc of a hyperbolic line inside it, with its two points
+    // a circle (the boundary, faint) and the arc of a hyperbolic line inside it, with its two points
     hyper: tsvg('<circle cx="10" cy="10" r="7.5" stroke-opacity=".5"/><path d="M4.7 15.3A7.5 7.5 0 0 1 15.3 15.3" transform="translate(0 -4.6)"/>' + dot(7.6, 9.2) + dot(12.4, 9.2)),
   };
   function toolRows() {
@@ -264,8 +264,8 @@
   }
   function css() { if (!document.getElementById('cmStyle')) { const st = document.createElement('style'); st.id = 'cmStyle'; st.textContent = CSS; document.head.append(st); } }
   function keydown(e) {
-    if (e.key === 'Escape' && A && cancelDrag()) { e.preventDefault(); e.stopPropagation(); return; }   // ([v16.5 rail SPEC 2.6])
-    if (e.key === 'Escape' && A) pickOk();   // ([v16.5 fix rail-7] Esc takes the refusal away, whatever else it closes)
+    if (e.key === 'Escape' && A && cancelDrag()) { e.preventDefault(); e.stopPropagation(); return; }
+    if (e.key === 'Escape' && A) pickOk();   // (Esc takes the refusal away, whatever else it closes)
     if (!draftC || !A) return;
     const t = e.target;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -277,8 +277,8 @@
     else if (e.key === 'Enter' && !(t && t.tagName === 'BUTTON') && tangentNow()) { e.preventDefault(); e.stopPropagation(); }
   }
   // the tablet rail (SPEC 5.4): when it would overflow the panel, Grid and Polar grid leave it first (they stay in the
-  // drawer), then Freehand and Lasso; (the fifth Construct tool) then the rail's vertical "Region tools" label,
-  // which v16.2 already cut by 10 px at 1024 × 768 (the count above it and the open key stay)
+  // drawer), then Freehand and Lasso; (the fifth Construct tool) then the rail's vertical "Region tools" label
+  // (the count above it and the open key stay)
   function fitRail() {
     const rail = document.getElementById('railTools');
     if (!rail || !rail.offsetParent) return;
@@ -312,7 +312,7 @@
   function toolChanged() {
     if (draftC && draftC.tool !== A.tool()) draftC = null;
     gestSnap = null; ring = null;
-    // [v16.5 UX52] what the last tool said goes with it
+    // what the last tool said goes with it
     pickWarnMsg = null; clearTimeout(pickWarnT); howOpen = false;
     if (lastToast && lastToast.isConnected) lastToast.remove();
     lastToast = null;
