@@ -1135,8 +1135,15 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
     if (!el || (!head && box.classList.contains('collapsed'))) return;
+    // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    if (head && c0.width) {
+      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
+    }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
     for (let i = 0; i < 3; i++) {
       const c = el.getBoundingClientRect();
