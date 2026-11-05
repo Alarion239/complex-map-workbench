@@ -242,6 +242,24 @@ async function heldParked(c, r) {
     ok(`${c.tag}: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q);
     ok(`${c.tag}: the frame parked at u = ${u} is the held frame's pixels (at most ${SAME_FRAC * 100} % of them > ${DIFF_TOL}/255 apart)`, q.held && q.parked && !!q.diff && q.diff.frac <= SAME_FRAC, q);
   }
+  // (the colour layer alone, SV.bare: no point or label on it. A held frame places a point's label with no curve to keep
+  // off, as a view on the move does, and the parked frame keeps it off the curves, so the two differ by that label; the
+  // colour under it is the same pixel for pixel)
+  await ev(`__cmwSteps({ bare: true }), 1`);
+  const B = r.bare = {};
+  for (const u of c.parked) {
+    const held = (await hold(u)).ok, still = await grab('BH' + u);
+    await ev('window.__svScrubUp(), 1');
+    const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
+    const settledP = await grab('BP' + u);
+    B[u] = { held, parked, still, settledP, diff: settledP && still ? await compare('BH' + u, 'BP' + u) : null };
+    await rest(0);
+  }
+  await ev(`__cmwSteps({ bare: false }), 1`);
+  for (const u of c.parked) {
+    const q = B[u];
+    ok(`${c.tag}: the colour layer parked at u = ${u} is the held one's, pixel for pixel`, q.held && q.parked && !!q.diff && q.diff.max === 0, q);
+  }
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more
 async function straightEdges(c, r, held) {
