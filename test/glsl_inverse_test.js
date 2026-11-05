@@ -173,6 +173,7 @@ void main() {
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(t.xy);
+  ixTieOrder();
   if (c.y == 8) o = vec4(float(ixRecN), float(nCov), U, float(nb));
   else if (c.y == 9) o = vec4(nb > 0 ? bD[0] : -1.0, nb > 1 ? bD[1] : -1.0, nb > 2 ? bD[2] : -1.0, ixTailInf ? 1.0 : 0.0);
   else o = ixRecOut;
