@@ -59,13 +59,13 @@
     const ce = Math.cos(GLOBE_KEY_EL), se = Math.sin(GLOBE_KEY_EL), ca = Math.cos(GLOBE_KEY_AZ), sa = Math.sin(GLOBE_KEY_AZ);
     return [0, 1, 2].map((k) => ce * ca * z[k] + se * y[k] - ce * sa * x[k]);
   }
-  // the light of a program that draws on the globe (its uKeyDir; sph: drawSphere's {MVP, eye, key})
   // the graticule of a program with SPHERE_LINES: net ('cart', 'polar', else the plain one), the lattice's tiers in the
   // grid colour (its coverage is what the shader uses)
   function sphereNetUniforms(P, net, gridMajor) {
     u1i(P, 'uNet', net === 'cart' ? 1 : net === 'polar' ? 0 : 2);
     u3(P, 'uMinor', gridMajor); u3(P, 'uMed', gridMajor); u3(P, 'uMajor', gridMajor);
   }
+  // the light of a program that draws on the globe (its uKeyDir; sph: drawSphere's {MVP, eye, key})
   const globeLight = (P, sph) => u3(P, 'uKeyDir', (sph && sph.key) || globeKey(null));
   function lightUniforms(P, lt, specK, specE, rimK) {
     u3(P, 'uKeyDir', KEY_DIR);
