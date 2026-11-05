@@ -24,7 +24,7 @@ const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() &&
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the points of a grid over the inner 80 % of the pane, and whether z is where plane z's picture shows it
-const paneOf = async () => ev('(() => { const q = __cmwLPx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; })()');
+const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const grid = (P, nx, ny) => { const out = []; for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push([P.v.cx + (i / (nx - 1) - 0.5) * 0.8 * P.w / P.v.s, P.v.cy + (j / (ny - 1) - 0.5) * 0.8 * P.h / P.v.s]); return out; };
 const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
 // for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
@@ -53,9 +53,9 @@ async function hold(x) {
 }
 async function compare(at, W, Z) {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
-  const ref = await ev(`__cmwLPx(${JSON.stringify(Z)}).px`);
+  const ref = (await lpx(Z)).px;
   if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
-  const state = await ev('__cmwSteps()'), got = await ev(`__cmwLPx(${JSON.stringify(W)}).px`);
+  const state = await ev('__cmwSteps()'), got = (await lpx(W)).px;
   if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   let n = 0, wrong = 0, paper = 0, worst = 0;
   const ex = [];
@@ -63,9 +63,8 @@ async function compare(at, W, Z) {
     if (!got[k] || !ref[k]) continue;
     n++;
     const p = got[k][4];
-    if (Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6) { paper++; if (ex.length < 6) ex.push({ paper: true, w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3) }); }
-    let best = 1e9;
-    for (const q of ref[k]) best = Math.min(best, Math.max(Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]), Math.abs(p[2] - q[2])));
+    if (bare(p)) { paper++; if (ex.length < 6) ex.push({ paper: true, w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3) }); }
+    const best = nearest(p, ref[k]);
     worst = Math.max(worst, best);
     if (best > 14) { wrong++; if (ex.length < 6) ex.push({ w: W[k].map((v) => +v.toFixed(3)), z: Z[k].map((v) => +v.toFixed(3)), got: p.slice(0, 3), want: ref[k][4].slice(0, 3) }); }
   }
@@ -74,7 +73,7 @@ async function compare(at, W, Z) {
 // one case: cand(w) -> the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out). A point w
 // is also left out where the front point jumps (a seam of the key's choice): its front differs by more than 0.06 from
 // the front 1.5 px away in any direction
-async function check(tag, at, b, P, pts, cand, min) {
+async function check(tag, at, b, P, pts, cand, min, exact = false) {
   const d = 1.5 / P.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
   const C = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
   // (mid-glide, the key of the glide's frame at t: its points are the glide map's poles at t, __cmwSvKey(b, t))
@@ -95,12 +94,12 @@ async function check(tag, at, b, P, pts, cand, min) {
   const x = at.hold != null ? at.hold : at.park != null ? at.park : at.go;
   // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
   ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < (at.hold != null ? 0.01 : 1e-9) && r.state.T === 0, r.state);
-  ok(`${tag}: the front point's colour, at most 1 % wrong`, r.n > min && r.wrong <= 0.01 * r.n, info[tag]);
+  ok(`${tag}: the front point's colour, ${exact ? 'none' : 'at most 1 %'} wrong`, r.n > min && r.wrong <= (exact ? 0 : 0.01 * r.n), info[tag]);
   ok(`${tag}: no point on the bare paper (no tears, no window edge)`, r.paper === 0, info[tag]);
 }
 
 // ---- the Joukowski airfoil ----
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
@@ -127,8 +126,8 @@ await wait();
   await check('Joukowski in rest', { scope: 'in', go: 1, now: true }, 1, P, pts, (w) => both(w).filter((e) => outside(e.z) > 0), 400);
   // (Inside regions: every region point coloured, past the reference's window too)
   const A = pts.filter((w) => both(w).some((e) => outside(e.z) > 0.12) && !labelAt(w));
-  const all = await ev(`__cmwLPx(${JSON.stringify(A)}).px`);
-  const paper = all.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) < 6).length;
+  const all = (await lpx(A)).px;
+  const paper = all.filter((q) => q && bare(q[4])).length;
   info['Joukowski in rest'].regionPoints = { n: all.length, paper };
   ok('Joukowski in rest: every region point is coloured, past the window too', all.length > 1500 && paper === 0, { n: all.length, paper });
   await check('Joukowski all rest', { scope: 'all', go: 1, now: true }, 1, P, pts, both, 400);
@@ -166,10 +165,11 @@ await wait();
     };
     await check('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, 1, P, pts, heldCand, 400);
     // (and densely over the stretch where the image of the cut, the lower semicircle, runs: Re w in [-3, -0.5],
-    // Im w in [-3.5, -0.3], 50 x 50)
+    // Im w in [-3.5, -0.3], 50 x 50; none wrong: the triangles the cut tears keep the enhanced style's modulus bands
+    // where the exact colour has them)
     const cutPts = [];
     for (let j = 0; j < 50; j++) for (let i = 0; i < 50; i++) cutPts.push([-3 + 2.5 * i / 49, -3.5 + 3.2 * j / 49]);
-    await check('Joukowski all held 0.25, along the cut', { scope: 'all', hold: 0.25 }, 1, P, cutPts, heldCand, 1000);
+    await check('Joukowski all held 0.25, along the cut', { scope: 'all', hold: 0.25 }, 1, P, cutPts, heldCand, 1000, true);
   }
 }
 
