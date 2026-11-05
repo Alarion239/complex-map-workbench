@@ -17,7 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
-  const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
+  const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // budgets (SPEC 3.1)
   const LEAF_CAP = 64, WIN_MAX = 17, MIN_WIN = 9, OPS_MAX = 16, POLY_MAX = 64, M_MAX = 2 ** 20, RAMP = 1;
@@ -1629,6 +1629,12 @@ const Inverse = (() => {
     if (nat && nd && ((nat.kind === 'gzoom' && t >= nd.t0) || nat.kind === 'ratzoom')) {
       const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);
       return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
+    }
+    // Joukowski (Funcs joukHom): C^-1((Cz)^(1+t)), C(z) = (z - 1)/(z + 1), on the branch arg Cz in (-pi/2, 3pi/2]; as the
+    // principal power of -i Cz, (Cz)^s = e^(i pi s / 2) (-i Cz)^s with s = 1 + t
+    if (nat && nat.kind === 'jouk') {
+      const sv = C(1 + t, 0), k = C(Math.cos(HPI * (1 + t)), Math.sin(HPI * (1 + t))), mI = C(0, -1);
+      return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), opMob([k, ONE, neg(k), ONE])] };
     }
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
