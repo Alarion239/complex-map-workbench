@@ -178,7 +178,8 @@
   async function artPanel(side, box, wpt, o, extra = {}) {
     const flat = o.ink === 'bw' ? 'grey' : extra.mode || 'indexed';
     const dpi = extra.dpi || (flat === 'rgb' ? 300 : 600);
-    let r = await A.art(side, { box, wpt, dpi: dpi * (extra.ss || 1), ink: printInkFor(o, A.state().alpha), T: extra.T, alive: o.alive });
+    const ao = { box, wpt, dpi: dpi * (extra.ss || 1), ink: printInkFor(o, A.state().alpha), T: extra.T, alive: o.alive };
+    let r = await (extra.svI != null ? A.svArt(extra.svI, ao) : A.art(side, ao));
     if (!r) return null;
     if (extra.ss === 2) r = await down2(r);
     const a = await XD.art(r, box, { mode: flat, wpt, fade: extra.fade });
@@ -903,17 +904,20 @@
   // the paths figure: one plane at t = end, the region's image over X's outline (dashed gray), and the paths
   // t -> H_t(z) of the points the app's morph figure keeps (its selection and its caption: buildFigure), drawn here
   // by app.js pathsSvg: 0.5 pt lines, a ring at z, dots at t = m/4, 3m/4, an arrowhead at m/2, a filled dot at F(z)
+  // (o.sv, the steps view's A.svPathsFig(): the shown plane is the picture at t = end, the previous plane's image of X the
+  // gray outline, and the paths those of the last step)
   async function figPaths(o, P, W, T) {
-    const st = A.state();
+    const st = A.state(), sv = o.sv || null;
     const [tp, lp] = T;
-    const m = A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = A.screenBox('R');
+    const m = sv ? sv.m : A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = sv ? A.svBox() : A.screenBox('R');
     const Hs = new Map();
-    const Hof = (t) => { const k = t.toFixed(6); if (!Hs.has(k)) Hs.set(k, A.homF(t)); return Hs.get(k); };
+    const Hof = (t) => { const k = t.toFixed(6); if (!Hs.has(k)) Hs.set(k, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(k); };
+    const artOf = (ao) => (sv ? A.svArt(sv.i, ao) : A.art('R', Object.assign({ T: m }, ao)));
     // the window: what is drawn at t = end and X's outline, inside the screen window (the paths are chosen in it, so
     // every start lies inside the frame; a path that leaves it ends in a chevron)
     let cb = null;
     if (o.crop !== 'screen') {
-      const q = await A.art('R', { box: scr, wpt: 150, dpi: 72, ink: printInkFor(o, st.alpha), T: m, alive: o.alive });
+      const q = await artOf({ box: scr, wpt: 150, dpi: 72, ink: printInkFor(o, st.alpha), alive: o.alive });
       if (!q) return null;
       cb = contentBox(q, scr);
       for (const s of shapes) if (kindType(s) !== 'point') { const b = ptsBox(shapeCurves(s, (z) => z, scr, 150, srcWin).pts, scr); if (b) cb = unionBox(cb, b); }
@@ -926,13 +930,13 @@
     if (h > hmax) { h = hmax; w = h * aspect(box); }
     const x = (W - w - mL - 4) / 2 + mL;
     // the paths and the caption that names them (app.js: the screen's rule at the figure's size)
-    const leg = await A.morphPaths({ box, w, h, alive: o.alive, lang: XD.lang, paths: A.defo().paths });
+    const leg = await (sv ? A.svPathsMorph({ box, w, h, alive: o.alive, lang: XD.lang }) : A.morphPaths({ box, w, h, alive: o.alive, lang: XD.lang, paths: A.defo().paths }));
     if (!leg || (o.alive && !o.alive())) return null;
     const kept = leg.kept.map((k) => C(k.z[0], k.z[1]));
-    const art = await artPanel('R', box, w, o, { T: m });
+    const art = await artPanel('R', box, w, o, sv ? { svI: sv.i } : { T: m });
     if (!art) return null;
     const Hm = Hof(m), curves = [];
-    const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
+    const H0f = sv || A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
     for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
     let bwI = 0;
     for (const s of shapes) {
@@ -944,8 +948,8 @@
       curves.push({ pts: shapeCurves(s, Hm, box, w, srcWin).pts, w: t === 'area' ? P.lw.edge : P.lw.curve, color: o.ink === 'bw' ? '#000000' : tn.edge, dash, cap: dash && (dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2') ? 'round' : 'butt' });
     }
     const over = (X, Y) => A.pathsSvg(pathItems(kept, Hof, m, (q) => [X(q.re), Y(q.im)]), { u: 1, clip: { x, y: top, w, h }, id: `${XD.ns}-mp` });
-    const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points: [], axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('R')}`, `\\operatorname{Im} ${A.panelVar('R')}`], over });
-    const items = [p.markup, head(x, x + w, top - 3, '', `${A.panelVar('L')},\\ ${A.panelVar('R')}`, lp)];
+    const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points: [], axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${sv ? sv.end : A.panelVar('R')}`, `\\operatorname{Im} ${sv ? sv.end : A.panelVar('R')}`], over });
+    const items = [p.markup, head(x, x + w, top - 3, '', sv ? sv.end : `${A.panelVar('L')},\\ ${A.panelVar('R')}`, lp)];
     let cap = leg.captionTex || '';
     // (X's outline is gray and solid here, so a dash means only "not included": export review r3, editor-9)
     for (const [a, b] of [[' (dashed outline)', ' (gray outline)'], [', with dashed outlines,', ', with gray outlines,'], [', with a dashed outline,', ', with a gray outline,']]) {
@@ -954,5 +958,5 @@
     }
     if (!P.dashOpen) cap = cap.replace(/\s*Dashed boundaries do not belong to the sets\./, '');
     if (!P.dashOpen && XD.lang !== 'en') { const d = using(XD.lang, () => $t('Dashed boundaries do not belong to the sets.')); cap = cap.split(' ' + d).join('').split(d).join(''); }
-    return { items, defs: p.defs, lines: p.lines, H: top + h + bottom, info: { box, kept: kept.length, m }, captionTex: cap };
+    return { items, defs: p.defs, lines: p.lines, H: top + h + bottom, info: { box, kept: kept.length, m, svPaths: !!sv, sentence: leg.sentenceTex || '' }, captionTex: cap };
   }

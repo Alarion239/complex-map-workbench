@@ -51,7 +51,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
+  const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -97,7 +97,7 @@
     const segB = (id, value, options, onchange, label, cls) => {
       const el = h('div', { class: 'seg xf-seg' + (cls ? ' ' + cls : ''), id, role: 'radiogroup', 'aria-label': label });
       for (const [v, l, sub, ic] of options) {
-        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
+        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { if (b.getAttribute('aria-disabled') === 'true') return; for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
         if (ic) b.insertAdjacentHTML('beforeend', ic);
         b.append(h('span', { class: 'xf-sl' }, l));
         if (sub) b.append(h('small', null, sub));
@@ -197,10 +197,18 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    const svPics = [['plane', $t('Shown plane')], ['film', $t('Filmstrip')]];
+    // (Paths: the plane with the paths of the step that leads to it; off, with its reason, where there is no such step)
+    const svPics = [['plane', $t('Shown plane')], ['paths', $t('Paths')], ['film', $t('Filmstrip')]];
+    const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
+    const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'paths' && svpOk ? 'paths' : 'plane');
     const svPicRow = A.svOn()
-      ? row($t('Picture'), segB('xfSvPic', set.svPic === 'film' ? 'film' : 'plane', svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
+      ? row($t('Picture'), segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; changed(); }, $t('Picture')))
       : null;
+    if (svPicRow && !svpOk) {
+      const pb = svPicRow.querySelector('[data-v="paths"]');
+      const why = svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
+      if (pb) { pb.setAttribute('aria-disabled', 'true'); pb.dataset.tip = why; pb.setAttribute('aria-description', why); }
+    }
     if (svPicRow) svPicRow.classList.add('wide');
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
