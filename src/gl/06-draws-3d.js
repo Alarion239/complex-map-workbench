@@ -1261,7 +1261,7 @@
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 1 % of the distance)
-      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-2);
+      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
