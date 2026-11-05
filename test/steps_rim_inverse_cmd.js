@@ -12,7 +12,9 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const names = exampleNames();
 const ex = names.indexOf('Joukowski airfoil');
 ok('the example is found', ex >= 0, names.length);
 // (in CSS pixels of the left pane, at the example's view in a 1200 x 800 window: the band across the lobe's left rim,
@@ -21,8 +23,8 @@ const RIM = { x0: 245, x1: 330, y0: 440, y1: 550 }, LOBE = { x0: 250, x1: 590, y
 // (the limits: the measures' values on the frame are 53 and 3 at dpr 1, 105 and 1 at dpr 2; with the grid drawn, 1339
 // and 610, 7265 and 1225)
 const LIM = { 1: { rim: 100, streaks: 10 }, 2: { rim: 200, streaks: 20 } };
-const measure = (dpr) => ev(`(() => {
-  const c = document.getElementById('canvasL'), k = c.width / c.clientWidth, d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, W = c.width;
+const measure = () => ev(`(() => {
+  const c = document.getElementById('canvasL'), k = c.width / c.clientWidth, d = window.__heldPx.rim, W = c.width;
   const at = (x, y) => 4 * (y * W + x);
   const diff = (i, j) => Math.max(Math.abs(d[i] - d[j]), Math.abs(d[i + 1] - d[j + 1]), Math.abs(d[i + 2] - d[j + 2]));
   const R = ${JSON.stringify(RIM)}, L = ${JSON.stringify(LOBE)}, px = (v) => Math.round(v * k);
@@ -46,8 +48,6 @@ const measure = (dpr) => ev(`(() => {
   }
   return { rim, streaks, w: c.width, h: c.height };
 })()`);
-// whether the left pane's pixels are those of the read before (a hash of them, kept on the page): true once still
-const SAME = `(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + 7 * d[i + 1] + 13 * d[i + 2]) | 0; const same = window.__rimHash === h; window.__rimHash = h; return same; })()`;
 if (ex >= 0) {
   for (const dpr of [1, 2]) {
     await send('Emulation.setDeviceMetricsOverride', { width: 1200, height: 800, deviceScaleFactor: dpr, mobile: false });
@@ -61,10 +61,8 @@ if (ex >= 0) {
     await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', park: 0.25, T: 1 })}); 1`);
     await settled({ max: 30000, until: '__cmwSvFixed()' });
     const fixed = await ev('__cmwSvFixed()');
-    await ev('window.__rimHash = null, 1');
-    await settled({ max: 30000, until: SAME });
-    const st = await ev(SAME);
-    const m = await measure(dpr);
+    const st = await grab('rim');
+    const m = await measure();
     info[`dpr ${dpr}`] = m;
     ok(`dpr ${dpr}: the fix-up landed and the pane settled`, fixed && st, { fixed, st });
     ok(`dpr ${dpr}: the pane is drawn at that dpr`, m.w >= 860 * dpr, m);
