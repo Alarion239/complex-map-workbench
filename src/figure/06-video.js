@@ -100,8 +100,10 @@
     const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo;
     // the window is the still figure's, so the first frame frames the picture the PNG of the first plane does
     const still = await build({ svPic: 'shown' }), key = A.svKey && A.hue ? ringCanvas(H) : null;
+    // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
+    const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(still && still.box ? still.box : A.svBox(), W / H), times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -199,6 +201,9 @@
     }
     return tw;
   };
+  // the width of the column the glide's key stands in, at the right of the picture: the ring and its labels, the strip
+  // and the words under it (all in units of the text size, 0.028 of the frame's height), and a margin
+  const keyColumn = (H) => { const fs = Math.round(0.028 * H); return Math.ceil(Math.max(2 * Math.round(0.07 * H), 5.2 * fs) + 2.4 * fs + 0.03 * H); };
   // the width of such parts at size fs
   const vWidth = (ctx, parts, fs) => { const fam = '"Latin Modern Roman", "CMU Serif", "Times New Roman", serif'; return parts.reduce((a, [t, it, sub]) => { ctx.font = `${it ? 'italic ' : ''}${sub ? Math.round(0.7 * fs) : fs}px ${fam}`; return a + ctx.measureText(t).width; }, 0); };
   // the glide's chrome, the same on every frame but for its words: the plane's name as the axis title and the pane's key
@@ -209,11 +214,10 @@
     if (!k) return;
     // (a plane's name, "w₂": an italic letter and a subscript)
     const parts = (nm) => [...String(nm).matchAll(/([A-Za-z])([₀-₉]*)|([^A-Za-z₀-₉]+)/g)].flatMap((m) => (m[3] ? [[m[3], false]] : [[m[1], true], ...(m[2] ? [[[...m[2]].map((c) => '₀₁₂₃₄₅₆₇₈₉'.indexOf(c)).join(''), false, 'sub']] : [])]));
-    // (spacings in units of the text size fs: the title row, the gap under the ring's labels, the strip and its words)
-    const n = plan.key.width, cx = W - 0.05 * H - Math.max(n / 2, 2.6 * fs), top = 0.03 * H;
-    const rows = k.plain ? 4.4 : 7.4, bh = top + 2 * fs + n + rows * fs, bw = Math.max(n, 5.2 * fs) + 2.4 * fs;
-    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(cx - bw / 2, 0, bw, bh + 0.5 * fs);
-    vText(ctx, parts(k.title), cx + bw / 2 - 0.4 * fs, top + 1.1 * fs, fs * 1.1, 'right');
+    // (every offset below is a multiple of fs, the text size: the title's baseline 1.1 fs from the top, the ring 2.6 fs under it,
+    // each row of words about a line, 1.0 to 1.3 fs, below the one above, the strip 0.5 fs tall)
+    const n = plan.key.width, col = keyColumn(H), cx = W - col / 2, top = 0.03 * H, bw = col - 0.03 * H;
+    vText(ctx, parts(k.title), cx + bw / 2, top + 1.1 * fs, fs * 1.1, 'right');
     const ry = top + 2.3 * fs + 0.3 * fs, cy = ry + n / 2;
     ctx.drawImage(plan.key, cx - n / 2, ry);
     vText(ctx, [['1', false]], cx + n / 2 + 0.25 * fs, cy + 0.35 * fs, fs, 'left');
@@ -244,7 +248,8 @@
   }
   // one frame of the video at time t, drawn into the 2D context ctx (W x H device px)
   async function videoFrame(plan, t, ctx) {
-    const { o, v, kind, side, W, H, dpr } = plan, st = A.state();
+    // (W: the picture's width, the frame's but for the glide's key column at the right; Wf: the frame's)
+    const { o, v, kind, side, H, dpr } = plan, W = plan.picW || plan.W, Wf = plan.W, st = A.state();
     const look = v.look === 'print' ? 'print' : 'light';
     const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'globe' || kind === 'phaseGlobe' };
     let r;
@@ -257,7 +262,7 @@
     if (!r) return false;
     const s0 = performance.now();
     ctx.save();
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, Wf, H);
     // (a globe or a relief: the crop of the pane's picture that holds what the frames draw)
     const cr = plan.crop || [0, 1, 0, 1], sx0 = cr[0] * r.cv.width, sy0 = cr[2] * r.cv.height, sw = (cr[1] - cr[0]) * r.cv.width, sh = (cr[3] - cr[2]) * r.cv.height;
     ctx.drawImage(r.cv, sx0, sy0, sw, sh, 0, 0, W, H);
@@ -272,11 +277,13 @@
     const fs = Math.round(0.028 * H);
     // (editor-6) the print look's axes, and tick numbers in both looks: the window is fixed, so they are too
     if (plan.box) {
+      // (the readout at the bottom left keeps its place: an axis number that would run through it is left out)
+      const labW = kind === 'glide' && v.tlabel ? vWidth(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.04 * H)) + 0.035 * H : 0;
       const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), dec = XD.decimals(step);
       const ox = Math.min(Math.max(P(C(0, 0))[0], 0), W), oy = Math.min(Math.max(P(C(0, 0))[1], 0), H);
       if (look === 'print') { line([[0, oy], [W, oy]], '#555555', 1.2 * lw); line([[ox, 0], [ox, H]], '#555555', 1.2 * lw); }
       const num = (x) => { const s2 = (Math.abs(x) < 1e-12 ? 0 : x).toFixed(dec); return (I18 ? I18.num(s2) : s2).replace(/^-/, '−'); };
-      for (const x of XD.ticks(b.x0, b.x1, step)) { if (Math.abs(x) < 1e-12) continue; const px = P(C(x, 0))[0]; if (px < 0.04 * W || px > 0.96 * W) continue; line([[px, oy - 4 * lw], [px, oy + 4 * lw]], '#333333', 1.2 * lw); vText(ctx, [[num(x), false]], px, Math.min(H - 0.02 * H, oy + fs * 1.15), fs, 'center'); }
+      for (const x of XD.ticks(b.x0, b.x1, step)) { if (Math.abs(x) < 1e-12) continue; const px = P(C(x, 0))[0]; if (px < 0.04 * W || px > 0.96 * W) continue; line([[px, oy - 4 * lw], [px, oy + 4 * lw]], '#333333', 1.2 * lw); if (!(oy + fs * 1.15 > H - 0.1 * H && px < labW + fs)) vText(ctx, [[num(x), false]], px, Math.min(H - 0.02 * H, oy + fs * 1.15), fs, 'center'); }
       for (const y of XD.ticks(b.y0, b.y1, step)) { if (Math.abs(y) < 1e-12) continue; const py = P(C(0, y))[1]; if (py < 0.06 * H || py > 0.9 * H) continue; line([[ox - 4 * lw, py], [ox + 4 * lw, py]], '#333333', 1.2 * lw); vText(ctx, [[num(y), false]], Math.max(fs * 2.2, ox - 0.4 * fs), py + 0.35 * fs, fs, 'right'); }
     }
     // print look on a plane: the boundaries as vectors (the art layer draws fills only); X's boundary as a thin gray
@@ -537,7 +544,7 @@
     c2.getContext('2d').drawImage(big, 0, 0, w, h);
     const a = x1.getImageData(0, 0, w, h).data, b = c2.getContext('2d').getImageData(0, 0, w, h).data;
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
-    return { t: typeof e === 'number' ? e : e.a, mad: s / (w * h * 3), decoded: c1.toDataURL('image/png'), exact: c2.toDataURL('image/png') };
+    return { t: typeof e === 'number' ? e : e.a, pic: (L.plan.picW || L.plan.W) / L.plan.W, mad: s / (w * h * 3), decoded: c1.toDataURL('image/png'), exact: c2.toDataURL('image/png') };
   }
   // (tests, export review r3, editor-5) the last video's window and the screen's, and a frame at the screen's t drawn by
   // the video's code at the pane's size, for a pixel comparison with a capture of the pane

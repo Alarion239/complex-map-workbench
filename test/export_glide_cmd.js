@@ -53,8 +53,10 @@ for (const exN of [1, 18]) {
     // the frame's window: f.box widened about its centre to 16:9
     const b = f.box, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
     let bw = b.x1 - b.x0, bh = b.y1 - b.y0;
-    if (bw / bh > 16 / 9) bh = bw * 9 / 16; else bw = bh * 16 / 9;
-    const sx = dv.width / bw, sy = dv.height / bh;
+    // (the picture is the frame but for the key's column at the right: chk.pic of its width)
+    const asp = chk.pic * 16 / 9;
+    if (bw / bh > asp) bh = bw / asp; else bw = bh * asp;
+    const sx = chk.pic * dv.width / bw, sy = dv.height / bh;
     const vid = document.createElement('canvas'); vid.width = w; vid.height = h;
     vid.getContext('2d').drawImage(dv, (b.x0 - (cx - bw / 2)) * sx, ((cy + bh / 2) - b.y1) * sy, (b.x1 - b.x0) * sx, (b.y1 - b.y0) * sy, 0, 0, w, h);
     const a = vid.getContext('2d').getImageData(0, 0, w, h).data, c = still.getContext('2d').getImageData(0, 0, w, h).data;
@@ -87,22 +89,30 @@ for (const exN of [1, 18]) {
   ok(`${tag}: a frame at x = 0.5 matches the screen parked there`, s && s.mad < 14 && Math.abs(s.x - 0.5) < 1e-6, s);
 }
 // the dialog: Video is listed, with where it goes and how long it is
-// the key the still and the video draw is the pane's own: on every plane of the chain, at rest and either side of the midpoint
-// between two planes, svKey's words are those of the pane's key (the caption, or the line saying where the colour is carried from)
+// the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane
+// (its key caption, or the line saying where the colour is carried from, and its title's plane), then svKey is read from
+// plane 0 at each plane and either side of each midpoint between two (the words change at the midpoint)
 await open(1, 'plane');
 const nPl = await ev('__cmwSteps().planes.length');
 let carriedSeen = 0;
 // (T at the last plane, where each plane is coloured by its own map, and T = 0, where the later planes carry z's colour)
 for (const T of ['null', 0]) {
-  if (T !== 'null') { await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: 0, now: true }), 1)`); await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 1200 }); info.T = await ev('__cmwSteps().T'); }
-  for (const x of [0, 0.4, 0.6, 1, 1.4, 1.6, nPl - 1]) {
-    await ev(`(${Number.isInteger(x) ? `__cmwSteps({ go: ${x}, now: true })` : `__cmwSteps({ x: ${x} })`}, 1)`);
-    await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 600 });
-    const kk = JSON.parse(await ev(`JSON.stringify({ pane: __cmwLegend().caption, k: __cmwFig.svKey(${x}) })`));
-    const want = kk.k && (kk.k.carried ? kk.k.carried.text : kk.k.caption);
-    if (kk.k && kk.k.carried) carriedSeen++;
-    info[`key T ${T} at ${x}`] = kk;
-    ok(`T ${T}, thread position ${x}: the figure's key words are the pane's key (${kk.pane})`, !!kk.pane && kk.pane === want, kk);
+  if (T !== 'null') await ev(`(__cmwSteps({ T: ${T} }), 1)`);
+  const pane = [];
+  for (let i = 0; i < nPl; i++) {
+    await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
+    await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 800 });
+    pane.push(JSON.parse(await ev(`JSON.stringify({ cap: __cmwLegend().caption, title: __cmwSteps().names.title.name.replace(/<\\/?i>/g, '').replace(/<sub>(\\d+)<\\/sub>/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[c]).join('')) })`)));
+  }
+  await ev(`(__cmwSteps({ go: 0, now: true }), 1)`);
+  await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 800 });
+  for (let i = 0; i < nPl; i++) for (const [dx, at] of [[0, i], [0.4, i], [-0.4, i], [0.6, i + 1], [-0.6, i - 1]]) {
+    const x = i + dx, want = pane[Math.max(0, Math.min(nPl - 1, at))];
+    if (x < 0 || x > nPl - 1) continue;
+    const k = JSON.parse(await ev(`JSON.stringify(__cmwFig.svKey(${x}))`));
+    if (k.carried) carriedSeen++;
+    info[`key T ${T} at ${x}`] = { k, want };
+    ok(`T ${T}, thread position ${x}: the key's words are the pane's at plane ${at}`, (k.carried ? k.carried.text : k.caption) === want.cap && k.title === want.title, { k, want });
   }
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
