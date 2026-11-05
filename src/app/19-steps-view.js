@@ -2636,6 +2636,134 @@
     };
     for (const type of ['pointerup', 'click', 'mouseup']) pop.addEventListener(type, eat, true);
   }
+  // (#437: stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
+  function stepMenuItems(anchor, k, opt) {
+    const st = S.steps[k - 1], d = defOf(st);
+    // (D1, issue #23: Replace… first: the palette, ready to replace this step)
+    const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
+    // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
+    if (opt && opt.full) {
+      const b0 = built[k - 1];
+      if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
+      items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
+    }
+    items.push(
+      // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
+      // none on a touch screen)
+      { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
+      { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
+      { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
+      { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
+      { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
+    // (v16: which steps the deformation deforms, SPEC 6.5)
+    if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
+    // ([issue #6] Repeat × N)
+    if (!isDerivStep(st, built[k - 1])) {
+      const rk = repeatItems(k);
+      // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
+      if (opt && opt.thread && rk.length === 1) items.push({ id: 'repeat', label: $t('Repeat…'), run: rk[0].run });
+      else if (opt && opt.thread && repeatOf(k)) items.push({ id: 'repeat', label: rk[0].label, run: rk[0].run }, { id: 'repeatEnd', label: rk[1].label, run: rk[1].run });
+      else if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk });
+    }
+    if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
+    const bk = built[k - 1];
+    // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
+    if (st.type === 'custom') {
+      const sp = Funcs.splitSteps(st, bk), no = sp.kind === 'none' || !!sp.blocked;
+      items.push({ label: sp.kind === 'one' ? $t('Replace with “{name}”', { name: Funcs.DEFS[sp.steps[0].type].label }) : $t('Split into steps'), disabled: no, tip: no ? Funcs.splitReason(sp) : null, run: () => splitStep(k) });
+    }
+    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
+    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
+    if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
+    items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
+    return items;
+  }
+  function repeatField(getK) {
+    const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
+    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+    let settle = 0, typedFor = null;
+    const apply = () => {
+      clearTimeout(settle);
+      const t = inp.value.trim(), st = typedFor || S.steps[getK() - 1];
+      typedFor = null;
+      if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
+      const rp = repeatFromText(st, t);
+      if (!rp) return;
+      st.repeat = rp;
+      chainChanged(false);
+      repeatMoved(S.steps.indexOf(st) + 1, rp);
+    };
+    // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
+    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, 400); });
+    inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
+    inp.addEventListener('blur', () => { delete inp.dataset.typing; });
+    // (the arrow keys step a typed N, as a number field does)
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      delete inp.dataset.typing; clearTimeout(settle);
+      repeatStep(getK(), e.key === 'ArrowUp' ? 1 : -1);
+    });
+    repFields.push({ inp, getK });
+    return inp;
+  }
+  // v15.2 (notes/formula-steps/DESIGN.md 7): a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
+  // same function, so the planes do not change; one commit, undone by Undo
+  function splitStep(k) {
+    const st = S.steps[k - 1], b = built[k - 1];
+    const sp = st && st.type === 'custom' ? Funcs.splitSteps(st, b) : null;
+    if (!sp || sp.kind === 'none' || sp.blocked) { sndError(); toast(Funcs.splitReason(sp).replace(/\.?$/, '.')); return null; }
+    const news = sp.steps.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: st.on !== false }));
+    const n = news.length;
+    // the deformation (open on the whole chain): the formula's unit [j, j+1) becomes [j, j+n), its own sub-steps
+    let T1 = null;
+    // (all at once: one t for every step, kept as it is; the movie runs the new steps together)
+    if (morph.open && S.focus === 0) { const j = morphRange().steps.indexOf(k); T1 = S.homAll ? morph.T : j >= 0 ? Funcs.splitMorphT(morph.T, j, n) : morph.T; }
+    // the formula shown alone (the palette's flow focuses a new step): the first new step alone is only part of it. With
+    // no other step, F is the formula: show F, so the planes stay the same; otherwise the toast says what is shown
+    // (review steps-1)
+    const alone = S.focus === k, only = S.steps.length === 1;
+    // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
+    const hr = S.homRange ? HR.resolve(S, true) : null;
+    spliceSteps(k - 1, 1, ...news);
+    if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
+    if (S.focus > k) setFocusStep(S.focus + n - 1);
+    else if (alone && only) setFocusStep(0);
+    chainChanged(true);
+    setFocus(S.focus);
+    setSel(k);
+    if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
+    syncSel();
+    commit();
+    soundCue('stepAdd');
+    tourEmit('formula-split', { k, n });
+    bornCards(k, n);
+    requestRender('P');
+    const shown = alone && !only && n > 1 ? ' ' + (document.documentElement.classList.contains('ph') ? $t('Showing f{k} alone.', { k: sub(k) }) : $t('Showing f{k} alone; › shows the next step.', { k: sub(k) })) : '';
+    undoToast((n === 1 ? $t('f{k} is now the step “{name}”.', { k: sub(k), name: Funcs.DEFS[news[0].type].label })
+      : $t('Split f{k} into f{k}–f{k2}: {chain}.', { k: sub(k), k2: sub(k + n - 1), chain: sp.names.join(' → ') })) + shown);
+    // (the card, focusable, for the ⋯ menu's focus; true while the chain is still to be drawn; null is a refusal)
+    return document.querySelector(`#pipeline .card[data-k="${k}"]`) || true;
+  }
+  function setMorphPaths(on) {
+    if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
+    setOpt('morphPaths', !!on);
+    const b = $('pathsBtn');
+    if (b) syncPathsBtn(b, !!on, b.disabled);
+    requestRender('R'); drawLegend(); save();
+    tourEmit('paths-toggled', { on: !!on });
+  }
+  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
+  function setHomAll(all) {
+    const before = morphLen();
+    setOpt('homAll', !!all);
+    const after = morphLen();
+    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
+    else if (!morph.open) morph.T = after;
+    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
+    tourEmit('order-changed', { all: !!S.homAll });
+  }
   function svStepMenu(anchor, k, lp) {
     if (!S.steps[k - 1]) return null;
     const now = performance.now();

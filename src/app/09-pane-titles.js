@@ -898,24 +898,6 @@
     const desc = noPaths ? tip : '';
     if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
   }
-  function setMorphPaths(on) {
-    if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
-    setOpt('morphPaths', !!on);
-    const b = $('pathsBtn');
-    if (b) syncPathsBtn(b, !!on, b.disabled);
-    requestRender('R'); drawLegend(); save();
-    tourEmit('paths-toggled', { on: !!on });
-  }
-  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
-  function setHomAll(all) {
-    const before = morphLen();
-    setOpt('homAll', !!all);
-    const after = morphLen();
-    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
-    else if (!morph.open) morph.T = after;
-    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
-    tourEmit('order-changed', { all: !!S.homAll });
-  }
   const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
   function tipEq(f) { const l = f.querySelector('label.check:has(> input[id^="eqChk"])'); if (l) l.dataset.tip = $t('Equatorial plane and projection ray'); }
