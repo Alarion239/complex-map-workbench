@@ -14,6 +14,7 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const { hold, grab, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 await view(1440, 900, false, false);
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
@@ -42,4 +43,22 @@ info.cHeld = await cover();
 ok('held at 1.9998: the carried frame covers its block (but plane w₁ past its box, #971)', !!info.cHeld && info.cHeld.bare === 0, info.cHeld);
 info.gHeld = await cover(false);
 ok('held at 1.9998: the box grid alone leaves points bare', !!info.gHeld && info.gHeld.bare > 0, info.gHeld);
+// mid-glide (u = 0.5): the frame held there has no holes. Its reference is the exact picture at u (plane w₁'s parked
+// frame through the glide map's inverse, refOf in held_frames.js: steps_glide_look_cmd.js's check, with its constants:
+// a pixel more than 3/255 from the exact picture is a difference, at most 0.5 % of the compared pixels may differ). A
+// hole is background where the picture has surface, so it is such a difference.
+const MID_U = 0.5, MID_TOL = 3, MID_SAME = 0.005, MID_MIN = 1000;
+await rest(0);
+info.refR0 = await grab('poleR0');
+ok('u = 0.5: plane w₁ parked frame settles', info.refR0 === true, info.refR0);
+const midHeld = (await hold(MID_U)).ok, midStill = await grab('poleM05');
+ok('u = 0.5: the moving frame settles', midStill === true, { midHeld, midStill });
+info.surf = await ev(`(() => ['poleR0', 'poleM05'].map((t) => { const P = window.__heldPx[t]; let n = 0, s = 0;
+  for (let i = 0; P && i < P.length; i += 4) { n++; if (Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > 16) s++; }
+  return +(s / Math.max(1, n)).toFixed(4); }))()`);
+ok('u = 0.5: both frames show a surface (> 3 % of the pane)', info.surf[0] > 0.03 && info.surf[1] > 0.03, info.surf);
+info.mid = await refOf('poleR0', 'poleM05', MID_TOL, 10);
+await ev('window.__svScrubUp && window.__svScrubUp(), 1');
+await rest(0);
+ok('u = 0.5: no holes (the moving frame is the exact picture at u: at most 0.5 % of the compared pixels > 3/255 apart)', !!info.mid && !!info.mid.ref && info.mid.ref.n >= MID_MIN && info.mid.ref.over <= MID_SAME, info.mid);
 return { pass: fails.length === 0, fails, info };
