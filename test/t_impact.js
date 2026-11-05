@@ -112,7 +112,7 @@ ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/p
 for (const [f, id] of [['pin_view_cmd.js', 'misc-1'], ['repeat_cmd.js', 'misc-2'], ['kit_ev_cmd.js', 'misc-3']]) ok(`T1: ${f} -> ${id}`, same(select([`test/${f}`]).browser, [id, 'smoke']), select([`test/${f}`]).browser);
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
-ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_deform_cmd.js']).browser, ['export-2', 'export-3', 'export-4', 'smoke']));
+ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_deform_classic_cmd.js']).browser, ['export-2', 'export-3', 'export-4', 'smoke']));
 for (const f of ['ci/browser.js', '.github/workflows/gate.yml', 'test/cdp_kit/cdpd.js', 'ci/impact.js']) {
   const p = select([f]);
   ok(`T1: ${f} -> the smoke shard (the harness)`, p.tier === 'T1' && same(p.browser, ['smoke']), p);
