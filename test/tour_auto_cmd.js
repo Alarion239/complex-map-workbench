@@ -37,7 +37,7 @@ const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max)
 // A blocked main thread also fires the countdown's timer late, by up to the blocked time: the page's long tasks (PerformanceObserver,
 // buffered) are summed over the wait, so the advance may be late by what was blocked and never early
 const ltInstall = () => ev(`(() => { if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } } return !!window.__lt; })()`);
-const doneAt = async (t0, max = 6000) => { await ltInstall(); while (Date.now() - t0 < max) { const L = await ev('(() => { const l = Tour.lit(); return l && l.done ? { left: l.countdown && l.countdown.left, p: performance.now() } : null; })()'); if (L) return { t: Date.now(), p: L.p, left: L.left, after: Date.now() - t0 }; await sleep(15); } return null; };
+const doneAt = async (t0, max = 6000) => { await ltInstall(); while (Date.now() - t0 < max) { const L = await ev('(() => { const l = Tour.lit(); return l && l.done && l.countdown && l.countdown.left != null ? { left: l.countdown.left, p: performance.now() } : null; })()'); if (L) return { t: Date.now(), p: L.p, left: L.left, after: Date.now() - t0 }; await sleep(15); } return null; };
 const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
 // the advance from a doneAt: the countdown's timer is due `left` ms after the poll. It fires at the end of any long task that covers
 // that moment (a blocked main thread runs it late, never early), and the advance's own work (a chapter change) is a long task that
@@ -426,8 +426,10 @@ const sa = await center('.ts-act');
 check('RU Grieg: the strip shows Stop while it plays', !!sa, await lit());
 if (!sa) throw new Error('no Stop button on the phone strip');
 await tap(sa[0], sa[1]); t0 = Date.now();
-at = await advancedAt('sound/song', t0, 6000);
-check(`RU Grieg: stopped at ${(stopAt / 1000).toFixed(1)} s counts: +CD_MS`, near(at, CDMS, 600), [at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
+const dG = await doneAt(t0);
+const aG = await advanceFrom('sound/song', dG, 600);
+at = aG.at;
+check(`RU Grieg: stopped at ${(stopAt / 1000).toFixed(1)} s counts: +CD_MS (late only as far as the page was blocked)`, aG.ok, [aG, dG, at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
 await settle(1500);
 check('RU strings: on the strings step, with its Russian task', (await cur()) === 'sound/strings' && /Удерживайте палец/.test(await ev(`document.querySelector('#tourLead').textContent`)), await ev(`document.querySelector('#tourLead').textContent`));
 const rs = await center('.ts-act');
