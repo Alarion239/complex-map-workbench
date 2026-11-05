@@ -32,6 +32,7 @@ uniform int uKsat; uniform int uKall;
 uniform int uIxTail;
 uniform highp sampler2D uPts; uniform int uShOff; uniform ivec4 uShape; uniform vec4 uShA; uniform vec4 uShB; uniform vec4 uShC;
 uniform int uFormSlot;
+#ifdef IX_STAGED
 // uShStage > 0 (programs with IX_STAGED: the carried one for the shapes of later planes): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
 uniform int uShStage;
 // uEdgeOnly = 1: the pass draws the shape's boundary band alone, not its fill: alpha uEdgeA over the pixels within uEdgeW
@@ -40,6 +41,7 @@ uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
 float ixEdge;
+#endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
@@ -696,7 +698,10 @@ ${globe ? `  vec3 P = normalize(vP);
   vec2 w = uCenter + (f * uInvScale + uCenterLo);
   ixDwX = vec2(uInvScale.x, 0.0); ixDwY = vec2(0.0, uInvScale.y);
   ixPix = uInvScale.x;`}
-  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0); ixEdge = 0.0;
+  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+#ifdef IX_STAGED
+  ixEdge = 0.0;
+#endif
   invWalk(w);
 ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}  float T = 1.0;
   vec3 C = vec3(0.0);
