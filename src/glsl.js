@@ -2170,6 +2170,10 @@ void ixAncTan(vec2 w) {
   const IX_OPS_MAX = 16;
   // the NEWT roots pass's mark of a target entry with no root
   const IX_NR_NONE = '3.0e38';
+  // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
+  // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
+  // its step is within NEWT_STEP_TOL (1 + |z|))
+  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
   // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at grid stage ks
@@ -2212,7 +2216,7 @@ bool ${P}_m0(vec2 w, float t, out vec2 u) {
 ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
   if (uNrRead == 1 && w == ixPixW) {
     u = texelFetch(uNrTex0, ixNrTexel, 0).zw;
-    if (!(abs(u.x) < 1e37)) return false;
+    if (!(abs(u.x) < ${NEWT_FINITE})) return false;
     if (${P}_hit(u, w, t)) return true;
   }
 #endif
@@ -2257,7 +2261,7 @@ void ${P}_roots(vec2 w, float t) {
     bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
     okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
-    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= 1e-3 * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
   }
 }
@@ -2282,10 +2286,6 @@ bool ${P}_one_b(inout Lf L, int b) {
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
   // own w, and finds them itself elsewhere and where a root read misses w
-  // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
-  // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
-  // its step is within NEWT_STEP_TOL (1 + |z|))
-  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
   function newtPolyFns(o, j, c, D, H, rd) {
     const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
     const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
@@ -2429,7 +2429,7 @@ void main() {
   if (uNrPrevOn == 1) {
     vec2 up = texelFetch(uNrPrev0, ixNrTexel, 0).xy;
     int kp = int(texelFetch(uNrPrev1, ixNrTexel, 0).x);
-    if (abs(up.x) < 1e37 && kp >= 0 && kp <= k0) { u = up; ks = kp; }
+    if (abs(up.x) < ${NEWT_FINITE} && kp >= 0 && kp <= k0) { u = up; ks = kp; }
   }
 #endif
   bool ok = ${P}_walkg(w, t, ks, u, ug);
@@ -2484,7 +2484,7 @@ bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
     v -= cinv(g);
     if (!ixFin(v)) return false;
   }
-  return ${P}_hit(v, w, t) && cx_abs(v - u) > 1e-3 * (1.0 + cx_abs(u));
+  return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? 2 : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
@@ -2497,8 +2497,8 @@ ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS) && IX_NR_N >= 2
   // (the pass's member 1, deflated from the same member 0: read where it hits w and is not member 0)
   if (uNrRead == 1 && w == ixPixW) {
     v = texelFetch(uNrTex1, ixNrTexel, 0).zw;
-    got = !(abs(v.x) < 1e37) || (${P}_hit(v, w, t) && cx_abs(v - u) > 1e-3 * (1.0 + cx_abs(u)));
-    ok = abs(v.x) < 1e37;
+    got = !(abs(v.x) < ${NEWT_FINITE}) || (${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u)));
+    ok = abs(v.x) < ${NEWT_FINITE};
   }
 #endif
 ` : ''}  if (!got) ok = ${P}_defl(w, t, u, v);

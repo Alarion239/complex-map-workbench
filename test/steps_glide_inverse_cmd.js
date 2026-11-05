@@ -104,7 +104,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
   await ev(`__cmwSteps({ scope: 'in' }), 1`);
-  await ev('await new Promise((r) => setTimeout(r, 3000)), 1');
+  await settled({ max: 60000, until: 'GLR.pendingLinks === 0 && !__cmwSteps().anim' });
   // (each newtRoots call: its answer and the getParameter calls made inside it)
   await ev(`(() => { const n = GLR.newtRoots, P = WebGL2RenderingContext.prototype, g = P.getParameter, L = window.__nrLog = []; let k = -1; P.getParameter = function () { if (k >= 0) k++; return g.apply(this, arguments); }; GLR.newtRoots = function () { k = 0; try { const r = n.apply(this, arguments); L.push([r.state, k]); return r; } finally { k = -1; } }; return 1; })()`);
   for (const x of [0.5, 0.55, 0.6]) await at(x, 'inverse');
