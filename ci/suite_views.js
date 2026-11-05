@@ -27,6 +27,7 @@ const VIEWS = {
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
+  'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
   'phone_edit_head_cmd.js': steps(),
