@@ -1631,10 +1631,13 @@ const Inverse = (() => {
       return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
     }
     // Joukowski (Funcs joukHom): C^-1((Cz)^(1+t)), C(z) = (z - 1)/(z + 1), on the branch arg Cz in (-pi/2, 3pi/2]; as the
-    // principal power of -i Cz, (Cz)^s = e^(i pi s / 2) (-i Cz)^s with s = 1 + t
+    // principal power of -i Cz, (Cz)^s = e^(i pi s / 2) (-i Cz)^s with s = 1 + t. Its ROOTPOW carries glideKey: the
+    // chain's poles are the Cayley map's, not the homotopy's, so a glide frame keys its points by the glide's key
+    // points (invHomPath's singAt), as for a NEWT op
     if (nat && nat.kind === 'jouk') {
       const sv = C(1 + t, 0), k = C(Math.cos(HPI * (1 + t)), Math.sin(HPI * (1 + t))), mI = C(0, -1);
-      return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), opMob([k, ONE, neg(k), ONE])] };
+      const rp = Object.assign(opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), { glideKey: true });
+      return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), rp, opMob([k, ONE, neg(k), ONE])] };
     }
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
