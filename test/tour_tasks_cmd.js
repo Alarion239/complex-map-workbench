@@ -8,6 +8,8 @@ const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = async () => { const c = await ev('Tour.current()'); return c ? c.chapter + '/' + c.id : null; };
 const lit = () => ev('Tour.lit()');
+// (typeset maths reads w1 where the plain-text fallback reads w₁: a line is compared with its subscripts as digits)
+const flat = (t) => t.replace(/[₀-₉]/g, (c) => String(c.charCodeAt(0) - 0x2080)).replace(/\s+/g, ' ').trim();
 logs();
 const open = async (ns, w, h, dark, mobile, lang) => {
   await view(w, h, dark, mobile);
@@ -35,7 +37,7 @@ const task = async (id, text, fn, ready) => {
     // (a step's scene can take a few seconds to load on a software renderer: the input waits for what it acts on)
     if (ready) { check(`${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settle(2500); }
     const a = await l2();
-    check(`${id}: the task line is "${text}"`, a && a.text.replace(/\s+/g, ' ').trim().endsWith(text) && !a.done, a);
+    check(`${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
     await sleep(1800);
     check(`${id}: nothing ticks without input`, !(await l2()).done);
     await fn();
@@ -140,7 +142,7 @@ const taskT = async (id, text, fn, ready) => {
     await goStep(id); await settle(2500);   // (a phone's scene takes longer to settle)
     if (ready) { check(`phone ${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settle(2500); }
     const a = await l2();
-    check(`phone ${id}: the task line is "${text}"`, a && a.text.replace(/\s+/g, ' ').trim().endsWith(text) && !a.done, a);
+    check(`phone ${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
     await sleep(1500);
     check(`phone ${id}: nothing ticks without input`, !(await l2()).done);
     await fn();
