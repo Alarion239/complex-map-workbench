@@ -39,7 +39,8 @@ for (const exN of [1, 18]) {
   // a parked frame against the screen at the same place
   const s = await ev(`await (async () => {
     __cmwSteps({ park: 0.5 });
-    await new Promise((r) => setTimeout(r, 600));
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    if (GLR.gpuDone) await GLR.gpuDone();
     const cvs = [...document.querySelectorAll('#plotL canvas')].map((e) => [e, e.getBoundingClientRect()]).sort((p, q) => q[1].width * q[1].height - p[1].width * p[1].height)[0];
     const w = 96, h = Math.max(8, Math.round(w * cvs[1].height / cvs[1].width));
     const a = document.createElement('canvas'); a.width = w; a.height = h; a.getContext('2d').drawImage(cvs[0], 0, 0, w, h);
@@ -54,7 +55,7 @@ for (const exN of [1, 18]) {
 }
 // the dialog: Video is listed, with where it goes and how long it is
 await open(1, 'plane');
-const d = await ev(`await (async () => { Figure.open(); await new Promise((r) => setTimeout(r, 1500)); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await new Promise((r) => setTimeout(r, 800)); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
+const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
 // the sphere: no silent 2D
 await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
