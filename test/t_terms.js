@@ -1,6 +1,6 @@
-// The one glossary (notes/i18n/TERMS.md, issue #35, UX28): a retired name of a thing must not come back into the UI's
+// The one glossary (notes/i18n/TERMS.md): a retired name of a thing must not come back into the UI's
 // sources. Counts each retired variant in the strings of src/ and page.html (comment lines and the generated tables
-// left out); since #35 part 3 every count is 0, and a retired name that comes back fails (it prints where).
+// left out); every count is 0, and a retired name that comes back fails (it prints where).
 //   node test/t_terms.js
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -9,7 +9,7 @@ const files = [path.join(ROOT, 'src', 'page.html'),
   ...fs.readdirSync(path.join(ROOT, 'src')).filter((f) => f.endsWith('.js') && !GENERATED.has(f)).map((f) => path.join(ROOT, 'src', f)),
   // (the split files' parts, src/<name>/: app, gl, figure, construct; test/src_text.js)
   ...require('./src_text').SPLIT.flatMap((f) => require('./src_text').parts(f) || [])];
-// retired variant -> [the term that replaces it, its pattern]
+// retired variant -> [the current term, its pattern]
 const RETIRED = {
   'Region tools': ['Draw (the left panel)', /\bRegion tools\b/g],
   'Add function or command': ['Add function', /Add function or command/g],

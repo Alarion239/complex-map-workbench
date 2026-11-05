@@ -2,7 +2,7 @@
 // node test/t_type_scale.js : the interface's type scale (#288): every font size in src/page.html, src/*.css and the scripts under src/ (CSS in their template strings, canvas fonts, style.fontSize; not the generated tables) is one of
 // 10 · 11 · 12 · 13 · 15 · 19 px (roles in :root, --t-*), a subscript or superscript is 0.75em, a percentage follows its surroundings, 0 hides text, and a size
 // set with calc() starts from a size on the scale. A size off the scale fails unless OFFSCALE lists it with the reason.
-// An entry that no longer matches anything fails too, so the list never keeps a reason for a rule that is gone.
+// An entry that matches nothing fails too, so the list never keeps a reason for a rule that is gone.
 const fs = require('fs');
 const path = require('path');
 const SRC = path.join(__dirname, '..', 'src');
@@ -60,7 +60,7 @@ for (const [css, want] of [
   ['ctx.font = `italic 500 14px ${TH.math}`;', 1], ['c.font = `10.5px ${th.mono}`;', 1], ['ctx.font = `600 11px ${TH.ui}`;', 0], ['el.style.fontSize = \'14px\';', 1], ['x = { fontSize: \'13px\' };', 0],
 ]) if (offScale(css).length !== want) fail(`the check read "${css}" as ${offScale(css).length} off the scale, wanted ${want}`);
 // page.html, the stylesheets, and every script under src/ except the generated tables (CSS in template strings, canvas fonts,
-// style.fontSize): a size no longer has to be in a stylesheet to be checked
+// style.fontSize): a size need not be in a stylesheet to be checked
 const GENERATED = new Set(['cyr.js', 'i18n_it.js', 'i18n_ru.js']);
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
 const files = walk(SRC).filter((f) => /\.(css|html|js)$/.test(f) && !GENERATED.has(path.basename(f)));

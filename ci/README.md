@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -369,6 +369,7 @@ node ci/quality.js --ref origin/main               # image quality, paired again
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
+node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
@@ -464,7 +465,7 @@ Settings (environment variables):
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
-| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |

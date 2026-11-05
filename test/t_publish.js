@@ -1,10 +1,10 @@
 'use strict';
 // The published page (dist/complex-map-workbench.html, what pages.yml deploys) is the test page without its test hooks:
 // build.py drops every block from "// TEMP-DEBUG-HOOK (removed before publishing)" to the next "// TEMP-DEBUG-HOOK".
-// A start marker that lost its end marker (a block moved out of app.js took the end with it, wave 3) drops everything
-// up to the next end marker, thousands of lines, and the published script no longer parses, while every other test
+// A start marker without its end marker (a block moved out of app.js with the end left behind) drops everything
+// up to the next end marker, thousands of lines, and the published script does not parse, while every other test
 // runs the test page and passes. This builds both pages and compiles each script of the published one (syntax only),
-// and checks that each dropped block is a hook: no longer than HOOK_MAX lines and holding no other start marker.
+// and checks that each dropped block is a hook: at most HOOK_MAX lines long and holding no other start marker.
 //   node test/t_publish.js
 const fs = require('fs'), path = require('path'), vm = require('vm'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');

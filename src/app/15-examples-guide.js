@@ -908,35 +908,47 @@
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
   // on the host) and when the layout changes.
+  // (the bar's height for the plane's keys lives in a stylesheet of its own, so that the root never carries a style attribute)
+  let liftSheet = null;
+  function toastLift(px) {
+    if (px == null && !liftSheet) return;
+    if (!liftSheet) { liftSheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, liftSheet]; }
+    liftSheet.replaceSync(px == null ? '' : ':root { --ph-toast-h: ' + px + 'px; }');
+  }
   function placeToasts() {
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
     // (D1, issue #23) Clear chain gives the chain head's room to a message placed there, and is back when it goes (the
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
-    // (#515, ux's choice A on the layout check: in the steps view a message takes only the thread's rail, whose planes and
-    // steps step aside while it shows; the < > and the speed stay live, and going on through the thread dismisses it)
-    const strip = $('svStrip'), stripAway = (on) => { if (strip) strip.classList.toggle('sv-toast', on); };
-    stripAway(false);
-    // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
-    if (document.documentElement.classList.contains('ph')) { clear(); return; }
-    if (!host.firstElementChild) return;
+    const phone = document.documentElement.classList.contains('ph');
+    if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
-    const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
-    // (the F chip and "+ Add function" beside the rail step aside with the planes, and the message takes their room too)
-    const aside = rail ? [strip.querySelector('.sv-wholemap'), strip.querySelector('.sv-add')].map(box).filter(Boolean) : [];
-    const room = rail ? Math.max(rail.right, ...aside.map((b) => b.right)) - rail.left : 0;
-    if (rail && rail.width >= 160 && host.children.length === 1) {
-      stripAway(true);
-      host.setAttribute('data-placed', 'rail');
-      st.left = Math.round(rail.left + room / 2) + 'px';
-      st.maxWidth = Math.round(room - 8) + 'px';
-      const tw = host.firstElementChild.getBoundingClientRect();
-      st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
+    // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip, as wide as the plot
+    // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
+    // the tool row, which the planes and the sheet give up)
+    if (phone) {
+      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
+      if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
+      host.setAttribute('data-placed', 'phone-plot');
+      st.bottom = Math.round(H0() - sb.top + 8) + 'px';
+      toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
+      return;
+    }
+    // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
+    // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it covers no control of the strip)
+    const plot = document.documentElement.classList.contains('sv') ? box($('plotL')) : null;
+    if (plot && plot.width >= 240) {
+      const sb = box($('svStrip')), floor = sb && sb.top > plot.top ? Math.min(plot.bottom, sb.top) : plot.bottom;
+      host.setAttribute('data-placed', 'plot');
+      st.left = Math.round(plot.left + plot.width / 2) + 'px';
+      st.maxWidth = Math.round(plot.width - 128) + 'px';
+      st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
     const chain = box(document.querySelector('.pipe-wrap'));
@@ -989,20 +1001,58 @@
     st.bottom = Math.round(H - top + 8) + 'px';
     st.maxWidth = Math.round(hi - lo) + 'px';
   }
+  // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
+  const TOAST_OUT_MS = 150;
+  function closeToast(t) {
+    if (!t.isConnected || t.classList.contains('toast-out')) return;
+    t.classList.add('toast-out');
+    setTimeout(() => t.remove(), TOAST_OUT_MS);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.repeat || document.querySelector('.modal-bg, #popHost > *, .hdr-menu:popover-open')) return;
+    const t = document.querySelector('#toastHost .toast:not(.toast-out)');
+    if (t) closeToast(/** @type {HTMLElement} */ (t));
+  });
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
-  // o.ms: how long an ordinary one stays)
+  // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
+  // message or the focus is in it)
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
     if (!host) return;
     host.innerHTML = '';
     const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
-    if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { t.remove(); action(); } }, actionLabel));
-    if (o && o.sticky) { t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => t.remove() })); host.append(t); return t; }
+    if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
+    // (a phone's timed message keeps its bar's room for the words; the phone dismisses it by a swipe down)
+    if ((o && o.sticky) || !document.documentElement.classList.contains('ph')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
     host.append(t);
-    let left = (o && o.ms) || 5000, t0 = performance.now(), timer = setTimeout(() => t.remove(), left);
-    t.addEventListener('pointerenter', () => { clearTimeout(timer); left -= performance.now() - t0; });
-    t.addEventListener('pointerleave', () => { t0 = performance.now(); timer = setTimeout(() => t.remove(), Math.max(800, left)); });
+    if (o && o.sticky) return t;
+    let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
+    const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
+    const hold = (d) => { held += d; if (held === 1 && d > 0) { clearTimeout(timer); left -= performance.now() - t0; } else if (held === 0) run(Math.max(800, left)); };
+    run(left);
+    // a touch that drags the message down dismisses it past 32 px, and lets it back otherwise
+    t.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || !e.isPrimary || /** @type {Element} */ (e.target).closest('button')) return;
+      const y0 = e.clientY, id = e.pointerId;
+      let dy = 0;
+      hold(1); t.setPointerCapture(id);
+      const move = (m) => { if (m.pointerId !== id) return; dy = Math.max(0, m.clientY - y0); t.style.setProperty('--drag', dy + 'px'); t.style.translate = '0 var(--drag)'; };
+      const end = (u) => {
+        if (u.pointerId !== id) return;
+        t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', end); t.removeEventListener('pointercancel', end);
+        t.style.removeProperty('translate');
+        hold(-1);
+        // (a drag is no press: the click that follows it does not reach the host's press-to-dismiss)
+        if (dy > 8) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), 100); }
+        if (u.type === 'pointerup' && dy >= 32) closeToast(t); else t.style.removeProperty('--drag');
+      };
+      t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+    });
+    t.addEventListener('pointerenter', () => hold(1));
+    t.addEventListener('pointerleave', () => hold(-1));
+    t.addEventListener('focusin', () => hold(1));
+    t.addEventListener('focusout', () => hold(-1));
     return t;
   }
   // what the examples and the guide (src/examples.js) need from the app: its functions and constants, and the state
