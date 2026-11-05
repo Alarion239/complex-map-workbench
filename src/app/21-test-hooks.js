@@ -316,6 +316,22 @@
     const globeHeads = mfGlobeDrawn ? mfGlobeDrawn.heads : 0, globeError = (mfGlobeDrawn && mfGlobeDrawn.error) || null;
     return { on: S.morphPaths !== false, src: src1, T: d ? d.T : null, heads, globeHeads, globeError, err, kept, ready, ahead: mfAhead.sel === mfCache.sel && !mfAhead.job ? mfAhead.done.size : 0 };
   };
+  // the steps view's paths figure without the typesetting: the paths chosen for the shown plane's step at a figure's size,
+  // and how far their ends are from the planes' images of their starts (the previous plane's, and the shown one's)
+  /** @type {any} */ (window).__cmwSvPaths = async () => {
+    const f = svPathsFig();
+    if (!f || f.i == null) return f;
+    const P = svPlanes(), box = paneBox(paneL, leftView()), w = 600, h = w * (box.y1 - box.y0) / (box.x1 - box.x0);
+    const r = await figMorphPaths({ src: f.src, z: f.z, end: f.end, box, w, h, lang: 'en' });
+    if (!r) return null;
+    const F0 = rangeF(0, P[f.i - 1]), F1 = rangeF(0, P[f.i]), Fa = f.Fat(0), Fb = f.Fat(1);
+    let e0 = 0, e1 = 0;
+    for (const k of r.kept) {
+      const z = C(k.z[0], k.z[1]), d = (a, b) => Math.hypot(a.re - b.re, a.im - b.im) / Math.max(1, Math.hypot(b.re, b.im));
+      e0 = Math.max(e0, d(Fa(z), F0(z))); e1 = Math.max(e1, d(Fb(z), F1(z)));
+    }
+    return { i: f.i, n: r.kept.length, e0, e1, sentence: r.sentenceTex, caption: r.captionTex };
+  };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone; clock: ms of glide time a frame, 0 the wall
   // clock); glide: the last glide frame's record (svGlideRec)
