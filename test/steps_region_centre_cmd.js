@@ -11,12 +11,12 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const TOL = 6, FRAC = 0.002;
 await view(1200, 800, false, false);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=regcentre${Date.now()}` }); await sleep(2300);
-for (let i = 0; i < 120 && !(await ev('typeof __cmwExample === "function" && typeof GLR === "object" && typeof Region === "object"').catch(() => false)); i++) await sleep(250);
+await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=regcentre${Date.now()}` });
+await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof GLR === "object" && typeof Region === "object"' });
 const CASES = typeof RC_CASES !== 'undefined' ? RC_CASES : [[1, 1], [5, 1], [8, 2], [26, 2]];
 for (const [ex, T] of CASES) {
   await ev(`__cmwExample(${ex}); 1`);
-  await sleep(1500);
+  await settled({ max: 30000 });
   const rr = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => {
     const W = 240, H = 160, v = { cx: 0.13, cy: -0.07, s: 40 }, R = 1.7;
     const st = { view: v, dpr: 1, style: 'enhanced', sectors: 12, grid: 0.5, plane: [0.99, 0.99, 0.99], ink: [0.07, 0.1, 0.12], dark: false };
