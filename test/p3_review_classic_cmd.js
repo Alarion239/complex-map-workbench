@@ -164,9 +164,6 @@ await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, dev
 ok('two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms', R.exp2long.every((r) => r.ok && r.long.every((d) => d <= 50) && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')), R.exp2long);
 ok('first switch to X Sphere at dpr 2: no main-thread task over 50 ms', R.xswitch.every((r) => r.long.every((d) => d <= 50)), R.xswitch);
 
-// (6., the Sphere checker swatch's tooltip, went with the region patterns' menu, #363: the spherical checker drawn
-// through the test hook above is the renderer's, which stays)
-
 R.logs = logs().filter((l) => /error|exception/i.test(l.t) && !/404/.test(l.m)).slice(0, 6);
 ok('no console errors', R.logs.length === 0, R.logs);
 return { pass: fails.length === 0, fails, results: R };
