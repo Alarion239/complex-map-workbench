@@ -1196,7 +1196,7 @@ void main() {
   const CARRY_VS = `
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale;
 uniform vec4 uCGrid; uniform ivec2 uN; uniform float uLim;
-centroid out vec2 vP;
+out vec2 vP;
 void main() {
   int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % uN.x, cell / uN.x);
@@ -1222,13 +1222,16 @@ void main() {
   // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh), turned back into the source point; PRE_VS writes it without centroid, and the two stages' qualifiers must
-  // match for the program to link. Otherwise vP is read at the centroid of the pixel's covered samples, so a pixel a
-  // triangle only partly covers takes its colour inside it; clip: REGION_VS's sheet option's vSide, a fragment past a
-  // cut its triangle's branch was continued across left out)
-  const CARRY_FS = (id, key = true, pre = false, clip = false) => `
+  // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
+  // triangle's branch was continued across left out)
+  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
+  // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
+  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
+  // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
+  // edge, the grid's identity)
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}${pre ? 'in' : 'centroid in'} vec2 vP;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
