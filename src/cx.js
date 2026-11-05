@@ -533,7 +533,20 @@ const CX = (() => {
   }
   let PT = { re: new Float64Array(0), im: new Float64Array(0) };
   /** @param {{re: number, im: number}} w @param {number} K */
+  const PTC = new Map(), PTS = { hit: 0, miss: 0 };
+  globalThis.__ptStats = PTS;
   function powTable(w, K) {
+    if (globalThis.__ptCache) {
+      const key = w.re + ',' + w.im + ',' + K, c = PTC.get(key);
+      if (c) { PTS.hit++; PTC.delete(key); PTC.set(key, c); return c; }
+      PTS.miss++;
+      const t = powTableRaw(w, K), c2 = { re: t.re.slice(0, K + 1), im: t.im.slice(0, K + 1) };
+      PTC.set(key, c2); if (PTC.size > 1024) PTC.delete(PTC.keys().next().value);
+      return c2;
+    }
+    return powTableRaw(w, K);
+  }
+  function powTableRaw(w, K) {
     if (PT.re.length <= K) PT = { re: new Float64Array(2 * K + 2), im: new Float64Array(2 * K + 2) };
     const P = spf(K), re = PT.re, im = PT.im;
     re[1] = 1; im[1] = 0;

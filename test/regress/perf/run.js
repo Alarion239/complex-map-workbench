@@ -1202,7 +1202,7 @@ function svAttrFrames(drawn, prev, snaps) {
 }
 // SV_PROF=1: a CPU profile (CDP Profiler) around each timed leg of sv.interact.*, its samples assigned to the rAF frames
 // they fall in (profile time mapped to page time at the stop): per frame the callback ms and the self ms by function
-const SV_PROF_ON = process.env.SV_PROF !== '0';
+const SV_PROF_ON = process.env.SV_PROF === '1';
 const SV_GLC_ON = process.env.SV_GLC === '1';
 const PROF_FR = [];
 async function svProfStart() { await B.send('Profiler.enable'); await B.send('Profiler.setSamplingInterval', { interval: 250 }); await B.send('Profiler.start'); }
@@ -2206,6 +2206,43 @@ unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide afte
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
 unit('sv.interact.zeta', 'the steps view (#366 K, on a GPU), the zeros of zeta, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('zeta'));
 unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('king'), { timeoutS: 420 });
+// probe (no gate): the zeta scene's Inside-regions strip scrub (as sv.interact.zeta) in three variants on one page each:
+// ctl (as is), nolabels (the label pass's microtask dropped), ptcache (CX's powTable memoised, __ptCache; hit/miss in the details)
+unit('sv.probe.zeta', 'probe: the zeta scene Inside-regions scrub, as is / labels off / powTable cached; cpu_p95 per variant (info)', async () => {
+  const VARS = ['ctl', 'nolabels', 'ptcache'], out = {};
+  for (const v of VARS) out[v] = [];
+  const stats = [];
+  for (let i = 0; i < REPS; i++) for (const v of VARS) {
+    await B.nav(`${BASE}test.html?ns=perfpz${process.pid}_${++nsCounter}&view=steps`);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    await B.ev(`__cmwExample(${exampleIndex('Zeros of the zeta function')}), 1`);
+    await settle(await pageNow());
+    if (v === 'nolabels') await B.ev(`(() => { const q = window.queueMicrotask.bind(window); window.queueMicrotask = (f) => { if (String(f).includes('flushLabels')) return; q(f); }; return 1; })()`);
+    if (v === 'ptcache') await B.ev('(globalThis.__ptCache = true, 1)');
+    await sleep(SV_IDLE_MS);
+    for (const to of [1, 0]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+    await settle(await pageNow());
+    await B.ev(`__cmwSteps({ scope: 'in', go: 0, now: true }), 1`);
+    await settle(await pageNow());
+    const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
+    const leg = async (fn) => { const a = await pageNow(); await fn(); const b = await pageNow(); const w = await windowStats(a, b); const st = await settle(b); return Object.assign(w, { settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now), a, b }); };
+    const r1 = await stripAt();
+    const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }));
+    const r2 = await stripAt();
+    const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }));
+    if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.probe.zeta ${v}: the scrub drew no frames`);
+    out[v].push(legSummary([l1, l2], 'pointermove'));
+    if (v === 'ptcache') stats.push(await B.ev('JSON.stringify(globalThis.__ptStats || {})'));
+  }
+  for (const v of VARS) {
+    putPooled(`sv.probe.zeta.${v}.cpu_p95_ms`, 'info', 'ms', out[v], 'cpu', 0.95, 'cpu_p95');
+    putPooled(`sv.probe.zeta.${v}.frame_p95_ms`, 'info', 'ms', out[v], 'frame', 0.95, 'frame_p95');
+    put(`sv.probe.zeta.${v}.fps`, 'info', 'frames/s', out[v].map((r) => r.fps));
+    log(`sv.probe.zeta ${v}: cpu_p95 per rep ${JSON.stringify(out[v].map((r) => r.cpu_p95))}, fps ${JSON.stringify(out[v].map((r) => r.fps))}`);
+  }
+  detail('sv.probe.zeta.ptcache.stats', stats);
+}, { timeoutS: 900 });
 unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
