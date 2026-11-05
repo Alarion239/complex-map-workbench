@@ -2023,6 +2023,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
   //   lib     uInv[] and the per-op uniforms, INV_LIB, and the per-op functions ixJ_* (no walker)
   //   walker  invWalk(w): the static loop nest over the full op list, outermost op first; gl.js places it after its
   //           INV_HEAD (which defines invLeaf, ixRangeAdd / ixRangeLog, ixStopAdd / ixStopLog, ixDK)
+  //   nr      the NEWT roots pass of the last NEWT op, {j, targets, main}: its op index, its RGBA32F targets and the
+  //           pass's main (a polynomial op's roots, newtRootsMain; another's members 0 and 1, newtGridMain); null
+  //           without a NEWT op
   //   ops     [{kind, step, node, j, cell}]: j = op index in forward order, cell = first uInv slot
   //   nOps, slots, fill(out): the op parameters into a Float32Array of 4 slots floats (own allocator, independent
   //           of the forward uChain layout, so an eligibility flip never shifts forward cells)
@@ -2141,33 +2144,47 @@ void ixAncTan(vec2 w) {
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
-  // float32 tolerances of a NEWT op's members: two are one within NEWT_SAME_F (relative to 1 + |u|); one hits w within NEWT_HIT_F
-  const NEWT_SAME_F = '1e-3', NEWT_HIT_F = '1e-3';
-  // a Newton run stops once a step moves u by less than NEWT_CONV_F (1 + |u|): the steps after it change nothing but cost
-  const NEWT_CONV_F = '1e-5';
+  // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
+  const NEWT_HIT_F = '1e-3';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
     return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1) } : null;
   };
-  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn
+  // a polynomial NEWT op's degree (InvOps.opNewt with deg: its members are every root of H_t(u) = w), or 0
+  const newtDeg = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.deg) || 0;
+  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn, or a polynomial one's coefficients two to a cell
   const ixSlots = (o) => {
+    const D = newtDeg(o);
+    if (D) return IX_SLOTS.NEWT + Math.ceil((D + 1) / 2);
     const bk = o.kind === 'NEWT' && newtBack(o);
     return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0);
   };
-  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, an unseeded one 2 + the ladder's
+  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, an unseeded one 2 + the ladder's, a polynomial one its degree
   const ixFinMax = (o) => {
+    const D = newtDeg(o);
+    if (D) return D;
     const bk = o.kind === 'NEWT' && newtBack(o);
     return bk ? 1 + bk.seeds : o.kind === 'NEWT' ? 2 + Inverse.NEWT_LADDER.length : IX_FIN[o.kind];
   };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
+  // the NEWT roots pass's mark of a target entry with no root
+  const IX_NR_NONE = '3.0e38';
+  // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
+  // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
+  // its step is within NEWT_STEP_TOL (1 + |z|))
+  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
-  // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walk0, member 0: continued in t from w over NEWT_K
-  // stages, polished, kept when it hits w
-  const newtCoreFns = (P, H) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+  // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at grid stage ks
+  // (InvOps.opNewt's fixed grid: the stages k / NEWT_K up to k0 = floor(NEWT_K t), ug the root at k0, IX_NR_NONE when
+  // the walk failed by then), then one step at t, polished, kept when it hits w; _walk0, member 0 from w; _m0, member
+  // 0 where the NEWT roots pass (IX_NR_N, uNrTex0: (ug, u) for the pixel's own w) has it: a stored member that misses w
+  // is walked again (the pass's member is the full walk's, so a read is the walk's result; the check guards a target
+  // that does not hold this frame's)
+  const newtCoreFns = (P, H, rd) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 bool ${P}_step(inout vec2 u, vec2 w, float t) {
@@ -2185,22 +2202,39 @@ bool ${P}_polish(inout vec2 u, vec2 w, float t) {
     if (!ok) break;
     vec2 p = u;
     ok = ${P}_step(u, w, t);
-    if (ok && cx_abs(u - p) <= ${NEWT_CONV_F} * (1.0 + cx_abs(u))) break;
+    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
   }
   return ok;
 }
-bool ${P}_walk0(vec2 w, float t, out vec2 u) {
-  u = w;
+bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
+  int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
   bool ok = true;
-  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) if (ok) ok = ${P}_step(u, w, t * float(k) / ${Inverse.NEWT_K}.0);
+  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
+  ug = ok ? u : vec2(${IX_NR_NONE});
+  if (ok) ok = ${P}_step(u, w, t);
   return ok && ${P}_polish(u, w, t) && ${P}_hit(u, w, t);
+}
+bool ${P}_walk0(vec2 w, float t, out vec2 u) {
+  vec2 ug;
+  u = w;
+  return ${P}_walkg(w, t, 0, u, ug);
+}
+bool ${P}_m0(vec2 w, float t, out vec2 u) {
+${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
+  if (uNrRead == 1 && w == ixPixW) {
+    u = texelFetch(uNrTex0, ixNrTexel, 0).zw;
+    if (!(abs(u.x) < ${NEWT_FINITE})) return false;
+    if (${P}_hit(u, w, t)) return true;
+  }
+#endif
+` : ''}  return ${P}_walk0(w, t, u);
 }
 `;
   // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
   // continued in t from w, member 1 + i continued from 1 down to t from f's i-th point over w (bk.ops' members, mixed
   // radix with the last op's member least significant). _roots walks every member once per w and keeps the roots;
   // a member equal to an earlier one is dropped (newtCoreFns: the Newton steps and the members' derivative)
-  function newtSeededFns(o, j, c, bk, H) {
+  function newtSeededFns(o, j, c, bk, H, rd) {
     const P = `ix${j}`, NB = 1 + bk.seeds, K = Inverse.NEWT_K;
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
     let cell = c + IX_SLOTS.NEWT;
@@ -2212,7 +2246,7 @@ bool ${P}_walk0(vec2 w, float t, out vec2 u) {
       else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
     }
     return `vec2 chainHom(int i, vec2 z, float t);
-${fns}${newtCoreFns(P, H)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
+${fns}${newtCoreFns(P, H, rd)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
   Lf S = ixStart(w);
 ${seedSteps.join('\n')}
   u = S.u;
@@ -2226,7 +2260,7 @@ void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
   vec2 u;
-  ${P}_k[0] = ${P}_walk0(w, t, u);
+  ${P}_k[0] = ${P}_m0(w, t, u);
   ${P}_r[0] = u;
   int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
   for (int i = 0; i < ${bk.seeds}; i++) {
@@ -2234,7 +2268,7 @@ void ${P}_roots(vec2 w, float t) {
     bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
     okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
-    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_SAME_F} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
   }
 }
@@ -2249,8 +2283,176 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
   }
-  // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]
-  function invOpFns(o, j, c) {
+  // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
+  // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
+  // a_0; _ev, a(u) - w and its derivative (Horner); _start, de points on the circle of Fujiwara's bound; _aberth, Aberth's
+  // sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's iteration in float32,
+  // whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton on H_t itself
+  // (newtCoreFns, chainHom) and kept when it differs from every earlier one, once per w. With the NEWT roots pass
+  // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
+  // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
+  // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
+  // own w, and finds them itself elsewhere and where a root read misses w
+  function newtPolyFns(o, j, c, D, H, rd) {
+    const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
+    const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
+    { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
+#endif`).join('\n');
+    return `vec2 chainHom(int i, vec2 z, float t);
+${newtCoreFns(P, H, false)}vec2 ${P}_a(int k, vec2 w) {
+  vec4 v = uInv[${c + 1} + k / 2];
+  vec2 a = (k & 1) == 0 ? v.xy : v.zw;
+  return k == 0 ? a - w : a;
+}
+void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
+  q = vec2(0.0); dq = vec2(0.0);
+  for (int k = ${D}; k >= 0; k--) {
+    if (k > de) continue;
+    dq = cmul(dq, u) + q;
+    q = cmul(q, u) + ${P}_a(k, w);
+  }
+}
+void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
+  vec2 ad = ${P}_a(de, w);
+  float R = 0.0;
+  for (int k = 1; k <= ${D}; k++) {
+    if (k > de) break;
+    R = max(R, pow(cx_abs(cdiv(${P}_a(de - k, w), ad)) / (k == de ? 2.0 : 1.0), 1.0 / float(k)));
+  }
+  R = R > 0.0 ? 2.0 * R : 1.0;
+  for (int i = 0; i < ${D}; i++) {
+    float th = 6.283185307179586 * float(i) / float(max(de, 1)) + ${Inverse.NEWT_ABERTH_ROT};
+    z[i] = R * vec2(cos(th), sin(th));
+  }
+}
+bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
+  bool cv[${D}];
+  for (int i = 0; i < ${D}; i++) cv[i] = i >= de;
+  for (int it = 0; it < its; it++) {
+    bool all = true;
+    for (int i = 0; i < ${D}; i++) {
+      if (cv[i]) continue;
+      vec2 q, dq;
+      ${P}_ev(z[i], w, de, q, dq);
+      if (q.x == 0.0 && q.y == 0.0) { cv[i] = true; continue; }
+      vec2 N = cdiv(q, dq), s = vec2(0.0);
+      for (int k = 0; k < ${D}; k++) if (k != i && k < de) s += cinv(z[i] - z[k]);
+      vec2 den = vec2(1.0, 0.0) - cmul(N, s);
+      vec2 st = den.x == 0.0 && den.y == 0.0 ? N : cdiv(N, den);
+      if (!ixFin(st)) { cv[i] = true; continue; }
+      z[i] -= st;
+      if (cx_abs(st) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(z[i]))) cv[i] = true;
+      else all = false;
+    }
+    if (all) return true;
+  }
+  return false;
+}
+bool ${P}_has = false;
+vec2 ${P}_w = vec2(0.0);
+vec2 ${P}_r[${D}];
+bool ${P}_k[${D}];
+void ${P}_roots(vec2 w, float t) {
+  if (${P}_has && ${P}_w == w) return;
+  ${P}_has = true; ${P}_w = w;
+  int de = int(uInv[${c}].y);
+  vec2 z[${D}];
+#if ${rd ? 1 : 0} && defined(IX_NR_N) && !defined(IX_NR_PASS) && IX_NR_N >= ${T}
+  if (uNrRead == 1 && w == ixPixW) {
+${fetch('uNrTex')}
+    bool good = true;
+    for (int i = 0; i < ${D}; i++) {
+      ${P}_r[i] = z[i]; ${P}_k[i] = abs(z[i].x) < ${NEWT_FINITE};
+      if (${P}_k[i] && !${P}_hit(z[i], w, t)) good = false;
+    }
+    if (good) return;
+  }
+#endif
+  bool got = false;
+#if ${rd ? 1 : 0} && defined(IX_NR_PASS) && IX_NR_N >= ${T}
+  if (uNrPrevOn == 1) {
+    vec2 z0[${D}];
+    ${P}_start(w, de, z0);
+${fetch('uNrPrev')}
+    for (int i = 0; i < ${D}; i++) if (!(abs(z[i].x) < ${NEWT_FINITE})) z[i] = z0[i];
+    got = ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
+  }
+#endif
+  if (!got) {
+    ${P}_start(w, de, z);
+    ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
+  }
+  for (int i = 0; i < ${D}; i++) {
+    vec2 v = z[i];
+    bool ok = i < de && ixFin(v) && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
+    ${P}_r[i] = v; ${P}_k[i] = ok;
+  }
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${D} : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 w = L.u;
+  float t = uInv[${c}].x;
+  ${P}_roots(w, t);
+  if (!${P}_k[b]) return false;
+  vec2 u = ${P}_r[b];
+  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
+}
+`;
+  }
+  // the NEWT roots pass's main (07-inverse-api.js, IX_NR_PASS) for polynomial NEWT op j of degree D at cell c: the
+  // pixel's w as INV_MAIN's flat one, its roots (newtPolyFns' _roots), two to a target
+  function newtRootsMain(j, c, D) {
+    const P = `ix${j}`, T = Math.ceil(D / 2), R = (i) => (i < D ? `${P}_k[${i}] ? ${P}_r[${i}] : vec2(${IX_NR_NONE})` : `vec2(${IX_NR_NONE})`);
+    return `
+void main() {
+  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
+  vec2 w = uCenter + (f * uInvScale + uCenterLo);
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+  ${P}_roots(w, uInv[${c}].x);
+${Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
+  o${k || ''} = vec4(${R(2 * k)}, ${R(2 * k + 1)});
+#endif`).join('\n')}
+}
+`;
+  }
+  // the NEWT roots pass's main (07-inverse-api.js, IX_NR_PASS) for NEWT op j at cell c with no polynomial degree:
+  // the pixel's w as INV_MAIN's flat one; member 0's grid walk (newtCoreFns' _walkg) resumed from the previous frame's
+  // root at its last grid stage kp (uNrPrev0.xy, uNrPrev1.x) when kp is at most this frame's k0, else from w (the root
+  // found is the full walk's either way); o = (the root at k0, member 0), o1 = (k0, 0, member 1: deflated, an op with
+  // no seeding ops), IX_NR_NONE where none
+  function newtGridMain(j, c, seeded) {
+    const P = `ix${j}`, K = Inverse.NEWT_K, NONE = `vec2(${IX_NR_NONE})`;
+    return `
+void main() {
+  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
+  vec2 w = uCenter + (f * uInvScale + uCenterLo);
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+  float t = uInv[${c}].x;
+  int k0 = min(${K}, int(floor(${K}.0 * t)));
+  vec2 u = w, ug;
+  int ks = 0;
+#if IX_NR_N >= 2
+  if (uNrPrevOn == 1) {
+    vec2 up = texelFetch(uNrPrev0, ixNrTexel, 0).xy;
+    int kp = int(texelFetch(uNrPrev1, ixNrTexel, 0).x);
+    if (abs(up.x) < ${NEWT_FINITE} && kp >= 0 && kp <= k0) { u = up; ks = kp; }
+  }
+#endif
+  bool ok = ${P}_walkg(w, t, ks, u, ug);
+  o = vec4(ug, ok ? u : ${NONE});
+#if IX_NR_N >= 2
+  vec2 v = ${NONE};
+${seeded ? '' : `  vec2 v1;
+  if (ok && ${P}_defl(w, t, u, v1)) v = v1;
+`}  o1 = vec4(float(k0), 0.0, v);
+#endif
+}
+`;
+  }
+  // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]; rd: the op is the NEWT roots
+  // pass's (buildInverse's nr), whose members its functions read
+  function invOpFns(o, j, c, rd) {
     const P = `ix${j}`, U = (i) => `uInv[${c + i}]`;
     const lam0 = j === 0 ? 'true' : 'false';
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
@@ -2266,34 +2468,42 @@ bool ${P}_one_b(inout Lf L, int b) {
       // walk again)
       case 'NEWT': {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        const D = newtDeg(o);
+        if (D) return newtPolyFns(o, j, c, D, H, rd);
         const bk = newtBack(o);
-        if (bk) return newtSeededFns(o, j, c, bk, H);
+        if (bk) return newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL;
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H)}bool ${P}_has = false;
-vec2 ${P}_w = vec2(0.0);
+${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
+vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
+bool ${P}_root(vec2 w, float t, out vec2 u) {
+  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
+  bool ok = ${P}_m0(w, t, u);
+  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
+  return ok;
+}
+// member 1: Newton deflated by member 0's u, from 2w - u
+bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
+  v = 2.0 * w - u;
+  for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
+    vec2 hv = ${H('v', 't')};
+    vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
+    if (!(dot(g, g) > 0.0)) return false;
+    v -= cinv(g);
+    if (!ixFin(v)) return false;
+  }
+  return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
+}
 vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
-  vec2 u;
-  ${P}_k[0] = ${P}_walk0(w, t, u);
+  vec2 u, v = vec2(0.0);
+  ${P}_k[0] = ${P}_root(w, t, u);
   ${P}_r[0] = u;
-  ${P}_k[1] = false; ${P}_r[1] = vec2(0.0);
-  if (${P}_k[0]) {
-    vec2 v = 2.0 * w - u;
-    bool okv = true;
-    for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
-      if (!okv) break;
-      vec2 hv = ${H('v', 't')};
-      vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
-      okv = dot(g, g) > 0.0;
-      if (okv) { v -= cinv(g); okv = ixFin(v); }
-    }
-    ${P}_k[1] = okv && ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_SAME_F} * (1.0 + cx_abs(u));
-    ${P}_r[1] = v;
-  }
+  ${P}_k[1] = ${P}_k[0] && ${P}_defl(w, t, u, v);
+  ${P}_r[1] = v;
   vec4 an = uInv[${c}];
   bool anch = an.y >= an.w;
   vec2 lo = anch ? vec2(an.z, an.w) : vec2(w.x / (1.0 - t), w.y / (1.0 - t) - ${Inverse.NEWT_SPAN.toFixed(1)});
@@ -2306,10 +2516,10 @@ void ${P}_roots(vec2 w, float t) {
       if (!okv) break;
       vec2 p = v;
       okv = ${P}_step(v, w, t);
-      if (okv && cx_abs(v - p) <= ${NEWT_CONV_F} * (1.0 + cx_abs(v))) break;
+      if (okv && cx_abs(v - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(v))) break;
     }
     okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
-    for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_SAME_F} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
   }
 }
@@ -2563,6 +2773,14 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       case 'LOG': put(c, p.lo, p.hi, 0, 0); break;
       case 'IJOUK': put(c, p.sg, 0, 0, 0); break;
       case 'NEWT': {
+        if (p.deg) {
+          put(c, p.t, p.de, 0, 0);
+          for (let k = 0; k <= p.deg; k += 2) {
+            const a = p.a[k], b = k + 1 <= p.deg ? p.a[k + 1] : CX.C(0, 0);
+            put(c + IX_SLOTS.NEWT + k / 2, a.re, a.im, b.re, b.im);
+          }
+          break;
+        }
         put(c, p.t, p.anchor ? p.anchor.y1 : -1, p.anchor ? p.anchor.re : 0, p.anchor ? p.anchor.y0 : 0);
         let cell = c + IX_SLOTS.NEWT;
         for (const q of p.back || []) { invOpValues(q, put, cell); cell += IX_SLOTS[q.kind] || 0; }
@@ -2618,14 +2836,19 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 `;
     let txt = invTextCache.get(key);
     if (!txt) {
-      txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell)).join(''), walker: invWalkerSrc(ops) };
+      // (the NEWT roots pass of the last NEWT op, 07-inverse-api.js draws it: a polynomial one's roots, ceil(D / 2)
+      // targets; another's member 0 on the grid and member 1, two)
+      const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
+      const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
+        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq)) };
+      txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
-    const { lib, walker } = txt;
+    const { lib, walker, nr } = txt;
     let vals = null;
     return {
-      ok: true, key, lib, walker, nOps: ops.length, slots: S,
+      ok: true, key, lib, walker, nr, nOps: ops.length, slots: S,
       ops: ops.map((o) => ({ kind: o.kind, step: o.step, node: o.node, j: o.j, cell: o.cell })),
       fill(out) {
         if (!vals) {

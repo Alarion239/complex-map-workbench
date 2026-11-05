@@ -1,5 +1,5 @@
 // ci/layout_ratchet.js (#470): a new violation key fails the check and is refused by update; --init writes the first
-// baseline; a key the run no longer sees is reported as fixed and update drops it.
+// baseline; a key the run does not report is itself reported as fixed and update drops it.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

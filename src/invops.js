@@ -201,8 +201,10 @@ const InvOps = (() => {
   }
   // H(t)(u) = w by Newton: a homotopy's step with no exact ops. H(t): the map at time t; t in (0, 1). back: the step's
   // own exact ops (forward order, every one single-valued or a finite family, NEWT_SEEDS members in all at most) or null.
-  // Members: m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each of the NEWT_K stages t/K,
-  // 2t/K, ..., t, then NEWT_POL more at t. With back, m = 1 + i, continued back in t from the i-th of f = H(1)'s points
+  // Members: m = 0, continued in t from u = w (H(0) is the identity): one Newton step at each stage k/K of the fixed grid
+  // up to t (k = 1 ... newtGridK(t), K = NEWT_K), one at t, then NEWT_POL more at t. (The grid is fixed so that the
+  // roots pass of a glide's next frame, which stores the root at its last grid stage, resumes the same walk: the
+  // member it finds is the full walk's, bit for bit.) With back, m = 1 + i, continued back in t from the i-th of f = H(1)'s points
   // over w (back's members, mixed radix with the last op's member least significant): one step at each of
   // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every earlier one.
   // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
@@ -228,6 +230,8 @@ const InvOps = (() => {
   const NEWT_SAME = 1e-6;
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10;
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
+  // the last stage k of member 0's grid walk at t (k / NEWT_K <= t), of t as float32: the GPU's
+  const newtGridK = (t) => Math.min(NEWT_K, Math.floor(NEWT_K * Math.fround(t)));
   // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
   // JOUK, QUAD, RAT2) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
   // or a log family's, which prepare sets: a principal member alone would seed one sheet of many)
@@ -237,7 +241,61 @@ const InvOps = (() => {
     const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
     return n.every((k) => k > 0) && n.reduce((a, k) => a * k, 1) <= NEWT_SEEDS ? n : null;
   }
-  function opNewt(t, H, back, anchor) {
+  // A polynomial homotopy's members (opNewt with deg): every root of H_t(u) = w, for a step that is a polynomial of
+  // degree deg (2 to NEWT_POLY_MAX) whose homotopy is one in u at each t (the straight line from z to f(z), or an
+  // affine conjugate of f: its zoom). H_t's coefficients a_0 ... a_d (low first) are read off its values at the d + 1
+  // roots of unity (newtPolyCoeffs); its degree at t, de, is the last coefficient above NEWT_POLY_EPS of the largest
+  // (a homotopy pieced from several steps may have a lower one). Aberth's simultaneous iteration (newtAberth) finds the
+  // de roots of a(u) - w from de points on the circle of Fujiwara's bound, rotated by NEWT_ABERTH_ROT; a root is then
+  // polished by Newton on H_t itself, as the other members are, and kept when it hits w and differs from every earlier
+  // one. glsl.js's NEWT runs the same iteration in float32 from the same start.
+  const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4;
+  function newtPolyCoeffs(g, d) {
+    const M = d + 1, v = [];
+    for (let m = 0; m < M; m++) v.push(g(C(Math.cos(2 * Math.PI * m / M), Math.sin(2 * Math.PI * m / M))));
+    const a = [];
+    for (let k = 0; k <= d; k++) {
+      let s = ZERO;
+      for (let m = 0; m < M; m++) s = add(s, mul(v[m], C(Math.cos(-2 * Math.PI * m * k / M), Math.sin(-2 * Math.PI * m * k / M))));
+      a.push(scale(s, 1 / M));
+    }
+    let top = 0;
+    for (const c of a) top = Math.max(top, abs(c));
+    let de = d;
+    while (de > 0 && !(abs(a[de]) > NEWT_POLY_EPS * top)) de--;
+    return { a, de };
+  }
+  // the start of Aberth's iteration for a_0 + ... + a_de u^de (a_de != 0): de points on the circle |u| = R, R Fujiwara's
+  // bound of the roots (2 max |b_(de-k)|^(1/k), the last term |b_0 / 2|^(1/de), b = a / a_de), at angles
+  // 2 pi k / de + NEWT_ABERTH_ROT
+  function newtAberthStart(a, de) {
+    let R = 0;
+    for (let k = 1; k <= de; k++) R = Math.max(R, (abs(div(a[de - k], a[de])) / (k === de ? 2 : 1)) ** (1 / k));
+    R = 2 * R || 1;
+    return Array.from({ length: de }, (_, k) => C(R * Math.cos(2 * Math.PI * k / de + NEWT_ABERTH_ROT), R * Math.sin(2 * Math.PI * k / de + NEWT_ABERTH_ROT)));
+  }
+  // the de roots of a_0 + ... + a_de u^de from z (Aberth: each root moves by N / (1 - N sum_j 1 / (z_i - z_j)), N its
+  // Newton step, until every step is within 1e-12 (1 + |z_i|), NEWT_ABERTH_IT sweeps at most)
+  function newtAberth(a, de, z) {
+    const ev = (u) => { let q = a[de], dq = ZERO; for (let k = de - 1; k >= 0; k--) { dq = add(mul(dq, u), q); q = add(mul(q, u), a[k]); } return [q, dq]; };
+    const done = z.map(() => false);
+    for (let it = 0; it < NEWT_ABERTH_IT && !done.every(Boolean); it++) {
+      for (let i = 0; i < de; i++) {
+        if (done[i]) continue;
+        const [q, dq] = ev(z[i]);
+        if (q.re === 0 && q.im === 0) { done[i] = true; continue; }
+        const N = div(q, dq);
+        let s = ZERO;
+        for (let j = 0; j < de; j++) if (j !== i) s = add(s, CX.inv(sub(z[i], z[j])));
+        const den = sub(ONE, mul(N, s)), c = den.re === 0 && den.im === 0 ? N : div(N, den);
+        if (!isFin(c)) { done[i] = true; continue; }
+        z[i] = sub(z[i], c);
+        if (abs(c) <= 1e-12 * (1 + abs(z[i]))) done[i] = true;
+      }
+    }
+    return z;
+  }
+  function opNewt(t, H, back, deg, anchor) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
@@ -255,12 +313,33 @@ const InvOps = (() => {
       }
       return u;
     };
+    if (deg >= 2 && deg <= NEWT_POLY_MAX) {
+      const { a, de } = newtPolyCoeffs(Ht, deg);
+      return op('NEWT', { t, deg, a, de }, Ht, {
+        fam: { type: 'fin', count: deg },
+        pre: (w) => {
+          if (de < 1 || !isFin(w)) return [];
+          const aw = a.slice(0, de + 1);
+          aw[0] = sub(aw[0], w);
+          const out = [];
+          newtAberth(aw, de, newtAberthStart(aw, de)).forEach((z, m) => {
+            const v = isFin(z) ? polishAt(z, w) : null;
+            if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m }));
+          });
+          return out;
+        },
+      });
+    }
+    // (member 0's grid: H at k / NEWT_K, k = 1 ... k0)
+    const k0 = newtGridK(t), grid = [null];
+    for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
     const prm = counts ? { t, back } : { t, anchor: anchor || null };
     return op('NEWT', prm, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
       pre: (w) => {
         let u = w;
-        for (let s = 1; s <= NEWT_K && isFin(u); s++) u = step(u, w, H(t * s / NEWT_K));
+        for (let s = 1; s <= k0 && isFin(u); s++) u = step(u, w, grid[s]);
+        if (isFin(u)) u = step(u, w, Ht);
         u = polishAt(u, w);
         const out = [];
         if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
@@ -896,7 +975,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, newtBackK, newtSeedCounts, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';

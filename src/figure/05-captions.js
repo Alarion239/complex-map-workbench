@@ -157,10 +157,25 @@
   const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
   // the thread of a steps-view filmstrip, z → w₁ → w₂ with each step's name over its arrow, in TeX
   const svChain = (frames) => `$${frames.map((f) => (f.f ? `\\xrightarrow{${f.f}} ${f.name}` : f.name)).join(' ')}$`;
+  // a two-plane figure's accessible words, plain text: the title ("z and w₂, joined by F") and the sentence of the
+  // caption, for the SVG's title and desc and the PDF's title
+  const svTwoWords = (fi, lang) => {
+    if (!fi || !fi.svTwo) return {};
+    const a = plainName(fi.frames[0].name), b = plainName(fi.frames[1].name), map = plainName(fi.arrow);
+    return using(lang, () => ({ title: $t('%{a} and %{b}, joined by %{map}', { a, b, map }), desc: $t('The planes %{a} and %{b}, joined by %{map}.', { a, b, map }) }));
+  };
+  // the caption of a two-plane figure: its two planes and the map between them, in TeX
+  const svTwoSentence = (fi) => $t('The planes %{a} and %{b}, joined by %{map}.', { a: `$${fi.frames[0].name}$`, b: `$${fi.frames[1].name}$`, map: `$${fi.arrow}$` });
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
   function captionFor(o, view, body) {
     const ru = capRu();
     const fi = body.info || {};
+    if (fi.svTwo) {
+      const own = fi.ownWin ? ' ' + (fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.')) : '';
+      return svTwoSentence(fi) + own;
+    }
+    // the steps view's paths figure: the shown plane's caption, then the sentence naming the paths
+    if (fi.svPaths) return captionFor(o, 'xyL', Object.assign({}, body, { info: {} })) + fi.sentence;
     if (fi.svFilm) {
       const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
       const own = fi.ownWin ? ' ' + note : '';
@@ -354,6 +369,8 @@
     if (fmt === 'video') return defo ? `${base}-${tag}-video` : base;
     if (defo) return `${base}-${tag}-${deform === 'paths' && PATHS_OK.has(defo) ? 'paths' : deform === 'frame' && defo !== 'plane' ? 'frame' : 'film'}`;
     if (view === 'svFilm') return `${base}-filmstrip`;
+    if (view === 'svTwo') return `${base}-two-planes`;
+    if (view === 'svPaths') return `${base}-paths`;
     if (view === 'phase') return `${base}-phase`;
     if (view === 'land') return `${base}-landscape`;
     if (view === 'xyL' && A.state().main === 'phase') return `${base}-phase-sphere`;
@@ -364,6 +381,7 @@
   function shortFor(view, body) {
     const fi = body.info || {}, c = A.capParts(), ts = fi.labs ? `$t=${fi.labs.join(',\\,')}$` : '';
     if (fi.svFilm) return $t('The planes along %{chain}.', { chain: svChain(fi.frames) });
+    if (fi.svTwo) return svTwoSentence(fi);
     const at = c.hom ? `$t=${tnum(c.hom.T.toFixed(2))}$` : '';
     if (fi.globePaths) return $t('Paths of the deformation $H_t$ on the Riemann sphere.');
     if (fi.film === 'globe') return $t('The deformation $H_t$ on the Riemann sphere at %{ts}.', { ts });
@@ -408,7 +426,7 @@
     if (o.axes) P.axes = o.axes;
     // a slide's figure fits under the frame title (16:9: about half its width tall)
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
-    const view = o.view || (o.svPic === 'film' && A.svOn() ? 'svFilm' : A.viewKind());
+    const view = o.view || (A.svOn() && o.svPic === 'film' ? 'svFilm' : A.svOn() && o.svPic === 'two' ? 'svTwo' : o.svPic === 'paths' && A.svOn() && A.svPathsFig && A.svPathsFig() && A.svPathsFig().i != null ? 'svPaths' : A.viewKind());
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
     // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
     const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
@@ -420,6 +438,8 @@
     const defo = defoOf(view);
     if (defo && defo !== 'plane' && o.deform !== 'frame') body = null;
     else if (view === 'svFilm') body = await figSvFilm(o, P, W, T);
+    else if (view === 'svTwo') body = await figSvTwo(o, P, W, T);
+    else if (view === 'svPaths') body = await figPaths(Object.assign({}, o, { sv: A.svPathsFig() }), P, W, T);
     else if (view === 'phase') body = await figPhase(o, P, W, T);
     else if (view === 'land') body = await figLand(o, P, W, T);
     if (body) { /* made */ }
@@ -444,7 +464,7 @@
       items.push(c.markup); H += 7 + c.h + 2;
     }
     const meta = { app: 'Complex Map Workbench', name, preset: o.for, ink: o.ink, view, width: `${Wtex}pt`, scene: A.sceneMeta() };
-    const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta });
+    const fig = XD.svg({ W, H, items, defs: body.defs, lines: body.lines, meta, ...svTwoWords(body.info, lang) });
     // (box: the picture's world window, a plane panel's, for a check against the screen)
     return Object.assign(fig, { box: (body.info && (body.info.box || (body.info.boxes && body.info.boxes.L))) || null, name, captionTex, autoCaption: autoCap, shortCap, slideTitle, slideF: slideF && !(film ? slideFin : cp.mapTex && cp.mapTex.length < 60) ? polish(slideF, lang) : null, view, for: o.for, Wtex, size, T, star: !!size.star, cols: o.cols, ink: o.ink, ms: Math.round(performance.now() - t0), info: body.info, opts: o, lang });
   }

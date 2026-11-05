@@ -413,10 +413,10 @@ const showRun = (r) => (r.forward ? `${r.name.padEnd(46)} -> forward (${r.forwar
   check('exp∘Cayley of H: exact Möbius image box (bounded)', ecH.ok && ecH.rspec[1].kind === 'box' && ecH.rspec[1].exact && Number.isFinite(ecH.need[1]), JSON.stringify(ecH.rspec[1]));
 }
 
-// (c) termination and cost (review P1, findings 1 and 5). Lattice and member indices beyond 2^53 used to stall
+// (c) termination and cost. Lattice and member indices beyond 2^53 must not stall
 // `n++` loops in singular() / prepare() (out of memory); each case runs in a child process with a 400 MB heap and a
 // 10 s timeout, so a regression fails here instead of hanging the suite. Then prepare() of shapes whose image boxes
-// used to cost 10^7 evaluations: <= IMAGEBOX_CAP evaluations per box and well under the 4 ms frame budget class.
+// could cost 10^7 evaluations: <= IMAGEBOX_CAP evaluations per box and well under the 4 ms frame budget class.
 section('(c) termination and cost');
 {
   const { spawnSync } = require('child_process');
@@ -1154,7 +1154,7 @@ section('singularAfter (ζ after an injective plan)');
 // residual <= 1e-9 (1 + |w|)), and the w are an n x n grid over box. A w is in the true image when the search finds an
 // in-region root; it is drawn when one of the op's members lies in the region
 function newtShare(b, t, anchor, inRegion, seeds, box, n) {
-  const o = InvOps.opNewt(t, b.hom, null, anchor), Ht = b.hom(t);
+  const o = InvOps.opNewt(t, b.hom, null, undefined, anchor), Ht = b.hom(t);
   const dH = (u) => { const h = 1e-6; return CX.scale(CX.sub(Ht(C(u.re + h, u.im)), Ht(C(u.re - h, u.im))), 0.5 / h); };
   const trueRoot = (w) => {
     for (const re of seeds.re) {
@@ -1194,6 +1194,30 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   for (const t of [0.25, 0.5, 0.75]) {
     const r = newtShare(b, t, { re: 0, y0: -2, y1: 2 }, (u) => CX.abs(u) < 2, { re: [-2, -1, 0, 1, 2], im0: -2, im1: 2, dim: 1 }, { x0: -3, x1: 3, y0: -3, y1: 3 }, 12);
     check(`opNewt exp series at t = ${t}: the members reach at least ${floor[t]} of the true image of the disc`, r.truth > 30 && r.share >= floor[t], r);
+// Inverse.homOps by Newton (InvOps.opNewt) for a polynomial step: its homotopy is a polynomial in u of the step's
+  }
+}
+// degree (the straight line for a formula, the zoom for the catalog's polynomial), so the NEWT op's members are every
+// root of H_t(u) = w: the partial sum of the exponential to z^8 / 8! and z^3 - z have 8 and 3 distinct points over each
+// w of a 20 x 20 grid over [-6, 6]^2 at t = .002 to .998, each where H_t is w
+{
+  // (two roots closer than DISTINCT (1 + |root|) count as one; a root is off when H_t of it is further than ON_W
+  // (1 + |w|) from w)
+  const DISTINCT = 1e-6, ON_W = 1e-8;
+  for (const [name, st, deg] of [['sum z^n / n!, n <= 8', St('custom', { expr: '\\sum_{n=0}^{8} \\frac{z^n}{n!}', cut: 180 }), 8], ['z^3 - z', St('poly', { co: '1, 0, -1, 0' }), 3]]) {
+    const b = Funcs.build(st);
+    for (const t of [0.002, 0.25, 0.5, 0.75, 0.998]) {
+      const o = Inverse.homOps(b, t).ops[0], Hh = b.hom ? b.hom(t) : null;
+      let short = 0, off = 0;
+      for (let i = 0; i < 20; i++) {
+        for (let j = 0; j < 20; j++) {
+          const w = C(-6 + (i + 0.5) * 0.6, -6 + (j + 0.5) * 0.6), G = o.pre(w).map((m) => m.u);
+          if (G.length !== deg || G.some((g, k) => G.some((h, m) => m < k && CX.abs(CX.sub(g, h)) <= DISTINCT * (1 + CX.abs(g))))) short++;
+          if (Hh && G.some((g) => CX.abs(CX.sub(Hh(g), w)) > ON_W * (1 + CX.abs(w)))) off++;
+        }
+      }
+      check(`homOps ${name} at t = ${t}: NEWT^${deg} finds every root of H_t(u) = w`, o.kind === 'NEWT' && o.p.deg === deg && o.fam.count === deg && Inverse.opSig(o) === `NEWT^${deg}` && short === 0 && off === 0, { kind: o.kind, short, off });
+    }
   }
 }
 
