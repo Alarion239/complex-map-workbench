@@ -883,6 +883,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     get cacheBudget() { return CACHE_BYTES; }, set cacheBudget(v) { CACHE_BYTES = v; },
     // the steps view's carried colour's kept scratch entries (e.carry): {n, bytes}, both counted in cacheBytes
     get carryTmp() { let n = 0, bytes = 0; for (const e of tmpAll) if (e.carry) { n++; bytes += e.bytes; } return { n, bytes }; },
+    // the keep time of those entries (ms, answers the one before; the tests shorten it to see a scrub outlast it)
+    carryKeepMs(ms) { const was = CARRY_TMP_MS; if (ms > 0) CARRY_TMP_MS = ms; return was; },
     // true: every compile is waited for (tests that compare frames drawn right after a chain change)
     set syncCompile(v) { syncDepth += v ? 1 : -1; },
     // (exports) every chain and static program a draw needs is linked before it draws: a deformation frame's map mode
