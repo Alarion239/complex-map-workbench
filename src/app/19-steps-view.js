@@ -109,14 +109,15 @@
   // plane (svHeightF), then the carried colour past T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
-    let role;
+    let role, short = '';
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+      short = $t('landscape');
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
-    return { name: svNameHtml(k), role };
+    return { name: svNameHtml(k), role, short };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
@@ -1397,8 +1398,8 @@
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: SV.i + 1, n, where });
   }
   function svFormulaHtml() {
-    const { name, role } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role">${role}</span>`;
+    const { name, role, short } = svTitleParts();
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
   }
   // the glide speed's select (the shared field-styled one, selectEl) and the Loop toggle, the strip's and the playback sheet's
   function svSpeedSel(title) {
@@ -1475,7 +1476,8 @@
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
-    const scope = seg(null, SV.scope, [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]], (v) => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
+    const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -1536,7 +1538,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1640,7 +1642,7 @@
       setSeg(E.scope, SV.scope);
       const scName = SV.scope === 'in' ? $t('Inside') : $t('Everywhere');
       E.scopeBtn.innerHTML = `<span class="sv-surf-t">${scName}</span>${ICONS.chevD || ''}`;
-      E.scopeBtn.setAttribute('aria-label', `${$t('Scope')}: ${SV.scope === 'in' ? $t('Inside regions') : scName}`);
+      E.scopeBtn.setAttribute('aria-label', `${$t('Scope')}: ${E.SCOPES.find((v) => v[0] === SV.scope)[1]}`);
       E.scopeBtn.dataset.tip = $t('Where colour shows');
       svFitHead();
       E.prev.disabled = at <= 0 && !svMoving() && !parked;
@@ -1706,19 +1708,15 @@
     if (l !== E.fadeL) { E.fadeL = l; E.rail.classList.toggle('fade-l', l); }
     if (r !== E.fadeR) { E.fadeR = r; E.rail.classList.toggle('fade-r', r); }
   }
-  // the surface's menu: the three, the shown one checked (a menu's keys are its own: svKeys leaves them alone)
+  // a button's menu of choices, the current one checked (a menu's keys are its own: svKeys leaves them alone)
+  function svChoiceMenu(btn, pairs, cur, label, pick) {
+    openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true }));
+  }
   function svSurfMenu() {
-    const E = SV.els;
-    const items = E.SURF.map(([v, t]) => ({ label: t, radio: true, checked: SV.surf === v, run: () => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); } }));
-    openMenu(E.surf1, Object.assign(items, { menuLabel: $t('Surface'), focusChecked: true }));
+    svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), (v) => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); });
   }
-  // the scope's menu: the two, the shown one checked
-  function svScopeMenu() {
-    const E = SV.els;
-    const items = [['all', $t('Everywhere')], ['in', $t('Inside regions')]].map(([v, t]) => ({ label: t, radio: true, checked: SV.scope === v,
-      run: () => { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); } }));
-    openMenu(E.scopeBtn, Object.assign(items, { menuLabel: $t('Scope'), focusChecked: true }));
-  }
+  function svSetScope(v) { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
+  function svScopeMenu() { svChoiceMenu(SV.els.scopeBtn, SV.els.SCOPES, SV.scope, $t('Scope'), svSetScope); }
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
   // after the fold (the rail grows by exactly that width): no flicker at the edge.
@@ -1784,7 +1782,7 @@
   // the border and rounding). Short of room, a chip's name gives up its width in SV_NAME_STEP px steps (a few letters
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
-  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16, SV_TITLE_MIN = 100;   // (SV_TITLE_MIN: the least the cut title keeps: "z · landscape of …" is readable at that width)
+  const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
@@ -1798,6 +1796,11 @@
       chip.removeAttribute('data-tip');
       act.setAttribute('aria-label', act.dataset.name);
     }
+  }
+  // the title's tooltip, its whole words, while the head shows its role as one word
+  function svTitleTip(short) {
+    const t = SV.els.title;
+    if (short) t.setAttribute('data-tip', t.textContent); else t.removeAttribute('data-tip');
   }
   function svFitHead() {
     const E = SV.els;
@@ -1815,8 +1818,9 @@
     if (key === E.fitKey) return;
     E.fitKey = key;
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
-    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), then the title loses its role (sv-c2) last)
-    const set = (lvl) => { E.title.style.removeProperty('max-width'); E.bar.classList.remove('sv-el'); E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-c2', lvl >= 4); };
+    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is its first word (sv-rs), then the title
+    // loses its role (sv-c2) last; a word is never cut, #721)
+    const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-rs', lvl >= 4); E.bar.classList.toggle('sv-c2', lvl >= 5); };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
         svChipBare(c, false);
@@ -1854,21 +1858,14 @@
       keep += w + parseFloat(m.marginLeft) + parseFloat(m.marginRight) + gap;
     }
     keep += 2;
-    // (the levels as far as they are needed; at the last but one the title's words, the role too, are cut with an ellipsis down to
-    // SV_TITLE_MIN px before the role is dropped)
     const levels = () => {
       let l = 0;
       set(0);
-      while (l < 4 && E.bar.scrollWidth + keep > room) {
-        if (l === 3) {
-          const nat = E.title.getBoundingClientRect().width, over = E.bar.scrollWidth + keep - room;
-          if (nat - over >= SV_TITLE_MIN) { E.bar.classList.add('sv-el'); E.title.style.maxWidth = `${Math.floor(nat - over)}px`; break; }
-        }
-        set(++l);
-      }
+      while (l < 5 && E.bar.scrollWidth + keep > room) set(++l);
       return l;
     };
     let lvl = levels();
+    svTitleTip(lvl >= 4);
     // (short of room, the targets' note folds first, before the bar's controls shorten and before any mode chip: to its icon and
     // the source planes' names, then to its icon alone)
     for (const cls of ['tn-chip', 'tn-icon']) {
@@ -1877,6 +1874,7 @@
       tn.classList.add(cls);
       keep -= w0 - tn.getBoundingClientRect().width;
       lvl = levels();
+      svTitleTip(lvl >= 4);
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)

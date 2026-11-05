@@ -681,5 +681,6 @@
  "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
  "Video of the Landscape is not ready yet": "Видео рельефа пока не готово",
  "Video of the sphere is not ready yet": "Видео сферы пока не готово",
- "Scope": "Охват"
+ "Scope": "Охват",
+ "landscape": "рельеф"
 }

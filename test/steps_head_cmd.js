@@ -116,28 +116,29 @@ for (const lang of ['en', 'ru', 'it']) {
   }
 }
 // (#1047) the Landscape with All sheets, the chain √, cos, log and Height = Im F, at 1024 × 768: the title keeps its
-// words ("z · landscape of …", ellipsed if it must) and is not folded to the plane's letter alone
+// words, whole ("z · landscape of Im F", else "z · landscape"; no word is cut) and is not folded to the plane's letter alone
 {
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(1024, 768, false, false);
   // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
   const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` });
-  await until(`document.readyState === 'complete'`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}land', ${JSON.stringify(JSON.stringify(LAND))}); 1`);
+  await seed(ns + 'land', LAND);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land&lang=en&view=steps` });
   await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
   // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
   await until(`(() => { const b = document.getElementById('svHead'), k = b.className + '|' + b.querySelector('.sv-title').innerText, r = window.__fk !== k; window.__fk = k;
-    return __cmwSteps().surf === 'land' && /landscape of/.test(b.querySelector('.sv-title').innerText) && !r; })()`);
+    return __cmwSteps().surf === 'land' && /landscape/.test(b.querySelector('.sv-title').textContent) && !r; })()`);
   const title = await ev(`(() => { const t = document.querySelector('#svHead .sv-title'), r = t.getBoundingClientRect();
-    return { surf: __cmwSteps().surf, hh: Math.round(document.querySelector('#paneL .pane-head').getBoundingClientRect().height), w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
+    return { surf: __cmwSteps().surf, hh: Math.round(document.querySelector('#paneL .pane-head').getBoundingClientRect().height), w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, full: t.textContent, tip: t.getAttribute('data-tip'), before: getComputedStyle(t.querySelector('.sv-role'), '::before').content.replace(/"/g, ''), cut: [...document.querySelectorAll('#svHead, #svHead *')].filter((e) => { const c = getComputedStyle(e); return c.textOverflow === 'ellipsis' || (/hidden|clip/.test(c.overflowX) && e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0 && !/^(svg|path|canvas)$/i.test(e.tagName)); }).map((e) => e.id || String(e.className).slice(0, 30)), text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
   info.title1024 = title;
-  ok('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its words, "z · landscape of …"', title.surf === 'land' && /landscape of/.test(title.text || ''), title);
+  const short = /\bsv-rs\b/.test(title.bar);
+  ok('1024 × 768 Landscape, All sheets, √ cos log: the title keeps its role, whole: "z · landscape of Im F" or "z · landscape"', title.surf === 'land' && !/\bsv-c2\b/.test(title.bar) && /landscape of/.test(title.full || '') && (!short || title.before === 'landscape'), title);
   ok('1024 × 768 Landscape, All sheets: the head is one row (under 48 px)', title.hh < 48, title);
-  ok('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 100 px or more)', title.cw >= 100, title);
+  ok('1024 × 768 Landscape, All sheets: the title is not folded to the plane\'s letter (it is 60 px or more)', title.cw >= 60, title);
+  ok('1024 × 768 Landscape, All sheets: the role as one word has the whole title as its tip', !short || /^z · landscape of /.test(title.tip || ''), title);
+  ok('1024 × 768 Landscape, All sheets: nothing in the steps bar is ellipsized or cut', title.cut.length === 0, title.cut);
   // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
   const fold = await ev(`(() => { const b = document.getElementById('svHead'), c = b.classList, m = b.querySelector('.sv-scope-menu'), sg = b.querySelector('.sv-scope:not(.sv-scope-menu)');
     const mr = m.getBoundingClientRect(), t = b.querySelector('.sv-title').getBoundingClientRect();
