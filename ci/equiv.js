@@ -140,11 +140,11 @@ async function probe(base, page, scenes, top, steps = false) {
     for (const n of await B.ev('Object.getOwnPropertyNames(window)')) GLOBALS0.add(n);
     await B.addInit(INIT);
     await B.nav(base + page + (steps ? '?view=steps' : ''));
-    // started: the document loaded and the view drew (a fixed wait let the published page, 4.9 MB, be
-    // measured before its app had run now and then: no globals, no worklet, another picture); then a moment to settle
+    // started: the document loaded and the view is on (the published page has no hooks: its first card), polled so the
+    // 4.9 MB published page is measured only once its app has run; then a moment to settle
     let started = false;
     for (let t = Date.now(); !started && Date.now() - t < 30000; await sleep(250)) {
-      try { started = await B.ev(steps ? `document.readyState === 'complete' && typeof __cmwSteps === 'function' && __cmwSteps().on` : `document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
+      try { started = await B.ev(steps ? SC.started() : `document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
     }
     if (!started) throw new Error(`${page} did not start within 30 s (${steps ? 'the steps view is not on' : 'no chain card'})`);
     await sleep(3000);
@@ -156,10 +156,10 @@ async function probe(base, page, scenes, top, steps = false) {
       if (js) { try { await B.ev(js); } catch (e) { out.shots.push([name, null, String(e.message).slice(0, 200)]); continue; } }
       await sleep(1500);
       // (a picture of a moment: a glide an example plays is stopped, and the shader compiles land)
-      if (steps) await B.ev(`(() => { try { __cmwSteps({ play: false }); } catch (e) { /* a page without the hooks */ } return 1; })()`);
+      if (steps) await B.ev(SC.stopPlay());
       for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
       // (and the view at rest: a frame draws in a quiet moment, so one page can be a moment behind the other)
-      if (steps) for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwSteps().moving; } catch (e) { return false; } })()`); k++) await sleep(250);
+      if (steps) for (let k = 0; k < 40 && await B.ev(SC.moving()); k++) await sleep(250);
       else for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
       await sleep(1500);
       // (a toast's moment differs with the page's speed: none in the picture)

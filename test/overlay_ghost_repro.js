@@ -11,6 +11,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const { launch, sleep } = require(path.join(__dirname, 'regress', 'perf', 'cdp'));
 const decode = require(path.join(__dirname, 'cdp_kit', 'png'));
+const SC = require(path.join(ROOT, 'ci', 'steps_scenes'));
 
 // the overlay's non-transparent pixels in a 110 x 28 box at the handle (client coordinates)
 const readback = (box) => `(() => { const c = document.getElementById('overlayL'), r = c.getBoundingClientRect(); const d = c.getContext('2d').getImageData(${box.x} - r.left - 10, ${box.y} - r.top - 14, 110, 28).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()`;
@@ -28,13 +29,13 @@ async function coldLoads(base, n, { shot = false, log = () => {} } = {}) {
       // at rest, a moment
       const settle = async () => {
         await sleep(1500);
-        await B.ev(`(() => { try { __cmwSteps({ play: false }); } catch (e) { /* */ } return 1; })()`);
+        await B.ev(SC.stopPlay());
         for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
-        for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwSteps().moving; } catch (e) { return false; } })()`); k++) await sleep(250);
+        for (let k = 0; k < 40 && await B.ev(SC.moving()); k++) await sleep(250);
         await sleep(1500);
       };
       await B.nav(base + 'test.html?view=steps');
-      try { await B.until(`document.readyState === 'complete' && typeof __cmwSteps === 'function' && __cmwSteps().on`, 30000, 250); } catch (e) {
+      try { await B.until(SC.started(), 30000, 250); } catch (e) {
         out.push({ i, err: 'the page did not start within 30 s' }); log(`load ${i}: the page did not start within 30 s`); continue;
       }
       await sleep(3000);
