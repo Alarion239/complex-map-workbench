@@ -122,7 +122,7 @@
   };
   // (-> whether example i is now the current one: false past the last example)
   window.__cmwExample = (i) => { loadExample(i); return currentExample === i; };
-  // the selection, the step shown alone, the temporary Inspector and X's view (v15, test/v15_desktop_cmd.js)
+  // the selection, the step shown alone, the temporary Inspector and X's view
   window.__cmwCards = () => ({ sel: selOf(), focus: S.focus, temp: tempInsp, main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
   // (#235: what the Cauchy style draws from, and a switch to draw the quadrature where the formula holds)
   /** @type {any} */ (window).__cmwCauchy = () => { const cp = cauchyPlot(); return cp ? { name: cp.name, formula: !!(cp.plan && cp.plan.ok), fast: !!(cp.plan && cp.plan.fast), why: cp.plan && !cp.plan.ok ? cp.plan.why : null, poles: cp.plan && cp.plan.ok ? cp.plan.poles.map((q) => ({ z: [q.z.re, q.z.im], order: q.order, n: q.n })) : [] } : null; };

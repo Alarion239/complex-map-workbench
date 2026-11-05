@@ -1,6 +1,7 @@
 // node test/t_ux165_chain.js : the logic of the v16.5 wave-1 chain piece (notes/ux-build/w1-chain-AS-BUILT.md) that
 // runs without a page, read from the source as it is (src/app/, src/commands.js): UX23's formula repairs (formulaFixes, editDist) and UX79's
-// "what one undo step did" (histWhat, from two history snapshots). The page-level behaviour is test/ux165_chain_cmd.js.
+// "what one undo step did" (histWhat, from two history snapshots). The palette's page-level behaviour is
+// test/ux165_palette_cmd.js.
 'use strict';
 const vm = require('vm');
 global.CX = require('../src/cx.js');
