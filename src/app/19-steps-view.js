@@ -1756,10 +1756,10 @@
     // once when the glide settles; rework on #473)
     if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
-    const mc = $('modeChips');
+    const mc = $('modeChips'), lg = $('leftLegend');
     const key = [
       ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
-      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '',
+      E.cp.textContent, E.surf1.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', lg && lg.parentNode === E.head && !lg.hidden ? 'k' : '',
     ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
@@ -1820,6 +1820,20 @@
     }
     // (the strip in the head fits its controls to the room the bar now leaves)
     if (typeof layoutFoot === 'function') layoutFoot(true);
+    // (the head is never a second row: once the strip is laid out, a head that wraps folds its key chip, the Landscape's
+    // Height key, to its glyph first, then the bar gives up its words one level at a time, the strip fitting again after
+    // each; svFitHead's key holds the chip, so a chip that comes later fits the head again)
+    if (lg) lg.classList.remove('sv-glyph');
+    const level = () => (E.bar.classList.contains('sv-c2') ? 2 : E.bar.classList.contains('sv-c1') ? 1 : 0);
+    const again = () => queueMicrotask(() => {
+      if (E.fitKey !== key || SV.els !== E || head.getBoundingClientRect().height <= SV_HEAD_ROW) return;
+      if (lg && lg.parentNode === head && !lg.hidden && !lg.classList.contains('sv-glyph')) lg.classList.add('sv-glyph');
+      else if (level() < 2) set(level() + 1);
+      else return;
+      if (typeof layoutFoot === 'function') layoutFoot(true);
+      again();
+    });
+    again();
   }
   // where the view is on the thread, in words: a plane, or the two planes it is between
   function svPlaceText() {

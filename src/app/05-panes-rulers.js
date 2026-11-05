@@ -783,7 +783,7 @@
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -944,12 +944,17 @@
       vals = (S.height === 'abs' ? [1, 0, 4, 2, 10, 0.5] : [0, 1, -1, 4, -4, 2, -2]).map((m) => [m * b, fmt(m * b)]);
     }
     ctx.strokeStyle = TH.rulerTick;
+    // (a label closer than a line and a half to one already placed, in the order of priority, is left out, so the
+    // decades of a compressed top read evenly)
+    const placed = [];
+    render3D.ticks = placed;   // (the screen y of each label placed: tests)
     for (const [v, lab] of vals) {
       const hz = hOf(v);
       if (!Number.isFinite(hz) || hz > top - 0.01 || hz < z0 + 0.01) continue;
       const a = P([rc[0], rc[1], hz]);
-      if (!a) continue;
+      if (!a || placed.some((y) => Math.abs(y - a[1]) < 18)) continue;
       if (!label([[lab, false]], a, [dir, 0], 8, micro, null, TH.label)) continue;
+      placed.push(a[1]);
       ctx.globalAlpha = 0.7;
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(a[0] + dir * 5, a[1]); ctx.stroke();
       ctx.globalAlpha = 1;
