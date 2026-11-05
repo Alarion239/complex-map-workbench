@@ -2,7 +2,8 @@
 // surface does, whatever T. A chain z, √, Möbius (two sheets over z and every plane after √), All sheets on, the
 // Landscape, the shapes hidden. Plane z with T = w₂ (the last plane) is its own relief, h(F) on F's sheets (the
 // reference); with T = w₁ it is plane z's points carried (the identity carry), coloured by √ (the stages up to T):
-// - plane z at rest with T = w₁: a carried frame that draws the sheets, with the reference's scale;
+// - plane z at rest with T = w₁: a carried frame that draws the sheets, with the reference's scale and its cells refined
+//   about the walls (the pole of F at z = −1 is a spike, as the reference's, not a sail), coloured by √ at every fragment;
 // - its surface stands where the reference's does: read for where the surface is (a pixel of the phase colours, its
 //   largest channel less its smallest over 16/255, against the grey floor and backdrop), the pixels that are surface
 //   in one frame and not in the other are at most 1 % of the pane's (the colours differ: √'s phase against F's).
@@ -44,6 +45,7 @@ for (const i of [0]) {
   await rest(i);
   const c = info['mid' + i] = await carried();
   ok(`T = w₁, plane ${i}: a carried frame with the sheets`, !!c && c.sheets === true, c);
+  ok(`T = w₁, plane ${i}: the rest frame's cells are refined about the walls, as the own relief's are`, !!c && c.refined === true, c);
   ok(`T = w₁, plane ${i}: the frame is still`, await grab('mid' + i), null);
   const d = info['d' + i] = await apart('mid' + i, 'own' + i);
   ok(`T = w₁, plane ${i}: the frames show a surface`, !!d && d.surface[1] > 0.03, d);
