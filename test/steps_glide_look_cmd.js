@@ -211,23 +211,26 @@ async function look(c, r) {
   r.step = 'done';
 }
 // held = parked: at each u of c.parked, the frame held there (a scrub pressed and not let go) is the frame parked there
-// when it is let go (the same picture of the deformation at u, at rest), pixel for pixel: no pixel apart
+// when it is let go (the same picture of the deformation at u, at rest): the same camera, and no pixel apart
 async function heldParked(c, r) {
   r.step = 'held = parked';
   await rest(0);
+  // (the camera of the glide's last frame: centre and scale)
+  const VIEW = '(() => { const g = __cmwSteps().glide, v = g && g.view; return v ? [v.cx, v.cy, v.s] : null; })()';
   const P = r.parked = {};
   for (const u of c.parked) {
-    const held = (await hold(u)).ok, a = await grab('K' + u);
+    const held = (await hold(u)).ok, a = await grab('K' + u), vk = await ev(VIEW);
     await ev('window.__svScrubUp(), 1');
     // (and the idle jobs done: the tiling's fix-ups start 160 ms after a change and run while the left pane's LED says
     // busy; a frame drawn with one is the parked frame too)
     const idle = `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3 && !document.getElementById('leftLed').classList.contains('busy')`;
     const parked = (await settled({ max: 90000, floor: 600, until: idle })).ok, b = await grab('Q' + u);
-    P[u] = { held, parked, still: a && b, diff: await compare('K' + u, 'Q' + u) };
+    P[u] = { held, parked, still: a && b, diff: await compare('K' + u, 'Q' + u), view: [vk, await ev(VIEW)] };
     await rest(0);
   }
   for (const u of c.parked) {
     const q = P[u];
+    ok(`${c.tag}: held = parked: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q.view);
     ok(`${c.tag}: held = parked: the frame held at u = ${u} is the frame parked there once let go (no pixel apart)`, q.held && q.parked && q.still && !!q.diff && q.diff.max === 0, q);
   }
 }
