@@ -1829,11 +1829,11 @@
     let keep = null;
     if (fa && E.track.contains(fa)) {
       const sk = /** @type {HTMLElement | null} */ (fa.closest('.sv-step'));
-      keep = fa.classList.contains('sv-plane') ? { p: fa.dataset.i } : fa.classList.contains('sv-whole') ? { w: 1 } : sk ? { k: +sk.dataset.k, part: fa.classList.contains('sv-more') ? 'more' : 'chip' } : null;
+      keep = fa.classList.contains('sv-plane') ? { p: fa.dataset.i } : fa.classList.contains('sv-whole') ? { w: 1 } : fa.classList.contains('sv-awalk') ? { a: fa.dataset.d } : sk ? { k: +sk.dataset.k, part: fa.classList.contains('sv-more') ? 'more' : 'chip' } : null;
     }
     E.track.textContent = '';
     E.track.style.setProperty('--n', String(P.length));
-    if (al) E.track.append(h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')));
+    if (al) E.track.append(h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')), svWalkBtn(-1, al), svWalkBtn(1, al));
     P.forEach((k, i) => {
       if (i > 0) {
         // (a step is a stretch of the thread, which a drag moves along; its function's chip on it opens the step)
@@ -1848,7 +1848,7 @@
       for (let j = P[P.length - 1] + 1; j <= S.steps.length; j++) E.track.append(svStepEl(j));
     }
     if (keep) {
-      const el = /** @type {HTMLElement | null} */ (keep.p != null ? E.track.querySelector(`.sv-plane[data-i="${keep.p}"]`) : keep.w ? svEl('whole') : svEl(keep.k, keep.part));
+      const el = /** @type {HTMLElement | null} */ (keep.p != null ? E.track.querySelector(`.sv-plane[data-i="${keep.p}"]`) : keep.a ? E.track.querySelector(`.sv-awalk[data-d="${keep.a}"]`) : keep.w ? svEl('whole') : svEl(keep.k, keep.part));
       const back = el && el.getClientRects().length ? el : null;
       if (back) back.focus({ preventScroll: true });
       else SV.refocus = true;   // (the + button, once it is drawn below)
@@ -2247,7 +2247,7 @@
       return ns.length - 1;
     };
     rail.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-wholemap, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.button !== 0 || e.target.closest('.sv-fwrap, .sv-wholemap, .sv-add, .sv-whole, .sv-awalk, .sv-bandx')) return;
       const d = SV.drag = { id: e.pointerId, px: e.clientX, moved: false, strip: true };
       svRangeDown(d, e, rail, posX);
       try { rail.setPointerCapture(e.pointerId); } catch (_) { /* (a synthetic pointer) */ }
@@ -2255,7 +2255,7 @@
     // (a press on the thread away from the planes and the chips goes there too)
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
-      if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
+      if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-awalk, .sv-bandx')) return;
       svOutsideBand(posX(e));
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
@@ -2748,12 +2748,22 @@
   // SV.back the planes the whole chain was on)
   function svPrev(k) { let j = k - 1; while (j >= 1 && S.steps[j - 1].on === false) j--; return Math.max(0, j); }
   function svAloneOk() { const k = SV.alone; return k && S.steps[k - 1] && S.steps[k - 1].on !== false ? k : 0; }
-  function svAlone(k) {
+  // the step shown alone before (d = -1) or after (d = 1) step k, bypassed steps skipped; 0 at the chain's ends
+  function svAloneNeighbour(k, d) { for (let j = k + d; j >= 1 && j <= S.steps.length; j += d) if (S.steps[j - 1].on !== false) return j; return 0; }
+  // the ‹ › after "Whole chain": the walk of a step shown alone. › parks the next step on its first plane (the plane the
+  // step shown ends on), ‹ the previous one on its last, so a press at the end it points to changes the thread, not the picture
+  function svWalkBtn(d, k) {
+    const j = svAloneNeighbour(k, d), off = !j, name = d < 0 ? $t('Previous step alone') : $t('Next step alone');
+    const tip = off ? (d < 0 ? $t('No step before f{k}', { k: sub(k) }) : $t('No step after f{k}', { k: sub(k) })) : $t('Show f{k} alone', { k: sub(j) });
+    return h('button', { type: 'button', class: 'sv-awalk' + (off ? ' off' : ''), 'data-d': String(d), 'aria-label': name, 'aria-disabled': String(off), 'data-tip': tip, onclick: () => { if (!off) svAlone(j, d < 0); } }, d < 0 ? '‹' : '›');
+  }
+  function svAlone(k, last) {
     const st = S.steps[k - 1];
     if (!st || st.on === false) return null;
-    if (!SV.alone) SV.back = { i: SV.i, T: SV.T };
+    if (SV.alone) svKeepView();
+    else SV.back = { i: SV.i, T: SV.T };
     SV.anim = null;
-    SV.alone = k; SV.i = 0; SV.g.set(0); SV.g.max = 1;
+    SV.alone = k; SV.i = last ? 1 : 0; SV.g.set(SV.i); SV.g.max = 1;
     SV.sig = svSigNow();
     svApply();
     const live = SV.els.live;

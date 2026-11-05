@@ -3401,5 +3401,10 @@
  "Label": "Etichetta",
  "Add a step to make a video": "Aggiungi un passo per fare un video",
  "Video of the Landscape is not ready yet": "Il video del «Paesaggio» non è ancora pronto",
- "Video of the sphere is not ready yet": "Il video della sfera non è ancora pronto"
+ "Video of the sphere is not ready yet": "Il video della sfera non è ancora pronto",
+ "Previous step alone": "Passo precedente da solo",
+ "Next step alone": "Passo successivo da solo",
+ "Show f{k} alone": "Mostra solo f{k}",
+ "No step before f{k}": "Nessun passo prima di f{k}",
+ "No step after f{k}": "Nessun passo dopo f{k}"
 }
