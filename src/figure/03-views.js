@@ -368,6 +368,16 @@
     return { x0: b.x0 - px, x1: b.x1 + px, y0: b.y0 - py, y1: b.y1 + py };
   }
 
+  // where the map arrow between two side-by-side panels goes: its height, at the first of seven heights across the
+  // panels that keeps its label clear of o.oys (the panels' axis lines); its ends, in a box-axes figure 5 pt right of
+  // the left panel (xr) and o.span long, else o.off right of it up to 8 pt before the right panel (xn)
+  function arrowPlace(o) {
+    const lab = o.label ? o.label.a + o.label.d + 3 : 0;
+    const ay = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => o.y + f * o.h).find((v) => o.oys.every((oy) => v - oy > lab + 6 || oy - v > 6)) || o.y + o.h / 2;
+    const a0 = o.box ? o.xr + 5 : o.xr + o.off;
+    return { a0, a1: o.box ? a0 + o.span : o.xn - 8, ay };
+  }
+
   // ---------- (1) X -> Y: two plane panels and the F arrow (or one of them) ----------
   async function figXY(o, P, W, T, view0) {
     const st = A.state();
@@ -508,11 +518,7 @@
     if (two) {
       // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
       const oys = axes === 'box' ? [] : panels.filter((sd) => boxes[sd]).map((sd) => { const b = boxes[sd]; return Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h)); });
-      const lab = arrowLab ? arrowLab.a + arrowLab.d + 3 : 0;
-      const ay = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => y + f * h).find((v) => oys.every((oy) => v - oy > lab + 6 || oy - v > 6)) || y + h / 2;
-      let a0, a1;
-      if (axes === 'box') { a0 = xs.L + h * asp('L') + 5; a1 = a0 + arrowSpan; }
-      else { a0 = xs.L + h * asp('L') + ah * 0.3 + 2 + XD.tex(titles('L')[0], lp).w + 8; a1 = xs.R - 8; }
+      const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs.L + h * asp('L'), xn: xs.R, y, h, oys, label: arrowLab, span: arrowSpan, off: ah * 0.3 + 2 + XD.tex(titles('L')[0], lp).w + 8 });
       items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     }
     const H = y + h + bottom;
