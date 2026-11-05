@@ -1536,7 +1536,11 @@
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
-    rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
+    rail.addEventListener('scroll', () => {
+      const E = SV.els;
+      // (a scroll the follow did not make, in a rail whose scroll range is the one measured, is the user's: a range that shrank clamps the scroll too)
+      if (E && E.followTo != null && Math.abs(rail.scrollLeft - E.followTo) > 1 && rail.scrollWidth - rail.clientWidth === E.scrollMax) E.userScrolled = true;
+      if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, surf1, SURF, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
@@ -1665,7 +1669,7 @@
     // ring is centred on a node, clear of its name): measured with the centres)
     if (!E.centres || E.centresSig !== E.sig) {
       const pl = [...E.track.querySelectorAll('.sv-plane')];
-      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
+      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft; E.scrollMax = E.rail.scrollWidth - E.rail.clientWidth;
       const nd = pl[0] && pl[0].querySelector('.sv-node');
       if (nd) E.thumb.style.setProperty('--sv-node-y', `${(pl[0].offsetTop + nd.offsetTop + nd.offsetHeight / 2).toFixed(1)}px`);
       svFades();
@@ -1684,11 +1688,11 @@
     const kf = document.activeElement, keepFocus = !!kf && kf !== E.thumb && E.rail.contains(kf) && kf.matches(':focus-visible') && !SV.anim && !SV.g.moving();
     if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
     else if (E.trackW > E.railW + 1) {
-      // (the rail follows the ring when the ring moves, or a control asks for it (svFollowRing): a resize alone leaves a rail the
-      // user scrolled where it is, its scrollLeft clamped by the browser)
+      // (the rail follows the ring when the ring moves, or a control asks for it (svFollowRing), or the user has not scrolled it
+      // since the last follow: a resize alone leaves a rail the user scrolled where it is, its scrollLeft clamped by the browser)
       const key = `${x.toFixed(3)}|${c.length}`;
-      if (key !== E.followKey) {
-        E.followKey = key;
+      if (key !== E.followKey || !E.userScrolled) {
+        E.followKey = key; E.userScrolled = false;
         const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
         // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
         const toEnd = E.wholeMap.parentNode === E.rail && j >= c.length - 1;
@@ -1696,6 +1700,7 @@
         const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
         // (the fades follow at once: the rail's scroll event comes a frame later)
         if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+        E.followTo = to;
       }
     } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
   }
