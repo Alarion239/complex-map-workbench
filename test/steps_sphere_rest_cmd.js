@@ -10,7 +10,7 @@ const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const quiet = () => settled({
-  floor: 400, max: 20000,
+  max: 20000,
   until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
 });
 const grab = (tag) => ev(`(() => { const c = document.getElementById('canvasL'), s = document.createElement('canvas');
