@@ -16,7 +16,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const EXACT = 1e-5;        // a sample against its exact image: the maps are evaluated in double precision
 const ON_LINE = 1e-3;      // a bank against its line: the ray's bank is offset 1e-7 rad, its far samples reach a few thousand
-const NEAR_END = 0.2;      // how close to u = 0 or 1 the frame is parked (an eighth of a step from a plane, the thread settles on it)
+const NEAR_END = 0.2;      // how close to u = 0 or 1 the frame is parked: farther from a plane than an eighth of a step (.125), within which the thread settles on the plane
 const INK_TOL = 40;        // per channel, #CC3311: the 1.75 px stroke's edge pixels are part paper; half strength is 100 off in green
 const HALF = 0.5;          // the glide parked half-way
 const THIN = 4;            // the glide's frames take every fourth sample of the rest set
