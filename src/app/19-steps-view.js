@@ -1197,16 +1197,12 @@
     const st = svStagedOf();
     if (!st) return;
     // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
-    // at rest on the nearer plane draws them)
-    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, (x) => (shapeStage(x) <= st.g.near ? 1 : PULL_ALPHA * dimK(x)));
-  }
-  // the boundaries of those regions in the open frame, drawn as the pulled-back regions' are at rest (drawPreimage's
-  // boundary: the shape's edge colour, a band as wide as pullStroke gives)
-  function svStagedStrokes(pane, map0) {
-    if (map0.mode !== 1) return;
-    const st = svStagedOf();
-    if (!st) return;
-    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => ({ rgb: GLR.hexRGB(shapeInk(x).edge), w: Math.max(pane.dpr, 0.55 * pullWidth(x, pane.dpr)) }));
+    // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
+    // opaque line that drawPreimage draws at rest, so the carried colour shows stronger there)
+    const nearer = (x) => shapeStage(x) <= st.g.near;
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, (x) => (nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
+    const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
+    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => ({ w: Math.max(pane.dpr, PULL_EDGE_MIN * pullWidth(x, pane.dpr)), a: PULL_EDGE_A }));
   }
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
   // when there is none or the pass cannot draw them
@@ -1280,7 +1276,6 @@
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
-    if (!hideStrokes && svMaskOn()) svStagedStrokes(pane, map0);
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the

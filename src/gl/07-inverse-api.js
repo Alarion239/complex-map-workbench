@@ -500,9 +500,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
     u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
     u1i(P, 'uShStage', rec.stage);
-    // st.edge {rgb, w}: the boundary alone, w device px wide
+    // st.edge {w, a}: the boundary band alone, w device px wide at alpha a
     u1i(P, 'uEdgeOnly', st.edge ? 1 : 0);
-    if (st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u3(P, 'uEdgeC', st.edge.rgb); }
+    if (st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u1f(P, 'uEdgeA', st.edge.a); }
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);

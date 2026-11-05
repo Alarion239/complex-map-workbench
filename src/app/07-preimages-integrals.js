@@ -22,7 +22,10 @@
   }
   // the opacity of a pulled-back region's fill
   const PULL_ALPHA = 0.42;
-  // the width (device px) of a pulled-back region's boundary
+  // a pulled-back region's boundary band (the shader's PRE_FS): its alpha, and the share of its width (at least one css
+  // pixel) it is drawn at
+  const PULL_EDGE_A = 0.9, PULL_EDGE_MIN = 0.55;
+  // the width (device px) of a pulled-back region's boundary: 2 css px, 2.75 for the selected one
   const pullWidth = (s, dpr) => (s.id === selected ? 2.75 : 2) * dpr;
   function pullTargets(list) {
     let nv = 0;
