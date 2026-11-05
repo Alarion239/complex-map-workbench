@@ -38,7 +38,6 @@
   function svPlanes() { const k = svAloneOk(); return k ? [svPrev(k), k] : [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
   function svT() { const P = svPlanes(); return SV.alone && P.length === 2 && P[1] === SV.alone ? SV.alone : P.includes(SV.T) ? SV.T : P[P.length - 1]; }
-  // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   // a glide's u at or under this is its plane's rest frame (the thread sits on a plane, to the precision of a float)
   const SV_REST_U = 1e-6;
   // the sheet key's inner radius, as a share of its window's half diagonal R (the region tiling's own: smKeyOf)
@@ -49,6 +48,7 @@
   // plane b's globe is cross-faded in over a's only past this u (under it its alpha, u, is below 3 of 255 levels, not
   // worth a second globe's draw)
   const SV_FADE_U = 0.01;
+  // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
   // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
