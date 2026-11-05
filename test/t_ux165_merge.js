@@ -1,4 +1,4 @@
-// v16.5 wave 1 merge (notes/ux-build/W1-MERGE.md): the places where the five pieces (learn, chain, plane, rail, phone)
+// The merged pieces (notes/ux-build/W1-MERGE.md): the places where the five pieces (learn, chain, plane, rail, phone)
 // meet, read from the merged sources. Each check names the pieces whose intents it keeps. Node, no browser.
 'use strict';
 const fs = require('fs');
@@ -18,7 +18,7 @@ const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '(');
 for (const f of ['src/app.js', 'src/construct.js', 'src/constr.js', 'src/page.html', 'src/tour.js', 'src/phone.js', 'src/phone.css', 'src/desk.css', 'src/inspector.js', 'tools/make_ru_table.py'])
   ok(`${f}: no conflict markers`, !/^(<{7}|>{7}) /m.test(R(f)));
 
-// ---- Russian: one set holds every piece's table and the merge's own, read after every v16.4 table
+// ---- Russian: one set holds every piece's table and the merge's own, read after the earlier tables
 const m = /V165_HERE = \{([^}]*)\}/.exec(MK);
 const names = m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
 ok('make_ru_table: V165_HERE lists the five pieces and the merge', ['learn', 'chain', 'plane', 'rail', 'phone', 'merge'].every((p) => names.includes(`v165-ux-${p}.json`)), names);
