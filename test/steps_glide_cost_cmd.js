@@ -222,14 +222,14 @@ async function hold(x, links = true) {
   // (a scrub: pressed on one end plane, 40 moves 16 ms apart to the other, let go there; it answers once let go. The
   // promise is awaited in the page: ev evaluates in REPL mode, which hands a returned promise back unresolved)
   let scrubs = 0;
-  const scrub = async (from, to) => ok(`scrub ${++scrubs} (plane ${from} to ${to}) is let go`, await ev(`await new Promise((done) => {
+  const scrub = async (from, to, moves = 40, gap = 16) => ok(`scrub ${++scrubs} (plane ${from} to ${to}) is let go`, await ev(`await new Promise((done) => {
     const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
     const x0 = ns[${from} < 0 ? ns.length - 1 : ${from}][0], x1 = ns[${to} < 0 ? ns.length - 1 : ${to}][0], cy = ns[0][1];
     const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 74, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
     ev('pointerdown', x0);
     let i = 0;
-    const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / 40); if (i < 40) setTimeout(step, 16); else { ev('pointerup', x1); done(1); } };
-    setTimeout(step, 16);
+    const step = () => { i++; ev('pointermove', x0 + (x1 - x0) * i / ${moves}); if (i < ${moves}) setTimeout(step, ${gap}); else { ev('pointerup', x1); done(1); } };
+    setTimeout(step, ${gap});
   })`, 120000) === 1);
   // (at rest: 2 s, and the idle job's work for the plane the thread is at done)
   const rest = async () => {
@@ -260,6 +260,18 @@ async function hold(x, links = true) {
   await ev(`GLR.cacheBudget = ${budget}, 1`);
   info['over the budget'] = { kept0, squeezed };
   ok('over the map cache\'s budget: the kept scratch entries are freed by the next sweep', kept0 && kept0.n > 0 && squeezed && squeezed.n === 0, info['over the budget']);
+  await rest();
+  // (a scrub that outlasts the keep time keeps the entries of the planes it passed: the keep time shortened to 3 s, a
+  // scrub of 6 s to the last plane, then a scrub back: the first planes' entries were last drawn 6 s before, and the
+  // scrub back allocates nothing while the carried colour has been drawn all along)
+  const keepWas = await ev('GLR.carryKeepMs(3000)');
+  await scrub(0, -1, 60, 100);
+  await ev('window.__svAlloc.length = 0, 1');
+  await scrub(-1, 0);
+  const longAlloc = await ev('window.__svAlloc');
+  await ev(`GLR.carryKeepMs(${keepWas}), 1`);
+  info['a long scrub'] = { keepWas, n: Array.isArray(longAlloc) ? longAlloc.length : null, first: Array.isArray(longAlloc) ? longAlloc.slice(0, 3) : longAlloc };
+  ok('a scrub back after a scrub that outlasted the keep time: the first planes\' kept entries are still there, nothing is allocated', Array.isArray(longAlloc) && longAlloc.length === 0, info['a long scrub']);
   await scrub(0, -1);
   await rest();
   // (the scratch entries kept for the next scrub are freed when the chain changes, well inside their 30 s: a step
