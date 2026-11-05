@@ -340,7 +340,7 @@
   function svLandPatches(map, src, N) {
     const F = cpuMap(map);
     if (!F) return [];
-    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
+    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
     let poles;
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || p);
     else poles = svDrain(svPolesIn(F, src, 16, src, E));
@@ -349,6 +349,13 @@
     Object.assign(svLandPoleMemo, { key, poles: near });
     return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8]);
   }
+  // The carried grid's far patch for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1]: plane s outside its carried box src, about
+  // the box's centre from its inscribed circle to a thousand times its size. A map takes that region over the far plane
+  // too (a Möbius step takes it to a disc about the image of infinity), where no cell of the box's grid reaches.
+  const svLandFar = (src) => {
+    const w = src.x1 - src.x0, h = src.y1 - src.y0;
+    return [(src.x0 + src.x1) / 2, (src.y0 + src.y1) / 2, Math.min(w, h) / 2, 1000 * Math.max(w, h)];
+  };
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
