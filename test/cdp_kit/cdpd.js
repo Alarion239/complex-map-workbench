@@ -56,13 +56,35 @@ let S = null;
 const H = {};
 H.send = (m, p) => send(m, p, S);
 H.sleep = sleep;
+// evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
+// (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
+// result is read by value from its handle, which is released at once.
 H.ev = async (expr, timeout = 20000) => {
-  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, timeout, userGesture: true, replMode: true }, S);
-  if (r.exceptionDetails) return { __exc: (r.exceptionDetails.exception && r.exceptionDetails.exception.description) || r.exceptionDetails.text };
-  return r.result.value;
+  const t0 = Date.now();
+  const group = 'ev';
+  const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
+  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: false, timeout, userGesture: true, replMode: true, objectGroup: group }, S);
+  if (r.exceptionDetails) return fail(r.exceptionDetails);
+  const o = r.result;
+  if (!o.objectId) return o.value;
+  try {
+    let timer;
+    const left = Math.max(1, timeout - (Date.now() - t0));
+    const limit = new Promise((res) => { timer = setTimeout(() => res({ exceptionDetails: { text: `ev: the promise did not settle within ${timeout} ms` } }), left); });
+    const settled = o.subtype === 'promise'
+      ? await Promise.race([send('Runtime.awaitPromise', { promiseObjectId: o.objectId, returnByValue: true, userGesture: true }, S), limit])
+      : await send('Runtime.callFunctionOn', { objectId: o.objectId, functionDeclaration: 'function () { return this; }', returnByValue: true }, S);
+    clearTimeout(timer);
+    if (settled.exceptionDetails) return fail(settled.exceptionDetails);
+    return settled.result.value;
+  } finally {
+    send('Runtime.releaseObjectGroup', { objectGroup: group }, S).catch(() => {});
+  }
 };
+// (the device pixel ratio: CMW_DPR, 1 by default; 2 is the Mac's screen)
+const DPR = +process.env.CMW_DPR || 1;
 H.view = async (w, h, dark, mobile) => {
-  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!mobile }, S);
+  await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: DPR, mobile: !!mobile }, S);
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }] }, S);
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!mobile, maxTouchPoints: mobile ? 5 : 1 }, S);
 };
@@ -148,14 +170,22 @@ H.clickSel = async (sel) => {
   await H.click(r[0], r[1]); return r;
 };
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
-// loadView(view, ns, state, { lang }): like load(), but the app's first load is in `view` ('classic' or 'steps') whatever the
-// kit's pin is (load() opens the pinned view, and a page loaded there first saves that view's state under ns); waits for
-// the page's load event, and the caller waits for the app with settled({ until })
-H.loadView = async (view, ns, st, o = {}) => {
+// seed(ns, state): the saved state the app reads under ns on its first load, written from the helper page (a page of the same
+// origin that starts no app); waits for the helper page's load event
+H.seed = async (ns, st) => {
   await H.go('http://localhost:8793/gl-helpers.html');
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(st)))}); 1`);
-  await H.go(`http://localhost:8793/test.html?ns=${ns}${o.lang ? '&lang=' + o.lang : ''}&view=${view}`);
 };
+// loadView(view, ns, state, { lang }): like load(), but the app's first load is in `view` ('classic' or 'steps') whatever the
+// kit's pin is (load() opens the pinned view, and a page loaded there first saves that view's state under ns); with no view the
+// page opens in the kit's pinned view (a suite tagged steps({ pin: true }) in ci/suite_views.js gets the steps view, and with
+// another tag the classic one). Waits for the page's load event, and the caller waits for the app with settled({ until })
+H.loadView = async (view, ns, st, o = {}) => {
+  await H.seed(ns, st);
+  await H.go(`http://localhost:8793/test.html?ns=${ns}${o.lang ? '&lang=' + o.lang : ''}${view ? '&view=' + view : ''}`);
+};
+// isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
+H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 H.load = async (ns, st, extra) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
