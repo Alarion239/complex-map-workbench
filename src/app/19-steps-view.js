@@ -790,22 +790,42 @@
   // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
   // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why) {
+    const h = svHomPaths(b, u, why);
+    if (!h) return false;
+    const res = svDrawInverse(pane, h.list, h.paths, T, frame);
+    if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
+    return true;
+  }
+  // the shapes and their inverse paths through step b's homotopy at u that svCarryExactHom draws: {list, paths}, or null
+  // when a shape takes no such path (the frame is the carried mesh's by design; why.r: the first reason not)
+  function svHomPaths(b, u, why) {
     const list = svCarryShapes();
-    if (!list || !list.length) { why.r = 'a region of a later plane'; return false; }
-    if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return false; }
-    if (derivIn(0, b)) { why.r = 'a d/dz step'; return false; }
+    if (!list || !list.length) { why.r = 'a region of a later plane'; return null; }
+    if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
+    if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
     packRecs(list.includes(SV_ALL) ? [SV_ALL] : []);
     const singAt = () => svSheetKeyAt(b, u).sing;
     const paths = list.map((x) => invHomPath(x, 0, b, u, singAt));
     const no = paths.find((p) => p.path !== 'inverse');
-    if (no) { why.r = no.reason; return false; }
+    if (no) { why.r = no.reason; return null; }
     // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
     // when its step's own exact ops seed walks back from t = 1 (InvOps.opNewt's back); without them it finds two, so
     // that frame keeps the carried mesh)
-    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return false; }
-    const res = svDrawInverse(pane, list, paths, T, frame);
-    if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
-    return true;
+    if (list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return null; }
+    return { list, paths };
+  }
+  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
+  // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
+  // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
+  // -> the place to draw instead of the thread's, or null (draw the thread's)
+  function svLinkHold() {
+    const g = svBetween();
+    if (g.u <= 1e-6 || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
+    const h = svHomPaths(g.b, g.u, { r: null });
+    if (!h || !h.paths.some((p) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true }) === 'pending')) return null;
+    const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
+    if (A) { A.t0 = performance.now(); SV.g.set(A.from); requestRender('L'); return A.from; }
+    return g.x0;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
   // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
@@ -1054,7 +1074,8 @@
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const { a, b, u, map, F, H: Hb, near } = svBetween(), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const hold = svLinkHold();
+    const { a, b, u, map, F, H: Hb, near } = svBetween(hold == null ? SV.g.x : hold), rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
