@@ -432,6 +432,18 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // 'pending' (a compile in flight or not yet allowed to start) sets frameStatus().pending; 'error': the shape cannot
   // be drawn inverse this frame (no program, a failed compile, a side draw without a ready program, a plan / prep
   // mismatch); both fall through to the forward draw.
+  // the state of the program drawInverse(st) would draw with, nothing drawn: 'ready' (it or a ready B class of it
+  // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
+  // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
+  // as ready
+  function inverseState(st) {
+    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
+    const globe = st.viewKind === 'globe', look = st.look || {};
+    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? INV_CARRY : st.extra;
+    const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
+    if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
+    return pr.state;
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe';
@@ -818,7 +830,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
