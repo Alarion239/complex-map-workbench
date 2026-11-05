@@ -242,9 +242,9 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // (#846) The steps view's carried landscape (st.carry {map, s, T, lim, src}): plane s's grid over its box src (default
-  // the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box, each
-  // vertex at the height of G = the stages (s, T] at its point
+  // The steps view's carried landscape (st.carry {map, s, T, hT, lim, src}): plane s's grid over its box src
+  // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
+  // each vertex at the height of the stages (s, hT] at its point (hT default T) and coloured by G = the stages (s, T]
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
@@ -263,7 +263,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.T);
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', c.hT == null ? c.T : c.hT);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, landC.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
@@ -1221,7 +1221,10 @@
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
-      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); u1iv(P, 'uSheetMap', sp.map); }
+      // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
+      // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
+      const colB = hs && st.carry && st.carry.T < hs.b ? st.carry.T : hs ? hs.b : 0;
+      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
     };

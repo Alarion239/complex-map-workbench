@@ -12,7 +12,7 @@
     // (the steps view is the default; ?view=classic, or a host page that sets window.cmwView = 'classic' before the app starts, opens the classic views)
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
-    clock: null,     // (a test hook's) ms of glide time a frame (svFrame), else the wall clock
+    clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -41,6 +41,16 @@
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
+  // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
+  // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
+  // no map from w_k (then the colour plane, or past it w_k itself)
+  function svHT(k) { const P = svPlanes(), L = P[P.length - 1]; return k === 0 || !derivIn(k, L) ? L : Math.max(k, svT()); }
+  // the height map of plane k (a map spec of plane k) and its CPU twin
+  const svHeightMap = (k) => ({ mode: 0, a: k, b: svHT(k) });
+  const svHeightF = (k) => { const t = svHT(k); return k === t ? (z) => z : rangeF(k, t); };
+  // plane k has a Landscape: at or before the colour plane T (svColoured), or past it with a map from T (whose points
+  // carry T's colour there)
+  const svLandOk = (k) => { const T = svT(); return svColoured(k) || (k > T && (T === 0 || !derivIn(T, k))); };
   // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
@@ -95,20 +105,23 @@
     return hit.length ? hit[0].z : null;
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
-  // colour plane the colour is carried by the points, which the role says
+  // colour plane the colour is carried by the points, which the role says. A Landscape names its height, h(F) on every
+  // plane (svHeightF), then the carried colour past T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role;
-    if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
-    else if (k === T && SV.surf !== 'land') role = $t('colour plane');
-    else if (SV.surf === 'land') role = $t('landscape of {h}{sheets}', { h: heightHtml(map), sheets: landSheetsHtml() });
+    if (SV.surf === 'land' && svMain(k) === 'land') {
+      const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
+      role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+    } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
+    else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
     return { name: svNameHtml(k), role };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
   // the app's view of the shown plane: Phase (or Landscape) at or before the colour plane, X → Y after it; true when S changed
-  const svMain = (k = svStage()) => (SV.surf === 'land' && svColoured(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
+  const svMain = (k = svStage()) => (SV.surf === 'land' && svLandOk(k) ? 'land' : svColoured(k) ? 'phase' : 'xy');
   function svViewFix() {
     const k = svStage(), col = svColoured(k), v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
     const main = svMain(k);
@@ -274,17 +287,35 @@
     if (still) { SV.g.last = 0; svArrive(); return false; }
     return true;
   }
-  // (#846) The Landscape between two planes: plane a's surface carried by the glide's map, each point at its height and
-  // colour on plane a (G_a = f_T ∘ … ∘ f_{a+1}); at u = 1 that is plane b's surface, since G_a = G_b ∘ f_b. At a plane,
-  // or across a d/dz step (no map), the shown plane's surface at rest. False when the Landscape is not on the pane
-  // (the X → Y view a glide from past the colour plane starts in)
+  // The Landscape as the points of a source plane s carried (render3D's carry): s is the plane
+  // the frame starts from, or the colour plane T when that is before it, so every point past T keeps T's colour. Each
+  // point is placed by `map` (from plane s), at its height h(F) (the stages (s, hT]) and in its colour (the stages
+  // (s, T]); the block goes from plane a's to plane b's over u (b null: a's). vs, va, vb: the views of s, a and b
+  // rest: the plane at rest the frame is (the probe picks on its relief), else null
+  function svLandCarry(map, s, a, b, u, rest = null) {
+    const T = svT(), lim = 0.35 * Math.max(paneL.w, paneL.h) / S.srcView.s;
+    return { map, s, T, hT: svHT(s), lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
+  }
+  // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
+  // when its heights are of that map too; else plane k's points (k at or before T) or T's (past it) carried to plane k
+  // at u = 1, so the height is h(F_k) and the colour that of the 2D picture. Undefined for the rest frame
+  function svLandRest(k = svStage()) {
+    const T = svT();
+    if (!SV.on || !svLandOk(k)) return undefined;
+    if (k <= T) return svHT(k) === T ? undefined : svLandCarry({ mode: 0, a: k, b: k }, k, k, null, 0, k);
+    return svLandCarry({ mode: 0, a: T, b: k }, T, T, k, 1, k);
+  }
+  // The Landscape between two planes a and b: the points of plane s = min(a, T) carried by the glide's map, each
+  // at its height and colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s =
+  // F_b ∘ (the map s → b). At a plane, or across a d/dz step (no map), the nearer plane's surface at rest. False when
+  // the Landscape is not on the pane (the X → Y view a glide from a plane with no Landscape starts in)
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
-    if (!g.H || !svColoured(g.a)) { render3D(pane); return true; }
-    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: g.u };
-    const lim = 0.35 * Math.max(pane.w, pane.h) / S.srcView.s;
-    render3D(pane, { map, s: g.a, T: svT(), lim, u: g.u, b: svColoured(g.b) ? g.b : null, va: leftView(g.a), vb: leftView(g.b) });
+    if (!g.H || !svLandOk(g.a)) { render3D(pane, svLandRest(g.near)); return true; }
+    const s = Math.min(g.a, svT());
+    const map = g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u };
+    render3D(pane, svLandCarry(map, s, g.a, svLandOk(g.b) ? g.b : null, g.u));
     return true;
   }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
@@ -1144,9 +1175,11 @@
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
-      // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
-      // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
-      paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
+      // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
+      // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
+      // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
+      // carried colour's CPU mesh, which needs a frame of its own, waits)
+      paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
       after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
@@ -2334,7 +2367,9 @@
   // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's
   // kind follows it, as at a plane's arrival), and at the end it stops, or starts over
   function svPlayFrame() {
-    const A = SV.play, now = performance.now(), v = Math.min(1, (now - A.t0) / A.ms);
+    // (SV.clock, a test hook's: the play's time advances that many ms a frame, as a glide's, so a suite reads its speed in the
+    // frames drawn however long each takes)
+    const A = SV.play, now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
     // (another chain loaded under the play, an example, a link or an undo: it stops, and the new state's view is adopted)
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return false; }
     SV.g.set(A.from + (A.to - A.from) * v);
@@ -2345,7 +2380,7 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -2356,7 +2391,7 @@
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
   }
   // stop: settle where it is (a plane near, or parked between two), as a scrub let go; quiet: another move took over
   function svPause(settle) {
