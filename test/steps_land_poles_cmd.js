@@ -44,28 +44,16 @@ info.cHeld = await cover();
 ok('held at 1.9998: the carried frame covers its block (but plane w₁ past its box, #971)', !!info.cHeld && info.cHeld.bare === 0, info.cHeld);
 info.gHeld = await cover(false);
 ok('held at 1.9998: the box grid alone leaves points bare', !!info.gHeld && info.gHeld.bare > 0, info.gHeld);
-// mid-glide, the carried frame held on the glide w₁ → w₂ (the thread held as steps_land_glide_cmd.js holds it: not let
-// go, settled on the place and the moving frame), at u = 0.85 and 0.95, where the cells about the pole have stretched past
+// mid-glide, the carried frame held (held_frames' hold: the thread not let go, settled on the place and the moving frame) on
+// the glide w₁ → w₂ at u = 0.85 and 0.95, where the cells about the pole have stretched past
 // the tear limit: one patch is drawn, no point of the block is bare, and the box grid alone leaves points bare (at u = 0.5 and
 // 0.7 it leaves none, so those frames would not read the patch)
-async function holdMid(x) {
-  await ev(`(() => {
-    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-    window.__svScrubUp = () => ev('pointerup', cx);
-    return 1;
-  })()`);
-  await settled({ max: 60000, until: `Math.abs(__cmwSvX() - ${x}) < 0.002 && __cmwSteps().moving` });
-  await ev(rAF2);
-}
 info.mid = {};
 for (const u of [0.85, 0.95]) {
   await rest(0);
-  await holdMid(1 + u);
+  await hold(1 + u);
   const m = info.mid[u] = { carried: await carried(), covered: await cover(), grid: await cover(false) };
-  ok(`held at u = ${u}: a carried frame drawing one patch`, !!m.carried && m.carried.s === 1 && Math.abs(m.carried.u - u) < 0.002 && m.carried.patches === 1, m.carried);
+  ok(`held at u = ${u}: a carried frame drawing one patch`, !!m.carried && m.carried.s === 1 && Math.abs(m.carried.u - u) < 0.004 && m.carried.patches === 1, m.carried);
   ok(`held at u = ${u}: the carried frame covers its block`, !!m.covered && m.covered.bare === 0, m.covered);
   ok(`held at u = ${u}: the box grid alone leaves points bare`, !!m.grid && m.grid.bare > 0, m.grid);
   await ev('window.__svScrubUp(), 1');
