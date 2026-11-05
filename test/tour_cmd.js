@@ -204,11 +204,12 @@ if (!SV) {
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
 await ev(`(() => { const t = document.querySelector('#tip'), c = document.querySelector('.tour-strip').getBoundingClientRect(); t.textContent = 'A tooltip'; t.hidden = false; t.style.left = (c.left + 20) + 'px'; t.style.top = (c.top + 10) + 'px'; })()`);
-await sleep(120);
-const over = await ev(`getComputedStyle(document.querySelector('#tip')).visibility`);
+const tipVis = () => ev(`getComputedStyle(document.querySelector('#tip')).visibility`);
+await waitFor(async () => (await tipVis()) === 'hidden', 3000);
+const over = await tipVis();
 await ev(`(() => { const t = document.querySelector('#tip'); t.style.left = '20px'; t.style.top = '20px'; })()`);
-await sleep(120);
-g = { over, away: await ev(`getComputedStyle(document.querySelector('#tip')).visibility`) };
+await waitFor(async () => (await tipVis()) === 'visible', 3000);
+g = { over, away: await tipVis() };
 await ev(`document.querySelector('#tip').hidden = true`);
 check('a tooltip over the callout is hidden, and shows again away from it', g.over === 'hidden' && g.away === 'visible', g);
 

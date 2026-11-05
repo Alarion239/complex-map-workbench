@@ -289,8 +289,10 @@ await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await goStep('sound/song');
 // (the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
+await settled({ max: 15000 });   // (the song scene's frames and shader compiles are done before the press, so the playback is timed alone)
 const ab = await center('.ts-act');
-await click(ab[0], ab[1]); t0 = Date.now();
+await ltInstall();
+await click(ab[0], ab[1]); t0 = Date.now(); const p0 = await ev('performance.now()');
 const caps = [];
 let last = '', durMs = 0;
 while (Date.now() - t0 < 30000) {
@@ -305,7 +307,10 @@ const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
 // (the Mountain King's F is costly, so Listen along samples it first (f181c88, "Preparing to listen along")
 // and starts seconds after the press: the fractions are counted from the playback's start, its first caption)
 const capT0 = capAt(/^Each note is/);
-check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from its start: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && capT0 != null && near(capAt(/^Each step is/) - capT0, 0.2 * durMs, 300) && near(capAt(/^The crack is/) - capT0, 0.29 * durMs, 300) && near(capAt(/^The second lap/) - capT0, 0.51 * durMs, 300), [durMs, caps]);
+// (a caption shows when the page's timer runs: a blocked main thread, the page's long tasks, runs it late by what was blocked, never early)
+const lts = await ev('(window.__lt || []).slice()');
+const capOn = (re, frac) => { const obs = capAt(re) - capT0, exp = frac * durMs, lo = p0 + capT0 + exp - 300, hi = p0 + capT0 + obs; const blocked = (lts || []).reduce((n, [x, y]) => n + Math.max(0, Math.min(y, hi) - Math.max(x, lo)), 0); return obs >= exp - 300 && obs <= exp + 300 + blocked; };
+check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from its start, late only as far as the page was blocked: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && capT0 != null && capOn(/^Each step is/, 0.2) && capOn(/^The crack is/, 0.29) && capOn(/^The second lap/, 0.51), [durMs, caps, lts]);
 const endAt = capAt(/^Every note/);
 check('Grieg: no move for the whole piece, then the result line', endAt != null && endAt > durMs - 300, [durMs, caps]);
 check('Grieg: moves on CD_MS after the piece ends', (await cur()) === 'sound/strings' && caps.length >= 5, caps);
