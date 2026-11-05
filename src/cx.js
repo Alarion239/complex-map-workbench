@@ -533,7 +533,19 @@ const CX = (() => {
   }
   let PT = { re: new Float64Array(0), im: new Float64Array(0) };
   /** @param {{re: number, im: number}} w @param {number} K */
+  const PTC = new Map(), PROBE_CACHE = typeof location !== 'undefined' && /[?&]lbl=cache\b/.test(location.search);   // PROBE
   function powTable(w, K) {
+    if (PROBE_CACHE) {
+      const ck = w.re + ',' + w.im + ',' + K, hit = PTC.get(ck);
+      if (hit) { if (PT.re.length <= K) PT = { re: new Float64Array(2 * K + 2), im: new Float64Array(2 * K + 2) }; PT.re.set(hit.re); PT.im.set(hit.im); return PT; }
+      const r = powTable0(w, K);
+      if (PTC.size > 4000) PTC.clear();
+      PTC.set(ck, { re: r.re.slice(0, K + 1), im: r.im.slice(0, K + 1) });
+      return r;
+    }
+    return powTable0(w, K);
+  }
+  function powTable0(w, K) {
     if (PT.re.length <= K) PT = { re: new Float64Array(2 * K + 2), im: new Float64Array(2 * K + 2) };
     const P = spf(K), re = PT.re, im = PT.im;
     re[1] = 1; im[1] = 0;

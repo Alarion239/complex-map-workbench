@@ -30,6 +30,7 @@
   }
   function flushLabels(pane, r) {
     if (pane.labels !== r) return;   // the plane was redrawn since: its own queue follows
+    if (/[?&]lbl=off\b/.test(location.search)) { pane.labels = null; return; }   // PROBE
     pane.labels = null;
     if (!r.items.length) return;
     const v0 = pane.view; pane.view = r.view;
