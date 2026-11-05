@@ -74,7 +74,7 @@ async function compare(at, W, Z) {
 // one case: cand(w) -> the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out). A point w
 // is also left out where the front point jumps (a seam of the key's choice): its front differs by more than 0.06 from
 // the front 1.5 px away in any direction
-async function check(tag, at, b, P, pts, cand, min) {
+async function check(tag, at, b, P, pts, cand, min, exact = false) {
   const d = 1.5 / P.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
   const C = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
   // (mid-glide, the key of the glide's frame at t: its points are the glide map's poles at t, __cmwSvKey(b, t))
@@ -95,7 +95,7 @@ async function check(tag, at, b, P, pts, cand, min) {
   const x = at.hold != null ? at.hold : at.park != null ? at.park : at.go;
   // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
   ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < (at.hold != null ? 0.01 : 1e-9) && r.state.T === 0, r.state);
-  ok(`${tag}: the front point's colour, at most 1 % wrong`, r.n > min && r.wrong <= 0.01 * r.n, info[tag]);
+  ok(`${tag}: the front point's colour, ${exact ? 'none' : 'at most 1 %'} wrong`, r.n > min && r.wrong <= (exact ? 0 : 0.01 * r.n), info[tag]);
   ok(`${tag}: no point on the bare paper (no tears, no window edge)`, r.paper === 0, info[tag]);
 }
 
@@ -166,10 +166,11 @@ await wait();
     };
     await check('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, 1, P, pts, heldCand, 400);
     // (and densely over the stretch where the image of the cut, the lower semicircle, runs: Re w in [-3, -0.5],
-    // Im w in [-3.5, -0.3], 50 x 50)
+    // Im w in [-3.5, -0.3], 50 x 50; none wrong: the triangles the cut tears keep the enhanced style's modulus bands
+    // where the exact colour has them)
     const cutPts = [];
     for (let j = 0; j < 50; j++) for (let i = 0; i < 50; i++) cutPts.push([-3 + 2.5 * i / 49, -3.5 + 3.2 * j / 49]);
-    await check('Joukowski all held 0.25, along the cut', { scope: 'all', hold: 0.25 }, 1, P, cutPts, heldCand, 1000);
+    await check('Joukowski all held 0.25, along the cut', { scope: 'all', hold: 0.25 }, 1, P, cutPts, heldCand, 1000, true);
   }
 }
 
