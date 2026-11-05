@@ -381,12 +381,16 @@
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
-    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}|${shapeKey(s)}|${winKey()}`;
+    // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared)
+    let hk = null;
+    try { hk = Inverse.homOps(built[k - 1], t); } catch (e) { hk = null; }
+    const byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
+    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}${byShape ? `|${shapeKey(s)}|${winKey()}` : ''}`;
     let h = invHoms.get(ck);
     if (!h) {
       const bh = built.slice();
       let anchor = null;
-      try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, built, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
+      if (byShape) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, built, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       bh[k - 1] = Inverse.homBuilt(built[k - 1], t, anchor);
       let plan, inv;
       try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }

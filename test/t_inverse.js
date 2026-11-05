@@ -1129,6 +1129,25 @@ section('singularAfter (ζ after an injective plan)');
   }
 }
 
+// Region.interiorPoint: a point of positive level for every area kind (unbounded ones from the window), the centre of
+// the bounding box when it lies inside, [0.5, ~0] for the strip 0 < Re z < 1; none for a curve
+{
+  const win = { x0: -4, x1: 4, y0: -4, y1: 4 };
+  const cases = [
+    ['disc', { kind: 'disc', c: [1, 2], r: 1 }, [1, 2]], ['rect', { kind: 'rect', a: [-1, -1], b: [3, 1] }, [1, 0]],
+    ['polygon', { kind: 'polygon', pts: [[0, 0], [2, 0], [0, 2]] }, null], ['halfplane', { kind: 'halfplane', a: [0, 0], b: [1, 0] }, null],
+    ['annulus', { kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }, null], ['sector', { kind: 'sector', c: [0, 0], r: 2, t1: 0, t2: 90 }, null],
+    ['formula strip', { kind: 'formula', expr: '0<\\Re z<1' }, null], ['disc complement', { kind: 'disc', c: [0, 0], r: 1, complement: true }, null],
+  ];
+  for (const [name, sh, exact] of cases) {
+    const p = Region.interiorPoint(sh, win), L = Region.levelOf(sh);
+    check(`Region.interiorPoint ${name}: a point of positive level`, !!p && L(C(p[0], p[1])) > 0, p);
+    if (exact && p) check(`Region.interiorPoint ${name}: the bounding box's centre`, Math.hypot(p[0] - exact[0], p[1] - exact[1]) < 1e-9, p);
+  }
+  const sp = Region.interiorPoint({ kind: 'formula', expr: '0<\\Re z<1' }, win);
+  check('Region.interiorPoint strip 0 < Re z < 1: Re 0.5, Im near 0', !!sp && Math.abs(sp[0] - 0.5) < 0.2 && Math.abs(sp[1]) < 0.2, sp);
+  check('Region.interiorPoint: none for a curve', Region.interiorPoint({ kind: 'circle', c: [0, 0], r: 1 }, win) === null);
+}
 // What a NEWT op's members reach of the true image of a region, for a step with no exact inverse: H_t is the step's
 // homotopy, the region is where an in-region root of H_t(z) = w counts (inRegion), anchor a point of it (the op's
 // seeds are placed about it), seeds the grid (re, im ranges and step) of the true image's search (Newton, 40 steps,

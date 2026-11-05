@@ -1652,25 +1652,12 @@ const Inverse = (() => {
     return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null, anchor)] };
   }
   // A point of the plane after the ops of plan (the prefix of a glide's chain, forward), where a point of area shape
-  // sh lies: the deepest point (greatest Region level) of a 25 x 25 grid over win (the shape's bounding box widened by
-  // a half when it has one; the one nearest the window's centre among equals), pushed through the ops; null when it
-  // is not finite or the shape has no point of positive level there. A NEWT op's seeds are placed about it
+  // sh lies: Region.interiorPoint pushed through the ops; null when the shape has none or the image is not finite.
+  // A NEWT op's seeds are placed about it
   function shapeAnchor(plan, sh, win) {
-    let L;
-    try { L = RG().levelOf(sh); } catch (e) { return null; }
-    const bb = RG().bboxOf(sh);
-    const w = bb ? { x0: bb.x0, x1: bb.x1, y0: bb.y0, y1: bb.y1 } : { x0: win.x0, x1: win.x1, y0: win.y0, y1: win.y1 };
-    const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, N = 25;
-    let best = null, bl = 0, bd = Infinity;
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-      const z = C(w.x0 + (w.x1 - w.x0) * (i + 0.5) / N, w.y0 + (w.y1 - w.y0) * (j + 0.5) / N);
-      const l = L(z);
-      if (!(l > 0)) continue;
-      const d = Math.hypot(z.re - cx, z.im - cy);
-      if (l > bl + 1e-12 || (Math.abs(l - bl) <= 1e-12 && d < bd)) { best = z; bl = l; bd = d; }
-    }
-    if (!best) return null;
-    let u = best;
+    const p = RG().interiorPoint(sh, win);
+    if (!p) return null;
+    let u = C(p[0], p[1]);
     for (const o of plan.ops) u = o.fwd(u);
     return isFin(u) ? u : null;
   }
