@@ -312,13 +312,16 @@
     if (e.res.tmp && e.res.tmp.get(e.slot) === e) e.res.tmp.delete(e.slot);
   }
   // over the budget: scratch textures not drawn from for a second go first (a homotopy or thumbnails that ended); the
-  // steps view's carried colour's (e.carry) after CARRY_TMP_MS, since its next glide or scrub, after a rest, draws them
-  // again: freed in the rest, the scrub's first frame would allocate them again. With need more bytes over the budget,
-  // those go after a second too
-  const CARRY_TMP_MS = 30000;
+  // steps view's carried colour's (e.carry) once none of them has been drawn for CARRY_TMP_MS (carryTmpT), since its
+  // next glide or scrub, after a rest, draws them again: freed in the rest, the scrub's first frame would allocate them
+  // again, and a scrub or glide that lasts longer than the keep time draws each plane's only once, so each entry's own
+  // idle time is no measure of the rest. With need more bytes over the budget, each one's own go after a second too
+  let CARRY_TMP_MS = 30000, carryTmpT = 0;
   function freeStaleTmp(now, need = 0) {
-    const keep = cacheBytes + need > CACHE_BYTES ? 1000 : CARRY_TMP_MS;
-    for (const e of [...tmpAll]) if (now - e.t > (e.carry ? keep : 1000)) freeTmp(e);
+    const pressed = cacheBytes + need > CACHE_BYTES;
+    for (const e of [...tmpAll]) {
+      if (e.carry && !pressed ? now - carryTmpT > CARRY_TMP_MS : now - e.t > 1000) freeTmp(e);
+    }
   }
   // and once the drawing that used them has been idle that long, whatever the budget: a scratch evaluation is only
   // reused by the next draw of the same map (the next frame of a playing homotopy, a thumbnail drawn again at once),
@@ -397,7 +400,7 @@
     const cache = rtOK && !isIdent(st.map), linked = programLinked;
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
-    if (e) e.carry = true;
+    if (e) { e.carry = true; carryTmpT = performance.now(); }
     let P = e ? program('regionKC', st.map) : null;
     // (the fill's values from its point pass, fillPoints: the chain once per point of a torn sub-triangle; while the
     // pass cannot run, the fill evaluates its own: started where the point pass is off, the tests' reference)
