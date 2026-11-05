@@ -27,6 +27,8 @@
     led: { L: '', R: '', lastChangeT: 0 }, maxFrames: 60000, maxEvts: 60000,
     progs: [], links: 0, invLinks: 0, invDraws: 0, curInv: false, ledBusy: 0,
   };
+  // GL call counts and summed ms by method name inside the rAF callbacks, per frame (P.glc.on set by the unit)
+  const GLC = P.glc = { on: false, cur: null };
 
   // ---------------- requestAnimationFrame timing ----------------
   const rAF = window.requestAnimationFrame.bind(window);
@@ -50,10 +52,11 @@
         cur = { ts, t0: now(), t1: 0, cpu: 0, gpu: 0, draws: 0, n: 0, inv: 0 };
         if (P.frames.length < P.maxFrames) P.frames.push(cur);
       }
-      const d0 = P.draws, i0 = P.invDraws, a = now();
+      const d0 = P.draws, i0 = P.invDraws, g0 = GLC.on ? (GLC.cur = Object.create(null)) : null, a = now();
       try { cb(ts); } finally {
         const b = now();
         cur.cpu += b - a; cur.n++;
+        if (g0) { GLC.cur = null; const t = cur.glc || (cur.glc = Object.create(null)); for (const k in g0) { const e = t[k] || (t[k] = [0, 0]); e[0] += g0[k][0]; e[1] += g0[k][1]; } }
         const drew = P.draws - d0;
         cur.draws += drew;
         cur.inv += P.invDraws - i0;
@@ -112,6 +115,17 @@
   const G = window.WebGL2RenderingContext && WebGL2RenderingContext.prototype;
   if (!G) return;
   const K = WebGL2RenderingContext;
+  for (const k of Object.getOwnPropertyNames(G)) {
+    const d = Object.getOwnPropertyDescriptor(G, k);
+    if (!d || typeof d.value !== 'function' || k === 'constructor') continue;
+    const f = d.value;
+    G[k] = function () {
+      const m = GLC.cur;
+      if (!m) return f.apply(this, arguments);
+      const a = now();
+      try { return f.apply(this, arguments); } finally { const e = m[k] || (m[k] = [0, 0]); e[0]++; e[1] += now() - a; }
+    };
+  }
   for (const name of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements']) {
     const f = G[name];
     G[name] = function () { P.draws++; if (P.curInv) P.invDraws++; P.lastDrawT = now(); return f.apply(this, arguments); };
@@ -311,6 +325,15 @@
   const pendingNow = () => { try { return typeof GLR !== 'undefined' && GLR && typeof GLR.frameStatus === 'function' ? !!GLR.frameStatus().pending : false; } catch (e) { return false; } };
   P.status = () => ({ now: now(), lastDrawT: P.lastDrawT, lastActT: Math.max(P.lastActT, P.lastDrawT), ledL: P.led.L, ledR: P.led.R, draws: P.draws, nFrames: P.frames.length, pending: pendingNow(), invLinks: P.invLinks, invDraws: P.invDraws });
   // frames and listener timings with t0 >= since (page time), compacted for transfer
+  // the frames inside the [a, b] ranges: their count, cpu median and p95, and per GL method the calls and ms per frame, over all
+  // the frames and over the slowest tenth (cpu at or over the p90)
+  P.glcIn = (ranges) => {
+    const fr = P.frames.filter((f) => f.glc && ranges.some((r) => f.t0 >= r[0] && f.t0 <= r[1]));
+    const cpus = fr.map((f) => f.cpu).sort((x, y) => x - y), q = (p) => cpus.length ? cpus[Math.min(cpus.length - 1, Math.floor(p * cpus.length))] : 0;
+    const agg = (list) => { const t = Object.create(null); for (const f of list) for (const k in f.glc) { const e = t[k] || (t[k] = [0, 0]); e[0] += f.glc[k][0]; e[1] += f.glc[k][1]; } return Object.entries(t).map(([k, v]) => [k, +(v[0] / list.length).toFixed(2), +(v[1] / list.length).toFixed(3)]); };
+    const slow = fr.filter((f) => f.cpu >= q(0.9));
+    return { frames: fr.length, cpuMed: +q(0.5).toFixed(2), cpu95: +q(0.95).toFixed(2), all: agg(fr), slowN: slow.length, slow: agg(slow) };
+  };
   P.framesSince = (since, until = Infinity) => P.frames.filter((f) => f.t0 >= since && f.t0 <= until).map((f) => [+f.t0.toFixed(2), +f.cpu.toFixed(3), +f.gpu.toFixed(3), f.draws, f.n, +f.ts.toFixed(2), +f.t1.toFixed(2), f.inv]);
   // programs linked at page times in [since, until]: [t, ready (null: never seen complete), inv]
   P.progsSince = (since, until = Infinity) => P.progs.filter((r) => r.t >= since && r.t <= until).map((r) => [+r.t.toFixed(2), r.ready === null ? null : +r.ready.toFixed(2), r.inv]);

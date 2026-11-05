@@ -1202,7 +1202,8 @@ function svAttrFrames(drawn, prev, snaps) {
 }
 // A CPU profile (off with SV_PROF=0) (CDP Profiler) around each timed scrub/pan/orbit leg of sv.interact.*, logged as the top
 // self times in ms and, from the WebGL call hook SV_GLT, the synchronous ms of compile/link/status calls in the leg
-const SV_PROF_ON = process.env.SV_PROF !== '0';
+const SV_PROF_ON = process.env.SV_PROF === '1';
+const SV_GLC_ON = process.env.SV_GLC !== '0';
 async function svProfLog(label, a, b) {
   const { profile: P } = await B.send('Profiler.stop');
   const dt = new Map(), byId = new Map(P.nodes.map((n) => [n.id, n])), self = new Map();
@@ -1211,6 +1212,14 @@ async function svProfLog(label, a, b) {
   const gl = JSON.parse(await B.ev(`JSON.stringify((window.__svGlt || []).filter((x) => x[1] >= ${a} && x[1] <= ${b}))`));
   const sum = (n) => gl.filter((x) => x[0] === n).reduce((s, x) => s + x[2], 0);
   log(`  [prof] ${label} ${(b - a).toFixed(0)} ms: gl compile ${sum('compileShader').toFixed(1)}, link ${sum('linkProgram').toFixed(1)}, status ${(sum('getProgramParameter') + sum('getShaderParameter')).toFixed(1)} ms; top self: ${[...self].sort((x, y) => y[1] - x[1]).slice(0, 14).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ')}`);
+}
+// the GL calls inside the rAF callbacks of the scrub legs in [a, b] ranges, by method: calls and ms per frame, over all
+// the frames and over the slowest tenth, as the top rows by ms and by calls
+async function svGlcLog(label, ranges) {
+  const g = JSON.parse(await B.ev(`JSON.stringify(__perf.glcIn(${JSON.stringify(ranges)}))`)), side = typeof BASE_A !== 'undefined' && BASE === BASE_A ? 'ref' : 'cur';
+  const top = (rows, i) => rows.slice().sort((x, y) => y[i] - x[i]).slice(0, 12).map((r) => `${r[0]} ${r[1]}x ${r[2]}ms`).join(', ');
+  log(`  [glc ${side}] ${label}: ${g.frames} frames, cpu median ${g.cpuMed} p95 ${g.cpu95} ms; per frame by ms: ${top(g.all, 2)}; by calls: ${top(g.all, 1)}`);
+  log(`  [glc ${side}] ${label} slowest ${g.slowN} frames, per frame by ms: ${top(g.slow, 2)}; by calls: ${top(g.slow, 1)}`);
 }
 async function svInteractUnit(scene) {
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -1265,9 +1274,11 @@ async function svInteractUnit(scene) {
         // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
         const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
         const r1 = await stripAt();
+        if (SV_GLC_ON) await B.ev('(__perf.glc.on = true, 1)');
         const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }), attr);
         const r2 = await stripAt();
         const l2 = await leg(() => B.drag(r2.x1, r2.y, r2.x0, r2.y, { n: 40, dt: 16 }), attr);
+        if (SV_GLC_ON) { await B.ev('(__perf.glc.on = false, 1)'); await svGlcLog(`sv.scrub.${scope}.${scene}`, [[l1.a, l1.b], [l2.a, l2.b]]); }
         if (attr) slow[scope].push([l1, l2].map((l) => l.attr));
         // (a scrub that drew nothing, a drag that missed the strip, measures nothing: the unit fails, not passes at 0)
         if (!l1.drawn.length || !l2.drawn.length) throw new Error(`sv.interact.${scene}: the ${scope === 'all' ? 'Everywhere' : 'Inside regions'} scrub drew no frames (${l1.drawn.length} + ${l2.drawn.length})`);
