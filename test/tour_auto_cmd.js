@@ -237,7 +237,7 @@ await goStep(KEYSTEP);
 // (the Phase key check in Y's head, or behind its ⋯ / Regions button: that pop-up opened first)
 const rectOf = (js) => ev(`(() => { const e = ${js}; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `(document.querySelector('#wKeyChkR') || {}).closest?.('label')`;
-if (!SV && !(await rectOf(keySel))) { const ob = await rectOf(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')`); await click(ob[0], ob[1]); await settle(400); }
+if (!SV && !(await rectOf(keySel))) { const ob = await rectOf(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')`); await click(ob[0], ob[1]); await until(`(() => { const e = ${keySel}; return !!(e && e.getClientRects().length); })()`, 3000); }
 const st = await rectOf(keySel);
 await click(st[0], st[1]); t0 = Date.now();
 const dP = await doneAt(t0);
