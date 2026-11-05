@@ -869,7 +869,7 @@
   // when it lists some of the K combos, else all K. {K: surfaces drawn, map: Int32Array(SHEET_MAX) surface -> combo}
   function surfaceMap(uniq, K) {
     const map = new Int32Array(SHEET_MAX);
-    const list = Array.isArray(uniq) && uniq.length && uniq.every((c) => Number.isInteger(c) && c >= 0 && c < K) ? uniq : null;
+    const list = Array.isArray(uniq) && uniq.length && uniq.length <= K && uniq.every((c) => Number.isInteger(c) && c >= 0 && c < K) ? uniq : null;
     for (let i = 0; i < SHEET_MAX; i++) map[i] = list ? (list[i] ?? 0) : i;
     return { K: list ? list.length : K, map };
   }

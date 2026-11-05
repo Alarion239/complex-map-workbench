@@ -637,11 +637,11 @@
       const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
       const zAt = zAtIn(box);
       const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
-      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq ? sheets.uniq.join(',') : ''}`;
+      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq.join(',')}`;
       // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
-      const scaleOf = (fmK, K, bx) => {
+      const scaleOf = (fmK, bx) => {
         // the combos drawn: the distinct sheets of fmK
-        const combos = sheetUniqOf(fmK, sheets.W) || Array.from({ length: K }, (_, i) => i);
+        const combos = sheetUniqOf(fmK, sheets.W);
         const ck = `${chainSig[nSteps()]}|${mapKeyOf(fmK)}|${S.focus}|${bx.x0},${bx.x1},${bx.y0},${bx.y1}|${S.height}|${sheets.W}|${combos.join(',')}`;
         const cache = render3D.muScales || (render3D.muScales = new Map());
         let r = cache.get(ck);
@@ -668,11 +668,11 @@
       };
       // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
       // frames' are, so a frame depends on u alone
-      const ofPlane = (k, v) => { const m = svHeightMap(k <= carry.T ? k : carry.s), sk = GLR.sheetInfo(m, sheets.W); return scaleOf(m, sk ? sk.K : 1, landBox(v)); };
+      const ofPlane = (k, v) => scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v));
       const c = carry ? (() => {
         const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
-      })() : scaleOf(fm, si.K, box);
+      })() : scaleOf(fm, box);
       mu = c.mu;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
@@ -693,7 +693,7 @@
           // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
           // stops when this no longer matches, so a value is only ever computed for the state of its key
           const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
-          const cmu = c.mu, combos = sheets.uniq || Array.from({ length: si.K }, (_, i) => i), K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
+          const cmu = c.mu, combos = sheets.uniq, K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
           h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
           // fill time j (from where it stopped); with over(), stop after the row that runs past it and return false
           h.fill = (jt, over) => {
