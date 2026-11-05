@@ -1255,7 +1255,7 @@ const Funcs = (() => {
   }
 
   // ---------------- a recognized formula as visible steps (src/formulasteps.js) ----------------
-  const { shortCx, splitLabel, splitMorphT, splitMoves, splitNames, splitReason, splitRowsVar, splitStepTex, splitSteps, splitSubRows } = FormulaSteps({ DEFS, DEG, REC_CACHE_MAX, build, buildVals, mulLabel, recProbe });
+  const { shortCx, splitLabel, splitMorphT, splitSvPlace, splitMoves, splitNames, splitReason, splitRowsVar, splitStepTex, splitSteps, splitSubRows } = FormulaSteps({ DEFS, DEG, REC_CACHE_MAX, build, buildVals, mulLabel, recProbe });
 
   // ---------------- Calculus: d/dz, an operator on the chain so far ----------------
   // Stage maps G_k are functions of z: G_0(z) = z, G_k = f_k ∘ G_{k−1} for a map, G_k = (G_{k−1})′ for d/dz. A d/dz
@@ -1609,7 +1609,7 @@ const Funcs = (() => {
   return {
     DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
     REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
-    splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
+    splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitSvPlace, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();
 import { CX } from './cx.js';
