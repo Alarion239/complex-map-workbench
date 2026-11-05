@@ -260,6 +260,16 @@
     const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
     return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
   }
+  // the shown plane's paths figure: the paths of the step that leads to it. {i, m, Fat, z, end} (Fat(t): z -> the thread's
+  // place i - 1 + t), or {why} when there is none ('first': plane 0; 'deriv': a d/dz step), null off the plane surface
+  function svPathsFig() {
+    const P = svPlanes(), i = Math.round(SV.g.x);
+    if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
+    if (i < 1) return { why: 'first', name: svName(P[i]) };
+    if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
+    const src = svPathsSeg(P, i - 1, i, i);
+    return { i, m: 1, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
     // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
@@ -283,6 +293,7 @@
         : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
       try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
+    svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes, null without a
     // step or off the plane surface; svGlideArt draws the left pane parked at thread position x, as the screen draws
     // it there (svRenderMoving), and svGlideText is the screen's own words for that place
@@ -349,7 +360,7 @@
     return {
       BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers,
+      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
       pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,

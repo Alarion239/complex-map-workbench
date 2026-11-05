@@ -68,7 +68,7 @@ const SUITES = {
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and Roots as preimages at the device pixel ratio 1, and the
   // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
   'steps_glide_look_cmd.js': { runs: [
-    { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Zeros of the zeta function'];" },
+    { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Logarithm, Everywhere', 'Sheets of the logarithm, Everywhere', 'Zeros of the zeta function'];" },
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
   ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
@@ -94,8 +94,8 @@ const SUITES = {
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
-  // (the steps view's twin of phone_swap's sheet, rotate, lang and tablet legs; its urlbar leg waits for the fix of the flaky URL-bar test, #908)
-  'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'lang', 'tablet'].map(part) },
+  // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
+  'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
@@ -133,7 +133,7 @@ const TIMING = {
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
   'tour_auto_cmd.js': [t(/^(?!Patterns:).*(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced), t(/^Patterns: moves on 3 s after/, (d) => advanced(d) && d[1] === 'edit/cards'),
     t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, (d) => Array.isArray(d) && [/^The cut/, /^Each turn is/, /^The ending/].every((re) => d.some((c) => re.test(c[1]))))],
-  'morphfig_cmd.js': [t(/the re-choice makes no long task/)],
+  'morphfig_classic_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
   'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),

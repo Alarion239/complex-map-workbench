@@ -1549,6 +1549,18 @@
       gl.bindVertexArray(null);
       gl.enable(gl.BLEND);
     }
+    // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
+    // the globe's depth again, which the passes below are tested against
+    const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
+    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr }, st.carried), sph));
+    if (carried) {
+      gl.colorMask(false, false, false, false);
+      use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
+      gl.depthFunc(gl.LEQUAL);
+      const g = sphere();
+      gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, g.count, gl.UNSIGNED_INT, 0); gl.bindVertexArray(null);
+      gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
+    }
     // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid}), or a
     // list of them, one per map ([#253] the shapes of each later plane)
     if (P) for (const pr of Array.isArray(st.pre) ? st.pre : st.pre ? [st.pre] : []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null }));
@@ -1606,7 +1618,7 @@
     }
     if (masked) { writeMask(true, true); keepInAlpha(); }
     resetState();
-    return { MVP, eye };
+    return { MVP, eye, key: sph.key, carried };
   }
   // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
   // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written

@@ -903,6 +903,24 @@ const MorphPaths = (() => {
   };
   // the times of the marks (pathMarkTimes) as TeX lists for the captions: { seq, arrows: '1/2,\\ 3/2', nodes: '1' }
   const pathMarksTex = (Tend) => { const mt = pathMarkTimes(Tend), list = (l) => l.map(timeTex).join(',\\ '); return { seq: mt.seq, arrows: list(mt.arrows), nodes: list(mt.nodes), dots: mt.dots.map(timeTex) }; };
+  // the kept paths' starts counted by kind, as a phrase: "2 boundary points and 1 marked point"
+  function keptParts(sel) {
+    const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
+    const ni = sel.kept.filter((k) => k.sp.kind === 'node').length;
+    const np = sel.kept.filter((k) => k.sp.kind === 'point').length;
+    const parts = [];
+    if (nb) parts.push($tn('{n} boundary point', '{n} boundary points', nb));
+    if (ni) parts.push($tn('{n} interior point', '{n} interior points', ni));
+    if (np) parts.push($tn('{n} marked point', '{n} marked points', np));
+    return parts.length > 1 ? parts.slice(0, -1).join(', ') + $tx('list', ' and ') + parts[parts.length - 1] : parts[0];
+  }
+  // the sentence naming the paths of one step (the steps view's paths figure): from z (circle) to end (dot), small dots
+  // at a quarter and three quarters of the way and an arrowhead in the middle
+  function pathsSentence(sel, Tend, { z, end }) {
+    if (!sel.kept.length) return [];
+    const q = pathTimesTex(Tend).map((x) => ({ m: `t=${x}` }));
+    return capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}.', { p: { m: 't\\mapsto H_t(z)' }, parts: keptParts(sel), z: { m: z }, end: { m: end }, q1: q[0], q2: q[1], q3: q[2] });
+  }
   // the deformation caption (morph-figure.md 5): generated from the shapes, the chain, the kept set and the measured
   // geometry of the paths; true of what is drawn. opt.both: the (b) part of the Both figure, after "The deformation
   // H_t, 0 <= t <= T:", which names the set of (a) instead of repeating it
@@ -944,13 +962,6 @@ const MorphPaths = (() => {
       out.push(...capT('The images of %{set} under %{start}%{mark} and under %{end} (%{pat}), joined by %{hom}.', { set: setGen, start: { m: hom.rt.qp }, mark: mark0, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
     } else out.push(...capT('%{head}%{mark} and %{its} under %{end} (%{pat}), joined by %{hom}.', { head, mark, its, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
     out.push(...wDefSegs(hom.rt));
-    const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
-    const ni = sel.kept.filter((k) => k.sp.kind === 'node').length;
-    const np = sel.kept.filter((k) => k.sp.kind === 'point').length;
-    const parts = [];
-    if (nb) parts.push($tn('{n} boundary point', '{n} boundary points', nb));
-    if (ni) parts.push($tn('{n} interior point', '{n} interior points', ni));
-    if (np) parts.push($tn('{n} marked point', '{n} marked points', np));
     if (sel.kept.length) {
       let clause = '';
       if (hom.mobius || hom.segment) {
@@ -958,7 +969,7 @@ const MorphPaths = (() => {
         if (!kinds.has('other')) clause = kinds.size === 2 ? $t('; each is an arc of a circle or a segment') : kinds.has('arc') ? $t('; each is an arc of a circle') : $t('; each is a segment');
       }
       const q = pathTimesTex(Tend).map((x) => ({ m: `t=${x}` })), mx = pathMarksTex(Tend);
-      const args = { p: { m: 't\\mapsto H_t(z)' }, parts: parts.length > 1 ? parts.slice(0, -1).join(', ') + $tx('list', ' and ') + parts[parts.length - 1] : parts[0], z: { m: hom.rt ? 'H_0(z)=' + hom.rt.qpz : 'z' }, end: { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}(z)` : 'F(z)' }, q1: q[0], q2: q[1], q3: q[2], qa: { m: `t=${mx.arrows}` }, qn: { m: `t=${mx.nodes}` }, clause };
+      const args = { p: { m: 't\\mapsto H_t(z)' }, parts: keptParts(sel), z: { m: hom.rt ? 'H_0(z)=' + hom.rt.qpz : 'z' }, end: { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}(z)` : 'F(z)' }, q1: q[0], q2: q[1], q3: q[2], qa: { m: `t=${mx.arrows}` }, qn: { m: `t=${mx.nodes}` }, clause };
       // (steps one after another: an arrowhead in the middle of each step, a bar where the steps meet)
       if (!mx.seq) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}%{clause}.', args));
       else if (mx.nodes) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa} (the middle of each step) and a bar at %{qn}, where one step ends and the next begins%{clause}.', args));
@@ -1152,7 +1163,7 @@ const MorphPaths = (() => {
     A = api;
     ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, trans, transState, tweens, updateCalcChip } = api);
   }
-  return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
+  return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, pathsSentence, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
 })();
 import { $, DEG, TAU, h } from './util.js';
 import { CX } from './cx.js';
