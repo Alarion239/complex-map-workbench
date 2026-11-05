@@ -310,5 +310,15 @@ for (const t of TYPES) {
   check('pattern 8 in the fwidth and analytic patterns', /uPattern == 8/.test(GLR._src.PATTERN_SRC('fwidth')) && /vec2 sl = sl8, slw = slw8;/.test(GLR._src.PATTERN_SRC('analytic')));
   check('GLR.PATTERNS.sphere is 8', GLR.PATTERNS && GLR.PATTERNS.sphere === 8);
 }
+// ---- the staged-shape declarations ride on IX_STAGED: a carried program without a staged shape never mentions them ----
+{
+  const steps = [St('poly')], info = GLChain.build(steps, steps.map(Funcs.build));
+  const STAGED_NAMES = /\b(uShStage|uEdgeOnly|uEdgeW|uEdgeA|uStageGrow|ixEdge)\b/;
+  const plain = GLR._src.invSources(GLR.inverseB(1), false, [], { carry: true, pre: '', main: '' }, info)[1];
+  const staged = GLR._src.invSources(GLR.inverseB(1), false, [], { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' }, info)[1];
+  const live = (src) => src.split('\n').reduce((o, l) => { if (/^#ifdef IX_STAGED/.test(l)) o.d++; else if (/^#(else|endif)/.test(l) && o.d) o.d--; else if (!o.d) o.t.push(l); return o; }, { d: 0, t: [] }).t.join('\n');
+  check('carried program: staged names only under IX_STAGED', !STAGED_NAMES.test(live(plain)) && !STAGED_NAMES.test(plain.replace(/#ifdef IX_STAGED[\s\S]*?(?:#else|#endif)/g, '')));
+  check('staged carried program declares the staged uniforms', /uniform int uShStage;/.test(staged) && /uniform float uStageGrow;/.test(staged));
+}
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);

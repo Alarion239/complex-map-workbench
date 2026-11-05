@@ -12,7 +12,7 @@
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
-    clock: null,     // (a test hook's) ms of glide time a frame (svFrame), else the wall clock
+    clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -782,8 +782,9 @@
       const p = paths[i];
       let res = 'error';
       try {
+        // grow: half the pull-back band's width plus half a pixel, so the colour reaches as far as the band's outer edge
         res = GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: list[i], viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, edge: edgeOf ? edgeOf(list[i]) : null, half: false, motion: false, coldOk: true });
+          look: { alpha: alphaOf ? alphaOf(list[i]) : 1, alphaOwn: alphaOf ? alphaOf(list[i]) : 1, pattern: 'carry', cell: 1, lines: false }, carry, edge: edgeOf ? edgeOf(list[i]) : null, grow: shapeStage(list[i]) && !edgeOf ? 0.5 * pullBandW(list[i], pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true });
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -1149,9 +1150,11 @@
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
-      // (under the colour, the plane's paper and grid, as the 2D path leaves the pane's showing where none lands; the
-      // colour layer stays in this frame: the carried colour's CPU mesh, which needs a frame of its own, waits)
-      paint: () => { grid(false); frame.open = true; frame.keep = true; colour(); },
+      // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
+      // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
+      // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
+      // carried colour's CPU mesh, which needs a frame of its own, waits)
+      paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
       after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
@@ -1202,7 +1205,7 @@
     const nearer = (x) => shapeStage(x) <= st.g.near;
     svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, (x) => (nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
     const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
-    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => ({ w: Math.max(pane.dpr, PULL_EDGE_MIN * pullWidth(x, pane.dpr)), a: PULL_EDGE_A }));
+    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => ({ w: pullBandW(x, pane.dpr), a: PULL_EDGE_A }));
   }
   // the outlines of the regions of the plane the glide reaches, from the midpoint on (while it is the nearer plane), in the
   // open frame: the own-plane stroke the outline pass draws at rest (the shape's colour over its casing), where the
@@ -2381,7 +2384,9 @@
   // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's
   // kind follows it, as at a plane's arrival), and at the end it stops, or starts over
   function svPlayFrame() {
-    const A = SV.play, now = performance.now(), v = Math.min(1, (now - A.t0) / A.ms);
+    // (SV.clock, a test hook's: the play's time advances that many ms a frame, as a glide's, so a suite reads its speed in the
+    // frames drawn however long each takes)
+    const A = SV.play, now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
     // (another chain loaded under the play, an example, a link or an undo: it stops, and the new state's view is adopted)
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return false; }
     SV.g.set(A.from + (A.to - A.from) * v);
@@ -2392,7 +2397,7 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -2403,7 +2408,7 @@
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
   }
   // stop: settle where it is (a plane near, or parked between two), as a scrub let go; quiet: another move took over
   function svPause(settle) {

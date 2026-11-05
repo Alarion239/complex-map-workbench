@@ -5,6 +5,9 @@
 // - the frame is the inverse pass's (__cmwSteps().glide.path);
 // - it is the exact picture at u (held_frames refOf): the parked frame's colours through H_u's inverse, within REF_TOL
 //   on all but SAME_FRAC of at least MIN_COMPARED pixels;
+// - the boundaries (the pixels of the parked frame more than EDGE_DIFF/765 off the same frame with no shapes: MIN_EDGE or
+//   more of them) are within STROKE_R px of their image under H_u at HIT_MIN of them, the pulled-back regions' band;
+// - the glide's ends are within END_FRAC of the pixels of the parked frames of its planes;
 // - each pixel of the parked frame the regions draw (where the same frame with no shapes differs) is drawn within
 //   STROKE_R px of its image under H_u in the moving frame (where the same frame with no shapes differs), for at least
 //   HIT_MIN of at least MIN_SAMPLES of them. The frames with no shapes are another page's, carried over as bytes.
