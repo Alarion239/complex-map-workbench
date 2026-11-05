@@ -224,13 +224,23 @@ const InvOps = (() => {
     const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
     return n.every((k) => k > 0) && n.reduce((a, k) => a * k, 1) <= NEWT_SEEDS ? n : null;
   }
+  // f′(u) by a central difference; one Newton step towards f(u) = w; f(u) is w to the walks' tolerance
+  const newtD = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+  const newtStep = (u, w, f) => sub(u, div(sub(f(u), w), newtD(f, u)));
+  const newtHits = (u, w, f) => isFin(u) && abs(sub(f(u), w)) <= 1e-9 * (1 + abs(w));
+  // Newton's walk along a homotopy H (H(t): the map at t): from u, a point with H(t0)(u) = w, one Newton step at each
+  // of the K stages t0 + (t1 − t0) s / K (s = 1 … K), then NEWT_POL more at t1. The point with H(t1)(u) = w, or null
+  // when the walk misses w. The NEWT op's walks, and the sound's point continued under a still probe while the steps
+  // view glides (src/soundhooks.js, sndPre)
+  function newtWalk(H, w, u, t0, t1, K) {
+    for (let s = 1; s <= K && isFin(u); s++) u = newtStep(u, w, H(t0 + (t1 - t0) * s / K));
+    const Ht = H(t1);
+    for (let it = 0; it < NEWT_POL && isFin(u); it++) u = newtStep(u, w, Ht);
+    return newtHits(u, w, Ht) ? u : null;
+  }
   function opNewt(t, H, back) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
-    const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
-    const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
-    const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
-    const polishAt = (u, w) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) u = step(u, w, Ht); return u; };
     // f's i-th point over w (back's members in turn, the last op's first), or null
     const seedOf = (w, i) => {
       let u = w;
@@ -245,25 +255,20 @@ const InvOps = (() => {
     return op('NEWT', counts ? { t, back } : { t }, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 },
       pre: (w) => {
-        let u = w;
-        for (let s = 1; s <= NEWT_K && isFin(u); s++) u = step(u, w, H(t * s / NEWT_K));
-        u = polishAt(u, w);
-        const out = [];
-        if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
+        const u = newtWalk(H, w, w, 0, t, NEWT_K), out = [];
+        if (u) out.push(ONEM(u, CX.inv(newtD(Ht, u)), { m: 0 }));
         if (counts) {
           const K = newtBackK(t);
           for (let i = 0; i < seeds; i++) {
-            let v = seedOf(w, i);
-            for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
-            v = v && polishAt(v, w);
-            if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > 1e-6 * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 + i }));
+            const s0 = seedOf(w, i), v = s0 && newtWalk(H, w, s0, 1, t, K);
+            if (v && out.every((e) => abs(sub(v, e.u)) > 1e-6 * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(newtD(Ht, v)), { m: 1 + i }));
           }
           return out;
         }
-        if (!out.length) return [];
+        if (!u) return [];
         let v = sub(scale(w, 2), u);
-        for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
-        if (hits(v, w) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
+        for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(newtD(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+        if (newtHits(v, w, Ht) && abs(sub(v, u)) > 1e-6 * (1 + abs(u))) out.push(ONEM(v, CX.inv(newtD(Ht, v)), { m: 1 }));
         return out;
       },
     });
@@ -874,7 +879,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, newtWalk, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';

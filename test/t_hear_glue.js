@@ -9,6 +9,9 @@
 //    through a zero → a seat, never a cut (Calc.throughZP); a typed change of F → hear.pathless; F failing the finite
 //    test → hear.gap; a source change → a seat; a key step that crosses nothing plays the point (hear.query); the
 //    order cue goes first, at the hand's point;
+//  * (#726) the steps view's colour deforming under a still probe as the thread moves (sndF, sndFAt, sndPre): on z⁵ a step
+//    a frame however few the frames, the run the winding −4 arg q; on z − 1 its zero passing beside the probe; at a fold of
+//    sin's path, a gap a frame and a fresh start at the next plane, and beside it a step a frame;
 //  * Listen along's samples (sndSampleAt and the resumable sndSampler, spec 3.13) on the Mountain King, played by the
 //    engine's batch
 //    (Sound.HT.events): 250 px/s, one sample a ms, a seat only at the start, the four cuts as cuts, pan from x.
@@ -16,6 +19,8 @@
 const vm = require('vm');
 const CX = global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
+const Inverse = require('../src/inverse.js');
+const Funcs = require('../src/funcs.js');
 const { SEASONG } = require('../src/seasong.js');
 const C = CX.C, TAU = 2 * Math.PI;
 let bad = 0, n = 0;
@@ -70,7 +75,9 @@ function glue(o = {}) {
     morph: { open: false, T: null, playing: false },
     chainSig: ['c'], nSteps: () => 0,
     F: o.F || ((z) => z),
-    sndF: () => ctx.F, sndFAt: () => ctx.F,
+    // (o.sv(ctx): the steps view as stepsView() hands it, and the hooks' own sndF and sndFAt, which hear it; without it the
+    // classic view: no steps view, so sndT and sndPlaying read the Deformation's transport, and F is heard)
+    ...(o.sv ? { Inverse, stepsView: () => o.sv(ctx) } : { stepsView: () => null, sndF: () => ctx.F, sndFAt: () => ctx.F }),
     sndFrameKey: () => 'f', sndVKey: () => 'v', sndUnhush() {}, sndTurnBells() {}, requestRender() {}, rangeParts: () => null, focusDeriv: () => false, derivIn: () => false,
     // (#580: the classic view, so never past the steps view's colour plane)
     sndSvQuiet: () => false,
@@ -86,8 +93,9 @@ function glue(o = {}) {
     A: { get S() { return ctx.S; }, get sndP() { return ctx.sndP; }, get paneL() { return ctx.paneL; }, get paneR() { return ctx.paneR; }, get chainSig() { return ctx.chainSig; } },
   };
   vm.createContext(ctx);
-  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText('sndBridge'), fnText('sndHearAt'), fnText('sndHold'), fnText('sndQueryAt'), fnText('sndSampleAt'), fnText('sndSampler'), fnText('sndMove'),
-    'globalThis.G = { sndHearAt, sndSampleAt, sndSampler, sndMove, sndQueryAt, sndOk };'].join('\n');
+  const sv = o.sv ? [constText('sndF'), fnText('sndFAt'), fnText('sndSvColour'), fnText('sndPre'), constText('SND_PRE_SPLITS'), fnText('sndPreWalk')] : [];
+  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), constText('sndT'), constText('sndPlaying'), constText('sndLeftView'), 'const sndHear = () => SND.hear;', fnText('sndBridge'), fnText('sndHearAt'), fnText('sndHold'), fnText('sndQueryAt'), fnText('sndSampleAt'), fnText('sndSampler'), fnText('sndMove'),
+    ...sv, 'globalThis.G = { sndHearAt, sndSampleAt, sndSampler, sndMove, sndQueryAt, sndOk };'].join('\n');
   vm.runInContext(code, ctx);
   // sndHover → sndHearAt (as the hooks' sndHover does once the engine has Sound.hear)
   ctx.sndHover = (z, px, src, fn, zh) => ctx.G.sndHearAt(H, z, px, src, fn, zh || z);
@@ -184,6 +192,41 @@ const move = (g, z, src = 'pointer') => { const [x, y] = px(z); g.clock += 16; g
   const z0 = glue();
   z0.snd.phi = 0.25;
   check('the query exactly on a zero: ln −∞ at the probe\'s pitch class', z0.G.sndQueryAt(C(0, 0), 400, 'pointer') && z0.calls[0][1].ln === -Infinity && z0.calls[0][1].phi === 0.25, z0.calls[0]);
+}
+
+// ---- (#726) the steps view's colour deforming under a still probe, followed exactly as the thread moves (sndF, sndFAt,
+// sndPre: the point under the glide's map continued in u, by the inverse engine's Newton walk). On z → w₁ = f, w₁ the
+// colour plane: the colour at q, x of the way, is f(p) with h_x(p) = q (f's path), and q itself at w₁
+{
+  // the steps view at the thread's place x (g.x): the coloured thread from z (the colour f) to w₁ (the identity)
+  const thread = (st) => {
+    const b = Funcs.build(Object.assign({ on: true }, st, { params: Object.assign(Funcs.defaults(st.type), st.params) }));
+    const seg = (x) => (x <= 1e-6 ? { u: 0, G: b.f } : x >= 1 ? { u: 0, G: (z) => z } : { fam: st.type, u: x, G: b.f, H: (u) => b.hom(u) });
+    return (g) => ({ x: g.x, seg: seg(g.x), segAt: seg, playing: true, F: null, view: g.leftView() });
+  };
+  // a still probe at q: the hover at z (x = 0), then that many frames to w₁; the stream's calls, the run, and the last value heard
+  const play = (st, q, frames) => {
+    const g = glue({ sv: thread(st) });
+    g.x = 0; g.G.sndHearAt(g.H, q, 400, 'pointer', false, q);
+    for (let i = 1; i <= frames; i++) { g.x = i / frames; g.clock += 16; g.G.sndHearAt(g.H, q, 400, 'pointer', true, q); }
+    return { kinds: kinds(g.calls), run: g.snd.run, g: g.snd.g };
+  };
+  // z⁵ (its path z^(1+4u)) at 1.2 e^(170°i): the colour q^(5/(1+4u)), from q⁵ to q; whatever the frames, its winding −4 arg q
+  const th = 170 * Math.PI / 180, q = C(1.2 * Math.cos(th), 1.2 * Math.sin(th)), Z5 = { type: 'custom', params: { expr: 'z^5', cut: 180 } };
+  for (const frames of [2, 9, 60]) {
+    const r = play(Z5, q, frames);
+    check(`z⁵ in ${frames} frames: a seat at the hover, then a step a frame; the run −4 arg q (−1.889 turns), and q heard at w₁`, r.kinds.join(' ') === ['seat'].concat(Array(frames).fill('step')).join(' ') && r.run && Math.abs(r.run.phi + 4 * th / TAU) < 1e-9 && CX.abs(CX.sub(r.g, q)) < 1e-12, r);
+  }
+  // z − 1 (its path z − u) at 0.5 + 0.003i: the colour q + u − 1, whose zero passes the probe at u = ½; the run arg q − arg(q − 1)
+  const qz = C(0.5, 0.003), rz = play({ type: 'custom', params: { expr: 'z-1', cut: 180 } }, qz, 40);
+  check('z − 1 in 40 frames: steps through the zero passing beside the probe; the run arg q − arg(q − 1) (−0.498 turns)', rz.kinds.slice(1).every((k) => k === 'step') && rz.run && Math.abs(rz.run.phi - (Math.atan2(qz.im, qz.re) - Math.atan2(qz.im, qz.re - 1)) / TAU) < 1e-9, rz);
+  // a fold: sin's path sin(uz)/u, its critical value 1/u passing q = 1.5 at u = ⅔: no point to continue from there, a gap a
+  // frame, and a fresh start (a seat) at w₁
+  const rf = play({ type: 'sin', params: {} }, C(1.5, 0), 30);
+  check('sin at 1.5 in 30 frames: steps to u = ⅔, then a gap a frame where its fold passed the probe, and a seat at w₁', rf.kinds.join(' ') === ['seat'].concat(Array(19).fill('step'), Array(10).fill('gap'), ['seat']).join(' '), rf.kinds.join(' '));
+  // beside the fold (1.5 + 0.001i): the point is continued past it, no gap
+  const rb = play({ type: 'sin', params: {} }, C(1.5, 0.001), 30);
+  check('sin at 1.5 + 0.001i in 30 frames: continued beside the fold, a step a frame', rb.kinds.join(' ') === ['seat'].concat(Array(30).fill('step')).join(' '), rb.kinds.join(' '));
 }
 
 // ---- Listen along's samples on the Mountain King (spec 3.13, 6), played by the engine's batch

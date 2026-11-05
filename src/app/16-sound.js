@@ -32,17 +32,47 @@
     // (#580) svk, the steps view's plane last seen at the end of a frame (sndFrame): another one re-picks the probe;
     // svSaid, the plane where "no tone past the colour plane" was said last (once a plane)
     svk: /** @type {string | null} */ (null), svSaid: '',
+    // (#726) svx, the thread's place last followed at the end of a frame and svFam, the colour's family there (sndFrame);
+    // pre, the last point found under a glide's map {fam, q, u, p}, where the next one starts (sndPre)
+    svx: /** @type {number | null} */ (null), svFam: '', pre: null,
   };
-  // (#580) the steps view's plane as the sound reads it, null in the classic view. Pietro's call (1 and 2 Nov): the probe
-  // hears what the colours and the readout show, the map from the plane into the colour plane, and while the view glides,
-  // plays, is scrubbed or swiped or rests parked, the nearer plane's (the readout's). k and T, that plane's stage and the
-  // colour plane's; key, what the probe's function is made of; past, the colour plane's name when k is past it (its colour
-  // is carried from there, by the points: no tone, #727), else ''. Read only when asked: F, the map from plane k into the
-  // colour plane (svF), and name, its name ("F", "f₂", "f₃∘f₂", or the plane's own variable where svF is the identity)
+  // (#726, Pietro's call on #580, Q2) the colour the steps view shows between two planes, which the probe hears: at the
+  // thread's place x between planes a and b, u of the way (in an All-at-once span, u is its share of the span), the colour
+  // at a point q is G_a(p), plane a's map into the colour plane at the point p of plane a that the glide's map from plane
+  // a (svCarry's map spec; its CPU twin, cpuMap) takes to q, p continued in u from p = q at u = 0 (sndPre in the sound
+  // hooks). At u = 1 that is plane b's map at q, whichever p, so along the coloured thread it is one function of q and x.
+  // The thread at x: {fam, u, G, H(u)} between two planes (fam: what H and G are made of), {u: 0, G} at a coloured plane;
+  // null where the probe hears the nearer plane's map instead: plane a or the nearer plane not coloured (past the colour
+  // plane no tone, #727), a d/dz step (no map: the picture jumps at ½), or a step whose homotopy is not analytic (Newton
+  // needs its derivative)
+  function svSoundSeg(x) {
+    const g = svBetween(x);
+    if (!svColoured(g.a) || !svColoured(g.near)) return null;
+    if (g.u <= 1e-6 || g.b === g.a) return { u: 0, G: svF(g.a) };
+    const ks = g.all ? svPlanes().slice(g.x0 + 1, g.x1 + 1) : [g.b];
+    if (!g.H || !ks.every((k) => built[k - 1] && built[k - 1].props && built[k - 1].props.analytic)) return null;
+    const map = (u) => (g.all ? { mode: 3, a: g.a, b: g.b, t: u, base: g.a } : { mode: 1, base: g.a, hi: g.b, t: u });
+    return { fam: `${g.a}>${g.b}${g.all ? '*' : ''}|${svT()}|${chainSig[nSteps()]}`, u: g.u, G: svF(g.a), H: (u) => cpuMap(map(u)) };
+  }
+  // (#580, #726) the steps view's plane as the sound reads it, null in the classic view. Pietro's calls (1 and 2 Nov): the
+  // probe hears what the colours show, the map from the plane into the colour plane, and between two planes the colour as
+  // it deforms (svSoundSeg). k and T, the nearer plane's stage and the colour plane's; past, the colour plane's name when k
+  // is past it (its colour is carried from there, by the points: no tone, #727), else ''; playing, ▶ plays along the
+  // thread; segAt, the colour at a place on the thread. Read only when asked: seg, the colour at the thread's place x
+  // (svSoundSeg's); x, that place while the probe hears that colour, else null; key, what the probe's function is made of:
+  // the coloured thread, one function of the point and x, or where it does not deform, the nearer plane's map (the
+  // readout's), re-seated where it switches; view, the camera the picture is drawn with: between two planes the one every
+  // plane shares (S.srcView, svRenderMoving's), so a glide or ▶ is no view change under a still probe, else the plane's
+  // own (leftView); F, the map from plane k into the colour plane (svF), and name, its name ("F", "f₂", "f₃∘f₂", or the
+  // plane's own variable where svF is the identity)
   const stepsView = () => {
     if (!SV.on) return null;
     const k = leftStage(), T = svT();
-    return { key: `${k}>${T}`, k, T, past: k > T ? svName(T) : '', get F() { return svF(k); }, get name() { return svColoured(k) ? svKeyName(k) : svName(k); } };
+    let found;
+    const here = () => (found === undefined ? (found = svSoundSeg(SV.g.x)) : found);
+    return { k, T, past: k > T ? svName(T) : '', playing: !!SV.play, segAt: svSoundSeg,
+      get seg() { return here(); }, get x() { return here() ? SV.g.x : null; }, get key() { return here() ? `~${T}|${svPlanes().join(',')}` : `${k}>${T}`; },
+      get view() { return here() && here().H ? S.srcView : leftView(); }, get F() { return svF(k); }, get name() { return svColoured(k) ? svKeyName(k) : svName(k); } };
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
