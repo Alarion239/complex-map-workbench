@@ -450,13 +450,13 @@ float ixDKTail() {
 // a covering candidate the buffer does not keep (not admitted, or dropped off its end): its transmittance, with the
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
-bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
+${IX_TIE_ORDER}bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
   // (the walk's buffer order, Inverse's byStep: keys in the same step of IX_TIE_D are ordered by the tie rule, so a buffer cut to its first entries keeps those of that total order; ixTieOrder then puts the entries front to back)
   float q1 = floor(D1 / IX_TIE_D + 0.5), q2 = floor(D2 / IX_TIE_D + 0.5);
   if (q1 != q2) return q1 < q2;
   return ixTieWins(t1, t2);
 }
-${IX_TIE_ORDER}// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the tie band
+// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the tie band
 // (TIE_D, 2^-8: a member within it may still come in front by the tie rule) ----
 float ixRayBoxDist(vec2 a, vec2 v, float smax) {
   float lo = 0.0, hi = smax;
