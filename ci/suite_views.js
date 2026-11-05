@@ -240,7 +240,7 @@ const VIEWS = {
   'cauchy_residue_cmd.js': steps({ pin: true }),
   'deform_dirichlet_cmd.js': steps({ pin: true }),
   'land_release_cmd.js': steps({ pin: true }),
-  'link_standin_cmd.js': port('render', 'the steps view\'s last plane draws no stand-in while its chain links: it shows an empty plane with "Compiling…", where the classic right pane shows the CPU-mapped shape'),
+  'link_standin_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': port('render'),
