@@ -8,12 +8,14 @@
 // the box, on the CPU only) as covered:
 // - a carried frame that draws one patch, about the pole;
 // - no point of the block is bare;
-// - with the box grid alone (the hook without the patch), points are bare: the check reads something.
+// - with the box grid alone (the hook without the patch), points are bare: the check reads something;
+// - mid-glide, held at u = 0.85 and 0.95 of the glide w₁ → w₂: the same three.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 await view(1440, 900, false, false);
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
@@ -42,4 +44,19 @@ info.cHeld = await cover();
 ok('held at 1.9998: the carried frame covers its block (but plane w₁ past its box, #971)', !!info.cHeld && info.cHeld.bare === 0, info.cHeld);
 info.gHeld = await cover(false);
 ok('held at 1.9998: the box grid alone leaves points bare', !!info.gHeld && info.gHeld.bare > 0, info.gHeld);
+// mid-glide, the carried frame held (held_frames' hold: the thread not let go, settled on the place and the moving frame) on
+// the glide w₁ → w₂ at u = 0.85 and 0.95, where the cells about the pole have stretched past
+// the tear limit: one patch is drawn, no point of the block is bare, and the box grid alone leaves points bare (at u = 0.5 and
+// 0.7 it leaves none, so those frames would not read the patch)
+info.mid = {};
+for (const u of [0.85, 0.95]) {
+  await rest(0);
+  await hold(1 + u);
+  const m = info.mid[u] = { carried: await carried(), covered: await cover(), grid: await cover(false) };
+  ok(`held at u = ${u}: a carried frame drawing one patch`, !!m.carried && m.carried.s === 1 && Math.abs(m.carried.u - u) < 0.004 && m.carried.patches === 1, m.carried);
+  ok(`held at u = ${u}: the carried frame covers its block`, !!m.covered && m.covered.bare === 0, m.covered);
+  ok(`held at u = ${u}: the box grid alone leaves points bare`, !!m.grid && m.grid.bare > 0, m.grid);
+  await ev('window.__svScrubUp(), 1');
+  await settled({ max: 60000 });
+}
 return { pass: fails.length === 0, fails, info };
