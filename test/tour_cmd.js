@@ -64,6 +64,12 @@ if (!SV) {
   check('ArrowRight: next step', (await cur()).id === 'y', await cur());
   await key('ArrowLeft'); await settle(700);
   check('ArrowLeft: back', (await cur()).id === 'x', await cur());
+} else {
+  const first = (await cur()).id;
+  await clickSel('.ts-next'); await settle(900);
+  check('the strip\'s Next button: next step', (await cur()).id !== first, await cur());
+  await clickSel('.ts-back'); await settle(900);
+  check('the strip\'s Back button: back', (await cur()).id === first, await cur());
 }
 await click(120, 820); await settle(300);
 check('a click on the shade keeps the tour', await ev('Tour.isActive()'));
