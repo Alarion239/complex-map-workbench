@@ -88,7 +88,7 @@
   // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
   // the fill draws through: drawRegionCarry)
   const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
-  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
+  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip, true);
   const REGION_KM_FS = () => UTIL + CARRY_MASK_FS;
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
