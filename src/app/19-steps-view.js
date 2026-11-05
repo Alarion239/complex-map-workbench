@@ -218,7 +218,10 @@
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
+  // the rail's next follow brings the ring into view, though the ring has not moved (a press on the thread, ‹ and › at an end)
+  function svFollowRing() { if (SV.els) SV.els.followKey = null; }
   function svGo(i, now) {
+    svFollowRing();
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
@@ -1681,13 +1684,19 @@
     const kf = document.activeElement, keepFocus = !!kf && kf !== E.thumb && E.rail.contains(kf) && kf.matches(':focus-visible') && !SV.anim && !SV.g.moving();
     if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
     else if (E.trackW > E.railW + 1) {
-      const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
-      // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
-      const toEnd = E.wholeMap.parentNode === E.rail && j >= c.length - 1;
-      const want = toEnd ? E.trackW : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
-      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
-      // (the fades follow at once: the rail's scroll event comes a frame later)
-      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+      // (the rail follows the ring when the ring moves, or a control asks for it (svFollowRing): a resize alone leaves a rail the
+      // user scrolled where it is, its scrollLeft clamped by the browser)
+      const key = `${x.toFixed(3)}|${c.length}`;
+      if (key !== E.followKey) {
+        E.followKey = key;
+        const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
+        // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
+        const toEnd = E.wholeMap.parentNode === E.rail && j >= c.length - 1;
+        const want = toEnd ? E.trackW : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+        const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
+        // (the fades follow at once: the rail's scroll event comes a frame later)
+        if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+      }
     } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
   }
   // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
@@ -1984,7 +1993,7 @@
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
       if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-bandx')) return;
-      svOutsideBand(posX(e));
+      svOutsideBand(posX(e)); svFollowRing();
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
     rail.addEventListener('pointermove', (e) => {

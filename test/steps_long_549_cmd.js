@@ -102,6 +102,17 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
       for (let i = 0; i < 20 && w1 >= w0 - 50; i++) { await sleep(100); w1 = (await geo()).scroll; }
     }
     ok(`${tag}: a wheel to the left scrolls the thread (${w0} to ${w1})`, w1 < w0 - 50 || g0.track <= g0.rail + 1, { w0, w1 });
+    // (a rail the user scrolled stays where they left it when the thread or the rail changes width; the ring is brought into view
+    // again when it moves: ‹)
+    if (g0.track > g0.rail + 1) {
+      const resized = async (px) => { await ev(`document.querySelector('#svStrip .sv-track').style.paddingRight = '${px}px'; 1`); await sleep(300); return (await geo()).scroll; };
+      await ev(`document.querySelector('#svStrip .sv-rail').scrollLeft = 120; 1`); await sleep(200);
+      const k0 = (await geo()).scroll, k1 = await resized(1), k2 = await resized(200), k3 = await resized(0);
+      ok(`${tag}: a rail scrolled away from the ring keeps its place when the thread changes width (${k0}, ${k1}, ${k2}, ${k3})`, k0 === 120 && k1 === 120 && k2 === 120 && k3 === 120, { k0, k1, k2, k3 });
+      await ev(`document.querySelector('#svStrip .sv-prev').click(); 1`); await rest(); await sleep(200);
+      const back = await ringIn();
+      ok(`${tag}: ‹ brings the ring into view again`, back.ring && back.node, back);
+    }
     }
 
     tm('mouse');
