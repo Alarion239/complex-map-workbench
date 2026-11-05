@@ -51,7 +51,9 @@ const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); 
 // (let go of the thread held a hair from a plane: it settles there; then back on plane z)
 // the overlays of the left pane's frame drawn next (a redraw asked for): {grid: GLR.drawGrid's draws, dashed:
 // GLR.drawLines' draws with a dash, colourGrid: the colour plot's grid in 2D on the left pane (the major grid in --dc-line at 1 px, then the
-// axes' casing in --dc-casing at 2.5 px and the axes in --dc-line at 1.25 px, three strokes in a row)}
+// axes' casing in --dc-casing at 2.5 px and the axes in --dc-line at 1.25 px, three strokes in a row)}, of one frame:
+// the last one drawn (each draw is filed under its frame's time, document.timeline.currentTime, so a second frame
+// drawn while the counts settle is not added to the first); frames: how many frames drew
 const overlays = async () => {
   await ev(`(() => {
     if (!window.__ovWrap) {
@@ -59,24 +61,26 @@ const overlays = async () => {
       const g = GLR.drawGrid, l = GLR.drawLines, cx = document.getElementById('canvasL').getContext('2d'), st = cx.stroke;
       // (the whole stack: the mask's outlines are drawn deep inside drawScene)
       const left = () => { const n = Error.stackTraceLimit; Error.stackTraceLimit = 100; const st = new Error().stack || ''; Error.stackTraceLimit = n; return st.includes('renderLeft'); };
-      GLR.drawGrid = function () { if (window.__ov && left()) window.__ov.grid++; return g.apply(this, arguments); };
-      GLR.drawLines = function (res, o) { if (window.__ov && o && o.dash && left()) window.__ov.dashed++; return l.apply(this, arguments); };
-      cx.stroke = function () { if (window.__ov) window.__ov.strokes.push([String(this.strokeStyle).toLowerCase(), this.lineWidth]); return st.apply(this, arguments); };
+      // (the record of the frame being drawn)
+      const fr = () => { const o = window.__ov, t = String(document.timeline.currentTime); if (!o.by[t]) { o.by[t] = { grid: 0, dashed: 0, strokes: [] }; o.order.push(t); } o.n++; return o.by[t]; };
+      GLR.drawGrid = function () { if (window.__ov && left()) fr().grid++; return g.apply(this, arguments); };
+      GLR.drawLines = function (res, o) { if (window.__ov && o && o.dash && left()) fr().dashed++; return l.apply(this, arguments); };
+      cx.stroke = function () { if (window.__ov) fr().strokes.push([String(this.strokeStyle).toLowerCase(), this.lineWidth]); return st.apply(this, arguments); };
     }
-    window.__ov = { grid: 0, dashed: 0, strokes: [] };
+    window.__ov = { by: {}, order: [], n: 0 };
     __cmwHideStrokes(false);
     return 1;
   })()`);
   // (until the frame has drawn and its counts hold still from one poll to the next: the frame's draws are all in)
   await ev('window.__ovN = -1, 1');
-  await settled({ max: 20000, panes: false, until: '(() => { const n = window.__ov.strokes.length + window.__ov.grid + window.__ov.dashed, same = n === window.__ovN; window.__ovN = n; return n > 0 && same; })()' });
+  await settled({ max: 20000, panes: false, until: '(() => { const n = window.__ov.n, same = n === window.__ovN; window.__ovN = n; return n > 0 && same; })()' });
   return ev(`(() => {
-    const o = window.__ov, css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
+    const O = window.__ov, o = O.by[O.order[O.order.length - 1]], css = (v, d) => { const c = document.createElement('canvas').getContext('2d'); c.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue(v).trim() || d; return String(c.strokeStyle).toLowerCase(); };
     const line = css('--dc-line', '#ffffff'), casing = css('--dc-casing', '#0b1114'), S = o.strokes;
     let colourGrid = false;
     for (let i = 0; i + 2 < S.length; i++) if (S[i][0] === line && S[i][1] === 1 && S[i + 1][0] === casing && S[i + 1][1] === 2.5 && S[i + 2][0] === line && S[i + 2][1] === 1.25) colourGrid = true;
     window.__ov = null;
-    return { grid: o.grid, dashed: o.dashed, colourGrid, strokes: S.length };
+    return { grid: o.grid, dashed: o.dashed, colourGrid, strokes: S.length, frames: O.order.length };
   })()`);
 };
 const letGo = async () => { await ev('window.__svScrubUp(), 1'); await rest(0); };
