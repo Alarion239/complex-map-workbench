@@ -2961,7 +2961,21 @@
   // after a change in the number of steps, the shown plane and the colour plane stay on their stages: stages from `from` on
   // moved by d (a remove: the removed stage's plane goes to the one before), and a stage that is gone to the one before it
   function svEdit(from, d, n) { SV.shift = { st: svStage(), T: SV.T, alone: SV.alone, from, d, n: n == null ? S.steps.length : n, t: performance.now() }; }
+  // a formula step k split into n steps (splitStep): the thread keeps its place, as the planes keep their pictures
+  // (Funcs.splitSvPlace). A glide or play under way is left to svCheck; svSplitEdit is called before the chain changes
+  function svSplitEdit(k, n) {
+    SV.split = { k, n, j: svPlanesOf(S.steps).indexOf(k) - 1, x: SV.g.x, rest: !svGliding() };
+    SV.own = true;   // (an edit of the chain, not another chain loaded: svChainChanged keeps the planes it shows)
+  }
+  function svSplitApply(sp) {
+    const r = Funcs.splitSvPlace({ x: sp.x, rest: sp.rest, T: SV.T, alone: SV.alone, back: SV.alone ? SV.back : null }, sp.k, sp.n, sp.j);
+    SV.T = r.T; SV.alone = r.alone; SV.back = r.back;
+    SV.g.max = svPlanes().length - 1;
+    if (!SV.alone && sp.rest) { SV.g.set(r.x); SV.i = Math.max(0, Math.min(SV.g.max, Math.round(r.x))); }
+  }
   function svShifted() {
+    const sp = SV.split;
+    if (sp) { SV.split = null; svSplitApply(sp); return; }
     const sh = SV.shift;
     if (!sh) return;
     if (sh.n === S.steps.length && sh.d !== 0) return;   // (a palette that has not changed the count yet, or a replace)
