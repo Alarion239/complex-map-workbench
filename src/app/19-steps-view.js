@@ -300,16 +300,17 @@
     return true;
   }
   // the plane a carry starts from: s0, unless a d/dz step lies between s0 and a plane in ts it must reach (the places,
-  // the colour plane, the planes the heights read); then z's plane, as every stage is a function of z (chainRange from
-  // plane 0 crosses a d/dz step, from a later plane it cannot)
-  const svCarryFrom = (s0, ts) => (ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
+  // the colour plane, the planes the heights read), or All sheets draws a multivalued chain; then z's plane. Every stage
+  // is a function of z (chainRange from plane 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a
+  // step before s0 exist only as the preimages of z's points
+  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet() || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
   // the longest edge a cell of the carried grid may have once placed by the glide's map, as a share of the pane's longer
   // side (svLandCarry's lim, in the plane's units): a cell stretched past it, by a pole of the map or a fold, is left
   // out, and the patches about the poles cover its place
   const LAND_CELL_SPAN = 0.35;
   // The Landscape as the points of a source plane s carried (render3D's carry), from plane a's surface at u = 0 to plane
-  // b's at u = 1 (b null: a's). s is min(a, T), or z's plane when a d/dz step lies in the way (svCarryFrom), so every
-  // point past T keeps T's colour. Each point is placed by mapOf(s) (a map spec from plane s), at its height h(F) (the
+  // b's at u = 1 (b null: a's). s is min(a, T), or z's plane when a d/dz step lies in the way or All sheets draws a
+  // multivalued chain (svCarryFrom), so every point past T keeps T's colour. Each point is placed by mapOf(s) (a map spec from plane s), at its height h(F) (the
   // stages (s, hT] blended over u into (s, hT2]: the heights of planes a and b, svHT) and in its colour (the stages
   // (s, T]), or in no colour while the nearer plane is plain (svPlain; T is then s). key: from z's
   // plane to a later one, the 2D carried colour's sheet key of the plane the frame goes to (svSheetKey), so where the
@@ -354,7 +355,7 @@
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
   const svLandPoleMemo = { key: '', poles: [] };
-  function svLandPatches(map, src, N) {
+  function svLandPatches(map, src, N, hF, hKey) {
     const F = cpuMap(map);
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
@@ -364,7 +365,25 @@
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
-    return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8]);
+    const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
+    return near.map(patch).concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+  }
+  // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
+  // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
+  // there is a log spike that the far patches' coarse cells facet, so each gets a pole patch of its own like the glide
+  // map's poles (svLandPatches). hF does not move with the glide, so they are searched once per plane s and box (hKey
+  // names hF)
+  const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 64, svLandHeightMemo = { key: '', poles: [] };
+  function svLandHeightPoles(hF, hKey, src, reach) {
+    const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
+    if (svLandHeightMemo.key === key) return svLandHeightMemo.poles;
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
+    const ring = { x0: x - r, x1: x + r, y0: y - r, y1: y + r };
+    const out = svDrain(svPolesIn(hF, ring, LAND_HEIGHT_GRID, ring, { n: 0, at: 0 }))
+      .filter((p) => p.re < src.x0 || p.re > src.x1 || p.im < src.y0 || p.im > src.y1)
+      .sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_HEIGHT_POLES);
+    Object.assign(svLandHeightMemo, { key, poles: out });
+    return out;
   }
   // The carried grid's far patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: plane s outside its carried box
   // src, in two rings about the box's centre, from its inscribed circle to LAND_FAR_NEAR times that, then on to
@@ -2574,10 +2593,10 @@
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
-      // (PageUp / PageDown on a focused plane too; the arrows there only while no shape is selected, which they nudge, and not
-      // on the plane that is the sound's keyboard probe, whose arrows move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows only while no shape is selected, which they nudge while the focus is on a
+      // plane (14-interaction.js), and not on the plane that is the sound's keyboard probe, whose arrows move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && t && t.closest && ((selected && t.closest('canvas')) || t.closest('canvas[aria-keyshortcuts~="ArrowLeft"]'))) return;
+      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR')) || (t && t.closest && t.closest('canvas[aria-keyshortcuts~="ArrowLeft"]')))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);

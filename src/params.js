@@ -541,7 +541,7 @@ const Params = (() => {
     el.append(sec);
     if (focus) { const f = el.querySelector(`[data-prm-focus="${CSS_ESC(focus)}"]`); if (f) f.focus({ preventScroll: true }); }
   }
-  const CSS_ESC = (s) => (typeof CSS !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/"/g, '\\"'));
+  const CSS_ESC = (s) => (typeof window !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/[\\"]/g, '\\$&'));
   function newRow(m) {
     // (the next free letter is there as real text, selected: Add works at once, and typing overwrites it)
     const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), value: nextFree(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
@@ -745,7 +745,7 @@ const Params = (() => {
   return {
     mount, list, get, set, on, install, attach, add, remove, rename, check, canon, display, tex, namesIn, unknownIn, resolve, replaceName,
     evalReal, evalVal, rest, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused, sliding: () => sliding,
-    encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; },
+    encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; }, _cssEsc: CSS_ESC,
   };
 })();
 Params.install();

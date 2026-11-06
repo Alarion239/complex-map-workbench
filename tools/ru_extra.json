@@ -695,5 +695,8 @@
  "Show f{k} alone": "Показать только f%{k}",
  "No step before f{k}": "Перед f%{k} шагов нет",
  "No step after f{k}": "После f%{k} шагов нет",
- "Step shown alone": "Шаг, показанный отдельно"
+ "Step shown alone": "Шаг, показанный отдельно",
+ "Moved {name} to {x}, {y}.": "{name} перемещена в {x}, {y}.",
+ "Moved {name}.": "{name} перемещена.",
+ "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её"
 }
