@@ -692,5 +692,5 @@
  "landscape": "рельеф",
  "Moved {name} to {x}, {y}.": "{name} перемещена в {x}, {y}.",
  "Moved {name}.": "{name} перемещена.",
- "Steps view: the previous or next plane; with a shape selected, move it (⇧ ↑ ↓: ten steps)": "Вид шагов: предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её (⇧ ↑ ↓: десять шагов)"
+ "Steps view: the previous or next plane; with a shape selected, move it (⇧ ↑ ↓: ten steps)": "Вид шагов: предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её (⇧ ↑ ↓: десять шагов)"
 }
