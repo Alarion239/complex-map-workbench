@@ -7,13 +7,13 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const OVER = 32, MAX_SHARE = 0.5;
+const MAX_SHARE = 0.5;
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
 const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length' }); };
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
-const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { grab, compare, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const EX = exampleNames().indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, EX);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=jkc${Date.now()}`);
@@ -31,9 +31,9 @@ for (const x of [0.25, 0.3, 0.75]) {
   await ev(`__cmwSteps({ mesh: true, x: ${x + 0.013} }), 1`); await at(x); await still('M' + x);
   const pm = await ev(`__cmwSteps().glide && __cmwSteps().glide.path`);
   ok(`x = ${x}: the exact frame is the inverse pass's and the other the carried mesh's`, pe === 'inverse' && pm === 'mesh', { pe, pm });
-  const share = await ev(`(() => { const K = window.__heldPx, a = K['E${x}'], b = K['M${x}']; let c = 0; for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])) > ${OVER}) c++; return +(100 * c / (a.length / 4)).toFixed(3); })()`);
+  const c = await compare('E' + x, 'M' + x), share = c ? +(100 * c.frac).toFixed(3) : null;
   info[x] = { over: share };
-  ok(`x = ${x}: at most ${MAX_SHARE} % of the pixels of the mesh's frame are more than ${OVER}/255 from the exact picture`, share <= MAX_SHARE, share);
+  ok(`x = ${x}: at most ${MAX_SHARE} % of the pixels of the mesh's frame are more than ${DIFF_TOL}/255 from the exact picture`, share !== null && share <= MAX_SHARE, share);
 }
 await ev(`__cmwSteps({ mesh: false }), 1`);
 return { pass: fails.length === 0, fails, info };

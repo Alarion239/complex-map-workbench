@@ -985,6 +985,8 @@
   // (read by the test hooks)
   let svGlideRec = null;
   const SV_CARRY_L = 2;
+  // the whole plane's carried mesh: cells a side over clipWin
+  const SV_ALL_BASE = 80;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
   // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
   // clipWin's centre, from its inscribed circle out to m times its half-diagonal: the least m of SV_RING_M whose circle
@@ -1040,7 +1042,7 @@
         ring = SV_RING_M[SV_RING_M.length - 1]; fits = false;
         for (const x of SV_RING_M) if (yield* all(about(C(cx, cy), x * R))) { ring = x; fits = true; break; }
       }
-      const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / 80)));
+      const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / SV_ALL_BASE)));
       if (!deep && fits) return ring;
       const o = c || C(cx, cy);
       // (outward: the least k with the circle of radius R 2^k about o past the view; inward from c: the least k with
@@ -1122,7 +1124,7 @@
     return nt;
   }
   // svPolarCap: nt lowered by SV_POLAR_STEP (to SV_POLAR_NT at least) while the annulus r1 to r2 (nt cells a turn,
-  // ln(r2 / r1) nt / 2 pi rings of them) has more than SV_POLAR_CELLS cells, twice the whole plane's mesh's (80 a side): the build and the
+  // ln(r2 / r1) nt / 2 pi rings of them) has more than SV_POLAR_CELLS cells, twice the whole plane's mesh's (SV_ALL_BASE a side): the build and the
   // draw cost of one annulus
   function svPolarCap(nt, r1, r2) {
     const L = Math.log(r2 / r1);
@@ -1188,14 +1190,14 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
-  const SV_POLAR_PROBE_R = 6, SV_POLAR_PROBE_T = 12, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 2 * 80 * 80, SV_POLAR_DOUBLINGS = 4, SV_POLAR_STEP = 8, SV_POLAR_SPAN = 4;
+  const SV_POLAR_PROBE_R = 6, SV_POLAR_PROBE_T = 12, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 2 * SV_ALL_BASE * SV_ALL_BASE, SV_POLAR_DOUBLINGS = 4, SV_POLAR_STEP = 8, SV_POLAR_SPAN = 4;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
   // Under a polar ring the whole plane's mesh and the ring's share the plane, each where its cells are the finer, so
   // no point is drawn twice by two meshes that place it differently (in the same depth, the worse one's straight edges
   // would cut into the other's picture): the whole plane's inside clipWin, where its cells are uniform, h across
-  // (clipWin's larger side / 80), and, about a singular point c the ring reaches in to past rho - h, outside the disc
+  // (clipWin's larger side / SV_ALL_BASE), and, about a singular point c the ring reaches in to past rho - h, outside the disc
   // of radius rho = h (SV_POLAR_NT / 2 pi - 1) about it, a cell inside the radius within which the ring's cells are the
   // finer (beside a logarithm's branch point a whole-plane cell spans radii the map sends far apart); the ring's
   // everywhere else. A ring with more cells a turn (ring.nt) is finer still, and keeps this share, so the whole plane's
@@ -1205,7 +1207,7 @@
   // drawn behind there (SV_POLAR_BEHIND).
   // svPolarShare: the radius rho about the ring's centre (0: none)
   function svPolarShare(ring) {
-    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
+    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / SV_ALL_BASE, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
     return { h, rho: ring.sing && ring.r1 < rho - h ? rho : 0 };
   }
   // the whole plane's mesh r's skip flags under the polar ring: {skip, extra}, extra those of its fix-up fx's refined
@@ -1367,7 +1369,7 @@
   }
   // a carried shape's tessellated mesh (shapeGPU; the whole plane's at 80 base cells a side, not 140: it has no edge
   // to draw)
-  const svCarryGPU = (x) => shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+  const svCarryGPU = (x) => shapeGPU(x, x === SV_ALL ? { base: SV_ALL_BASE } : undefined);
   // The carried meshes of a chain with a step whose glide has no inverse plan (Inverse.homOps of its homotopy fails:
   // its frames, and those of the glides after it, draw svCarryRegions): built, and their carried colour's textures
   // reserved, by the idle job, so the first frame of such a glide builds and allocates nothing. svMeshNext: the key of
