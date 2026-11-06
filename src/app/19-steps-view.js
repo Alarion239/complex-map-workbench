@@ -1833,7 +1833,11 @@
     }
     E.track.textContent = '';
     E.track.style.setProperty('--n', String(P.length));
-    if (al) E.track.append(h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')), svWalkBtn(-1, al), svWalkBtn(1, al));
+    if (al) {
+      // (Whole chain and the walk ‹ › are one pill: the walk's arrows are the step's, not the planes')
+      E.track.append(h('div', { class: 'sv-alone', role: 'group', 'aria-label': $t('Step shown alone') },
+        h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')), svWalkBtn(-1, al), svWalkBtn(1, al)));
+    }
     P.forEach((k, i) => {
       if (i > 0) {
         // (a step is a stretch of the thread, which a drag moves along; its function's chip on it opens the step)
