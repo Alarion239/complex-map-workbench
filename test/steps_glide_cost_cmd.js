@@ -79,7 +79,7 @@ async function hold(x, links = true) {
   info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
   const list = Array.isArray(started) ? started : [];
   ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain one)', Array.isArray(started) && !['regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain ones)', Array.isArray(started) && !['regionKS', 'regionK', 'regionKN'].some((n) => list.includes(n)), started);
   ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
