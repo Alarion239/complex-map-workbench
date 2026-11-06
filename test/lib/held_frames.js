@@ -68,8 +68,8 @@
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       const k = g.key(z), cv = covers(z);
       if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      // (the renderer's front as Inverse.frontByStep orders a pair: keys in the same step of TIE_D tie, then larger Im z, then larger Re z)
-      const sk = Math.round(k / Inverse.TIE_D), sb = Math.round(bk / Inverse.TIE_D);
+      // (the renderer's front as Inverse.frontByStep orders a pair: keys in the same step of ln(1 + D) / TIE_D tie, then larger Im z, then larger Re z)
+      const sk = Math.round(Math.log(1 + k) / Inverse.TIE_D), sb = Math.round(Math.log(1 + bk) / Inverse.TIE_D);
       const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
       if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
     }

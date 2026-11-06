@@ -14,6 +14,9 @@
   let sideMode = false, side = null;
   const sideChs = new Map();
   let frameErr = '', framePending = false;
+  // the Landscape's refinement is still to come: the frame was drawn without it and a redraw follows (rfPoll, rfLater,
+  // settled, sheetRF)
+  let frameRefining = false;
   // the programs of the current chain that a draw drew a stand-in for (an earlier version, the deformation's start, or
   // nothing), program id -> chain key, until each lands, fails or is dropped: frameStatus().waiting, over every pane of
   // the frame (pending is only the last begin's or viewport's: the Sphere view draws two panes); frameCompiling: since
@@ -719,31 +722,34 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the sheet key of the inverse path (SPEC 5.1, 5.2) per fragment, as its depth (flat pre-mapped meshes, uKeyOn 1):
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
-  // preKeyDepth(sa, stepped), sa the source point: x = KEY_STEPS D + 0.999 (tie order), depth x / (x + 1024).
-  // - KEY_STEPS = 256 = 1 / Inverse's TIE_D: keys a tie step apart are one unit of x apart, and the tie order,
-  //   in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric
-  //   about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|) would otherwise order
-  //   fragment by fragment.
-  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): KEY_STEPS D rounded to its step, so two
-  //   sheets in one step are ordered by the tie order alone (a depth is one number per fragment, so the mesh's tie is a
-  //   rounding step; the inverse pass's tie is a band under the smallest key, Inverse.order). Not stepped (a
-  //   vertex stage: REGION_VS's carry option): KEY_STEPS D itself, since a depth interpolated across a triangle whose
-  //   vertices straddle a step would order the sheets wrongly over the whole triangle.
+  // preKeyDepth(sa, stepped), sa the source point: depth = (s + 0.999 (tie order)) / (KEY_SMAX + 1), s = KEY_STEPS ln(1 + D).
+  // - KEY_STEPS = 2^14: the key's steps per unit of ln(1 + D). Inverse.front ties two sheets within a relative band of
+  //   2^-14 (1 + D), a constant step of ln(1 + D), so the key is uniform in that variable: keys a tie step apart are one
+  //   unit of s apart, and the tie order, in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys
+  //   within a step. A map symmetric about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|)
+  //   would otherwise order fragment by fragment.
+  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): s rounded to its step, so two sheets in one
+  //   step are ordered by the tie order alone (a depth is one number per fragment, so the mesh's tie is a rounding step;
+  //   the inverse pass's tie is a band under the smallest key, Inverse.order). Not stepped (a vertex stage: REGION_VS's carry option): s itself, since a
+  //   depth interpolated across a triangle whose vertices straddle a step would order the sheets wrongly over the whole
+  //   triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
-  // - x / (x + 1024) maps x >= 0 into [0, 1), monotone, finest for small D (depth 0.5 at D = 4). D is capped at 1e4
-  //   (a point that far behind is behind every point that matters) so x stays finite.
+  // - D is capped at KEY_DMAX = 63 (a point that far behind is behind every point that matters), so s <= KEY_SMAX
+  //   = 2^14 ln 64 (about 2^16.1) and the depth is linear in [0, 1): a step spans about 2^7.9 of the 24-bit depth buffer's levels,
+  //   which keep the tie order apart.
   const PRE_KEY_DECL = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
-// (the key's steps per octave: 1 / Inverse's TIE_D)
-const float KEY_STEPS = 256.0;
+const float KEY_STEPS = 16384.0;
+const float KEY_DMAX = 63.0;
+const float KEY_SMAX = 68141.0;
 float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
-  float d = min(D, 1e4) * KEY_STEPS;
+  float d = log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
   float x = (stepped ? floor(d + 0.5) : d) + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
-  return x / (x + 1024.0);
+  return x / (KEY_SMAX + 1.0);
 }
 `;
   const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n';

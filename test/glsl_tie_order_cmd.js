@@ -1,7 +1,7 @@
 // The inverse pass's buffer order on the GPU is the CPU's: ixTieOrder (GLR._src.IX_TIE_ORDER, compiled alone in a small
 // shader) puts a buffer of up to 8 entries front to back, and Inverse.order does the same for the same keys and tie
 // points. One buffer a row, read back as the entries' places: pairs of equal keys on either side of a step of TIE_D
-// (the pair a rounded key orders by noise), a chain of three keys spaced 0.7 TIE_D, and random sets whose keys cluster
+// (the pair a rounded key orders by noise; a step is the band's width, 2^-14 of 1 + D), a chain of three keys spaced 0.7 TIE_D, and random sets whose keys cluster
 // at multiples of 0.3 TIE_D. Keys and tie points are float32 values, so both sides order the same numbers.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
@@ -13,16 +13,16 @@ R.out = await ev(`(() => {
   const N = 8, TIE = Inverse.TIE_D, f32 = Math.fround;
   const trials = [];   // each: a buffer, entries {D, z: [re, im]}
   for (const k of [0, 1, 17, 1000]) for (const s of [1, -1]) {
-    const edge = (k + 0.5) * TIE;
+    const edge = Math.exp((k + 0.5) * TIE) - 1;
     trials.push([{ D: edge - 1e-6, z: [0.5, s] }, { D: edge + 1e-6, z: [0.5, -s] }]);
   }
-  trials.push([{ D: 0, z: [0, 0] }, { D: 0.7 * TIE, z: [0, 1] }, { D: 1.4 * TIE, z: [0, 2] }]);
+  trials.push([{ D: 0, z: [0, 0] }, { D: 0.7 * TIE, z: [0, 1] }, { D: 1.4 * TIE, z: [0, 2] }]);   // (the band at D = 0 is TIE)
   trials.push([{ D: 1, z: [1, 1] }, { D: 1, z: [2, 1] }]);
   let seed = 4242;
   const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
   while (trials.length < 600) {
     const n = 1 + Math.floor(rnd() * N), base = rnd() * 4, t = [];
-    for (let i = 0; i < n; i++) t.push({ D: base + Math.floor(rnd() * 8) * 0.3 * TIE, z: [Math.floor(rnd() * 3), Math.floor(rnd() * 3) + (rnd() < 0.5 ? 0 : rnd())] });
+    for (let i = 0; i < n; i++) t.push({ D: base + Math.floor(rnd() * 8) * 0.3 * Inverse.tieBand(base), z: [Math.floor(rnd() * 3), Math.floor(rnd() * 3) + (rnd() < 0.5 ? 0 : rnd())] });
     // (the walk's buffer stands in key steps, entries of one step in the tie rule's order: any listing is a buffer)
     for (let i = t.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [t[i], t[j]] = [t[j], t[i]]; }
     trials.push(t);
@@ -36,7 +36,7 @@ R.out = await ev(`(() => {
   const vs = '#version 300 es\\nvoid main() { vec2 p = vec2(float(gl_VertexID & 1), float(gl_VertexID >> 1)) * 4.0 - 1.0; gl_Position = vec4(p, 0.0, 1.0); }';
   // (the entry's colour slot holds its index in the buffer; the pixel x = 0 holds the places 0..3, x = 1 the places 4..7, as index + 1)
   const fs = '#version 300 es\\nprecision highp float; precision highp int; precision highp sampler2D;\\nuniform sampler2D uT; out vec4 o;\\n'
-    + 'const int IX_B = ' + N + '; const float IX_TIE_D = 0.00390625;\\nint nb; float bD[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; highp uint bCol[IX_B];\\n'
+    + 'const int IX_B = ' + N + '; const float IX_TIE_D = 0.00006103515625;\\nfloat ixTieBand(float D) { return IX_TIE_D * (1.0 + D); }\\nint nb; float bD[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; highp uint bCol[IX_B];\\n'
     + GLR._src.IX_TIE_ORDER
     + 'void main() {\\n  int y = int(gl_FragCoord.y), x = int(gl_FragCoord.x);\\n  nb = 0;\\n'
     + '  for (int i = 0; i < IX_B; i++) { vec4 t = texelFetch(uT, ivec2(i, y), 0); bD[i] = t.x; bZ[i] = t.yz; bC[i] = 1.0; bCol[i] = uint(t.w); if (t.x >= 0.0) nb = i + 1; }\\n'

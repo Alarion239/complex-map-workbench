@@ -227,7 +227,7 @@ async function behaviour(refDist, curDist) {
     const pa = await probe(sa.base, 'complex-map-workbench.html', pubScenes, pubTop), pb = await probe(sb.base, 'complex-map-workbench.html', pubScenes, pubTop);
     const extra = pb.globals.filter((n) => !pa.globals.includes(n));
     check('published page: no global the reference lacks', extra.length === 0, extra.slice(0, 10).join(', '));
-    // (a name the reference's script declared at its top is a global only because the script was classic; the bundle
+    // (a name the reference's script declares at its top is a global only because the script is classic; the bundle
     // keeps it in its scope. Any other name, one the page sets on window, must stay)
     const lost = pa.own.filter((n) => !pb.own.includes(n) && !pubTop.includes(n));
     check('published page: every global the page sets on window is still there', lost.length === 0, lost.length ? lost.slice(0, 10).join(', ') : `${pa.own.filter((n) => !pubTop.includes(n)).length} names`);

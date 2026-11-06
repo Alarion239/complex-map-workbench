@@ -73,7 +73,7 @@
       }
     }
     const voices = {};
-    // Hear the function's notes (v16.5; the pointer harp is retired): one marimba note (Sound.htNote) at pitch class c
+    // Hear the function's notes: one marimba note (Sound.htNote) at pitch class c
     // (semitones above D) and the law's dB (dbV3: 0 at |F| = 1, −8 at a zero, +4 at a pole), seed fixed by the note;
     // and a stream of rising notes, one a line, at 10 and at 5 a second, each at its crowding gain (noteGain: a stream's
     // power is that of R0 = 5 events a second)
@@ -91,7 +91,7 @@
     const s1 = await singR(1), sm1 = await singR(-1);
     const peakH = (b) => { let best = 0, bn = 0; for (let n = 1; n <= 8; n++) { const e = bandDb(b, 146.8324 * n, 0.5, 1.4); if (e > best || !bn) { best = e; bn = n; } } return bn; };
     voices.sing = { w1: +lufsM(s1, false).toFixed(2), wm1: +lufsM(sm1, false).toFixed(2), loss: +(lufsM(s1, false) - lufsM(s1, true)).toFixed(2), peak1: peakH(s1), peakm1: peakH(sm1) };
-    // the Glide (v16.5; the Height voice is retired: the Landscape is heard as the planes are): one held voice at
+    // the Glide (the Landscape is heard as the planes are): one held voice at
     // |F| = 1 on D, F♯ (4 semitones above D) and B♭ (8), and on D at a zero and at a pole (the worklet's 'gl' command, as
     // Sound.hear posts it), the integrated loudness of its hold
     const gl = (c, ln) => Sound.render((G, t) => { G.synth.post([{ k: 'gl', at: t + 0.1, phi: c / 12, mode: 'slew', a: HTL.glideAmp(ln), b: HTL.bright(HTL.law(ln)), pan: 0, until: t + 2.0, rel: 0, fade: 0, tier: 2, tag: 'lab' }]); }, 2.6, { noClip: true });

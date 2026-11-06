@@ -136,7 +136,7 @@ function sheetKey(win, P = []) {
 }
 const Inverse = require('../../../src/inverse.js');
 // members in front-to-back order, as the exact renderer orders them (Inverse.order: the front is the larger Im z, then
-// the larger Re z, among the keys less than TIE_D from the smallest key; SPEC 5.2)
+// the larger Re z, among the keys within the tie band of the smallest key; SPEC 5.2)
 function frontOrder(cands, key) {
   return Inverse.order(cands.map((z) => ({ z, D: key(z) }))).map((e) => ({ z: e.z, D: e.D }));
 }
@@ -420,7 +420,7 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
   }
   if (pm) {
     if (strict) {
-      // parity of nothing is unknown: null when nothing was scored or far fewer pixels than the truth can score
+      // parity of nothing is unknown: null when nothing is scored or far fewer pixels than the truth can score
       const none = !parN || parN < MIN_SCORED * parExp;
       if (none) problems.push(`parity scored on ${parN} of the ${parExp} pixels the truth can score: reported as null`);
       m.parity_acc = none ? null : parOk / parN;

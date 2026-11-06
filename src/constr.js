@@ -1,5 +1,5 @@
 'use strict';
-// Constructions (spec: notes/constructions-v16/SPEC.md; standards-ok: a path):
+// Constructions (notes/constructions-v16/SPEC.md):  standards-ok: a spec path in notes/
 // exact geometry of generalized circles, refs to the points on the page, and the dependency graph of the app's
 // constructed shapes. Plain JS, no DOM, no strings (undefined reasons are codes): window.Constr in the page,
 // module.exports in node.
@@ -14,7 +14,7 @@
 //
 // Part 1 (the proof of concept, kept whole: its 84 tests run against this file in test/t_constr.js): the exact
 // predicate, forms, meets with the entering rule, Moebius gliders, a named-node graph with formulas.
-// Part 2 (below its header): the app's shapes. A shape may carry s.at (bound handles) and s.def (a
+// Part 2 (below): the app's shapes. A shape may carry s.at (bound handles) and s.def (a
 // construction: circle3, meet, glider, midpoint, bisector); Constr.recompute writes their concrete fields, the
 // runtime form s._g, s.cundef / s.cHid (undefined) and s._atInf (a point at infinity), in topological order.
 const Constr = (function (factory) {
@@ -25,7 +25,7 @@ const Constr = (function (factory) {
   const INF = 'inf';                       // the point at infinity
   const isInf = (p) => p === INF;
 
-  // (issue #20) part 1, the proof of concept, lives in src/constrpoc.js
+  // Part 1, the proof of concept, lives in src/constrpoc.js
   const Poc = ConstrPoc({ EPS, INF, isInf, reanchor });
   const {
     isXY, decompose, ldexp, orient, decOf, orientD, add, sub, mul, div, scl, abs, dot, cross, latin, parse, namesOf,
@@ -35,7 +35,7 @@ const Constr = (function (factory) {
   } = Poc;
 
   // =====================================================================================================
-  // Part 2: constructions on the app's own shapes. Everything below works on
+  // Constructions (notes/constructions-v16/SPEC.md) on the app's own shapes. Everything below works on  standards-ok: a spec path in notes/
   // the app's state {shapes, targets, steps, nextId} and its shape objects; no DOM, no strings (reasons are codes).
   // =====================================================================================================
   const TAU = 2 * Math.PI;
@@ -214,8 +214,7 @@ const Constr = (function (factory) {
   // whose length changed is matched to its ids greedily by nearest value (ties by index) against the last values seen
   // (st._zpv, runtime); values left over get fresh ids, ids left over are removed. Returns true if anything changed.
   // zpNums, parallel too, are the numbers the zeros and poles are called by (ζ₃, p₁): each keeps its number while
-  // others come and go, a new one takes the next after the largest, and they are saved (a save without them, from an
-  // earlier build, numbers by place, as that build did)
+  // others come and go, a new one takes the next after the largest, and they are saved (a save without them numbers by place)
   function syncSteps(state, env) {
     let ch = false;
     const steps = Array.isArray(state.steps) ? state.steps : [];
@@ -314,7 +313,7 @@ const Constr = (function (factory) {
   // ctx: {state, idx (index()), env: {zp(st, kind, i) -> [x, y] | null, F(z) -> [x, y] | INF | null}}
   function zpMark(ref, st, i) {
     const j = Number.isInteger(i) ? i : (Number.isInteger(ref.i) ? ref.i : 0);
-    // (n: its number when the mark is made, so a reason still names a zero after it is removed)
+    // (n: its number, so a reason still names a zero after it is removed)
     return { kind: ref.kind, i: j, n: zpNum(st, ref.kind, j), step: st ? (ctxStepIndex(st) + 1) : null };
   }
   let ctxSteps = null;
@@ -1104,7 +1103,7 @@ const Constr = (function (factory) {
         if (def.flip == null) def.flip = fin.length === 3 && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(P[1], P[0])) < 0));
         if (def.flip) G = flipG(G);
         G.byInc = inc && G.A === 0;
-        // (the three points that define the form, for perpForm's decimal mirror test; a
+        // (the three points the form was built through, for perpForm's decimal mirror test; a
         // flip keeps them, as a re-anchoring does)
         if (fin.length === 3) G.p3 = P.map((z) => z.slice());
         // the Lambda rule's thru0 from incidence: a defining point exactly at 0 (the anchor, C = 0 exactly)
@@ -1142,7 +1141,7 @@ const Constr = (function (factory) {
         const fin = [P, Q].filter((z) => !isInf(z));
         if (fin.length === 2) { G.e = abs(sub(fin[1], fin[0])); withPts(G, fin); }
         if (G.o[0] === 0 && G.o[1] === 0) G.thru0 = true;
-        // [issue #70] Between z0 and z1: the segment of K from P to Q (the side follows P: nothing stored)
+        // Between z0 and z1: the segment of K from P to Q (the side follows P: nothing stored)
         if (def.between === 1 && def.fill !== 'in') {
           const sd = betweenOf(G, pc.G, P, Q, !!def.flip);
           if (sd.undef) { delete s._seg; return fail(U(sd.undef)); }
@@ -1301,7 +1300,7 @@ const Constr = (function (factory) {
     return out;
   }
 
-  // (issue #20) Inside C only, the perpendicular and the touching circles live in src/constrortho.js
+  // Inside C only, the perpendicular and the touching circles live in src/constrortho.js
   const {
     segU, segAtU, span1, cpz, segInU, chordal, segOf, betweenOf, gcOf, segSideOf, segSides, mirrorIn, setSeg,
     setBetween, segCurves, perpForm, touchForm, tangentNear, tangentForm, touchAt, segAt, segParallel, onCurveByRefs
@@ -1470,7 +1469,7 @@ const Constr = (function (factory) {
           if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.flip != null) d.flip = !!d.flip;
           // Inside C only: a perpendicular circle drawn as a curve, seg 1 or -1 (Region wins)
           if (ok && 'seg' in d && !(d.op === 'perp' && (d.seg === 1 || d.seg === -1) && d.fill !== 'in')) delete d.seg;
-          // [issue #70] Between z0 and z1: between 1 on a perpendicular circle drawn as a curve; it wins over seg
+          // Between z0 and z1: between 1 on a perpendicular circle drawn as a curve; it wins over seg
           if (ok && 'between' in d && !(d.op === 'perp' && d.between === 1 && d.fill !== 'in')) delete d.between;
           if (ok && d.between === 1) delete d.seg;
           if (ok && d.op === 'glider' && !Number.isFinite(s.t)) s.t = 0;
@@ -1666,14 +1665,14 @@ const Constr = (function (factory) {
     orient, circle3, line2, circleCP, circleCR, bisector, onCurve, paramNear, fOf, geomOf, isLine, shapeOf, equationCurve,
     CURVE_KINDS, POINT_KINDS, get exactCalls() { return Poc.exactCalls; },
     mob3t, mob3inv, meets2: meets, meets0,
-    // the shapes' constructions (SPEC 20.2)
+    // the app's shapes (SPEC 20.2)
     formOf, formOfFields, level, reanchor, mob3: mob3obj, mR, sampleMR,
     pieces, meets: (a, b) => (a && a.G ? meetsPieces(a, b) : meets(a, b)), meetNear, project2: projectPiece, projectPiece, glide, onPiece, tRange,
     resolve, planeOf: (state, s) => (lists(state)[1].includes(s) ? 'T' : stageOf(s)), listOfPlane, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
     syncSteps, zpRemoveId, zpNum, zpRenumber, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
     // the rail (notes/ux-build/rail/SPEC.md)
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
-    // forms, pieces and their helpers
+    // forms, pieces and edit helpers
     orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, tangentNear, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
     // Inside C only (notes/orthogonal-circle/segments/SPEC.md)
     segOf, betweenOf, segAt, segSideOf, segSides, setSeg, setBetween, segCurves, mirrorIn, gcOf, onCarrier,

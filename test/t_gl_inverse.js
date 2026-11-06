@@ -151,7 +151,7 @@ for (const t of TYPES) {
   // the compositing past the buffer (INV_HEAD / INV_MAIN): rejected and dropped candidates enter through ixTr; the stop
   // is off when K > B for the own alpha (uKall)
   const head = GLR._src.INV_HEAD(8, ''), main = GLR._src.INV_MAIN(false);
-  check('INV_HEAD: ixRest on rejection and on a full buffer', /pos >= min\(IX_B, ixK\(\) \+ 2\)\) \{[^]*?if \(pos >= IX_B \|\| !\(D - dK < IX_TIE_D\)\) \{ ixRest\(cv\); return; \}\n {2}\}/.test(head) && /if \(nb == IX_B\) ixRest\(bC\[IX_B - 1\]\);/.test(head));
+  check('INV_HEAD: ixRest on rejection and on a full buffer', /pos >= min\(IX_B, ixK\(\) \+ 2\)\) \{[^]*?if \(pos >= IX_B \|\| !\(D - dK <= ixTieBand\(dK\)\)\) \{ ixRest\(cv\); return; \}\n {2}\}/.test(head) && /if \(nb == IX_B\) ixRest\(bC\[IX_B - 1\]\);/.test(head));
   check('INV_HEAD: no early stop when K > B and uKall', /if \(uKall > 0 && uKsat > IX_B\) return 1e38;/.test(head));
   check('INV_MAIN: the rest composites through ixTr, then the tail closure', /C \+= T \* \(1\.0 - ixTr\) \* mc; T \*= ixTr;/.test(main) && /if \(ixTailInf\) \{ C \+= T \* mc; T = 0\.0; \}/.test(main) && !/nCov > IX_B/.test(main));
 }
