@@ -109,37 +109,43 @@ const park = async (x, scope) => {
   ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
 }
 
-// cracks: exp then log of a rectangle taller than one turn of the logarithm's strip, Everywhere, parked half-way between
-// w1 and w2: the log's cut passes through the middle of the fill (the sheets overlap there), so the fill lies on both sides
-// of the cut's image. The colour layer alone is read (the cut curves' casing would cover a crack).
-{
-  const shapes = [{ id: 's1', kind: 'rect', a: [-1.5, -4.5], b: [1.2, 4.5], ci: 1, visible: true }];
+// cracks: Everywhere, parked half-way between w1 and w2, where the second step's cut passes through the middle of the fill
+// (the sheets of the first step overlap there), so the fill lies on both sides of the cut's image. The colour layer alone is read
+// (the cut curves' casing would cover a crack). Cases: the square root of a squared disc (the disc covers
+// the plane's disc twice), the logarithm of the exponential of a rectangle taller than one turn of its strip.
+for (const kase of [
+  { name: 'Square root', steps: [{ id: 'f1', type: 'pown', params: { n: 2 } }, { id: 'f2', type: 'root', params: { n: 2, cut: 180, k: 0 } }], shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.6, ci: 1, visible: true }] },
+  { name: 'Logarithm', steps: [{ id: 'f1', type: 'exp', params: {} }, { id: 'f2', type: 'log', params: { cut: 180, k: 0 } }], shapes: [{ id: 's1', kind: 'rect', a: [-1.5, -4.5], b: [1.2, 4.5], ci: 1, visible: true }] },
+]) {
   const ns = 'seamc' + Date.now();
-  await seed(ns, { steps: [{ id: 'f1', type: 'exp', params: {} }, { id: 'f2', type: 'log', params: { cut: 180, k: 0 } }], shapes, focus: 2 });
+  await seed(ns, { steps: kase.steps, shapes: kase.shapes, focus: 2 });
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
   await ready();
   await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
   await park(1.5, 'all');
   await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
   await ev('__cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
-  ok('cracks: the colour layer alone is drawn', await drawn(), null);
+  ok(`cracks: ${kase.name}: the colour layer alone is drawn`, await drawn(), null);
   // A pixel is a crack when its saturation (max - min channel) is under CRACK_SAT while the pixels FLANK px to both sides of it,
-  // along a row, a column or a diagonal, are above FLANK_SAT. filled is the share of pixels over FLANK_SAT: the scan reads fill.
-  const CRACK_SAT = 20, FLANK_SAT = 40, FLANK = 3, MIN_FILLED = 0.3, GAP = 200;
+  // along a row, a column or a diagonal, are above FLANK_SAT; the pixels within ZERO px of the origin are left out (the colour of
+  // a zero is white by design). filled is the share of pixels over FLANK_SAT: the scan reads fill.
+  const CRACK_SAT = 20, FLANK_SAT = 40, FLANK = 3, MIN_FILLED = 0.3, GAP = 200, ZERO = 2 * FLANK;
   const SCAN = `(() => {
-    const CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT}, FLANK = ${FLANK};
-    const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
+    const CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT}, FLANK = ${FLANK}, ZERO = ${ZERO};
+    const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
+    const o = __cmwW2S('L', 0, 0), ox = (o[0] - r.left) * k, oy = (o[1] - r.top) * k;
     const sat = (x, y) => { const i = (y * W + x) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
     let cracks = 0, filled = 0, first = null;
     for (let y = FLANK; y < H - FLANK; y++) for (let x = FLANK; x < W - FLANK; x++) {
       if (sat(x, y) >= CRACK_SAT) { if (sat(x, y) > FLANK_SAT) filled++; continue; }
+      if (Math.hypot(x - ox, y - oy) < ZERO) continue;
       for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) if (sat(x - FLANK * dx, y - FLANK * dy) > FLANK_SAT && sat(x + FLANK * dx, y + FLANK * dy) > FLANK_SAT) { cracks++; if (!first) first = [x, y]; break; }
     }
     return { W, H, cracks, filled: filled / (W * H), first };
   })()`;
-  info.cracks = await ev(SCAN);
-  ok('cracks: the colour layer is mostly fill', info.cracks.filled > MIN_FILLED, info.cracks);
-  ok('cracks: Everywhere, parked half-way, no uncovered pixel in the fill along the cut\'s image', info.cracks.cracks === 0, info.cracks);
+  const got = info['cracks' + kase.name] = await ev(SCAN);
+  ok(`cracks: ${kase.name}: the colour layer is mostly fill`, got.filled > MIN_FILLED, got);
+  ok(`cracks: ${kase.name}, parked half-way: no uncovered pixel in the fill along the cut's image`, got.cracks === 0, got);
   // The control: a one-device-pixel line of paper put into the fill, vertical and diagonal, must be counted GAP times each.
   const paper = await ev('(() => { const c = document.getElementById("canvasL"); return Array.from(c.getContext("2d").getImageData(2, 2, 1, 1).data); })()');
   for (const [name, slope] of [['vertical', 0], ['diagonal', 1]]) {
@@ -149,8 +155,8 @@ const park = async (x, scope) => {
       for (let i = 0; i < ${GAP}; i++) ctx.putImageData(im, Math.round(W * 0.7) + i * ${slope}, Math.round(H * 0.3) + i);
       return 1; })()`);
     const gap = await ev(SCAN);
-    info['crack' + name] = gap;
-    ok(`cracks (control): a one-pixel ${name} gap of paper in the fill counts at least ${GAP} cracks`, gap.cracks >= GAP, gap);
+    info['cracks' + kase.name + name] = gap;
+    ok(`cracks (control): ${kase.name}: a one-pixel ${name} gap of paper in the fill counts at least ${GAP} cracks`, gap.cracks >= GAP, gap);
     await ev('__cmwSteps({ bare: true }); 1'); await settled({ max: 20000 }); await drawn();
   }
   await ev('__cmwSteps({ bare: false }); 1');
