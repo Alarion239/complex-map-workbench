@@ -213,8 +213,9 @@ const VIEWS = {
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
-  'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour has 42 steps), and'
-    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
+  'tour_phone_cmd.js': steps({ pin: true }),
+  'tour_phone_classic_cmd.js': classic('the classic views\' tour on a phone: X\'s 608 px under the chain bar and the Phase key sheet below the strip;'
+    + ' the steps view\'s is tour_phone_cmd'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),

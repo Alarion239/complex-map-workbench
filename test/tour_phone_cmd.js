@@ -2,9 +2,11 @@
 // 844 × 390 and 780 × 360 in landscape, English and Russian, touch. Every step: its title and its lead or task show on
 // arrival (no tap); the strip stays in one place; the tool row's buttons and the view switch are not covered by it (the
 // topmost element at their centres, the tour's shade aside, is the button); portrait: the strip is the 68 px row under
-// the header and X is 608 px high at 390 × 844 (600 before #246's 56 px chain bar); landscape: the strip sits in the header (X keeps its size) or in a 48 px
-// row. Then: the Why panel is at most half the screen, scrolls inside, folds on a touch in X and that touch reaches the
-// app; a sheet a step opens starts below the strip. (The v15.1 mini bar and its fold are gone with the callout.)
+// the header and X fills what is left down to the tool row (the thread lies over X's foot: the steps view has no chain
+// bar); landscape: the strip sits in the header (X keeps its size) or in a 48 px row. Then: the Why panel is at most half
+// the screen, scrolls inside, folds on a touch in X and that touch reaches the app (the Planes chapter's first step, whose
+// task is the pan in X). (The v15.1 mini bar and its fold are gone with the callout. The classic views' 608 px X under
+// their chain bar and the Phase key sheet below the strip are tour_phone_classic_cmd.js.)
 // (r3 review: the strip keeps one place per chapter; a chapter whose line needs three lines has a 76 px portrait row, or
 // in landscape the row under the header (48 or 56 px); portrait shows × End and a chevron after the count, Next is an
 // arrow named by its label; no lead, task, result, hint or caption of a chapter needs more lines than the strip has)
@@ -42,7 +44,7 @@ const PROBE = `(() => {
   const p = document.querySelector('#paneL').getBoundingClientRect(), h = document.querySelector('header.top').getBoundingClientRect();
   const xb = s.querySelector('.ts-x'), chev = s.querySelector('.ts-chev svg'), nx = s.querySelector('.ts-next');
   return { id: c.chapter + '/' + c.id, ch: c.chapter, lines: Tour.lit() ? Tour.lit().lines : null, need: Tour._t.needLines(), x: vis(xb) && xb.getBoundingClientRect().width >= 44, xok: s.classList.contains('ts-xok'), chev: vis(chev), nextName: nx.getAttribute('aria-label') || '', nextW: Math.round(nx.getBoundingClientRect().width), mode: s.dataset.mode, strip: [b.left, b.top, b.right, b.bottom].map(Math.round), title: vis(title) && title.textContent.trim().length > 2, lead: vis(lead) && lead.textContent.trim().length > 4,
-    leadCut: (() => { const e = s.querySelector('.ts-lead'); return e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1; })(), covered, paneH: Math.round(p.height), paneT: Math.round(p.top), head: Math.round(h.bottom), headTop: Math.round(h.top) };
+    leadCut: (() => { const e = s.querySelector('.ts-lead'); return e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1; })(), covered, paneH: Math.round(p.height), paneT: Math.round(p.top), head: Math.round(h.bottom), headTop: Math.round(h.top), toolsTop: Math.round(document.querySelector('#secDraw').getBoundingClientRect().top) };
 })()`;
 for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (const lang of ['en', 'ru']) {
   const tag = `${w}x${h}-${lang}`;
@@ -78,12 +80,12 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
   check(`${tag}: the walk saw the steps (at least 40)`, n >= 40, n);
   if (first) {
     // (#246: the chain bar is 56 px, 8 less than before, and X has them: 608, 600 with a three-line row)
-    if (h > w) check(`${tag}: portrait, the strip is the row under the header${w === 390 ? '; X is 608 px (600 with a three-line row)' : ''}`, first.mode === 'port' && Math.abs(first.strip[1] - first.head) <= 1 && (w !== 390 || first.paneH === (first.lines === 3 ? 600 : 608)), first);
+    if (h > w) check(`${tag}: portrait, the strip is the row under the header and X fills the rest down to the tool row`, first.mode === 'port' && Math.abs(first.strip[1] - first.head) <= 1 && first.paneT === first.strip[3] && first.paneH === first.toolsTop - first.strip[3], first);
     else check(`${tag}: landscape, the strip in the header (X keeps its size) or a 48 or 56 px row`, (first.mode === 'head' && first.strip[1] >= first.headTop - 1 && first.strip[3] <= first.head + 1 && Math.abs(first.paneH - x0) <= 1) || (first.mode === 'row' && first.strip[3] - first.strip[1] === rowH('row', first.lines)), [first, x0]);
   }
   // Why: a panel at most half the screen, scrolling inside, folded by a touch in X, which reaches the app
   if (lang === 'en') {
-    await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle(1500);
+    await ev(`Tour.start({ chapter: 'planes', step: 0 })`); await settle(1500);
     const tb = await ev(`(() => { const b = document.querySelector('.ts-text').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
     await tap(tb[0], tb[1]); await settle(400);
     const wy = await ev(`(() => { const w = document.querySelector('#tourWhy'), b = w.getBoundingClientRect(), cs = getComputedStyle(w); return { open: !w.hidden, h: b.height, half: innerHeight / 2, scroll: /(auto|scroll)/.test(cs.overflowY), top: b.top, strip: document.querySelector('.tour-strip').getBoundingClientRect().bottom, held: Tour.lit().countdown.held }; })()`);
@@ -94,10 +96,6 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
     await tdrag(x + 30, y - 10, x - 40, y + 20); await settle(300);
     const after = await ev(`({ folded: document.querySelector('#tourWhy').hidden, done: document.querySelector('.ts-l2').classList.contains('done') })`);
     check(`${tag}: a touch in X folds Why and reaches the app (the pan ticks the task)`, after.folded && after.done, after);
-    // a sheet a step opens starts below the strip (Phase key: the Display sheet)
-    await ev(`Tour.start({ chapter: 'views', step: 4 })`); await settle(1600);
-    const sh = await ev(`(() => { const s = [...document.querySelectorAll('.ph-sheet')].find((e) => !e.hidden && e.getClientRects().length); const t = document.querySelector('.tour-strip').getBoundingClientRect(); return s ? { sheet: Math.round(s.getBoundingClientRect().top), strip: Math.round(t.bottom), mode: document.querySelector('.tour-strip').dataset.mode } : null; })()`);
-    check(`${tag}: a sheet the step opens starts below the strip`, !sh || sh.sheet >= sh.strip - 1 || sh.mode === 'head', sh);
   }
   await ev('Tour.stop()'); await settle(300);
 }
