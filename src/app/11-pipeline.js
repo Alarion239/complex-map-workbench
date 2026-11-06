@@ -994,12 +994,13 @@
     const alone = S.focus === k, only = S.steps.length === 1;
     // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
     const hr = S.homRange ? HR.resolve(S, true) : null;
+    if (SV.on) svSplitEdit(k, n);
     spliceSteps(k - 1, 1, ...news);
     if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
     if (S.focus > k) setFocusStep(S.focus + n - 1);
     else if (alone && only) setFocusStep(0);
     chainChanged(true);
-    setFocus(S.focus);
+    if (!SV.on || S.focus) setFocus(S.focus);   // (the steps view's planes share one camera: with no focus, a split does not fit it again)
     setSel(k);
     if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
     syncSel();
