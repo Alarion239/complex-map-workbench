@@ -10,6 +10,7 @@
 // - the fallback, per step: a step whose homotopy is the straight line (a non-analytic formula, added after the
 //   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
+// - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -91,5 +92,43 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     info[`king x ${x}`] = g;
     ok(`Mountain King at x = ${x}: ${want === 'inverse' ? 'the inverse pass' : 'the carried mesh (no inverse of the step)'}`, !!g && g.path === want, g);
   }
+}
+// ---- a NEWT glide draws the window's image: zeta ----
+// ζ has no exact inverse, so its glide runs Newton members from seeds over the window part of the shape. The share of
+// the left pane that is not paper (every channel above INK_PAPER) at u = 0.25, 0.5, 0.75 stays above the floors, each
+// above what a ladder seeded about w / (1 - t) draws (a third to a half of it)
+{
+  const INK_PAPER = 240, floor = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
+  const ex = names.indexOf('Zeros of the zeta function');
+  ok('the zeta example is found', ex >= 0, names.length);
+  await go(`${BASE}/test.html?ns=gz${Date.now()}&lang=en&view=steps`);
+  await ready();
+  await ev(`__cmwExample(${ex}), 1`);
+  await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
+  for (const x of [0.25, 0.5, 0.75]) {
+    const g = await at(x, 'inverse', 600000);
+    const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
+    info[`zeta x ${x}`] = { g, share };
+    ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });
+  }
+}
+// ---- the NEWT roots pass reads no GL state back ----
+// (the partial sum of the exponential, degree 8, Inside regions, inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a
+// frame, so it keeps the frame's state from the renderer's own record, not by getParameter, a synchronous read from the
+// GPU process: 2.4 ms a frame on lavapipe. Its first call reads the device's draw-buffer limit, once)
+{
+  const ex = names.indexOf('Partial sums of the exponential');
+  ok('the Partial sums of the exponential example is found', ex >= 0, names.length);
+  await go(`${BASE}/test.html?ns=gn${Date.now()}&lang=en&view=steps`);
+  await ready();
+  await ev(`__cmwExample(${ex}), 1`);
+  await ev(`__cmwSteps({ scope: 'in' }), 1`);
+  await settled({ max: 60000, until: 'GLR.pendingLinks === 0 && !__cmwSteps().anim' });
+  // (each newtRoots call: its answer and the getParameter calls made inside it)
+  await ev(`(() => { const n = GLR.newtRoots, P = WebGL2RenderingContext.prototype, g = P.getParameter, L = window.__nrLog = []; let k = -1; P.getParameter = function () { if (k >= 0) k++; return g.apply(this, arguments); }; GLR.newtRoots = function () { k = 0; try { const r = n.apply(this, arguments); L.push([r.state, k]); return r; } finally { k = -1; } }; return 1; })()`);
+  for (const x of [0.5, 0.55, 0.6]) await at(x, 'inverse');
+  const log = await ev('window.__nrLog.slice(0, 40)'), drawn = log.filter((e) => e[0] === 'drawn');
+  info['newt roots'] = log;
+  ok('Partial sums of the exponential: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
 }
 return { pass: fails.length === 0, fails, info };
