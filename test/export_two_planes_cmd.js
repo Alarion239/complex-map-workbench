@@ -123,12 +123,14 @@ if (!tl.err) {
   const near = (t) => tl.boxes.some((b) => Math.abs(b.x0 - t.x) <= 2 && Math.abs((b.x1 - b.x0) - t.len) <= 2 && b.y0 - 2 <= t.y && t.y <= b.y1 + 2);
   const labels = tl.els.filter((t) => t.len > 0);
   ok('each label\'s text lies within 2 pt of its glyph box', labels.length >= 3 && labels.every(near), labels.filter((t) => !near(t)));
-  const { execFileSync } = await import('node:child_process'), fs = await import('node:fs'), os = await import('node:os');
-  const file = `${os.tmpdir()}/cmw_tl_${process.pid}.pdf`;
-  fs.writeFileSync(file, Buffer.from(tl.pdf, 'base64'));
-  let txt = ''; try { txt = execFileSync('pdftotext', ['-raw', file, '-'], { encoding: 'utf8' }); } catch (e) { txt = 'ERR ' + e.message; } finally { fs.rmSync(file, { force: true }); }
-  const at = (w) => txt.search(new RegExp(`(^|\\s)${w}(\\s|$)`));
-  ok('pdftotext lists the panel names, then the arrow\'s label', at('z') >= 0 && at('w2') > at('z') && at('F') > at('w2'), txt);
+  // the PDF's text layer in content-stream order, which is reading order: the strings shown in render mode 3 (invisible)
+  const zlib = await import('node:zlib'), pdf = Buffer.from(tl.pdf, 'base64'), shown = [];
+  for (const m of pdf.toString('latin1').matchAll(/stream\r?\n/g)) {
+    const from = m.index + m[0].length, to = pdf.indexOf('endstream', from);
+    let d = null; try { d = zlib.inflateSync(pdf.subarray(from, to)).toString('latin1'); } catch (e) { continue; }
+    for (const t of d.matchAll(/3 Tr[^()]*\(((?:[^()\\]|\\.)*)\) Tj/g)) shown.push(t[1]);
+  }
+  ok('the PDF shows the panel names, then the arrow\'s label, as invisible text', shown.indexOf('z') >= 0 && shown.indexOf('w2') > shown.indexOf('z') && shown.indexOf('F') > shown.indexOf('w2'), shown);
 }
 
 return { pass: fails.length === 0, fails, info };
