@@ -2,8 +2,8 @@
 'use strict';
 // Part 1 of the constructions (constr.js's header): the proof of concept, kept whole (its 84 tests run against Constr
 // in test/t_constr.js): the exact predicate, forms, meets with the entering rule, Moebius gliders, a named-node graph
-// with formulas. Moved out of constr.js (issue #20, the file-size budget) as a factory constr.js calls where this part
-// stood, with the names of its own this part reads (reanchor is constr.js's); constr.js takes the names back.
+// with formulas. A factory constr.js calls with the names of its own it reads (reanchor is part 2's); constr.js takes
+// the names it returns.
 const ConstrPoc = (host) => {
   const { EPS, INF, isInf, reanchor } = host;
   const isXY = (p) => Array.isArray(p) && p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]);
@@ -100,7 +100,7 @@ const ConstrPoc = (host) => {
   const FUNCS = ['sqrt', 'conj', 'sin', 'cos', 'tan', 'exp', 'log', 'abs', 'arg', 'Re', 'Im', 're', 'im', 'ln'];
   class FormulaError extends Error {}
   // the Russian keyboard's look-alike letters become the Latin ones (а с е о р х у к, and the capitals); any other
-  // Cyrillic letter is refused (a name must look the same to everyone: review-design 17)
+  // Cyrillic letter is refused (a name must look the same to everyone)
   const HOMO = { 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'к': 'k',
     'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
   function latin(src) {
@@ -196,7 +196,7 @@ const ConstrPoc = (host) => {
     for (const k of ['a', 'b']) if (n[k]) namesOf(n[k], out);
     return out;
   }
-  // the names of a field's formula, and the new one (at most one new name per edit: review-users 6)
+  // the names of a field's formula, and the new one (at most one new name per edit)
   function analyze(src, known) {
     const ast = parse(src, { known: new Set(known) });
     const names = [...namesOf(ast)], fresh = names.filter((n) => !known.has(n));
@@ -276,8 +276,8 @@ const ConstrPoc = (host) => {
     if (!(L > 0)) return null;
     return withPts(gc(0, [d[1] / L, -d[0] / L], 0, p), [p, q]);
   }
-  // a form keeps the points it is built through (g.pts): two curves built through the same two points
-  // meet exactly there, whatever the conditioning (meets), where solving the forms would lose up to 0.08 |PQ| for a circle
+  // a form keeps the points it was built through (g.pts): two curves built through the same two points
+  // meet exactly there, whatever the conditioning (meets), where solving the forms lost up to 0.08 |PQ| for a circle
   // through nearly collinear points met with the line through two of them
   function withPts(g, pts) { if (g) g.pts = pts.map((z) => z.slice()); return g; }
   function sharedPts(g1, g2) {
