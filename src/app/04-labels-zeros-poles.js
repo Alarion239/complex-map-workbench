@@ -44,6 +44,8 @@
   // (no re-pick, so no side flips), and a full placement keeps it unless the spot now touches a curve or a label
   const labelSlots = new Map();
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
+  // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
+  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4;
   // (the points that are gone, deleted or replaced with the chain, lose their offsets)
   function pruneLabelSlots() {
     if (!labelSlots.size) return;
@@ -152,7 +154,7 @@
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
         const cc = curveCost(x0, y0, x1, y1);
-        return { x: x0, y: y1, cost: Math.min(3, 0.5 * cc) + pen + (amb ? 4 : 0), touch: cc > 0 || amb };
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0), touch: cc > 0 || amb };
       };
       const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
       let x, y;

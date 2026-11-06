@@ -96,6 +96,8 @@ const holdAt = async (x) => ev(`(() => {
     return 1;
   })()`);
 // (the held picture's full pass: a pass that samples the curves, after the picture has been still for 200 ms)
+// (the hold is 200 ms: past the 120 ms still-time after which the picture gets its full placement, with the frame it takes to draw;
+// the wait ends on the held pass itself, so this is the minimum, not a fixed sleep)
 const HOLD_MS = 200;
 await open();
 await ctl({ scope: 'in', go: 0, now: true }); await quiet(); await ctl({ go: 0 }); await quiet();
