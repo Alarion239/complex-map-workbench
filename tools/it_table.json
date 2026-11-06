@@ -3412,5 +3412,5 @@
  "landscape": "paesaggio",
  "Moved {name} to {x}, {y}.": "{name} spostata in {x}, {y}.",
  "Moved {name}.": "{name} spostata.",
- "Steps view: the previous or next plane; with a shape selected, move it (⇧ ↑ ↓: ten steps)": "Vista a passi: il piano precedente o successivo; con una figura selezionata, la sposta (⇧ ↑ ↓: dieci passi)"
+ "Previous or next plane; with a shape selected, nudge it": "Il piano precedente o successivo; con una figura selezionata, la sposta"
 }
