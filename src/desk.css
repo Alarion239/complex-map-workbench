@@ -345,16 +345,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* the Add as n steps row's formula column: the start of its derivation, z ↦ z² ↦ ⋯ (fitPalTex) */
 .drv-start { display: inline-flex; align-items: baseline; column-gap: 4px; font-size: 13px; }
 .drv-start .drv-dots { font: 400 13px/1 var(--f-math); color: var(--muted); }
-/* the transport with a deformation range's pre or post: "f₁ →" and "→ f₄" around the scrubber (SPEC 6.6) */
-.tscrub.tfixed { gap: 6px; flex-wrap: nowrap; }
-.tscrub > .trail { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; height: 100%; }
-.tscrub > .trail > input[type="range"] { flex: 1 1 auto; width: 100%; }
-.tfix { flex: 0 0 auto; font: italic 500 11px/12px var(--f-math); color: var(--ink-2); white-space: nowrap; }
-.tfix i { font: inherit; }
-.tfix[hidden] { display: none; }
-/* the phone's Deformed steps row lives in the Display sheet; on desktop it is built but hidden (SPEC 6.7) */
-.tdock > .trange { display: none; }
-.trange { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 6px; width: 100%; }
 .trange .tr-label { flex: 0 1 auto; font: var(--t-label); color: var(--ink-2); }
 .trange .tr-sels { flex: 1 1 200px; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .trange .tr-sels > select { flex: 1 1 0; min-width: 0; height: 44px; }
@@ -445,7 +435,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sh-acts { display: flex; gap: 8px; margin-top: 8px; }
 
 /* ---------- (#366 prototype) the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
-:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #morphBtn, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
+:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
 :root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
 /* (the pane keeps its column whatever its thread's length, #497: the grid's one column is no wider than the pane, and its
@@ -454,7 +444,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root.sv #paneL > * { min-width: 0; }
 :root.sv:not(.ph) #paneL > .pane-head { grid-row: 1; }
 :root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
-:root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
 :root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
 /* (#441) the plane's head on one row: the bar as wide as its controls (the style row keeps the rest), its surface one
    button with a menu; short of room the colour-plane button is its wheel alone (sv-c1), then the title loses its role (sv-c2) */

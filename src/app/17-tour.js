@@ -144,7 +144,7 @@
       if (m.morph.open && morphRange().steps.length) openTransport();
       Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
       if (m.defMem) Object.assign(defMem, m.defMem);
-      if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; setPlayIcon(); syncTransport(); }
+      if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; syncTransport(); }
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;

@@ -151,18 +151,6 @@ const Phone = (() => {
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
-    // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
-    document.addEventListener('click', (e) => {
-      if (!on) return;
-      const tg = /** @type {HTMLElement} */ (e.target), b = /** @type {HTMLElement | null} */ (tg.closest && tg.closest('.tdock #speedSeg > button.on'));
-      if (!b) return;
-      const ORDER = ['1.6', '0.8', '3.2'];
-      const nx = ORDER[(ORDER.indexOf(b.dataset.v) + 1) % ORDER.length];
-      const t = /** @type {HTMLElement | null} */ (b.parentNode.querySelector(`button[data-v="${nx}"]`));
-      if (!t) return;
-      e.preventDefault(); e.stopPropagation();
-      t.click();
-    }, true);
   }
   const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
@@ -230,7 +218,6 @@ const Phone = (() => {
     park(els.crow, wrap, $('pipeline'));
     park(els.nums, els.body.chain);
     park($('pipeline'), els.body.chain);
-    park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
     for (const id of ['secFormula', 'secShapes']) { const d = /** @type {HTMLDetailsElement} */ ($(id)); if (d) d.open = true; }
     A.showPanels(true);

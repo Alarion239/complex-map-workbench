@@ -3003,7 +3003,7 @@
     const after = morphLen();
     if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
     else if (!morph.open) morph.T = after;
-    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
+    scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
     tourEmit('order-changed', { all: !!S.homAll });
   }
   function svStepMenu(anchor, k, lp) {

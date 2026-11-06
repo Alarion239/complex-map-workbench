@@ -341,18 +341,17 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-fine.mono { font: var(--t-micro); }
 .plot > canvas.overlay:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .hdr-more { order: 14; display: none !important; }
-/* the views (merged-views.md): the view switch and the Deformation toggle sit between the two spacers, in the middle
+/* the views (merged-views.md): the view switch sits between the two spacers, in the middle
    of the bar; below 1280px they are icons (their tooltips name them) */
-.top > .vsw, .top > .defbtn, .top > .spacer2 { order: 7; }
+.top > .vsw, .top > .spacer2 { order: 7; }
 .top > .seg.vsw { flex: 0 0 auto; overflow: visible; }
 .vsw i { font: italic 500 13px/1 var(--f-math); }
 .vsw .arr { font: var(--t-label); }
 .phbtn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
 .phbtn[aria-disabled="true"]:hover { color: var(--muted); }
 @media (max-width: 1279px) {
-  .top > .vsw > button > span, .top > .defbtn > span { display: none; }
+  .top > .vsw > button > span { display: none; }
   .top > .vsw > button { padding: 0 8px; }
-  .top > .defbtn { padding: 0 8px; }
 }
 .hdr-menu { display: contents; }
 .mlabel { display: none; }
@@ -618,7 +617,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 @container pane (max-width: 559px) {
   .pane .plot:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 120px; }
 }
-.options.transport > .tclose { flex: 0 0 auto; margin-left: auto; }
 /* the integral popover (a right click on a curve): values in the mono face, math in STIX, words in the UI face */
 .pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
 .int-pop .pop-title { padding: 0 4px 0 10px; }
@@ -693,43 +691,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .opts-pop .fader-row.compact input[type="range"] { width: 120px; }
 .options .fader-row.compact, .fader-row.compact { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; }
 .fader-row.compact input[type="range"] { width: 88px; }
-/* morph transport (6.11): spans the plot bottom from 8px left to 48px right. On a narrow plate the
-   controls wrap under the scrubber (play, scrubber, t readout first) instead of running under the view stack. */
-.options.transport, .options:has(> .transport) {
-  right: 48px; height: auto; min-height: 36px; max-width: none; padding: 4px 6px 4px 4px;
-  flex-wrap: wrap; align-content: center; column-gap: 8px; row-gap: 2px; overflow: visible;
-}
-.transport:not(.options) { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
-.options.transport > .tscrub, .transport > .tscrub { flex: 1 1 128px; min-width: 96px; }
-.options.transport > .tread { flex: 0 0 auto; }
-.options.transport > :is(.seg, select.sel, .check) { flex: 0 0 auto; }
-.icon-btn.play { width: 28px; height: 28px; color: var(--ink); }
-/* the deformation transport docked at the bottom of the view's panel, under the plot (merged-views.md): it never
-   covers the picture; on a narrow panel the scrubber takes a row of its own */
-.tdock { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 0; min-width: 0; min-height: 40px; padding: 2px 6px 2px 4px;
-  border-top: 1px solid var(--line); background: var(--panel); white-space: nowrap; font: var(--t-label); color: var(--ink-2); }
-.tdock > * { flex: 0 0 auto; }
-.tdock > .tscrub { flex: 1 1 160px; min-width: 96px; }
-.tdock .seg { height: 24px; }
-.tdock .seg > button { padding: 0 8px; }
-.tdock select.sel { height: 24px; }
-.tdock .check { min-height: 24px; gap: 6px; font: var(--t-label); padding: 0 4px; }
-.tdock > .tclose { margin-left: auto; width: 28px; height: 28px; }
-.tdock > .phbtn { height: 24px; padding: 0 8px; gap: 5px; }
-@container pane (max-width: 559px) {
-  .tdock > .tscrub { order: 9; flex-basis: 100%; }
-  .tdock > .tclose { margin-left: auto; }
-}
-.tscrub { position: relative; display: flex; align-items: center; min-width: 0; height: 36px; }
-.tscrub > input[type="range"] { flex: 1 1 auto; width: 100%; }
-.tticks { position: absolute; left: 5px; right: 5px; top: 0; height: 12px; pointer-events: none; }
-.ttick { position: absolute; top: -1px; translate: -50% 0; font: italic 500 11px/12px var(--f-math); color: var(--ink-2); white-space: nowrap; }
-@supports (width: calc(100% / sibling-count())) {
-  .ttick { width: calc(100% / sibling-count()); text-align: center; }
-  .ttick::before { content: ""; position: absolute; left: 0; top: 14px; width: 1px; height: 8px; background: var(--ink-2); }
-  .ttick:last-child::after { content: ""; position: absolute; right: 0; top: 14px; width: 1px; height: 8px; background: var(--ink-2); }
-}
-.tread { font: var(--t-readout); color: var(--ink); min-width: 92px; text-align: right; }
 
 .viewstack { position: absolute; z-index: 10; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
 .vgroup { display: flex; flex-direction: column; }
@@ -1645,7 +1606,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   :root.ph .top .hdr-menu > .snd-caret { margin-left: 0; }
   :root.ph .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
   :root.ph .top .hdr-menu > .snd-caret .ic-slot { display: none; }
-  :root.ph .top > .vsw, :root.ph .top > .defbtn, :root.ph .top > .hdr-more { flex-shrink: 0; }
+  :root.ph .top > .vsw, :root.ph .top > .hdr-more { flex-shrink: 0; }
   :root.ph .hdr-menu:not(:popover-open) { display: none; }
   :root.ph .hdr-menu:popover-open {
     position: fixed; inset: auto; top: calc(48px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
@@ -1690,7 +1651,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
      the more menu always fits; below 430 px the mark stands alone */
   .hdiv, .top > .spacer { display: none; }
   .top > .vsw > button { padding: 0 7px; }
-  .top > .defbtn { padding: 0 7px; }
   .hdr-more { display: inline-grid !important; }
   .top > .snd-ph:not([hidden]) { display: inline-grid; order: 13; flex-shrink: 0; }
   .top[data-snd="on"] .hdr-menu > #soundBtn { display: none !important; }
@@ -1698,7 +1658,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
   .top .hdr-menu > .snd-caret .ic-slot { display: none; }
   .snd-pop { top: calc(48px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; width: auto; max-width: none; max-height: calc(100svh - 64px); }
-  .top > .vsw, .top > .defbtn, .top > .hdr-more { flex-shrink: 0; }
+  .top > .vsw, .top > .hdr-more { flex-shrink: 0; }
   .hdr-menu:not(:popover-open) { display: none; }
   .hdr-menu:popover-open {
     position: fixed; inset: auto; top: calc(44px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
@@ -1739,7 +1699,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .options { max-width: calc(100% - 56px); }
   .options .seg > button { padding: 0 6px; }
   .options select.sel { padding-right: 20px; }
-  .options.transport, .options:has(> .transport) { right: 52px; }
   /* collapsed mode options: one 32px sliders button with a 44px hit area */
   .options.collapsed { padding: 0; min-height: 0; }
   .options.collapsed > .opts-btn { width: 32px; height: 32px; }
@@ -1984,7 +1943,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <!-- the views (merged-views.md): X → Y · Phase · Landscape (1 2 3), and the Deformation toggle (M), which modifies
          the active view; app.js fills them -->
     <div class="seg modes vsw" id="viewSwitch" role="radiogroup" aria-label="View"></div>
-    <button class="phbtn defbtn" id="morphBtn" aria-pressed="false" data-tip="Deformation  M" aria-label="Deformation"></button>
     <div class="spacer spacer2"></div>
     <!-- Desktop: display:contents, so these sit in the header row (CSS order puts Examples after the divider).
          Phone: the popover is the "more" menu. popovertargetaction="hide" closes it after a choice. -->
@@ -2093,7 +2051,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="ruler-corner" id="cornerL"></div>
             <canvas class="ruler ruler-x" id="rulerLX" aria-hidden="true"></canvas>
           </div>
-          <div class="tdock" id="tdockL" role="toolbar" aria-label="Deformation" hidden></div>
         </div>
         <div class="gutter gutter-col" id="gutterCol" role="separator" aria-orientation="vertical" title="Drag to resize; double-click to reset"></div>
         <div class="pane" id="paneR">
@@ -2125,7 +2082,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="ruler-corner" id="cornerR"></div>
             <canvas class="ruler ruler-x" id="rulerRX" aria-hidden="true"></canvas>
           </div>
-          <div class="tdock" id="tdockR" role="toolbar" aria-label="Deformation" hidden></div>
         </div>
       </div>
       <div class="gutter gutter-row" id="gutterRow" role="separator" aria-orientation="horizontal" title="Drag to resize"></div>

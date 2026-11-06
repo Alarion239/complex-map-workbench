@@ -365,7 +365,7 @@
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
-    HR.resolve(S, true); buildDock(); syncRangeRows();
+    HR.resolve(S, true);
     updateUndo(); exLabelSync(); save(); histSay();
   }
   // [v16.5 UX14, UX15] an open polygon's points and a construction's own picks are undone first, one at a time

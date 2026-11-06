@@ -347,7 +347,6 @@
     const lo = +r.min || 0, hi = r.max === '' ? 100 : +r.max, v = +r.value;
     const fill = `${((v - lo) / (hi - lo || 1)) * 100}%`;
     r.style.setProperty('--fill', fill);
-    if (r.closest('.tscrub')) r.closest('.tscrub').style.setProperty('--fill', fill);
   }
 
   // below 1280 px the guarantees panel is an overlay drawer, below 1024 px the tools panel too
@@ -557,15 +556,6 @@
     if (vs) for (const b of /** @type {Iterable<HTMLElement>} */ (vs.children)) {
       const F = fnText(), tip = { xy: $t(`X → Y: the shapes and their images  1`), phase: $t('Phase portrait of {F}  2', { F }), land: $t('Landscape of {F}  3', { F }) }[b.dataset.mode];
       if (b.dataset.tip !== tip) b.dataset.tip = tip;
-    }
-    // the Deformation toggle: pressed while the transport is open; with no active step it explains instead of acting
-    const mb = $('morphBtn');
-    if (mb) {
-      const can = morphRange().steps.length > 0;
-      mb.setAttribute('aria-pressed', String(!!morph.open));
-      mb.setAttribute('aria-disabled', String(!can && !morph.open));
-      const tip = !can && !morph.open ? (S.focus > 0 ? $t('This step is off: turn it on to deform') : $t('Add a function to deform')) : morph.open ? $t('Close the deformation  M') : $t('Deformation of {F}  M', { F: S.focus > 0 ? fnText() : 'F' });
-      if (mb.dataset.tip !== tip) mb.dataset.tip = tip;
     }
   }
   // Snap (the Draw heading and the rail) and Unit circle (Display) show the state (P3)

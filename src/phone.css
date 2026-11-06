@@ -61,7 +61,7 @@ html:not(.ph) .ph-only { display: none !important; }
   inset: auto auto calc(10px + var(--ph-lift)) calc(var(--ruler) + 10px); width: 116px; height: 116px; z-index: 14;
   border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); overflow: hidden; --ruler: 0px;
 }
-:root.ph .pane.ph-inset .ruler, :root.ph .pane.ph-inset .ruler-corner, :root.ph .pane.ph-inset .tdock,
+:root.ph .pane.ph-inset .ruler, :root.ph .pane.ph-inset .ruler-corner,
 :root.ph .pane.ph-inset .plot > :not(canvas) { display: none !important; }
 :root.ph .pane.ph-inset .pane-body { grid-template-columns: 0 minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 0; }
 /* (v16.5 UX93) Russian tool tiles: whole words only (the short forms of long names fit a tile), never a hyphen */
@@ -159,14 +159,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-nums > .ph-na { font: italic 600 15px/1 var(--f-math); }
 .ph-nums > .ph-nn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/13px var(--f-ui); color: var(--muted); }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
-:root.ph .pipe-wrap > #morphBtn {
-  display: flex !important; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 64px; min-width: 64px; height: 48px; padding: 0 2px;
-  border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: normal; text-align: center;
-}
-:root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
-:root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 10px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
 :root.ph:has(#viewSwitch > [data-mode="land"].on) .ph-sph { display: none; }
-:root.ph .pipe-wrap > #morphBtn > :is(svg, .mic) { width: 16px; height: 16px; flex: 0 0 16px; }
 
 /* ---------- the tool row: Undo · Select · Point · Disc · Polygon · More ---------- */
 :root.ph #secDraw {
@@ -193,52 +186,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .tool-more .tm-open { display: inline !important; }
 :root[data-lang="ru"].ph #secDraw .tool > span, :root[data-lang="ru"].ph #secDraw .tool-more .tm-label { top: auto; bottom: 3px; }
 :root[data-lang="ru"].ph #secDraw .tool > svg, :root[data-lang="ru"].ph #secDraw .tool-more > summary > .ic-slot { top: 4px; }
-/* the deformation: two rows. The scrubber has the full width, the readout riding its handle; below it play, the speed
-   (tap to cycle), Paths, the Steps picker (range, order, Loop) and close, with the tool row's Undo at the left end */
-:root.ph.ph-morph:not(.ph-land) { --ph-row: calc(var(--ph-r1) + 52px); }
 :root.ph { --ph-r1: 58px; }
-:root.ph.ph-morph .tdock:not([hidden]) {
-  position: fixed; z-index: 22; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 0 4px;
-  height: calc(var(--ph-row) + var(--ph-safe-b)); padding: 0 6px var(--ph-safe-b); background: var(--panel); border: 0; border-top: 1px solid var(--line-strong); border-radius: 0;
-}
-:root.ph.ph-morph .tdock > :is(select, .check) { display: none !important; }
-:root.ph.ph-morph .tdock > * { flex: 0 0 auto; order: 0; }
-:root.ph.ph-morph .tdock > .tscrub { order: -1; flex: 0 0 100%; position: relative; height: var(--ph-r1); padding-top: 14px; box-sizing: border-box; }
-:root.ph.ph-morph .tdock input[type="range"] { height: 44px; }
-:root.ph.ph-morph .tdock :is(button, .phbtn) { min-width: 44px; height: 44px; }
-:root.ph.ph-morph .tdock .seg { height: 44px; }
-:root.ph.ph-morph .tdock .seg > button:not(.on) { display: none; }
-:root.ph.ph-morph .tdock .seg::before { display: none; }
-/* the readout rides the handle: its left edge follows the fill (--fill, set on the scrubber with the range's) */
-/* (#483) the tick labels (f, f₁) are not drawn on a phone: they sat on the readout, which rides the handle and names the step, and in landscape on the
-   slider's own box. The marks stay, and the dock keeps its height */
-:root.ph .ttick { height: 0; font-size: 0; line-height: 0; }
-:root.ph .ttick > * { display: none; }
-:root.ph.ph-morph .tdock .tscrub > .tread {
-  position: absolute; top: 0; left: clamp(0px, calc(var(--fill, 0%) - 70px), calc(100% - 140px)); width: 140px; padding: 0; text-align: center; font: 600 11px/14px var(--f-ui); color: var(--ink); pointer-events: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-}
-:root.ph.ph-morph .tdock > .tclose { margin-left: auto; width: 44px; height: 44px; }
-:root.ph.ph-morph .tdock > .tsteps { min-width: 0; padding: 0 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); color: var(--ink); font: 600 12px/1 var(--f-ui); white-space: nowrap; }
-:root.ph.ph-morph .tdock > .tsteps::after { content: " \25BE"; }
-/* the picker opens above the bar */
-:root.ph.ph-morph .tdock > .tpick:not([hidden]) {
-  position: fixed; left: 8px; right: 8px; bottom: calc(var(--ph-row) + var(--ph-safe-b) + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px;
-  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3);
-}
-:root.ph.ph-morph .tdock > .tpick > :is(select, .check) { display: flex !important; min-height: 44px; align-items: center; }
-:root.ph.ph-morph .tdock > .tpick > .trange { display: flex !important; }
-/* the tool row's Undo stays at the left end of the second row; the other tools wait behind the transport */
-:root.ph.ph-morph:not(.ph-land) #secDraw { right: auto; width: 56px; height: calc(52px + var(--ph-safe-b)); z-index: 23; border-top: 0; background: none; }
-:root.ph.ph-morph:not(.ph-land) #secDraw > :is(.tools, .tool-more) { display: none !important; }
-:root.ph.ph-morph:not(.ph-land) #secDraw > .ph-undo { flex: 0 0 52px; }
-:root.ph.ph-morph:not(.ph-land) .tdock > .play { margin-left: 52px; }
-/* landscape: one row left of the tool column, the scrubber the rest of it (Undo stays in the column) */
-:root.ph.ph-land.ph-morph { --ph-row: 52px; }
-:root.ph.ph-land.ph-morph #app { padding-bottom: var(--ph-row); }
-:root.ph.ph-land.ph-morph .tdock:not([hidden]) { right: var(--ph-col); flex-wrap: nowrap; align-content: center; height: var(--ph-row); padding: 4px 6px; }
-:root.ph.ph-land.ph-morph .tdock > .tscrub { order: 0; flex: 1 1 auto; min-width: 120px; height: 44px; padding-top: 0; }
-:root.ph.ph-land.ph-morph .tdock .tscrub > .tread { display: none; }
-:root.ph.ph-land.ph-morph .tdock > .tclose { margin-left: 0; }
 
 /* ---------- the sheet ---------- */
 .ph-scrim { position: fixed; inset: 0; z-index: 27; background: color-mix(in srgb, #000 32%, transparent); }
@@ -391,7 +339,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land .panes:not(.ph-one) > #paneL { inset: 0 50% 0 0; width: auto; height: auto; border-right: 1px solid var(--line-strong); }
 :root.ph.ph-land .panes:not(.ph-one) > #paneR { inset: 0 0 0 50%; width: auto; height: auto; }
 :root.ph.ph-land .pipe-wrap { height: 52px; flex-basis: 52px; }
-:root.ph.ph-land .ph-crow > button, :root.ph.ph-land .pipe-wrap > #morphBtn { height: 44px; min-height: 44px; }
+:root.ph.ph-land .ph-crow > button { height: 44px; min-height: 44px; }
 /* the tools are a column on the right edge, Undo at the bottom under the thumb (UX05); the planes and the chain bar leave it room */
 :root.ph #secDraw > .tool-more > summary { list-style: none; }
 :root.ph #secDraw > .tool-more > summary::-webkit-details-marker { display: none; }
@@ -460,10 +408,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .split-offer > summary { min-height: 44px; }
 :root.ph .alone-chip .ac-nav { display: none; }
 :root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)[data-mtitle]::before { content: attr(data-mtitle); padding-right: 8px; border-right: 1px solid var(--line-strong); }
-/* v16 (SPEC 6.6): the transport's "f₁ →" / "→ f₄" labels are left out when the range input would be under 120 px. The
-   phone's docked row is play 44, the readout, the speed, Paths and × (about 330 px with the gaps), so below 560 px the
-   scrubber cannot keep 120 px beside a label. (app.js also measures it.) */
-@media (max-width: 559px) { :root.ph .tdock .tfix { display: none; } }
 
 /* ---------- v16.5 (notes/ux-audit, wave 1, phone) ---------- */
 /* UX29: the function list: Cancel at the right of the search row, 48 px rows, the insert position a 44 px chip */

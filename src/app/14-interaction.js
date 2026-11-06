@@ -1566,9 +1566,6 @@
         if (s) { e.preventDefault(); if (key === 'd') duplicateShape(s); else moveShape(s.id, kk === ']' ? 1 : -1); return; }
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // (v16.5 UX97) the deformation: K plays or pauses, Shift+← and Shift+→ go to the previous or next step's tick
-      if (morph.open && key === 'k') { e.preventDefault(); togglePlay(); return; }
-      if (morph.open && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); morphTick(e.key === 'ArrowRight' ? 1 : -1); return; }
       // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
       if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
         const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
@@ -1595,7 +1592,6 @@
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
-      if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
       // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
       if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
       if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }

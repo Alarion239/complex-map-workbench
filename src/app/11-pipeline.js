@@ -8,25 +8,6 @@
     for (let i = 0; i < ks.length;) { let j = i; while (j + 1 < ks.length && ks[j + 1] === ks[j] + 1) j++; out.push(j > i ? `${f(ks[i])}–${f(ks[j])}` : f(ks[i])); i = j + 1; }
     return out.join(', ');
   }
-  // (review v16 verify-1) the phone's Deformed steps row lives in the Display sheet once moved there, so a rebuilt
-  // dock does not replace it: every such row follows the deformation's range here (its selects and its 'from ...' line)
-  function syncRangeRows() {
-    for (const b of document.querySelectorAll('.tsteps')) { const t = stepsLabel(); if (b.textContent !== t) b.textContent = t; }
-    const rows = document.querySelectorAll('.trange');
-    if (!rows.length) return;
-    const r = homRangeOk() || { a: 1, b: nSteps() };
-    let fromHtml = null;
-    for (const row of rows) {
-      const sels = row.querySelectorAll('select');
-      if (sels[0] && sels[0].value !== String(r.a)) sels[0].value = String(r.a);
-      if (sels[1] && sels[1].value !== String(r.b)) sels[1].value = String(r.b);
-      const fr = row.querySelector('.tr-from');
-      if (fr) {
-        if (fromHtml == null) { try { fromHtml = $t('from {v}', { v: subTags(rangeStart('html')) }); } catch (e) { fromHtml = ''; } }
-        if (fromHtml && fr.innerHTML !== fromHtml) fr.innerHTML = fromHtml;
-      }
-    }
-  }
   // ---------------- [issue #6] Repeat × N: a block of steps applied N times ----------------
   // step.repeat = {n, len} on a block's last step (Funcs.applyRepeats). N is 1 … Funcs.REPEAT_MAX (typed, or the arrow
   // keys), or the name of a shared number whose value, rounded, is N (repeat.by: its slider or Play runs the passes; the

@@ -410,12 +410,10 @@
         if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
       } else {
         if (rightAuto && morphOn() && rImage()) fitRight();
-        buildDock();
         requestRender('L', 'R', 'P');
         updateFocusUI();
       }
     }
-    syncRangeRows();
     if (!opt.preview) save();
     const g = homRangeOk();
     tourEmit('deformation-range', g ? { a: g.a, b: g.b } : { a: 1, b: nSteps() });

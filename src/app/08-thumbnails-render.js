@@ -122,7 +122,7 @@
       morph.last = ts;
       const m = morphLen();
       // per step: eased motion, a short hold at each step boundary, a longer one at the end
-      if (!m) { morph.playing = false; setPlayIcon(); }
+      if (!m) { morph.playing = false; }
       else if (morph.hold > 0) morph.hold -= dt;
       else {
         // the current step is tracked explicitly; deriving it from floor(T) skipped a step when easing rounded T up to an integer
@@ -133,7 +133,7 @@
         else { const u = morph.u; morph.T = Math.min(before + 0.9999, before + (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)); }
       }
       if (m && morph.hold <= 0 && morph.T >= m) {
-        if (S.loop === false || matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.playing = false; morph.seg = null; setPlayIcon(); scheduleFix(); } else { morph.T = 0; morph.u = 0; morph.seg = 0; }
+        if (S.loop === false || matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.playing = false; morph.seg = null; scheduleFix(); } else { morph.T = 0; morph.u = 0; morph.seg = 0; }
       }
       dirty.R = true;
       // X's portrait, landscape or phase globe paint H_t too
