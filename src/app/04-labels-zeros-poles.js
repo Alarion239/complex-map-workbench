@@ -315,15 +315,37 @@
   // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
   // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
   // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
-  // many times a second
+  // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between them is split
+  // there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
+  // the chords would cut across it
+  const CUT_FLAT = 0.75, CUT_DEPTH = 6;
+  // the distance (px) of the point q from the segment a-b
+  function segDist(q, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2)) : 0;
+    return Math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy);
+  }
   function cutBank(pane, c, F, side, win, proj, step = 1) {
     const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
     const pts = [], ws = [];
-    for (let i = 0; i <= 480; i += step) {
+    const at = (i) => {
       const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
       const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
-      pts.push(CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
-      if (CX.isFin(w)) ws.push([w.re, w.im]);
+      return { w, q: CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null };
+    };
+    const put = (p) => { pts.push(p.q); if (CX.isFin(p.w)) ws.push([p.w.re, p.w.im]); };
+    const split = (i0, p0, i1, p1, depth) => {
+      if (depth >= CUT_DEPTH || !p0.q || !p1.q) return;
+      const im = (i0 + i1) / 2, pm = at(im);
+      if (!pm.q || segDist(pm.q, p0.q, p1.q) <= CUT_FLAT) return;
+      split(i0, p0, im, pm, depth + 1); put(pm); split(im, pm, i1, p1, depth + 1);
+    };
+    let prev = null;
+    for (let i = 0; i <= 480; i += step) {
+      const p = at(i);
+      if (prev) split(i - step, prev, i, p, 0);
+      put(p);
+      prev = p;
     }
     return { pts, ws };
   }

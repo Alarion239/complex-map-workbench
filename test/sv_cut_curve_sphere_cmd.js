@@ -20,6 +20,7 @@ const NEAR_END = 0.2;      // how close to u = 0 or 1 the frame is parked: farth
 const INK_TOL = 40;        // per channel, #CC3311: the 1.75 px stroke's edge pixels are part paper; half strength is 100 off in green
 const HALF = 0.5;          // the glide parked half-way
 const THIN = 4;            // the glide's frames take every fourth sample of the rest set
+const CHORD_TOL = 0.05;    // a drawn segment's midpoint against the curve's circle, as a share of its radius (a pixel is about 1 %)
 await view(1200, 800, false, false);
 const J = (e) => ev(`(${e})`);
 const open = async (steps) => {
@@ -119,6 +120,29 @@ ok('chain B glide at u = .2: the parked samples + .2', !!start && w0(start).leng
 const end = await preAt(1 - NEAR_END);
 ok('chain B glide at u = .8: the parked samples + .8, left of the cut\'s own ray at u = 1', !!end && w0(end).length === base.length && dist(end, (p) => [p[0] + 1 - NEAR_END, p[1]]) < EXACT && Math.max(...w0(end).map((p) => p[0])) < 0, w0(end).length);
 info.pre = { base: base.length, mid: mid && w0(mid).length };
+
+// ---- chain C: z^i, whose cut (180°) is the circle |w| = e^-π, wound round it in turns near the branch point: seen from
+// below the hole it is a small circle on the globe, and every drawn segment of its clockwise bank must lie on it
+await open([{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true }]);
+await at({ go: 1, now: true, surf: 'sphere' }, 1);
+await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1');
+await sleep(2500);
+cv = await curves();
+const rim = cv.find((c) => !c.solid);   // (the clockwise bank, arg z = π: |w| = e^-π; the other is |w| = e^π, at the north pole)
+const chords = !rim ? null : await J(`(() => {
+  const S = ${JSON.stringify(rim.s)}, R = Math.exp(-Math.PI);
+  let n = 0, worst = 0;
+  for (let i = 0; i + 1 < S.length; i++) {
+    const p = S[i], q = S[i + 1];
+    if (!p || !q || Math.hypot(p[0] - q[0], p[1] - q[1]) < 1) continue;
+    const w = __cmwSphereWL((p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+    if (!w) continue;
+    n++; worst = Math.max(worst, Math.abs(Math.hypot(w[0], w[1]) / R - 1));
+  }
+  return { n, worst: +worst.toFixed(4) };
+})()`);
+info.chords = chords;
+ok('chain C on the globe: the cut hugs its circle (segment midpoints on |w| = e^-π)', !!chords && chords.n > 50 && chords.worst < CHORD_TOL, chords);
 
 const lg = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', lg.length === 0, lg);
