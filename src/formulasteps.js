@@ -421,6 +421,18 @@ const FormulaSteps = (host) => {
     if (T < j + 1) return j + (T - j) * n;
     return T + n - 1;
   }
+  // the steps view's place after a split (the steps view's analogue of splitMorphT): step k (1-based) of the chain became n
+  // steps and j (0-based, -1 when the step is bypassed and has no plane) is its unit [j, j+1) among the planes. In o, x is the
+  // thread's place in planes (taken only while it rests: o.rest), T the colour plane's stage (-1: the last plane), alone the step
+  // shown alone (0: none) and back the whole chain's place under it, {i, T}. A stage past the formula's goes up by n-1 and its own
+  // plane goes to its last new step; a place in planes keeps its picture, so the frame is the same
+  function splitSvPlace(o, k, n, j) {
+    const stage = (s) => (s < k ? s : s + n - 1);
+    const plane = (x) => (j < 0 ? x : splitMorphT(x, j, n));
+    const r = { x: o.x, T: o.T < 0 ? o.T : stage(o.T), alone: o.alone > k ? o.alone + n - 1 : o.alone, back: o.back ? { i: plane(o.back.i), T: o.back.T < 0 ? o.back.T : stage(o.back.T) } : null };
+    if (!o.alone && o.rest) r.x = plane(o.x);
+    return r;
+  }
   // the reason a formula is not offered as steps, in words (R1–R5)
   function splitReason(sp) {
     switch (sp && sp.reason) {
@@ -431,7 +443,7 @@ const FormulaSteps = (host) => {
       default: return $t('Not a chain of catalog steps');
     }
   }
-  return { shortCx, splitLabel, splitMorphT, splitMoves, splitNames, splitReason, splitRowsVar, splitStepTex, splitSteps, splitSubRows };
+  return { shortCx, splitLabel, splitMorphT, splitSvPlace, splitMoves, splitNames, splitReason, splitRowsVar, splitStepTex, splitSteps, splitSubRows };
 };
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
