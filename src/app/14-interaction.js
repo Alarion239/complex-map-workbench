@@ -1572,18 +1572,6 @@
         if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }
       }
       if (e.shiftKey && key === 'm') { e.preventDefault(); soundToggle(); return; }
-      // views (merged-views.md): 1 X → Y, 2 Phase, 3 Landscape. One map for the surfaces in every view (merged-views
-      // review): Shift 1, 2 Plane, Sphere of the left or only panel (X in X → Y, the portrait in Phase), Shift 3, 4 of
-      // Y (X → Y). By e.code, so Shift 1 is not "!" and the digits work on any layout (AZERTY included); before every
-      // e.key shortcut, so a digit key that types '+' or '?' (Swiss ⇧1, Czech 1) still picks a view
-      const dg = /^(?:Digit|Numpad)([1-4])$/.exec(e.code || '');
-      if (dg && (e.shiftKey || +dg[1] <= 3)) {
-        const d = +dg[1];
-        if (e.shiftKey) { const sf = d % 2 === 1 ? 'plane' : 'sphere'; if (d <= 2) { if (!lLand()) setView('L', sf); } else if (S.view.main === 'xy') setView('R', sf); }
-        else setMain(MAINS[d - 1][0]);
-        e.preventDefault();
-        return;
-      }
       if (kk === '[') setPanels(!S.hideLeft, S.hideRight);
       if (kk === ']') setPanels(S.hideLeft, !S.hideRight);
       if (e.key === 'Backspace' && polyDraftOpen()) { e.preventDefault(); polyBack(); return; }

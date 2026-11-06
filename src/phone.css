@@ -27,20 +27,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .top > :not(#viewSwitch, #hdrMoreBtn, #hdrMenu, #tourHeadSlot) { display: none !important; }
 /* v16.4: the guided tour's strip in a landscape phone's header, right of ⋯ (src/tour.js) */
 :root.ph .top > #tourHeadSlot:not([hidden]) { order: 20; flex: 1 1 260px; min-width: 0; align-self: stretch; display: flex; }
-:root.ph .top:has(> #tourHeadSlot:not([hidden])) > #viewSwitch { flex: 0 1 420px; }
 /* (and under the header in portrait, or in a 48 px row when the header has no room: the stage's first child) */
 :root.ph .stage > #tourSlot:not([hidden]) { flex: 0 0 var(--ph-tour, 0px); height: var(--ph-tour, 0px); position: relative; z-index: 16; }
 /* (r3 review: the tour's row under a landscape header keeps the full width while a sheet takes the right 360 px of the
    layout under it; its slot still reserves the row) */
 :root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
-:root.ph .top > #viewSwitch { flex: 1 1 auto; display: flex; height: 48px; min-width: 0; padding: 1px; }
-:root.ph #viewSwitch::before { display: none; }
-:root.ph #viewSwitch > button { flex: 1 1 0; min-width: 0; height: 100%; padding: 0 4px; justify-content: center; border-radius: var(--r-2); font: 600 13px/1 var(--f-ui); color: var(--ink-2); }
-:root.ph #viewSwitch > button.on { background: var(--seg-on, var(--surface)); color: var(--ink); box-shadow: var(--shadow-1); }
-:root.ph #viewSwitch > button > .mic { display: none; }
-:root.ph #viewSwitch > button > span { display: inline !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-:root.ph #viewSwitch > button[data-mode="xy"] > span { font: italic 500 15px/1 var(--f-math); }
-:root.ph #viewSwitch > button[data-mode="xy"] > span i { font: inherit; }
 :root.ph .top > #hdrMoreBtn { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
 
 /* ---------- the stage: the plane (and the inset), the chain bar ---------- */
@@ -104,8 +95,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
 :root.ph .chip.readout > .rln { grid-column: 2; }
-:root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)::before { content: "z \2192  w"; }
-:root.ph:not(:has(#viewSwitch > [data-mode="xy"].on)) :is(#leftReadout, #rightReadout)::before { content: none; }
 /* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
 .ph-col { display: none; }
 :root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
@@ -159,7 +148,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-nums > .ph-na { font: italic 600 15px/1 var(--f-math); }
 .ph-nums > .ph-nn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/13px var(--f-ui); color: var(--muted); }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .ph-sph { display: none; }
+:root.ph.view-land .ph-sph { display: none; }
 
 /* ---------- the tool row: Undo · Select · Point · Disc · Polygon · More ---------- */
 :root.ph #secDraw {
@@ -334,7 +323,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land { --ph-chain: 52px; --ph-row: 0px; --ph-col: 58px; }
 :root.ph.ph-land #app { padding-bottom: 0; }
 :root.ph.ph-land .top { padding-top: 0; padding-bottom: 0; }
-:root.ph.ph-land .top > #viewSwitch { height: 46px; padding: 0; max-width: 420px; }
 :root.ph.ph-land { --ph-head: 48px; }
 :root.ph.ph-land .panes:not(.ph-one) > #paneL { inset: 0 50% 0 0; width: auto; height: auto; border-right: 1px solid var(--line-strong); }
 :root.ph.ph-land .panes:not(.ph-one) > #paneR { inset: 0 0 0 50%; width: auto; height: auto; }
@@ -407,7 +395,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .split-offer .so-btn { min-height: 44px; }
 :root.ph .split-offer > summary { min-height: 44px; }
 :root.ph .alone-chip .ac-nav { display: none; }
-:root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)[data-mtitle]::before { content: attr(data-mtitle); padding-right: 8px; border-right: 1px solid var(--line-strong); }
 
 /* ---------- v16.5 (notes/ux-audit, wave 1, phone) ---------- */
 /* UX29: the function list: Cancel at the right of the search row, 48 px rows, the insert position a 44 px chip */
@@ -437,8 +424,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(60px + var(--ph-lift)); right: 8px; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 /* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
-:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
+:root.ph.view-land .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
+:root.ph.view-land .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
 /* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }

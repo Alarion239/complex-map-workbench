@@ -1319,16 +1319,7 @@
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
   function setupViewControls() {
-    // the view controls: the top bar's view switch (merged-views.md) and the panes' Plane | Sphere radios (U4)
-    const vsw = $('viewSwitch');
-    if (vsw) {
-      for (const [v, l, k, html] of MAINS) vsw.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': `${l}  ${k}`, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${html}</span>`, onclick: () => setMain(v) }));
-      vsw.addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const i = MAINS.findIndex((x) => x[0] === S.view.main), j = Math.max(0, Math.min(MAINS.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setMain(MAINS[j][0]); /** @type {HTMLElement} */ (vsw.children[j]).focus(); e.preventDefault();
-      });
-    }
+    // the panes' Plane | Sphere radios (U4)
     for (const side of ['L', 'R']) {
       const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
       for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));

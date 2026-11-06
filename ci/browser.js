@@ -92,7 +92,7 @@ async function runOne(file, run, port) {
   const daemon = path.join(COPY, 'cdpd.js');
   fs.writeFileSync(daemon, fs.readFileSync(daemon, 'utf8').replace(/localhost:8793/g, `localhost:${port}`));
   const env = Object.assign({}, process.env, {
-    // the suites that take the server from the environment (sound_*: CMW_PORT; export, mv_views: CMW_BASE)
+    // the suites that take the server from the environment (sound_*: CMW_PORT; export: CMW_BASE)
     CMW_PORT: String(port), CMW_BASE: `http://localhost:${port}/`,
     // every page opens in the steps view (pin_view.js), except those of a suite tagged classic(why) or port(...) in
     // ci/suite_views.js, which stay on the classic views until the steps view has what they test

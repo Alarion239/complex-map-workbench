@@ -459,7 +459,7 @@ await section('L86', async () => {
   // UX86: the Phase style
   await key('2'); await settle(900);
   // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
-  // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
+  // a real click opens it when the style control is not inline, and it is closed after)
   const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
   // (#247: the row shows "Grid"; the style's name, its accessible name and tooltip, stays "Pulled-back grid")
