@@ -1675,14 +1675,23 @@
     const h = svInvPaths(b, u, 'globe', { r: null }), carry = svCarryStyle(T);
     return h && h.list.map((x, i) => ({ inv: svInvArg(pane, h.paths[i], x, carry), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
   }
+  // the carried mesh of plane a's globe (drawSphere's st.carried): the colour plane's grid, plane min(a, T)'s, placed by
+  // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
+  // on the way from that plane to the colour plane
+  function svGlobeMesh(pane, a, T, map) {
+    const src = Math.min(a, T);
+    if (src > 0 && derivIn(src, T)) return null;
+    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svCarryKey(pane, src, a) });
+  }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
-  // homotopy), the plane's shapes and what the globe draws over them at rest (leftGlobeOver). Null when a region has
-  // no inverse plan: the caller draws the regions' exact images instead
+  // homotopy), or by the carried mesh where a region has no inverse plan, with the plane's shapes and what the globe draws
+  // over them at rest (leftGlobeOver). Null when neither can draw: the caller draws the regions' exact images instead
   function svGlobeRest(pane, k) {
-    const inv = svGlobeCarryInv(pane, k, null, svT());
-    if (!inv) return null;
-    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: false, stage: k, plane: !!xView().eq, role: 'L', carryRegions: inv }, leftGlobeOver()));
-    if (info) { info.carryPath = 'inverse'; info.carried = true; }
+    const T = svT(), inv = svGlobeCarryInv(pane, k, null, T);
+    const mesh = inv ? null : svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k });
+    if (!inv && !mesh) return null;
+    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: false, stage: k, plane: !!xView().eq, role: 'L', carryRegions: inv, carried: mesh }, leftGlobeOver()));
+    if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
   function svSphereMoving(pane) {
@@ -1690,26 +1699,25 @@
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
-      imageMode: !svColoured(near), inRegions: svMaskOn() && svColoured(k), stage: k, plane: !!xView().eq, role: 'L',
+      imageMode: !svColoured(near), inRegions: svMaskOn() && svColoured(k), stage: k, plane: !!xView().eq, role: 'L', net: leftNet(),
       colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F },
     });
     // The colour moves with the points, as on the plane: per pixel through the inverse pass of the glide's map
     // (svGlobeCarryInv), the regions' own colour on the plain globe, nothing blended in, so the ends are the planes'
     // own globes. A plane past the colour plane shows the colour carried to it, at rest too (u null), as the plane's
-    // svCarryExact. For a step with no inverse plan between two coloured planes, the carried mesh of plane a's sphere
-    // (drawSphere's st.carried); while neither can draw, plane b's globe fading in over plane a's
-    const T = svT(), still = u <= SV_REST_U || b === a, coloured = !still && svColoured(a) && svColoured(b);
+    // svCarryExact. For a step with no inverse plan, at rest or between two planes that show the colour, the carried mesh
+    // (svGlobeMesh); while neither can draw, plane b's globe fading in over plane a's
+    const T = svT(), still = u <= SV_REST_U || b === a;
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     const inv = !still && !all && map.mode === 1 && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T) : null;
-    const carried = coloured && !inv && (all || map.mode === 1) ? {
-      map: all ? { mode: 3, a, b, t: u, base: a } : { mode: 1, base: a, hi: b, t: u }, s: a, T, mesh: SV_GLOBE_MESH,
-      lim: SV_GLOBE_CHORD, key: svCarryKey(pane, a, a), style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB,
-      ink: TH.inkRGB, dark: TH.dark,
-    } : null;
+    // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
+    const src = Math.min(a, T);
+    const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
+      ? svGlobeMesh(pane, a, T, all ? { mode: 3, a, b, t: u, base: src } : { mode: 1, base: src, hi: b, t: u }) : null;
     const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
-      : sphereView(pane, camL, CAML, Object.assign(look(a), { carried }));
+      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
       svFadeCv = svCanvas(svFadeCv, pane);
       sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));

@@ -59,6 +59,12 @@
     const ce = Math.cos(GLOBE_KEY_EL), se = Math.sin(GLOBE_KEY_EL), ca = Math.cos(GLOBE_KEY_AZ), sa = Math.sin(GLOBE_KEY_AZ);
     return [0, 1, 2].map((k) => ce * ca * z[k] + se * y[k] - ce * sa * x[k]);
   }
+  // the graticule of a program with SPHERE_LINES: net ('cart', 'polar', else the plain one), the lattice's tiers in the
+  // grid colour (its coverage is what the shader uses)
+  function sphereNetUniforms(P, net, gridMajor) {
+    u1i(P, 'uNet', net === 'cart' ? 1 : net === 'polar' ? 0 : 2);
+    u3(P, 'uMinor', gridMajor); u3(P, 'uMed', gridMajor); u3(P, 'uMajor', gridMajor);
+  }
   // the light of a program that draws on the globe (its uKeyDir; sph: drawSphere's {MVP, eye, key})
   const globeLight = (P, sph) => u3(P, 'uKeyDir', (sph && sph.key) || globeKey(null));
   function lightUniforms(P, lt, specK, specE, rimK) {
@@ -1577,9 +1583,7 @@
       u3(P, 'uPlaneCol', plane);
       u3(P, 'uGridMaj', gridMajor);
       u3(P, 'uAxisCol', axis);
-      // the lattice's tiers in the grid colour (its coverage is what the shader uses)
-      u1i(P, 'uNet', st.net === 'cart' ? 1 : st.net === 'polar' ? 0 : 2);
-      u3(P, 'uMinor', gridMajor); u3(P, 'uMed', gridMajor); u3(P, 'uMajor', gridMajor);
+      sphereNetUniforms(P, st.net, gridMajor);
       globeLight(P, sph);
       const g = sphere();
       gl.disable(gl.BLEND);
@@ -1591,7 +1595,7 @@
     // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
     // the globe's depth again, which the passes below are tested against
     const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
-    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr }, st.carried), sph));
+    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, st.carried), sph));
     if (carried) {
       gl.colorMask(false, false, false, false);
       use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
