@@ -19,8 +19,8 @@ const SAMPLER = `(() => { window.__cr = { t0: performance.now(), s: [] };
   tick(); })()`;
 const analyse = (rows, well) => {
   // a stretched picture counts when the same card shows it in two consecutive samples: one sample is taken after each painted
-  // frame, so a state that lasts to the next sample was painted; one that the next frame's observers fix (a redraw that cleared
-  // the mark in the task between two frames, just before the next resize step changed the box) was never on screen
+  // frame, so a state that lasts to the next sample is painted; one that the next frame's observers fix (a redraw that cleared
+  // the mark in the task between two frames, just before the next resize step changed the box) is never on screen
   let worst = 0, stale = 0, wrongBars = 0, n = 0;
   const prev = {};
   for (const [, i, bw, bh, rw, rh, fit, rz, drawn, bg] of rows) {
