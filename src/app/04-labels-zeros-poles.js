@@ -298,6 +298,8 @@
   // (CUT_PARALLEL: the cosine of the angle between two segments that still count as one direction, 15°; CUT_JUMP: the share
   // of the pane's longer side that a step between two samples may span before the pen lifts)
   const CUT_OVERLAP_PX = 1.2, CUT_TURN_PX = 24, CUT_CELL_PX = 12, CUT_PARALLEL = 0.97, CUT_JUMP = 0.25;
+  // (a grid cell's number: cell coordinates are far below 2^15 on a screen)
+  const cutCellKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
   function distinctArcs(curves) {
     const out = [], grid = new Map();
     for (const pts of curves) {
@@ -313,7 +315,7 @@
         let seen = false;
         for (let i = -1; i <= 1 && !seen; i++) {
           for (let j = -1; j <= 1 && !seen; j++) {
-            for (const g of grid.get((cx + i) + ',' + (cy + j)) || []) {
+            for (const g of grid.get(cutCellKey(cx + i, cy + j)) || []) {
               if (arc - g.arc < CUT_TURN_PX || Math.abs(ux * g.ux + uy * g.uy) < CUT_PARALLEL) continue;
               const rx = mx - g.mx, ry = my - g.my;
               if (Math.abs(rx * g.uy - ry * g.ux) < CUT_OVERLAP_PX && Math.abs(rx * g.ux + ry * g.uy) <= g.len / 2 + CUT_OVERLAP_PX) { seen = true; break; }
@@ -324,10 +326,10 @@
         else {
           if (!cur) cur = [pen];
           cur.push(q);
+          const key = cutCellKey(cx, cy);
+          if (!grid.has(key)) grid.set(key, []);
+          grid.get(key).push({ mx, my, ux, uy, len, arc });
         }
-        const key = cx + ',' + cy;
-        if (!grid.has(key)) grid.set(key, []);
-        grid.get(key).push({ mx, my, ux, uy, len, arc });
         arc += len;
         pen = q;
       }
