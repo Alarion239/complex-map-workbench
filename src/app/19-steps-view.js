@@ -1069,23 +1069,19 @@
         k1 = kq(yield* svLeastK(inner, K1), K1);
       }
       const r1 = k1 === null ? Math.min(ax, ay) : R * Math.pow(2, -k1);
-      m = { polar: true, c: [o.re, o.im], k1, k2, ring, nt: yield* svPolarCells(gq.F, o, r1, R * Math.pow(2, k2), v, hw, hh) };
+      m = { polar: true, c: [o.re, o.im], k1, k2, ring, nt: svPolarCap(yield* svGlideCells(g, o, R, v, pw, ph), r1, R * Math.pow(2, k2)) };
     } catch (e) { m = SV_RING_M[0]; }
     return m;
   }
-  // The cells a turn of the polar annulus (r1 to r2 about o) needs for the glide's map F at the view v (hw, hh: the
-  // half sides of the box of the view's points that matter), a generator: a cell's picture is its corners' chord, so a
-  // point the cell holds is off by F's curvature across the cell, in the picture, by about (cell size)^2 |F''| / 8
-  // (a conformal map: as much across as along). That error is measured at SV_POLAR_NT cells a turn on a grid of
-  // SV_POLAR_PROBE_R radii by SV_POLAR_PROBE_T angles whose points land in the view: the middle of a cell's edge
-  // against the middle of its ends' pictures, in the angle and in log r, the larger in px. It falls as the square of the
-  // cell, so the cells a turn that bring it to SV_POLAR_TOL px are SV_POLAR_NT times the root of the ratio, rounded up
-  // to a power of two times SV_POLAR_NT (the annuli are kept by id, SV_POLAR_KEEP of them, and a glide's twentieths
-  // would each make its own at any finer step). Halved while the annulus (NT cells a turn, ln(r2 / r1) NT / 2 pi rings
-  // of them) has more than SV_POLAR_CELLS cells, twice the whole plane's mesh's (80 a side): the build and the draw
-  // cost of one annulus; SV_POLAR_NT at least. At most SV_POLAR_DOUBLINGS doublings (a map's pole in the view has an
-  // error no cell count brings down)
-  function* svPolarCells(F, o, r1, r2, v, hw, hh) {
+  // The cells a turn of the glide's polar annuli. A cell's picture is its corners' chord, so a point the cell holds is
+  // off by the map's curvature across the cell, in the picture, by about (cell size)^2 |F''| / 8 (a conformal map: as
+  // much across as along). svPolarWorst measures that error at SV_POLAR_NT cells a turn, svGlideCells takes it over the
+  // glide and sets the cells a turn from it, svPolarCap keeps an annulus within its cell budget.
+  // svPolarWorst, a generator: the largest error, in px, of the cells of the annulus r1 to r2 about o under the map F
+  // at the view v (hw, hh: the half sides of the box of the view's points that matter), over a grid of SV_POLAR_PROBE_R
+  // radii by SV_POLAR_PROBE_T angles whose points land in the view: the middle of a cell's edge against the middle of
+  // its ends' pictures, in the angle and in log r, the larger
+  function* svPolarWorst(F, o, r1, r2, v, hw, hh) {
     const d = 2 * Math.PI / SV_POLAR_NT, L = Math.log(r2 / r1);
     const at = (r, th) => F(C(o.re + r * Math.cos(th), o.im + r * Math.sin(th)));
     let worst = 0, n = 0;
@@ -1101,7 +1097,34 @@
         worst = Math.max(worst, Math.max(ang, rad) * v.s);
       }
     }
-    let nt = SV_POLAR_NT * Math.pow(2, Math.min(SV_POLAR_DOUBLINGS, Math.max(0, Math.ceil(Math.log2(Math.sqrt(worst / SV_POLAR_TOL))))));
+    return worst;
+  }
+  // svGlideCells, a generator: the cells a turn for every annulus of the glide g about o (R: clipWin's half-diagonal)
+  // in the view v of a pw x ph pane, one count a glide, so its twentieths share their annuli's ids (kept by id,
+  // SV_POLAR_KEEP of them): the worst error of the annuli R 2^-SV_POLAR_SPAN to R 2^SV_POLAR_SPAN (the radii the view's
+  // points come from) over every second twentieth of the glide, which falls as the square of the cell, so the cells a
+  // turn that bring it to SV_POLAR_TOL px are SV_POLAR_NT times the root of the ratio, rounded up to a power of two
+  // times SV_POLAR_NT, at most SV_POLAR_DOUBLINGS doublings (a pole of the map in the view has an error no cell count
+  // brings down). Kept for the glide's planes, window, view and chain (svCellsMemo)
+  let svCellsMemo = null;
+  function* svGlideCells(g, o, R, v, pw, ph) {
+    const w = clipWin, key = [g.a, g.b, g.all ? 1 : 0, o.re, o.im, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|');
+    if (svCellsMemo && svCellsMemo.key === key) return svCellsMemo.nt;
+    const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s, span = Math.pow(2, SV_POLAR_SPAN);
+    let worst = 0;
+    for (let q = 0; q <= 20; q += 2) {
+      const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1 } : null);
+      worst = Math.max(worst, yield* svPolarWorst(gq.F, o, R / span, R * span, v, hw, hh));
+    }
+    const nt = SV_POLAR_NT * Math.pow(2, Math.min(SV_POLAR_DOUBLINGS, Math.max(0, Math.ceil(Math.log2(Math.sqrt(worst / SV_POLAR_TOL))))));
+    svCellsMemo = { key, nt };
+    return nt;
+  }
+  // svPolarCap: nt halved (to SV_POLAR_NT at least) while the annulus r1 to r2 (nt cells a turn, ln(r2 / r1) nt / 2 pi
+  // rings of them) has more than SV_POLAR_CELLS cells, four times the whole plane's mesh's (80 a side): the build and the
+  // draw cost of one annulus
+  function svPolarCap(nt, r1, r2) {
+    const L = Math.log(r2 / r1);
     while (nt > SV_POLAR_NT && nt * Math.ceil(L * nt / (2 * Math.PI)) > SV_POLAR_CELLS) nt /= 2;
     return nt;
   }
@@ -1164,7 +1187,7 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
-  const SV_POLAR_PROBE_R = 32, SV_POLAR_PROBE_T = 64, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 2 * 80 * 80, SV_POLAR_DOUBLINGS = 4;
+  const SV_POLAR_PROBE_R = 32, SV_POLAR_PROBE_T = 64, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 4 * 80 * 80, SV_POLAR_DOUBLINGS = 4, SV_POLAR_SPAN = 4;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
