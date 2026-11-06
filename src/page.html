@@ -1584,6 +1584,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 :root:has(.modal-bg) #toastHost .toast { pointer-events: none; }
 :root:has(.modal-bg) #toastHost .toast button { pointer-events: auto; }
 :root:has(.modal-bg) #toastHost .toast .toast-x { pointer-events: none; }
+:root:has(.modal-bg) #toastHost[data-clear-of-dialog] .toast, :root:has(.modal-bg) #toastHost[data-clear-of-dialog] .toast .toast-x { pointer-events: auto; }
 
 .toast .toast-x { flex: 0 0 auto; width: 24px; height: 24px; margin-left: -8px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; }
