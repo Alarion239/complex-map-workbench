@@ -404,13 +404,22 @@ const Inverse = (() => {
   }
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
-  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // the same step of TIE_D octave (round(D / TIE_D)) are ties: a map symmetric about the window's centre (z^2
-  // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
-  // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
-  const TIE_D = 2 ** -8;
-  const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
-  const dTie = (a, b) => a === b || dStep(a) === dStep(b);
+  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Two keys tie when
+  // they differ by at most the tie band: TIE_D (2^-14 octave) plus the same part of D itself, the float error scale of
+  // a key (the GPU's carry a few 1e-6 of it per unit; the band is ten times that). A map symmetric about the window's
+  // centre (z^2 about 0) gives its points equal keys, which float rounding would otherwise order pixel by pixel.
+  // The band is a few hundredths of a pixel wide at a seam, and its edge is a contour of the key difference, parallel
+  // to the seam: fixed steps of D (the earlier rule) staggered the seam into teeth. A band is not transitive (a ties
+  // b, b ties c, a does not tie c), but only keys that differ by float noise chain so; the CPU and the GPU insert
+  // candidates in the same walk order with the same comparison
+  const TIE_D = 2 ** -14;
+  const tieBand = (D) => TIE_D * (1 + D);
+  // the early stops (a side stops when its members' keys provably exceed the front's by more than the margin): the
+  // tie band, and 2^-8 octave more for the error of the lower bounds, which the GPU computes in float; a bound
+  // short by more than the tie band would stop a side whose member comes in front
+  const STOP_D = 2 ** -8;
+  const stopBand = (D) => STOP_D + tieBand(D);
+  const dTie = (a, b) => a === b || Math.abs(a - b) <= tieBand(Math.min(a, b));
   function front(a, b) {
     if (!dTie(a.D, b.D)) return a.D < b.D;
     const za = tieZ(a), zb = tieZ(b);
@@ -1369,19 +1378,19 @@ const Inverse = (() => {
             let stop = false;
             if (!prep.stopMob) {
               const dk = DK();
-              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + TIE_D;
+              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + stopBand(dk);
               // the tail rule (prepare's tail flag; gl.js ixDKTail): K > B for the own alpha, the buffer full, U final, the
               // side still in range up to infinity without a hole, its last three members covering, and every member to
               // come behind the buffer's last key: the full walk would close the tail there anyway
               if (!stop && noStop && prep.tail && dk === Infinity && !(hlo <= hhi) && (goUp ? lp.cU >= 3 && hi === Infinity : lp.cD >= 3 && lo === -Infinity)
-                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + TIE_D) { stop = true; tailInf = true; }
+                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + stopBand(ent[B - 1].D)) { stop = true; tailInf = true; }
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
                 const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
                 const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
                 const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK() + TIE_D;
+                stop = LB > DK() + stopBand(DK());
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1694,7 +1703,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
