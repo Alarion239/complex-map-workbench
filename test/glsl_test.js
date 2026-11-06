@@ -228,7 +228,7 @@
   add('sheets root d', [S('root'), D()]);
   add('sheets log d root', [S('log'), D(), S('root', { n: 3 })]);
   add('sheets sqrt d d', [S('custom', { expr: '\\sqrt{z}' }), D(), D()]);
-  // (v16.1 user-5) the deformation's sheets (chainSheetHom, mode 9 rows): the user's sin √z, both cuts, a recognised
+  // the deformation's sheets (chainSheetHom, mode 9 rows): the user's sin √z, both cuts, a recognised
   // formula, a log window, a complex power, a pre with sheets, a formula with branch points in full
   add('sheets deform sin sqrt', [S('root'), S('sin')]);
   add('sheets deform sin sqrt -90', [S('root', { cut: -90 }), S('sin')]);
@@ -238,7 +238,7 @@
   add('sheets deform powa cx mobius', [S('powa', { alpha: '0.5+0.4i' }), S('mobius')]);
   add('sheets deform mul log root', [S('mul', { c: '1+i' }), S('log'), S('root')]);
   add('sheets deform sin pair', [S('sin'), S('custom', { expr: '\\log z+\\sqrt{z}' })]);
-  // (v16.1 review math-3) sheets numbered from the step's own cut and branch: a power and a log on other branches, a
+  // sheets numbered from the step's own cut and branch: a power and a log on other branches, a
   // formula with its own cut
   add('sheets branch powa cut k', [S('powa', { alpha: '0.6666666666666666', cut: -120, k: 2 }), S('sin')]);
   add('sheets branch log cut k', [S('log', { cut: 60, k: 3 }), S('root', { n: 3, cut: 30, k: 1 })]);
@@ -381,7 +381,7 @@
     for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) w = r32(built[k - 1].f(w));
     return w;
   }
-  // (review v16 regress-1) a range row's point that lies on a cut of one of its steps at float32 resolution: the
+  // a range row's point that lies on a cut of one of its steps at float32 resolution: the
   // step's input is real to within 1e-6 (a zero imaginary part whose sign the GPU does not keep, e.g. tanh saturated to
   // 1 then a zoom to 1.001, fed to arcsin) and the step jumps across it. The CPU and the GPU then take either side, so
   // the point is not compared (counted in skippedRangeF32, as the mode-0 rows' discontinuity check would)
@@ -836,7 +836,7 @@ void main() {
       // the surfaces of the steps after the first, from points of the w_1-plane (a focused step)
       if (n > 1) for (let c = 0; c < Math.min(gc.sheets.combos(SHEET_W, n, 1), 4); c++) rows.push({ mode: 5, a: 1, b: n, combo: c });
     }
-    // (v16 deformation range, SPEC 13.2) mode 7: chainRange(chainHom(hi, chainRange(z, 0, hi - 1), t), b, post); mode 8:
+    // (the deformation range) mode 7: chainRange(chainHom(hi, chainRange(z, 0, hi - 1), t), b, post); mode 8:
     // chainRange(chainHomAll(chainRange(z, 0, lo), lo, b, t), b, post); the CPU twin is HomRange.cpuMap
     if (n >= 2 && !derivs.length) {
       const act = (k) => live(ch.steps, built, k);
@@ -859,7 +859,7 @@ void main() {
       for (let hi = 1; hi <= n; hi++) for (let base = 0; base < hi; base++) for (const t of CARRY_TS) if (rows.length < HMAX) rows.push({ mode: 7, carry: true, base, k: hi, b: hi, post: hi, t });
       R.carryRows = (R.carryRows || 0) + rows.filter((r) => r.carry).length;
     }
-    // (v16.1 user-5) mode 9: chainSheetHom, H_t on the sheets that become F's (Funcs.sheetMapEval): every step at t
+    // mode 9: chainSheetHom, H_t on the sheets that become F's (Funcs.sheetMapEval): every step at t
     // after the steps before it (and with the post after it), all at once, at t in SHEET_TS, the first combos
     if (sheets.length && !derivs.length) {
       const act = (k) => live(ch.steps, built, k), maps = [];
@@ -869,7 +869,7 @@ void main() {
         if (!Funcs.sheetMapPieces(ch.steps, built, m)) continue;
         const K = Funcs.sheetMapCombos(ch.steps, built, m, SHEET_W);
         for (let c = 0; c < Math.min(K, 3) && rows.length < HMAX; c++) rows.push({ mode: 9, map: m, combo: c, t: m.t });
-        // (v16.1 review math-5) F's digits (end = n): a step not begun reads its digits; the first and the last combos
+        // F's digits (end = n): a step not begun reads its digits; the first and the last combos
         if (m.mode === 1 && m.hi < n && Funcs.sheetMapPieces(ch.steps, built, m, n)) {
           const KE = Funcs.sheetMapCombos(ch.steps, built, m, SHEET_W, Funcs.SHEET_MAX, n);
           for (const c of [...new Set([0, 1, KE - 1])]) if (c < KE && rows.length < HMAX) rows.push({ mode: 9, map: m, combo: c, t: m.t, end: n });
@@ -927,7 +927,7 @@ void main() {
           }
           continue;
         }
-        // (v16 range rows: a value float32 cannot reproduce, the row's own composition with every stage rounded to
+        // (range rows: a value float32 cannot reproduce, the row's own composition with every stage rounded to
         // float32 already as far from the CPU as the tolerance: next to a pole of a later step, e.g. a Möbius map)
         if ((row.mode === 7 || row.mode === 8)) {
           const k0 = (ri * P + p) * 4, gw0 = C(out[k0], out[k0 + 1]);
