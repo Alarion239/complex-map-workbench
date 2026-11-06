@@ -12,8 +12,8 @@
 // - in the inner ring no cell's chord is off by more than 0.25 (0.25 is the height of a quarter of a spike's unit), outside the patches;
 // - with the pole patches' discs counted too, cells are off by more than that: the check reads something;
 // - the carried frame covers its block (no point bare, __cmwLandCover).
-// The outer ring (past four times the box's inscribed circle) is read and not checked: it reaches out to infinity, where
-// every pole is a spike the patches cannot all reach.
+// - in the outer ring (past four times the box's inscribed circle), outside the patches, no cell whose image is in the block
+//   is off by more than that: the poles whose images are in the block (svLandHeightPoles) have their patches, however far out.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -45,6 +45,7 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   const end = u < 0.01 || u > 0.99;
   ok(`${tag}: a carried frame from plane z`, c.carried.s === 0 && Math.abs(c.carried.u - u) < 0.004, c.carried);
   ok(`${tag}: the far patch's inner ring has cells, none off by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err[0].cells > (end ? 1000 : 10000) && c.err[0].bad === 0, c.err && c.err[0]);
+  ok(`${tag}: the far patch's outer ring has cells, none off by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err.length > 1 && c.err[1].cells > 0 && c.err[1].bad === 0, c.err && c.err[1]);
   if (!end) {
     ok(`${tag}: a pole patch about 3πi and -3πi`, at(3 * Math.PI) && at(-3 * Math.PI), c.carried);
     ok(`${tag}: counting the pole patches' discs too, cells are off by more than ${TOL}`, !!c.whole && c.whole[0].bad > 0, c.whole && c.whole[0]);
