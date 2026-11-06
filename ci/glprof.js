@@ -9,11 +9,11 @@
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
 // for Chrome outside its profile (see metalCaches); without it a fresh profile is not cold on the Mac (#237).
 // The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are on by default: their inverse programs too); then on the
-// first example, the views (Phase, Landscape, both Spheres) and the deformation. --walk extended (#238's Windows list)
-// adds: the deformation of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
+// first example, the steps view's main planes (Phase, Landscape, X → Y), the Sphere and the glide. --walk extended (#238's Windows list)
+// adds: the glide of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
 // opened (its thumbnails' time), the Mountain King in the Landscape, and on every pass the first minute from the page's load (the start-up bar shown, the
-// links pending, the page's long tasks, when the default example's exact image was first drawn). --walk mountain: after
-// the start only the Mountain King (#395, #355): its first frame, its Landscape and its deformation. --walk steps (#439): the steps view (stepsWalk). --variant unroll (#238 item 3): a
+// links pending, the page's long tasks, when the default example's exact image is first drawn). --walk mountain: after
+// the start only the Mountain King: its first frame, its Landscape and its glide. --walk steps (#439): the steps view (stepsWalk). --variant unroll: a
 // second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
 // constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
 // bounds are not undone by it). Each step waits until every link it started has landed (or --step-timeout, default
@@ -26,6 +26,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference } = require('./reference');
+const SC = require('./steps_scenes');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 
 const argv = process.argv.slice(2);
@@ -48,10 +49,9 @@ const CLEAR_METAL = flag('clear-metal-cache') && process.platform === 'darwin';
 // the walk after the examples: [label, the page's statement]
 function walk() {
   const s = [['example 0 again', '__cmwExample(0)']];
-  s.push(['Phase', "__cmwSetMain('phase')"], ['Landscape', "__cmwSetMain('land')"], ['X → Y', "__cmwSetMain('xy')"]);
-  s.push(['Sphere (Y)', "__cmwSetView('R', 'sphere')"], ['Sphere (X)', "__cmwSetView('L', 'sphere')"]);
-  s.push(['planes', "__cmwSetView('R', 'plane'); __cmwSetView('L', 'plane')"]);
-  s.push(['deformation', '__cmwMorph({ open: true, T: 0.5 })'], ['deformation closed', '__cmwMorph({ open: false })']);
+  s.push(['Phase', SC.main('phase')], ['Landscape', SC.main('land')], ['X → Y', SC.main('xy')]);
+  s.push(['Sphere', SC.surface('sphere')], ['planes', SC.surface('plane')]);
+  s.push(['glide', SC.glide('last')], ['glide closed', SC.glideBack()]);
   return s;
 }
 
@@ -63,17 +63,17 @@ function exampleIndex(name) {
   const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   return names.indexOf(name);
 }
-// (#238 item 2: the All sheets and the Γ/ζ examples deformed; item 3: a Σ step and a power series)
+// (the All sheets and the Γ/ζ examples deformed; a Σ step and a power series)
 const EXTENDED_EXAMPLES = ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series'];
 // (#395, #355) the Mountain King: its first frame (mode 0, colour), its Landscape (landTF and landEdgeS of mode 0) and
-// its deformation (mode 1, colour)
+// its glide (mode 1, colour)
 const MOUNTAIN_KING = 'In the Hall of the Mountain King';
 function mountainKing(landscapeOnly) {
   const i = exampleIndex(MOUNTAIN_KING);
   if (i < 0) throw new Error(`no example named ${MOUNTAIN_KING}`);
   const s = [[`${MOUNTAIN_KING} (example ${i})`, `__cmwExample(${i})`, false, null],
-    [`${MOUNTAIN_KING}: Landscape`, "__cmwSetMain('land')", false, null], [`${MOUNTAIN_KING}: Landscape closed`, "__cmwSetMain('xy')", false, null]];
-  if (!landscapeOnly) s.push([`${MOUNTAIN_KING}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${MOUNTAIN_KING}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
+    [`${MOUNTAIN_KING}: Landscape`, SC.main('land'), false, null], [`${MOUNTAIN_KING}: Landscape closed`, SC.main('xy'), false, null]];
+  if (!landscapeOnly) s.push([`${MOUNTAIN_KING}: glide`, SC.glide('last'), false, null], [`${MOUNTAIN_KING}: glide closed`, SC.glideBack(), false, null]);
   return s;
 }
 // --walk steps (#439): the steps view (?view=steps) on Strip to disk, the zeros of zeta and the Mountain King: a
@@ -102,9 +102,9 @@ function extended() {
     const i = exampleIndex(nm);
     if (i < 0) { console.log(`[glprof] no example named ${nm}: skipped`); continue; }
     s.push([`${nm} (example ${i})`, `__cmwExample(${i})`, false, null]);
-    s.push([`${nm}: deformation`, '__cmwMorph({ open: true, T: 0.5 })', false, null], [`${nm}: deformation closed`, '__cmwMorph({ open: false })', false, null]);
+    s.push([`${nm}: glide`, SC.glide('last'), false, null], [`${nm}: glide closed`, SC.glideBack(), false, null]);
   }
-  // (#395: the Mountain King in the Landscape; its deformation is in the examples' walk already)
+  // (#395: the Mountain King in the Landscape; its glide is in the examples' walk already)
   s.push(...mountainKing(true));
   // (item 5: the gallery opened: until every example's thumbnail is drawn, and how many were)
   s.push(['the gallery opened', "(document.getElementById('examplesBtn').click(), true)", false,
@@ -138,7 +138,7 @@ async function pass(name, base, tag) {
   const B = await launch(EXTENDED ? { cache: CACHE, inject: STARTUP } : { cache: CACHE });
   const out = { pass: name, renderer: '', steps: [] };
   try {
-    await B.nav(`${base}test.html?glprof${STEPS ? '&view=steps' : ''}&ns=glprof${Date.now()}`);
+    await B.nav(`${base}test.html?glprof&view=steps&ns=glprof${Date.now()}`);
     await B.until('typeof GLR === "object" && typeof GLR.profile === "function" && typeof __cmwExample === "function"', 120000);
     out.renderer = await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'), x = g && g.getExtension('WEBGL_debug_renderer_info'); return x ? g.getParameter(x.UNMASKED_RENDERER_WEBGL) : ''; })()`);
     let seen = 0;

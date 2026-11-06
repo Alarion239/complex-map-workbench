@@ -20,6 +20,15 @@
   function preimageTargets(areasOnly) {
     return pullTargets((S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area')));
   }
+  // the opacity of a pulled-back region's fill
+  const PULL_ALPHA = 0.42;
+  // a pulled-back region's boundary band (the shader's PRE_FS): its alpha, and the share of its width (at least one css
+  // pixel) it is drawn at
+  const PULL_EDGE_A = 0.9, PULL_EDGE_MIN = 0.55;
+  // the boundary band's width (device px): PULL_EDGE_MIN of the boundary's width, at least one css pixel
+  const pullBandW = (s, dpr) => Math.max(dpr, PULL_EDGE_MIN * pullWidth(s, dpr));
+  // the width (device px) of a pulled-back region's boundary: 2 css px, 2.75 for the selected one
+  const pullWidth = (s, dpr) => (s.id === selected ? 2.75 : 2) * dpr;
   function pullTargets(list) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
@@ -31,12 +40,12 @@
         t.pts = Array.from({ length: n }, (_, i) => s.pts[Math.round(i * (s.pts.length - 1) / Math.max(1, n - 1))]);
       }
       const ink = shapeInk(s), area = kindType(s) === 'area';
-      let a = area ? 0.42 : 1;
+      let a = area ? PULL_ALPHA : 1;
       a *= dimK(s);
       t.color = GLR.hexRGB(area ? ink.c0 : ink.edge);
       t.edge = GLR.hexRGB(ink.edge);
       t.alpha = a;
-      t.width = (s.id === selected ? 2.75 : 2) * (paneL ? paneL.dpr : 1);
+      t.width = pullWidth(s, paneL ? paneL.dpr : 1);
       return t;
     });
   }
@@ -105,13 +114,11 @@
         for (let i = 0; i + 1 < p.length; i += 2) { const [x, y] = pane.w2sxy(p[i], p[i + 1]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
         if (c.closed) ctx.closePath();
       }
-      let w = area ? 1.5 : 2;
-      if (s.id === selected) w += 0.75;
-      if (s.id === hoverShape) w += 0.5;
+      const sk = shapeStroke(s, 1, { domain: true });   // (the width and the halo's, in CSS px)
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.globalAlpha = TH.haloA; ctx.strokeStyle = TH.halo; ctx.lineWidth = w + 2; ctx.stroke();
-      ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = w;
-      if (area && Region.isOpen(s)) ctx.setLineDash([5, 3.5]);
+      ctx.globalAlpha = sk.casing.alpha; ctx.strokeStyle = TH.halo; ctx.lineWidth = sk.casing.width; ctx.stroke();
+      ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = sk.width;
+      if (area && Region.isOpen(s)) ctx.setLineDash(OPEN_DASH);
       ctx.stroke();
       ctx.restore();
     }

@@ -113,7 +113,7 @@ window.__invTestRun = async (opts = {}) => {
   }
   function shapeOfKind(id, k, c) {
     switch (k) {
-      // (v16 review regress-3) a 3-point disc in its exact form (s._g: TKIND 8, the clip piece 'g'): near-collinear
+      // a 3-point disc in its exact form (s._g: TKIND 8, the clip piece 'g'): near-collinear
       // points (radius up to 1e7), a far first point (the anchor 1e4 away from the window), and the complement
       case 'gdisc': case 'gfar': case 'gcomp': {
         const o = k === 'gfar' ? [rf(-1, 1) * 1e4, rf(-1, 1) * 1e4] : c, a = rf(0, 2 * Math.PI), L = rf(0.5, 2), h = k === 'gfar' ? 0 : L * 10 ** rf(-7, 0);
@@ -190,7 +190,7 @@ void main() {
 `;
   const EXTRA_WALK = { pre: PRE, main: MAIN_WALK }, EXTRA_CLIP = { pre: PRE, main: MAIN_CLIP };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  // f() (a draw) until its program is no longer 'pending', for up to WAIT_MS by the clock: Windows' software renderer
+  // f() (a draw) until its program leaves 'pending', for up to WAIT_MS by the clock: Windows' software renderer
   // (WARP) can take longer for one program than 4000 tries 3 ms apart (12-16 s), which ended random cases 'gpu pending';
   // 'pending' after WAIT_MS stays an error. R.waitMs: the longest wait
   // (the flip test's programs wait up to FLIP_WAIT_MS: in the core tier the walk is short, so on Windows they are
@@ -251,8 +251,8 @@ void main() {
   // ---- walk parity ----
   const SPC = opts.shapesPerChain ?? 2;
   let seedRat = null;   // the rational chains (last in the list) hand the random stream back as they found it: the clip test keeps its sample
-  // (v16 review regress-3) the first gChains eligible chains take one exact-form disc after their v15 shapes, on a
-  // random stream of its own (the v15 cases stay the same cases); the GPU packs it at the window's centre, as the app does
+  // the first gChains eligible chains take one exact-form disc after their other shapes, on a
+  // random stream of its own (the other cases stay the same cases); the GPU packs it at the window's centre, as the app does
   let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
   R.gWalk = { cases: 0 };
   // (test/glsl_tiers.js: the whole page, tier all, walks every chain on one random stream, as it always did; a tier or a
@@ -450,7 +450,7 @@ void main() {
     const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
     const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0 };
     const N = 1024;
-    // (v16 review regress-3) after the v15 shapes (their random stream unchanged), the exact-form discs: near
+    // after the nV15 shapes (their random stream unchanged), the exact-form discs: near
     // collinear, a far anchor (1e4 away; the GPU packs at the view's centre, as the app does), complements
     const nV15 = opts.clipShapes ?? 60, nG = GDISC ? (opts.gShapes ?? 40) : 0;
     if (GDISC && GLR.setFormAnchor) GLR.setFormAnchor([0, 0]);

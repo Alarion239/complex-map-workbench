@@ -1,9 +1,8 @@
 // @ts-check
 'use strict';
 // The constructions on a curve C (notes/orthogonal-circle): Inside C only and Between z0 and z1 (segments/SPEC.md),
-// the perpendicular circle (SPEC.md) and the touching circle (TANGENT-SPEC.md). Moved out of constr.js (issue #20,
-// the file-size budget) as a factory constr.js calls where these sections stood, with the names of its own they
-// read; constr.js takes the names back.
+// the perpendicular circle (SPEC.md) and the touching circle (TANGENT-SPEC.md). A factory constr.js calls with the names of its own it
+// reads; constr.js takes the names it returns.
 const ConstrOrtho = (host) => {
   const {
     FLIPPED, INF, TAU, abs, add, canonKey, decOf, decompose, div, dot, eqP, fOf, flipG, formOfFields, gc, geomOf,
@@ -60,13 +59,13 @@ const ConstrOrtho = (host) => {
     if (!isXY(mid)) mid = segAtU(q, q.u0 + q.D / 4);
     const fe = q.ends.filter(isXY);
     q.L = Math.max(...fe.map((e) => abs(sub(e, mid))), 1e-300);
-    // the shape's fields, for code that knows only kinds (hit tests, Preimage packing, v16.2): an arc a, m, b, or a ray
+    // the shape's fields, for code that knows only kinds (hit tests, Preimage packing): an arc a, m, b, or a ray
     // from the finite end when the other is infinity (C and K both lines)
     if (fe.length === 2) { q.kind = 'arc'; q.fields = { a: q.ends[0].slice(), m: mid.slice(), b: q.ends[1].slice(), c: undefined, r: undefined, complement: undefined }; }
     else { q.kind = 'ray'; q.fields = { a: fe[0].slice(), b: mid.slice(), m: undefined, c: undefined, r: undefined, complement: undefined }; }
     return q;
   }
-  // [issue #70] "Between z0 and z1": the true hyperbolic segment of K from P to Q (no tails): of the two arcs of K between
+  // "Between z0 and z1": the true hyperbolic segment of K from P to Q (no tails): of the two arcs of K between
   // them, the one that K's two meets with C do not cut (P and Q on the same side of C, inside or outside). On opposite
   // sides each arc holds a meet: undefined ('betweenSides'). A point on C is an end of the segment. The same seg object as
   // segOf's (ends, u0, D, H, k), so gliders, crossings, hit tests, the images and the globe treat it as that arc.
@@ -107,7 +106,7 @@ const ConstrOrtho = (host) => {
     return fOf(Gc, add(g.p, steep ? [-1, 0] : [0, 1])) < 0 ? 1 : -1;
   }
   // the two sides of a perpendicular circle's C, by their words: {line, steep, Gc, sides: [[word, seg], [word, seg]],
-  // seg (now: 0, 1, -1), dflt (segSideOf)} | null. A circle: in (bounded), out; a line: above, below (left, right when
+  // seg (0, 1, -1), dflt (segSideOf)} | null. A circle: in (bounded), out; a line: above, below (left, right when
   // steeper than 45 degrees)
   function segSides(state, id, env) {
     const ctx = makeCtx(state, env, null), e = ctx.idx.get(id), s = e && e.s, d = s && s.def;
@@ -129,7 +128,7 @@ const ConstrOrtho = (host) => {
     return out;
   }
   // z's mirror image in the curve of the form G, on the sphere: a circle swaps its centre and infinity; a line keeps
-  // infinity (review math-2)
+  // infinity
   function mirrorIn(G, z) {
     if (isInf(z)) return G.A === 0 ? INF : geomOf(G).c.slice();
     if (!isXY(z)) return null;
@@ -150,7 +149,7 @@ const ConstrOrtho = (host) => {
     if (was === now) return [];
     const info = segSides(state, id, env), Gc = info && info.Gc;
     const gl = listOfPlane(state, e.plane).filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
-    // (a glider at infinity is the point infinity: review math-2; f_Gc there has the sign of Gc.A, 0 for a line)
+    // (a glider at infinity is the point infinity; f_Gc there has the sign of Gc.A, 0 for a line)
     const want = gl.map((g) => {
       const z = g._atInf ? INF : g.p;
       if (g.cundef || !(isInf(z) || isXY(z))) return null;
@@ -175,7 +174,7 @@ const ConstrOrtho = (host) => {
     }
     return gl.map((g) => g.id);
   }
-  // [issue #70] Constr.setBetween(state, id, on, env): Between z0 and z1 on (true) or off on the perpendicular circle id (on
+  // Constr.setBetween(state, id, on, env): Between z0 and z1 on (true) or off on the perpendicular circle id (on
   // clears Inside C only: the two are one choice). Its gliders move so none leaves the drawn curve: on, a glider off the
   // segment goes to its nearer end; off, every glider keeps its point. One state change (the caller records one undo
   // step). Returns the ids of K's gliders, or null
@@ -205,7 +204,7 @@ const ConstrOrtho = (host) => {
     return gl.map((g) => g.id);
   }
   // the drawn curve of a seg K on a circle (SPEC 6.1; a line's arc is Region.segCurvesOf's: the chord, or the line kinds'
-  // long rays, review math-1, math-4): one open curve object. A circle no larger than 50 window diagonals (Region's
+  // long rays): one open curve object. A circle no larger than 50 window diagonals (Region's
   // MR_RATIO): f by its angle, as a whole circle is drawn, the ends exact; a larger one: f the M(R) map of K anchored at the
   // window's foot (as Region's mrCurve), restricted to the arc, and gsamp sampleMR's samples of K (dense within 1.25x the
   // window, geometric beyond), those on the arc in order, the ends first and last, bitwise
@@ -295,7 +294,7 @@ const ConstrOrtho = (host) => {
       return (neg ? -1 : 1) * ldexp(Number(M >> BigInt(sh)), sh + a.e - top);
     });
   }
-  // [v16.3 review math-3, math-4] numbers as the decimals the user snapped or typed (decOf: 12 digits), scaled to integers
+  // numbers as the decimals the user snapped or typed (decOf: 12 digits), scaled to integers
   // under one power of ten: BigInts, or null when one is not such a decimal (or the scales are too far apart)
   /** @returns {bigint[] | null} */
   function decInts(xs) {
@@ -307,13 +306,13 @@ const ConstrOrtho = (host) => {
     if (Math.max(...es) - E > 80) return null;
     return ds.map(([m, e]) => (m === 0n ? 0n : m * 10n ** BigInt(e - E)));
   }
-  // perpForm(Gc, P, Q, pc?): pc, C's piece, gives the decimals C was drawn with (a circle's centre and radius, a line's
+  // perpForm(Gc, P, Q, pc?): pc, C's piece, gives the decimals C is drawn with (a circle's centre and radius, a line's
   // two points) for the decimal rules below; without it (or when they are not decimals) only the exact rules apply
   function perpForm(Gc, P, Q, pc) {
     if (!Gc) return { undef: 'notCircle' };
     if (isInf(P) && isInf(Q)) return { undef: 'lineInf' };
     const zero = (z) => !isInf(z) && z[0] === 0 && z[1] === 0;
-    // the anchor: P; Q when P is infinity, or when Q alone is exactly 0 (the Lambda rule's thru0 [C9]). Swapping the two
+    // the anchor: P; Q when P is infinity, or when Q alone is exactly 0 (the Lambda rule's thru0). Swapping the two
     // point rows turns the null vector over: sg = -1 keeps the curve's orientation
     let sg = 1;
     if (isInf(P) || (zero(Q) && !zero(P))) { [P, Q] = [Q, P]; sg = -1; }
@@ -333,14 +332,14 @@ const ConstrOrtho = (host) => {
     if (A.m === 0n && Bx.m === 0n && By.m === 0n) return { undef: 'pencil' };      // Q = P* (or P at the centre, Q = INF)
     let [a, bx, by] = dScaled([A, Bx, By]);
     const fin2 = !isInf(P) && !isInf(Q);
-    // [v16.3 review math-3, user-9] Q = P* in the decimals (the exact test above sees it only when P* is a double): a
+    // Q = P* in the decimals (the exact test above sees it only when P* is a double): a
     // circle C (c, r): P, Q collinear with c and (P - c).(Q - c) = r^2; a line C through a, b: Q - P perpendicular to
     // b - a and the midpoint of P Q on it. One configuration, one outcome: the pencil, as for 0.5 and 2
     if (fin2 && pc && pc.kind === 'circle' && Gc.A !== 0 && isXY(pc.c) && pc.r > 0 && orientD(pc.c, P, Q) === 0) {
       const v = decInts([P[0], P[1], Q[0], Q[1], pc.c[0], pc.c[1], pc.r]);
       if (v) { const [px, py, qx, qy, cx, cy, rr] = v; if ((px - cx) * (qx - cx) + (py - cy) * (qy - cy) === rr * rr) return { undef: 'pencil' }; }
     }
-    // [v16.3.1, verify-1] C through three points p1, p2, p3 (a 3-point circle, an arc): its centre and radius are not
+    // C through three points p1, p2, p3 (a 3-point circle, an arc): its centre and radius are not
     // decimals, but its form is rational in the points. Anchored at p1, f(z) = A|u|^2 + D ux + E uy (circle3's A, D,
     // E); P, Q are mirror images when A u v* + (D - iE) u / 2 + (D + iE) v* / 2 = 0 (u = P - p1, v = Q - p1), both
     // parts tested exactly in the decimals scaled to integers. (A 0 here and not in the form, or the reverse, by
@@ -364,7 +363,7 @@ const ConstrOrtho = (host) => {
         const [ax, ay, bx2, by2, px, py, qx, qy] = v, ex = bx2 - ax, ey = by2 - ay;
         if ((qx - px) * ex + (qy - py) * ey === 0n) {
           if (ex * ((py - ay) + (qy - ay)) - ey * ((px - ax) + (qx - ax)) === 0n) return { undef: 'pencil' };
-          // [v16.3 review math-4] P Q perpendicular to the line C in the decimals: K is the line P Q itself (the circle
+          // P Q perpendicular to the line C in the decimals: K is the line P Q itself (the circle
           // of radius ~1e16 that rounding gives is not drawn, named a disc, or met at a finite far point), its side
           // from the rounded form, as the circle rule below
           if (a !== 0) {
@@ -374,7 +373,7 @@ const ConstrOrtho = (host) => {
         }
       }
     }
-    // [math-3] Gc anchored at its centre (B = 0: a circle, a disc, an annulus, a sector's arc): A = -2 A' orient(o, P, Q),
+    // Gc anchored at its centre (B = 0: a circle, a disc, an annulus, a sector's arc): A = -2 A' orient(o, P, Q),
     // so K is the line P Q itself when the decimals the user snapped are collinear with the centre
     if (a !== 0 && !isInf(Q) && Gc.A !== 0 && Gc.B[0] === 0 && Gc.B[1] === 0 && orientD(Gc.o, P, Q) === 0) {
       const d = sub(Q, P), L = abs(d), sn = Math.sign(bx * d[1] - by * d[0]);
@@ -410,7 +409,7 @@ const ConstrOrtho = (host) => {
       const dx = dsub(dz(P[0]), dz(T[0])), dy = dsub(dz(P[1]), dz(T[1])), dd = dadd(dmul(dx, dx), dmul(dy, dy));
       A = dmul({ m: -2n, e: 0 }, dadd(dmul(dx, c.Bx), dmul(dy, c.By)));
       Bx = dmul(dd, c.Bx); By = dmul(dd, c.By);
-      // the Lambda rule [C9]: P alone exactly 0 -> anchored at P, exactly: B + A d, C = 0
+      // the Lambda rule: P alone exactly 0 -> anchored at P, exactly: B + A d, C = 0
       if (P[0] === 0 && P[1] === 0 && !(T[0] === 0 && T[1] === 0)) { Bx = dadd(Bx, dmul(A, dx)); By = dadd(By, dmul(A, dy)); o = P; }
     }
     if (A.m === 0n && Bx.m === 0n && By.m === 0n) return { undef: 'coincide' };
@@ -446,7 +445,7 @@ const ConstrOrtho = (host) => {
     const u = [-G.B[1], G.B[0]], t = -(Bx * u[0] + By * u[1]) / Gc.A;
     return { G, tp: [P[0] + t * u[0], P[1] + t * u[1]] };
   }
-  // the touching point of two pieces by construction (a touch or tangent piece and the curve it was built on, or two
+  // the touching point of two pieces by construction (a touch or tangent piece and the curve it is built on, or two
   // touches of one curve at one point), else null
   const sameG = (a, b) => !!a && !!b && a.A === b.A && a.C === b.C && a.B[0] === b.B[0] && a.B[1] === b.B[1] && a.o[0] === b.o[0] && a.o[1] === b.o[1];
   function touchAt(pa, pb) {
@@ -456,7 +455,7 @@ const ConstrOrtho = (host) => {
     if (ta && tb && sameG(ta.G, tb.G) && !isInf(ta.tp) && !isInf(tb.tp) && eqP(ta.tp, tb.tp)) return ta.tp;
     return null;
   }
-  // [v16.4 segments SPEC 2.3] the meets of a seg K and the curve C it was built on: the drawn ends, bitwise (order K, C:
+  // the meets of a seg K and the curve C it was built on: the drawn ends, bitwise (order K, C:
   // index i is the meet i of K's form with C's; order C, K: the entering rule reverses at a right angle, so i <-> 1 - i)
   function segAt(pa, pb) {
     const ka = pa.seg && pa.G && pa.G.sg, kb = pb.seg && pb.G && pb.G.sg;
@@ -487,7 +486,7 @@ const ConstrOrtho = (host) => {
     if (cd && cd.op === 'circle3') cd.args.forEach((r) => keys.add(canonKey(ctx, r)));
     if (cd && (cd.op === 'perp' || cd.op === 'touch' || cd.op === 'tangent')) cd.args.slice(1).forEach((r) => { if (r && !r.inf) keys.add(canonKey(ctx, r)); });
     // (never a rectangle's corner: its corners are re-sorted from min/max, so a handle drag moves corner a to other
-    // sides while the curve ref keeps its part [v16.3 review math-1])
+    // sides while the curve ref keeps its part)
     const pc = !cd && C.kind !== 'rect' ? ctx.piecesOf(C)[cref.part] : null;
     if (pc) {
       const ends = [pc.a, pc.b].concat(pc.arc3 || []).filter(isXY);

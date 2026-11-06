@@ -2,7 +2,7 @@
 // bracket of 2, a post of 5. Plays one after another and all at once in X → Y, Phase and Landscape with Paths on, and
 // drags a bracket end for 3 s. Gate (BUDGET60, the AS-BUILT bar): p95 <= 18.4 ms and 60 fps at 1440 x 900 and 390 x 844.
 // The merged tree before the range (dist/v16m.html, its whole-chain deformation) runs on the same chain for comparison,
-// alternating with this build. Not on GeForce NOW; run with the machine otherwise as quiet as it can be.
+// alternating with this build. Not on GeForce NOW; run with the machine otherwise as quiet as it can be. standards-ok: GeForce NOW is a product name
 //   <runner> test/deform_range_fps_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}/`;

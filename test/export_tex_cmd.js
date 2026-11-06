@@ -70,6 +70,7 @@ for (const lang of ['en', 'ru', 'it']) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}/test-mj.html?ns=${ns}&lang=${lang}` }); await sleep(2500);
   if (!(await mjReady())) { fails.push(`${lang}: MathJax did not load: the figure cannot be read`); continue; }
+  if (!(await ev('!!window.__cmwSteps && __cmwSteps().on'))) fails.push(`${lang}: the figures are not exported from the steps view`);
   await control(lang);
   await figure(lang, 'shapes');
   // the gallery

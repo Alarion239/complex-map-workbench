@@ -46,16 +46,15 @@ for (const d of Object.values(base.Funcs.DEFS)) {
 }
 const tree = (E, s, o) => { try { return JSON.stringify(E.parse(s, o)); } catch (e) { return 'ERR ' + e.message + ' @' + e.pos; } };
 let parsed = 0, refused = 0;
-const newly = new Set();   // refused by the base, read now: written with a Russian form
+const newly = new Set();   // refused by the base, parsed by the current code: written with a Russian form
 const round = new Set();
 for (const s of corpus) {
   for (const o of [undefined, { allowRel: true }]) {
     const a = tree(base.Expr, s, o), b = tree(en.Expr, s, o), c = tree(ru.Expr, s, o);
     if (a.startsWith('ERR')) {
       refused++;
-      // a refused formula keeps its English message, unless it is written with a Russian form and now parses
+      // a refused formula keeps its English message, unless it is written with a Russian form and parses
       const ruForm = /\b(tg|ctg|cth|sh|ch|th|arctg|arsh|arch|arth|cosec|Ln)\b|\{,\}|\\text\{(или|и|не)\}/.test(s);
-      // (issue #4: Γ, ζ and ψ are functions now, so a formula that names them may parse, or stop at a later place)
       // (issue #4: Γ, ζ, ψ; issue #5: sums, products, n!, binom; issue #6: iter: new syntax, so their messages are new too)
       const special = /Γ|ζ|\\Gamma|\\zeta|Gamma|gamma|zeta|digamma|\\psi|\\sum|\\prod|[Σ∑∏]|\\binom|\b(?:sum|prod|binom|iter)\s*\(|\\operatorname\{iter\}|[\w)}]!/.test(s);
       ok(b === a || (ruForm && !b.startsWith('ERR')) || special, `English message for ${JSON.stringify(s)}: base ${a}, now ${b}`);

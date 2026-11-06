@@ -25,7 +25,8 @@
     const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const legIn = !!(leg && hd && leg.parentNode === hd);
     const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
-    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    // (the steps view's head fit folds the chip itself, sv-lg: it stays folded)
+    if (legIn) { leg.classList.toggle('glyph', SV.on && hd.classList.contains('sv-lg')); hd.classList.remove('tight', 'noled'); }
     if (legIn && !leg.hidden && tabsCut()) {
       leg.classList.add('glyph');
       if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
@@ -86,7 +87,7 @@
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
     let roleL, shortL;
-    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : deformOneSheet() ? $t('; one sheet is drawn while it deforms') : '' }); shortL = $tx('role', 'landscape'); }
+    if (lLand()) { roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: landSheetsHtml() }); shortL = $tx('role', 'landscape'); }
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
@@ -231,9 +232,9 @@
   // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here
   // and Cauchy its short word (Russian «Коши», not «Интеграл Коши», which a 54 px button at 360 px broke mid-word), the
   // whole name the tooltip, the accessible name and the header menu's item
-  function styleSeg() {
+  function styleSeg(id = 'dcSeg') {
     const word = (v, name) => (v === 'grid' ? $t('Grid') : v === 'cauchy' ? $tx('style', 'Cauchy') : name);
-    const el = seg('dcSeg', S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, word(v, name))], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
+    const el = seg(id, S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, word(v, name))], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
     el.classList.add('sty-seg');
     for (const b of /** @type {HTMLElement[]} */ ([...el.children])) {
       const d = DC_STYLES.find((p) => p[0] === b.dataset.v);
@@ -489,12 +490,29 @@
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
   // opacity), lent while it is open)
   function patternBtn(side) {
-    const name = $t('Regions');
+    const name = SV.on ? $t('Colouring') : $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
     return b;
+  }
+  // the colouring's picker for a plane past the colour plane: whose colouring it is (with a way to its plane), the style
+  // row, the sectors or grid step the style takes, and the regions' grid lines. The steps view has one colouring, so
+  // every plane follows what is picked; the rows after the style row are made again when the style changes
+  function colourPop() {
+    const T = svT(), P = svPlanes(), p = svNameHtml(T);
+    const rows = h('div', { class: 'cp-rows' });
+    const fill = () => rows.replaceChildren(...colourScrubs(false, 'Pop'),
+      checkEl('linesChkPop', S.lines, $t('Grid lines on regions'), (v) => { setOpt('lines', v); requestRender('L', 'R', 'T'); drawLegend(); save(); }));
+    const style = styleSeg('dcSegPop');
+    for (const b of style.children) b.addEventListener('click', () => fill());
+    fill();
+    const el = h('div', { class: 'field-col cp-pop' },
+      h('div', { class: 'lbl', html: $t('Colouring of {p} (the colour plane)', { p }) }),
+      h('button', { type: 'button', class: 'btn small cp-go', onclick: () => { closePalette(); svGo(P.indexOf(T)); } }, h('span', { html: $t('Go to {p}', { p }) })),
+      style, rows);
+    return { el };
   }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
@@ -504,13 +522,17 @@
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
-    const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
+    // (the steps view's plane past the colour plane: the Regions button opens the colouring's picker, not the regions' display)
+    const colour = regionsOnly && SV.on ? colourPop() : null;
+    const regions = !colour && (regionsOnly || (head && stepsRegions())) ? $('regionsBox') : null;
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
     const regionsHead = regions && !regionsOnly && rest.length
       ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
-    const kids = regions ? [...rest, ...regionsHead, regions] : rest;
-    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
+    const kids = colour ? [...rest, colour.el] : regions ? [...rest, ...regionsHead, regions] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : '') + (colour ? ' cp-wide' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
+    // (the colouring's picker grows to fit its style row, up to the plot pane's width less a margin each side, then wraps)
+    if (colour) { const pn = btn.closest('.pane'); if (pn) pop.style.maxWidth = Math.max(300, pn.clientWidth - 32) + 'px'; }
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -542,26 +564,43 @@
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
-  // (v16.1 review math-6) D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few
-  // generic points (two surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so
-  // its two surfaces are one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
-  let sheetsD = { key: '', D: 0 };
+  // D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few generic points (two
+  // surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so its two surfaces are
+  // one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
+  // The distinct sheets among the K combos of map m (window W): the first combo of each class of combos whose values
+  // agree at every probe point (all of 0..K-1 when none repeats an earlier one).
+  // The sheets of √ then log coincide in pairs, so the surfaces drawn are these combos only. Cached per chain, map, focus, window.
+  const sheetUniqCache = new Map();
+  function sheetUniq(m, W, K) {
+    const key = `${chainSig[nSteps()]}|${mapKeyOf(m)}|${S.focus}|${W}|${K}`;
+    let r = sheetUniqCache.get(key);
+    if (r) return r.list;
+    const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [], list = [];
+    const fin = (u) => Number.isFinite(u.re) && Number.isFinite(u.im);
+    const same = (u, v) => (!u || !v ? u === v : !fin(u) || !fin(v) ? !fin(u) && !fin(v) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
+    for (let c = 0; c < K; c++) {
+      // a point where the sheet cannot be evaluated (a throw) counts as a missing value, which only equals another
+      const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
+      if (!reps.some((x) => x.every((w, i) => same(w, v[i])))) { reps.push(v); list.push(c); }
+    }
+    r = { list };
+    if (sheetUniqCache.size > 32) sheetUniqCache.delete(sheetUniqCache.keys().next().value);
+    sheetUniqCache.set(key, r);
+    return r.list;
+  }
+  // sheetUniq for map m as GLR.sheetInfo counts it (callers hold a multiSheet map, so GLR.sheetInfo exists)
+  function sheetUniqOf(m, W) {
+    const si = GLR.sheetInfo(m, W);
+    return si ? sheetUniq(m, W, si.K) : [0];
+  }
   function multiSheet() {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
+    // (a map GLR.sheetInfo cannot describe throws: no sheets)
     try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const m = endMap(), key = `${chainSig[nSteps()]}|${S.focus}|${ms.W}|${ms.K}`;
-    if (sheetsD.key !== key) {
-      const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [];
-      const same = (u, v) => (!u || !v ? u === v : !(Number.isFinite(u.re) && Number.isFinite(u.im) && Number.isFinite(v.re) && Number.isFinite(v.im)) ? !(Number.isFinite(u.re) && Number.isFinite(u.im)) && !(Number.isFinite(v.re) && Number.isFinite(v.im)) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
-      for (let c = 0; c < ms.K; c++) {
-        const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, ms.W, { a: m.a || 0 }); } catch (e) { return null; } });
-        if (!reps.some((r) => r.every((w, i) => same(w, v[i])))) reps.push(v);
-      }
-      sheetsD = { key, D: reps.length };
-    }
-    return sheetsD.D > 1 ? Object.assign({}, ms, { D: sheetsD.D }) : null;
+    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
+    return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
@@ -630,6 +669,7 @@
   // the title says "on the sheets of F" and the caption names the path on a sheet of each deformed root, power or log.
   function sheetsClause(sh, fmt, F) {
     const win = sh.pieces.some((q) => !(q.n > 0)), html = fmt === 'html', D = sh.D || sh.K, capped = sh.total > sh.K;
+    const nd = win ? D : sh.K;   // (the surfaces drawn: a window's coinciding combinations are one sheet)
     // (v16.1 verify-5: the window as drawn, centred on the step's own branch kb when every window piece has the same)
     const kbs = [...new Set(sh.pieces.filter((q) => !(q.n > 0)).map((q) => q.kb || 0))], kb = kbs.length === 1 ? kbs[0] : 0;
     const k = html ? `<i>k</i> = ${I18N.num(kb - sh.W).replace('-', '−')}…${I18N.num(kb + sh.W).replace('-', '−')}` : `k=${kb - sh.W},\\dots,${kb + sh.W}`;
@@ -638,15 +678,15 @@
       const Fh = fnHtml();
       if (capped) return win ? $t(', on {K} of the {total} sheet combinations of {F}, {k}', { K: sh.K, total: sh.total, F: Fh, k }) : $t(', on {K} of the {total} sheet combinations of {F}', { K: sh.K, total: sh.total, F: Fh });
       if (!win) return D === 2 ? $t(', on both sheets of {F}', { F: Fh }) : $tn(', on all {n} sheets of {F}', ', on all {n} sheets of {F}', D, { F: Fh });
-      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', sh.K, { k, F: Fh });
+      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', nd, { k, F: Fh });
     }
     if (html) {
       if (capped) return win ? $t(', {K} of {total} sheet combinations, {k}', { K: sh.K, total: sh.total, k }) : $t(', {K} of {total} sheet combinations', { K: sh.K, total: sh.total });
       if (!win) return D === 2 ? $t(', both sheets') : $tn(', all {n} sheets', ', all {n} sheets', D);
-      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', sh.K, { k });
+      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', nd, { k });
     }
     if (sh.hom) {
-      const p = { H: 'H_t', F: F || 'F', n: sh.K };
+      const p = { H: 'H_t', F: F || 'F', n: nd };
       const dk = sh.dk || {};
       // the paths on a sheet (a second sentence): z^alpha along z^sigma e^{2 pi i k sigma}, log along (z^u e^{2 pi i k u} - 1)/u + u,
       // in the caption's t when every piece deforms in it, else in the time s of the piece's own step (v16.1 verify-1:
@@ -665,7 +705,13 @@
     if (capped) return win ? { src: '; %{K} of the %{total} sheet combinations in the window %{k} are shown.', p: { K: sh.K, total: sh.total, k } } : { src: '; %{K} of the %{total} sheet combinations are shown.', p: { K: sh.K, total: sh.total } };
     if (!win) return D === 2 ? { src: '; both sheets are shown.', p: {} } : { src: null, p: { text: $tn('; all {n} sheets are shown.', '; all {n} sheets are shown.', D) } };
     if (sh.pieces.length === 1) return Number.isFinite(N) ? { src: '; the sheets %{k} of %{N} are shown.', p: { k, N } } : { src: '; the sheets %{k} of infinitely many are shown.', p: { k } };
-    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: sh.K, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: sh.K, k } };
+    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: nd, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: nd, k } };
+  }
+  // the Landscape title's sheets suffix, as both views' titles say it: which sheets are drawn (", both sheets"), or that one
+  // is while a deformation with no sheet form shows; '' for the principal branch
+  function landSheetsHtml() {
+    const shw = sheetsShown();
+    return shw ? sheetsClause(shw, 'html') : deformOneSheet() ? $t('; one sheet is drawn while it deforms') : '';
   }
   // the TeX parameters of a clause: the window k and, while deforming, H and F are math (wrap: {m} for capT, $..$)
   const sheetsTexP = (p, wrap) => { const r = Object.assign({}, p); for (const q of ['k', 'H', 'F']) if (r[q] != null) r[q] = wrap(r[q]); return r; };
@@ -693,7 +739,7 @@
     return true;
   }
   // [v16.5 UX67] the step editor's "Show all sheets": Landscape (3) with All sheets on
-  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); }
+  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); tourEmit('sheets-shown', {}); }
   function setSheets(on) {
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
@@ -851,6 +897,9 @@
     if (b.getAttribute('aria-pressed') !== pressed) b.setAttribute('aria-pressed', pressed);
     if (b.disabled !== !!noPaths) b.disabled = !!noPaths;
     if (b.dataset.tip !== tip) b.dataset.tip = tip;
+    // (a disabled button gets no pointer events, so its reason is also its description)
+    const desc = noPaths ? tip : '';
+    if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
@@ -876,6 +925,14 @@
   // X's strip (panels.md 4): the paint's part (Phase on: style, n, Δ, Outlines), then the surface's part (Sphere:
   // Equator, Reset camera; Landscape: height, sheets, scale, unit level, view, Reset camera). X Plane with Phase off
   // has none (the strip hides).
+  // the colouring's own scrubs after the style row: n, the sectors per turn, only for the styles it changes (Tiles,
+  // Contours, Cauchy's Tiles, the relief's), and the pulled-back grid's step; idSuffix tells a second copy's ids apart
+  function colourScrubs(land, idSuffix) {
+    const out = [];
+    if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+    if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+    return out;
+  }
   function buildFootL(f) {
     const Fn = fnText();
     // the Landscape view (merged-views.md): its height, then its colouring in one control: the phase colours the relief
@@ -905,9 +962,7 @@
           : $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name });
         f.append(h('span', { class: 'foot-note', html: noteHtml }));
       }
-      // (#247: n, the sectors per turn, only for the styles it changes: Tiles, Contours, Cauchy's Tiles, the relief's)
-      if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+      f.append(...colourScrubs(land, ''));
       if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines));
     }
     if (lGlobe()) {
@@ -1083,8 +1138,15 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
     if (!el || (!head && box.classList.contains('collapsed'))) return;
+    // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    if (head && c0.width) {
+      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
+    }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
     for (let i = 0; i < 3; i++) {
       const c = el.getBoundingClientRect();
@@ -1180,6 +1242,11 @@
       ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, sy - 2); ctx.lineTo(mx, sy + sh + 2); ctx.stroke();
     }
   }
+  // the modulus key's facts, shared by the pane and the export's still and video: the bands' light and dark ends, the
+  // factor per band, and the caption words around the plane's variable
+  const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
+  const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
+  const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
   function paintLegend(ctx, anyCut, kind, st) {
     const { W, H: Hh } = LEG;
     ctx.clearRect(0, 0, W, Hh);
@@ -1257,7 +1324,9 @@
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
+    // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
+      st.caption = t;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
       let x = LEG.W - 8;
       for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width; }
@@ -1276,6 +1345,7 @@
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
+      st.caption = words.join(' ');
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
@@ -1289,7 +1359,7 @@
     const Fl = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
-    if (kind !== '3d' && plainL) { caption(`arg ${Fl}`); return; }
+    if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
     // modulus strip
     st.strip = !(kind === 'color' && S.dc === 'classic');
     if (kind === 'color' && S.dc === 'classic') {
@@ -1302,7 +1372,7 @@
     } else {
       for (let b = 0; b < 3; b++) {
         const g = ctx.createLinearGradient(sx + b * sw / 3, 0, sx + (b + 1) * sw / 3, 0);
-        g.addColorStop(0, TH.dark ? '#3a4650' : '#9aa4ab'); g.addColorStop(1, TH.dark ? '#c9d2d8' : '#eef2f4');
+        g.addColorStop(0, keyStops(TH.dark)[0]); g.addColorStop(1, keyStops(TH.dark)[1]);
         ctx.fillStyle = g; ctx.fillRect(sx + b * sw / 3, sy, sw / 3, sh);
       }
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
@@ -1312,10 +1382,11 @@
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
-      else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
+      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
     }
-    const Fn = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
-    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
+    // (the steps view's Height key describes h(F), the same quantity on every plane)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
   // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
