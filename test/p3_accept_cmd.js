@@ -46,13 +46,21 @@ const frames = async () => {
   await ev('window.__p3D0 = window.__p3grab.L; __cmwSteps({ scope: "in" }); 1');
   await sleep(700);
 };
-// (the cuts of a step are drawn whole under Inside regions, also across the pixels outside its region (ux). Within CUT_PX of
-// that drawn curve the judge leaves out the pixels of the stroke's own colour, STROKE, alone or blended with the globe's
-// grey (its anti-aliased edge and halo: some t of STROKE over some grey from GREY_LO, each channel within STROKE_TOL);
-// any other tint or fill there still counts. leak: the control, which copies the Everywhere frame's coloured pixels over
-// up to 200 pixels outside the region within that band of the Inside frame, a fill leak right next to the cut)
-const CUT_PX = 3, STROKE = [204, 51, 17], GREY_LO = 150, STROKE_TOL = 10;
-const globeCheck = async (cls, step = 2, leak = false) => {
+// (the cuts of a step are drawn whole under Inside regions, also across the pixels outside its region (ux). Around the cut's
+// true image (CUT: its distance in w from the exact curve, written here and not taken from the app's drawn polyline) the
+// judge leaves out, within CUT_PX screen px (the distance over the pixel's footprint in w; the stroke's soft edge reaches about 8 px), the pixels of the stroke's own
+// colour, STROKE, alone or blended with the globe's grey (its anti-aliased edge and halo: some t of STROKE over some grey
+// from GREY_LO, each channel within STROKE_TOL); any other tint or fill there counts, and so does a stroke drawn where
+// the cut's image is not. leak: the control, which copies the Everywhere frame's coloured pixels over up to 200 pixels
+// outside the region in that band of the Inside frame, a fill leak right next to the cut)
+const CUT_PX = 8, STROKE = [204, 51, 17], GREY_LO = 150, STROKE_TOL = 10;
+// the exact images of the cut of z^i (the negative real axis, in plane z; in plane w1 the circles |w| = e^-pi and e^pi), and of log (the
+// lines Im w = -pi and pi); no cut: never near
+const CUT_NONE = '(w) => Infinity';
+const CUT_ZI_Z = '(w) => (w[0] < 0 ? Math.abs(w[1]) : Math.hypot(w[0], w[1]))';
+const CUT_ZI_W1 = `(w) => Math.min(Math.abs(Math.hypot(w[0], w[1]) - ${Math.exp(-Math.PI)}), Math.abs(Math.hypot(w[0], w[1]) - ${Math.exp(Math.PI)}))`;
+const CUT_LOG_W1 = `(w) => Math.min(Math.abs(w[1] - ${Math.PI}), Math.abs(w[1] + ${Math.PI}))`;
+const globeCheck = async (cls, step = 2, leak = false, cut = CUT_NONE) => {
   await frames();
   return ev(`(() => {
   const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect();
@@ -65,24 +73,17 @@ const globeCheck = async (cls, step = 2, leak = false) => {
   const proj = (p) => { const q = GLR.M4.apply(pc.MVP, p); return q[3] > 1e-6 ? [(q[0] / q[3] * 0.5 + 0.5) * r.width, (1 - (q[1] / q[3] * 0.5 + 0.5)) * r.height] : null; };
   const labs = [[0, 0, 1.1], [0, 0, -1.1], [1.06, 0, 0.1], [0, -1.06, 0.1], [-1.06, 0, 0.1], [0, 1.06, 0.1]].map(proj).filter(Boolean);
   const onLabel = (x, y) => labs.some((q) => Math.hypot(q[0] - x, q[1] - y) < 16);
-  // (the cuts' drawn image, which Inside regions draws whole: its pixels, within CUT_PX of a polyline of the curves the last
-  // frame stroked (__cmwCutCurves: a polyline of screen points, or a list of them), are left out; nothing else is)
-  const onCut = new Uint8Array(Wd * Hd);
-  for (const cc of __cmwCutCurves()) {
-    const lines = cc.s && cc.s.length && Array.isArray(cc.s[0]) && Array.isArray(cc.s[0][0]) ? cc.s : [cc.s || []];
-    for (const pl of lines) for (let k = 1; k < pl.length; k++) {
-      const p = pl[k - 1], q = pl[k]; if (!p || !q) continue;
-      const n = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1])));
-      for (let t = 0; t <= n; t++) {
-        const px = p[0] + (q[0] - p[0]) * t / n, py = p[1] + (q[1] - p[1]) * t / n;
-        for (let dy = -${CUT_PX}; dy <= ${CUT_PX}; dy++) for (let dx = -${CUT_PX}; dx <= ${CUT_PX}; dx++) {
-          const xx = Math.round(px) + dx, yy = Math.round(py) + dy;
-          if (xx >= 0 && yy >= 0 && xx < Wd && yy < Hd && dx * dx + dy * dy <= ${CUT_PX * CUT_PX}) onCut[yy * Wd + xx] = 1;
-        }
-      }
-    }
-  }
   for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const w = pick(x + 0.5, y + 0.5); C[y * Wd + x] = w ? (cls(w) || 2) : 3; WW.push(w); }
+  // (onCut: the pixels within CUT_PX of the cut's exact image: its distance in w over the pixel's footprint in w)
+  const cutD = ${cut};
+  const onCut = new Uint8Array(Wd * Hd);
+  for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) {
+    const w = WW[y * Wd + x], wx = x + 1 < Wd ? WW[y * Wd + x + 1] : null, wy = y + 1 < Hd ? WW[(y + 1) * Wd + x] : null;
+    if (!w || !wx || !wy) continue;
+    const fp = Math.max(Math.hypot(wx[0] - w[0], wx[1] - w[1]), Math.hypot(wy[0] - w[0], wy[1] - w[1]));
+    if (cutD(w) <= ${CUT_PX} * fp) onCut[y * Wd + x] = 1;
+  }
+  const near = (x, y) => { const c = C[y * Wd + x]; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) return true; if (dx * dx + dy * dy <= 16 && C[yy * Wd + xx] !== c) return true; } return false; };
   const S0 = ${JSON.stringify(STROKE)};
   const isStroke = (A, i) => {
     for (let t = 0; t <= 1.0001; t += 0.05) for (let g = ${GREY_LO}; g <= 255; g += 5) {
@@ -93,13 +94,12 @@ const globeCheck = async (cls, step = 2, leak = false) => {
   const injected = [];
   if (${leak}) {
     for (let y = 4; y < Hd - 4 && injected.length < 200; y++) for (let x = 4; x < Wd - 4 && injected.length < 200; x++) {
-      if (C[y * Wd + x] !== -1 || !onCut[y * Wd + x]) continue;
+      if (C[y * Wd + x] !== -1 || !onCut[y * Wd + x] || near(x, y)) continue;
       const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
       if (Math.max(D0[i], D0[i + 1], D0[i + 2]) - Math.min(D0[i], D0[i + 1], D0[i + 2]) < 40 || isStroke(D0, i)) continue;
       D1[i] = D0[i]; D1[i + 1] = D0[i + 1]; D1[i + 2] = D0[i + 2]; injected.push([x, y]);
     }
   }
-  const near = (x, y) => { const c = C[y * Wd + x]; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) return true; if (dx * dx + dy * dy <= 16 && C[yy * Wd + xx] !== c) return true; } return false; };
   const o = { inN: 0, inBad: 0, outN: 0, outBad: 0, badIn: [], badOut: [] };
   for (let y = 4; y < Hd - 4; y += ${step}) for (let x = 4; x < Wd - 4; x += ${step}) {
     const c = C[y * Wd + x]; if (c !== 1 && c !== -1) continue;
@@ -131,12 +131,12 @@ ok('(f) z^i(H) on the w-globe draws inverse', R.pathZi === 'inverse', R.pathZi);
 // the camera under the south pole, zoomed in on the hole cap (|w| < e^-pi is a cap of 5 degrees; closer, the
 // strokes, drawn on a shell 0.4 % above the globe, stand several px off their rims at the view's edges: parallax)
 await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1'); await settle(900);
-R.f_hole = await globeCheck(ANNULUS);
+R.f_hole = await globeCheck(ANNULUS, 2, false, CUT_ZI_W1);
 ok('(f) hole cap: globe-coloured, >= 400 samples', R.f_hole.outN >= 400 && R.f_hole.outBad === 0, R.f_hole);
 ok('(f) annulus near the hole: fill, >= 400 samples', R.f_hole.inN >= 400 && R.f_hole.inBad === 0, R.f_hole);
 await shot('p3_f_hole');
 await ev('__cmwCam("L", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await settle(900);
-R.f_side = await globeCheck(ANNULUS);
+R.f_side = await globeCheck(ANNULUS, 2, false, CUT_ZI_W1);
 ok('(f) annulus from the side: fill / outside clean', R.f_side.inN >= 400 && R.f_side.inBad === 0 && R.f_side.outBad === 0, R.f_side);
 await shot('p3_f_side');
 
@@ -168,7 +168,7 @@ await plane(1, 'sphere'); await settle();
 await ev('__cmwCam("L", { pitch: 1.2, yaw: -1.57, dist: 3 }); 1'); await settle(900);
 // (the cusp at the pole, where the strip is under a pixel wide and its pixels are partly covered, is left to logH_far)
 const STRIP = `(w) => (Math.hypot(w[0], w[1]) > 50 ? 0 : w[1] > 0 && w[1] < Math.PI ? 1 : -1)`;
-R.logH = await globeCheck(STRIP, 1);
+R.logH = await globeCheck(STRIP, 1, false, CUT_LOG_W1);
 // the fill pixel nearest the pole: its |w|, and the strip's width there in pixels (pi / footprint): the fill reaches
 // the pole when it ends where the strip is about a pixel wide (the lifted mesh stopped where it was still wide)
 R.logH_far = await ev(`(() => {
@@ -194,14 +194,14 @@ R.pathX0 = await drawn('s1');
 ok('the z-globe draws inverse', R.pathX0 === 'inverse', R.pathX0);
 await ev('__cmwCam("L", { pitch: 1.3, yaw: -1.0, dist: 3 }); 1'); await settle(900);
 const EXT = `(w) => (Math.hypot(w[0], w[1]) > 0.6 ? 1 : -1)`;
-R.x0 = await globeCheck(EXT);
+R.x0 = await globeCheck(EXT, 2, false, CUT_ZI_Z);
 ok('the z-globe: |z| > 0.6 covers the north pole, no hole', R.x0.inN >= 400 && R.x0.inBad === 0 && R.x0.outBad === 0, R.x0);
 await shot('p3_x0_ext');
 // and the upper half-plane on the z-globe, seen around the north pole (its rim, the real axis, runs through infinity)
 await load('p3x0h' + Date.now(), Object.assign({ shapes: [H], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 } }, base, IN(0)));
 await plane(0, 'sphere'); await settle();
 await ev('__cmwCam("L", { pitch: 1.3, yaw: -1.0, dist: 3 }); 1'); await settle(900);
-R.x0H = await globeCheck(`(w) => (w[1] > 0 ? 1 : -1)`);
+R.x0H = await globeCheck(`(w) => (w[1] > 0 ? 1 : -1)`, 2, false, CUT_ZI_Z);
 R.x0H_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && w[1] > 0 && Math.hypot(w[0], w[1]) > 20) n++; } return n; })()`);
 ok('the z-globe: Im z > 0 exact around the north pole', R.x0H.inN >= 400 && R.x0H.inBad === 0 && R.x0H.outN >= 400 && R.x0H.outBad === 0 && R.x0H_far > 50, [R.x0H, R.x0H_far]);
 await shot('p3_x0_H');
@@ -217,7 +217,7 @@ const DZ = `(w) => (Math.hypot(w[0] - 0.3, w[1] - 0.8) < 0.3 ? 1 : -1)`;
 for (const [k, cam, cls, tag] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2 }, DZI, 'sc_w1'], [0, { pitch: -0.5, yaw: -1.7, dist: 3.2 }, DZ, 'sc_z']]) {
   await plane(k, 'sphere'); await settle();
   await ev(`__cmwCam('L', ${JSON.stringify(cam)}); 1`); await settle(900);
-  R[tag] = await globeCheck(cls, 1);
+  R[tag] = await globeCheck(cls, 1, false, k === 1 ? CUT_ZI_W1 : CUT_ZI_Z);
   // the scissor the pass used (the same function, this camera): a real one, smaller than the pane
   const g0 = await ev('GLR.inverseGlobeScissors'); await ev(`__cmwCam('L'); __cmwSet('alpha', 1); 1`); await settle(400);
   const g1 = await ev('GLR.inverseGlobeScissors');
@@ -235,12 +235,12 @@ R.pathN = await drawn('s1');
 R.stageN = await ev('__cmwLook("s1", "L").stage');
 ok('(n) plane w1 on the globe draws inverse', R.stageN === 1 && R.pathN === 'inverse', [R.stageN, R.pathN]);
 await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1'); await settle(900);
-R.n_hole = await globeCheck(ANNULUS);
+R.n_hole = await globeCheck(ANNULUS, 2, false, CUT_ZI_W1);
 ok('(n) plane w1 on the globe: hole cap empty, annulus filled', R.n_hole.outN >= 400 && R.n_hole.outBad === 0 && R.n_hole.inN >= 400 && R.n_hole.inBad === 0, R.n_hole);
 await shot('p3_n_hole');
 // the judge's control: a fill leak right next to the cut (the Everywhere colour copied over outside pixels within the cut's
 // band) is counted, so the stroke-colour exclusion does not hide it
-R.n_leak = await globeCheck(ANNULUS, 2, true);
+R.n_leak = await globeCheck(ANNULUS, 2, true, CUT_ZI_W1);
 ok('(n) control: a fill leak next to the cut is counted by the judge', R.n_leak.injected >= 20 && R.n_leak.outBad >= 20, R.n_leak);
 
 // ---- (g) plane w1 of [z^i, z^2] on the Plane surface is exact: its fill equals the CPU render of z^i(H) (IoU >= 0.999)
