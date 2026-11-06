@@ -1,5 +1,4 @@
-// The "plane" piece (notes/ux-build/w1-plane-AS-BUILT.md): every fix of UX09, UX10, UX14, UX15, UX27,
-// UX37, UX44, UX48, UX51, UX52, UX55, UX56, UX66, UX67, UX86, UX91, UX92, UX94, UX95, UX100, UX101, UX105, in the real
+// The "plane" piece (notes/ux-build/w1-plane-AS-BUILT.md): its fixes, in the real
 // app with real input: the laptop at 1366 × 768 (mouse, keys), the phone at 412 × 860 (Android emulation, real touch
 // events through Input.dispatchTouchEvent), 915 × 412 where it matters; English, and Russian where words changed.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/ux165_plane_cmd.js

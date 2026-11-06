@@ -132,7 +132,7 @@ z = await zp();
 ok('+ pole adds a pole in view', Funcs_split(z.params.poles).length === 2 && z.handles.some((q) => q.kind === 'poles' && q.i === 1 && q.x > pane.left && q.x < pane.left + pane.w), z);
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:1"] ~ .zp-del'); await settle(600);
 ok('x removes it', Funcs_split((await zp()).params.poles).length === 1, (await zp()).params);
-// UX54: x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
+// x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
 const zSyms = () => ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] .zp-sym.zeros')].map((e) => e.textContent)`);
 info.zSyms0 = await zSyms();
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"] ~ .zp-del'); await settle(600);

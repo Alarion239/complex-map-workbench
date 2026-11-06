@@ -1,7 +1,7 @@
 // Release smoke: test/rel164_smoke_cmd.js (sections 0b to 12) plus these items
 // from test/rel1631_smoke_cmd.js: 10 (desktop) the Orthogonal tool's first chip on one line (chip-wrap-1440), with
 // Whole | Inside; 11 (desktop) the touching circle's rings chip; 13 a perpendicular circle on the 3-point
-// circle through 0, 1, i with a decimal mirror pair (verify-1); 14 the loader toast: saved, by link and by a dropped
+// circle through 0, 1, i with a decimal mirror pair; 14 the loader toast: saved, by link and by a dropped
 // scene file (loader-toast); 15 (phone) a quick tap on Landscape while the page is busy, and a real long-press
 // (phone-landscape-tap). section 14 of rel1631_smoke_cmd.js (the tour card on landscape phones) is not here: the tour has
 // no pop-up card (the docked strip, section 0b).
@@ -634,7 +634,7 @@ ok('section 10b: no console errors or warnings', lH2.length === 0, lH2.slice(0, 
 }
 const lJ = errs(logs());
 ok('section 12: no console errors or warnings', lJ.length === 0, lJ.slice(0, 6));
-// 13. (verify-1) Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
+// 13. Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
 // P = 0.6 + 0.5i, Q = 5.5 + 0.5i (Q is P's mirror image in C): the pencil, undefined with its reason, not the
 // line through C's centre
 {

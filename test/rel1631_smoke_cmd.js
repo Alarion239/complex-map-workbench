@@ -1,6 +1,6 @@
 // Release smoke: test/rel163_smoke_cmd.js (sections 1 to 11) plus these items: 10/11 the chip at
 // 1440 (chip-wrap-1440), 12 a perpendicular circle on the 3-point circle through 0, 1, i with a decimal mirror pair
-// (verify-1), 13 the loader toast, saved and by link (loader-toast), 14 (phone) the tour's shapes step in landscape
+// 13 the loader toast, saved and by link (loader-toast), 14 (phone) the tour's shapes step in landscape
 // (gate-tour-landscape-shapes), 15 (phone) a tap on Landscape while the page is busy, and a real long-press
 // (phone-landscape-tap). Section 9 waits for the Export dialog to stop moving before it clicks More formats
 // (smoke-more-formats). On the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a
@@ -481,7 +481,7 @@ ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6))
 const lI = errs(logs());
 ok('section 11: no console errors or warnings', lI.length === 0, lI.slice(0, 6));
 
-// 12. (verify-1) Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
+// 12. Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
 // P = 0.6 + 0.5i, Q = 5.5 + 0.5i (Q is P's mirror image in C): the pencil, undefined with its reason, not the
 // line through C's centre
 {

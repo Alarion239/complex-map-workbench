@@ -7,7 +7,7 @@
 //   L2 one Alt+→ on a focused card moves the step one place, not two (learn and chain built the same key: merged as one)
 //   L3 Examples: "New: empty canvas" first (chain) and the sound example's ♫ (learn) in the same list
 //   L4 the user's case (rail): Perpendicular circle on the shown unit circle, two picks on it: the circle is made; a press
-//      on the first pick is refused in the chip, by the pointer (plane's UX52 through the merge), not as a toast
+//      on the first pick is refused in the chip, by the pointer (the plane's merge), not as a toast
 //   L5 dark, Russian: loads with no console error; pictures
 //   P1 phone light: loads, no console error; Undo in a sheet's head (phone); the user's case with real taps
 //   P2 phone Russian: the More tools sheet's Construct tiles on one line each, «Гиперб.» for the new tool; no Ctrl/⌘ in a
