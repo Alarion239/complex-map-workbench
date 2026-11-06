@@ -90,7 +90,7 @@ res.push(bench('glide', glFeed));
   r.sort((a, b) => a - b);
   res.push({ name: 'limiter', us: +r[1].toFixed(1), pct: +(100 * r[1] / (128 / FS * 1e6)).toFixed(2), bad: 0 });
 }
-// 9. everything at once: the marimba at its busiest (it replaces the harp under the pointer), the singer, the
+// 9. everything at once: the marimba at its busiest (it sounds under the pointer), the singer, the
 // texture and the cues
 res.push(bench('all at once', (msg, q, T) => {
   if (q % 2 === 0) msg(ht200[(q / 2) % 12].map((c) => Object.assign({}, c, { at: T + 0.01 + (c.at || 0) })));
