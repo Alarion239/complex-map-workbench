@@ -1083,7 +1083,7 @@
   // svPolarWorst, a generator: the largest error, in px, of the cells of the annulus r1 to r2 about o under the map F
   // at the view v (hw, hh: the half sides of the box of the view's points that matter), over a grid of SV_POLAR_PROBE_R
   // radii by SV_POLAR_PROBE_T angles whose points land in the view: the middle of a cell's edge against the middle of
-  // its ends' pictures, in the angle (a conformal map's chord error is the same across as along, so the radial one is not measured)
+  // its ends' pictures, in the angle (a conformal map's chord error is the same across as along, so the radial one is not measured); points the pole of the map sets are left out
   function* svPolarWorst(F, o, r1, r2, v, hw, hh) {
     const d = 2 * Math.PI / SV_POLAR_NT, L = Math.log(r2 / r1);
     let worst = 0, n = 0;
@@ -1096,7 +1096,12 @@
         const m = at(th), a = at(th - d / 2), b = at(th + d / 2);
         if (!m || !a || !b || !CX.isFin(m) || !CX.isFin(a) || !CX.isFin(b)) continue;
         if (Math.abs(m.re - v.cx) > hw || Math.abs(m.im - v.cy) > hh) continue;
-        worst = Math.max(worst, Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2) * v.s);
+        const e = Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2) * v.s;
+        if (e <= worst) continue;
+        // (the same cell halved: a smooth map's error falls to a quarter, a pole's does not, so a point where it falls
+        // by less than 2.5 is the pole's, and no cell count brings it down)
+        const a2 = at(th - d / 4), b2 = at(th + d / 4);
+        if (a2 && b2 && CX.isFin(a2) && CX.isFin(b2) && Math.hypot(m.re - (a2.re + b2.re) / 2, m.im - (a2.im + b2.im) / 2) * v.s <= e / SV_POLAR_FALL) worst = e;
       }
     }
     return worst;
@@ -1190,7 +1195,7 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
-  const SV_POLAR_PROBE_R = 6, SV_POLAR_PROBE_T = 12, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 2 * SV_ALL_BASE * SV_ALL_BASE, SV_POLAR_DOUBLINGS = 4, SV_POLAR_STEP = 8, SV_POLAR_SPAN = 4;
+  const SV_POLAR_PROBE_R = 6, SV_POLAR_PROBE_T = 12, SV_POLAR_TOL = 1, SV_POLAR_FALL = 2.5, SV_POLAR_CELLS = 2 * SV_ALL_BASE * SV_ALL_BASE, SV_POLAR_DOUBLINGS = 4, SV_POLAR_STEP = 8, SV_POLAR_SPAN = 4;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
