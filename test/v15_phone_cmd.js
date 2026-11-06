@@ -32,7 +32,7 @@ const tap = async (sel, wait = 380) => {
   let c = await center(sel);
   if (!c && CHAIN.test(sel) && (await center('.ph-csteps'))) { const o = await center('.ph-csteps'); taps++; await touch(o[0], o[1]); await until(`!!document.querySelector(${JSON.stringify(sel)}) && ` + sheetSettled('chain')); c = await center(sel); }
   if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; }
-  taps++; await touch(c[0], c[1]); await settle(wait); return true;
+  taps++; await touch(c[0], c[1]); await (typeof wait === 'string' ? settled({ until: wait, max: 8000 }) : settle(wait)); return true;
 };
 const hold = async (x, y, ms, slide) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
@@ -113,7 +113,7 @@ for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) for (co
     // each sheet
     // (the Edit sheet of the selected step, the last)
     for (const [k, how] of [['edit', null], ['tools', '#toolMore > summary'], ['display', '#plotL .ph-dsp'], ['more', '#hdrMoreBtn']]) {
-      if (how) await tap(how, 450); else { await ev(`Phone.open('edit'), 1`); await settle(450); }
+      if (how) await tap(how, "document.documentElement.classList.contains('ph-sheet-on')"); else { await ev(`Phone.open('edit'), 1`); await settled({ until: "document.documentElement.classList.contains('ph-sheet-on')", max: 8000 }); }
       const s1 = await screen(), a1 = await audit(k === 'more' ? '.ph-sheet' : 'body');
       ok(`${tag}: ${k} sheet: no page scroll`, s1.sh <= s1.ih + 1 && s1.sw <= s1.iw + 1, s1);
       ok(`${tag}: ${k} sheet: nothing past the edges, no cut label`, !s1.out.length && !s1.cut.length, { out: s1.out, cut: s1.cut });
@@ -174,7 +174,7 @@ await loadChain('v15phS', { sel: 3 });
 await ev(`window.__phRO = []; window.__phT0 = 0; const ro = new ResizeObserver((es) => { for (const e of es) window.__phRO.push([e.target.id, Math.round(performance.now() - window.__phT0), Math.round(e.contentRect.width), Math.round(e.contentRect.height)]); }); ro.observe(document.getElementById('canvasL')); ro.observe(document.getElementById('canvasR')); setTimeout(() => { window.__phRO = []; }, 100); 1`);
 await settle(300);
 await ev(`window.__phT0 = performance.now(); window.__phRO = []; 1`);
-await ev(`Phone.open('edit'), 1`); await settle(700);
+await ev(`Phone.open('edit'), 1`); await settled({ until: "document.documentElement.classList.contains('ph-sheet-on')", max: 8000 });
 const ro = await ev('window.__phRO');
 const p1 = await panes();
 info.sheetResize = ro;
@@ -204,7 +204,7 @@ ok('landscape phone: no page scroll', sL.sh <= sL.ih + 1 && sL.sw <= sL.iw + 1, 
 ok('landscape phone: X | Y side by side', pL.L && pL.R && pL.L.w > 300 && pL.R.w > 300 && pL.L.t === pL.R.t, pL);
 ok('landscape phone: every control 44 × 44', aL.n === 0, aL);
 await shot('v15ph-land-844');
-await ev(`Phone.open('edit'), 1`); await settle(600);
+await ev(`Phone.open('edit'), 1`); await settled({ until: "document.documentElement.classList.contains('ph-sheet-on')", max: 8000 });
 const pL2 = await panes();
 ok('landscape phone: the editor is a side sheet; both planes stay in sight', pL2.L && pL2.R && pL2.L.w > 150 && pL2.R.l + pL2.R.w <= 844 - 359, pL2);
 await shot('v15ph-land-844-edit');

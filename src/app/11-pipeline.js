@@ -33,7 +33,7 @@
   // the block that step k is in, as repeatBlocks gives it, or null
   const repeatOf = (k) => repeatBlocks().find((r) => r.a <= k && k <= r.b) || null;
   // the keyboard goes back to a step's chip on the thread once the chain is drawn again: after a control that has gone,
-  // such as the Inspector's End the repeat, no longer holds it
+  // such as the Inspector's End the repeat, which holds it no more
   function focusStepChip(k) {
     requestAnimationFrame(() => {
       const el = svEl(k, 'chip');

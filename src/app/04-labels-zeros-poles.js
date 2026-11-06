@@ -773,7 +773,7 @@
       if (v != null && el.value !== zpShow(v)) { el.value = zpShow(v); el.classList.remove('bad'); }
     }
   }
-  // the Inspector's parameter fields of step k again (after a zero or pole was added or removed)
+  // the Inspector's parameter fields of step k, rebuilt after a zero or pole is added or removed
   function refreshZpFields(k) {
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return;
@@ -854,7 +854,7 @@
   }
   function paramField(st, k, q, pre = 'p') {
     const val = st.params[q.key] ?? q.def;
-    // (the step now in the chain: an Undo while the field is being typed in replaces the steps and keeps the field)
+    // (the step in the chain at this moment: an Undo while the field is being typed puts new step objects in the chain, and the field follows them)
     const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
     const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
     let input, extra = null, before = null;

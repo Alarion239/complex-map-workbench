@@ -89,7 +89,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 72px); }
 /* the big plane's chip is tagged by the plane's one name, X (Y after a swap); the readout itself says
    z = … and w = F(z) = … (no doubled z) */
-:root.ph #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph:not(.sv) #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }

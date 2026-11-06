@@ -30,9 +30,9 @@ const stepName = (k) => ev(`document.querySelector('#svStrip .sv-step[data-k="${
 // F's guarantees, as the Inspector lists them with F selected (the whole map's chip); the step selected before is selected again
 const fLamps = async () => {
   const sel = await ev('__cmwCards().sel');
-  await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`); await settle(600);
+  await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`); await settled({ until: "!!document.querySelector('#propsPanel .iform, #propsPanel .insp-step')", max: 8000 });
   const l = await ev('__qa.lamps()');
-  if (sel !== 'F') { await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="${sel}"] .sv-fchip'); if (c) c.click(); return 1; })()`); await settle(600); }
+  if (sel !== 'F') { await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="${sel}"] .sv-fchip'); if (c) c.click(); return 1; })()`); await settled({ until: `!!document.querySelector('#propsPanel .insp-step[data-k="${sel}"]')`, max: 8000 }); }
   return l;
 };
 // 1. (z^2 - 1)/z of a disc: handles, the card, exact at rest
