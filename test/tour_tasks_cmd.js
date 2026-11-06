@@ -1,4 +1,4 @@
-// The task lines #34 added (ux's approved table): Y's scroll or drag, Targets' disc drawn in Y, Natural domain's click on the whole map
+// The tour's task lines (ux's approved table): Y's scroll or drag, Targets' disc drawn in Y, Natural domain's click on the whole map
 // (the steps view), the derivative's click on its chip (the steps view) and Cauchy's drag of the circle. Each: nothing ticks without input; real mouse input ticks it
 // within 300 ms; the result line (then) shows; the tour's English line is the approved one. 1440 × 900, English.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];

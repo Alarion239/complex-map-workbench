@@ -106,14 +106,6 @@ await sleep(150);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
-// a door (the classic views' switch; no step of the steps view's tour is a door): Choose Phase moves on 0.7 s after it
-if (!SV) {
-  await goStep('views/switch');
-  const ph = await center('#viewSwitch > [data-mode="phase"]');
-  await click(ph[0], ph[1]); t0 = Date.now();
-  at = await advancedAt('views/switch', t0);
-  check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
-}
 // the chapter's last task: Phase key's check, or the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
 // (on a desktop the Phase key check is a toggle in Y's pane head; when the head has no room it is behind the
@@ -221,13 +213,6 @@ await ev('Tour.auto(false)');
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 check('Move on by itself off: tick and ring, no advance in 6 s', await stays(PAN, 6000) && (await ev(`document.querySelector('.ts-next').classList.contains('ready')`)));
-// (a door too, in the classic views, which have one)
-if (!SV) {
-  await goStep('views/switch');
-  const phd = await center('#viewSwitch > [data-mode="phase"]');
-  await click(phd[0], phd[1]);
-  check('Move on by itself off: a door (Three views) ticks and stays 2 × CD_MS', await stays('views/switch', CDMS * 2) && (await lit()).done, await lit());
-}
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {

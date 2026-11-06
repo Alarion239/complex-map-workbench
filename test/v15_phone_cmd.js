@@ -25,14 +25,14 @@ const touch = async (x, y, ms = 60) => {
   await sleep(ms);
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 };
-// (#246: on a phone Numbers is a row of the chain sheet; a tap on it while the sheet is closed is first the tap on
+// (on a phone Numbers is a row of the chain sheet; a tap on it while the sheet is closed is first the tap on
 // "N steps ▾" that opens it, as a user's, and it counts)
 const CHAIN = /\.ph-nums/;
 const tap = async (sel, wait = 380) => {
   let c = await center(sel);
   if (!c && CHAIN.test(sel) && (await center('.ph-csteps'))) { const o = await center('.ph-csteps'); taps++; await touch(o[0], o[1]); await until(`!!document.querySelector(${JSON.stringify(sel)}) && ` + sheetSettled('chain')); c = await center(sel); }
   if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; }
-  taps++; await touch(c[0], c[1]); await (typeof wait === 'string' ? settled({ until: wait, max: 8000 }) : settle(wait)); return true;
+  taps++; await touch(c[0], c[1]); await settled(typeof wait === 'string' ? { until: wait, max: 8000 } : { max: 8000 }); return true;
 };
 const hold = async (x, y, ms, slide) => {
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
@@ -130,7 +130,6 @@ for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) for (co
 await view(390, 844, false, true);
 await loadChain('v15phT');
 const T = async (name, max, fn) => { taps = 0; const r = await fn(); info.taps[name] = taps; ok(`task "${name}": done`, r === true, r); ok(`task "${name}": ${max} taps or fewer`, taps <= max, taps); await closeSheet(); await ev(`document.querySelectorAll('#popHost .pop, .modal-bg').forEach((e) => e.remove())`); await settle(150); };
-await T('Switch view', 1, async () => { await tap('#viewSwitch > button[data-mode="phase"]', 700); const s = await st(); const h = await ev(`document.querySelector('#viewSwitch > button[data-mode="phase"]').getBoundingClientRect().height`); await tap('#viewSwitch > button[data-mode="xy"]', 600); taps--; return s.view === 'phase' && h >= 44 || s; });
 await T('Undo (bottom row)', 1, async () => { const n0 = (await st()).shapes; await ev(`__cmwShapes && 0`); await ev(`(() => { document.querySelector('#tools .tool[data-tool="disc"]').click(); })()`); const L = await panes(); await drag(L.L.l + 120, L.L.t + 140, L.L.l + 170, L.L.t + 170, 8, 16); await settle(300); await ev(`document.querySelector('#tools .tool[data-tool="select"]').click()`); const n1 = (await st()).shapes; const y = await ev(`document.querySelector('.ph-undo').getBoundingClientRect().top`); await tap('.ph-undo', 500); const n2 = (await st()).shapes; return (n1 === n0 + 1 && n2 === n0 && y > 760) || { n0, n1, n2, y }; });
 await T('Draw a disc and watch its image', 1, async () => { const n0 = (await st()).shapes; await tap('#secDraw .tool[data-tool="disc"]'); const L = await panes(); await drag(L.L.l + 200, L.L.t + 160, L.L.l + 240, L.L.t + 190, 8, 16); await settle(400); const s = await st(); const ins = await ev(`!!document.querySelector('#paneR.ph-inset') && document.getElementById('paneR').getBoundingClientRect().width > 100`); await ev(`document.querySelector('#tools .tool[data-tool="select"]').click()`); return (s.shapes === n0 + 1 && ins) || { s, ins }; });
 // (#363: the regions' fill is the phase, no pattern to choose; their grid lines are the Display sheet's region option)
@@ -158,7 +157,6 @@ await T('Hide a shape (long-press it)', 2, async () => {
 });
 await ev(`document.getElementById('undoBtn').click()`); await settle(400);
 await T('Long-press then slide: no menu', 1, async () => { const L = await panes(); taps++; await hold(L.L.l + L.L.w * 0.5, L.L.t + L.L.h * 0.6, 650, [50, 30]); const any = await ev(`!!document.querySelector('#popHost .pop.menu')`); return !any || 'menu opened'; });
-await T('Play the deformation', 1, async () => { await tap('.pipe-wrap > #morphBtn', 900); const on = await ev(`document.documentElement.classList.contains('ph-morph')`); const dock = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const b = d.getBoundingClientRect(); return { top: Math.round(b.top), h: Math.round(b.height) }; })()`); const a = await audit('body'); ok('deformation: every control 44 × 44', a.n === 0, a); const s = await screen(); ok('deformation: nothing past the edges, no cut label', !s.out.length && !s.cut.length, s); await shot('v15ph-def-390-light-en'); await ev(`document.getElementById('morphBtn').click()`); await settle(500); return (on && dock && dock.top > 720 && dock.h <= 120) || { on, dock }; });
 await T('Export a figure (to the dialog)', 3, async () => { await tap('#hdrMoreBtn', 450); const rows = await ev(`[...document.querySelectorAll('.ph-sheet .ph-row')].map((b) => b.textContent)`); const i = rows.findIndex((t) => /Export figure/.test(t)); if (i < 0) return rows; await tap(`.ph-sheet .ph-row:nth-of-type(${i + 1})`, 900); const open = await ev(`!!document.querySelector('.modal.xf')`); return open || 'no dialog'; });
 await ev(`(() => { const b = document.querySelector('.modal.xf .close, .modal.xf [aria-label="Close"]'); if (b) b.click(); document.querySelectorAll('.modal-bg').forEach((e) => e.remove()); })()`); await settle(300);
 await T('Turn on sound', 2, async () => { await tap('#hdrMoreBtn', 450); await tap('.ph-sheet .ph-switch', 300); const on = await ev(`document.querySelector('.ph-sheet .ph-switch').getAttribute('aria-checked')`); await ev(`document.querySelector('.ph-sheet .ph-switch').click()`); return on === 'true' || on; });

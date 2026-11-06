@@ -14,6 +14,11 @@
 // Delete rec_deform afterwards (about 100 MB).
 // v15.2.1 (gate v15.2): the harp's notes are logged with Sound.cueHook, as test/sound_clicks_cmd.js does, so
 // test/sound_clicks.py excuses each pluck's own attack (with cues: [] every harp note counted as a click: 224 in 36 files).
+// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
+// the digit keys and the toggle button are gone
+const morphKey = () => ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()');
+const mainView = (m) => ev(`__cmwSetMain(${JSON.stringify(m)}); 1`);
+const morphPlayKey = () => ev('(() => { __cmwMorph({ togglePlay: true }); return 1; })()');
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const OUT = path.join(DIR, 'rec_deform'), OUTB = path.join(OUT, 'det');
 fs.mkdirSync(OUTB, { recursive: true });
@@ -68,44 +73,44 @@ for (const hz of [60, 240]) {
     // z⁵ on X's Phase plane: a still pointer, a loop repeat, a moving pointer
     await page('pow5', 'phase', hz); await thr();
     await rest(await W('L', ...Z));
-    await startRec(); await key('m'); await sleep(3000); await stopRec(`phasePlay_${tag}`); await key('m'); await sleep(500);
+    await startRec(); await morphKey(); await sleep(3000); await stopRec(`phasePlay_${tag}`); await morphKey(); await sleep(500);
     await ev(`__cmwSet('loop', true); 1`);
     await rest(await W('L', ...Z));
-    await key('m'); await sleep(1900); await startRec(); await sleep(1900); await stopRec(`loopWrap_${tag}`); await key('m'); await sleep(500);
+    await morphKey(); await sleep(1900); await startRec(); await sleep(1900); await stopRec(`loopWrap_${tag}`); await morphKey(); await sleep(500);
     await ev(`__cmwSet('loop', false); 1`);
     {
       const c = await W('L', ...Z);
-      await rest(c); await startRec(); await key('m');
+      await rest(c); await startRec(); await morphKey();
       await ev(`await __drive({ sel: '#overlayL', path: (u) => [${c[0]} + 25 * Math.sin(2 * Math.PI * 1.5 * u), ${c[1]} + 18 * Math.sin(2 * Math.PI * 2.5 * u)], rate: ${hz === 240 ? 240 : 60}, dur: 2.8, jitter: 0.25, stalls: 0.02, seed: 7 })`, 60000);
-      await stopRec(`jointMove_${tag}`); await key('m'); await sleep(500);
+      await stopRec(`jointMove_${tag}`); await morphKey(); await sleep(500);
     }
     // the merged deformation plane (X → Y): the first play fits the plane, then a still pointer and Play again
     await send('Emulation.setCPUThrottlingRate', { rate: 1 });
     await ev(`__cmwSetMain('xy')`); await sleep(1200);
-    await key('m'); await sleep(3400); await thr();
+    await morphKey(); await sleep(3400); await thr();
     await rest(await W('R', ...Z));
-    await startRec(); await ev(`document.getElementById('morphPlay').click(); 1`); await sleep(3000); await stopRec(`mergedPlay_${tag}`); await key('m'); await sleep(500);
+    await startRec(); await morphPlayKey(); await sleep(3000); await stopRec(`mergedPlay_${tag}`); await morphKey(); await sleep(500);
     // the Landscape: the needle on the relief
     await send('Emulation.setCPUThrottlingRate', { rate: 1 });
     await ev(`__cmwSetMain('land')`); await sleep(1800); await thr();
     {
       const r = await ev(`(() => { const b = document.getElementById('overlayL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
       await rest([r[0] + 0.62 * r[2], r[1] + 0.5 * r[3]]);
-      await startRec(); await key('m'); await sleep(3000); await stopRec(`landPlay_${tag}`); await key('m'); await sleep(500);
+      await startRec(); await morphKey(); await sleep(3000); await stopRec(`landPlay_${tag}`); await morphKey(); await sleep(500);
       // across a loop repeat (t back to 0 after the 1 s hold: the swap glide again)
       await ev(`__cmwSet('loop', true); 1`);
       await rest([r[0] + 0.62 * r[2], r[1] + 0.5 * r[3]]);
-      await startRec(); await key('m'); await sleep(3800); await stopRec(`landLoop_${tag}`); await key('m'); await sleep(500);
+      await startRec(); await morphKey(); await sleep(3800); await stopRec(`landLoop_${tag}`); await morphKey(); await sleep(500);
       await ev(`__cmwSet('loop', false); 1`);
     }
     // z − 1: a zero of H_t passes the still pointer; then the slider scrubbed back and forth, once a frame
     await page('zm1', 'phase', hz); await thr();
     await rest(await W('L', 0.5, 0.003));
-    await startRec(); await key('m'); await sleep(2800); await stopRec(`zeroSweep_${tag}`);
+    await startRec(); await morphKey(); await sleep(2800); await stopRec(`zeroSweep_${tag}`);
     await rest(await W('L', 0.5, 0.003));
     await startRec();
     await ev(`await (async () => { const r = document.getElementById('morphRange'), t0 = performance.now(); for (;;) { const u = (performance.now() - t0) / 2800; if (u >= 1) break; r.value = 0.5 + 0.5 * Math.cos(2 * Math.PI * 1.5 * u); r.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((res) => requestAnimationFrame(res)); } return 1; })()`, 60000);
-    await sleep(150); await stopRec(`scrub_${tag}`); await key('m'); await sleep(400);
+    await sleep(150); await stopRec(`scrub_${tag}`); await morphKey(); await sleep(400);
     // a zero dragged round the still pointer and through it, once a frame
     await page('zp', 'phase', hz); await thr();
     await rest(await W('L', 0.2, 0.5));

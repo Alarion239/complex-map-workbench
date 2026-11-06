@@ -21,7 +21,7 @@
   // CPU samples of what a stage shows, restricted to the part that comes from the visible z-window
   // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
   function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples ([#243] a costly fit runs in slices, fitRightSliced)
+  // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
   function* stageSampler(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
@@ -1333,7 +1333,7 @@
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
     if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
-    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (#363: Y's key chip names the grid's cell only while its lines are drawn)
+    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
     $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R'); save(); });
     $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R'); save(); });

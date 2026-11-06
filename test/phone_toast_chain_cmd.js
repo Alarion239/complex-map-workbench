@@ -1,4 +1,4 @@
-// A phone's message does not cover the More sheet (#464, #575): in English, Russian and Italian, at 360 × 640, 390 × 844 and
+// A phone's message does not cover the More sheet (#575): in English, Russian and Italian, at 360 × 640, 390 × 844 and
 // 740 × 360, with the More sheet open, a step added the way the palette adds one shows "Added f₄ …  Show alone  Undo"; the
 // sheet makes way for it by shrinking from its bottom edge (its head, ✕ and search field stay on the screen), and no control
 // of the sheet is under the message. In the steps view (ci/suite_views.js).

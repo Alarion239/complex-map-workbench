@@ -3144,10 +3144,10 @@
     };
     for (const type of ['pointerup', 'click', 'mouseup']) pop.addEventListener(type, eat, true);
   }
-  // (#437: stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
+  // (stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
   function stepMenuItems(anchor, k, opt) {
     const st = S.steps[k - 1], d = defOf(st);
-    // (D1, issue #23: Replace… first: the palette, ready to replace this step)
+    // (Replace… first: the palette, ready to replace this step)
     const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
     // (the Inspector's menu also holds Inverse and Bypass)
     if (opt && opt.full) {

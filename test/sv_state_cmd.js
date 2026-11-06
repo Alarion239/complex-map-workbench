@@ -95,7 +95,7 @@ for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind
   info[name] = st;
   ok(`old ${name} opens on its equivalent`, st.on && st.T === 3 && st.scope === want.scope && st.surf === want.surf && st.x === 0, st);
 }
-// old links and saves open unchanged in the classic view: a link made from an old state (rightMode of earlier builds) opens
+// old links and saves open unchanged in the classic view: a link made from an old state (rightMode, an old state's view field) opens
 // on its view, and nothing in the state or its saves gains an sv
 for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phase', { rightMode: 'color' }, 'phase'], ['Landscape', { rightMode: '3d', material: 'plaster' }, 'land']]) {
   await load(ns, {});
@@ -111,8 +111,8 @@ for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phas
   info['link ' + name] = r;
   ok(`old ${name} link opens in the classic view, unchanged, with no sv`, r && r.sv === false && r.main === main && r.n === 3 && r.steps === false, r);
 }
-// old links opened under ?view=steps land on their equivalent: both link forms (1. compressed, 0. plain), a state of an
-// earlier build (rightMode) for each of X → Y (with an area: Inside regions), Phase and Landscape. No saved state at the
+// old links opened under ?view=steps land on their equivalent: both link forms (1. compressed, 0. plain), a state with the old
+// rightMode field for each of X → Y (with an area: Inside regions), Phase and Landscape. No saved state at the
 // page's namespace, so the link opens at once; the page reloads on it
 for (const form of ['1', '0']) {
   for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1', ci: 0 }] }, { scope: 'in', surf: 'plane', main: 'phase' }], ['Phase', { rightMode: 'color' }, { scope: 'all', surf: 'plane', main: 'phase' }], ['Landscape', { rightMode: '3d', material: 'plaster' }, { scope: 'all', surf: 'land', main: 'land' }]]) {

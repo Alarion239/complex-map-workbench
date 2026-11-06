@@ -114,7 +114,6 @@ const VIEWS = {
   'tour_planes_cmd.js': steps(),
 
   // the classic views' own parts, pinned to the classic view
-  'deform_range_classic_cmd.js': classic('the Deformation bracket over the card row, its menu items and chain edits, the phone bar, the sound probe and the morph figure\'s captions: the thread\'s range is deform_range_cmd\'s and steps_play_cmd\'s'),
   'deform_range_cmd.js': steps({ pin: true }),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),

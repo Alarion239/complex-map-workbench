@@ -884,7 +884,7 @@
         if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
         input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
         commit();
-        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; #442 Square root's Try line)
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; Square root's Try line)
         if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
@@ -906,17 +906,17 @@
       const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
       input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
       if (num) input.dataset.num = '1';
-      // ([#240] the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
+      // (the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
       if (q.bound) input.dataset.bound = q.bound.join(',');
-      // ([#243] a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
+      // (a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
       // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
       // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
-      // ([#404] the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
+      // (the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
       // the text is dropped, not given by live() to the new chain's step of the same type at k)
       let due = 0, typedOn = null;
       const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
       input.addEventListener('input', () => {
-        // ([#398] the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
+        // (the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
         if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
         if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
@@ -930,7 +930,7 @@
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
-    // ([#336] a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    // (a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
     if (q.say) input.setAttribute('aria-label', q.say);
     const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];

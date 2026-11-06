@@ -49,7 +49,7 @@
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
     { name: 'chain of 4', run: async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } },
-      wait: 1500, ready: `__cmwP().steps.length >= 4`,
+      ready: `__cmwP().steps.length >= 4`,
       after: `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()` },
   ].map((s) => (s.click && !s.ready ? Object.assign({ ready: LAYER }, s) : s));
 

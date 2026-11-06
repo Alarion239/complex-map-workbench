@@ -67,15 +67,6 @@ await ev(`Phone.open('tools')`); await settle();
 await tap('.ph-sheet .ph-hundo');
 ok('UX24 Undo in the sheet head undoes', shapes1 === shapes0 + 1 && (await ev(`__tourApi.snapshot().state.shapes.length`)) === shapes0, [shapes0, shapes1]);
 await ev(`Phone.close(true)`); await settle();
-for (const [w, h] of [[412, 860], [360, 780]]) {
-  await view(w, h, false, true); await settle();
-  if (!(await ev(`!!document.querySelector('.tdock:not([hidden])')`))) { await ev(`document.getElementById('morphBtn').click()`); await settle(); }
-  const u = await box('#secDraw > .ph-undo'), x = await box('.tdock:not([hidden]) .tclose'), sp = await box('.tdock:not([hidden]) .tscrub');
-  ok(`UX24 ${w}: Undo stays at the left end of the deformation bar`, u && u.top && u.w >= 44 && u.l < 10, u);
-  ok(`UX24 ${w}: the bar's × is whole on the screen`, x && x.top && x.r <= w, x);
-  ok(`UX24 ${w}: the scrubber keeps at least 72 px`, sp && sp.w >= 72, sp);
-}
-await ev(`document.getElementById('morphBtn').click()`); await settle();
 await grab();
 
 // ---------------- tooltips never stick ----------------
@@ -245,8 +236,8 @@ const keys = () => ev(`(() => { const o = {}; for (const e of document.querySele
 const kv = {};
 kv.xy = await keys();
 await ev('Phone.swap()'); await settle(); kv.swap = await keys(); await ev('Phone.swap()'); await settle();
-await ev(`document.querySelector('#viewSwitch [data-mode="phase"]').click()`); await settle(); kv.phase = await keys();
-await ev(`document.querySelector('#viewSwitch [data-mode="land"]').click()`); await settle(); kv.land = await keys();
+await ev(`__cmwSetMain('phase'); 1`); await settle(); kv.phase = await keys();
+await ev(`__cmwSetMain('land'); 1`); await settle(); kv.land = await keys();
 info.keys = kv;
 for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`UX38 ${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
 for (const v of ['swap', 'phase']) ok(`UX38 sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
@@ -261,18 +252,10 @@ const bg = [im.data[0], im.data[1], im.data[2]];
 for (let y = Math.round(im.height * 0.2); y < im.height * 0.8; y += 2) for (let x = 0; x < im.width; x++) { const i = im.ch * (y * im.width + x); if (Math.abs(im.data[i] - bg[0]) + Math.abs(im.data[i + 1] - bg[1]) + Math.abs(im.data[i + 2] - bg[2]) > 60) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); } }
 info.landWidth = [(x1 - x0) / im.width];
 ok('UX106 the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
-await ev(`document.querySelector('#viewSwitch [data-mode="xy"]').click()`); await settle();
+await ev(`__cmwSetMain('xy'); 1`); await settle();
 await view(915, 412, false, true); await settle();
 const k915 = await ev(`[...document.querySelectorAll('.ph-col')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
 ok('UX38 915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
-await grab();
-
-// ---------------- the speed key cycles ----------------
-await fresh('speed', 412, 860, false, true);
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-const speeds = [];
-for (let i = 0; i < 4; i++) { speeds.push(await ev(`document.querySelector('.tdock:not([hidden]) #speedSeg > button.on').textContent`)); await tap('.tdock:not([hidden]) #speedSeg > button.on'); }
-ok('UX62 a tap on the speed moves on: 1×, 2×, 0.5×, 1×', speeds.join(' ') === '1× 2× 0.5× 1×', speeds);
 await grab();
 
 // ---------------- the Shapes list, the ⋯ sheet, the long-press tips ----------------
@@ -296,27 +279,6 @@ const more = await ev(`({ text: document.querySelector('.ph-sheet[data-k="more"]
 ok('V02 the links and scene files are rows of the ⋯ sheet', ['Copy link to this figure', 'Save scene', 'Open scene'].every((w) => more.rows.some((r) => r.includes(w))), more.rows);
 ok('V02 no key shortcuts and no "again" rows before a first export', !/⌘|Ctrl E|again/.test(more.text), more.text);
 await grab();
-
-// ---------------- the deformation bar in two rows, a full-width scrubber, the Steps picker ----------------
-await withState('d11', 412, 860, true, { shapes: [], steps: STEPS2 });
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-const dk = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), scrub: r(d.querySelector('.tscrub')), range: r(d.querySelector('#morphRange')), play: r(d.querySelector('#morphPlay')), steps: r(d.querySelector('#stepsBtn')), close: r(d.querySelector('.tclose')), undo: r(document.querySelector('#secDraw > .ph-undo')), read: r(d.querySelector('.tscrub > .tread')), label: (d.querySelector('#stepsBtn') || {}).textContent, picked: d.querySelector('#stepsPick') && !d.querySelector('#stepsPick').hidden }; })()`);
-ok('D11 two rows: the scrubber the full width, play, Steps and × below it, 44 px tall', dk && dk.range.w >= 412 - 24 && dk.play.t >= dk.scrub.t + dk.scrub.h - 2 && dk.steps.t === dk.play.t && dk.close.t === dk.play.t && dk.play.h >= 44 && dk.steps.h >= 44 && dk.close.h >= 44 && dk.range.h >= 44, dk);
-ok('D11 the tool row\'s Undo stays at the left end of the second row', dk && dk.undo && dk.undo.l < dk.play.l && Math.abs(dk.undo.t + dk.undo.h / 2 - (dk.play.t + dk.play.h / 2)) < 12, dk);
-ok('D11 the readout rides the scrubber, the Steps button names the range', dk && dk.read && dk.read.t < dk.range.t + 10 && /Every step|Steps/.test(dk.label), dk);
-await ev(`document.getElementById('stepsBtn').click()`); await settle();
-const pk = await ev(`(() => { const p = document.getElementById('stepsPick'); const b = p.getBoundingClientRect(); const c = [...p.querySelectorAll('select, input[type=checkbox]')].map((e) => ({ id: e.id || e.getAttribute('aria-label'), vis: e.getClientRects().length > 0 })); return { open: !p.hidden, bottom: Math.round(b.bottom), top: Math.round(document.querySelector('.tdock:not([hidden])').getBoundingClientRect().top), c, loop: !!p.querySelector('#loopChk'), order: !!p.querySelector('#homOrderSel') }; })()`);
-ok('D11 the Steps picker holds the range, the order and Loop, above the bar', pk.open && pk.bottom <= pk.top && pk.loop && pk.order && pk.c.length >= 4 && pk.c.every((x) => x.vis), pk);
-await ev(`document.getElementById('stepsBtn').click()`); await settle();
-ok('D11 the picker closes', await ev(`document.getElementById('stepsPick').hidden`));
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-await withState('d11l', 915, 412, true, { shapes: [], steps: STEPS2 });
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-await settled({ max: 4000, until: `!!document.querySelector('.tdock:not([hidden])')` });   // (the dock is built after the click's frames)
-const dlState = await ev(`({ cls: document.documentElement.className, btn: !!document.getElementById('morphBtn'), docks: [...document.querySelectorAll('.tdock')].map((d) => [d.id, d.hidden, d.children.length]) })`);
-const dl = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), range: r(d.querySelector('#morphRange')), col: r(document.getElementById('secDraw')), undo: r(document.querySelector('#secDraw > .ph-undo')), ih: innerHeight }; })()`);
-ok('D11 landscape: one row left of the tool column with a wide scrubber, Undo kept in the column', dl && dl.dock && dl.dock.t + dl.dock.h <= dl.ih + 1 && dl.dock.l + dl.dock.w <= dl.col.l + 1 && dl.range.w >= 300 && dl.undo.l >= dl.col.l - 1, { dl, dlState });
-await ev(`document.getElementById('morphBtn').click()`); await settle();
 
 // ---------------- the Both key shows X above Y; remembered ----------------
 await withState('both', 412, 860, true, { shapes: [], steps: STEPS2 });

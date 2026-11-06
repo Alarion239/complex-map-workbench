@@ -2,8 +2,7 @@
 // pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, which replaced the
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
 // a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1), and while the
-// deformation plays, the last loop's note changes the moment a zero crosses it; palette B's scrub (the air, the
-// landmarks) and the motion bed; Esc and off silent. A command file for the CDP daemon (test/cdp_kit README):
+// deformation plays, the last loop's note changes the moment a zero crosses it; the motion bed; Esc and off silent. A command file for the CDP daemon (test/cdp_kit README):
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
@@ -20,6 +19,11 @@ const loadHere = async (ns, st) => {
 // the crossings merged into one note, cracks the cuts; as sound_cmd.js's hearCount)
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__hearCount = () => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; }; })();' });
 const fails = [], R = {};
+// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
+// the digit keys and the toggle button are gone
+const morphKey = () => ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()');
+const mainView = (m) => ev(`__cmwSetMain(${JSON.stringify(m)}); 1`);
+const morphPlayKey = () => ev('(() => { __cmwMorph({ togglePlay: true }); return 1; })()');
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
@@ -102,7 +106,7 @@ await start('z-1');
   const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); }
   await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`);
   await move(5, 600); await settle(200);
-  await key('m');
+  await morphKey();
   const tr = await ev(`await new Promise((res) => { const out = [], t0 = performance.now(); const f = () => { const s = __cmwSound(), m = __cmwState().morph; out.push([s.cv.T == null ? m.T : s.cv.T, s.cv.W, s.cv.on ? 1 : 0, Sound.singState().on ? 1 : 0]); if (performance.now() - t0 < 2600) requestAnimationFrame(f); else res(out); }; requestAnimationFrame(f); })`, 20000);
   const Ws = tr.filter((x) => x[1] != null);
   const step = tr.find((x, i) => i && x[1] === 1 && tr[i - 1][1] !== 1);
@@ -117,25 +121,8 @@ await start('z-1');
   R.deformAfter = { sing: await ev('Sound.singState()'), cv: (await snd()).cv };
   ok('deformation: the note fades 0.9 s after t stops', !R.deformAfter.sing.on && !R.deformAfter.cv.on, R.deformAfter);
   // the motion bed is off while Hear F is on; with Hear F off it follows a play (the synth's texture 2)
-  await key('m'); await settle(300);
+  await morphKey(); await settle(300);
 }
-
-// 4. palette B's scrub with the slider (real input events): the landmarks ring, the texture runs, it fades on release
-await ev(`Sound.set({ sonify: false }); 1`);
-await key('m'); await sleep(2800); await made();
-{
-  const r = await ev(`(() => { const e = document.getElementById('morphRange').getBoundingClientRect(); return [e.left, e.right, e.top + e.height / 2]; })()`);
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r[1] - 2, y: r[2] });
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: r[1] - 2, y: r[2], button: 'left', clickCount: 1 });
-  let mid = null;
-  for (let i = 1; i <= 50; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r[1] - 2 - (r[1] - r[0] - 4) * i / 50, y: r[2], button: 'left', buttons: 1 }); await sleep(16); if (i === 25) mid = await ev('Sound.scrubState()'); }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: r[0] + 2, y: r[2], button: 'left', clickCount: 1 });
-  await sleep(200);
-  R.scrub = { mid, after: await ev('Sound.scrubState()'), made: await made() };
-  const lm = R.scrub.made.filter((x) => x === 'landmark').length;
-  ok('scrub: the air while dragging, the landmarks ¾ ½ ¼ 0 (3 to 4), no other cue; the air ends on release', mid.tex && mid.v > 0.3 && !R.scrub.after.tex && lm >= 3 && lm <= 4 && R.scrub.made.every((x) => x === 'landmark'), R.scrub);
-}
-await key('m'); await settle(300);
 
 // 5. off while the notes ring: silent, suspended
 await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
@@ -153,7 +140,7 @@ for (const hear of [false, true]) {
   if (hear) { const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); } await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`); }
   await move(5, 600); await settle(200);
   await ev(`__cmwSet('morphSecs', 4); 1`);
-  await key('m'); await sleep(600);
+  await morphKey(); await sleep(600);
   const before = { arm: (await snd()).morphArm, sing: (await ev('Sound.singState()')).on };
   await key('Escape');
   const after = [];
@@ -161,8 +148,8 @@ for (const hear of [false, true]) {
   R['esc' + (hear ? 'HearOn' : 'HearOff')] = { before, after };
   ok(`Esc while the deformation plays (Hear F ${hear ? 'on' : 'off'}): it plays on, and nothing sounds again (no motion bed, no loop note) for 0.8 s`, after.some((a) => a.playing) && after.every((a) => !a.arm && !a.sing && !a.cv) && (hear ? before.sing : before.arm), { before, after });
   // the next action lets it sound: Play again
-  if (hear) { await key('m'); await sleep(150); await key('m'); await sleep(700); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }
-  await key('m'); await settle(200);
+  if (hear) { await morphKey(); await sleep(150); await morphKey(); await sleep(700); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }
+  await morphKey(); await settle(200);
 }
 // 7. (review sound-3) a finger held still 10 px from a zero on the D line (arg F = 0), trembling ±1.5 px at about
 // 9 Hz for 3 s: no note (the harp chattered there: 100+ notes in 10 s before; the notes' Schmitt band holds)

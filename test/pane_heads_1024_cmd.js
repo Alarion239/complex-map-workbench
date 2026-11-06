@@ -1,4 +1,4 @@
-// Y's head beside the Inspector at 1024 and 1100 px (issues #356, #357): with the example "Cayley, then cube" and the
+// Y's head beside the Inspector at 1024 and 1100 px: with the example "Cayley, then cube" and the
 // Inspector open, Y's head keeps "Plane | Sphere" in words (no tab cut; its key chip folds to its glyph first, its value
 // kept in its accessible name, then the head packs closer, then its status light goes). At 1280 px nothing folds. en,
 // ru, it. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.

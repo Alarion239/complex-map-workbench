@@ -82,7 +82,6 @@ const SUITES = {
 
   // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
   // repository: work/xv16-merged-snap; the released build differs from it by design)
-  'deform_range_classic_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
   // (its default is 7 sizes × 2 themes × 2 languages × 2 inputs, about 2 hours on a Mac GPU: here a phone and a desktop,
   // both themes and languages, each with its own input)
   'tour_audit_cmd.js': { runs: [audit('phone', [[390, 844]], ['touch'], [390]), audit('desktop', [[1440, 900]], ['mouse'], [1440])] },

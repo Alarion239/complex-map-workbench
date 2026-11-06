@@ -28,6 +28,8 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const part = typeof PART !== 'undefined' ? PART : 'swap';
 const fails = [], info = {};
+// the deformation opens and closes through its hook (the toggle button is gone), the phone's layout following it
+const morphToggle = async () => { await ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()'); await settled({ until: "document.documentElement.classList.contains('ph-morph') === __cmwMorph().open", max: 8000 }); };
 const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const TOL = 0.005;
 const SHAPES = [
@@ -207,7 +209,7 @@ for (const mk of mapsFor) {
     await rounds(mk + ' Phase and back (Y large)', 10, [to('phase'), to('xy')], { mid: [] });
     await grab();
   } else if (part === 'deform') {
-    const tog = async () => { await tapSel('#morphBtn', 700); };
+    const tog = () => morphToggle();
     await rounds(mk + ' Deformation (X large)', 20, [tog, tog], { mid: [] });
     await swapTap();
     await rounds(mk + ' Deformation (Y large)', 10, [tog, tog], { mid: [] });
@@ -274,9 +276,9 @@ for (const mk of mapsFor) {
         if (how === 'phase') await swapTap();   // X the inset
         const b0 = await W();
         for (let r = 1; r <= 3; r++) {
-          if (how === 'phase') await to('phase'); else { await click('#morphBtn'); await settle(800); }
+          if (how === 'phase') await to('phase'); else { await morphToggle(); }
           await view(1200, 900, false, false); await settle(900);
-          if (how === 'phase') await to('xy'); else { await click('#morphBtn'); await settle(800); }
+          if (how === 'phase') await to('xy'); else { await morphToggle(); }
           await view(390, 844, false, true); await settle(900);
           if (how === 'phase' && (await W()).big !== 'R') await swapTap();
           both(`leave in ${how}, round ${r}`, await W(), b0);
@@ -291,10 +293,10 @@ for (const mk of mapsFor) {
       const b0 = await W();
       for (let r = 1; r <= 3; r++) {
         await swapTap();
-        await click('#morphBtn'); await settle(800);
+        await morphToggle();
         await sleep(1500);
         await nav(URL0('rv-reload')); await settle(1500);
-        if ((await W()).deform) { await click('#morphBtn'); await settle(800); }
+        if ((await W()).deform) { await morphToggle(); }
         const w = await W();
         chk(`reload in the Deformation, round ${r}: X`, w.L, b0.L);
         if (w.big !== 'L') fails.push({ name: 'reload: X not large', got: w.big });
@@ -370,7 +372,7 @@ for (const mk of mapsFor) {
       await fresh('rv-byp'); await userViews(); await swapTap();   // Y large, X the inset
       const b0 = await W();
       const byp = async () => { await click('.icon-btn.bypass'); await settle(900); };
-      await click('#morphBtn'); await settle(800);
+      await morphToggle();
       const d0 = await W();
       await byp();
       const a = await W();
@@ -381,7 +383,7 @@ for (const mk of mapsFor) {
       const c = await W();
       await sleep(1500);
       await nav(URL0('rv-byp')); await settle(1500);
-      if ((await W()).deform) { await click('#morphBtn'); await settle(800); }
+      if ((await W()).deform) { await morphToggle(); }
       const r = await W();
       chk('a save while the Deformation shows again, then a reload: X', r.L, b0.L);
       info.bypass = { start: `L ${fmt(b0.L)} | R ${fmt(b0.R)}`, ended: `L ${fmt(a.L)} | R ${fmt(a.R)}`, again: `${c.deform} L ${fmt(c.L)}`, reload: `L ${fmt(r.L)}` };

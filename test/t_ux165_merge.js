@@ -30,7 +30,7 @@ const ents = Object.entries(MERGE_RU).filter(([k]) => !k.startsWith('_'));
 ok('the merge\'s table: every entry has en and ru', ents.length >= 6 && ents.every(([, v]) => v.en && v.ru), ents.length);
 ok('the merge\'s table: every string is in the shipped table', ents.every(([, v]) => TABLE[keyOf(v)] === v.ru), ents.filter(([, v]) => TABLE[keyOf(v)] !== v.ru).map(([k]) => k));
 
-// ---- the thread's keys: one Alt+←/→ branch (#595: the Alt+arrow reading is stepEditKey's, once; the thread's chips
+// ---- the thread's keys: one Alt+←/→ branch (the Alt+arrow reading is stepEditKey's, once; the thread's chips
 // read it)
 const sk = fnBody(APP, 'stepEditKey');
 ok('stepEditKey: one Alt+arrow branch, read by the thread\'s chips', (sk.match(/[^!]e\.altKey && /g) || []).length === 1 && /const ed = stepEditKey\(e\)/.test(APP), { sk: sk.slice(0, 200) });
