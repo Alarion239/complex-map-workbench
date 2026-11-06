@@ -126,7 +126,7 @@ if (!tl.err) {
   const { execFileSync } = await import('node:child_process'), fs = await import('node:fs'), os = await import('node:os');
   const file = `${os.tmpdir()}/cmw_tl_${process.pid}.pdf`;
   fs.writeFileSync(file, Buffer.from(tl.pdf, 'base64'));
-  let txt = ''; try { txt = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' }); } catch (e) { txt = 'ERR ' + e.message; } finally { fs.rmSync(file, { force: true }); }
+  let txt = ''; try { txt = execFileSync('pdftotext', ['-raw', file, '-'], { encoding: 'utf8' }); } catch (e) { txt = 'ERR ' + e.message; } finally { fs.rmSync(file, { force: true }); }
   const at = (w) => txt.search(new RegExp(`(^|\\s)${w}(\\s|$)`));
   ok('pdftotext lists the panel names, then the arrow\'s label', at('z') >= 0 && at('w2') > at('z') && at('F') > at('w2'), txt);
 }

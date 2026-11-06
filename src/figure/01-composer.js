@@ -95,7 +95,7 @@
       .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (m, n, d) => `${part(n.trim())}/${part(d.trim())}`)
       .replace(/\\(?:bar|overline)\s*(?:\{([^{}]*)\}|([A-Za-z]))/g, (m, a, b) => `${a || b}̄`)
       .replace(/_\{?(\d+)\}?/g, (m, d) => [...d].map((c) => SUB[+c]).join(''))
-      .replace(/\\([A-Za-z]+)\s*/g, (m, n) => SYM[n] || '')
+      .replace(/\\([A-Za-z]+)/g, (m, n) => SYM[n] || '')
       .replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
   };
   // the kinds of label that carry text, in reading order: a panel's name (its title or its variable), the map arrow's label, the colour key's words,
