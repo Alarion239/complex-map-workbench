@@ -365,9 +365,21 @@
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
+    // (a run of nudges of one shape is one undo step: a press within a moment of the last takes that press's history entry back before it commits)
+    const now = performance.now();
+    if (nudgeRun && nudgeRun.id === s.id && nudgeRun.hi === hi && now - nudgeRun.t < 1500 && hi > 0) { hist.pop(); hi = hist.length - 1; }
     commit();
+    nudgeRun = { id: s.id, hi, t: now };
+    // (and once the run stops, the shape's place is said once: the toast host is a live region)
+    clearTimeout(nudgeSayT);
+    nudgeSayT = setTimeout(() => {
+      const b = Region.bboxOf(s), name = shapeNames(isTarget(s) ? S.targets : S.shapes).get(s.id);
+      if (!selected || selected !== s.id || !name) return;
+      toast(b ? $t('Moved {name} to {x}, {y}.', { name, x: fmtR((b.x0 + b.x1) / 2, 3), y: fmtR((b.y0 + b.y1) / 2, 3) }) : $t('Moved {name}.', { name }));
+    }, 700);
     return true;
   }
+  let nudgeRun = null, nudgeSayT = 0;
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
     moveShapeTo(id, list.findIndex((x) => x.id === id) + d);

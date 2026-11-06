@@ -83,7 +83,8 @@ if (part('dialog')) {
   ok('dialog Video: no Window choice (the glide is the pane as on screen), the Length menu is per step, the summary line', !q.win && q.len.aria === 'Length of each step' && q.len.opts.join() === '2:2 s per step,3:3 s per step,4:4 s per step,6:6 s per step' && /→.*· [0-9.,]+ s/.test(q.sum || ''), q);
   ok('dialog Video: the name is the scene\'s (the steps view has one video of the thread)', q.name === 'strip-to-disk', q.name);
   await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '2'; s.dispatchEvent(new Event('change')); return 1; })()`);
-  for (let i = 0; i < 40; i++) { await sleep(200); if (await ev(`!!document.querySelector('.xf-poster').getAttribute('src')`)) break; }
+  // (the hint is rewritten when the poster of the chosen size is drawn, so it is what is waited on: a poster of the earlier size may be showing)
+  for (let i = 0; i < 40; i++) { await sleep(200); if (await ev(`!!document.querySelector('.xf-poster').getAttribute('src') && /1280 × 720/.test(document.querySelector('.xf-hint').textContent)`)) break; }
   q = await ev(`(() => ({ hidden: ['xfOverleaf', 'xfDocs', 'xfMore'].map((id) => document.getElementById(id).hidden), vid: !document.getElementById('xfVideo').hidden, poster: !!document.querySelector('.xf-poster').getAttribute('src'), ext: document.querySelector('.xf-ext').textContent, hint: document.querySelector('.xf-hint').textContent }))()`);
   ok('dialog Video: a poster frame, Save video, the destinations put away', q.hidden.every(Boolean) && q.vid && q.poster && q.ext === '.mp4' && /1280 × 720/.test(q.hint), q);
   await shot('export-dlg-glide-1440');
