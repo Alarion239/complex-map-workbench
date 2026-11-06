@@ -46,6 +46,9 @@ const frames = async () => {
   await ev('window.__p3D0 = window.__p3grab.L; __cmwSteps({ scope: "in" }); 1');
   await sleep(700);
 };
+// (CUT_PX: the cuts of a step are drawn whole under Inside regions, also across the pixels outside its region (ux); the
+// judge leaves out the pixels within CUT_PX of that drawn curve and no others)
+const CUT_PX = 3;
 const globeCheck = async (cls, step = 2) => {
   await frames();
   return ev(`(() => {
@@ -59,12 +62,29 @@ const globeCheck = async (cls, step = 2) => {
   const proj = (p) => { const q = GLR.M4.apply(pc.MVP, p); return q[3] > 1e-6 ? [(q[0] / q[3] * 0.5 + 0.5) * r.width, (1 - (q[1] / q[3] * 0.5 + 0.5)) * r.height] : null; };
   const labs = [[0, 0, 1.1], [0, 0, -1.1], [1.06, 0, 0.1], [0, -1.06, 0.1], [-1.06, 0, 0.1], [0, 1.06, 0.1]].map(proj).filter(Boolean);
   const onLabel = (x, y) => labs.some((q) => Math.hypot(q[0] - x, q[1] - y) < 16);
+  // (the cuts' drawn image, which Inside regions draws whole: its pixels, within CUT_PX of a polyline of the curves the last
+  // frame stroked (__cmwCutCurves: a polyline of screen points, or a list of them), are left out; nothing else is)
+  const onCut = new Uint8Array(Wd * Hd);
+  for (const cc of __cmwCutCurves()) {
+    const lines = cc.s && cc.s.length && Array.isArray(cc.s[0]) && Array.isArray(cc.s[0][0]) ? cc.s : [cc.s || []];
+    for (const pl of lines) for (let k = 1; k < pl.length; k++) {
+      const p = pl[k - 1], q = pl[k]; if (!p || !q) continue;
+      const n = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1])));
+      for (let t = 0; t <= n; t++) {
+        const px = p[0] + (q[0] - p[0]) * t / n, py = p[1] + (q[1] - p[1]) * t / n;
+        for (let dy = -${CUT_PX}; dy <= ${CUT_PX}; dy++) for (let dx = -${CUT_PX}; dx <= ${CUT_PX}; dx++) {
+          const xx = Math.round(px) + dx, yy = Math.round(py) + dy;
+          if (xx >= 0 && yy >= 0 && xx < Wd && yy < Hd && dx * dx + dy * dy <= ${CUT_PX * CUT_PX}) onCut[yy * Wd + xx] = 1;
+        }
+      }
+    }
+  }
   for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const w = pick(x + 0.5, y + 0.5); C[y * Wd + x] = w ? (cls(w) || 2) : 3; WW.push(w); }
   const near = (x, y) => { const c = C[y * Wd + x]; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) return true; if (dx * dx + dy * dy <= 16 && C[yy * Wd + xx] !== c) return true; } return false; };
   const o = { inN: 0, inBad: 0, outN: 0, outBad: 0, badIn: [], badOut: [] };
   for (let y = 4; y < Hd - 4; y += ${step}) for (let x = 4; x < Wd - 4; x += ${step}) {
     const c = C[y * Wd + x]; if (c !== 1 && c !== -1) continue;
-    if (near(x, y) || onLabel(x, y)) continue;
+    if (near(x, y) || onLabel(x, y) || onCut[y * Wd + x]) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
     const fill = ${FILL}(D1, D0, i);
     const w = WW[y * Wd + x];
