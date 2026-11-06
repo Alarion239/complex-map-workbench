@@ -9,4 +9,6 @@ assert(out[0].includes('perRow=0.46') && out[0].includes('size=2400x1600'));
 assert(out[1].includes('afterChange 1/2 perRow=0.5'));
 assert(out[3].includes('ray=135 samples=900 cracks=0 first=null'));
 assert.strictEqual(seamFrameLines({}), 'seam-frame: none');
+assert.strictEqual(seamFrameLines(null), 'seam-frame: none');
+assert.doesNotThrow(() => seamFrameLines({ info: { cracks: { out: { 135: null } }, afterChange: {} } }));
 console.log('seam_frames ok');

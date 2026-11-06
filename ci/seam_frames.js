@@ -13,7 +13,7 @@ function seamFrameLines(o) {
   if (i.afterChange) (i.afterChange.perRow || []).forEach((p, n) => lines.push(`seam-frame: afterChange ${n + 1}/${i.afterChange.frames} perRow=${f(p)}`));
   teeth('afterSettled', i.afterSettled);
   if (i.cracks) for (const a of Object.keys(i.cracks.out || {})) {
-    const q = i.cracks.out[a];
+    const q = i.cracks.out[a] || {};
     lines.push(`seam-frame: cracks ray=${a} samples=${q.samples} cracks=${q.cracks} first=${JSON.stringify(q.first)} path=${i.cracks.path} label=${i.cracks.label}`);
   }
   return lines.join('\n') || 'seam-frame: none';
