@@ -650,9 +650,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 4px; border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
-:root.ph.sv .sv-alone { box-sizing: content-box; height: 44px; border-radius: 23px; margin-bottom: 0; }
-:root.ph.sv .sv-alone .sv-whole { height: auto; border-radius: 0; }
-:root.ph.sv .sv-awalk { width: 44px; }
+:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 4px 0 6px; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-playmore, :root.ph.sv #svStrip .sv-playpop, :root.ph.sv #svStrip .sv-loop { display: none; }
 /* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge cleared the range (eyes on #460)) */

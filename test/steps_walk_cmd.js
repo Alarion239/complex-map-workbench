@@ -50,8 +50,27 @@ ok('› from the end plane: the colour plane follows the step shown (f₂ → f�
 await press(1); await press(-1); await press(-1);
 await clickSel('#svStrip .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
 ok('Whole chain leaves', (await alone()) === 0 && (await walk(1)) === null);
-await open(360, 740, 'en', { sv: { at: 0, T: -1, scope: 'chain', surf: 'plane', speed: 1, alone: 2 } });
-info.phone = await walk(1);
-info.phonePill = await pill();
-ok('phone: 44 px segments when a step is shown alone', info.phone && info.phone.w >= 44 && info.phonePill && info.phonePill.segs.every((v) => v >= 44), [info.phone, info.phonePill]);
+// the phone: Whole chain is a pinned 44 px icon outside the rail; the walk is in the step's ⋯ menu
+const items = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => ({ text: b.querySelector('.mi-label').textContent.trim(), dis: b.disabled }))`);
+const clickItem = (re) => ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => ${re}.test(x.querySelector('.mi-label').textContent)); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' })); b.click(); return true; })()`);
+const WORDS = { en: [/Previous step alone/, /Next step alone/], ru: [/Предыдущий шаг отдельно/, /Следующий шаг отдельно/] };
+for (const lang of ['en', 'ru']) {
+  await open(360, 740, lang, { sv: { at: 0, T: -1, scope: 'chain', surf: 'plane', speed: 1, alone: 2 } });
+  const pin = await ev(`(() => { const w = document.querySelector('#svStrip .sv-whole'); if (!w) return null; const r = w.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { w: Math.round(r.width), h: Math.round(r.height), outside: !document.querySelector('#svStrip .sv-rail').contains(w), hit: !!at && (at === w || w.contains(at)), glyph: w.textContent.trim(), label: w.getAttribute('aria-label'), pill: !!document.querySelector('#svStrip .sv-alone'), arrows: document.querySelectorAll('#svStrip .sv-awalk').length }; })()`);
+  info['pin-' + lang] = pin;
+  ok(`phone ${lang}: Whole chain is a pinned 44 px F icon outside the rail, not covered, with no pill and no ‹ ›`, pin && pin.w === 44 && pin.h === 44 && pin.outside && pin.hit && pin.glyph === 'F' && !pin.pill && pin.arrows === 0, pin);
+  // (a phone's chip has no ⋯: a long press opens the step's menu)
+  await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
+    c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: 1 })); return 1; })()`);
+  await until(`document.querySelectorAll('#popHost .menu .mi').length > 3`);
+  await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerup', { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: 0 })); return 1; })()`);
+  // (a click on the menu in the first 450 ms after the lift of the long press that raised it does nothing: the floor is that time)
+  await settled({ floor: 600, max: 20000 });
+  const it = await items();
+  info['menu-' + lang] = it;
+  ok(`phone ${lang}: the step's ⋯ menu has Previous and Next step alone, both on`, WORDS[lang].every((re) => it.some((x) => re.test(x.text) && !x.dis)), it);
+  info['click-' + lang] = await clickItem(WORDS[lang][1]);
+  await until(`(() => { const P = __cmwSteps().planes; return !!document.querySelector('#svStrip .sv-whole') && P[P.length - 1] === 4; })()`);
+  ok(`phone ${lang}: Next step alone shows f4 alone (f3 is bypassed)`, (await alone()) === 4, [await alone(), info['click-' + lang], await items()]);
+}
 return { pass, fails, info };
