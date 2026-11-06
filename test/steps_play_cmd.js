@@ -42,27 +42,22 @@ const watchX = async (ms) => {
   for (let i = 0; i < 600; i++) { await sleep(100); const w = await ev('window.__wx'); if (w && w.done) return w; }
   return ev('window.__wx');
 };
-// the speed, measured in the page: x against performance.now() once a frame through a whole glide from z to w₂, then the slope of the
-// samples between 0.03 and 1.97 (least squares), in planes a second. The poll's round trip (which takes a second here) is no part of it;
-// a frame that is late moves a sample's x, not the rate
+// the speed, measured in the page's own clock: with the test clock on (CLOCK ms of play time a frame, whatever the frame costs) the
+// thread's place is read once a frame through a whole play from z to w₂, and each frame's step in x, over the clock, is the speed in
+// planes a second (the median of the steps: a sample that skips a frame doubles one step and moves no median). Wall-clock time, which
+// a loaded software renderer stretches, is no part of it; a speed that is not what it says moves every step
+const CLOCK = 40;
 const rateAt = async (speed) => {
-  let last = { rate: null, n: 0 };
-  // (a glide that a loaded runner draws in fewer than three frames has no rate to read: it is measured again, up to three times; the
-  // bounds the rate is held to are the same)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await ctl({ go: 0, now: true });
-    await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
-    // (the sampler and the play start in one call in the page: the round trip of a second is not between them)
-    await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(), t = performance.now(); window.__rt.s.push([t, x]); if (x >= 1.999 || t - t0 > 20000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); __cmwSteps({ play: true }); })(); 1`);
-    let rt = null;
-    for (let i = 0; i < 300; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
-    const p = rt.s.filter(([, x]) => x > 0.03 && x < 1.97);
-    if (p.length < 3) { last = { rate: null, n: p.length }; continue; }
-    const n = p.length, mt = p.reduce((a, [t]) => a + t, 0) / n, mx = p.reduce((a, [, x]) => a + x, 0) / n;
-    const num = p.reduce((a, [t, x]) => a + (t - mt) * (x - mx), 0), den = p.reduce((a, [t]) => a + (t - mt) * (t - mt), 0);
-    return { rate: +(num / den * 1000).toFixed(3), n };
-  }
-  return last;
+  await ctl({ go: 0, now: true, clock: CLOCK });
+  await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
+  await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(); window.__rt.s.push(x); if (x >= 1.999 || performance.now() - t0 > 60000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); __cmwSteps({ play: true }); })(); 1`);
+  let rt = null;
+  for (let i = 0; i < 700; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
+  await ctl({ clock: 0 });
+  const steps = [];
+  for (let k = 1; k < rt.s.length; k++) if (rt.s[k - 1] > 0.03 && rt.s[k] < 1.97 && rt.s[k] > rt.s[k - 1]) steps.push(rt.s[k] - rt.s[k - 1]);
+  steps.sort((a, b) => a - b);
+  return { rate: steps.length ? +(steps[steps.length >> 1] * 1000 / CLOCK).toFixed(3) : null, n: steps.length };
 };
 // ---- the desktop ----
 await open(1280, 800, false, true);
@@ -84,12 +79,13 @@ const p1 = await ev(`await new Promise((res) => {
   btn.click();
   const look = () => {
     const s = __cmwSteps(), label = btn.getAttribute('aria-label');
-    if ((s.play === 'glide' && s.moving && label === 'Pause') || performance.now() - t0 > 5000) return res({ play: s.play, moving: s.moving, i: s.i, x: s.x, speed: s.speed, buttonLabel: label });
+    if ((s.play === 'glide' && s.moving && label === 'Pause') || performance.now() - t0 > 5000) return res({ play: s.play, moving: s.moving, i: s.i, x: s.x, speed: s.speed, buttonLabel: label, live: document.querySelector('#stage .sr-only[aria-live]').textContent });
     requestAnimationFrame(look);
   };
   look();
 })`);
-ok('starting says where it plays from and to, in the live region', await ev(`/Playing from z to w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
+// (read in the frame the glide was seen in: a loaded renderer may have drawn the whole 0.9 s glide by the time a later read comes back)
+ok('starting says where it plays from and to, in the live region', /Playing from z to w/.test(p1.live), p1.live);
 ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && p1.buttonLabel === 'Pause', p1);
 const e1 = await until((s) => !s.play); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
@@ -106,7 +102,7 @@ ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x
 // (nominal planes a second: slow 0.5, normal 1.11, each told from the other; fast, 2.2, is a 0.9 s glide that a software renderer's frames
 // do not sample)
 { const r = await rateAt('slow'), n = await rateAt('normal');
-  ok('the speeds are what they say: slow about 0.5 planes a second, normal about 1.1', r.rate > 0.3 && r.rate < 0.7 && n.rate > 0.8 && n.rate < 1.5, { slow: r, normal: n }); }
+  ok('the speeds are what they say: slow about 0.5 planes a second, normal about 1.1', r.n >= 3 && n.n >= 3 && r.rate > 0.45 && r.rate < 0.55 && n.rate > 1.0 && n.rate < 1.2, { slow: r, normal: n }); }
 await ctl({ go: 0, now: true });
 await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
 await ev(`document.querySelector('.sv-play').click(); 1`);

@@ -575,6 +575,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
 :root.ph.sv { --ph-cbelow: 60px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
+/* (the steps view's message floats over the plot: no row is given up for it unless a sheet is open, and the controls at the plane's foot ride up above it) */
+:root.ph.sv.ph-toast-on:not(.ph-sheet-on) { --ph-ctx: 0px; --ph-lift: calc(var(--ph-toast-h, 56px) + 8px); }
+/* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
+:root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: bottom 150ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: none; } }
 /* (#464) a sheet gives up the message's row as the planes do: it ends above the message, so a message covers no row of it (Alexander's
    screenshot on #58: "Added f₃ …  Show alone  Undo" across the chain sheet's list, hiding f₂); the safe area is under the message then */
 :root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + 56px); padding-bottom: 0; }
@@ -612,6 +617,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land #toastHost { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { box-sizing: border-box; height: 56px; min-height: 56px; border: 0; border-top: 2px solid var(--accent); border-radius: 0; box-shadow: none; background: var(--panel); padding: 0 8px 0 12px; }
 :root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }
+/* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
+   a vertical drag on it is its own (a swipe down dismisses it) */
+:root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
+:root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
+/* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right) */
+:root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast > span + .toast-act { margin-left: auto; }
 
 .ph-ctx.under { visibility: hidden; }
 
@@ -619,7 +632,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
-:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1 { min-height: 44px; }
+:root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1, :root.ph.sv .sv-scope-menu { min-height: 44px; }
 :root.ph.sv .sv-title { font-size: 19px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }

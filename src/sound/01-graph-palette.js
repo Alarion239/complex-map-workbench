@@ -5,7 +5,7 @@
   // (the user's defaults, notes/sound/README.md: sound on, Interface and Mathematical events on, Snap ticks and
   // Hear the function off. A ?ns= test page starts off, so the quality and perf suites stay silent unless a test turns
   // it on. These apply only when nothing is stored: a stored choice always wins.)
-  // glide: Hear the function as one continuous voice instead of notes (a per-device preference; never in a link)
+  // glide: Hear the function as one continuous voice rather than notes (a per-device preference; never in a link)
   const DEFAULTS = { on: !NS, vol: 0.7, ui: true, snap: false, events: true, sonify: false, glide: false };
   const AC = window.AudioContext || window.webkitAudioContext;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -185,7 +185,7 @@
       make: (Pt) => { for (const [u, a, c] of [[0, 1, 0], [0.088 + rnd(-0.005, 0.005), 0.85, -25]]) { strike(Pt, u, st0(0) * cents(c), 'block', { vel: 0.8 * a, soft: 0.9, t60: 0.09, amp: 0.26, knock: 5 }); strike(Pt, u, st0(12) * cents(c), 'block', { vel: 0.7 * a, soft: 0.9, t60: 0.06, amp: 0.40, knock: 0 }); } } },
     edge: { tier: 'ui', gap: 150, wet: 0.05, label: 'Edge', what: 'The keyboard probe reached the edge of the view: a felt tap and a block tick',
       make: (Pt) => { strike(Pt, 0, st0(7), 'skin', { vel: 0.6, soft: 1.8, t60: 0.1, amp: 0.17, drop: 1, knock: 3.5 }); strike(Pt, 0, st0(19), 'block', { vel: 0.5, soft: 0.8, t60: 0.05, amp: 0.34 }); } },
-    // [v16.5 rail SPEC 4.4] a point put on a curve or a crossing by a drop, and one pulled off its curve (one per gesture)
+    // a point put on a curve or a crossing by a drop, and one pulled off its curve (one per gesture)
     attach: { tier: 'ui', gap: 150, wet: 0.06, label: 'Point attached', what: 'A point landed on a curve or a crossing: tines E5 then A5, 30 ms apart',
       make: (Pt) => { strike(Pt, 0, st0(14), 'tine', { vel: 0.45, soft: 1.4, t60: 0.14, amp: 0.2, detune: 6 }); strike(Pt, 0.03 + rnd(-0.003, 0.003), st0(19), 'tine', { vel: 0.5, soft: 1.2, t60: 0.18, amp: 0.2, detune: 6 }); } },
     // (E5, not edge's A4: a lone skin strike at A4 loses 7.5 dB through the phone-speaker model, E5 stays audible there)
@@ -218,7 +218,7 @@
       make: (Pt) => { for (let j = 0; j < 3; j++) strike(Pt, 0.04 * j + (j ? rnd(-0.004, 0.004) : 0), penta(5 + j), 'glass', { vel: 0.35, soft: 0.8, t60: 0.2, amp: 0.085 }); } },
     contour: { tier: 'sonify', gap: 0, wet: 0.05, count: true, label: 'Contour', what: 'The probe crossed a level line of |F| (Landscape): a wooden bar on the Height note, an octave up',
       make: (Pt, o) => strike(Pt, 0, 2 * hNote(clamp(o.k | 0, HMIN, HMAX)), 'wood', { vel: o.vel == null ? 0.5 : o.vel, soft: 1.4, t60: 0.09, amp: 0.25, detune: 2 }) },
-    // (the queued count-bearing bell of v15; the harp's low D is the turn now, so the app no longer rings it)
+    // (no bell: the harp's low D is the turn)
     turn: { tier: 'sonify', gap: 0, wet: 0.2, count: true, label: 'One full turn', what: 'arg F completed a turn: a grace note, then glass on the home pitch class (no pitch variation)',
       make: (Pt, o) => { let f = 36.7081 * Math.pow(2, ((o.pc || 0) % 1 + 1) % 1); while (f < 1700) f *= 2; const up = (o.dir || 1) > 0; strike(Pt, 0, up ? f * 2 / 3 : f * 4 / 3, 'glass', { vel: 0.35, soft: 0.8, t60: 0.14, amp: 0.12, detune: 0 }); strike(Pt, 0.045, f, 'glass', { vel: 0.7, soft: 0.7, t60: 0.6, amp: 0.15, detune: 0 }); } },
     turnMany: { tier: 'sonify', gap: 0, wet: 0.2, count: true, label: 'Many turns', what: 'More turns than can be counted live (> 8 queued): a quick run of five glass notes',
@@ -226,11 +226,11 @@
     collide: { tier: 'sonify', gap: 300, wet: 0.18, label: 'Preimages collide', what: 'w crossed a critical value: two preimages merged. Two bowed glasses gliding into one',
       make: (Pt) => { const f = st(19); bowed(Pt, 0, f * Math.pow(2, 2 / 12), { f1: f, glide: 0.22, att: 0.04, hold: 0.1, t60: 0.5, amp: 0.06 }); bowed(Pt, 0, f / Math.pow(2, 2 / 12), { f1: f, glide: 0.22, att: 0.04, hold: 0.1, t60: 0.5, amp: 0.06 }); } },
   };
-  // level trims (dB) from the level match against v15's palette (notes/sound/v2/MEASUREMENTS.md, board.html)
+  // level trims (dB) from the level match against the reference palette (notes/sound/v2/MEASUREMENTS.md, board.html)
   const TRIM = { toggleOn: -1.07, toggleOff: -0.4, stepAdd: 0.06, stepRemove: -0.72, view: 2.75, exportDone: -1.8, error: -0.82, edge: -2.23, snap: -2.85, attach: 0.71, detach: 0.01, morphStart: 1.91, morphEnd: -0.59, loopDone: 0.48, zero: -0.35, pole: 0.1, dense: 0.35, cut: -3.25, turn: -0.43, turnMany: -1.43, contour: -1.52, collide: 0.5 };
   // the calibrated levels of hearing the function (notes/sound/hearf/PROTOTYPE.md): one harp note at velocity 0.7 and
   // |F| = 1 is −32 ± 2.5 LUFS-M, a D (with its accent) 2 to 5 dB over E; the singer's unit-energy spectrum at lvl 1 is
-  // −32 LUFS-M (the release note +1 dB). The harp's copies now have fixed phases (pluck: their coinciding partials in
+  // −32 LUFS-M (the release note +1 dB). The harp's copies have fixed phases (pluck: their coinciding partials in
   // quadrature, notes/sea-song/r3), and the folded D accent: seeds 1–8 give E −34.1 to −32.9, D −31.0 to −29.9, D − E
   // 2.6 to 3.7 dB (round 2, random phases: E −34.6 to −30.3, D − E −0.5 to +6.6)
   const LV = { harp: 0.0831, hv: 0.83 };

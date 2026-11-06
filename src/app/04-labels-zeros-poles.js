@@ -311,6 +311,62 @@
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
   }
+  // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points (null
+  // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
+  // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
+  // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
+  // many times a second
+  function cutBank(pane, c, F, side, win, proj, step = 1) {
+    const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
+    const pts = [], ws = [];
+    for (let i = 0; i <= 480; i += step) {
+      const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
+      const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
+      pts.push(CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
+      if (CX.isFin(w)) ws.push([w.re, w.im]);
+    }
+    return { pts, ws };
+  }
+  // The cuts' image curves with no handle, in the picture mapFor describes: mapFor(j - 1) is the map from the plane the
+  // cut of step j lives in to the picture (null: that cut has no image there); proj lifts a plane point to the screen (a
+  // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
+  // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
+  // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
+  // as drawCarriedCuts draws them
+  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
+    if (artMode) return;
+    carriedCuts = [];
+    pane.ctx.save();
+    pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
+    for (let j = 1; j <= S.steps.length; j++) {
+      const st = S.steps[j - 1], b = built[j - 1], F = st && st.on !== false && b && !b.error ? mapFor(j - 1) : null;
+      if (!F) continue;
+      for (const c of b.cuts) {
+        if (c.kind !== 'ray') continue;
+        const win = stageWin(j - 1);
+        for (const side of [-1, 1]) {
+          const { pts, ws } = cutBank(pane, c, F, side, win, proj, step);
+          carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
+          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+        }
+      }
+    }
+    if (pre) {
+      for (let j = Math.max(pre.k + 2, pre.jMin); j <= S.steps.length; j++) {
+        const st = S.steps[j - 1], b = built[j - 1];
+        if (!st || st.on === false || !b || b.error || derivIn(pre.k, j - 1)) continue;
+        for (const c of b.cuts) {
+          if (c.kind !== 'ray') continue;
+          const tracks = cutPreTracks(pre.k, j, c);
+          const ws = tracks.map((t) => t.map((z) => (pre.H ? pre.H(z) : z)));
+          const pts = ws.map((t) => t.map((w) => (CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null)));
+          strokeCurves(pane, pts);
+          carriedCuts.push({ step: j, solid: true, pre: true, w: ws.map((t) => t.filter(CX.isFin).map((w) => [w.re, w.im])), s: pts });
+        }
+      }
+    }
+    pane.ctx.restore();
+  }
   let carriedCuts = [];
   // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
   // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
@@ -329,17 +385,10 @@
       const F = rangeF(j - 1, k);
       for (const c of b.cuts) {
         if (c.kind !== 'ray') continue;
-        const win = stageWin(j - 1), Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
+        const win = stageWin(j - 1);
         for (const side of [-1, 1]) {
-          const a = c.ang + side * 1e-7;
-          const pts = [], ws = [];
-          for (let i = 0; i <= 480; i++) {
-            const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
-            const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
-            pts.push(CX.isFin(w) ? pane.w2s(w) : null);
-            if (CX.isFin(w)) ws.push([w.re, w.im]);
-          }
-          carriedCuts.push({ step: j, solid: side > 0, w: ws });
+          const { pts, ws } = cutBank(pane, c, F, side, win);
+          carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
           strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
         if (!c.editable) continue;
@@ -360,6 +409,33 @@
     drawCutPreimages(pane, k, handles);
     ctx.restore();
   }
+  // The exact preimages in plane k of the ray c of step j's cut (Inverse.pointPre; the samples of one branch joined to the
+  // nearest of the next): a list of curves, each a list of points of plane k. Kept per chain, cut, plane and extent, so a
+  // glide's frames carry the same curves
+  const cutPreCache = new Map();
+  function cutPreTracks(k, j, c) {
+    const win = stageWin(j - 1), Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p), tr = [];
+    const key = `${k}|${j}|${c.ang}|${c.p.re},${c.p.im}|${Rm}|${chainSig[S.steps.length]}`;
+    let tracks = cutPreCache.get(key);
+    if (tracks) return tracks;
+    for (let i = 0; i <= 240; i++) {
+      const rr = Rm * Math.pow(i / 240, 2), ex = exactPre(k, j - 1, [c.p.re + rr * Math.cos(c.ang), c.p.im + rr * Math.sin(c.ang)]);
+      if (!ex) break;
+      const free = ex.zs.slice();
+      for (const t of tr) {
+        if (t.done) continue;
+        const l = t.pts[t.pts.length - 1];
+        let bi = -1, bd = Infinity;
+        free.forEach((z, q) => { const d = CX.abs(CX.sub(z, l)); if (d < bd) { bd = d; bi = q; } });
+        if (bi >= 0) t.pts.push(free.splice(bi, 1)[0]); else t.done = true;
+      }
+      if (i === 0) for (const z of free) tr.push({ pts: [z] });
+    }
+    tracks = tr.map((t) => t.pts);
+    cutPreCache.set(key, tracks);
+    while (cutPreCache.size > 16) cutPreCache.delete(cutPreCache.keys().next().value);
+    return tracks;
+  }
   // The cuts of the steps after plane k in plane k, steps view: each ray's exact preimage curves under the steps between
   // (Inverse.pointPre, whatever the cut), the samples of one branch joined to the nearest of the next; a handle on the first
   // curve in view. A chain with no exact preimages draws none
@@ -371,22 +447,10 @@
       const F2 = rangeF(k, j - 1), win = stageWin(j - 1);
       for (const c of b.cuts) {
         if (c.kind !== 'ray') continue;
-        const Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p), tracks = [];
-        for (let i = 0; i <= 240; i++) {
-          const rr = Rm * Math.pow(i / 240, 2), ex = exactPre(k, j - 1, [c.p.re + rr * Math.cos(c.ang), c.p.im + rr * Math.sin(c.ang)]);
-          if (!ex) break;
-          const free = ex.zs.slice();
-          for (const t of tracks) {
-            if (t.done) continue;
-            const l = t.pts[t.pts.length - 1];
-            let bi = -1, bd = Infinity;
-            free.forEach((z, q) => { const d = CX.abs(CX.sub(z, l)); if (d < bd) { bd = d; bi = q; } });
-            if (bi >= 0) t.pts.push(free.splice(bi, 1)[0]); else t.done = true;
-          }
-          if (i === 0) for (const z of free) tracks.push({ pts: [z] });
-        }
-        strokeCurves(pane, tracks.map((t) => t.pts.map((z) => pane.w2s(z))));
-        carriedCuts.push({ step: j, solid: true, pre: true, w: tracks.map((t) => t.pts.map((z) => [z.re, z.im])) });
+        const tracks = cutPreTracks(k, j, c);
+        const scr = tracks.map((t) => t.map((z) => pane.w2s(z)));
+        strokeCurves(pane, scr);
+        carriedCuts.push({ step: j, solid: true, pre: true, w: tracks.map((t) => t.map((z) => [z.re, z.im])), s: scr });
         if (!c.editable) continue;
         let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33, done = false;
         for (let tries = 0; tries < 14 && !done; tries++, R *= 0.7) {

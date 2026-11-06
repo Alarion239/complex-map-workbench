@@ -1,4 +1,4 @@
-// Section C of test/t_constr.js (v16 CORE, notes/constructions-v16/SPEC.md 18): the integration and exactness tests.
+// Section C of test/t_constr.js (section 18 of the constructions spec): the integration and exactness tests.
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limit is in reference operations measured in the same run (test/lib/speed_ref.js), so it holds on any machine
@@ -54,7 +54,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     st.params.zeros = '-1, 4i'; K.syncSteps(S, env);
     ok(st.zpIds.zeros[0] === ids3[1] && st.zpIds.zeros[1] === ids3[2], 'refs: a text edit that deletes the first zero keeps the others\' ids (nearest value)', [ids3, st.zpIds.zeros]);
   }
-  // ------------------------------------------------ [UX54] zeros and poles keep their numbers (zpNums)
+  // ------------------------------------------------ zeros and poles keep their numbers (zpNums)
   {
     const S = state([], [{ type: 'zp', params: { a: '1', zeros: '1, 2, 3', poles: '5i' }, on: true }]);
     K.syncSteps(S, env);
@@ -77,7 +77,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     ok(K.zpRenumber(st) && nz() === '1,2' && !K.zpRenumber(st), 'zpRenumber: by place again, once', st.zpNums.zeros);
   }
   {
-    // a v15.1-stripped state (no uid, no zpIds) rebinds to f1 by the stored index [C29]
+    // a stripped state (no uid, no zpIds) rebinds to f1 by the stored index
     const S = state([pt('s1', [0, 0]), pt('s2', [2, 0]),
       { id: 'c', kind: 'circle', c: [0, 0], r: 1, ci: 1, visible: true, def: { op: 'circle3', args: [{ s: 's1' }, { zp: 'f77', kind: 'zeros', id: 'q9', i: 1 }, { s: 's2' }], fill: 'none' } }],
     [{ type: 'zp', params: { a: '1', zeros: '5, 1+i', poles: '' }, on: true }]);
@@ -87,7 +87,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     ok(v.freed === 0 && c.def.args[1].zp === S.steps[0].uid && !c.cundef && Math.abs(K.level(c._g, [1, 1])[0]) < 1e-14, 'refs: a stripped state rebinds the zero ref to f1 by its index', c.def.args[1]);
   }
   {
-    // handle refs, piece refs, infinity, image refs [C23]
+    // handle refs, piece refs, infinity, image refs
     const S = state([pt('s1', [0, 0]), { id: 'g', kind: 'segment', a: [1, 1], b: [3, 2], ci: 0, visible: true },
       { id: 'l', kind: 'line', a: [9, 9], b: [8, 8], ci: 0, visible: true, at: { a: { s: 's1' }, b: { s: 'g', h: 'b' } } },
       { id: 'c', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 's1' }, { s: 'g', h: 'a' }, { inf: 1 }], fill: 'none' } }]);
@@ -212,7 +212,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
       if ((lv > 0) !== (want > 0)) wrong++;
     }
     ok(wrong === 0 && n > 19000 && vc, 'exact: a view 1e4 from o, re-anchored there: 20000 samples agree with the exact sign [C5]', { wrong, n });
-    // through 0 by incidence: thru0, C = 0 exactly; the Lambda rule is the tangent half-plane, stable at |z| < e^-60 [C9]
+    // through 0 by incidence: thru0, C = 0 exactly; the Lambda rule is the tangent half-plane, stable at |z| < e^-60
     const S = state([pt('O', [0, 0]), pt('Q', [2, 0.5]), pt('R', [-1, 3]),
       { id: 'c', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'Q' }, { s: 'O' }, { s: 'R' }], fill: 'in' } }]);
     rec(S);
@@ -229,7 +229,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     }
     ok(c._g.thru0 === true && c._g.C === 0 && c._g.o[0] === 0 && c._g.o[1] === 0 && flips === 0 && last, 'exact: a circle through 0 by incidence: thru0, C = 0; the Λ rule is its tangent half-plane at |z| = e^-70', { flips });
   }
-  // ------------------------------------------------ sampling: M(R) of a huge circle [C7]
+  // ------------------------------------------------ sampling: M(R) of a huge circle
   {
     const R = 1e9, g = K.circle3([-1, 0], [1, 0], [0, -(1 / (2 * R))]);
     const s = { id: 'x', kind: 'circle', c: K.geomOf(g).c, r: K.geomOf(g).r, _g: g, ci: 0, visible: true };
@@ -248,7 +248,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     const small = Region.curvesOf({ id: 'y', kind: 'circle', c: [0, 0], r: 2, ci: 0, visible: true }, win);
     ok(small.length === 1 && !small[0].gsamp, 'sampling: an ordinary circle keeps the 160-angle path (goldens unchanged)');
   }
-  // ------------------------------------------------ formOf readers: capOf [C8]
+  // ------------------------------------------------ formOf readers: capOf
   {
     const s0 = { id: 'a', kind: 'disc', c: [0.3, -0.2], r: 1, ci: 0, visible: true };
     const g = K.circleCP([0.3, -0.2], [1.3, -0.2]);
@@ -326,14 +326,14 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     ok(!sh(S, 'U').cundef && nearP(sh(S, 'U').p, [0.25, 0]), 'gliders: back in range (bind.t = a writes s.t, as applyBinds does)');
     const pr = K.projectPiece(K.pieces({ id: 'f', kind: 'curve', pts: [[0, 0], [1, 1]] })[0], [1, 0]);
     ok(pr && pr.seed && pr.t === undefined, 'gliders: a freehand curve has no t (the seed\'s projection)');
-    // a bound radius below 1e-3 passes through its point [C15]
+    // a bound radius below 1e-3 passes through its point
     const T = state([pt('c0', [0, 0]), pt('q', [1e-6, 0]), { id: 'd', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, at: { c: { s: 'c0' }, r: { s: 'q' } } }]);
     rec(T);
     ok(sh(T, 'd').r === 1e-6, 'gliders: a radius bound to a point 1e-6 away passes through it (no 1e-3 clamp)', sh(T, 'd').r);
     sh(T, 'q').p = [0, 0]; rec(T);
     ok(sh(T, 'd').cundef && sh(T, 'd').cundef.code === 'coincide', 'gliders: undefined at r = 0 exactly (coincide)');
   }
-  // ------------------------------------------------ the graph [C11]
+  // ------------------------------------------------ the graph
   {
     const S = state([pt('a', [0, 0]), pt('b', [1, 0]), pt('c', [0, 1]),
       { id: 'k', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'c' }], fill: 'in' } },
@@ -392,7 +392,7 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     K.syncSteps(B, env); const vb = K.validate(B, env);
     ok(vb.freed === 1 && !B.shapes[5].def && Array.isArray(B.shapes[5].p), 'save: a broken ref keeps the shape, free, with its fields; one count for one event', vb);
   }
-  // ------------------------------------------------ two owners of visibility [C2]
+  // ------------------------------------------------ two owners of visibility
   {
     const S = state([pt('a', [0, 0]), pt('b', [0, 0]), pt('m', [0, 0], { visible: false, undef: 'r = -1', undefHid: true, def: { op: 'bisector', args: [{ s: 'a' }, { s: 'b' }] } })]);
     const s = sh(S, 'm');

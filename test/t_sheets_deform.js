@@ -1,4 +1,4 @@
-// All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md), on the shipped modules: the sheets of H_t
+// All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md; standards-ok: the name of an existing notes file), on the shipped modules: the sheets of H_t
 // at t = end are F's All sheets combo for combo, bit for bit; at t = 0 they are H_0's (the deformed pieces the identity,
 // every one of their sheets the same surface); the counts; the nodes between steps; the worked numbers of the user's
 // case (sin √z, √ bracketed); the maps that cannot be drawn as sheets. Run: node test/t_sheets_deform.js
@@ -164,7 +164,7 @@ check('cases ran', cases >= 60, cases);
   check('user: the two sheets come apart in Im at t = 1/2', apart > 0.9 * PTS.length, apart);
 }
 
-// ---- (v16.1 review math-5) F's digits: end = F's last step. Every configuration of every chain: the count is F's at
+// ---- F's digits: end = F's last step. Every configuration of every chain: the count is F's at
 // every t; at the end each surface is F's, bit for bit; one after another, surface c is continuous through every node
 // (the left limit T = j - 1e-9 and the node T = j agree combo for combo: no re-indexing, no surface that vanishes) ----
 let endCases = 0;
@@ -215,7 +215,7 @@ check('end cases ran', endCases >= 60, endCases);
   }
   check('math-5 chain: no surface changes at the node', lost === 0, lost);
 }
-// (v16.1 review math-3) sheets numbered from the step's own cut and branch: surface 0 is the step itself (the plain H_t
+// sheets numbered from the step's own cut and branch: surface 0 is the step itself (the plain H_t
 // while deforming, F at rest) at every point, with the cell centre at the point; a window is centred on F's branch
 {
   const pts = PTS.map(([, z]) => z);
@@ -272,7 +272,7 @@ check('end cases ran', endCases >= 60, endCases);
       agree === 0, agree);
   }
 }
-// (v16.1 review math-7) the drawn count and the caption's count agree: a typed near-fraction is a window
+// the drawn count and the caption's count agree: a typed near-fraction is a window
 check('math-7: alpha 0.333333333 is a window', FN.stepSheets(FN.build({ type: 'powa', params: Object.assign(FN.defaults('powa'), { alpha: '0.333333333' }) }))[0].n === 0);
 check('math-7: alpha 1/3 has 3 sheets', FN.stepSheets(FN.build({ type: 'powa', params: Object.assign(FN.defaults('powa'), { alpha: '0.3333333333333333' }) }))[0].n === 3);
 check('math-7: sheetCount = sheetCountOf for q <= 24', [0.5, 0.25, 1.2, 0.1, 2 / 3, 5 / 7, -1.5, 3].every((x) => FN.sheetCount(x) === FN.sheetCountOf(x)) && FN.sheetCount(0.333333333) === 0);
