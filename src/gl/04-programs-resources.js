@@ -585,6 +585,18 @@ float wabs(vec2 w) {
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
+  // The program `name` for the current chain alone: no earlier chain version's program draws in its place while it
+  // compiles (a program of another chain reads its map's indices as its own steps, so it paints another picture).
+  // Started when it is not; null while it links (framePending, and the frame waits on it) or when it failed
+  function programExact(name, map) {
+    const P = getProg(name, cur, true, map);
+    if (P) return P;
+    const e = progs.get(progId(name, cur, map));
+    if (e && e.state === 'error') { frameErr = friendly(e.error); return null; }
+    framePending = true;
+    if (e && e.state === 'pending') standIn(e.id);
+    return null;
+  }
   // program's stand-ins without its own compile: the program `name` for the current chain when it is linked, else the
   // newest earlier chain version's that is, as program() draws while its own compiles; null when none is (nothing is
   // started)
