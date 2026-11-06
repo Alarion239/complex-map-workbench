@@ -61,9 +61,14 @@ for (const i of [0]) {
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwSteps({ scope: 'in', surf: 'land', T: 2, go: 0, now: true }); 1`);
   await rest(0);
+  // (the cells' refinement about the walls lands some frames after the frame first holds still: a frame kept before it
+  // would be the coarse mesh, the other the refined one)
+  const refined = async (what) => ok(`bare, ${what}: the cells are refined about the walls`, (await settled({ only: true, max: 30000, until: '__cmwLandSheets().refined' })).ok, await ev('__cmwLandSheets().refined'));
+  await refined('T = w₂');
   ok('bare, T = w₂: the own relief is still', await grab('bare2'), null);
   await ev(`__cmwSteps({ T: 1 }); 1`);
   await rest(0);
+  await refined('T = w₁');
   ok('bare, T = w₁: the carried frame is still', await grab('bare1'), null);
   // (the pane's window around the pole at z = −1 under the default camera: the funnel and its wall, clear of the sheets' far edges)
   const win = info.bare = await compare('bare2', 'bare1', { x: [0.28, 0.62], y: [0.2, 0.6] });
