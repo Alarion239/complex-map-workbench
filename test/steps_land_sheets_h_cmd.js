@@ -64,11 +64,14 @@ for (const dh of [0, -17, -7, -2, 3, 11, 20]) {
   await ev(`__cmwSteps({ scope: 'in', surf: 'land', T: 2, go: 0, now: true }); 1`);
   await rest(0);
   ok(`bare (pane ${900 + dh}), T = w₂: the own relief is still`, await grab('bare2'), null);
-  // (the frame settled() returned on is the refined one: a redraw once the refinement's programs have had their time, over
-  // RF_LATE = 900 ms, changes none of the window's pixels. The floor is that time: an app that reported settled with its
-  // refinement still to come shows its late frame in it, and no flag of its own says so)
-  await settled({ floor: 1100 }); await ev(rAF2);
-  ok(`bare (pane ${900 + dh}), T = w₂: a later redraw is still`, await grab('bare2late'), null);
+  // (the frame settled() returned on is the refined one: the pane draws no other frame afterwards. An app that reported
+  // settled with its refinement still to come draws one, and its pixels differ from the first's. The wait is for that
+  // event, the pane's next draw, and ends at 3 s without one)
+  const t0 = await ev('__cmwPaneStatus("L").t');
+  info['redraw' + dh] = await ev(`new Promise((res) => { const end = performance.now() + 3000; const f = () => { const s = __cmwPaneStatus('L'); if (s && s.t !== ${t0}) res(true); else if (performance.now() > end) res(false); else setTimeout(f, 50); }; f(); })`);
+  await settled({ max: 60000 }); await ev(rAF2);
+  ok(`bare (pane ${900 + dh}), T = w₂: the pane drew no other frame after settled()`, info['redraw' + dh] === false, info['redraw' + dh]);
+  ok(`bare (pane ${900 + dh}), T = w₂: a later frame is still`, await grab('bare2late'), null);
   const late = info['late' + dh] = await compare('bare2', 'bare2late', { x: [0.28, 0.62], y: [0.2, 0.6] });
   ok(`bare (pane ${900 + dh}): the first rest frame is the later frame (none of the window apart)`, !!late && late.frac === 0, late);
   await ev(`__cmwSteps({ T: 1 }); 1`);
