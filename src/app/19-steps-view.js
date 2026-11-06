@@ -1090,12 +1090,12 @@
       const r = r1 * Math.exp(L * (i + 0.5) / SV_POLAR_PROBE_R);
       for (let j = 0; j < SV_POLAR_PROBE_T; j++) {
         const th = -Math.PI + 2 * Math.PI * (j + 0.5) / SV_POLAR_PROBE_T, ra = r * Math.exp(-d / 2), rb = r * Math.exp(d / 2);
+        if (++n % 8 === 0) yield;
         const m = at(r, th), a = at(r, th - d / 2), b = at(r, th + d / 2), c = at(ra, th), e = at(rb, th);
         if (!m || !a || !b || !c || !e || !CX.isFin(m) || !CX.isFin(a) || !CX.isFin(b) || !CX.isFin(c) || !CX.isFin(e)) continue;
         if (Math.abs(m.re - v.cx) > hw || Math.abs(m.im - v.cy) > hh) continue;
         const ang = Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2), rad = Math.hypot(m.re - (c.re + e.re) / 2, m.im - (c.im + e.im) / 2);
         worst = Math.max(worst, Math.max(ang, rad) * v.s);
-        if (++n % 8 === 0) yield;
       }
     }
     const want = Math.ceil(SV_POLAR_NT * Math.sqrt(worst / SV_POLAR_TOL) / SV_POLAR_NTQ) * SV_POLAR_NTQ;
