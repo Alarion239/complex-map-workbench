@@ -8,7 +8,8 @@
 // - the surface is cut, not painted plain: at the pixel of a surface point outside the set Inside regions shows the
 //   pane's ground (the pixel at the pane's corner, within 15/255), inside the set the same colour as Everywhere's, and the
 //   probe there rests on the floor (the point under the pointer is not the surface point);
-// - parked at u = 0.5 between z and w₁: a carried frame whose mask is plane z's (1 at 0, 0 at 3i).
+// - parked at u = 0.25 and 0.5 between z and w₁: more of the pane shows its ground than with Everywhere; at 0.5 a
+//   carried frame whose mask is plane z's (1 at 0, 0 at 3i).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -70,6 +71,23 @@ for (const [i, pts] of planes) {
   ok(`plane ${i}: Inside regions is another picture than Everywhere (> 5 % of pixels > 32/255)`, info.rest[i].d > 0.05, info.rest[i].d);
 }
 // ---- between z and w₁ ----
+// the share of the pane's pixels within 15/255 of its ground (the corner pixel): the cut part shows the ground
+const groundShare = () => ev(`(() => { const cv = document.getElementById('canvasL'), A = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, g = [A[12], A[13], A[14]]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - g[0]), Math.abs(A[i + 1] - g[1]), Math.abs(A[i + 2] - g[2])) <= 15) n++; return n / (A.length / 4); })()`);
+info.ground = {};
+for (const u of [0.25, 0.5]) {
+  await at('all', 0);
+  await ev(`__cmwSteps({ park: ${u} }); 1`);
+  await settled({ max: 60000 });
+  await ev(rAF2);
+  const everywhere = await groundShare();
+  await at('in', 0);
+  await ev(`__cmwSteps({ park: ${u} }); 1`);
+  await settled({ max: 60000 });
+  await ev(rAF2);
+  const inside = await groundShare();
+  info.ground[u] = { everywhere, inside };
+  ok(`parked at ${u}: the part outside the set is not drawn (more of the pane shows its ground than with Everywhere, by 2 %)`, inside > everywhere + 0.02, info.ground[u]);
+}
 await at('in', 0);
 await ev('__cmwSteps({ park: 0.5 }); 1');
 await settled({ max: 60000 });
