@@ -83,7 +83,7 @@ const splitNow = async () => { await clickSel('#svStrip .sv-step[data-k="2"] .sv
   ok('glide in flight: the place is remapped (x 1.2+ → splitMorphT)', Math.abs(p1.x - want) < 0.02, info.glideX);
   info.glidePx = diff(g0, g1);
   ok('glide in flight: the frame after the Split equals the frame before (within the glide tolerance)', info.glidePx >= 0 && info.glidePx < 0.005 * g0.w * g0.h, [info.glidePx, where(g0, g1)]);
-  // the glide goes on and parks on the plane it was heading for: f3's plane, now index 5
+  // the glide goes on and parks on the plane it was heading for: f3's plane, which is index 5 after the Split
   await ev('__cmwSteps({ clock: 40 })');
   await until('Math.abs(__cmwSteps().x - 5) < 1e-6', 60000); await quiet();
   const p2 = await sv();
