@@ -1161,7 +1161,7 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
-  const SV_POLAR_PROBE_R = 32, SV_POLAR_PROBE_T = 64, SV_POLAR_TOL = 1, SV_POLAR_NTQ = 24, SV_POLAR_CELLS = 4 * 80 * 80;
+  const SV_POLAR_PROBE_R = 32, SV_POLAR_PROBE_T = 64, SV_POLAR_TOL = 1, SV_POLAR_NTQ = 24, SV_POLAR_CELLS = 2 * 80 * 80;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
