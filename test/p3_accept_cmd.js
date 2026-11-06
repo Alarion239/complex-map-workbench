@@ -48,20 +48,22 @@ const frames = async () => {
   await sleep(700);
 };
 // (the cuts of a step are drawn whole under Inside regions, also across the pixels outside its region (ux). Around the cut's
-// true image (CUT: its distance in w from the exact curve, written here and not taken from the app's drawn polyline) the
-// judge leaves out, within CUT_PX screen px (the distance over the pixel's footprint in w; the stroke's soft edge reaches about 8 px), the pixels of the stroke's own
-// colour, STROKE, alone or blended with the globe's grey (its anti-aliased edge and halo: some t of STROKE over some grey
-// from GREY_LO, each channel within STROKE_TOL); any other tint or fill there counts, and so does a stroke drawn where
-// the cut's image is not. leak: the control, which copies the Everywhere frame's coloured pixels over up to 200 pixels
-// outside the region in that band of the Inside frame, a fill leak right next to the cut)
-const CUT_PX = 8, STROKE = [204, 51, 17], GREY_LO = 150, STROKE_TOL = 10;
+// true image (its distance in w from the exact curve, written here and not taken from the app's drawn polyline, over the
+// pixel's footprint in w) the judge leaves out, within BAND device px, the pixels of the stroke's own colour, STROKE, alone
+// or blended with the globe's grey (its anti-aliased edge and halo: some t of STROKE over some grey from GREY_LO, each channel
+// within STROKE_TOL); any other tint or fill there counts, and so does a stroke drawn where the cut's image is not.
+// BAND = CUT_HALF * dpr + CUT_AA: half the width of the wider of the two strokes the cut is drawn with (strokeCurves: 3.5 CSS
+// px, the halo; 1.75 the line), in device px, and CUT_AA, a device pixel of anti-aliasing beyond the edge. leak: the control,
+// which copies the Everywhere frame's coloured pixels over up to 200 outside-region pixels at a distance of leak[0] to leak[1]
+// device px from the cut's image (and past the 4 px rim guard) in the Inside frame: a fill leak next to the cut)
+const CUT_HALF = 3.5 / 2, CUT_AA = 1, STROKE = [204, 51, 17], GREY_LO = 150, STROKE_TOL = 10;
 // the exact images of the cut of z^i (the negative real axis, in plane z; in plane w1 the circles |w| = e^-pi and e^pi), and of log (the
 // lines Im w = -pi and pi); no cut: never near
 const CUT_NONE = '(w) => Infinity';
 const CUT_ZI_Z = '(w) => (w[0] < 0 ? Math.abs(w[1]) : Math.hypot(w[0], w[1]))';
 const CUT_ZI_W1 = `(w) => Math.min(Math.abs(Math.hypot(w[0], w[1]) - ${Math.exp(-Math.PI)}), Math.abs(Math.hypot(w[0], w[1]) - ${Math.exp(Math.PI)}))`;
 const CUT_LOG_W1 = `(w) => Math.min(Math.abs(w[1] - ${Math.PI}), Math.abs(w[1] + ${Math.PI}))`;
-const globeCheck = async (cls, step = 2, leak = false, cut = CUT_NONE) => {
+const globeCheck = async (cls, step = 2, leak = null, cut = CUT_NONE) => {
   await frames();
   return ev(`(() => {
   const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect();
@@ -75,15 +77,18 @@ const globeCheck = async (cls, step = 2, leak = false, cut = CUT_NONE) => {
   const labs = [[0, 0, 1.1], [0, 0, -1.1], [1.06, 0, 0.1], [0, -1.06, 0.1], [-1.06, 0, 0.1], [0, 1.06, 0.1]].map(proj).filter(Boolean);
   const onLabel = (x, y) => labs.some((q) => Math.hypot(q[0] - x, q[1] - y) < 16);
   for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const w = pick(x + 0.5, y + 0.5); C[y * Wd + x] = w ? (cls(w) || 2) : 3; WW.push(w); }
-  // (onCut: the pixels within CUT_PX of the cut's exact image: its distance in w over the pixel's footprint in w)
-  const cutD = ${cut};
-  const onCut = new Uint8Array(Wd * Hd);
-  for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) {
-    const w = WW[y * Wd + x], wx = x + 1 < Wd ? WW[y * Wd + x + 1] : null, wy = y + 1 < Hd ? WW[(y + 1) * Wd + x] : null;
-    if (!w || !wx || !wy) continue;
-    const fp = Math.max(Math.hypot(wx[0] - w[0], wx[1] - w[1]), Math.hypot(wy[0] - w[0], wy[1] - w[1]));
-    if (cutD(w) <= ${CUT_PX} * fp) onCut[y * Wd + x] = 1;
+  // (cd: each pixel's distance to the cut's exact image in device px: the distance in w over its rate of change per px, taken
+  // from the neighbouring picks, which is the distance in px across the curve to first order, where the globe is foreshortened
+  // or not; times dpr. onCut: the pixels within BAND of it)
+  const cutD = ${cut}, BAND = ${CUT_HALF} * dpr + ${CUT_AA};
+  const cd = new Float32Array(Wd * Hd).fill(1e9);
+  for (let y = 1; y < Hd - 1; y++) for (let x = 1; x < Wd - 1; x++) {
+    const w = WW[y * Wd + x], a = WW[y * Wd + x - 1], b = WW[y * Wd + x + 1], c = WW[(y - 1) * Wd + x], e = WW[(y + 1) * Wd + x];
+    if (!w || !a || !b || !c || !e) continue;
+    const g = Math.hypot(cutD(b) - cutD(a), cutD(e) - cutD(c)) / 2;
+    if (g > 0) cd[y * Wd + x] = cutD(w) / g * dpr;
   }
+  const onCut = (x, y) => cd[y * Wd + x] <= BAND;
   const near = (x, y) => { const c = C[y * Wd + x]; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) return true; if (dx * dx + dy * dy <= 16 && C[yy * Wd + xx] !== c) return true; } return false; };
   const S0 = ${JSON.stringify(STROKE)};
   const isStroke = (A, i) => {
@@ -93,9 +98,9 @@ const globeCheck = async (cls, step = 2, leak = false, cut = CUT_NONE) => {
     return false;
   };
   const injected = [];
-  if (${leak}) {
+  if (${JSON.stringify(leak)}) {
     for (let y = 4; y < Hd - 4 && injected.length < 200; y++) for (let x = 4; x < Wd - 4 && injected.length < 200; x++) {
-      if (C[y * Wd + x] !== -1 || !onCut[y * Wd + x] || near(x, y)) continue;
+      if (C[y * Wd + x] !== -1 || cd[y * Wd + x] < ${leak ? leak[0] : 0} || cd[y * Wd + x] > ${leak ? leak[1] : 0} || near(x, y)) continue;
       const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
       if (Math.max(D0[i], D0[i + 1], D0[i + 2]) - Math.min(D0[i], D0[i + 1], D0[i + 2]) < 40 || isStroke(D0, i)) continue;
       D1[i] = D0[i]; D1[i + 1] = D0[i + 1]; D1[i + 2] = D0[i + 2]; injected.push([x, y]);
@@ -104,7 +109,7 @@ const globeCheck = async (cls, step = 2, leak = false, cut = CUT_NONE) => {
   const o = { inN: 0, inBad: 0, outN: 0, outBad: 0, badIn: [], badOut: [] };
   for (let y = 4; y < Hd - 4; y += ${step}) for (let x = 4; x < Wd - 4; x += ${step}) {
     const c = C[y * Wd + x]; if (c !== 1 && c !== -1) continue;
-    if (near(x, y) || onLabel(x, y) || (onCut[y * Wd + x] && isStroke(D1, 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr))))) continue;
+    if (near(x, y) || onLabel(x, y) || (onCut(x, y) && isStroke(D1, 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr))))) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
     const fill = ${FILL}(D1, D0, i);
     const w = WW[y * Wd + x];
@@ -225,6 +230,14 @@ for (const [k, cam, cls, tag] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2 }, DZI
   R[tag + '_sc'] = { passes: g1.n - g0.n, avgPx: g1.n > g0.n ? Math.round((g1.px - g0.px) / (g1.n - g0.n)) : 0, panePx: await ev(`(() => { const cv = document.getElementById('canvasL'); return cv.width * cv.height; })()`) };
   ok(`globe scissor (plane ${k}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < 0.6 * R[tag + '_sc'].panePx, R[tag + '_sc']);
   ok(`globe scissor (plane ${k}): the disc's exact image is whole`, R[tag].inN >= 200 && R[tag].inBad === 0 && R[tag].outBad === 0, R[tag]);
+  if (k === 1) {
+    // the judge's controls: a fill leak next to the cut (the Everywhere colour copied over outside pixels 4 to 8, and 0 to 3, device px
+    // from the cut's image) is counted, so the stroke-colour exclusion hides neither
+    for (const [name, band] of [['4-8', [4, 8]], ['0-3', [0, 3]]]) {
+      R['leak_' + name] = await globeCheck(cls, 1, band, CUT_ZI_W1);
+      ok(`globe scissor control: a fill leak ${name} px from the cut is counted by the judge`, R['leak_' + name].injected >= 20 && R['leak_' + name].outBad >= 20, R['leak_' + name]);
+    }
+  }
   R.sc_paths.push(k + ':' + (await drawn('s1')));
   await shot('p3_' + tag);
 }
@@ -239,10 +252,6 @@ await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1'); await sett
 R.n_hole = await globeCheck(ANNULUS, 2, false, CUT_ZI_W1);
 ok('(n) plane w1 on the globe: hole cap empty, annulus filled', R.n_hole.outN >= 400 && R.n_hole.outBad === 0 && R.n_hole.inN >= 400 && R.n_hole.inBad === 0, R.n_hole);
 await shot('p3_n_hole');
-// the judge's control: a fill leak right next to the cut (the Everywhere colour copied over outside pixels within the cut's
-// band) is counted, so the stroke-colour exclusion does not hide it
-R.n_leak = await globeCheck(ANNULUS, 2, true, CUT_ZI_W1);
-ok('(n) control: a fill leak next to the cut is counted by the judge', R.n_leak.injected >= 20 && R.n_leak.outBad >= 20, R.n_leak);
 
 // ---- (g) plane w1 of [z^i, z^2] on the Plane surface is exact: its fill equals the CPU render of z^i(H) (IoU >= 0.999)
 await plane(1, 'plane'); await settle();
