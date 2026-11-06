@@ -293,9 +293,11 @@
   // The pieces of the screen curves that lie on no earlier part of their own path: a curve that winds round a circle (the
   // image of a cut under z^i or the logarithm) traces it many times, and a dash pattern laid over each turn from its own
   // phase fills the turns' gaps. A segment that lies within CUT_OVERLAP_PX of an earlier one (at least CUT_TURN_PX of the
-  // path before it, with a direction within about 15° of it, either way round) is left out, and the pen lifts there.
+  // path before it, with a direction within CUT_PARALLEL of it, either way round) is left out, and the pen lifts there.
   // Returns the polylines to stroke (null points break a polyline, as in the input)
-  const CUT_OVERLAP_PX = 1.2, CUT_TURN_PX = 24, CUT_CELL_PX = 12;
+  // (CUT_PARALLEL: the cosine of the angle between two segments that still count as one direction, 15°; CUT_JUMP: the share
+  // of the pane's longer side that a step between two samples may span before the pen lifts)
+  const CUT_OVERLAP_PX = 1.2, CUT_TURN_PX = 24, CUT_CELL_PX = 12, CUT_PARALLEL = 0.97, CUT_JUMP = 0.25;
   function distinctArcs(curves) {
     const out = [], grid = new Map();
     for (const pts of curves) {
@@ -312,7 +314,7 @@
         for (let i = -1; i <= 1 && !seen; i++) {
           for (let j = -1; j <= 1 && !seen; j++) {
             for (const g of grid.get((cx + i) + ',' + (cy + j)) || []) {
-              if (arc - g.arc < CUT_TURN_PX || Math.abs(ux * g.ux + uy * g.uy) < 0.97) continue;
+              if (arc - g.arc < CUT_TURN_PX || Math.abs(ux * g.ux + uy * g.uy) < CUT_PARALLEL) continue;
               const rx = mx - g.mx, ry = my - g.my;
               if (Math.abs(rx * g.uy - ry * g.ux) < CUT_OVERLAP_PX && Math.abs(rx * g.ux + ry * g.uy) <= g.len / 2 + CUT_OVERLAP_PX) { seen = true; break; }
             }
@@ -342,7 +344,7 @@
       let pen = null;
       return pts.flatMap((q) => {
         if (!q || Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; return [null]; }
-        const jump = pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > 0.25 * Math.max(pane.w, pane.h);
+        const jump = pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > CUT_JUMP * Math.max(pane.w, pane.h);
         pen = q;
         return jump ? [null, q] : [q];
       });
