@@ -365,7 +365,7 @@
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
-    // (a run of nudges of one shape is one undo step: each press replaces the history entry the run's last press made)
+    // (a run of nudges of one shape is one undo step: a press within a moment of the last takes that press's history entry back before it commits)
     const now = performance.now();
     if (nudgeRun && nudgeRun.id === s.id && nudgeRun.hi === hi && now - nudgeRun.t < 1500 && hi > 0) { hist.pop(); hi = hist.length - 1; }
     commit();
