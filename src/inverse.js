@@ -411,6 +411,11 @@ const Inverse = (() => {
   // CPU and the GPU
   const TIE_D = 2 ** -14;
   const tieBand = (D) => TIE_D * (1 + D);
+  // the early stops (a side stops when its members' keys provably exceed the front's by more than the margin): the
+  // tie band, and 2^-8 octave more for the error of the lower bounds, which the GPU computes in float; a bound
+  // short by more than the tie band would stop a side whose member comes in front
+  const STOP_D = 2 ** -8;
+  const stopBand = (D) => STOP_D + tieBand(D);
   const dTie = (a, b) => a === b || Math.abs(a - b) <= tieBand(Math.min(a, b));
   function front(a, b) {
     if (!dTie(a.D, b.D)) return a.D < b.D;
@@ -1370,19 +1375,19 @@ const Inverse = (() => {
             let stop = false;
             if (!prep.stopMob) {
               const dk = DK();
-              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + tieBand(dk);
+              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + stopBand(dk);
               // the tail rule (prepare's tail flag; gl.js ixDKTail): K > B for the own alpha, the buffer full, U final, the
               // side still in range up to infinity without a hole, its last three members covering, and every member to
               // come behind the buffer's last key: the full walk would close the tail there anyway
               if (!stop && noStop && prep.tail && dk === Infinity && !(hlo <= hhi) && (goUp ? lp.cU >= 3 && hi === Infinity : lp.cD >= 3 && lo === -Infinity)
-                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + tieBand(ent[B - 1].D)) { stop = true; tailInf = true; }
+                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + stopBand(ent[B - 1].D)) { stop = true; tailInf = true; }
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
                 const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
                 const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
                 const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK() + tieBand(DK());
+                stop = LB > DK() + stopBand(DK());
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }

@@ -17,6 +17,9 @@ const float IX_BIG = 1e9;
 // (the sheet key's tie band, Inverse.front's TIE_D: 2^-14 octave and the same part of D; 2^-14 = 0.00006103515625)
 const float IX_TIE_D = 0.00006103515625;
 float ixTieBand(float D) { return IX_TIE_D * (1.0 + D); }
+// (the early stops' margin: the tie band and 2^-8 octave more for the error of the lower bounds: Inverse's stopBand)
+const float IX_STOP_D = 0.00390625;
+float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #if IX_LAM
 #define IX_HASLAM(L) (L).hasLam
 #else
@@ -414,8 +417,8 @@ bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
 }
-// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the tie band
-// (the tie band: a member within it may still come in front by the tie rule) ----
+// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the stop band
+// (a member within the tie band may still come in front by the tie rule) ----
 float ixRayBoxDist(vec2 a, vec2 v, float smax) {
   float lo = 0.0, hi = smax;
   if (!(abs(v.x) > 1e-30)) { if (a.x < uWin.x || a.x > uWin.z) lo = IX_INF; }
@@ -445,14 +448,14 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
     float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
-    return LB > dk + ixTieBand(dk);
+    return LB > dk + ixStopBand(dk);
   }
 #endif
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
   float lb = ixLastD;
   // (the members still to come start at the next one, z_m + q: a member past the front need not be walked to stop)
   if (ixLastFin) { vec2 q = cdiv(p, uIxAB[j].xy), qd = goUp ? q : -q; lb = log2(1.0 + ixRayBoxDist(ixLastZ + qd, qd, IX_INF) / uWinR); }
-  return lb > dk + ixTieBand(dk);
+  return lb > dk + ixStopBand(dk);
 }
 bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
@@ -471,7 +474,7 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       }
     }
   }
-  return lb > dk + ixTieBand(dk);
+  return lb > dk + ixStopBand(dk);
 }
 // ---- patterns with analytic footprints (6.1, 6.2) ----
 vec2 ixDivL(vec2 a, vec2 b) { return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-37); }
