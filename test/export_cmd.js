@@ -373,7 +373,15 @@ if (process.env.CMW_ONLY !== '1-3') {
   const done = await ev('__cmwLandSheets()');
   // (w_1 is the colour plane: its F is the identity, one surface and no sheets)
   ok('sheets, steps play: it arrives on w_1, the colour plane, and the sheets are gone', end >= 0.999 && done && !done.drawn, { end, drawn: done && done.drawn });
-  await ev(`__cmwSteps({ clock: null }); 1`);
+  // (√ then sin: the play from w_1 glides across the sin step, whose frames keep √'s two sheets (#1099); a slow clock keeps
+  // the play between the planes while the carry's program compiles)
+  await loadSt(`u5splaysin${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+  await ev(`__cmwSteps({ surf: 'land', clock: 8, x: 1 }); 1`); await settle(1500);
+  await key('m');
+  let sm = null, sx = 0;
+  for (let i = 0; i < 300 && !(sx > 1.15 && sx < 1.9 && sm && sm.drawn); i++) { await sleep(150); sx = await ev('__cmwSvX()'); sm = await ev('__cmwLandSheets()'); if (sx >= 1.9) break; }
+  ok('sheets, steps play across sin: a frame of the glide draws both sheets', !!(sx > 1.15 && sx < 1.9 && sm && sm.drawn && sm.drawn.K === 2), { x: sx, drawn: sm && sm.drawn });
+  await ev(`__cmwSteps({ play: false, clock: null }); 1`);
   } else if (!USER5_CLASSIC) {
   // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
   await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
