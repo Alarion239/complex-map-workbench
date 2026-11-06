@@ -24,6 +24,7 @@ const VIEWS = {
   // already in the steps view
   'example_lane_cut_cmd.js': steps(),
   'sv_cut_curve_cmd.js': steps(),
+  'sv_cut_keeps_view_cmd.js': steps(),
   'sv_cut_curve_sphere_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
@@ -48,15 +49,18 @@ const VIEWS = {
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'sv_land_sin_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_poles_cmd.js': steps(),
+  'steps_land_far_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
+  'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_glide_look_cmd.js': steps({ pin: true }),
   'steps_glide_black_cmd.js': steps({ pin: true }),
@@ -89,6 +93,7 @@ const VIEWS = {
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
+  'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
   'sv_curve_menu_cmd.js': steps(),
@@ -99,6 +104,7 @@ const VIEWS = {
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
   'steps_sphere_rest_cmd.js': steps(),
+  'steps_sphere_cayley_cmd.js': steps(),
   'steps_sphere_cut_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
@@ -211,13 +217,13 @@ const VIEWS = {
   'tour_cmd_classic_cmd.js': classic('the classic views\' tour: X\'s pan task and the strip\'s arrow keys, the Views chapter (the view'
     + ' switch, Phase, Sphere, Phase key) and the Deformation chapter (Paths, All steps at once, Part of the chain); the steps view\'s'
     + ' is tour_cmd'),
-  'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
-    + ' chapters (#717), whose tour has 42 steps'),
+  'tour_it360_cmd.js': steps({ pin: true }),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
-  'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour has 42 steps), and'
-    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
+  'tour_phone_cmd.js': steps({ pin: true }),
+  'tour_phone_classic_cmd.js': classic('the classic views\' tour on a phone: X\'s 608 px under the chain bar and the Phase key sheet below the strip;'
+    + ' the steps view\'s is tour_phone_cmd'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
@@ -225,7 +231,7 @@ const VIEWS = {
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
-  'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu (UX97, UX99), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
+  'ux165_learn_cmd.js': port('words', 'what is left of it asks for things the steps view does not have yet: the playback readout in words, the draw-tool chip while a deformation is open, the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu, the empty chain\'s Add function not over the picture with its tooltip words and the plane\'s title whole beside it, and the plane\'s pattern key and target note (steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the plot, above the strip'),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
@@ -259,8 +265,8 @@ const VIEWS = {
   'meetnear_coincide_cmd.js': steps({ pin: true }),
   'perp_cmd.js': steps({ pin: true }),
   'poly_verts_cmd.js': steps({ pin: true }),
-  'rel162_sheets_cmd.js': port('geometry', 'All sheets: after the steps view has an All sheets control'),
-  'sheets_deform_cmd.js': port('geometry', 'All sheets in a glide: after the steps view has an All sheets control'),
+  'rel162_sheets_cmd.js': port('geometry', 'the release check of All sheets on a Landscape with a multivalued step, its sheets and their count, as the classic Landscape draws them: the steps view has the check in its plane options (sv_all_sheets_cmd), not this case'),
+  'sheets_deform_cmd.js': port('geometry', 'All sheets while a glide plays: the steps view has the check (sv_all_sheets_cmd) and its glide, but not every sheet drawn over the glide'),
   'touch_cmd.js': steps({ pin: true }),
   'ux165_rail_cmd.js': steps({ pin: true }),
 
@@ -270,7 +276,7 @@ const VIEWS = {
   'land_release_cmd.js': steps({ pin: true }),
   'link_standin_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
-  'p3_accept_cmd.js': port('render'),
+  'p3_accept_cmd.js': port('render', 'the exact globes and their strokes, the spherical checker on the GPU, the globes\' figure export and the globe orientation: the steps view has its own globe suites (sv_globe_*), and these checks are not yet in the steps view'),
   'p3_review_cmd.js': steps({ pin: true }),
   'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
   'p3b_accept_cmd.js': steps({ pin: true }),
@@ -280,10 +286,10 @@ const VIEWS = {
   'regions_phase_classic_cmd.js': classic('the X → Y view\'s Regions pop-up in Y\'s head and its key chip, and the tour\'s Views chapter'),
   'sphere_light_cmd.js': steps({ pin: true }),
 
-  // to port: sound (Pietro's team, #580 and #598)
-  'seasong_cmd.js': port('sound'),
-  'sound_cmd.js': port('sound'),
-  'sound_v152_cmd.js': port('sound'),
+  // to port: sound (Pietro's team)
+  'seasong_cmd.js': port('sound', 'the Mountain King example: its gallery entry, its circle menu with Listen along and the first samples it prepares, in English, Russian, desktop and phone; it waits on the sound checks in the steps view'),
+  'sound_cmd.js': port('sound', 'the browser side of sound: consent, the tiers and their palette entries, the settings, the cues, the pointer voice, loops and the Landscape contours; it waits on the sound checks in the steps view'),
+  'sound_v152_cmd.js': port('sound', 'Hear the function under the pointer: the marimba notes at each colour line, the winding by ear, the curves singing and palette B\'s scrub; it waits on the sound checks in the steps view'),
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
