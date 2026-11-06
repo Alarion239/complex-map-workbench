@@ -2609,6 +2609,7 @@
   // the chain changed: the shown plane and the colour plane stay on their stages when they still exist
   function svChainChanged() {
     if (!SV.on || !SV.els) return;
+    svKeepView();
     svShifted();
     if (SV.alone && !svAloneOk()) svLeaveAlone(false);
     if (SV.play) svPause(false);
