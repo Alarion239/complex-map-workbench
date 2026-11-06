@@ -104,7 +104,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT, uGrp0, uGrpN));',
+    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAllG(z, uA, uB, uT, uGrp0, uGrpN));',
   ];
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {

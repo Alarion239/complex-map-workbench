@@ -207,7 +207,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = GLChain.LIB;
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uGrp0', 'uGrpN', 'groupT', 'postOf', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainHomAllG', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uGrp0', 'uGrpN', 'groupT', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
