@@ -18,14 +18,14 @@ const PAGE_GRID = `window.__grid = async (svg) => { const out = [], re = /<image
 const SPEC = { 'F': 'F', 'f_{2}': 'f₂', 'f_{1}': 'f₁' };
 const build = async (opts) => {
   await ev(`window.__xtp = null; (async () => { const f = await Figure.build(${JSON.stringify(opts)}); if (!f) return { none: true };
-    return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, keyLine: f.info.keyLine, boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
+    return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, keyLine: f.info.keyLine, W: f.W, keyR: Math.max(0, ...f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => b.x1)), boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xtp != null', max: 120000, panes: false });
   return ev('window.__xtp');
 };
 const grids = async (svg) => { await ev(PAGE_GRID); await ev(`window.__xtpg = null; window.__grid(${JSON.stringify(svg)}).then((g) => { window.__xtpg = g; }); 1`); await settled({ until: 'window.__xtpg != null', max: 30000, panes: false }); return ev('window.__xtpg'); };
 const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
-const ready = async (ex) => {
-  await go(`${base}/test.html?view=steps&ns=xtp${ex}${Date.now() % 1e7}`);
+const ready = async (ex, lang) => {
+  await go(`${base}/test.html?view=steps&ns=xtp${ex}${Date.now() % 1e7}${lang ? `&lang=${lang}` : ''}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${ex}), __cmwSet('wKey', false), 1)`);
   await settled({ until: '__cmwSteps().planes.length > 1', max: 15000 });
@@ -77,6 +77,14 @@ for (const to of [1, 2]) {
   ok(`to plane ${to}: the figure's key line is ${carried ? 'the pane\'s' : 'absent'}`, r && r.info && (r.info.keyLine || null) === carried, { carried, got: r && r.info && r.info.keyLine });
   ok(`to plane ${to}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<clipPath id="[^"]*-key"/.test(r.svg) === !!carried, null);
   info[`key to ${to}`] = carried; ok(`to plane ${to}: a carried key is exercised`, to === 1 ? !!carried : true, carried);
+}
+// the key's words are inside the figure in every language (the Italian line is the widest)
+for (const lang of ['en', 'ru', 'it']) {
+  await ready(1, lang);
+  await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === 1 && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000 });
+  const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: 1 });
+  ok(`${lang}: the key stands in the figure and ends inside its width`, r && r.info && !!r.info.keyLine && r.info.keyR > 0 && r.info.keyR <= r.info.W + 0.01, r && r.info && { keyLine: r.info.keyLine, keyR: r.info.keyR, W: r.info.W });
 }
 // the default planes follow the thread: example 18 has z and ζ's values only
 await ready(18);

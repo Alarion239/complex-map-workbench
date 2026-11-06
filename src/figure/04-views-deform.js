@@ -427,7 +427,7 @@
     // saying where the colour is carried from, in a column right of the second picture)
     const sk = A.svKey ? A.svKey(to) : null;
     const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
-    mR += keyW;
+    mR += keyW ? keyW + KEY_GAP : 0;
     let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
     h = Math.min(h, W * 0.62, P.maxH - top - bottom);
     const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;

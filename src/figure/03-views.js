@@ -468,7 +468,7 @@
       const t1 = XD.tex(titles(panels[0])[1], lp);
       top = t1.a + t1.d + ah + 5; bottom = 3;
     }
-    mR += keyW;
+    mR += keyW ? keyW + KEY_GAP : 0;
     let h = (W - mL - gut - mR) / panels.reduce((a, s) => a + asp(s), 0);
     h = Math.min(h, W * (two ? 0.62 : 0.8), P.maxH - top - bottom);
     const used = mL + gut + mR + h * panels.reduce((a, s) => a + asp(s), 0);
