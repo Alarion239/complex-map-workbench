@@ -6,7 +6,7 @@ class Pane {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.ocanvas = overlay || canvas;
-    // (issue #297) the overlay's context is CPU-backed (willReadFrequently): on a GPU-accelerated 2D canvas, Chrome
+    // the overlay's context is CPU-backed (willReadFrequently): on a GPU-accelerated 2D canvas, Chrome
     // kept an earlier frame's picture in the overlay after frames that only cleared it (example 7's cut handle stayed
     // over example 8, about 1 load in 3), although the app drew nothing there; a CPU-backed canvas never did. The
     // overlay holds only lines, chips and handles, cheap to draw on the CPU; the planes' own canvases stay on the GPU
@@ -271,13 +271,13 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
+  // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
   // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
   // its own speed (a state without one takes the device's). alone: the step shown alone, an active step's index, a key only
   // while one is shown; at and T are then the whole chain's place (what leaving it goes back to). planes: the stages of
-  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state was
-  // never saved from the steps view): a fractional or far `at` is clamped to the planes, a T the chain no longer has
+  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state holds
+  // no steps view): a fractional or far `at` is clamped to the planes, a T the chain does not have
   // is -1, an unknown scope or surface is the default, an unknown speed is dropped.
   const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
   function cleanSv(v, planes) {

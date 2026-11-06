@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
 <script>
-/* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
+/* i18n (notes/i18n/DESIGN.md 2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
    Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal).
    English returns at once. (The faces are in the one stylesheet above in every language: Google Fonts serves Roboto Flex
@@ -67,14 +67,14 @@
   --shadow-3: 0 10px 28px #121A2029, 0 2px 6px #121A2014;
   --scrim: #121A205C;
   /* type */
-  /* (#288) one interface face, Roboto Flex, in all three languages (it has the width axis the semi-condensed captions use, and
+  /* one interface face, Roboto Flex, in all three languages (it has the width axis the semi-condensed captions use, and
      Cyrillic), and one mono, JetBrains Mono, for readouts and typed input alike (round parentheses, a tight decimal point) */
   --f-ui: "Roboto Flex", "Helvetica Neue", Arial, system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --f-input: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* the semi-condensed captions and tool labels (they were Archivo at 87.5%): Roboto Flex's width axis is gentle and its optical
-     size follows the font size, so at 11-12 px it sets wider than Archivo did; width 75% and optical size 24 set the same words
-     within 2% of the old widths (Russian was already Roboto Flex at 87.5%, and keeps that below) */
+  /* the semi-condensed captions and tool labels: Roboto Flex's width axis is gentle and its optical
+     size follows the font size, so at 11-12 px it sets wide; width 75% and optical size 24 keep the words
+     compact (Russian uses width 87.5% below) */
   --ui-narrow-stretch: 75%; --ui-narrow-var: "opsz" 24;
   --f-math: "STIX Two Text", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
   --t-micro: 400 10px/12px var(--f-mono);
@@ -213,7 +213,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .layout > .panel.right { grid-column: 3; }
 
 /* ---------- 5.1 Header ---------- */
-/* (#359) no reading-flow here: it took the menu's buttons (display: contents) as one item placed before the views, so Tab went
+/* no reading-flow here: it would take the menu's buttons (display: contents) as one item placed before the views, so Tab would go
    Examples … Help and then the view switch and Deformation; the source order is undo, redo, the views, then the menu */
 .top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; }
 .top > * { flex: 0 0 auto; }
@@ -232,7 +232,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 #exportBtn { order: 11; }
 #themeBtn { order: 12; }
 #helpBtn { order: 13; }
-/* [v17 D5, plan/ux-audit/REPORT.md D5 option A] buttons with words: Export ▾ and Share ▾ (the links and the scene files),
+/* buttons with words: Export ▾ and Share ▾ (the links and the scene files),
    then ⚙ Settings (theme, language, sound, the panels, mesh quality, help) and ?. Theme and the panel buttons live in
    Settings on a laptop (their keys stay: [ and ]); the phone keeps its ⋯ sheet, which holds the same settings */
 #shareBtn { order: 11; }
@@ -261,7 +261,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 /* Sound (notes/sound/DESIGN.md §2.1): a split button between Theme and Guide, its settings popover, and on a phone
    the speaker in the bar while sound is on (one tap silences it) */
 #soundBtn, #soundMore { order: 12; }
-/* Phase colors (issue 8): the button shows the palette's key as a small disc; its menu, a preview of each palette */
+/* Phase colors: the button shows the palette's key as a small disc; its menu, a preview of each palette */
 #palBtn { order: 12; }
 .sty-prev svg { display: block; width: 16px; height: 16px; }
 .mi-ic:has(.sty-prev) { width: 22px; height: 22px; flex-basis: 22px; }
@@ -272,18 +272,18 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top .snd-btn { display: inline-flex; align-items: center; gap: 5px; width: auto; padding: 0 6px 0 6px; border-radius: var(--r-2) 0 0 var(--r-2); font: var(--t-label); }
 .top .snd-caret { width: 17px; margin-left: -8px; border-radius: 0 var(--r-2) var(--r-2) 0; }
 .top .snd-caret::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 1px; background: var(--line); }
-/* (v16.5 UX87) the settings caret: 26 px, 2 px from the switch, so aiming for it never turns the sound off */
+/* the settings caret: 26 px, 2 px from the switch, so aiming for it never turns the sound off */
 :root:not(.ph) .top .snd-caret { width: 26px; margin-left: -2px; border-radius: var(--r-2); }
 :root:not(.ph) .top .snd-caret::before { content: none; }
 :root:not(.ph) .top .snd-btn { border-radius: var(--r-2); }
 :root:not(.ph) .top .snd-caret .ic-slot svg { width: 12px; height: 12px; }
-/* (v16.5 UX70) while Hear the function is on, a small wave on the Sound button (and the phone's speaker) */
+/* while Hear the function is on, a small wave on the Sound button (and the phone's speaker) */
 .snd-btn[data-hear="on"]::after, .snd-ph[data-hear="on"]::after { content: ""; flex: 0 0 12px; width: 12px; height: 8px; background: var(--accent);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M.75 4c1.4-3.6 2.6-3.6 3.5 0s2.1 3.6 3.5 0 2.6-3.6 3.5 0' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M.75 4c1.4-3.6 2.6-3.6 3.5 0s2.1 3.6 3.5 0 2.6-3.6 3.5 0' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
 .snd-ph[data-hear="on"] { position: relative; }
 .snd-ph[data-hear="on"]::after { position: absolute; right: 4px; bottom: 6px; }
-/* (v16.5 UX70, UX88) Hear the function first; its music theory, and the engine's line, folded */
+/* Hear the function first; its music theory, and the engine's line, folded */
 .snd-hear { margin-top: 2px; border-bottom: 1px solid var(--line); }
 .snd-fine-touch { display: none; }
 @media (pointer: coarse) { .snd-fine-ptr { display: none; } .snd-fine-touch { display: inline; } .snd-keys { display: none; } }
@@ -301,8 +301,8 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
 /* room for it on tablets: below 1100 px the speaker drops its label (as the view switch and Deformation do below
-   1280; the app's name left the bar, which gave the label back down to 1100); from 768 to 1023 (v15.1, frame f6
-   of notes/ui-redesign-2/desktop, verify-6) the search is its icon alone, named by its aria-label and tooltip, and a
+   1280); from 768 to 1023 (frame f6
+   of notes/ui-redesign-2/desktop) the search is its icon alone, named by its aria-label and tooltip, and a
    long example name gives way first, ending in an ellipsis, as from 1024 */
 @media (min-width: 768px) and (max-width: 1099px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -375,7 +375,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .psec > summary::-webkit-details-marker { display: none; }
 .psec > summary::marker { content: ""; }
 .psec > summary :is(button, a, input, select) { pointer-events: auto; }
-/* (#361: Clear is not inside the summary, a button in a button; it sits over the header's right end) */
+/* (Clear is not inside the summary, a button in a button; it sits over the header's right end) */
 #secShapes { position: relative; }
 #secShapes > #clearShapes { position: absolute; top: 12px; right: 8px; height: 24px; }
 .psec > summary:focus-visible { outline-offset: -2px; }
@@ -406,7 +406,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 
 /* ---------- Stage ---------- */
 .stage { position: relative; display: grid; grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 272px); min-width: 0; min-height: 0; }
-/* v16.4: the guided tour's strip (src/tour.js) in the stage's first row, a row the tour sizes (--tour-h) while it runs */
+/* the guided tour's strip (src/tour.js) in the stage's first row, a row the tour sizes (--tour-h) while it runs */
 .stage > #tourSlot { grid-row: 1; min-width: 0; min-height: 0; }
 .stage > .panes { grid-row: 2; }
 .stage > #gutterRow { grid-row: 3; }
@@ -482,19 +482,19 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
-/* [v16.5 UX37] "Plane | Sphere" in words at every width (the pane title shortens first, app.js fitTitle); a narrow pane
+/* "Plane | Sphere" in words at every width (the pane title shortens first, app.js fitTitle); a narrow pane
    drops the icons, never the words */
 .pane.narrow :is(#leftTabs, #rightTabs) > button > svg { display: none; }
 .pane.narrow :is(#leftTabs, #rightTabs) > button { padding: 0 8px; }
-/* (#483) the panes' Plane | Sphere tabs: their buttons are 28 px tall (min-height), so the strip is 30 px (28 and its 1 px border) with
-   no vertical padding; in a 28 px strip with the 2 px padding of a plain .seg their bottom 4 px and focus ring were cut */
+/* the panes' Plane | Sphere tabs: their buttons are 28 px tall (min-height), so the strip is 30 px (28 and its 1 px border) with
+   no vertical padding; in a 28 px strip with the 2 px padding of a plain .seg their bottom 4 px and focus ring would be cut */
 :is(#leftTabs, #rightTabs) { height: 30px; padding: 0 2px; }
 :is(#leftTabs, #rightTabs)::before { top: 0; bottom: 0; }
 :is(#leftTabs, #rightTabs) > button { min-height: 28px; }
 /* the right title stays beside the icon-only modes while it fits (app.js fitRightTitle): first the role text
    goes (it would be cut to a few letters), then the whole title on a very narrow plate */
 .pane-title.terse .prole { display: none; }
-.pane-title.notag .ptag { display: none; }   /* (wave 1 merge: the X / Y tag gives way before the title, fitTitle) */
+.pane-title.notag .ptag { display: none; }   /* (the X / Y tag gives way before the title, fitTitle) */
 .prole .rs, .pane-title.short .prole .rf { display: none; }
 .pane-title.short .prole .rs { display: inline; }
 .pane.tiny .pane-title { display: none; }
@@ -533,12 +533,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   cursor: copy; transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 .chip.readout:empty { display: none; }
-/* [v16.5 UX10] the probe's one readout: z on the first line, w = F(z) on the second */
+/* the probe's one readout: z on the first line, w = F(z) on the second */
 .chip.readout:has(> .rln) { height: auto; line-height: 18px; padding-top: 2px; padding-bottom: 2px; }
 :root.ph .chip.readout:has(> .rln) { height: auto; line-height: 20px; padding-top: 3px; padding-bottom: 3px; }
 .chip.readout > .rln { display: block; overflow: hidden; text-overflow: ellipsis; }
 .chip.readout .rteach { margin-left: 8px; }
-/* ([v16.5 fix user-4] the hold-and-slide line is never cut: it drops to a second line of the chip, whole) */
+/* (the hold-and-slide line is never cut: it drops to a second line of the chip, whole) */
 .chip.readout:has(> .rteach) { height: auto; white-space: normal; line-height: 20px; padding-top: 2px; padding-bottom: 2px; }
 .chip.readout .rteach { display: inline-block; white-space: nowrap; }
 .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 164px); }
@@ -574,7 +574,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .legend-chip > canvas { display: block; width: 136px; height: 72px; }
 .legend-chip.collapsed { padding: 3px; }
 .legend-chip.collapsed > canvas, .legend-chip.collapsed > .key-sw { display: none; }
-/* the folded chip (touch phones, merged-views review): a glyph of its key, a tap unfolds it */
+/* the folded chip (touch phones): a glyph of its key, a tap unfolds it */
 .legend-chip.collapsed::after { content: ""; display: block; width: 22px; height: 22px; border-radius: 50%; background: var(--wheel, var(--ink-2));
   -webkit-mask: radial-gradient(circle, transparent 5.5px, #000 6.5px); mask: radial-gradient(circle, transparent 5.5px, #000 6.5px); }
 .legend-chip.collapsed[data-kind="image"]::after { border-radius: 2px; opacity: 0.6; -webkit-mask: none; mask: none;
@@ -702,7 +702,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .hairline { position: absolute; z-index: 11; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; }
 .hairline::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--accent); animation: hairline 900ms var(--ease-inout) infinite; }
 @keyframes hairline { from { transform: translateX(-100%); } to { transform: translateX(334%); } }
-/* the start-up bar (issue #245): 3 px at the very top, over the page and out of the layout; it takes no input. The fill
+/* the start-up bar: 3 px at the very top, over the page and out of the layout; it takes no input. The fill
    is a transform, so a step of the count moves no layout. Unknown total: the sweep of the hairline, still when motion
    is reduced. */
 #warmBar { position: fixed; z-index: 2000; left: 0; right: 0; top: 0; height: 3px; overflow: hidden; pointer-events: none; }
@@ -720,10 +720,10 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 /* a longer level-2 note in the draft chip's place (drawing tools while the left plane shows the sphere, until P3b) */
 .note-chip { width: max-content; height: auto; min-height: 32px; padding: 6px 12px; white-space: normal; text-align: center; text-wrap: balance; }
 .note-chip > span { overflow: visible; }
-/* (v16 verify-7) a note with its action: the Mountain King's "Listen" (the chip itself lets the plane take the pointer) */
+/* a note with its action: the Mountain King's "Listen" (the chip itself lets the plane take the pointer) */
 .note-chip.has-act { padding: 2px 4px 2px 12px; text-align: left; }
 .note-chip .chip-act { pointer-events: auto; flex: 0 0 auto; }
-/* (v16 verify-7) the same hint in X's title row, over no plane */
+/* the same hint in X's title row, over no plane */
 .pane-hint { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; margin-right: 4px; font: var(--t-body); color: var(--muted); }
 .pane-hint[hidden] { display: none; }
 .pane-hint-t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -732,11 +732,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */
 .plot:has(> .legend-chip:not([hidden], .collapsed)) > .empty-chip { top: 88px; }
-/* [v16.5 UX10] X's readout may take two lines (z, then w = F(z)) while the pointer is over X: what floats below it there
+/* X's readout may take two lines (z, then w = F(z)) while the pointer is over X: what floats below it there
    always starts below both lines, so nothing moves when the pointer comes and goes */
 :root:not(.ph) #plotL > .empty-chip { top: 58px; }
 :root:not(.ph) #plotL:has(> .legend-chip:not([hidden], .collapsed)) > .empty-chip { top: 88px; }
-/* [v16.5 UX14] the phone's polygon chip sits where the construction chip does: at the left, clear of the plane's round
+/* the phone's polygon chip sits where the construction chip does: at the left, clear of the plane's round
    buttons, on two lines rather than under them */
 :root.ph :is(#draftChipL, #draftChipR):not(.cm-on) { left: 8px; translate: none; max-width: calc(100% - 68px); width: max-content; height: auto; min-height: 32px; padding-top: 4px; padding-bottom: 4px; white-space: normal; line-height: 1.3; text-wrap: balance; }
 @container pane (max-width: 559px) {
@@ -769,12 +769,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pf .inp { height: 24px; width: 100%; padding: 0 6px; }
 .pf select.sel { height: 24px; width: 100%; }
 .pair { position: relative; display: flex; align-items: center; min-width: 0; }
-/* [v16.5 UX94] Snap says its state in a word: accent-filled when on, outlined when off */
+/* Snap says its state in a word: accent-filled when on, outlined when off */
 #snapBtn { display: inline-flex; align-items: center; width: auto; gap: 4px; padding: 0 7px 0 5px; border: 1px solid var(--line-strong); white-space: nowrap; }
 #snapBtn > .snap-w { font: 600 11px/1 var(--f-ui); letter-spacing: .01em; }
 #snapBtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 #snapBtn[aria-pressed="false"] { background: transparent; color: var(--ink-2); }
-/* [v16.5 UX67] ‹ 0 of 2 › · Show all sheets beside a step's sheet field */
+/* ‹ 0 of 2 › · Show all sheets beside a step's sheet field */
 .pair > .sheet-ctl { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; flex: 0 0 auto; white-space: nowrap; }
 .sheet-ctl > .icon-btn, .pair > .sh-prev { width: 24px; height: 24px; font: 600 15px/1 var(--f-ui); color: var(--ink-2); flex: 0 0 auto; }
 .pair > .sh-prev { margin-right: 2px; }
@@ -861,7 +861,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 }
 .seg:not([style*="--seg-w"])::before { display: none; }
 /* a segmented control measured before layout reports 0px; hiding the thumb then means it appears in place
-   instead of sliding in from the left edge (no entrance animation) */
+   rather than sliding in from the left edge (no entrance animation) */
 .seg[style*="--seg-w: 0px"]::before { display: none; }
 .seg > button {
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto;
@@ -871,7 +871,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 }
 .seg > button:hover { color: var(--ink); }
 /* the view tabs (Plane | Sphere, X → Y | Phase | Landscape): the icon and the word are centred in the tile as a pair, so
-   the gap left of the icon equals the gap right of the word (centring the word alone left the pair off to one side, #335) */
+   the gap left of the icon equals the gap right of the word (centring the word alone would leave the pair off to one side) */
 .seg > button.on, .seg > button[aria-checked="true"] { color: var(--ink); background: var(--seg-on); border-color: var(--line-strong); }
 .seg[style*="--seg-w"] > button.on, .seg[style*="--seg-w"] > button[aria-checked="true"] { background: transparent; border-color: transparent; }
 .seg[style*="--seg-w: 0px"] > button.on, .seg[style*="--seg-w: 0px"] > button[aria-checked="true"] { background: var(--seg-on); border-color: var(--line-strong); }
@@ -880,7 +880,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .seg > button > .mic, .seg > button > svg { width: 14px; height: 14px; flex: 0 0 14px; display: block; }
 .seg.small, .options .seg, .pop .seg { height: 26px; padding: 0 2px; }
 .seg.small::before, .options .seg::before, .pop .seg::before { top: 0; bottom: 0; }
-/* (#360) the small controls' segments are 24 px tall, WCAG 2.5.8's minimum target (they touch, so the spacing exception
+/* the small controls' segments are 24 px tall, WCAG 2.5.8's minimum target (they touch, so the spacing exception
    does not apply): a 24 px strip inside the control's 1 px border and no vertical padding; the view switch has 2 px of it */
 .seg.small > button, .options .seg > button { padding: 0 8px; }
 .seg.modes { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 0 1 auto; min-width: 0; }
@@ -1077,7 +1077,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-row > .fval { grid-area: fv; font: var(--t-readout); color: var(--ink); text-align: right; white-space: nowrap; overflow: hidden; }
 .fader-row:not(:has(> .fval)) { grid-template-areas: "fl fl" "rng rng"; }
 .fader-stops { position: relative; display: flex; justify-content: space-between; margin-top: 0; min-height: 24px; }
-/* (#483) the stops are 24 px targets (WCAG 2.5.8) and start where the slider ends, not 2 px inside it */
+/* the stops are 24 px targets (WCAG 2.5.8) and start where the slider ends, not 2 px inside it */
 .fader-stops > button {
   position: relative; min-width: 24px; min-height: 24px; padding: 6px 0 0; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); white-space: nowrap;
   transition: color var(--t-fast) var(--ease-out);
@@ -1090,7 +1090,7 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-stops > button.on::before { background: var(--accent); }
 .fader-stops > button[style*="--at"] { position: absolute; left: calc(5px + var(--at) * (100% - 10px)); translate: -50% 0; }
 .fader-stops > button[style*="--at"]::before { left: 50%; right: auto; }
-/* (v16.1) no :has(> button[style*="--at"]) here: a style attribute inside :has() made every inline style change anywhere
+/* no :has(> button[style*="--at"]) here: a style attribute inside :has() made every inline style change anywhere
    (the transport scrubber's --fill, every frame of a deformation) a style recalc of about 1.5 to 2 ms on a phone; nothing
    sets --at on a stop today. A stop placed by --at needs its row as a block: give that row a class. */
 
@@ -1119,13 +1119,13 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .shape-name {
   display: flex; flex-direction: column; align-items: stretch; gap: 1px; min-width: 0; overflow: hidden; white-space: nowrap;
 }
-/* two lines (UX43): the name, then the set in rendered maths, each cut with an ellipsis at the row's edge */
+/* two lines: the name, then the set in rendered maths, each cut with an ellipsis at the row's edge */
 .shape-name .k { flex: 0 0 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 500 12px/16px var(--f-ui); color: var(--ink); }
 .shape-name .d { flex: 0 0 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; line-height: 16px; color: var(--muted); }
 .shape-name .k .rename-in { width: 100%; box-sizing: border-box; height: 20px; padding: 0 4px; font: 500 12px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--accent, var(--ink-2)); border-radius: var(--r-1); }
 .shape-name .d .tex-fallback { font-size: 12px; }
-/* (#288) a formula wider than the row is scaled down to fit it, as an svg cannot end in an ellipsis: STIX2's sets run
-   wider than the TeX font's did (ru: «полярная сетка, |z| ≤ 1», «сетка [−2,2]×[0; 2,5]»), and the row's overflow cut them */
+/* a formula wider than the row is scaled down to fit it, as an svg cannot end in an ellipsis: STIX2's sets run
+   wide (ru: «полярная сетка, |z| ≤ 1», «сетка [−2,2]×[0; 2,5]»), and the row's overflow would cut them */
 .shape-name .d mjx-container { max-width: 100%; }
 .shape-name .d mjx-container > svg { max-width: 100%; height: auto; }
 .shape.hidden-shape .shape-name .k, .shape.hidden-shape .shape-name .d { color: var(--faint); }
@@ -1133,8 +1133,8 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .shape.hidden-shape .swatch[data-kind="curve"], .shape.hidden-shape .swatch[data-kind="point"] { opacity: 0.5; }
 .shape-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .shape-edit .inp { height: 24px; padding: 0 6px; }
-/* [v16.5 UX95] the phone's Display sheet has its own title: the regions' section in it is "Regions", not "Display" again */
-/* [v16.5 UX44] a complex point takes the editor's full width; numbers in figures of one width */
+/* the phone's Display sheet has its own title: the regions' section in it is "Regions", not "Display" again */
+/* a complex point takes the editor's full width; numbers in figures of one width */
 .shape-edit > .field.cxf { grid-column: 1 / -1; }
 .shape-edit .inp.mono { font-variant-numeric: tabular-nums; }
 .shape-edit > .check, .shape-edit > .note, .shape-edit > .lbl, .shape-edit > .err-msg, .shape-edit > .row { grid-column: 1 / -1; }
@@ -1231,7 +1231,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
   animation: pop-in var(--t-med) var(--ease-out);
 }
 .pop[data-side="top"] { animation-name: pop-in-up; }
-/* (v16.1 user-5) a menu opened from a dialog sits over the dialog (modal 50), under the toast (60) and the tooltip (70) */
+/* a menu opened from a dialog sits over the dialog (modal 50), under the toast (60) and the tooltip (70) */
 .pop.over-modal { z-index: 55; }
 @keyframes pop-in { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
 @keyframes toast-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
@@ -1275,7 +1275,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .ex-nl { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
 .ex-snd { flex: none; font: 500 13px/18px var(--f-ui); color: var(--ink); }
 .ex-item.on .ex-snd, .ex-item[aria-current="true"] .ex-snd { color: var(--accent); }
-/* (#34, UX41) a description of up to two lines: one line cut it mid-sentence ("Drag the red cut to move t…") */
+/* a description of up to two lines: one line would cut it mid-sentence ("Drag the red cut to move t…") */
 .ex-blurb { font: 400 11px/16px var(--f-ui); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; }
 .ex-item.on .ex-name, .ex-item[aria-current="true"] .ex-name { color: var(--accent); }
 
@@ -1298,7 +1298,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pop.pad { width: min-content; min-width: 208px; padding: 8px; }
 .pad > canvas { display: block; width: 192px; height: 192px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; cursor: crosshair; touch-action: none; }
 .pad > .lbl { margin-top: 2px; text-wrap: pretty; }
-/* (#363) the Regions pop-up's description wraps: on one line it widened the pop-up past its box and cut the values */
+/* the Regions pop-up's description wraps: on one line it would widen the pop-up past its box and cut the values */
 #regionsBox > .lbl { white-space: normal; text-wrap: pretty; }
 .pad-read { margin: 6px 0 4px; font: var(--t-readout); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pad .row, .pad-rows { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 8px; margin-top: 4px; }
@@ -1393,9 +1393,9 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .toast-act:hover { background: var(--accent-soft); }
 
 /* modal (guide) */
-/* (v15) the backdrop's top and bottom pads clear the notch and the home bar (--mbg-t, --mbg-b), and a dialog's
-   max-height leaves both pads. Before, max-height left 24 px whatever the pads were: on a phone with a home bar the
-   export dialog's top was above the screen (-22 px at 390 x 844). Without a safe area both pads are 12 px, as before. */
+/* the backdrop's top and bottom pads clear the notch and the home bar (--mbg-t, --mbg-b), and a dialog's
+   max-height leaves both pads, so on a phone with a home bar the
+   export dialog's top stays on screen. Without a safe area both pads are 12 px. */
 .modal-bg { --mbg-t: max(12px, env(safe-area-inset-top, 0px)); --mbg-b: max(12px, env(safe-area-inset-bottom, 0px));
   position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: var(--mbg-t) 12px var(--mbg-b); background: var(--scrim); animation: fade-in var(--t-med) var(--ease-out); }
 .modal {
@@ -1447,7 +1447,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-prob { font: 700 13px/18px "Latin Modern Roman", "STIX Two Text", var(--f-math); color: #222; margin: 0 0 6px; }
 .xf-cap { position: relative; margin: 9px auto 0; cursor: text; border-radius: 1px; outline-offset: 3px; }
 .xf-cap:hover, .xf-cap:focus-visible { outline: 1.5px dashed var(--accent); }
-.xf-cap:focus-visible { outline-offset: -3px; }   /* (#483) inside the box: the dialog's scroller cut the ring outside it */
+.xf-cap:focus-visible { outline-offset: -3px; }   /* inside the box: the dialog's scroller would cut the ring outside it */
 .xf-cap.editing { outline: 1.5px solid var(--accent); }
 .xf-capimg { display: block; }
 .xf-edit { position: absolute; right: -4px; top: -20px; font: 500 10px/14px var(--f-ui); color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 1px 6px; white-space: nowrap; opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }
@@ -1585,7 +1585,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @keyframes drawer-r { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes drawer-l { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* 768 to 1023 (v15.1, verify-6): the user's design, frame f6 (notes/ui-redesign-2/desktop/frames/f6-xy-768.html):
+/* 768 to 1023: the user's design, frame f6 (notes/ui-redesign-2/desktop/frames/f6-xy-768.html):
    Examples, the search, the panel toggles, Export, Theme, Sound, Language and Help stay in the bar, as from 1024. It
    fits in English and Russian: 52 px to spare at 768 (the two spacers), 306 px at 1023. Before, they folded into the
    More menu here (the lead default of 2026-10-22, from when the bar ran past the edge). A landscape phone of this
@@ -1639,7 +1639,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   /* header: mark, "Map Workbench", Undo, Redo, and a more menu */
   .top { position: sticky; top: 0; z-index: 15; gap: 4px; background: var(--bg); margin: 0 -4px; padding: 0 4px; }
-  /* the view switch and the Deformation toggle share the bar (merged-views review): the words give way first, so
+  /* the view switch and the Deformation toggle share the bar: the words give way first, so
      the more menu always fits; below 430 px the mark stands alone */
   .hdiv, .top > .spacer { display: none; }
   .hdr-more { display: inline-grid !important; }
@@ -1813,22 +1813,22 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .lamp.flash { animation: none; }
   .seg::before { transition: none; }
 }
-/* narrow phones (merged-views review: the more menu fell off the bar at 390 px and below): the mark alone */
+/* narrow phones (390 px and below, where the more menu would not fit on the bar): the mark alone */
 @media (max-width: 429px) {
   .top > .mark { margin-right: auto; }
 }
-/* i18n (notes/i18n/DESIGN.md 4), Russian: the faces are the same as in English (#288: Roboto Flex and JetBrains Mono both
-   have Cyrillic), so a mixed label ("Сохранить PDF", "Формула 1") is one face (review i18n-13); I18N.applyPage() sets
+/* i18n (notes/i18n/DESIGN.md 4), Russian: the faces are the same as in English (Roboto Flex and JetBrains Mono both
+   have Cyrillic), so a mixed label ("Сохранить PDF", "Формула 1") is one face; I18N.applyPage() sets
    data-lang="ru" and redraws the canvas text once the Cyrillic ranges have loaded. */
-/* review ui-4: a monospace comma takes a whole cell, so 0,5 read as «0, 5». "CMW Comma" is the comma alone
+/* a monospace comma takes a whole cell, so 0,5 read as «0, 5». "CMW Comma" is the comma alone
    (unicode-range) from a proportional system face, first in the Russian and Italian mono stacks: on screen and on the canvas
    (rulers, chips, legend, 3D ticks) a decimal comma is narrow. English never names this face, so never loads it */
 @font-face { font-family: "CMW Comma"; src: local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("DejaVu Sans"), local("Liberation Sans"); unicode-range: U+2C; }
 :root[data-lang="ru"] {
   --f-mono: "CMW Comma", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --ui-narrow-stretch: 87.5%; --ui-narrow-var: normal;   /* (as before #288: Roboto Flex semi-condensed, its optical size automatic) */
+  --ui-narrow-stretch: 87.5%; --ui-narrow-var: normal;   /* (Roboto Flex semi-condensed, its optical size automatic) */
 }
-/* until init() has translated the static text (the head script above): no English frame in Russian (review eng-1) */
+/* until init() has translated the static text (the head script above): no English frame in Russian */
 :root.i18n-wait #app { visibility: hidden; }
 /* Russian overflow fixes (DESIGN.md 8): tool names wrap at their soft hyphens (8.1, 8.2); lamp names use
    the semi-condensed width the tool labels already use (8.6, 8.7); palette rows (8.11) take two lines */
@@ -1842,7 +1842,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
 /* CSS-generated text: the empty formula preview's word */
 :root[data-lang="ru"] .texprev:empty::before { content: "Предпросмотр"; }
-/* (v15) the five mesh stops («Черновая» … «Максимум») are 242 px of labels in one row; the left panel has 214-226 px
+/* the five mesh stops («Черновая» … «Максимум») are 242 px of labels in one row; the left panel has 214-226 px
    at 1024-1440 px. The row widened the Display column, so the pattern swatches and «Максимум» ran 3-15 px past the
    panel. In Russian the stops stand at their slider positions (0, 1/4, 1/2, 3/4, 1, thumb-centre corrected as --at
    is), and the 2nd and 4th labels take a second line: every label stays whole at 11 px (GLOSSARY 3.10: no «макс.»),
@@ -1870,8 +1870,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] .tour-time, :root[data-lang="ru"] .tour-count, :root[data-lang="ru"] .tour-menu .mi-key { font-family: var(--f-ui); }
 /* the sound popover's engine line is mono in English; its Russian words are not («Звук: ещё не запущен») */
 :root[data-lang="ru"] #sndState { font-family: var(--f-ui); }
-/* phase 2b review fixes (notes/i18n/ledger-2b.json), Russian only */
-/* ui-9: at 1024-1199 px the examples button says «Примеры» (not a cut example name) and the command field «Поиск» */
+/* Russian only (notes/i18n/ledger-2b.json) */
+/* at 1024-1199 px the examples button says «Примеры» (not a cut example name) and the command field «Поиск» */
 .cmd-text .ct-s { display: none; }
 @media (min-width: 1024px) and (max-width: 1199px) {
   :root[data-lang="ru"] .top #examplesBtn > .exlabel { display: none; }
@@ -1879,22 +1879,22 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   :root[data-lang="ru"] .top #cmdBtn .ct-l { display: none; }
   :root[data-lang="ru"] .top #cmdBtn .ct-s { display: inline; }
 }
-/* ui-7: below 390 px «Прямо-угольник» and «Много-угольник» ran into each other: the bar keeps five tools and Polygon
+/* below 390 px «Прямо-угольник» and «Много-угольник» ran into each other: the bar keeps five tools and Polygon
    moves into «Ещё» (shown there, and in the bar while it is the active tool) */
 @media (max-width: 389px) { :root[data-lang="ru"] #secDraw:not(:has(.tool-more[open])) > .tools > .tool[data-tool="polygon"]:not(.on) { display: none; } }
-/* ui-8: the calculation chip's lines wrap instead of being cut */
+/* the calculation chip's lines wrap rather than being cut */
 :root[data-lang="ru"] .calc-chip .ch { white-space: normal; max-width: 232px; text-wrap: pretty; }
 :root[data-lang="ru"] .calc-chip .cn { overflow-wrap: anywhere; }
 :root[data-lang="ru"] .matrix tr > td:first-child { white-space: normal; line-height: 13px; padding-top: 3px; padding-bottom: 3px; }
 :root[data-lang="ru"] .matrix td:first-child .nm { font-stretch: 87.5%; hyphens: auto; }
-/* ui-11: a hint alone in a readout may take a second line rather than be cut */
-/* (#483) a hint alone in the chip wraps instead of being cut, in every language: the sphere's, "Drag to turn, tap a shape to select it; …",
-   was 175 px wider than the chip at 740×360 */
+/* a hint alone in a readout may take a second line rather than be cut */
+/* a hint alone in the chip wraps rather than being cut, in every language: the sphere's, "Drag to turn, tap a shape to select it; …",
+   is wider than the chip at 740×360 */
 .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 24px; white-space: normal; line-height: 16px; padding-top: 3px; padding-bottom: 3px; }
-/* math-19: MathJax has no Cyrillic glyphs and sets each such letter as an SVG <text> in "serif"; STIX Two Text (the
+/* MathJax has no Cyrillic glyphs and sets each such letter as an SVG <text> in "serif"; STIX Two Text (the
    app's math face, Times metrics like that serif) has Cyrillic and matches the TeX letters around it */
 :root[data-lang="ru"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
-/* ui-16: the export size button names the paper; the width in points stays in the open list */
+/* the export size button names the paper; the width in points stays in the open list */
 :root[data-lang="ru"] #xfSize .xf-dim { display: none; }
 /* i18n, Italian: the app's own faces cover it (Latin with accents), so only the decimal comma (as in Russian: a narrow
    CMW Comma before the mono face), the CSS-generated preview word and MathJax's <text> letters (accented letters in
@@ -1925,7 +1925,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     </svg>
     <h1 class="sr-only" data-i18n="no">Complex Map Workbench</h1>
     <span class="hdiv" aria-hidden="true"></span>
-    <!-- Examples is the bar's first stop, ahead of the views, as it is on screen (#359): in the bar itself, not in the menu below,
+    <!-- Examples is the bar's first stop, ahead of the views, as it is on screen: in the bar itself, not in the menu below,
          whose buttons Tab reaches as one block after the views. On the phone the "more" sheet lists it, so the bar hides it. -->
     <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
@@ -1945,7 +1945,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
       <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
-      <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
+      <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
       <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false"><span class="ic-slot" data-icon="gear"></span></button>
@@ -1987,7 +1987,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="shapes" id="shapeList"></div>
         </div>
       </details>
-      <!-- [v17 D5, #82; #363] the regions' display: their fill (the phase of z), grid lines and their step, chevrons and
+      <!-- the regions' display: their fill (the phase of z), grid lines and their step, chevrons and
            opacity belong to the X → Y view and live in its Regions ▾ (the phone's Display sheet); the unit circle in every
            view's. Lent from here -->
       <div id="regionsHome" hidden>
@@ -2000,7 +2000,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <label class="fader-row"><span class="fl">Opacity</span><input type="range" id="alphaRange" min="0.2" max="1" step="0.01" aria-label="Fill opacity"><span class="fval mono" id="alphaVal"></span></label>
         </div>
       </div>
-      <!-- [v17 D5, #82] mesh quality is the whole app's: it lives in the header's Settings (and the phone's More sheet),
+      <!-- mesh quality is the whole app's: it lives in the header's Settings (and the phone's More sheet),
            lent from here while that is open -->
       <div id="settingsHome" hidden><div id="meshGroup" class="field-col">
           <div class="fader-group">
@@ -2092,7 +2092,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 </div>
 <div class="snd-pop" id="sndPop" role="dialog" aria-label="Sound settings" hidden>
   <label class="snd-row snd-main"><span>Sound</span><input type="checkbox" class="snd-switch" id="sndOn" role="switch"></label>
-  <!-- (v16.5 UX70) Hear the function first, with one line; it stays off by default. The music theory is under "How it sounds" -->
+  <!-- Hear the function first, with one line; it stays off by default. The music theory is under "How it sounds" -->
   <label class="snd-chk snd-hear"><input type="checkbox" id="sndSo"><span><b>Hear the function</b><small><span class="snd-fine-ptr">Notes as you move the pointer over X: round a zero they rise, round a pole they fall.</span><span class="snd-fine-touch">Notes as you drag over X: round a zero they rise, round a pole they fall.</span></small></span></label>
   <div class="snd-mode" role="radiogroup" aria-label="Hear the function as">
     <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndNotes" value="notes" checked><span><b>Notes</b><small>A marimba note at each colour line</small></span></label>
@@ -2108,7 +2108,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <label class="snd-chk"><input type="checkbox" id="sndEv"><span><b>Mathematical events</b><small>Things you start: the deformation, a closed loop&rsquo;s winding, listening along a curve</small></span></label>
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
-  <!-- (v16.5 UX88) no keyboard help on a touch screen; the engine line under Diagnostics -->
+  <!-- no keyboard help on a touch screen; the engine line under Diagnostics -->
   <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>

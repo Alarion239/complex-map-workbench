@@ -107,7 +107,7 @@ H.go = async (url, ms = 15000) => {
   return ok;
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
-// animation frames find the document loaded, neither pane's last GPU frame pending or compiling (__cmwPaneStatus; not
+// animation frames find the document loaded, neither pane's last GPU frame pending, compiling or awaiting its Landscape refinement (__cmwPaneStatus; not
 // with o.panes false, for a check that needs no GL frame),
 // no finite animation or transition running (document.getAnimations(); an endless one, a spinner, never ends), and
 // o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
@@ -124,7 +124,7 @@ H.settled = async (o = {}) => {
       const busy = [];
       if (!only) {
       if (document.readyState !== 'complete') busy.push('loading');
-      if (panes && typeof window.__cmwPaneStatus === 'function') for (const p of ['L', 'R']) { const st = window.__cmwPaneStatus(p); if (st && (st.pending || st.compiling)) busy.push('pane ' + p + (st.compiling ? ' compiling' : ' pending')); }
+      if (panes && typeof window.__cmwPaneStatus === 'function') for (const p of ['L', 'R']) { const st = window.__cmwPaneStatus(p); if (st && (st.pending || st.compiling || st.refining)) busy.push('pane ' + p + (st.compiling ? ' compiling' : st.refining ? ' refining' : ' pending')); }
       const an = document.getAnimations().filter((a) => a.playState === 'running' && a.effect && Number.isFinite(a.effect.getComputedTiming().endTime));
       if (an.length) busy.push(an.length + ' animation(s)');
       }

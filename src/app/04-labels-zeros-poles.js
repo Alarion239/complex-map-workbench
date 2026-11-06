@@ -40,8 +40,24 @@
   // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
+  // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
+  // (no re-pick, so no side flips). A full placement is a function of the view alone (the parked-frame rule), so the
+  // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
+  const labelSlots = new Map();
+  const LABEL_DEFAULT = [7, -7];   // north-east of the point
+  // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
+  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4;
+  // (the points that are gone, deleted or replaced with the chain, lose their offsets)
+  function pruneLabelSlots() {
+    if (!labelSlots.size) return;
+    const live = new Set();
+    for (const s of S.shapes) live.add(s.id);
+    for (const s of S.targets || []) live.add(s.id);
+    for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
+  }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
+    const lite = !!r.lite;
     // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
     const marks = r.marks;
     const hard = [];
@@ -101,7 +117,7 @@
       const g = groups.find((q) => Math.abs(q.x - it.x) < 2.5 && Math.abs(q.y - it.y) < 2.5);
       const word = /\s|[a-z]{3,}/i.test(it.text) && !/^[a-z][′″‴⁽]?/i.test(it.text.slice(0, 2)) ? true : !!it.word;
       if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; }
-      else groups.push({ x: it.x, y: it.y, texts: [it.text], word });
+      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id });
     }
     const placed = [];
     const th = 13;
@@ -128,26 +144,41 @@
           cands.splice(4, 0, [ax - g.x + (ux / ul - 1) * tw / 2, ay - g.y + (uy / ul + 1) * th / 2, pen]);
         }
       }
-      let best = null, bestCost = Infinity;
-      for (const [dx, dy, pen] of cands) {
+      // a candidate spot at offset (dx, dy) from the point, or null when a label, a marker or a handle is there
+      const evalCand = (dx, dy, pen) => {
         const x0 = g.x + dx, y1 = g.y + dy, y0 = y1 - th, x1 = x0 + tw;
-        if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) continue;
+        if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) return null;
         const hit = (b) => x0 < b.x1 && x1 > b.x0 && y0 < b.y1 && y1 > b.y0;
-        if (placed.some(hit) || hard.some(hit)) continue;
-        if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) continue;
+        if (placed.some(hit) || hard.some(hit)) return null;
+        if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) return null;
         // a label nearer another marker than its own reads as that marker's: allowed only as a last resort
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
-        const cost = Math.min(3, 0.5 * curveCost(x0, y0, x1, y1)) + pen + (amb ? 4 : 0);
-        if (cost < bestCost) { best = [x0, y1]; bestCost = cost; if (cost === 0) break; }
+        const cc = curveCost(x0, y0, x1, y1);
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) };
+      };
+      const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
+      let x, y;
+      if (lite && g.id !== undefined) {
+        // on the move: the last full placement's offset, drawn as it is
+        [x, y] = [g.x + (slot || LABEL_DEFAULT)[0], g.y + (slot || LABEL_DEFAULT)[1]];
+      } else {
+        // at rest: the best candidate for the view alone, so a resting picture does not depend on the path taken to it
+        let best = null, bestCost = Infinity;
+        for (const [dx, dy, pen] of cands) {
+          const e = evalCand(dx, dy, pen);
+          if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
+        }
+        if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
+        ({ x, y } = best);
+        if (g.id !== undefined) labelSlots.set(g.id, [x - g.x, y - g.y]);
       }
-      if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
-      const [x, y] = best;
       placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
       ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
+    if (!lite) pruneLabelSlots();
     if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
   // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
@@ -160,9 +191,9 @@
     const labels = [];
     // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
-    // (opt.lite: a view on the move, a glide or a scrub, places its labels with no curve to keep off: sampling every curve
-    // through the plane's map costs up to 600 evaluations a curve; the view at rest, and so the frame a glide lands in, keeps the
-    // labels off the curves)
+    // (opt.lite: a view on the move, a glide or a scrub, has no curves to keep the labels off: sampling every curve through the
+    // plane's map costs up to 600 evaluations a curve. Its labels keep their last full placement's offsets, so they do not
+    // re-pick; the full placement of the view at rest keeps the curves off)
     if (!opt.thin && !opt.lite) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
     for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
@@ -181,7 +212,7 @@
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         ctx.strokeStyle = ink.edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-        if (!opt.thin && mk !== 'helper') labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+        if (!opt.thin && mk !== 'helper') labels.push({ x, y, id: s.id, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
         continue;
       }
       ctx.fillStyle = ink.edge;
@@ -189,9 +220,9 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, opt.thin ? 2.6 : 4, 0, TAU); ctx.stroke(); ctx.fill();
       if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+      if (!opt.thin) labels.push({ x, y, id: s.id, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
     }
-    if (labels.length) placeLabels(ctx, pane, labels);
+    if (labels.length) { labelReg(pane).lite = !!opt.lite; placeLabels(ctx, pane, labels); }
   }
   // branch cuts and poles of step k+1 live in the plane of stage k
   const offEdge = (pane, x, y, m) => x < m || y < m || x > pane.w - m || y > pane.h - m;
@@ -311,19 +342,53 @@
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
   }
+  // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
+  // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
+  // chord of c px along an arc that turns by t rad is off it by about c t / 8, so a pair is tested only where c t exceeds
+  // 8 CUT_FLAT, t read off the neighbouring chords: a straight bank costs no sample beyond the base set)
+  const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480, CUT_BEND = 8 * CUT_FLAT;
+  // the distance (px) of the point q from the segment a-b
+  function segDist(q, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2)) : 0;
+    return Math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy);
+  }
   // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points (null
   // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
   // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
   // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
-  // many times a second
+  // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between
+  // them is split there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
+  // the chords would cut across it
   function cutBank(pane, c, F, side, win, proj, step = 1) {
     const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
     const pts = [], ws = [];
-    for (let i = 0; i <= 480; i += step) {
+    const at = (i) => {
       const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
       const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
-      pts.push(CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
-      if (CX.isFin(w)) ws.push([w.re, w.im]);
+      return { w, q: CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null };
+    };
+    const put = (p) => { pts.push(p.q); if (CX.isFin(p.w)) ws.push([p.w.re, p.w.im]); };
+    const split = (i0, p0, i1, p1, depth) => {
+      if (depth >= CUT_DEPTH || !p0.q || !p1.q) return;
+      const im = (i0 + i1) / 2, pm = at(im);
+      if (!pm.q || segDist(pm.q, p0.q, p1.q) <= CUT_FLAT) return;
+      split(i0, p0, im, pm, depth + 1); put(pm); split(im, pm, i1, p1, depth + 1);
+    };
+    const base = [];
+    for (let i = 0; i <= CUT_SAMPLES; i += step) base.push(at(i));
+    // (the direction of the chord k -> k + 1; null where either end is hidden or there is no such chord)
+    const dir = (k) => {
+      const p = base[k], q = base[k + 1];
+      return p && q && p.q && q.q ? Math.atan2(q.q[1] - p.q[1], q.q[0] - p.q[0]) : null;
+    };
+    const turn = (d0, d1) => (d0 == null || d1 == null ? 0 : Math.abs(Math.atan2(Math.sin(d1 - d0), Math.cos(d1 - d0))));
+    for (let k = 0; k < base.length; k++) {
+      if (k > 0 && base[k - 1].q && base[k].q) {
+        const len = Math.hypot(base[k].q[0] - base[k - 1].q[0], base[k].q[1] - base[k - 1].q[1]), d = dir(k - 1);
+        if (len * Math.max(turn(dir(k - 2), d), turn(d, dir(k))) > CUT_BEND) split((k - 1) * step, base[k - 1], k * step, base[k], 0);
+      }
+      put(base[k]);
     }
     return { pts, ws };
   }

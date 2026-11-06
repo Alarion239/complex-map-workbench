@@ -1,5 +1,5 @@
 // The parts of the formula-in-steps Split that the steps view has no equivalent for yet, in the classic views: the Split
-// with the Deformation open (the frame stays and T moves from 1.5 to 2.5), the alone walk ‹ › of a step shown alone,
+// with the Deformation open (the frame stays and T moves from 1.5 to 2.5)
 // and the frame times of the Deformation playing 12 split sines. split_cmd.js runs the rest in the steps view.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/split_deform_cmd.js
 // Prints {pass, fails, info}.
@@ -50,18 +50,6 @@ await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2
   ok('deformation: the frame is unchanged', info.morphPx === 0, info.morphPx);
   await shot('split-morph');
   await ev('__cmwMorph({ open: false })'); await settle(300);
-}
-await grab();
-
-// ---------------- 8. the alone walk ----------------
-await open('fsF', { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }, { type: 'sin', params: {}, on: true }], sel: 1, focus: 1 });
-{
-  const st = async () => ev(`({ f: __cmwCards().focus, prev: document.querySelector('#aloneChip .ac-nav.prev').disabled, next: document.querySelector('#aloneChip .ac-nav.next').disabled })`);
-  const seq = [await st()];
-  for (let i = 0; i < 3; i++) { await clickSel('#aloneChip .ac-nav.next'); await settle(300); seq.push(await st()); }
-  await clickSel('#aloneChip .ac-nav.prev'); await settle(300); seq.push(await st());
-  ok('alone walk: 1 → 2 → 3 → 3 → 2, ends disabled', seq.map((x) => x.f).join() === '1,2,3,3,2' && seq[0].prev && !seq[0].next && seq[2].next && !seq[2].prev, seq);
-  await shot('split-alone-chip', { x: 260, y: 40, width: 460, height: 60 });
 }
 await grab();
 

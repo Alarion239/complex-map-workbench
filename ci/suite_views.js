@@ -63,6 +63,8 @@ const VIEWS = {
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
   'steps_glide_later_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
+  'steps_walk_cmd.js': steps({ pin: true }),
+  'steps_split_remap_cmd.js': steps({ pin: true }),
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
@@ -177,7 +179,7 @@ const VIEWS = {
   'raw_tex_cmd.js': steps({ pin: true }),
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': steps({ pin: true }),
-  'split_deform_cmd.js': port('interact', 'the Split with the Deformation open, the alone walk ‹ › and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play) and no ‹ › walk of a step shown alone'),
+  'split_deform_cmd.js': port('interact', 'the Split with the Deformation open and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play); the ‹ › walk of a step shown alone is steps_walk_cmd'),
   'tour_audit_cmd.js': steps({ pin: true }),
   'tour_auto_cmd.js': steps({ pin: true }),
   'tour_auto_classic_cmd.js': classic('the classic views\' tour tasks with real input: the view switch\'s doors, Phase key, X\'s pan,'
