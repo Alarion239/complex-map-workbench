@@ -121,7 +121,16 @@ const park = async (x, scope) => {
     // The ray is scanned from RAY_START px out to RAY_END of the smaller canvas side, over +-RAY_HALF px across it; a pixel is a crack when its
     // own saturation is under CRACK_SAT while the pixels FLANK px to both sides of the ray are above FLANK_SAT.
     const RAY_START = 30, RAY_END = 0.45, RAY_HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500;
-    info.cracks = await ev(`(() => {
+    // (inject: a fill crack, a paper-grey line INJECT_PX wide, INJECT_OFF px beside the 135° ray, drawn into the frame before it is read)
+    const INJECT_PX = 2, INJECT_OFF = 4;
+    const scan = (inject) => ev(`(() => {
+      if (${inject}) {
+        const c0 = document.getElementById('canvasL'), r0 = c0.getBoundingClientRect(), k0 = c0.width / r0.width, o0 = __cmwW2S('L', 0, 0), O0 = [(o0[0] - r0.left) * k0, (o0[1] - r0.top) * k0];
+        const A0 = 135 * Math.PI / 180, u0 = [Math.cos(A0), -Math.sin(A0)], n0 = [-u0[1], u0[0]], g0 = c0.getContext('2d');
+        g0.save(); g0.setTransform(1, 0, 0, 1, 0, 0); g0.strokeStyle = 'rgb(236,240,242)'; g0.lineWidth = ${INJECT_PX}; g0.beginPath();
+        g0.moveTo(O0[0] + 100 * u0[0] + ${INJECT_OFF} * n0[0], O0[1] + 100 * u0[1] + ${INJECT_OFF} * n0[1]);
+        g0.lineTo(O0[0] + 260 * u0[0] + ${INJECT_OFF} * n0[0], O0[1] + 260 * u0[1] + ${INJECT_OFF} * n0[1]); g0.stroke(); g0.restore();
+      }
       const RAY_START = ${RAY_START}, RAY_END = ${RAY_END}, RAY_HALF = ${RAY_HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT};
       const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
       const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), O = [(o[0] - r.left) * k, (o[1] - r.top) * k];
@@ -141,6 +150,7 @@ const park = async (x, scope) => {
       const g = __cmwSteps().glide || {};
       return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
+    info.cracks = await scan(false);
     // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws none, so
     // its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
     info.cutCurves = await ev('__cmwCutCurves().length');
@@ -150,6 +160,10 @@ const park = async (x, scope) => {
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
       ok(`cracks: Square root, parked half-way: no uncovered pixel along the cut's image at ${a0}°`, q.cracks === 0, q);
     }
+    // the control: the scan still counts a real crack beside the cut's image (the 135° ray; the 225° ray has none)
+    info.control = await scan(true);
+    ok('cracks: a fill crack injected beside the cut\'s image at 135° is counted', info.control.out['135'].cracks > 0, info.control.out['135']);
+    ok('cracks: the other ray, with no crack injected, still reads none', info.control.out['225'].cracks === 0, info.control.out['225']);
   }
 }
 return { pass: fails.length === 0, fails, info };
