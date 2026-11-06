@@ -82,17 +82,20 @@
     return { x0: left, x1: left + it.w, y0: base - it.a, y1: base + it.d, left, base };
   };
   // a label's or caption's TeX as the plain Unicode people read ("w₂", "Re z", "1/z", "log|F|"): operator names and
-  // symbols by one table, a fraction as a/b (a part with more than one symbol in parentheses), a bar as a combining
+  // symbols by one table, a fraction as a/b and a root as √x or ⁿ√x (a part with more than one symbol in parentheses), a bar as a combining
   // overline, a subscript digit as its Unicode form; a command the table lacks is left out
-  const SUB = '₀₁₂₃₄₅₆₇₈₉';
+  const SUB = '₀₁₂₃₄₅₆₇₈₉', SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   const SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', in: '∈', pm: '±', le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠',
     alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
     arg: 'arg ', log: 'log', ln: 'ln', exp: 'exp', sin: 'sin ', cos: 'cos ', tan: 'tan ', sinh: 'sinh ', cosh: 'cosh ', tanh: 'tanh ', Re: 'Re ', Im: 'Im ' };
   XD.plain = (tex) => {
+    // (an index as superscript digits, n as ⁿ, any other index in parentheses)
+    const root = (n) => (/^\d+$/.test(n) ? [...n].map((c) => SUP[+c]).join('') : n === 'n' ? 'ⁿ' : `(${XD.plain(n)})`);
     const part = (v) => (/^[^\s+\-×·/]$/.test(v) || /^\(.*\)$/.test(v) ? v : `(${v})`);
     return String(tex)
       .replace(/\\(?:operatorname|text|textit|textbf|mathrm|mathit|mathbf)\s*\{([^{}]*)\}/g, '$1').replace(/\\displaystyle\s*/g, '')
       .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (m, n, d) => `${part(n.trim())}/${part(d.trim())}`)
+      .replace(/\\sqrt\s*(?:\[([^[\]]*)\])?\s*(?:\{([^{}]*)\}|([A-Za-z0-9]))/g, (m, n, a, b) => `${n ? root(n) : ''}√${part(XD.plain(a != null ? a : b))}`)
       .replace(/\\(?:bar|overline)\s*(?:\{([^{}]*)\}|([A-Za-z]))/g, (m, a, b) => `${a || b}̄`)
       .replace(/_\{?(\d+)\}?/g, (m, d) => [...d].map((c) => SUB[+c]).join(''))
       .replace(/\\([A-Za-z]+)/g, (m, n) => SYM[n] || '')
