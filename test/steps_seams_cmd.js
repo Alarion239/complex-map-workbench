@@ -115,11 +115,13 @@ const park = async (x, scope) => {
   // every column, to a pixel; a staircase of teeth is a place that wanders)
   await ev(`__cmwSteps({ scope: 'all', surf: 'plane', park: 2, bare: true }); 1`); await settled({ max: 30000 });
   info.atW2 = await ev(`(() => {
+    // (columns from 5 % of the width to 20 CSS px short of the origin; the two sheets are read 10 CSS px above and below the cut)
+    const COL0 = 0.05, ORIGIN_GAP = 20, SHEET_GAP = 10;
     const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
-    const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), ox = (o[0] - r.left) * k, yc = Math.round((o[1] - r.top) * k), m = Math.round(10 * k);
+    const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), ox = (o[0] - r.left) * k, yc = Math.round((o[1] - r.top) * k), m = Math.round(SHEET_GAP * k);
     const at = (x, y) => (y * W + x) * 4, dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
     const ys = [];
-    for (let x = Math.round(0.05 * W); x < ox - 20 * k; x++) {
+    for (let x = Math.round(COL0 * W); x < ox - ORIGIN_GAP * k; x++) {
       const a = at(x, yc - m), b = at(x, yc + m);
       if (dist(a, b) < 60) continue;
       let y = yc - m;

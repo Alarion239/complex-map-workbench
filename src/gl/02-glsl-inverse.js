@@ -14,7 +14,7 @@
 #endif
 const float IX_LN2 = 0.6931471805599453;
 const float IX_BIG = 1e9;
-// (the sheet key's tie band, Inverse.front's TIE_D: 2^-14 octave and the same part of D)
+// (the sheet key's tie band, Inverse.front's TIE_D: 2^-14 octave and the same part of D; 2^-14 = 0.00006103515625)
 const float IX_TIE_D = 0.00006103515625;
 float ixTieBand(float D) { return IX_TIE_D * (1.0 + D); }
 #if IX_LAM
