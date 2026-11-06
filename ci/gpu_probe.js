@@ -3,7 +3,7 @@
 // suite: test/regress/perf/cdp.js). Prints it and adds it to the job summary.
 //   node ci/gpu_probe.js [--require-hardware] [--fallback] [--require-angle BACKEND]
 // --require-hardware (the self-hosted GPU runners): exit 1 when Chrome renders in software (SwiftShader, WARP, the
-//   Microsoft Basic Render Driver, llvmpipe) or has no WebGL2: the runner was started where Chrome cannot reach the GPU
+//   Microsoft Basic Render Driver, llvmpipe) or has no WebGL2: the runner is started where Chrome cannot reach the GPU
 //   (ci/RUNNERS.md, "Check the GPU"); and on a Mac when the job runs under Rosetta, whose timings are not the machine's.
 // --fallback (GitHub's machines): when the platform's backend (Metal, Direct3D 11) gives no WebGL2 in that virtual
 //   machine, try SwiftShader and, when it works, set CMW_ANGLE=swiftshader for the job's later steps.
