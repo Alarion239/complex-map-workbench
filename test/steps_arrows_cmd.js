@@ -13,7 +13,7 @@ await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
 const idle = `__cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#paneL canvas')`;
 await settled({ max: 30000, until: idle });
 ok('the page is the steps view', await ev('!!__cmwSteps().on'), null);
-const press = async (key) => { const p = { key, code: key, modifiers: 0, windowsVirtualKeyCode: key === 'ArrowRight' ? 39 : 37 }; await send('Input.dispatchKeyEvent', { type: 'keyDown', ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); };
+const press = async (key, modifiers = 0) => { const p = { key, code: key, modifiers, windowsVirtualKeyCode: key === 'ArrowRight' ? 39 : 37 }; await send('Input.dispatchKeyEvent', { type: 'keyDown', ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); };
 const at = () => ev('__cmwSteps().i');
 const keyTo = async (key, i) => { await press(key); await settled({ max: 8000, only: true, until: `__cmwSteps().i === ${i} && !__cmwSteps().moving` }); return at(); };
 // the plot has focus: its canvas
@@ -22,14 +22,19 @@ ok('a plane canvas has focus', await ev(`document.activeElement && document.acti
 const i0 = await at();
 ok('→ on the focused plot steps to the next plane', (await keyTo('ArrowRight', i0 + 1)) === i0 + 1, [i0, await at()]);
 ok('← on the focused plot steps back', (await keyTo('ArrowLeft', i0)) === i0, [i0, await at()]);
-// sound on: the plane is the keyboard probe, whose arrows move the probe, not the thread
+// sound on: the plane is the keyboard probe, whose arrows are Alt / Option + arrow; ← → still step the thread
 await ev(`document.getElementById('soundBtn').click(), 1`);
 await settled({ max: 8000, only: true, until: `document.getElementById('soundBtn').getAttribute('aria-pressed') === 'true' && !!document.querySelector('#paneL canvas[aria-keyshortcuts]')` });
-ok('sound on makes the plane the keyboard probe', await ev(`!!document.querySelector('#paneL canvas[aria-keyshortcuts~="ArrowLeft"]')`), null);
+ok('sound on makes the plane the keyboard probe, on Alt + the arrows', await ev(`!!document.querySelector('#paneL canvas[aria-keyshortcuts~="Alt+ArrowLeft"]')`), null);
 await ev(`document.querySelector('#paneL canvas[aria-keyshortcuts]').focus(), 1`);
-await press('ArrowRight');
+ok('→ on the sound probe plane steps to the next plane', (await keyTo('ArrowRight', i0 + 1)) === i0 + 1, [i0, await at()]);
+ok('← on the sound probe plane steps back', (await keyTo('ArrowLeft', i0)) === i0, [i0, await at()]);
+const heard = () => ev(`document.getElementById('sndLive').textContent`);
+const h0 = await heard();
+await press('ArrowRight', 1);
 await settled({ max: 4000, until: '!__cmwSteps().moving' });
-ok('→ on the sound probe plane leaves the thread where it is', (await at()) === i0, await at());
+ok('Alt + → on the sound probe plane leaves the thread where it is', (await at()) === i0, await at());
+ok('and starts the probe, which says where it is', (await heard()) !== h0 && /^Probe at the centre/.test(await heard()), [h0, await heard()]);
 await ev(`document.getElementById('soundBtn').click(), 1`);
 await settled({ max: 8000, only: true, until: `document.getElementById('soundBtn').getAttribute('aria-pressed') !== 'true'` });
 // typing: a text field keeps its arrows
