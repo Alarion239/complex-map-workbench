@@ -94,7 +94,7 @@ ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
 vec2 ixDwX, ixDwY;
 const int IX_B = ${B};
-float bD[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; float bG[IX_B]; highp uint bCol[IX_B];   // colour: 8 bits per channel
+float bD[IX_B]; float bQ[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; float bG[IX_B]; highp uint bCol[IX_B];   // colour: 8 bits per channel
 highp uint ixPack(vec3 c) { uvec3 u = uvec3(clamp(c, 0.0, 1.0) * 255.0 + 0.5); return u.r | (u.g << 8) | (u.b << 16); }
 vec3 ixUnpack(highp uint u) { return vec3(float(u & 255u), float((u >> 8) & 255u), float((u >> 16) & 255u)) / 255.0; }
 int nb; int nCov; float U; bool ixTailInf; float ixTr;
@@ -476,9 +476,10 @@ float ixDKTail() {
 // a covering candidate the buffer does not keep (not admitted, or dropped off its end): its transmittance, with the
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
-${IX_TIE_ORDER}bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  // (the walk's buffer order, Inverse's byStep: keys in the same step of ln(1 + D) / IX_TIE_D are ordered by the tie rule, so a buffer cut to its first entries keeps those of that total order; ixTieOrder then puts the entries front to back)
-  float q1 = floor(log(1.0 + D1) / IX_TIE_D + 0.5), q2 = floor(log(1.0 + D2) / IX_TIE_D + 0.5);
+${IX_TIE_ORDER}// the step of a key (Inverse's dStep): ln(1 + D) / IX_TIE_D rounded; bQ holds each buffer entry's, one log per key as it enters
+float ixStep(float D) { return floor(log(1.0 + D) / IX_TIE_D + 0.5); }
+bool ixFront(float q1, vec2 t1, float q2, vec2 t2) {
+  // (the walk's buffer order, Inverse's byStep: keys in the same step are ordered by the tie rule, so a buffer cut to its first entries keeps those of that total order; ixTieOrder then puts the entries front to back)
   if (q1 != q2) return q1 < q2;
   return ixTieWins(t1, t2);
 }
@@ -614,6 +615,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
+  float q = ixStep(D);
 ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
   // candidate that cannot merge with a twin (fully covering, or no range gradient) while the admission limit is the
   // buffer's end: behind the last entry of a full buffer it is not kept (one comparison); otherwise it is inserted
@@ -622,23 +624,23 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
   // merge with a twin (partial and bound) still take. exp(H) at alpha 0.3, dpr 2: 6.0 -> 4.5 ms per pass (for B 3
   // and 5 this path measured 4-10 % slower: the scan below stays there).
   if ((cv >= 1.0 || ga >= 50.0) && ixK() + 2 >= IX_B) {
-    if (nb == IX_B && !ixFront(D, tz, bD[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
+    if (nb == IX_B && !ixFront(q, tz, bQ[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
     if (nb == IX_B) ixRest(bC[IX_B - 1]);
     highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
     int p = min(nb, IX_B - 1);
     bool done = false;
     for (int i = IX_B - 1; i > 0; i--) {
       if (done || i > p) continue;
-      if (ixFront(D, tz, bD[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-      else { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
+      if (ixFront(q, tz, bQ[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bQ[i] = bQ[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+      else { bD[i] = D; bQ[i] = q; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
     }
-    if (!done) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+    if (!done) { bD[0] = D; bQ[0] = q; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
     nb = min(nb + 1, IX_B);
     return;
   }
 ` : ''}  // position: the entries in front of the candidate (a prefix of the sorted buffer)
   int pos = 0;
-  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(D, tz, bD[i], bZ[i])) pos = i + 1;
+  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(q, tz, bQ[i], bZ[i])) pos = i + 1;
   // twin merge with the neighbour at pos - 1 (first) or pos
   if (cv < 1.0 && ga < 50.0) {
     int tw = -1;
@@ -665,10 +667,10 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
   if (nb == IX_B) ixRest(bC[IX_B - 1]);
   highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
   for (int i = IX_B - 1; i > 0; i--) {
-    if (i > pos) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-    else if (i == pos) { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
+    if (i > pos) { bD[i] = bD[i - 1]; bQ[i] = bQ[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+    else if (i == pos) { bD[i] = D; bQ[i] = q; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
   }
-  if (pos == 0) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+  if (pos == 0) { bD[0] = D; bQ[0] = q; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
   nb = min(nb + 1, IX_B);
 }
 float invLeaf(Lf L, out bool cov) {
