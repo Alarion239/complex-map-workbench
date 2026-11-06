@@ -1080,8 +1080,11 @@
   // SV_POLAR_PROBE_R radii by SV_POLAR_PROBE_T angles whose points land in the view: the middle of a cell's edge
   // against the middle of its ends' pictures, in the angle and in log r, the larger in px. It falls as the square of the
   // cell, so the cells a turn that bring it to SV_POLAR_TOL px are SV_POLAR_NT times the root of the ratio, rounded up
-  // to SV_POLAR_NTQ (a glide's twentieths share a few meshes). At most SV_POLAR_CELLS cells in all (NT cells a turn,
-  // ln(r2 / r1) NT / 2 pi rings of them), the mesh's build and draw cost; SV_POLAR_NT at least
+  // to a power of two times SV_POLAR_NT (the annuli are kept by id, SV_POLAR_KEEP of them, and a glide's twentieths
+  // would each make its own at any finer step). Halved while the annulus (NT cells a turn, ln(r2 / r1) NT / 2 pi rings
+  // of them) has more than SV_POLAR_CELLS cells, twice the whole plane's mesh's (80 a side): the build and the draw
+  // cost of one annulus; SV_POLAR_NT at least. At most SV_POLAR_DOUBLINGS doublings (a map's pole in the view has an
+  // error no cell count brings down)
   function* svPolarCells(F, o, r1, r2, v, hw, hh) {
     const d = 2 * Math.PI / SV_POLAR_NT, L = Math.log(r2 / r1);
     const at = (r, th) => F(C(o.re + r * Math.cos(th), o.im + r * Math.sin(th)));
@@ -1098,9 +1101,9 @@
         worst = Math.max(worst, Math.max(ang, rad) * v.s);
       }
     }
-    const want = Math.ceil(SV_POLAR_NT * Math.sqrt(worst / SV_POLAR_TOL) / SV_POLAR_NTQ) * SV_POLAR_NTQ;
-    const cap = Math.floor(Math.sqrt(SV_POLAR_CELLS * 2 * Math.PI / Math.max(L, 2 * Math.PI / SV_POLAR_NT)) / SV_POLAR_NTQ) * SV_POLAR_NTQ;
-    return Math.max(SV_POLAR_NT, Math.min(want, cap));
+    let nt = SV_POLAR_NT * Math.pow(2, Math.min(SV_POLAR_DOUBLINGS, Math.max(0, Math.ceil(Math.log2(Math.sqrt(worst / SV_POLAR_TOL))))));
+    while (nt > SV_POLAR_NT && nt * Math.ceil(L * nt / (2 * Math.PI)) > SV_POLAR_CELLS) nt /= 2;
+    return nt;
   }
   // the least k in [0, K] whose test passes (a generator of the test's own), the tests taken to pass from some k on: by
   // doubling, then halving the last gap; K when none does
@@ -1161,7 +1164,7 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
-  const SV_POLAR_PROBE_R = 32, SV_POLAR_PROBE_T = 64, SV_POLAR_TOL = 1, SV_POLAR_NTQ = 24, SV_POLAR_CELLS = 2 * 80 * 80;
+  const SV_POLAR_PROBE_R = 32, SV_POLAR_PROBE_T = 64, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 2 * 80 * 80, SV_POLAR_DOUBLINGS = 4;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
