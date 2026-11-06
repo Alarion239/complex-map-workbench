@@ -494,7 +494,7 @@ ${o.carry ? `  float ke = longest(w0, w1, w2);
   good = good && (midOk(w0, w1, w2, wm) || ke < uKPx) && ke < uKLim;` : '  good = good && midOk(w0, w1, w2, wm);'}
   vec2 w = c == 0 ? w0 : (c == 1 ? w1 : w2);
   if (!good) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  gl_Position = vec4(${fetch === 'local' ? '(w + uRel) * uScale' : '((w - uCenter) - uCenterLo) * uScale'}, ${o.carry ? 'uKeyOn > 0 ? 2.0 * preKeyDepth(vP, false) - 1.0 : 0.0' : '0.0'}, 1.0);`}
+  gl_Position = vec4(${fetch === 'local' ? '(w + uRel) * uScale' : '((w - uCenter) - uCenterLo) * uScale'}, ${o.carry ? 'uKeyOn > 0 ? 2.0 * preKeyDepth(vP) - 1.0 : 0.0' : '0.0'}, 1.0);`}
 }
 `;
   // ---- region patterns (SPEC 6.1): one template, two footprint modes ----
@@ -722,16 +722,18 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the sheet key of the inverse path (SPEC 5.1, 5.2) per fragment, as its depth (flat pre-mapped meshes, uKeyOn 1):
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
-  // preKeyDepth(sa, stepped), sa the source point: depth = (s + 0.999 (tie order)) / (KEY_SMAX + 1), s = KEY_STEPS ln(1 + D).
+  // preKeyDepth(sa), sa the source point: depth = (s + 0.999 (tie order)) / (KEY_SMAX + 1), s = KEY_STEPS ln(1 + D).
   // - KEY_STEPS = 2^14: the key's steps per unit of ln(1 + D). Inverse.front ties two sheets within a relative band of
   //   2^-14 (1 + D), a constant step of ln(1 + D), so the key is uniform in that variable: keys a tie step apart are one
-  //   unit of s apart, and the tie order, in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys
+  //   unit of s apart, and the tie order, in [0, 1) and scaled by 0.999 to stay below a unit, decides between keys
   //   within a step. A map symmetric about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|)
   //   would otherwise order fragment by fragment.
-  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): s rounded to its step, so two sheets in one
-  //   step are ordered by the tie order alone. Not stepped (a vertex stage: REGION_VS's carry option): s itself, since a
-  //   depth interpolated across a triangle whose vertices straddle a step would order the sheets wrongly over the whole
-  //   triangle.
+  // - s is not rounded to its step: a depth is one number per fragment, so a rounded key puts two sheets whose keys are
+  //   equal to float noise but straddle a rounding edge in different steps, and the noise orders them, not the tie
+  //   rule. Unrounded, the pair is ordered by s + the tie order, which the tie order decides unless the sheets' tie
+  //   orders differ by less than the noise (a strip of the cut's image under a pixel wide). Keys less than a step apart
+  //   are ordered by s when the tie orders differ by less than that, a deviation from the band rule of a step's width
+  //   at most. The same holds in a vertex stage (REGION_VS's carry option), whose depth is interpolated across a triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
   // - D is capped at KEY_DMAX = 63 (a point that far behind is behind every point that matters), so s <= KEY_SMAX
@@ -741,17 +743,17 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
 const float KEY_STEPS = 16384.0;
 const float KEY_DMAX = 63.0;
 const float KEY_SMAX = 68141.0;
-float preKeyDepth(vec2 sa, bool stepped) {
+float preKeyDepth(vec2 sa) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
   float d = log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
-  float x = (stepped ? floor(d + 0.5) : d) + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
+  float x = d + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
   return x / (KEY_SMAX + 1.0);
 }
 `;
-  const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n';
+  const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa) : gl_FragCoord.z;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
