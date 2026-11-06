@@ -53,20 +53,22 @@ for (const i of [0]) {
 }
 // the relief is h(F) whatever T: with the colour kept to a disc far from the pole (Inside regions, plain paper elsewhere),
 // plane z's frames with T = w₂ and T = w₁ are the same shape about the pole at z = −1 (a window of the pane around it:
-// none of its pixels more than 32/255 apart, held_frames.js's DIFF_TOL: the two frames draw the same cells)
-{
+// none of its pixels more than 32/255 apart, held_frames.js's DIFF_TOL: the two frames draw the same cells), at the
+// pane heights of the CI's and of a few others (the spike's edge crosses a pixel centre at some of them)
+for (const dh of [0, -17, -7, -2, 3, 11, 20]) {
+  await view(1440, 900 + dh, false, false);
   const ns2 = 'landsheetshb' + Date.now();
   await loadView('steps', ns2, { shapes: [{ id: 'd1', kind: 'disc', c: [7, 5], r: 0.4, ci: 0, visible: true }], steps: CHAIN, sheets: true });
   await go(`http://localhost:${PORT}/test.html?ns=${ns2}&view=steps`);
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwSteps({ scope: 'in', surf: 'land', T: 2, go: 0, now: true }); 1`);
   await rest(0);
-  ok('bare, T = w₂: the own relief is still', await grab('bare2'), null);
+  ok(`bare (pane ${900 + dh}), T = w₂: the own relief is still`, await grab('bare2'), null);
   await ev(`__cmwSteps({ T: 1 }); 1`);
   await rest(0);
-  ok('bare, T = w₁: the carried frame is still', await grab('bare1'), null);
+  ok(`bare (pane ${900 + dh}), T = w₁: the carried frame is still`, await grab('bare1'), null);
   // (the pane's window around the pole at z = −1 under the default camera: the funnel and its wall, clear of the sheets' far edges)
-  const win = info.bare = await compare('bare2', 'bare1', { x: [0.28, 0.62], y: [0.2, 0.6] });
-  ok('bare: the relief about the pole is the same with T = w₁ as with T = w₂ (none of the window apart)', !!win && win.frac === 0, win);
+  const win = info['bare' + dh] = await compare('bare2', 'bare1', { x: [0.28, 0.62], y: [0.2, 0.6] });
+  ok(`bare (pane ${900 + dh}): the relief about the pole is the same with T = w₁ as with T = w₂ (none of the window apart)`, !!win && win.frac === 0, win);
 }
 return { pass: fails.length === 0, fails, info };

@@ -14,6 +14,9 @@
   let sideMode = false, side = null;
   const sideChs = new Map();
   let frameErr = '', framePending = false;
+  // the Landscape's refinement is still to come: the frame was drawn without it and a redraw follows (rfPoll, rfLater,
+  // settled, sheetRF)
+  let frameRefining = false;
   // the programs of the current chain that a draw drew a stand-in for (an earlier version, the deformation's start, or
   // nothing), program id -> chain key, until each lands, fails or is dropped: frameStatus().waiting, over every pane of
   // the frame (pending is only the last begin's or viewport's: the Sphere view draws two panes); frameCompiling: since

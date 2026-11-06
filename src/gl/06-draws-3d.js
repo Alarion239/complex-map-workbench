@@ -403,6 +403,7 @@
     o.rf = null; o.lvKey = o.rkey = o.rbFor = null; o.lvRaw = null; o.rfRows = 0; o.rfRaw = o.rbData = null; o.lvDim = o.lstRows = 0;
   }
   function rfLater() {
+    frameRefining = true;
     if (rfTimer || typeof setTimeout !== 'function') return;
     rfTimer = setTimeout(() => { rfTimer = 0; if (api.onReady) api.onReady({ main: true }); }, 180);
   }
@@ -412,6 +413,7 @@
   // copied aside with a fence, the surface is drawn unrefined, and the refinement follows a frame or two later (rfPoll)
   let pollTimer = 0;
   function rfPoll() {
+    frameRefining = true;
     if (pollTimer || typeof setTimeout !== 'function') return;
     pollTimer = setTimeout(() => { pollTimer = 0; if (api.onReady) api.onReady({ main: true }); }, 24);
   }
@@ -960,6 +962,7 @@
     if (!P.settleT) P.settleT = now;
     if (now - P.settleT >= RF_LATE) return true;
     if (!rfLateT && typeof setTimeout === 'function') rfLateT = setTimeout(() => { rfLateT = 0; if (api.onReady) api.onReady({ main: true }); }, RF_LATE - (now - P.settleT) + 8);
+    frameRefining = true;
     return false;
   }
   // (P0: the heights' program; the passes' program is of its chain version and map mode)
@@ -971,7 +974,11 @@
       const e = progs.get(progId('landSheetRF', ch, mm));
       if (e && e.state === 'pending') { finishLink(e); P = e.state === 'ready' ? e : null; }
     }
-    if (!P) return null;   // (compiling: the poll redraws when it lands)
+    if (!P) {   // (compiling: the poll redraws when it lands)
+      const e = progs.get(progId('landSheetRF', ch, mm));
+      if (e && e.state === 'pending') frameRefining = true;
+      return null;
+    }
     return rf.full || settled(P) ? P : null;
   }
   // All sheets' refinement: one pair of levels per cell for every sheet; a refined sub-cell is a block of 4 x 2 texels
