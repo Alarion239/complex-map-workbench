@@ -1001,6 +1001,20 @@
     st.bottom = Math.round(H - top + 8) + 'px';
     st.maxWidth = Math.round(hi - lo) + 'px';
   }
+  // A message over a dialog takes no click meant for the dialog (page.html): it is live, its × included, only where it lies clear of
+  // every control of the dialog
+  function syncToastLive() {
+    const host = $('toastHost');
+    if (!host) return;
+    const t = host.firstElementChild, modal = document.querySelector('.modal-bg');
+    let live = false;
+    if (t && modal) {
+      const r = t.getBoundingClientRect();
+      live = ![...modal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].some((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; });
+    }
+    host.toggleAttribute('data-clear-of-dialog', live);
+  }
+  function refreshToasts() { placeToasts(); syncToastLive(); }
   // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
   const TOAST_OUT_MS = 150;
   function closeToast(t) {
@@ -1016,6 +1030,7 @@
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
+  const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -1023,8 +1038,10 @@
     host.innerHTML = '';
     const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
     if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
-    // (a phone's timed message keeps its bar's room for the words; the phone dismisses it by a swipe down)
-    if ((o && o.sticky) || !document.documentElement.classList.contains('ph')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
+    // (the classic phone's timed message keeps its bar's room for the words and goes by itself; a press on the words closes any)
+    const rt = document.documentElement.classList;
+    if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
+    t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
@@ -1044,8 +1061,8 @@
         t.style.removeProperty('translate');
         hold(-1);
         // (a drag is no press: the click that follows it does not reach the host's press-to-dismiss)
-        if (dy > 8) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), 100); }
-        if (u.type === 'pointerup' && dy >= 32) closeToast(t); else t.style.removeProperty('--drag');
+        if (dy > TOAST_DRAG_NO_PRESS_PX) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), TOAST_CLICK_EAT_MS); }
+        if (u.type === 'pointerup' && dy >= TOAST_DRAG_DISMISS_PX) closeToast(t); else t.style.removeProperty('--drag');
       };
       t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
     });

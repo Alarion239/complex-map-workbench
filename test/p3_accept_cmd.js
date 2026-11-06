@@ -103,7 +103,7 @@ await ev('__cmwCam("R", { pitch: 1.2, yaw: -1.57, dist: 3 }); 1'); await settle(
 const STRIP = `(w) => (Math.hypot(w[0], w[1]) > 50 ? 0 : w[1] > 0 && w[1] < Math.PI ? 1 : -1)`;
 R.logH = await globeCheck('R', STRIP, 1);
 // the fill pixel nearest the pole: its |w|, and the strip's width there in pixels (pi / footprint): the fill reaches
-// the pole when it ends where the strip is about a pixel wide (the lifted mesh stopped where it was still wide)
+// the pole when it ends where the strip is about a pixel wide (a lifted mesh that stopped where the strip is still wide would fail)
 R.logH_far = await ev(`(() => {
   const cv = document.getElementById('canvasR'), r = cv.getBoundingClientRect(), D1 = window.__p3D1, D0 = window.__p3D0, GW = cv.width, dpr = cv.width / r.width;
   let best = null;
@@ -292,8 +292,8 @@ ok('(h) the export completes when not cancelled', R.hc.fullOk, R.hc);
 
 // the dialog: options toggled while a figure is being made (each change cancels the one in progress): the last one
 // wins, and no main-thread task over 50 ms meanwhile (after the first preview, whose caption typesetting is MathJax's).
-// (v14: the Export figure dialog of the export redesign, notes/export-design/AS-BUILT.md. The old dialog's width
-// switch, 3.4 in / 7 in, is now Columns, 1 / 2, in the Article preset.)
+// (the Export figure dialog, notes/export-design/AS-BUILT.md. Its width
+// switch is Columns, 1 / 2, in the Article preset.)
 const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
 await key('e', 4);
 R.dlgFirst = await dlgReady();
@@ -328,7 +328,7 @@ ok('(c) globe: s1 inverse, s2 forced forward', JSON.stringify(R.c_paths) === JSO
 ok('(c) globe: mixed paths in list order, frame differs <= 0.5 % from all-inverse', R.c.frac <= 0.005 && R.c.anyDiff > 0, R.c);
 
 // ---- the globe orientation (panels.md 9.0): a screen triangle on the w-globe maps to a w triangle of the same
-// handedness (with the plain lift every globe was a mirror image)
+// handedness (the plain lift would make every globe a mirror image)
 await load('p3o' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0], r: 0.45 }], steps: [], srcView: { cx: 0.5, cy: 0, s: 300 } }, base, { pattern: 'tiles' }));
 await ev('__cmwSetView("L", "sphere"); __cmwSetView("R", "sphere"); 1'); await settle();
 R.hand = await ev(`(() => {
