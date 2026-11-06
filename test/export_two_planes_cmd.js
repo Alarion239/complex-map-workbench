@@ -17,7 +17,7 @@ const PAGE_GRID = `window.__grid = async (svg) => { const out = [], re = /<image
   while ((m = re.exec(svg))) { const im = new Image(); im.src = m[1]; await im.decode(); const cv = document.createElement('canvas'); cv.width = ${GX}; cv.height = ${GY};
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, ${GX}, ${GY}); out.push(Array.from(g.getImageData(0, 0, ${GX}, ${GY}).data).filter((v, i) => i % 4 < 3)); }
   return out; }; 1`;
-const SPEC = { 'F': 'F', 'f_{2}': 'f₂', '\\sqrt{z}': '√z', '\\sqrt{z+1}': '√(z+1)', '\\sqrt[3]{z}': '³√z', '\\sqrt[n]{z}': 'ⁿ√z', '\\sqrt2': '√2', 'f_{1}': 'f₁' };
+const SPEC = { 'F': 'F', 'f_{2}': 'f₂', '\\sqrt{z}': '√z', '\\sqrt{z+1}': '√(z+1)', '\\sqrt[3]{z}': '³√z', '\\sqrt[n]{z}': 'ⁿ√z', '\\sqrt2': '√2', '\\frac{1}{z^{2}}': '1/z^2', '\\frac{1}{e^{-z}+1}': '1/(e^-z+1)', '\\frac{1}{\\sqrt{z}}': '1/√z', '\\frac{\\pi}{2}': 'π/2', 'f_{1}': 'f₁' };
 const build = async (opts) => {
   await ev(`window.__xtp = null; (async () => { const f = await Figure.build(${JSON.stringify(opts)}); if (!f) return { none: true };
     return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, keyLine: f.info.keyLine, W: f.W, keyR: Math.max(0, ...f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => b.x1)), boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
@@ -116,7 +116,7 @@ if (!tl.err) {
   ok('the layer has the panel names and the arrow\'s label', ['z', 'w₂', 'F'].every((w) => words.includes(w)), words);
   ok('the figure\'s title is not a text of the layer (it is the <title>)', !words.some((w) => /joined by/.test(w)), words);
   ok('every text is invisible', tl.els.every((t) => t.op === '0'), tl.els);
-  const pl = JSON.parse(await ev(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\sqrt{z}', '\\\\sqrt{z+1}', '\\\\sqrt[3]{z}', '\\\\sqrt[n]{z}', '\\\\sqrt2', '\\\\text{colour carried from }w_{2}'].map((t) => [t, __cmwFig.XD.plain(t)])))`));
+  const pl = JSON.parse(await ev(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\sqrt{z}', '\\\\sqrt{z+1}', '\\\\sqrt[3]{z}', '\\\\sqrt[n]{z}', '\\\\sqrt2', '\\\\frac{1}{z^{2}}', '\\\\frac{1}{e^{-z}+1}', '\\\\frac{1}{\\\\sqrt{z}}', '\\\\frac{\\\\pi}{2}', '\\\\text{colour carried from }w_{2}'].map((t) => [t, __cmwFig.XD.plain(t)])))`));
   const WANT = { '\\arg H_{t}': 'arg H_t'.replace('_t', '_t'), '\\sin z': 'sin z', '\\zeta(z)': 'ζ(z)', '\\bar z': 'z\u0304', '\\frac{1}{z}': '1/z', '\\frac{z+1}{z-1}': '(z+1)/(z-1)', 'z \\le 1': 'z ≤ 1', '\\operatorname{Re} z': 'Re z', 'f_{2}': 'f₂', '\\text{colour carried from }w_{2}': 'colour carried from w₂' };
   ok('XD.plain reads TeX as people read it', Object.entries(WANT).every(([k, v]) => k.includes('H_{t}') ? /^arg H/.test(pl[k]) : pl[k] === v), pl);
   ok('a key\'s ring marks (1, i, -1, -i) carry no text', !words.includes('1') && !words.includes('i') && !words.includes('-1'), words);
