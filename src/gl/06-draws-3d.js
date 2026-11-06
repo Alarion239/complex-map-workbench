@@ -259,7 +259,7 @@
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
-  function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o, chord = 0) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!polar && (!landC || landC.N !== N)) {
@@ -269,7 +269,7 @@
     const out = polar ? o : landC;
     if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     use(P1, c.map);
-    u1i(P1, 'uN', N);
+    u1i(P1, 'uN', N); u1f(P1, 'uChord', chord);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
@@ -304,6 +304,9 @@
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [256, 96], landPP = [];
+  // a far patch's cell is left out where the chord of its corners' heights is not the height: the height at its middle is
+  // farther than this share of the height range from the mean of the four corners' heights
+  const LAND_FAR_CHORD = 0.05;
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
@@ -1220,7 +1223,7 @@
       pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
     }
     // (the far patches, the last: their own textures)
-    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: CARRY_FAR_N[k], o: carryHeights(st, CARRY_FAR_N[k], mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
+    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: CARRY_FAR_N[k], o: carryHeights(st, CARRY_FAR_N[k], mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {}), LAND_FAR_CHORD) });
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {
@@ -1314,7 +1317,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]); info.heightH = H; info.heightMode = mode; info.farRead = (k) => (farPatches[k] ? lwRead(farPatches[k].o.tex1, farPatches[k].N, farPatches[k].N) : null);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
