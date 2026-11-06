@@ -322,18 +322,19 @@
   // the height error of the last carried Landscape frame's far patches, on the CPU: each cell of a far patch outside the pole patches'
   // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h = svHeightF: plane s to the height plane) averaged, the
   // chord's height at the cell, against L at its centre; {cells, bad: the cells whose chord is off by more than tol, worst, at:
-  // the worst cell's centre and corners' mean and exact L}, per patch of c.far, or null with no carry
-  window.__cmwLandFarErr = (tol = 0.25, skipPatches = true) => {
+  // the worst cell's centre and corners' mean and exact L}, per patch of c.far (of 'polar': per pole patch, each at its own
+  // resolution, none left out), or null with no carry
+  window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
     const F = cpuMap(c.map), h = svHeightF(c.s), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
-    return c.far.map(([px, py, r0, r1, N]) => {
+    return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map(([px, py, r0, r1, N]) => {
       const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
       const out = { cells: 0, bad: 0, worst: 0, at: null }, V = new Float64Array((m + 1) * (m + 1));
       for (let j = 0; j <= m; j++) for (let i = 0; i <= m; i++) V[j * (m + 1) + i] = L(at(i, j));
       for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
         const zc = at(i + 0.5, j + 0.5), w = F(zc);
-        if (skipPatches && (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(zc.re - qx, zc.im - qy) < q1)) continue;
+        if (of === 'far' && skipPatches && (c.polar || []).slice(0, c.patches || 0).some(([qx, qy, , q1]) => Math.hypot(zc.re - qx, zc.im - qy) < q1)) continue;
         if (!CX.isFin(w) || w.re < b.x0 || w.re > b.x1 || w.im < b.y0 || w.im > b.y1) continue;
         const a0 = V[j * (m + 1) + i], a1 = V[j * (m + 1) + i + 1], a2 = V[(j + 1) * (m + 1) + i], a3 = V[(j + 1) * (m + 1) + i + 1], Lc = L(zc);
         if (!Number.isFinite(a0 + a1 + a2 + a3 + Lc)) continue;

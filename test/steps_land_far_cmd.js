@@ -6,6 +6,8 @@
 // frame's carry (__cmwLandFarErr: for each cell of a far patch outside the pole patches' discs whose centre's image is in
 // the block, the four corners' mean of ln(1 + |h|) against its value at the cell's centre):
 // - the carried frame draws a pole patch about 3πi and -3πi;
+// - inside each pole patch, at the patch's own resolution, no cell's chord is off by more than 0.25 either (the far ring's cells
+//   are not passing for being moved into a disc);
 // - in the inner ring no cell's chord is off by more than 0.25 (0.25 is the height of a quarter of a spike's unit), outside the patches;
 // - with the pole patches' discs counted too, cells are off by more than that: the check reads something;
 // - the carried frame covers its block (no point bare, __cmwLandCover).
@@ -32,12 +34,14 @@ for (const u of [0.25, 0.5]) {
     carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar }) => ({ u, s, polar }))(__cmwLandCarry() || {}))')),
     err: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000)),
     whole: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000)),
+    poles: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000)),
     covered: JSON.parse(await ev('JSON.stringify(__cmwLandCover(480, 400, true))', 120000)),
   };
   const at = (y) => (c.carried.polar || []).some(([px, py]) => Math.abs(px) < 1e-6 && Math.abs(py - y) < 1e-6);
   ok(`${tag}: a carried frame from plane z with a pole patch about 3πi and -3πi`, c.carried.s === 0 && Math.abs(c.carried.u - u) < 0.004 && at(3 * Math.PI) && at(-3 * Math.PI), c.carried);
   ok(`${tag}: the far patch's inner ring has cells, none off by more than ${TOL} outside the pole patches`, !!c.err && c.err[0].cells > 10000 && c.err[0].bad === 0, c.err && c.err[0]);
   ok(`${tag}: counting the pole patches' discs too, cells are off by more than ${TOL}`, !!c.whole && c.whole[0].bad > 0, c.whole && c.whole[0]);
+  ok(`${tag}: inside each pole patch, at its own resolution, no cell off by more than ${TOL}`, !!c.poles && c.poles.length >= 6 && c.poles.every((q) => q.cells > 100 && q.bad === 0), c.poles);
   ok(`${tag}: the carried frame covers its block`, !!c.covered && c.covered.bare === 0, c.covered);
   await ev('window.__svScrubUp(), 1');
   await settled({ max: 60000 });
