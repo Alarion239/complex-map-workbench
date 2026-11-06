@@ -260,6 +260,7 @@
       }
     }
     if (keyW) {
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
       const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
       items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
       items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
@@ -523,6 +524,7 @@
       await breathe();
     }
     if (keyW) {
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins)
       const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
       items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
       items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
