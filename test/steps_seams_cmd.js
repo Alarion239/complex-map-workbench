@@ -4,7 +4,10 @@
 //    wide from the colour's left edge, in the rows 10 CSS px or more from the top and bottom, a smooth seam changes colour between vertically adjacent pixels about once a row
 //    (a seam of slope s px per row crosses |s| pixels of a row); a sawtooth along it, a torn triangle drawn whole on one
 //    sheet, crosses it at every tooth's slanted edge. In the worst 20 rows the mean count of such jumps per row is at
-//    most 1.5. The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
+//    most 1.5. A seam along the rows (20 px or more of the band jumping in one row: the cut's image on the real axis)
+//    crosses its row along the whole band, however straight, so a frame whose worst rows hold such a row is read along
+//    the seam instead: per column, the jumps between horizontally adjacent pixels in the 40 px band across it, the
+//    worst 20 columns' mean, at most 1.5 too The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
 //    w2 and w3), while the fill's programs link: the fill draws only with its mask, never a torn triangle whole
 //  - cracks: Square root and its sheets, Everywhere, parked half-way between z and w1, where the cut's image is the two
 //    rays from 0 at 135° and 225°: across each ray, no pixel of the paper's grey (max - min channel under 20) between
@@ -60,17 +63,37 @@ const park = async (x, scope) => {
       let e = -1;
       for (let x = Math.floor(W * 0.2); x < Math.floor(W * 0.6); x++) if (sat(at(x, y)) > 40) { e = x; break; }
       if (e < 0) continue;
-      let n = 0;
-      for (let x = e; x < Math.min(W, e + 40); x++) if (dist(at(x, y), at(x, y + 1)) > 60) n++;
-      per.push([y, n]);
+      let n = 0, run = 0, longest = 0;
+      for (let x = e; x < Math.min(W, e + 40); x++) {
+        if (dist(at(x, y), at(x, y + 1)) > 60) { n++; longest = Math.max(longest, ++run); } else run = 0;
+      }
+      per.push([y, n, longest, e]);
     }
     // (rows within 10 CSS px of the top and bottom edge are left out: the frame's own edge crosses the band there, a
     // horizontal step that is not the seam)
     // (the worst 20 rows in a row: the teeth of a sawtooth stand where the torn triangles are, not along the whole seam)
     let worst = 0, worstY = -1;
     for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
+    // (a seam that runs along the rows, 20 px or more of the band jumping in one row, crosses that row along its whole
+    // band, however straight: there the same count is made along the seam, per column: in each column, the jumps
+    // between horizontally adjacent pixels in the 40 px band across the seam, and the worst 20 columns' mean)
+    let mode = 'rows', perCol = null, span = 0;
+    const hr = per.filter((q) => q[0] >= worstY && q[0] < worstY + 20 && q[2] >= 20).sort((a, b) => b[1] - a[1])[0];
+    if (hr) {
+      const yw = hr[0], x0 = hr[3], jumps = (x, y) => dist(at(x, y), at(x, y + 1)) > 60;
+      let x1 = x0;
+      while (x1 < W - 1 && [-2, -1, 0, 1, 2].some((k) => jumps(x1, yw + k))) x1++;
+      span = x1 - x0;
+      if (span >= 20) {
+        const cnt = [];
+        for (let x = x0; x < x1; x++) { let n = 0; for (let y = yw - 20; y < yw + 20; y++) if (dist(at(x, y), at(x + 1, y)) > 60) n++; cnt.push(n); }
+        let w = 0;
+        for (let i = 0; i + 20 <= cnt.length; i++) { let t = 0; for (let j = i; j < i + 20; j++) t += cnt[j]; w = Math.max(w, t / 20); }
+        mode = 'columns'; perCol = +w.toFixed(2);
+      }
+    }
     const g = __cmwSteps().glide || {};
-    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: +worst.toFixed(2), worstY, W, H };
+    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: mode === 'columns' ? perCol : +worst.toFixed(2), mode, rowsPerRow: +worst.toFixed(2), span, worstY, W, H };
   })()`;
   const teeth = () => ev(TEETH);
   info.teeth = await teeth();
