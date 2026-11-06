@@ -19,6 +19,7 @@
 //   PAGES     how the extra pages are made
 const fs = require('fs');
 const path = require('path');
+const { seamFrameLines } = require('./seam_frames');
 
 const EXCLUDED = {
   // not pass/fail suites
@@ -65,7 +66,7 @@ const SUITES = {
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'steps_seams_cmd.js': { keepShots: true },   // (keepShots: the settled seam frame and the worst frame of the 2 s window)
+  'steps_seams_cmd.js': { keepShots: true, logLine: seamFrameLines },   // (keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: one `seam-frame:` line per frame measured)
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
   // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
   'steps_glide_look_cmd.js': { runs: [
