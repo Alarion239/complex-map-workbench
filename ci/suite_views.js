@@ -273,6 +273,7 @@ const VIEWS = {
   'deform_dirichlet_cmd.js': steps({ pin: true }),
   'land_release_cmd.js': steps({ pin: true }),
   'link_standin_cmd.js': steps({ pin: true }),
+  'svready_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
   'p3_review_cmd.js': steps({ pin: true }),

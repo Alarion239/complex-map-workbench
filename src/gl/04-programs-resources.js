@@ -376,6 +376,25 @@ float wabs(vec2 w) {
     if (n) schedulePoll();
     return n;
   }
+  // How far a list of [name, map mode] chain programs of the current chain has come: {done, total}. done: linked (or
+  // failed: nothing more will come of it); a program not started counts in total only. The chain's inverse programs
+  // (the exact images', started at their first use) that are still compiling are counted in total as well, so the
+  // answer is complete only when nothing of the chain is left linking
+  function progStatus(list) {
+    const out = { done: 0, total: 0 };
+    if (!ok || lost || sideMode || !cur.info) return out;
+    const seen = new Set();
+    for (const [name, m] of list) {
+      if (!DEFS[name]) continue;
+      const id = progId(name, cur, { mode: m });
+      if (seen.has(id)) continue;
+      seen.add(id); out.total++;
+      const e = progs.get(id);
+      if (e && (e.state === 'ready' || e.state === 'error')) out.done++;
+    }
+    for (const e of progs.values()) if (e.inv && !e.side && e.key === cur.key && e.state === 'pending') out.total++;
+    return out;
+  }
   // the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
   // -> the number started

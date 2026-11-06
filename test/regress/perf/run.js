@@ -904,6 +904,30 @@ async function svFirstGlideUnit() {
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
 }
+// [#1157 P1] the steps view's prestart re-runs after every chain edit, in idle time: a step is added and the pane is
+// dragged (n moves, 16 ms apart) while svReady() still counts work to do. The drag's frames are judged by the same
+// frame_ms rule as every other frame p95 (the reference and the tolerance are the unit's, none is new or loosened); the
+// longest of them and the work left at the drag's start are info rows
+async function svPrestartEditUnit() {
+  const frame = [], longest = [], left = [];
+  for (let i = 0; i < REPS; i++) {
+    await B.nav(`${BASE}test.html?ns=perfspe${process.pid}_${++nsCounter}&view=steps`);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    await settle(await pageNow());
+    await sleep(SV_IDLE_MS);
+    await B.ev(`__cmwAddStep('joukowski', {}), 1`);
+    await sleep(350);
+    const r = await B.ev('(() => { const s = __cmwSteps(); return s.ready ? s.ready.total - s.ready.done : -1; })()');
+    const w = await dragLeg('L', 200, 120, 'left', 150, 16);
+    frame.push(quant(w.frame, 0.95));
+    longest.push(Math.max(0, ...w.frame));
+    left.push(r);
+  }
+  put('sv.prestart_edit.drag.frame_p95_ms', 'frame_ms', 'ms', frame);
+  put('sv.prestart_edit.drag.longest_ms', 'info', 'ms', longest);
+  put('sv.prestart_edit.work_left', 'info', '', left);
+}
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
 // idle SV_IDLE_MS, then the first glide to plane 1, and back; then a step added (the same function again,
 // __cmwAddStep) and a glide to plane 1 at once, before the carry's warm draw (svWarmCarry waits for 2 s of stillness).
@@ -2022,6 +2046,7 @@ unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its ar
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
+unit('sv.prestart_edit', 'the steps view: a step added and the pane dragged while the prestart runs (#1157): the drag\'s frame p95, its longest frame, and the work svReady() still counts', svPrestartEditUnit);
 unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
