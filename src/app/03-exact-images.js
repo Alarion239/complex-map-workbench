@@ -378,14 +378,37 @@
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map();
+  // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
+  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
+  // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
+  // planChain sets the same step, node and j on them (they have the same a and k)
+  const invHomSkels = new Map();
+  function invHomOnce(b) {
+    if (!b || b.error || !b.def) return b;
+    const r = Inverse.stepOps(b);
+    const o = Object.assign({}, b, { __homOps: () => r });
+    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
+    return o;
+  }
+  function invHomSkeleton(a, k) {
+    const sk = `${a}|${k}|${chainSig[nSteps()]}`;
+    let bs = invHomSkels.get(sk);
+    if (!bs) {
+      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
+      if (invHomSkels.size >= 8) invHomSkels.clear();
+      invHomSkels.set(sk, bs);
+    }
+    return bs;
+  }
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
     let h = invHoms.get(ck);
     if (!h) {
-      const bh = built.slice();
-      bh[k - 1] = Inverse.homBuilt(built[k - 1], t);
+      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      bh[k - 1] = Inverse.homBuilt(bs[k - 1], t);
       let plan, inv;
       try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
       try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
@@ -497,8 +520,8 @@
     ctx.restore();
   }
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
-  // them (the steps view's whole-plane region)
-  function packRecs(extra = []) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && !shapeStage(x)).concat(extra)).recs; }
+  // them (the steps view's whole-plane region); staged: the shapes of the later planes too
+  function packRecs(extra = [], staged = false) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && (staged || !shapeStage(x))).concat(extra)).recs; }
   // the visible area shapes, in list order
   const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what

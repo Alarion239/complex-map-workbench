@@ -7,7 +7,8 @@
 //   true when they did;
 // - compare(a, b): two kept frames' difference, each pixel's largest channel difference (RGB, 0..255): the share of the
 //   pixels more than DIFF_TOL apart (frac), the largest (max) and the mean (mean); and each frame's mean luminance
-//   (lum, Rec. 601 weights) and mean alpha (alpha);
+//   (lum, Rec. 601 weights) and mean alpha (alpha); win { x: [x0, x1], y: [y0, y1] } (fractions of the pane): only
+//   the pixels in that window;
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u and the
@@ -21,7 +22,10 @@
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame) sampled every step px, or
-//   null when the glide's record has no sheet key (a frame the carried mesh draws).
+//   null when the glide's record has no sheet key (a frame the carried mesh draws);
+// - sameAway(a, b, tol, keep): two kept frames compared pixel by pixel away from the colour lines (a pixel where either
+//   frame's __giRange spans more than 12 levels is left out), only where keep holds (the source of a page function of
+//   the device pixel (x, y); every pixel without it): { n compared, max, over: the share of n more than tol apart }.
 (() => {
   // (the page script of the exact reference, as written for steps_glide_inverse_cmd.js)
   const RANGE = `window.__giRange = (P, W, x, y) => { let r = 0; for (let c = 0; c < 3; c++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = P[4 * ((y + dy) * W + x + dx) + c]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };`;
@@ -84,7 +88,8 @@
 };`;
   const HOLD_EPS = 0.003;   // (a rail pixel is about 0.005 of a plane at 1200 px wide)
   const DIFF_TOL = 32;      // (steps_sm_standin_cmd.js: a frame is the rest frame with at most 0.5 % of pixels > 32/255 apart)
-  const hold = async (x) => {
+  // (links: wait for every program to have linked too; false while links are held, GLR.holdLinks)
+  const hold = async (x, links = true) => {
     await ev(`(() => {
       const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
       const i = Math.min(ns.length - 2, Math.floor(${x})), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
@@ -93,7 +98,7 @@
       window.__svScrubUp = () => ev('pointerup', cx);
       return 1;
     })()`);
-    return settled({ max: 60000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving` });
+    return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving` });
   };
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
@@ -104,18 +109,22 @@
     }
     return false;
   };
-  const compare = (a, b) => ev(`(() => {
+  const compare = (a, b, win = null) => ev(`(() => {
     const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}];
     if (!A || !B || A.length !== B.length) return null;
     const lum = (P, i) => 0.299 * P[i] + 0.587 * P[i + 1] + 0.114 * P[i + 2];
-    let over = 0, max = 0, sum = 0, la = 0, lb = 0, aa = 0, ab = 0;
-    for (let i = 0; i < A.length; i += 4) {
+    let over = 0, max = 0, sum = 0, la = 0, lb = 0, aa = 0, ab = 0, n = 0;
+    const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, win = ${JSON.stringify(win)};
+    const x0 = win ? Math.round(win.x[0] * W) : 0, x1 = win ? Math.round(win.x[1] * W) : W, y0 = win ? Math.round(win.y[0] * H) : 0, y1 = win ? Math.round(win.y[1] * H) : H;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = 4 * (y * W + x);
+      n++;
       const m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
       if (m > ${DIFF_TOL}) over++;
       if (m > max) max = m;
       sum += m; la += lum(A, i); lb += lum(B, i); aa += A[i + 3]; ab += B[i + 3];
     }
-    const n = A.length / 4, r = (v) => +v.toFixed(4);
+    const r = (v) => +v.toFixed(4);
     return { frac: r(over / n), max, mean: r(sum / n), lum: [r(la / n), r(lb / n)], alpha: [r(aa / n), r(ab / n)], px: n };
   })()`);
   // the straight hard edges of a kept frame: the pixels more than DIFF_TOL apart (their largest channel difference) from
@@ -222,13 +231,13 @@ ${REF}`;
   // two kept frames pixel by pixel away from the colour lines (__giRange: pixels whose 4 x 4 neighbourhood spans more
   // than 12 levels in either frame are left out): { n compared, max, over: the share of n more than tol apart in a
   // channel }
-  const sameAway = (a, b, tol) => ev(`(() => {
+  const sameAway = (a, b, tol, keep) => ev(`(() => {
     ${RANGE}
-    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height;
+    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height, K = ${keep || 'null'};
     if (!A || !B || A.length !== B.length) return null;
     let n = 0, over = 0, max = 0;
     for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) {
-      if (__giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
+      if ((K && !K(x, y)) || __giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
       const i = 4 * (y * W + x), m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
       n++; if (m > max) max = m; if (m > ${tol}) over++;
     }

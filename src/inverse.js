@@ -35,7 +35,8 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -55,8 +56,10 @@ const Inverse = (() => {
     });
     return JSON.stringify(['inv2', sigs]);
   }
-  // an op's part of the key: its kind, and a NEWT op's seeding ops with their member counts (they shape its program)
+  // an op's part of the key: its kind, a NEWT op's seeding ops with their member counts and a polynomial NEWT op's degree
+  // (they shape its program)
   function opSig(o) {
+    if (o.kind === 'NEWT' && o.p && o.p.deg) return `NEWT^${o.p.deg}`;
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
     return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind;
   }
@@ -1643,11 +1646,16 @@ const Inverse = (() => {
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
-  // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
-  // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
+  // step has its f). A polynomial step of degree 2 to NEWT_POLY_MAX (its degree known exactly) has a homotopy that is
+  // a polynomial in u of that degree at most (the straight line, or a zoom: f conjugated by affine maps): its members are
+  // every root of H_t(u) = w. Otherwise the step's own exact ops, when they have finitely many members
+  // (newtSeedCounts), seed Newton's walks back from t = 1. A step that is not analytic (no complex derivative for
+  // Newton): {ok: false, reason}
   function newtOps(b, t, reason) {
-    if (!(b.props && b.props.analytic)) return { ok: false, reason };
+    const P = b.props;
+    if (!(P && P.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
+    if (P.polynomial && P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
     const own = stepOps(b);
     return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
   }
@@ -1663,7 +1671,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

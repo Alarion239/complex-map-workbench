@@ -274,6 +274,8 @@ const SPOT = String.raw`(() => {
     // (the steps view's Planes chapter: the thread's › and ring, the colour button, the scope and surface choices, the first chip)
     'planes/plane': () => q1('#paneL'), 'planes/thread': () => q1('#svStrip .sv-next'), 'planes/park': () => q1('#svStrip .sv-thumb'), 'planes/colour': () => q1('#svHead .sv-cp'),
     'planes/carried': () => q1('#svStrip .sv-next'), 'planes/inside': () => q1('#svHead .sv-scope'), 'planes/surface': () => q1('#svHead .sv-surf, #svHead .sv-surf1'), 'planes/step': () => q1('#svStrip .sv-fchip'),
+    // (the Playing chapter: ▶, Loop (on a phone it is in the Playback sheet, opened by holding ▶: nothing is lit until then), the thread's rail)
+    'playing/play': () => q1('#svStrip .sv-play'), 'playing/speed': () => q1('#svStrip .sv-loop') || 'none', 'playing/range': () => q1('#svStrip .sv-rail'),
     'export/formula-tex': () => q1('#propsPanel .insp-F .ihead button[aria-label]'), 'keys/palette': () => 'none',
   };
   function ctl() {

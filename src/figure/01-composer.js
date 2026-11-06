@@ -25,7 +25,7 @@
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
-  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. The composer typesets synchronously, so it notes the promise, sets
   // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again.
   // MathJax throws only for the first formula that asks for a range still loading: another one with a letter of it
@@ -41,7 +41,7 @@
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
   const texCache = new Map();
-  // a Russian figure: Russian notation (tg, sh, ln). (#490) Its words, and the Italian ones with an accented letter
+  // a Russian figure: Russian notation (tg, sh, ln). Its words, and the Italian ones with an accented letter
   // (è, perché, più), are MathJax's too: the STIX2 font has Cyrillic and the accented Latin letters in its upright,
   // bold, italic and bold italic text, so words and maths are one face
   XD.tex = (tex, pt, color = '#000') => mjTex(XD.lang === 'ru' && I18 ? I18.notation(tex, 'ru') : tex, pt, color);
@@ -248,11 +248,13 @@
 
   // ---------- the figure ----------
   XD.svg = (spec) => {
+    const title = spec.title ? `<title>${String(spec.title).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>` : '';
+    const desc = spec.desc ? `<desc>${String(spec.desc).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</desc>` : '';
     const meta = spec.meta ? `<metadata id="${XD.ns}-meta"><![CDATA[${JSON.stringify(spec.meta)}]]></metadata>` : '';
     const glyphs = [...XD.glyphs.entries()].map(([id, d]) => `<path id="${id}" d="${d}"/>`).join('');
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
-    return { svg, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
+    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
   };
   // point markers (shape carries identity in grey): dot | square | tri | diamond | ring | cross
   XD.marker = (kind, px, py, r, fill, stroke, sw) => {
@@ -500,7 +502,7 @@
       line.push(wd); lw += (line.length > 1 ? sp : 0) + ww;
     }
     if (line.length) lines.push(line);
-    // (export review r3, verify-new-1) TeX's line spacing: baselines 1.2 pt apart (\baselineskip), unless the depth of a
+    // TeX's line spacing: baselines 1.2 pt apart (\baselineskip), unless the depth of a
     // line and the height of the next would leave less than \lineskiplimit (0) between them; then they are \lineskip
     // (0.1 pt) apart. A tall superscript (${H^{(2)}_{s}}'$) never touches the line above
     const lh = pt * 1.2, lskip = pt * 0.1;
@@ -516,7 +518,7 @@
   };
 
   // ---------- formats ----------
-  // (a library the offline page carries as a JSON block, build.py, #393, runs from a Blob URL; else from its CDN)
+  // (a library the offline page carries as a JSON block, build.py, runs from a Blob URL; else from its CDN)
   const loadScript = (src, id, b = id && document.getElementById(id)) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = b ? URL.createObjectURL(new Blob([JSON.parse(b.textContent)], { type: 'text/javascript' })) : src; s.async = true; s.onload = res; s.onerror = rej; document.head.append(s); });
   let pdfLibs = null;
   const pdfLib = () => {
@@ -533,7 +535,7 @@
     if (!lib) throw new Error('The PDF library could not be loaded');
     const doc = new lib.jsPDF({ unit: 'pt', format: [fig.W, fig.H], orientation: fig.W > fig.H ? 'landscape' : 'portrait', compress: true, putOnlyUsedFonts: true });
     const info = (v) => (fig.lang !== 'en' && I18 ? I18.pdfText(v) : v);
-    doc.setProperties({ title: fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
+    doc.setProperties({ title: fig.title || fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
     if (fig.meta && doc.addMetadata) {
       const json = JSON.stringify(fig.meta).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
       try { doc.addMetadata(`<cmw:scene>${json}</cmw:scene>`, 'https://complex-map-workbench/ns/1.0/'); } catch (e) { /* metadata is optional */ }

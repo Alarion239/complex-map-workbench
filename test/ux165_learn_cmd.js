@@ -7,31 +7,16 @@
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
 // Prints { pass, of, fails: [[name, false, detail]], exc }.
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const U = `http://localhost:${PORT}/test.html`;
-const R = [];
-const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 600) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const exc = [];
-const grab = () => { for (const l of logs()) if (l.t === 'EXC') exc.push(l.m.slice(0, 300)); };
+const { U, R, check, settle, exc, grab, UA0, laptop, fresh, ready, firstVisit } = await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ux165_kit.js'), 'utf8'));
 const box = (sel) => ev(`(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; })()`);
 const meet = (a, b) => !!a && !!b && a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
 const mid = (b) => [b.l + b.w / 2, b.t + b.h / 2];
-const UA0 = await ev('navigator.userAgent');
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36';
 const phone = async (w, h, dark = false) => { await send('Emulation.setUserAgentOverride', { userAgent: ANDROID, platform: 'Linux armv8l' }); await view(w, h, dark, true); };
-const laptop = async (w = 1366, h = 768, dark = false) => { await send('Emulation.setUserAgentOverride', { userAgent: UA0 }); await view(w, h, dark, false); };
 const tap = async (x, y, hold = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); await sleep(hold); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(250); };
 const tdrag = async (x0, y0, x1, y1, n = 14) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0 }] }); for (let i = 1; i <= n; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n }] }); await sleep(16); } await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(300); };
 const tapSel = async (sel) => { const b = await box(sel); if (!b) return false; await tap(...mid(b)); return true; };
 const rclick = async (x, y) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', clickCount: 1 }); await sleep(250); };
-// a fresh first visit (no ?ns=, nothing saved): the app's own rule for the first-run line
-// a namespace's saved state is cleared first, so every run starts from the default scene
-// (from another namespace's page: a page saves its own state when it is left)
-// (the app is up: its state hook answers and the chain is drawn; a fresh page on a slow runner takes a few seconds)
-const ready = async () => { for (let i = 0; i < 40 && !(await ev(`typeof __cmwState === 'function' && !!document.querySelector('#pipeline')`)); i++) await sleep(250); };
-const fresh = async (ns, q = '') => { await nav(U + '?ns=ux165clean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
-const firstVisit = async (q = '') => { await fresh('ux165x'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (!/:/.test(k)) localStorage.removeItem(k); return 1; })()`); await nav(U + q); for (let i = 0; i < 40 && !(await ev(`!!document.querySelector('.tour-lane')`)); i++) await sleep(200); };
 logs();
 let g = null;
 
