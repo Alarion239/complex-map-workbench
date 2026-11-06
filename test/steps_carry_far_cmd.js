@@ -25,9 +25,11 @@ const goOk = async (url) => { if (!(await go(url))) throw new Error('no load eve
 const need = (r, what) => { if (r && r.__exc !== undefined) throw new Error(what + ' failed: ' + r.__exc); return r; };
 const setup = async (expr) => need(await ev(expr), expr.slice(0, 60));
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-// the left pane's pixels (lpx), its camera and size (paneOf), the pixel compare (tally), the front point (fronts), the held
-// thread (hold) and the Joukowski path (joukPath): test/lib/carry_kit.js
-const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, hold, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the left pane's pixels (lpx), its camera and size (paneOf), the pixel compare (tally), the front point (fronts) and the Joukowski
+// path (joukPath): test/lib/carry_kit.js
+const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // plane z's camera zoomed by f about the pane's centre (a wheel turn there, whose deltaY zooms by exp(-0.0016 deltaY),
 // as 14-interaction.js's wheel handler scales a pixel-mode wheel), once the camera has settled
 async function zoom(f) {

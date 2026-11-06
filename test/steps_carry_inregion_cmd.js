@@ -23,7 +23,9 @@ await view(1200, 800, false, false);
 const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length' }); };
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, hold, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // the colours at the points W of the state `at` against plane z's at the points Z: {n, wrong, paper, worst, state}
 // at.hold: the thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user
 // holding the thread; the frame is read once its programs are linked and two frames are alike

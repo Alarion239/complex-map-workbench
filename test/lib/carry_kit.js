@@ -16,8 +16,6 @@
 // - shown(P, z): whether z is inside the middle 90 % of the pane P, where a reference of plane z shows it;
 // - fronts(lists, b, sing): for each list of points z, the index of the front one under the steps view's sheet key of
 //   plane b (Inverse.sheetKey and Inverse.front in the page; sing: the key's points in place of plane b's), -1 for none;
-// - hold(x): the steps thread held at x mid-glide by a scrub on the rail not let go (the gliding path, no fix-up), read
-//   once its programs are linked and the thread is there; window.__svScrubUp() lets go;
 // - joukPath(outside, leave): the Joukowski airfoil's path H_t (tanh((1 + t) artanh z - i pi t / 2) on the disc,
 //   coth((1 + t) arcoth z) outside it) for the region outside the circle that `outside` measures: candAt(t)(w) the points
 //   z at w along H_t, each branch's inverse over k, kept where H_t gives w back (within 1e-7), each as { z, name, out }
@@ -66,17 +64,6 @@
     if (r && r.__exc !== undefined) throw new Error('fronts failed: ' + r.__exc);
     return r;
   };
-  const hold = async (x) => {
-    await ev(`(() => {
-      const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-      const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-      const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 71, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-      ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-      window.__svScrubUp = () => ev('pointerup', cx);
-      return 1;
-    })()`);
-    await settled({ max: 30000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
-  };
   const joukPath = (outside, leave) => {
     const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
     const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
@@ -107,5 +94,5 @@
     const poleAt = (t) => (t > 1 / 3 ? [[0, 0], [0, -Math.tan(Math.PI * (1 - t) / (2 * (1 + t)))]] : [[0, 0]]);
     return { candAt, poleAt };
   };
-  return { lpx, paneOf, nearest, bare, exampleNames, tally, bareCount, grid, shown, fronts, hold, joukPath };
+  return { lpx, paneOf, nearest, bare, exampleNames, tally, bareCount, grid, shown, fronts, joukPath };
 })()
