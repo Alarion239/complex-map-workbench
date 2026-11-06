@@ -342,19 +342,53 @@
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
   }
+  // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
+  // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
+  // chord of c px along an arc that turns by t rad is off it by about c t / 8, so a pair is tested only where c t exceeds
+  // 8 CUT_FLAT, t read off the neighbouring chords: a straight bank costs no sample beyond the base set)
+  const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480, CUT_BEND = 8 * CUT_FLAT;
+  // the distance (px) of the point q from the segment a-b
+  function segDist(q, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2)) : 0;
+    return Math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy);
+  }
   // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points (null
   // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
   // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
   // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
-  // many times a second
+  // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between
+  // them is split there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
+  // the chords would cut across it
   function cutBank(pane, c, F, side, win, proj, step = 1) {
     const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
     const pts = [], ws = [];
-    for (let i = 0; i <= 480; i += step) {
+    const at = (i) => {
       const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
       const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
-      pts.push(CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
-      if (CX.isFin(w)) ws.push([w.re, w.im]);
+      return { w, q: CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null };
+    };
+    const put = (p) => { pts.push(p.q); if (CX.isFin(p.w)) ws.push([p.w.re, p.w.im]); };
+    const split = (i0, p0, i1, p1, depth) => {
+      if (depth >= CUT_DEPTH || !p0.q || !p1.q) return;
+      const im = (i0 + i1) / 2, pm = at(im);
+      if (!pm.q || segDist(pm.q, p0.q, p1.q) <= CUT_FLAT) return;
+      split(i0, p0, im, pm, depth + 1); put(pm); split(im, pm, i1, p1, depth + 1);
+    };
+    const base = [];
+    for (let i = 0; i <= CUT_SAMPLES; i += step) base.push(at(i));
+    // (the direction of the chord k -> k + 1; null where either end is hidden or there is no such chord)
+    const dir = (k) => {
+      const p = base[k], q = base[k + 1];
+      return p && q && p.q && q.q ? Math.atan2(q.q[1] - p.q[1], q.q[0] - p.q[0]) : null;
+    };
+    const turn = (d0, d1) => (d0 == null || d1 == null ? 0 : Math.abs(Math.atan2(Math.sin(d1 - d0), Math.cos(d1 - d0))));
+    for (let k = 0; k < base.length; k++) {
+      if (k > 0 && base[k - 1].q && base[k].q) {
+        const len = Math.hypot(base[k].q[0] - base[k - 1].q[0], base[k].q[1] - base[k - 1].q[1]), d = dir(k - 1);
+        if (len * Math.max(turn(dir(k - 2), d), turn(d, dir(k))) > CUT_BEND) split((k - 1) * step, base[k - 1], k * step, base[k], 0);
+      }
+      put(base[k]);
     }
     return { pts, ws };
   }
