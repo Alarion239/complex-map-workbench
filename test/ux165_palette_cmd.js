@@ -6,7 +6,6 @@
 // Prints {pass, fails, info, shots}; screenshots go to <daemon folder>/shots/ux165-*.png.
 const fails = [], shots = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''))); };
@@ -16,20 +15,19 @@ let nsN = 0;
 async function openApp(page, st, w = 1366, h = 768, dark = false, mobile = false, q = '') {
   const ns = 'ux165c' + Date.now() + '_' + (nsN++);
   await view(w, h, dark, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ until: "document.readyState === 'complete'", max: 8000, only: true });
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/${page}?ns=${ns}${q}` }); await sleep(2300);
-  await settle(600);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/${page}?ns=${ns}${q}` }); await settled({ until: "typeof __cmwP === 'function'", max: 30000 });
   return ns;
 }
 const P = () => ev('__cmwP()');
 let st;
-const palOpen = async () => { if (!(await ev(`!!document.getElementById('palInput')`))) { await key('k', 4); await settle(350); } };
-const palType = async (q) => { await palOpen(); await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settle(300); };
+const palOpen = async () => { if (!(await ev(`!!document.getElementById('palInput')`))) { await key('k', 4); await settled({ until: "!!document.getElementById('palInput')", max: 8000 }); } };
+const palType = async (q) => { await palOpen(); await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settled({ until: `document.getElementById('palInput').value === ${JSON.stringify(q)}`, max: 8000 }); };
 const palRows = () => ev(`[...document.querySelectorAll('.pal-item')].map((e) => ({ label: e.querySelector('.pal-label').textContent, key: (e.querySelector('.pal-props .kbd') || {}).textContent || '', words: (e.querySelector('.pal-pw') || {}).textContent || '', wordsShown: !!(e.querySelector('.pal-pw') && e.querySelector('.pal-pw').getClientRects().length), letters: e.querySelectorAll('.pp').length, sel: e.classList.contains('sel') }))`);
 const palState = () => ev(`(() => { const er = document.querySelector('.pal-err'); return { err: er ? er.textContent : null, errColor: er ? getComputedStyle(er).color : null, muted: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(), bad: !!document.querySelector('.pal-err .pe-bad'), red: !!document.querySelector('.pal-list .err'), enterOff: document.querySelector('.pal-enter').classList.contains('off'), verb: document.querySelector('.pal-verb').textContent, empty: (document.querySelector('.pal-empty:not(.pal-err)') || {}).textContent || null }; })()`);
-const palClose = async () => { if (await ev(`!!document.getElementById('palInput')`)) { await key('Escape'); await settle(250); } };
+const palClose = async () => { if (await ev(`!!document.getElementById('palInput')`)) { await key('Escape'); await settled({ until: "!document.getElementById('palInput')", max: 8000 }); } };
 const rgb = (c) => (String(c).match(/\d+/g) || []).slice(0, 3).join(',');
 const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h).trim()); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)).join(',') : ''; };
 const shot2 = async (name) => { shots.push(await shot('ux165-' + name)); };
@@ -41,13 +39,13 @@ let rows = await palRows(), ps = await palState();
 ok('UX16 "z^2 + a" is a normal row, no error', rows.length === 1 && rows[0].label === 'Formula, with a new number a = 1' && !ps.err && !ps.red && !ps.enterOff && ps.verb === ' to add', { rows, ps });
 await shot2('ux16-palette-new-number');
 const h0 = (await P()).hi;
-await key('Enter'); await settle(900);
+await key('Enter'); await settled({ until: `__cmwP().hi === ${h0 + 1}`, max: 8000 });
 st = await P();
 ok('UX16 Enter adds the step and the number a = 1, as one undo step', st.steps.length === 3 && st.steps[2].type === 'custom' && st.params.map((p) => p.name + '=' + p.value).join() === 'a=1' && st.hi === h0 + 1, { steps: st.steps.map((s) => s.type), params: st.params, hi: st.hi, h0 });
 const sig1 = st.sig;
-await ev(`Params.set('a', 2), 1`); await settle(500);
+await ev(`Params.set('a', 2), 1`); await settled({ until: `__cmwP().sig !== ${JSON.stringify(sig1)}`, max: 8000 });
 ok('UX16 the step follows the number', (await P()).sig !== sig1, null);
-await key('z', 4); await settle(700);
+await key('z', 4); await settled({ until: '__cmwP().steps.length === 2', max: 8000 });
 st = await P();
 ok('UX16 one Undo removes both', st.steps.length === 2 && st.params.length === 0, { steps: st.steps.length, params: st.params });
 // errors in grey, with the place marked, and repairs as rows
@@ -60,7 +58,7 @@ for (const [q, first, fix] of [['sin(z', 'Close the bracket: sin(z)', 'sin'], ['
     ok('UX23 the typed formula is shown in the palette input\'s face (the old mono face, B612 Mono, drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
     await shot2('ux23-palette-error');
     const n0 = (await P()).steps.length;
-    await key('Enter'); await settle(900);
+    await key('Enter'); await settled({ until: `__cmwP().steps.length === ${n0 + 1}`, max: 8000 });
     ok('UX23 Enter on "Close the bracket" adds sin z', (await P()).steps.length === n0 + 1 && (await P()).steps[n0].type === fix, (await P()).steps.map((s) => s.type));
   }
 }
@@ -85,14 +83,14 @@ ok('UX03 an example is found by its name; on it, the footer says Enter to open',
 await palType('png');
 ok('UX03 the footer says Enter to run on a command', (await palState()).verb === ' to run', await palState());
 await shot2('ux03-palette-png');
-await palType('dark'); await key('Enter'); await settle(500);
+await palType('dark'); await key('Enter'); await settled({ until: "document.documentElement.dataset.theme === 'dark'", max: 8000 });
 ok('UX03 Theme: Dark runs', (await ev(`document.documentElement.dataset.theme`)) === 'dark', await ev(`document.documentElement.dataset.theme`));
 await palType('auto'); rows = await palRows();
-await ev(`[...document.querySelectorAll('.pal-item')].find((e) => e.querySelector('.pal-label').textContent === 'Theme: Auto').click()`); await settle(400);
-await palType('keys'); await ev(`[...document.querySelectorAll('.pal-item')].find((e) => e.querySelector('.pal-label').textContent === 'Guide: Keys').click()`); await settle(800);
+await ev(`[...document.querySelectorAll('.pal-item')].find((e) => e.querySelector('.pal-label').textContent === 'Theme: Auto').click()`); await settled({ until: "document.documentElement.dataset.theme !== 'dark'", max: 8000 });
+await palType('keys'); await ev(`[...document.querySelectorAll('.pal-item')].find((e) => e.querySelector('.pal-label').textContent === 'Guide: Keys').click()`); await settled({ until: "(() => { const m = document.querySelector('.modal'); return !!m && [...m.querySelectorAll('h3')].some((x) => x.textContent === 'Keys'); })()", max: 8000 });
 const gk = await ev(`(() => { const m = document.querySelector('.modal'); if (!m) return null; const hd = [...m.querySelectorAll('h3')].find((x) => x.textContent === 'Keys'); const b = hd.getBoundingClientRect(), mb = (m.querySelector('.modal-body') || m).getBoundingClientRect(); return { top: b.top, mt: mb.top, mb: mb.bottom }; })()`);
 ok('UX03 Guide: Keys opens the guide at Keys', gk && gk.top >= gk.mt - 2 && gk.top < gk.mb, gk);
-await key('Escape'); await settle(400);
+await key('Escape'); await settled({ until: "!document.querySelector('.modal')", max: 8000 });
 // no row of letters; the highlighted row names its properties in words
 await palType('sin');
 rows = await palRows();

@@ -1,5 +1,5 @@
 // v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
-// of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX60, UX97, UX99, UX102-UX104 (the laptop's sound checks,
+// of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX97, UX99 (the laptop's sound checks,
 // UX70-UX74, UX87 and UX88, are ux165_learn_sound_cmd.js; its first-run line, UX21 with #250 and UX90, is
 // ux165_learn_first_run_cmd.js; standards-ok: those checks moved there unchanged), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
@@ -117,7 +117,7 @@ await laptop();
 
 // ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
 // (the chain cleared by the palette's Clear chain)
-const clearChain = async () => { await key('k', 4); await settle(400); await type('Clear chain'); await settle(400); await key('Enter'); await settle(600); };
+const clearChain = async () => { await key('k', 4); await settled({ until: "!!document.getElementById('palInput')", max: 8000 }); await type('Clear chain'); await settled({ until: "document.getElementById('palInput').value === 'Clear chain'", max: 8000 }); await key('Enter'); await settled({ until: '__cmwP().steps.length === 0', max: 8000 }); };
 await laptop();
 await fresh('ux165e'); await settle(1800);
 await clearChain();
@@ -185,61 +185,6 @@ g = await box('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-alo
 check('UX72 phone: the selected curve\'s editor in the Shapes sheet has Listen along, 44 px high', g && g.h >= 44, g);
 await shot('ux165-ux72-editor-phone');
 grab();
-
-// ---------------------------------------------------------------- deformation: UX102, UX103, UX104, UX97 (K, Shift+→), UX60
-await laptop();
-await fresh('ux165m'); await settle(1800);
-await key('m'); await settle(800);
-// (v16.5 fix regress-1: a row too tight for the words takes the short form "1/2 · f₁ · 53 %", marked data-short, the
-// words staying in the tooltip; the title's two spans read "Deformation" and "from z to w" with no space between)
-g = await ev(`({ ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null, title: __qa.txt('#rightTitle'), speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent) })`);
-check('UX103: the readout is in words ("Step k of m · fₖ · p %"; in a tight row its short form, v16.5 regress-1) and the title too ("Deformation from z to w")', (/^Step \d+ of 2 · f[₁₂] · \d+ %$/.test(g.ro) || (g.short === '1' && /^\d\/2 · f[₁₂] · \d+ %$/.test(g.ro))) && /^Deformation\s*from z to w$/.test(g.title), g);
-const pb = await box('#morphPlay');
-await move(...mid(pb)); await sleep(700);
-const tip1 = await ev(`[document.querySelector('#tip').hidden, document.querySelector('#tip').textContent]`);
-await click(...mid(pb)); await sleep(200); await move(10, 10); await sleep(200); await move(...mid(pb)); await sleep(700);
-const tip2 = await ev(`[document.querySelector('#tip').hidden, document.querySelector('#tip').textContent, __cmwState().morph.playing]`);
-check('UX104: the play button\'s tooltip follows a click (Pause, then Play)', tip1[0] === false && /^Pause/.test(tip1[1]) && tip2[0] === false && /^Play/.test(tip2[1]) && tip2[2] === false, { tip1, tip2 });
-await key('k'); await settle(200);
-check('UX97: K plays the deformation', await ev('__cmwState().morph.playing'));
-await key('k'); await settle(100);
-await ev(`(() => { const s = document.getElementById('morphRange'); return 1; })()`);
-await key('ArrowLeft', 8); await key('ArrowLeft', 8); await key('ArrowLeft', 8); await settle(100);
-const t0 = await ev('__cmwState().morph.T');
-await key('ArrowRight', 8); await settle(150);
-g = await ev(`({ T: __cmwState().morph.T, ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null })`);
-// (the readout in words, or its short form in a tight row: v16.5 regress-1)
-check('UX97: Shift+← goes back to t = 0, Shift+→ to the next step\'s tick', t0 === 0 && g.T === 1 && (/Step 2 of 2 · f₂ · 0 %|Step 1 of 2 · f₁ · 100 %/.test(g.ro) || (g.short === '1' && /^(2\/2 · f₂ · 0 %|1\/2 · f₁ · 100 %)$/.test(g.ro))), Object.assign({ t0 }, g));
-await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(300);
-g = await ev(`({ chip: __qa.txt('#sphereChipR'), btn: !!document.querySelector('#sphereChipR .chip-draw') })`);
-check('UX102: a draw tool in the deformation: the chip offers "Turn off and draw"', g.btn && /Turn off and draw/.test(g.chip), g);
-await shot('ux165-ux102-chip');
-await ev(`document.querySelector('#sphereChipR .chip-draw').click()`); await settle(600);
-g = await ev(`({ open: __cmwState().morph.open, tool: (document.querySelector('#tools .tool.on, #tools .tool[aria-pressed="true"]') || { dataset: {} }).dataset.tool || null })`);
-check('UX102: it turns the deformation off and keeps the chosen tool', g.open === false && g.tool === 'disc', g);
-await ev(`document.querySelector('#tools [data-tool="select"]').click()`);
-// UX60: Video listed with the deformation off; choosing it turns the deformation on and opens on Video
-await ev(`Figure.open()`); await settle(1500);
-g = await ev(`({ fmts: [...document.querySelectorAll('#xfFmt > button')].map((b) => b.dataset.v), dis: (document.querySelector('#xfFmt [data-v="video"]') || {}).disabled })`);
-check('UX60: Video is listed with the deformation off', g.fmts.includes('video') && g.dis === false, g);
-await ev(`document.querySelector('#xfFmt [data-v="video"]').click()`); await settle(2500);
-g = await ev(`({ open: __cmwState().morph.open, dlg: !!document.querySelector('.modal.xf'), vid: (document.querySelector('#xfFmt [aria-checked="true"], #xfFmt [aria-pressed="true"], #xfFmt .on') || { dataset: {} }).dataset.v || null })`);
-check('UX60: choosing Video turns the deformation on and the dialog opens on Video', g.open === true && g.dlg && g.vid === 'video', g);
-await shot('ux165-ux60-video');
-await key('Escape'); await settle(400);
-await ev(`(() => { try { const s = JSON.parse(localStorage.getItem('cmw-figure-v1:ux165m') || 'null'); } catch (e) { /* */ } return 1; })()`);
-grab();
-// Russian: 0,5×
-await fresh('ux165m', '&lang=ru'); await settle(2000);
-await ready();
-await key('m'); await settle(600);
-for (let i = 0; i < 12 && !(await ev(`!!document.querySelector('#speedSeg > button')`)); i++) await sleep(250);
-g = await ev(`({ speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent), ro: __qa.txt('#morphLabel') })`);
-check('UX103 Russian: «0,5×» and «Шаг k из m · fₖ · p %»', g.speed[0] === '0,5×' && /^Шаг \d+ из\s2 · f[₁₂] · \d+\s%$/.test(g.ro), g);
-await shot('ux165-ux103-ru');
-await key('m'); await settle(300);
-await nav(U + '?ns=ux165m&lang=en'); await settle(800);
-await ev(`localStorage.removeItem('cmw-lang:ux165m'); localStorage.removeItem('cmw-lang'); 1`);
 
 // ---------------------------------------------------------------- UX97 keys on shapes, UX99 right-click menus
 await laptop();

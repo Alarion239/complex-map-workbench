@@ -1,6 +1,6 @@
 // v15.1 acceptance (review-v15-verify): verify-3 (the degenerate Möbius note), verify-7 (a Cyrillic letter in a number's
 // value field), verify-8 (the language switch keeps a selection other than the plane shown), verify-9 (the F
-// list's fractions in display style). verify-10 is in tour_cmd.js. Run: test/<you>_cdp/q.sh test/v151_cmd.js
+// list's fractions in display style). Run: test/<you>_cdp/q.sh test/v151_cmd.js
 // v15.1 probe: verify-1 (t labels while playing), verify-3 (degenerate Möbius note), verify-7 (Cyrillic in a value
 // field), verify-8 (language switch with another plane shown), verify-9 (the F list's fractions).
 const P = { port: (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1], tag: 'v151' }, base = `http://localhost:${P.port}/test.html`, out = { port: P.port };
