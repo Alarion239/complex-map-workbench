@@ -397,10 +397,10 @@ const Tour = (() => {
       ],
     },
   ];
-  // the steps view's chapter, "Planes". Only under ?view=steps (a property of the page, fixed at its load): there
+  // (#442, ux's spec) the steps view's chapter, "Planes". Not under ?view=classic (a property of the page, fixed at its load): there
   // it takes the place of Basics' X and Y steps (x, y, preimages, chain) and of the whole Deformation chapter. Each step puts the
   // view where its task needs it (svPlace) and is done by one of the events the steps view sends
-  const SV_ON = (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })();
+  const SV_ON = (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })();
   const PLANES = {
     id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
     steps: [

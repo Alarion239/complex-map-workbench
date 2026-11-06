@@ -58,22 +58,22 @@ const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 
 const SUITES = {
   // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
   // suite run too)
-  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'steps_seams_cmd.js': { keepShots: true },   // (keepShots: the settled seam frame and the worst frame of the 2 s window)
-  // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
+  // (the default example Inside regions, the Joukowski airfoil, the Mountain King and Roots as preimages at the device pixel ratio 1, and the
   // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
   'steps_glide_look_cmd.js': { runs: [
     { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Partial sum of the exponential', 'Logarithm, Everywhere', 'Sheets of the logarithm, Everywhere', 'Zeros of the zeta function'];" },
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
   ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
-  'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },

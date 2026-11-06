@@ -9,8 +9,8 @@
   // The view reuses the app's views: a plane at or before the colour plane is Phase (or Landscape), one after it X → Y, always on
   // the left pane alone (solo 'L'); leftStage() is the shown plane, focusMap() the map into the colour plane.
   const SV = {
-    // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
-    on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    // (the steps view is the default; ?view=classic, or a host page that sets window.cmwView = 'classic' before the app starts, opens the classic views)
+    on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()

@@ -1,11 +1,11 @@
 'use strict';
-// Which view each browser suite tests: the steps view, or the classic views, which stay as a view of their own (#621).
+// Which view each browser suite tests: the steps view (the page's default), or the classic views, which stay reachable by ?view=classic (#621).
 // Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails without
-// one. The kit pins every page to the classic view unless its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so
-// a suite tagged port or classic runs classic.
-//   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
-//   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
-//                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
+// one. The kit opens every page in the steps view unless its URL asks for ?view=classic (test/cdp_kit/pin_view.js);
+// ci/browser.js runs a suite tagged port or classic with CMW_VIEW=classic, so it runs classic.
+//   steps()               runs in the steps view (some check the classic view too, by ?view=classic)
+//   steps({ pin: true })  a ported suite: its URLs name no view and open in the steps view (a page asking ?view=classic
+//                         keeps the classic one).
 //                         Porting a suite is this tag, plus its assertions retargeted to what the steps view shows
 //   port(area, note)      tests behaviour the steps view has, or will have (the note says what it waits on): it must
 //                         run against the steps view; area is the worker group that ports it (#620's breakdown)
