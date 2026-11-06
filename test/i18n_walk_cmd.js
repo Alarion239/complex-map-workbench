@@ -20,7 +20,7 @@ const center = async (sel) => ev(`(() => { const e = document.querySelector(${JS
 const more = async () => { const vis = await ev(`getComputedStyle(document.getElementById('hdrMoreBtn')).display !== 'none'`); if (vis) { await clickId('hdrMoreBtn'); await sleep(300); } return vis; };
 await S('start');
 // the header and its menus (through More where the bar folds)
-for (const id of ['settingsBtn', 'exportBtn', 'shareBtn', 'helpBtn', 'soundMore', 'examplesBtn']) {   // ([v17 D5] Language is in Settings)
+for (const id of ['settingsBtn', 'exportBtn', 'shareBtn', 'helpBtn', 'soundMore', 'examplesBtn']) {   // (Language is in Settings)
   if (await more()) await S('more menu');
   await clickId(id); await S('menu ' + id, 500); await esc(); await esc();
 }
@@ -129,7 +129,7 @@ if (W < 1024) {
   await ev(`(() => { const t = document.getElementById('toolMore'); if (t) t.open = false; })()`);
 }
 const left0 = await ev(`__i18nLeft()`);
-// v15 (review russian-14): the Inspector for every card and the F tile, Parameters (add, a refused name, rename, the
+// The Inspector for every card and the F tile, Parameters (add, a refused name, rename, the
 // number's menu), the planes' menu on X (a zeros-and-poles chain, a shape) and, on a phone, every sheet
 const ns15 = `xbi-walk15-${W}-${Date.now()}`;
 const ST15 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 60 },
@@ -160,7 +160,7 @@ if (!PHONE) {
   await tryEv(`(Phone.open('edit', { params: true }), 1)`); await S('phone sheet numbers', 800); await tryEv('(Phone.close(true), 1)');
 }
 const left15 = await ev(`__i18nLeft()`);
-// v16 (review v16 regress-8): the deformation range's interface: the transport with a bracket (push-forward, pullback,
+// The deformation range's interface: the transport with a bracket (push-forward, pullback,
 // t = 0.5), a card's ⋯ → Deformation ▸ with its "from …" keys (desktop), the palette's range commands, the phone's
 // Deformed steps row in the Display sheet, the bracket's aria text, and the Mountain King example's hint
 const ns16 = `xbi-walk16-${W}-${Date.now()}`;
