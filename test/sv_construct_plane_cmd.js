@@ -17,8 +17,10 @@ await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350
 const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [{ id: 'z0', kind: 'point', p: [0.5, 0.5], ci: 0, visible: true, num: 0 }], steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] };
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
 await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
-for (let i = 0; i < 40 && !(await ev(`typeof __cmwSteps === 'function' && typeof __cmwPlaneMenu === 'function'`)); i++) await sleep(250);
+// the hooks exist before the saved chain is loaded; going to plane 1 earlier is clamped to plane 0
+await settled({ only: true, max: 30000, until: `typeof __cmwSteps === 'function' && typeof __cmwPlaneMenu === 'function' && __cmwSteps().planes.length > 1` });
 await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
+ok('a 3-point circle on plane 1: the view is on plane 1 before the tool is chosen', (await ev('__cmwSteps().stage')) === 1, await ev('__cmwSteps().stage'));
 await ev(`(() => { const b = [...document.querySelectorAll('[data-tool="circle3"]')].find((e) => e.offsetParent) || document.querySelector('[data-tool="circle3"]'); b.click(); return 1; })()`); await quiet();
 const n0 = (await shapes()).length;
 const P = [[0.35, 0.45], [0.7, -0.35], [-0.45, -0.4]];
