@@ -270,7 +270,9 @@
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
     // the invisible text layer over the glyph paths: each label's words, spread over its glyph box, in reading order (the
     // figure's title, then the panels' names, the arrow's label, the key's words, the axis titles; each left to right)
-    const texts = [...(spec.title ? [{ kind: 'figure', text: String(spec.title), x: 0, base: 8, w: Math.min(+W, 4.5 * String(spec.title).length), h: 8 }] : []), ...XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || a.x - b.x)];
+    // (the title has no glyphs of its own: a line TITLE_PT tall at the top left, TITLE_EM pt per letter, for a selection to land on)
+    const TITLE_PT = 8, TITLE_EM = 4.5;
+    const texts = [...(spec.title ? [{ kind: 'figure', text: String(spec.title), x: 0, base: TITLE_PT, w: Math.min(+W, TITLE_EM * String(spec.title).length), h: TITLE_PT }] : []), ...XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || a.x - b.x)];
     const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const layer = texts.length ? `<g class="cmw-text">${texts.map((q) => `<text x="${f2(q.x)}" y="${f2(q.base)}" font-size="${f2(q.h)}" textLength="${f2(q.w)}" lengthAdjust="spacingAndGlyphs" fill="#000000" fill-opacity="0">${esc(q.text)}</text>`).join('')}</g>` : '';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}${layer}</svg>`;

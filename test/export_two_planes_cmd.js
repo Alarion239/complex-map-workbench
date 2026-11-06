@@ -124,7 +124,7 @@ if (!tl.err) {
   fs.writeFileSync(file, Buffer.from(tl.pdf, 'base64'));
   let txt = ''; try { txt = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' }); } catch (e) { txt = 'ERR ' + e.message; } finally { fs.rmSync(file, { force: true }); }
   const at = (w) => txt.search(new RegExp(`(^|\\s)${w}(\\s|$)`));
-  ok('pdftotext lists the panel names, then the arrow\'s label', at('z') >= 0 && at('w2') > at('z') && at('F') > at('w2') - 1000 && at('F') >= 0, txt);
+  ok('pdftotext lists the panel names, then the arrow\'s label', at('z') >= 0 && at('w2') > at('z') && at('F') > at('w2'), txt);
 }
 
 return { pass: fails.length === 0, fails, info };
