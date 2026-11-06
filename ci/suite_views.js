@@ -48,11 +48,13 @@ const VIEWS = {
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'sv_land_sin_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_poles_cmd.js': steps(),
+  'steps_land_far_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
@@ -89,6 +91,7 @@ const VIEWS = {
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
+  'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
   'sv_curve_menu_cmd.js': steps(),
@@ -99,6 +102,7 @@ const VIEWS = {
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
   'steps_sphere_rest_cmd.js': steps(),
+  'steps_sphere_cayley_cmd.js': steps(),
   'steps_sphere_cut_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
@@ -211,13 +215,13 @@ const VIEWS = {
   'tour_cmd_classic_cmd.js': classic('the classic views\' tour: X\'s pan task and the strip\'s arrow keys, the Views chapter (the view'
     + ' switch, Phase, Sphere, Phase key) and the Deformation chapter (Paths, All steps at once, Part of the chain); the steps view\'s'
     + ' is tour_cmd'),
-  'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
-    + ' chapters (#717), whose tour has 42 steps'),
+  'tour_it360_cmd.js': steps({ pin: true }),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
-  'tour_phone_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40 (the steps-view tour has 42 steps), and'
-    + ' reads the strip row, the X box and the pan task in X; it waits on the steps-view tour chapters (#717)'),
+  'tour_phone_cmd.js': steps({ pin: true }),
+  'tour_phone_classic_cmd.js': classic('the classic views\' tour on a phone: X\'s 608 px under the chain bar and the Phase key sheet below the strip;'
+    + ' the steps view\'s is tour_phone_cmd'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
@@ -225,7 +229,7 @@ const VIEWS = {
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
-  'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu (UX97, UX99), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
+  'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the plot, above the strip'),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
