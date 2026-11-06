@@ -317,7 +317,9 @@
   // rest: the plane at rest the frame is (the probe picks on its relief), else null
   function svLandCarry(mapOf, a, b, u, rest = null) {
     const T0 = svT(), e = b == null ? a : b, hT = svHT(a), hT2 = svHT(e), plain = svPlain(u < 0.5 ? a : e);
-    const s = svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
+    // (with All sheets on a multivalued chain the carry starts from z's plane: the sheets of a step before plane a exist
+    // only as the preimages of its points, so a carry from a later plane has none to draw)
+    const s = S.sheets && multiSheet() ? 0 : svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
     const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: hT };
     const key = !plain && s === 0 && e > 0 ? svSheetKey(e) : null;
     return { map: mapOf(s), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
