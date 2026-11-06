@@ -1,7 +1,7 @@
 // @ts-check
 'use strict';
 // parse.js's symbolic calculus: the AST constructors (N), simplification, the derivative and the inverse of a formula.
-// Moved out of parse.js (issue #20, the file-size budget) as a factory parse.js calls where it stood, with the names
+// A factory parse.js calls, with the names
 // of parse.js it reads (each declared before the call, or a function declaration); it returns the ones parse.js uses
 const Symbolic = (host) => {
   const { compile, depends, hasBool, hasT, isBool, size, unroll, usesVars, usesZ } = host;

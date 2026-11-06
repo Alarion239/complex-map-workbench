@@ -17,7 +17,7 @@
 //   links, invLinks, invDraws   counters; frames also count their draws with an inverse program (frame field inv)
 //   ledBusy     number of times an LED turned busy (a fix-up / refinement job started)
 //   status().pending  the app's GLR.frameStatus().pending: the last frame could not draw everything with its own
-//               programs because one is still compiling (a stand-in or nothing was drawn; onReady redraws). A view
+//               programs because one is still compiling (a stand-in or nothing is drawn; onReady redraws). A view
 //               is not settled while it is true (the app draws nothing while it waits for a compile)
 (() => {
   if (window.__perf) return;
