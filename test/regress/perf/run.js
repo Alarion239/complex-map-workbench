@@ -1127,6 +1127,11 @@ async function svInteractUnit(scene) {
       // the globe, parked: an orbit (Space held: a plain left drag on a region would move it, P3b)
       await B.ev(`__cmwSteps({ scope: 'all', surf: 'sphere' }), 1`);
       await park();
+      // (an orbit there and back first, not measured: the globe's orbit frames bring their meshes, buffers and the pole
+      // search up to date, which would otherwise fall into the first measured leg of a rep and swing its p95 from rep to
+      // rep; every build of a paired run is warmed the same)
+      await dragLeg('L', 160, 60, 'left', 40, 16, true); await dragLeg('L', -160, -60, 'left', 40, 16, true);
+      await park();
       // (with the glides' pole work counted, __svPathStats, and the long tasks of each leg's settle, their start after
       // the leg's end: a settle's jank that is a slice of the idle job shows as one)
       await B.ev('globalThis.__svPathStats = {}, 1');
