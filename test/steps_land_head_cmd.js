@@ -1,7 +1,7 @@
 // The steps view's Landscape chrome (#846): the head is one row and the height axis reads evenly.
 // - the head (the plane's title, its controls, the Height key's chip, the status light) is one row, under 44 px tall, at
-//   1440, 1280 and 1024 px wide: the Height key's chip is in it, folded to its glyph where the row is short of room
-//   (sv-glyph), and the page's row at 1920 px keeps the chip's words;
+//   1440, 1280 and 1024 px wide: the Height key's chip is in it, folded to its glyph (the .glyph class) at 1280 and 1024,
+//   where the row is short of room, and keeping its words at 1920 and 1440 px;
 // - the height axis (the last frame's labels, __cmwLandTicks) has no two labels less than 18 px apart on the screen, at
 //   plane w₁ and w₂ at rest and held between them.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -10,7 +10,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-const headOf = () => ev(`(() => { const h = document.querySelector('#leftLegend') && document.querySelector('#leftLegend').parentNode, l = document.getElementById('leftLegend'); return h && l ? { h: Math.round(h.getBoundingClientRect().height), inHead: h.classList.contains('pane-head'), glyph: l.classList.contains('sv-glyph'), w: Math.round(l.getBoundingClientRect().width) } : null; })()`);
+const headOf = () => ev(`(() => { const h = document.querySelector('#leftLegend') && document.querySelector('#leftLegend').parentNode, l = document.getElementById('leftLegend'); return h && l ? { h: Math.round(h.getBoundingClientRect().height), inHead: h.classList.contains('pane-head'), glyph: l.classList.contains('glyph'), w: Math.round(l.getBoundingClientRect().width) } : null; })()`);
 info.head = {};
 for (const w of [1920, 1440, 1280, 1024]) {
   await view(w, 900, false, false);
@@ -23,8 +23,8 @@ for (const w of [1920, 1440, 1280, 1024]) {
   info.head[w] = await headOf();
   const r = info.head[w];
   ok(`${w} px: the head is one row (under 44 px)`, !!r && r.inHead && r.h < 44, r);
-  if (w === 1920) ok('1920 px: the Height key chip keeps its words', !!r && !r.glyph && r.w > 60, r);
-  if (w === 1440) ok('1440 px: the Height key chip is folded to its glyph', !!r && r.glyph && r.w < 40, r);
+  if (w >= 1440) ok(`${w} px: the Height key chip keeps its words`, !!r && !r.glyph && r.w > 60, r);
+  else ok(`${w} px: the Height key chip is folded to its glyph`, !!r && r.glyph && r.w < 40, r);
 }
 // ---- the height axis ----
 await view(1440, 900, false, false);
