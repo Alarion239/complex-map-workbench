@@ -2161,11 +2161,13 @@
     if (!E || !E.track.firstElementChild || SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const steps = /** @type {HTMLElement[]} */ ([...E.track.querySelectorAll('.sv-step')]);
     // (the room is the rail's with "+ Add function" folded, which svFitAdd does when the names would not fit beside its words)
-    const room = E.rail.clientWidth + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
+    // (the rail's room is what it has with no centring margin, svCentreRail's)
+    const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
     const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
+      svCentreRail(E, 0);
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
       E.railMode = SV_RAIL_EQUAL;
@@ -2188,6 +2190,29 @@
     E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
+    svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
+  }
+  // The thread is centred on the pane: the rail gives up, on the side of the narrower group, what the wider group takes
+  // (▶ ‹ stay at the left edge, the right group at the right edge), so the first and last dots lie evenly about the pane's
+  // centre line. It gives up no more than leaves the thread its width (need): a tight pane shifts the thread as little as
+  // it must, and one that cannot hold it scrolls as before. Called with a fitted rail only, never during a glide
+  // (svFitRail returns first), so a resize recentres and a play never moves the rail. A phone centres in the rail (CSS).
+  function svCentreRail(E, need) {
+    const rail = E.rail, was = E.railM || 0;
+    let ml = 0, mr = 0;
+    if (need > 0 && !document.documentElement.classList.contains('ph')) {
+      const sr = E.strip.getBoundingClientRect(), rr = rail.getBoundingClientRect(), cs = getComputedStyle(E.strip);
+      const wasL = parseFloat(rail.style.marginLeft) || 0, wasR = parseFloat(rail.style.marginRight) || 0;
+      const left = rr.left - wasL - (sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth));
+      const right = (sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth)) - (rr.right + wasR);
+      const m = Math.max(0, Math.min(Math.abs(right - left), rr.width + wasL + wasR - need));
+      if (m >= 0.5) { if (right > left) ml = m; else mr = m; }
+    }
+    const next = ml + mr;
+    if (Math.abs(next - was) < 0.5 && (parseFloat(rail.style.marginLeft) || 0) === ml) return;
+    rail.style.marginLeft = ml ? `${ml.toFixed(1)}px` : ''; rail.style.marginRight = mr ? `${mr.toFixed(1)}px` : '';
+    E.railM = next; E.centres = null;
+    E.strip.dataset.centre = next > 0 ? 'shift' : 'none';
   }
   function svFitAdd() {
     const E = SV.els; if (!E || !E.add || !E.track.firstElementChild) return;
