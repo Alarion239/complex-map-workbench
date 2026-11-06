@@ -97,6 +97,7 @@ const VIEWS = {
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
   'steps_sphere_rest_cmd.js': steps(),
+  'steps_sphere_cayley_cmd.js': steps(),
   'steps_sphere_cut_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
