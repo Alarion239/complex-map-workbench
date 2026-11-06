@@ -127,7 +127,7 @@ if (W < 1024) {
   await ev(`(() => { const t = document.getElementById('toolMore'); if (t) t.open = false; })()`);
 }
 const left0 = await ev(`__i18nLeft()`);
-// v15 (review russian-14): the Inspector, Parameters (add, a refused name, rename, the number's menu), the planes' menu on X (a zeros-and-poles chain, a shape) and, on a phone, every sheet
+// The Inspector, Parameters (add, a refused name, rename, the number's menu), the planes' menu on X (a zeros-and-poles chain, a shape) and, on a phone, every sheet
 const ns15 = `xbi-walk15-${W}-${Date.now()}`;
 const ST15 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 60 },
   shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6 }, { id: 's2', kind: 'line', a: [0, 0.8], b: [1, 0.8] }],
@@ -153,7 +153,7 @@ if (!PHONE) {
   await tryEv(`(Phone.open('edit', { params: true }), 1)`); await S('phone sheet numbers', 800); await tryEv('(Phone.close(true), 1)');
 }
 const left15 = await ev(`__i18nLeft()`);
-// v16 (review v16 regress-8): the deformation range's interface: the transport with a bracket (push-forward, pullback,
+// The deformation range's interface: the transport with a bracket (push-forward, pullback,
 // t = 0.5), the palette's range commands, the phone's
 // Deformed steps row in the Display sheet, the bracket's aria text, and the Mountain King example's hint
 const ns16 = `xbi-walk16-${W}-${Date.now()}`;

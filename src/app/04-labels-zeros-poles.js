@@ -888,7 +888,7 @@
         if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
-      // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
+      // a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
       // with All sheets on, the one view that draws them
       if (q.key === 'k' && q.type === 'int') {
         const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
@@ -900,7 +900,7 @@
           h('button', { class: 'btn ghost small sh-all', type: 'button', 'data-tip': $t('Landscape draws every sheet of the map as one surface'), onclick: (e) => { e.preventDefault(); showAllSheets(); } }, $t('Show all sheets')));
       }
     } else {
-      // (review verify-4: a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
+      // (a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
       // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
       const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
       const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
@@ -935,7 +935,7 @@
     const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
-    // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
+    // (a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
     // says what the field is; the symbol keeps its own span, where a step's index goes)
     const word = paramWord(st, q);
     const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));

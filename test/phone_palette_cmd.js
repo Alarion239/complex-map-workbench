@@ -60,7 +60,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
   ok(`${tag}: the delete message shows`, toast, 'no toast');
   await settle(500);
   const chainTop0 = await ev(`Math.round(document.querySelector('#svStrip').getBoundingClientRect().top)`);
-  await ev(`document.querySelector('#svStrip .sv-add').click(), 1`); await settle(900);
+  await ev(`document.querySelector('#svStrip .sv-add').click(), 1`); await settled({ until: "!!document.querySelector('.pop.palette')", max: 8000 });
   const g = await geo(); info[tag] = { g, chainTop0 };
   ok(`${tag}: the palette is there`, !!g && g.focus, g);
   if (g) ok(`${tag}: it ends at or above the chain bar, where the toast put it (${g.chain[1]})`, g.pal[3] <= g.chain[1] + 1, g);

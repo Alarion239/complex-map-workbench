@@ -33,7 +33,7 @@
   }
   // the right click, the messages' place, the drawers and the panels' buttons (init: before applyLayout)
   function setupShell() {
-    // (v16.5 UX99) a right click on a Shapes row opens its ⋯ menu at the pointer, as on the planes
+    // a right click on a Shapes row opens its ⋯ menu at the pointer, as on the planes
     // (a mouse only: a phone's long press keeps its own meaning)
     document.addEventListener('contextmenu', (e) => {
       const t = e.target instanceof Element ? e.target : null;

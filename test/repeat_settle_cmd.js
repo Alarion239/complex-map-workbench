@@ -13,7 +13,7 @@ ok('the Newton example exists', iN >= 0, names);
 const rep = () => ev(`(() => { const st = __cmwP().steps.find((s) => s.repeat); return st ? st.repeat.n : null; })()`);
 // the N field of the Inspector's Repeat row, the block's step selected on the thread
 const open = async (i) => {
-  await ev(`__cmwExample(${i}), 1`); await settle(1200);
+  await ev(`__cmwExample(${i}), 1`); await settled({ until: '__cmwP().steps.some((s) => s.repeat)', max: 20000 });
   await ev(`(() => { const k = __cmwP().steps.findIndex((s) => s.repeat) + 1, c = document.querySelector('#svStrip .sv-step[data-k="' + k + '"] .sv-fchip'); if (c) c.click(); return k; })()`);
   await settled({ until: `!!document.querySelector('.insp-repeat .rep-n')` });
 };

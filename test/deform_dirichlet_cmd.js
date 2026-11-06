@@ -27,7 +27,7 @@ async function run(name, steps) {
   while (Date.now() - T < 60000) { await sleep(200); paths = await ev(PATHS); if (paths && paths.ready === true) { ready = true; break; } }
   const at = await ev('performance.now()');
   const lt = (await ev('__lt')).filter(([s]) => s >= r.t0);
-  await ev(on ? '__cmwSteps({ go: 0, now: true })' : '__cmwMorph({ open: true })'); await sleep(300);
+  await ev(on ? '__cmwSteps({ go: 0, now: true })' : '__cmwMorph({ open: true })'); await settled({ until: on ? '!__cmwSteps().moving' : '__cmwMorph().open === true', max: 8000 });
   const durs = lt.map(([, d]) => d);
   return { on, err, ready, kept: paths && paths.kept, park: Math.round(r.park), readyMs: Math.round(at - r.t0), tasks: lt.length,
     largest: Math.round(Math.max(0, ...durs)), blocked: Math.round(durs.reduce((a, d) => a + d, 0)) };

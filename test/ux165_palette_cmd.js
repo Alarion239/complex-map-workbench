@@ -1,7 +1,7 @@
-// The command palette's v16.5 fixes (notes/ux-build/w1-chain-AS-BUILT.md), in the steps view on a laptop (1366×768): UX16
-// a formula with a new letter is a normal row, and Enter adds the step and the number as one undo step; UX23 an error is
-// grey with its place marked, and its repairs are rows that Enter runs; UX03 commands, tools, examples and the guide are
-// found by the words people use, with their keys; UX82 the highlighted row names its properties in words.
+// The command palette's fixes (notes/ux-build/w1-chain-AS-BUILT.md), in the steps view on a laptop (1366×768):
+// a formula with a new letter is a normal row, and Enter adds the step and the number as one undo step; an error is
+// grey with its place marked, and its repairs are rows that Enter runs; commands, tools, examples and the guide are
+// found by the words people use, with their keys; the highlighted row names its properties in words.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_palette_cmd.js
 // Prints {pass, fails, info, shots}; screenshots go to <daemon folder>/shots/ux165-*.png.
 const fails = [], shots = [], info = {};
@@ -34,7 +34,7 @@ const rgb = (c) => (String(c).match(/\d+/g) || []).slice(0, 3).join(',');
 const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h).trim()); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)).join(',') : ''; };
 const shot2 = async (name) => { shots.push(await shot('ux165-' + name)); };
 
-// ---- UX16, UX23, UX03, UX82 (the palette) ----
+// ---- the palette ----
 await openApp('test.html', { shapes: [DISC, LINE], steps: CHAIN });
 await palType('z^2 + a');
 let rows = await palRows(), ps = await palState();
@@ -50,7 +50,7 @@ ok('UX16 the step follows the number', (await P()).sig !== sig1, null);
 await key('z', 4); await settle(700);
 st = await P();
 ok('UX16 one Undo removes both', st.steps.length === 2 && st.params.length === 0, { steps: st.steps.length, params: st.params });
-// UX23: errors in grey, with the place marked, and repairs as rows
+// errors in grey, with the place marked, and repairs as rows
 for (const [q, first, fix] of [['sin(z', 'Close the bracket: sin(z)', 'sin'], ['sinn z', 'Did you mean sin z?', null], ['sni z', 'Did you mean sin z?', null], ['z^^2', 'Did you mean z^2?', null], ['cos z +', 'Drop the trailing +: cos z', null]]) {
   await palType(q);
   rows = await palRows(); ps = await palState();
@@ -70,7 +70,7 @@ ok('UX23/UX03 "zero": no error for a plain word that finds things; Zeros and pol
 await palType('qqqq');
 ps = await palState();
 ok('UX23 nothing to run: Enter is grey', ps.enterOff && !!ps.empty, ps);
-// UX03: commands, tools, examples and the guide, by the words people use, with their keys
+// commands, tools, examples and the guide, by the words people use, with their keys
 const want = { png: ['Export figure…', /⌘E|Ctrl E/], export: ['Export figure…', /⌘E|Ctrl E/], help: ['Open the guide', /\?/], dark: ['Theme: Dark', /^$/], disc: ['Tool: Disc', /^D$/], new: ['New: empty canvas', /^$/], keys: ['Keyboard shortcuts', /\?/], replace: ['Inverse of f₁ (Exponential)', /^$/], link: ['Copy link to this figure', /^$/], scene: ['Save scene (.cmw.json)', /^$/], example: ['Examples…', /^$/], alone: ['Show f₃ alone', /^L$/], rectangle: ['Tool: Rectangle', /^B$/], cut: ['Guide: Branch cuts', /^$/] };
 for (const [q, [label, keyRe]] of Object.entries(want)) {
   await palType(q);
@@ -93,7 +93,7 @@ await palType('keys'); await ev(`[...document.querySelectorAll('.pal-item')].fin
 const gk = await ev(`(() => { const m = document.querySelector('.modal'); if (!m) return null; const hd = [...m.querySelectorAll('h3')].find((x) => x.textContent === 'Keys'); const b = hd.getBoundingClientRect(), mb = (m.querySelector('.modal-body') || m).getBoundingClientRect(); return { top: b.top, mt: mb.top, mb: mb.bottom }; })()`);
 ok('UX03 Guide: Keys opens the guide at Keys', gk && gk.top >= gk.mt - 2 && gk.top < gk.mb, gk);
 await key('Escape'); await settle(400);
-// UX82: no row of letters; the highlighted row names its properties in words
+// no row of letters; the highlighted row names its properties in words
 await palType('sin');
 rows = await palRows();
 ok('UX82 no A E R P M Pr I letters; the highlighted row shows its properties in words, the others none', rows.every((r) => r.letters === 0) && rows[0].sel && rows[0].wordsShown && /Entire/.test(rows[0].words) && rows.slice(1).every((r) => !r.wordsShown), rows.slice(0, 4));

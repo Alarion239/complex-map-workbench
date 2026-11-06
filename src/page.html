@@ -213,8 +213,8 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .layout > .panel.right { grid-column: 3; }
 
 /* ---------- 5.1 Header ---------- */
-/* no reading-flow here: it would take the menu's buttons (display: contents) as one item placed before the views, so Tab would go
-   Examples … Help and then the view switch and Deformation; the source order is undo, redo, the views, then the menu */
+/* no reading-flow here: it would take the menu's buttons (display: contents) as one item placed before the other items; the source order
+   is undo, redo, then the menu */
 .top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; }
 .top > * { flex: 0 0 auto; }
 .top .mark { order: 1; display: block; width: 22px; height: 22px; }
@@ -300,7 +300,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top .snd-caret .ic-slot svg { width: 11px; height: 11px; }
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
-/* room for it on tablets: below 1100 px the speaker drops its label (as the view switch and Deformation do below
+/* room for it on tablets: below 1100 px the speaker drops its label (as the bar's other words do below
    1280); from 768 to 1023 (frame f6
    of notes/ui-redesign-2/desktop) the search is its icon alone, named by its aria-label and tooltip, and a
    long example name gives way first, ending in an ellipsis, as from 1024 */
@@ -881,7 +881,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .seg.small, .options .seg, .pop .seg { height: 26px; padding: 0 2px; }
 .seg.small::before, .options .seg::before, .pop .seg::before { top: 0; bottom: 0; }
 /* the small controls' segments are 24 px tall, WCAG 2.5.8's minimum target (they touch, so the spacing exception
-   does not apply): a 24 px strip inside the control's 1 px border and no vertical padding; the view switch has 2 px of it */
+   does not apply): a 24 px strip inside the control's 1 px border and no vertical padding */
 .seg.small > button, .options .seg > button { padding: 0 8px; }
 .seg.modes { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 0 1 auto; min-width: 0; }
 .seg.modes::-webkit-scrollbar { display: none; }
@@ -1639,7 +1639,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   /* header: mark, "Map Workbench", Undo, Redo, and a more menu */
   .top { position: sticky; top: 0; z-index: 15; gap: 4px; background: var(--bg); margin: 0 -4px; padding: 0 4px; }
-  /* the view switch and the Deformation toggle share the bar: the words give way first, so
+  /* the bar's words give way first, so
      the more menu always fits; below 430 px the mark stands alone */
   .hdiv, .top > .spacer { display: none; }
   .hdr-more { display: inline-grid !important; }

@@ -87,11 +87,11 @@
     }
     return kids;
   }
-  // ([v17 UX64]) a deformation range the user just chose plays from its start, so the change shows; not under reduced motion
+  // a deformation range the user just chose plays from its start, so the change shows; not under reduced motion
   function playNewRange() {
     if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
   }
-  // ([v17 UX64]) what the deformation deforms in words, for Y's title: "Deforming f₁–f₂" (the active steps inside its range);
+  // what the deformation deforms in words, for Y's title: "Deforming f₁–f₂" (the active steps inside its range);
   // null when it deforms every step
   function rangeWords(fmt) {
     const r = homRangeOk();
@@ -162,13 +162,13 @@
     if (st.type === 'mobius') return $tx('card', 'Möbius');
     if (st.type === 'ijouk') return $tx('card', 'Inverse Joukowski');
     if (st.type === 'blaschke') return $tx('card', 'Disk automorphism');
-    // (v15 review russian-2: «Гиперболический» is long; the short name says «Гиперб.»)
+    // («Гиперболический» is long; the short name says «Гиперб.»)
     if (st.type === 'sinh') return $tx('card', 'Hyperbolic sine');
     if (st.type === 'cosh') return $tx('card', 'Hyperbolic cosine');
     if (st.type === 'tanh') return $tx('card', 'Hyperbolic tangent');
     return d.label;
   }
-  // F's guarantees in one short word each, as the palette's rows name them (review russian-1, design-15); the Inspector
+  // F's guarantees in one short word each, as the palette's rows name them; the Inspector
   // keeps the full names
   const FT_WORD = () => ({ analytic: $tx('ftile', 'Analytic'), entire: $tx('ftile', 'Entire'), rational: $tx('ftile', 'Rational'), polynomial: $tx('ftile', 'Polynomial'),
     mobius: $tx('ftile', 'Möbius'), proper: $tx('ftile', 'Proper'), homeo: $tx('ftile', 'Homeomorphic'), conformal: $tx('ftile', 'Conformal') });
@@ -297,7 +297,7 @@
     at = Math.max(0, Math.min(S.steps.length, at));
     spliceSteps(at, 0, st);
     chainChanged(true);
-    // (v16.5 UX01: the planes keep what they showed, F or the step shown alone; the new step is selected, and the
+    // (the planes keep what they showed, F or the step shown alone; the new step is selected, and the
     // toast offers Show alone: Show alone is its own choice, ui-redesign-2)
     keepShown(at + 1, 1);
     commit();
@@ -337,15 +337,15 @@
       : n === 1 ? $t('Added f{x} {name}.', { x: sub(k), name }) : $t('Added f{x}–f{x2}.', { x: sub(k), x2: sub(k + n - 1) });
     undoToast(msg, S.focus === k ? null : [$t('Show alone'), () => { if (S.steps[k - 1]) { setFocus(k); requestRender('P'); } }]);
   }
-  // v15.2: a formula added as its steps (the palette's Add as n steps): one commit; the planes keep what they showed
-  // (v16.5 UX01), so into an empty chain F is the formula the user typed, with its parts as the steps (review steps-1)
+  // a formula added as its steps (the palette's Add as n steps): one commit; the planes keep what they showed,
+  // so into an empty chain F is the formula the user typed, with its parts as the steps
   function addSteps(list, at) {
     if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
     at = Math.max(0, Math.min(S.steps.length, at));
     const news = list.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: true }));
     spliceSteps(at, 0, ...news);
     chainChanged(true);
-    keepShown(at + 1, news.length);   // (v16.5 UX01: the planes keep F, the first new step is selected)
+    keepShown(at + 1, news.length);   // (the planes keep F, the first new step is selected)
     commit();
     startTransition(at + 1);
     for (const s of news) noteRecent(s.type);
@@ -354,7 +354,7 @@
   }
   function removeStep(k) {
     const name = defOf(S.steps[k - 1]).label;
-    // (v16: the deformation's range by index: a removed step leaves it, so it shrinks; a range of that step alone is dropped)
+    // (the deformation's range by index: a removed step leaves it, so it shrinks; a range of that step alone is dropped)
     const hr = S.homRange ? HR.resolve(S, true) : null;
     spliceSteps(k - 1, 1);
     if (hr) { if (hr.a === k && hr.b === k) deleteOpt('homRange'); else setOpt('homRange', { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }); }

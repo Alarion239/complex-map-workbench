@@ -33,7 +33,7 @@ const typeIn = async (sel, text) => {
   await settle(300);
   return true;
 };
-// (v15 merge: a step's fields are in the Inspector; a click on the step's chip in the thread selects it there, once a
+// (a step's fields are in the Inspector; a click on the step's chip in the thread selects it there, once a
 // toast that covers the thread has gone)
 const inStep = async (k, inner) => {
   await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });

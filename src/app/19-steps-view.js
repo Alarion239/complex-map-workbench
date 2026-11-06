@@ -3149,21 +3149,21 @@
     const st = S.steps[k - 1], d = defOf(st);
     // (D1, issue #23: Replace… first: the palette, ready to replace this step)
     const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
-    // (v15: the Inspector's menu also holds Inverse and Bypass)
+    // (the Inspector's menu also holds Inverse and Bypass)
     if (opt && opt.full) {
       const b0 = built[k - 1];
       if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
       items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
-      // (v16.5 UX97 / UX81: the keys a focused chip takes, Alt+← / Alt+→; none on a touch screen)
+      // (the keys a focused chip takes, Alt+← / Alt+→; none on a touch screen)
       { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
       { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
       { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
       { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
-    // (v16: which steps the deformation deforms, SPEC 6.5)
+    // (which steps the deformation deforms, SPEC 6.5)
     if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
     // ([issue #6] Repeat × N)
     if (!isDerivStep(st, built[k - 1])) {
@@ -3175,7 +3175,7 @@
     }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
-    // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
+    // a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
     if (st.type === 'custom') {
       const sp = Funcs.splitSteps(st, bk), no = sp.kind === 'none' || !!sp.blocked;
       items.push({ label: sp.kind === 'one' ? $t('Replace with “{name}”', { name: Funcs.DEFS[sp.steps[0].type].label }) : $t('Split into steps'), disabled: no, tip: no ? Funcs.splitReason(sp) : null, run: () => splitStep(k) });
@@ -3215,7 +3215,7 @@
     repFields.push({ inp, getK });
     return inp;
   }
-  // v15.2 (notes/formula-steps/DESIGN.md 7): a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
+  // a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
   // same function, so the planes do not change; one commit, undone by Undo
   function splitStep(k) {
     const st = S.steps[k - 1], b = built[k - 1];
@@ -3229,9 +3229,8 @@
     if (morph.open && S.focus === 0) { const j = morphRange().steps.indexOf(k); T1 = S.homAll ? morph.T : j >= 0 ? Funcs.splitMorphT(morph.T, j, n) : morph.T; }
     // the formula shown alone (the palette's flow focuses a new step): the first new step alone is only part of it. With
     // no other step, F is the formula: show F, so the planes stay the same; otherwise the toast says what is shown
-    // (review steps-1)
     const alone = S.focus === k, only = S.steps.length === 1;
-    // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
+    // (the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
     const hr = S.homRange ? HR.resolve(S, true) : null;
     if (SV.on) svSplitEdit(k, n);
     spliceSteps(k - 1, 1, ...news);

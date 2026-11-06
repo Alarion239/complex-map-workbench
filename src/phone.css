@@ -24,7 +24,7 @@ html:not(.ph) .ph-only { display: none !important; }
 
 /* ---------- header: the view switch and More ---------- */
 :root.ph .top { position: static; height: var(--ph-head); margin: 0; padding: 4px 4px 4px 8px; gap: 4px; background: var(--bg); border-bottom: 1px solid var(--line); }
-:root.ph .top > :not(#viewSwitch, #hdrMoreBtn, #hdrMenu, #tourHeadSlot) { display: none !important; }
+:root.ph .top > :not(#hdrMoreBtn, #hdrMenu, #tourHeadSlot) { display: none !important; }
 /* the guided tour's strip in a landscape phone's header, right of ⋯ (src/tour.js) */
 :root.ph .top > #tourHeadSlot:not([hidden]) { order: 20; flex: 1 1 260px; min-width: 0; align-self: stretch; display: flex; }
 /* (and under the header in portrait, or in a 48 px row when the header has no room: the stage's first child) */

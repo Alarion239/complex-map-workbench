@@ -73,8 +73,8 @@ t = await toasts();
 ok('Replace f₂: the toast names both', /^Replaced f₂ \(Möbius\) with Cosine\./.test(t[0] || ''), t);
 await ev(`document.getElementById('undoBtn').click()`); await settle(700);
 // a step's ⋯ on the thread: Replace…, ready to replace that step
-await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-more').click()`); await settle(400);
-ok('a step\'s ⋯ has Replace…', await clickMenu('Replace…'), null); await settle(400);
+await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-more').click()`); await settled({ until: "!!document.querySelector('#popHost .mi')", max: 8000 });
+ok('a step\'s ⋯ has Replace…', await clickMenu('Replace…'), null); await settled({ until: "!!document.querySelector('#popHost .palette')", max: 8000 });
 p = await pal();
 ok('Replace… opens the search on Replace f₁', p && /^Replace f₁/.test(p.where), p);
 await palQ('tan');
@@ -84,7 +84,7 @@ await key('Enter'); await settle(900);
 ok('Replace f₁: tan, mobius', (await types()).join() === 'tan,mobius', await types());
 await ev(`document.getElementById('undoBtn').click()`); await settle(700);
 // the Inspector's title
-await ev(`document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip').click()`); await settle(600);
+await ev(`document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip').click()`); await settled({ until: "!!document.querySelector('#propsPanel .insp-step .ihead .ttl')", max: 8000 });
 const ttl = await ev(`(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .ttl'); return b ? { role: b.getAttribute('role'), text: b.textContent, after: getComputedStyle(b, '::after').content } : null; })()`);
 ok('the Inspector\'s title is a button, "Möbius ▾"', ttl && ttl.role === 'button' && ttl.text === 'Möbius' && /▾/.test(ttl.after), ttl);
 await ev(`document.querySelector('#propsPanel .insp-step .ihead .ttl').click()`); await settle(400);
@@ -106,7 +106,7 @@ await grab();
 
 // ======================= a phone =======================
 await openApp({ shapes: [DISC], steps: CHAIN }, 412, 860, true);
-await ev(`document.querySelector('#svStrip .sv-add').click()`); await settle(700);
+await ev(`document.querySelector('#svStrip .sv-add').click()`); await settled({ until: "!!document.querySelector('#popHost .palette')", max: 8000 });
 p = await pal();
 ok('phone: the position row holds the Replace chip and the position chip', p && p.where && /^Insert/.test(p.where) && /Insert at the end/.test(p.at || ''), p);
 await ev(`document.querySelector('.pal-atrow .pal-where').click()`); await settle(300);
