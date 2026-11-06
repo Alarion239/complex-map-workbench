@@ -3,7 +3,7 @@
 // within the acceptance suite's bound (steps_glide_look_cmd.js: at most 0.5 % of the pixels more than 32/255 apart in a
 // channel). The glide's power path bends the map across the lower half of the pane, so a polar annulus of a fixed 48 cells
 // a turn leaves 0.84 % of the pixels at u = 0.3 further off than that: the annulus takes the cells its map's curvature
-// needs (svPolarCells).
+// needs (svGlideCells).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };

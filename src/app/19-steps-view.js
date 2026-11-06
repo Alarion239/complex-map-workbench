@@ -1081,21 +1081,20 @@
   // svPolarWorst, a generator: the largest error, in px, of the cells of the annulus r1 to r2 about o under the map F
   // at the view v (hw, hh: the half sides of the box of the view's points that matter), over a grid of SV_POLAR_PROBE_R
   // radii by SV_POLAR_PROBE_T angles whose points land in the view: the middle of a cell's edge against the middle of
-  // its ends' pictures, in the angle and in log r, the larger
+  // its ends' pictures, in the angle (a conformal map's chord error is the same across as along, so the radial one is not measured)
   function* svPolarWorst(F, o, r1, r2, v, hw, hh) {
     const d = 2 * Math.PI / SV_POLAR_NT, L = Math.log(r2 / r1);
-    const at = (r, th) => F(C(o.re + r * Math.cos(th), o.im + r * Math.sin(th)));
     let worst = 0, n = 0;
     for (let i = 0; i < SV_POLAR_PROBE_R; i++) {
       const r = r1 * Math.exp(L * (i + 0.5) / SV_POLAR_PROBE_R);
       for (let j = 0; j < SV_POLAR_PROBE_T; j++) {
-        const th = -Math.PI + 2 * Math.PI * (j + 0.5) / SV_POLAR_PROBE_T, ra = r * Math.exp(-d / 2), rb = r * Math.exp(d / 2);
-        if (++n % 8 === 0) yield;
-        const m = at(r, th), a = at(r, th - d / 2), b = at(r, th + d / 2), c = at(ra, th), e = at(rb, th);
-        if (!m || !a || !b || !c || !e || !CX.isFin(m) || !CX.isFin(a) || !CX.isFin(b) || !CX.isFin(c) || !CX.isFin(e)) continue;
+        const th = -Math.PI + 2 * Math.PI * (j + 0.5) / SV_POLAR_PROBE_T;
+        if (++n % 32 === 0) yield;
+        const at = (t) => F(C(o.re + r * Math.cos(t), o.im + r * Math.sin(t)));
+        const m = at(th), a = at(th - d / 2), b = at(th + d / 2);
+        if (!m || !a || !b || !CX.isFin(m) || !CX.isFin(a) || !CX.isFin(b)) continue;
         if (Math.abs(m.re - v.cx) > hw || Math.abs(m.im - v.cy) > hh) continue;
-        const ang = Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2), rad = Math.hypot(m.re - (c.re + e.re) / 2, m.im - (c.im + e.im) / 2);
-        worst = Math.max(worst, Math.max(ang, rad) * v.s);
+        worst = Math.max(worst, Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2) * v.s);
       }
     }
     return worst;
@@ -1103,31 +1102,31 @@
   // svGlideCells, a generator: the cells a turn for every annulus of the glide g about o (R: clipWin's half-diagonal)
   // in the view v of a pw x ph pane, one count a glide, so its twentieths share their annuli's ids (kept by id,
   // SV_POLAR_KEEP of them): the worst error of the annuli R 2^-SV_POLAR_SPAN to R 2^SV_POLAR_SPAN (the radii the view's
-  // points come from) over every second twentieth of the glide, which falls as the square of the cell, so the cells a
-  // turn that bring it to SV_POLAR_TOL px are SV_POLAR_NT times the root of the ratio, rounded up to a power of two
-  // times SV_POLAR_NT, at most SV_POLAR_DOUBLINGS doublings (a pole of the map in the view has an error no cell count
-  // brings down). Kept for the glide's planes, window, view and chain (svCellsMemo, as many as svRingSizes)
+  // points come from) over the glide's first, middle and last twentieth, which falls as the square of the cell, so the cells a
+  // turn that bring it to SV_POLAR_TOL px are SV_POLAR_NT times the root of the ratio, rounded up to a multiple of
+  // SV_POLAR_STEP, at most SV_POLAR_DOUBLINGS doublings (a pole of the map in the view has an error no cell count
+  // brings down). The probe is small, so the idle job makes it in a slice or two. Kept for the glide's planes, window, view and chain (svCellsMemo, as many as svRingSizes)
   const svCellsMemo = new Map();
   function* svGlideCells(g, o, R, v, pw, ph) {
     const w = clipWin, key = [g.a, g.b, g.all ? 1 : 0, o.re, o.im, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|');
     if (svCellsMemo.has(key)) return svCellsMemo.get(key);
     const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s, span = Math.pow(2, SV_POLAR_SPAN);
     let worst = 0;
-    for (let q = 0; q <= 20; q += 2) {
+    for (let q = 0; q <= 20; q += 10) {
       const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1 } : null);
       worst = Math.max(worst, yield* svPolarWorst(gq.F, o, R / span, R * span, v, hw, hh));
     }
-    const nt = SV_POLAR_NT * Math.pow(2, Math.min(SV_POLAR_DOUBLINGS, Math.max(0, Math.ceil(Math.log2(Math.sqrt(worst / SV_POLAR_TOL))))));
+    const nt = Math.min(SV_POLAR_NT << SV_POLAR_DOUBLINGS, Math.max(SV_POLAR_NT, SV_POLAR_STEP * Math.ceil(SV_POLAR_NT * Math.sqrt(worst / SV_POLAR_TOL) / SV_POLAR_STEP)));
     if (svCellsMemo.size >= SV_RING_SIZES_MAX) svCellsMemo.clear();
     svCellsMemo.set(key, nt);
     return nt;
   }
-  // svPolarCap: nt halved (to SV_POLAR_NT at least) while the annulus r1 to r2 (nt cells a turn, ln(r2 / r1) nt / 2 pi
-  // rings of them) has more than SV_POLAR_CELLS cells, four times the whole plane's mesh's (80 a side): the build and the
+  // svPolarCap: nt lowered by SV_POLAR_STEP (to SV_POLAR_NT at least) while the annulus r1 to r2 (nt cells a turn,
+  // ln(r2 / r1) nt / 2 pi rings of them) has more than SV_POLAR_CELLS cells, twice the whole plane's mesh's (80 a side): the build and the
   // draw cost of one annulus
   function svPolarCap(nt, r1, r2) {
     const L = Math.log(r2 / r1);
-    while (nt > SV_POLAR_NT && nt * Math.ceil(L * nt / (2 * Math.PI)) > SV_POLAR_CELLS) nt /= 2;
+    while (nt > SV_POLAR_NT && nt * Math.ceil(L * nt / (2 * Math.PI)) > SV_POLAR_CELLS) nt -= SV_POLAR_STEP;
     return nt;
   }
   // the least k in [0, K] whose test passes (a generator of the test's own), the tests taken to pass from some k on: by
@@ -1189,7 +1188,7 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
-  const SV_POLAR_PROBE_R = 16, SV_POLAR_PROBE_T = 32, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 4 * 80 * 80, SV_POLAR_DOUBLINGS = 4, SV_POLAR_SPAN = 4;
+  const SV_POLAR_PROBE_R = 6, SV_POLAR_PROBE_T = 12, SV_POLAR_TOL = 1, SV_POLAR_CELLS = 2 * 80 * 80, SV_POLAR_DOUBLINGS = 4, SV_POLAR_STEP = 8, SV_POLAR_SPAN = 4;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
