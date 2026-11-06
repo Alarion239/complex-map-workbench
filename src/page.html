@@ -1434,7 +1434,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pop.over-modal { z-index: 55; }
 @keyframes pop-in { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
 @keyframes toast-in { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
-@keyframes toast-out { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: 0 8px; } }
+@keyframes toast-out { from { opacity: 1; translate: 0 var(--drag, 0px); } to { opacity: 0; translate: 0 calc(var(--drag, 0px) + 8px); } }
 @keyframes pop-in-up { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
 @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -1584,6 +1584,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 :root:has(.modal-bg) #toastHost .toast { pointer-events: none; }
 :root:has(.modal-bg) #toastHost .toast button { pointer-events: auto; }
 :root:has(.modal-bg) #toastHost .toast .toast-x { pointer-events: none; }
+:root:has(.modal-bg) #toastHost[data-clear-of-dialog] .toast, :root:has(.modal-bg) #toastHost[data-clear-of-dialog] .toast .toast-x { pointer-events: auto; }
 
 .toast .toast-x { flex: 0 0 auto; width: 24px; height: 24px; margin-left: -8px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; }

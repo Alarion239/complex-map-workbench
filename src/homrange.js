@@ -55,7 +55,8 @@ const HomRange = (function (factory) {
       if (!hr || typeof hr !== 'object') return null;
       if (S.focus > 0 && !anyFocus) return null;
       const n = N();
-      if (!(n > 0)) return null;
+      // (the chain not built yet: no step is known to be active, so nothing is decided and the setting is kept)
+      if (!(n > 0) || !B().length) return null;
       const find = (u, idx, end) => {
         if (u === null) return end;
         if (typeof u === 'string') { for (let k = 1; k <= n; k++) if (uidOf(S, k) === u) return k; }

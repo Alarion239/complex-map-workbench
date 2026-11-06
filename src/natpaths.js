@@ -17,6 +17,27 @@ const NatPaths = (() => {
     return (t) => { const M = path(t); return (z) => CX.mobApply(M, z); };
   }
   const linHom = (f) => (t) => (z) => CX.add(CX.scale(z, 1 - t), CX.scale(f(z), t));
+  // f(z) kept at the last points asked, for a step whose evaluation is dear and whose straight-line homotopy asks it at
+  // the same points frame after frame (an outline's samples, only t moving). A hit returns the value f gave at exactly
+  // that z (the same bits, signed zeros apart), so the answers are f's own. Direct-mapped over 2^MEMO_BITS slots,
+  // allocated once f has been called MEMO_AFTER times: a function asked a few points only keeps no table
+  const MEMO_BITS = 17, MEMO_AFTER = 512;
+  const memoAt = (f) => {
+    let n = 0, key = null, val = null;
+    const bits = new Uint32Array(4), fl = new Float64Array(bits.buffer);
+    return (z) => {
+      if (!key) {
+        if (++n < MEMO_AFTER) return f(z);
+        key = new Float64Array(2 << MEMO_BITS).fill(NaN); val = new Array(1 << MEMO_BITS);
+      }
+      fl[0] = z.re; fl[1] = z.im;
+      const h = (Math.imul(bits[0] ^ Math.imul(bits[1], 0x9E3779B1), 0x85EBCA6B) ^ Math.imul(bits[2] ^ Math.imul(bits[3], 0x9E3779B1), 0xC2B2AE35)) >>> (32 - MEMO_BITS);
+      if (Object.is(key[2 * h], z.re) && Object.is(key[2 * h + 1], z.im)) return val[h];
+      const w = f(z);
+      key[2 * h] = z.re; key[2 * h + 1] = z.im; val[h] = w;
+      return w;
+    };
+  };
   const powHom = (alpha, theta, k) => (t) => {
     const s = CX.add(C(1, 0), CX.scale(CX.sub(alpha, C(1, 0)), t));
     return (z) => CX.pow(z, s, theta, k);
@@ -490,7 +511,7 @@ const NatPaths = (() => {
   function natData(b) { return b && b.natData ? b.natData : null; }
 
 
-  return { mobHom, mobHomTex, linHom, powHom, expHom, expHomTex, logHom, logHomTex, joukAt, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
+  return { mobHom, mobHomTex, linHom, memoAt, powHom, expHom, expHomTex, logHom, logHomTex, joukAt, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

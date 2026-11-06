@@ -723,8 +723,8 @@ const Constr = (function (factory) {
   // the zones of a pull (SPEC 2.3), in screen px: glide below glide; stretch up to free; let go at free held for dwell
   // ms, or at yank at once
   const RAIL = { mouse: { glide: 16, free: 40, yank: 80 }, touch: { glide: 24, free: 64, yank: 128 }, dwell: 120 };
-  // railPull(state, d, now, touch) -> {zone: 'glide' | 'stretch' | 'free', state}: state is {since} (the time d first
-  // reached free in the current run) or null; pure
+  // railPull(state, d, now, touch) -> {zone: 'glide' | 'stretch' | 'free', state}; pure. standards-ok: now is a parameter name
+  // state is {since} (the time d first reached free in the current run) or null
   function railPull(state, d, now, touch) {
     const R = touch ? RAIL.touch : RAIL.mouse;
     if (!(d >= R.glide)) return { zone: 'glide', state: null };

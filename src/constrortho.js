@@ -306,7 +306,7 @@ const ConstrOrtho = (host) => {
     if (Math.max(...es) - E > 80) return null;
     return ds.map(([m, e]) => (m === 0n ? 0n : m * 10n ** BigInt(e - E)));
   }
-  // perpForm(Gc, P, Q, pc?): pc, C's piece, gives the decimals C was drawn with (a circle's centre and radius, a line's
+  // perpForm(Gc, P, Q, pc?): pc, C's piece, gives the decimals C is drawn with (a circle's centre and radius, a line's
   // two points) for the decimal rules below; without it (or when they are not decimals) only the exact rules apply
   function perpForm(Gc, P, Q, pc) {
     if (!Gc) return { undef: 'notCircle' };
@@ -445,7 +445,7 @@ const ConstrOrtho = (host) => {
     const u = [-G.B[1], G.B[0]], t = -(Bx * u[0] + By * u[1]) / Gc.A;
     return { G, tp: [P[0] + t * u[0], P[1] + t * u[1]] };
   }
-  // the touching point of two pieces by construction (a touch or tangent piece and the curve it was built on, or two
+  // the touching point of two pieces by construction (a touch or tangent piece and the curve it is built on, or two
   // touches of one curve at one point), else null
   const sameG = (a, b) => !!a && !!b && a.A === b.A && a.C === b.C && a.B[0] === b.B[0] && a.B[1] === b.B[1] && a.o[0] === b.o[0] && a.o[1] === b.o[1];
   function touchAt(pa, pb) {
