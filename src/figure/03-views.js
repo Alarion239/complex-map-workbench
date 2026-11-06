@@ -156,7 +156,7 @@
     // the figure is the same from a phone or a wide window (3:2 around the view's centre; a vertical strip is square)
     if (t.l && t.r && !(t.t && t.b)) { const c = (screen.x0 + screen.x1) / 2, hw = 0.75 * (b.y1 - b.y0); b.x0 = c - hw; b.x1 = c + hw; }
     else if (t.t && t.b && !(t.l && t.r)) { const c = (screen.y0 + screen.y1) / 2, hh = 0.5 * (b.x1 - b.x0); b.y0 = c - hh; b.y1 = c + hh; }
-    // (v16 review picture-9) the points the caption names are framed whole, even when an unbounded set (a line) keeps
+    // the points the caption names are framed whole, even when an unbounded set (a line) keeps
     // the window's edge on that side: 8 % beyond the farthest point
     const mu = content.must;
     if (mu) {
@@ -186,8 +186,8 @@
     a.dpi = dpi; a.raw = r;
     return a;
   }
-  // (export review r3, editor-20) a raster rendered at twice the resolution, averaged 2 x 2: a discontinuity of the
-  // map (a branch cut) gets a smooth edge instead of pixel steps; in slices, so no task nears 50 ms
+  // a raster rendered at twice the resolution, averaged 2 x 2: a discontinuity of the
+  // map (a branch cut) gets a smooth edge, not pixel steps; in slices, so no task nears 50 ms
   async function down2(r) {
     const w = r.w >> 1, h = r.h >> 1, out = new Uint8Array(w * h * 3), src = r.rgb, W2 = r.w;
     await sliced(w * h, (i0, i1) => {
@@ -198,7 +198,7 @@
     });
     return Object.assign({}, r, { w, h, rgb: out });
   }
-  // an example's word label is stored in English (app.js exLabel, review math-5): it is set in the figure's language
+  // an example's word label is stored in English (app.js exLabel): it is set in the figure's language
   const EX_LABELS = new Set(['trailing edge']);
   const texLabel = (s, i) => {
     if (s.label) {
@@ -239,7 +239,7 @@
       if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
     let pi = 0;
-    // (v16 review picture-7) with constructions the caption names points (z₀, z₃ …): every point is labelled as the
+    // with constructions the caption names points (z₀, z₃ …): every point is labelled as the
     // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
     const cmFig = shapes.some((x) => x.def || x.at);
     const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);
@@ -539,7 +539,7 @@
       const r = new Float64Array(n + 1), v = new Array(n + 1); for (let i = 0; i <= n; i++) { const w = F(C(box.x0 + i * dx, box.y0 + j * dy)); r[i] = fin(w) ? Math.atan2(w.im, w.re) : NaN; v[i] = w; } G.push(r); V.push(v);
       if (performance.now() - t0 > 8) { await breathe(); t0 = performance.now(); }
     }
-    // (export review r3, editor-20) an edge across a branch cut is not crossed by a level line: there F jumps, and its
+    // an edge across a branch cut is not crossed by a level line: there F jumps, and its
     // midpoint value is far from the mean of the ends (a continuous F is within its second difference of it). The
     // test is made once per edge, only where a level crosses
     const cont = new Map();
@@ -859,7 +859,7 @@
       if (!art) return null;
       const Ht = Hof(t);
       const curves = [];
-      // (export review r3, editor-9: X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
+      // (X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
       // Homework figure)
       const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
       if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
@@ -988,7 +988,7 @@
     const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points: [], axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${sv ? sv.end : A.panelVar('R')}`, `\\operatorname{Im} ${sv ? sv.end : A.panelVar('R')}`], over });
     const items = [p.markup, head(x, x + w, top - 3, '', sv ? sv.end : `${A.panelVar('L')},\\ ${A.panelVar('R')}`, lp)];
     let cap = leg.captionTex || '';
-    // (X's outline is gray and solid here, so a dash means only "not included": export review r3, editor-9)
+    // (X's outline is gray and solid here, so a dash means only "not included")
     for (const [a, b] of [[' (dashed outline)', ' (gray outline)'], [', with dashed outlines,', ', with gray outlines,'], [', with a dashed outline,', ', with a gray outline,']]) {
       const a2 = using(XD.lang, () => $t(a)), b2 = using(XD.lang, () => $t(b));
       cap = cap.split(a2).join(b2);

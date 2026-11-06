@@ -357,7 +357,7 @@
   function svLandPatches(map, src, N) {
     const F = cpuMap(map);
     if (!F) return [];
-    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
+    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
     let poles;
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || p);
     else poles = svDrain(svPolesIn(F, src, 16, src, E));
@@ -366,6 +366,17 @@
     Object.assign(svLandPoleMemo, { key, poles: near });
     return near.map((p) => [p.re, p.im, cell * 1e-4, cell * 8]);
   }
+  // The carried grid's far patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: plane s outside its carried box
+  // src, in two rings about the box's centre, from its inscribed circle to LAND_FAR_NEAR times that, then on to
+  // LAND_FAR_REACH times the box's size. A map takes that region over the far plane too (a Möbius step takes it to a
+  // disc about the image of infinity), where no cell of the box's grid reaches. The inner ring is the part the glides
+  // of a periodic map (exp) bring into the block, so it has the finer grid. The inner ring runs a little past the outer
+  // one's start (LAND_FAR_LAP), so the chords of their polygons, of different sizes, leave no crack.
+  const LAND_FAR_NEAR = 4, LAND_FAR_REACH = 1000, LAND_FAR_LAP = 1.002;
+  const svLandFar = (src) => {
+    const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
+    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
+  };
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
@@ -400,6 +411,26 @@
     const hom = still || jump ? null : homF(b, u);
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
+  }
+  // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
+  const SV_CUT_THIN = 4;
+  // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
+  // - mapFor(j0): the map from the plane j0 (a cut's own plane) to the picture, the chain's steps up to the plane the glide
+  //   starts from, then the glide's homotopy at its u; null where the picture has no image of that plane (a plane past
+  //   the glide's, a d/dz step between, a middle plane of an All-at-once run);
+  // - pre: the cuts of the planes past the glide's, drawn as the preimages the plane it starts from shows at rest, carried
+  //   by the homotopy as every point of that plane is, so they meet the planes' own frames at both ends
+  // A picture at rest on a plane (or across a d/dz step) is that plane's
+  function svCutPlan(bt) {
+    const P = svPlanes(), { a, b, u, H, all, near } = bt, still = u <= 1e-6 || b === a;
+    if (still || isDeriv(b)) {
+      return { mapFor: (j0) => (j0 <= near && !derivIn(j0, near) ? rangeF(j0, near) : null), pre: { k: near, jMin: 0, H: null } };
+    }
+    const from = all ? P[bt.x0] : b - 1;
+    return {
+      mapFor: (j0) => (j0 <= from && !derivIn(j0, from) ? ((base) => (z) => H(base(z)))(rangeF(j0, from)) : null),
+      pre: { k: from, jMin: (all ? P[bt.x1] : b) + 1, H },
+    };
   }
   // The steps view's deformation source for the paths t -> H_t(z) (classicSource's fields): the glide's run of planes
   // [lo, hi] (thread places), from where it started to where it goes (play: from its start; a glide: both ends; parked
@@ -1389,7 +1420,7 @@
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
-    const { a, b, u, map, F, H: Hb, near } = svBetween(hold == null ? SV.g.x : hold), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
@@ -1487,6 +1518,7 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
+    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN); }
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
@@ -1643,41 +1675,49 @@
     const h = svInvPaths(b, u, 'globe', { r: null }), carry = svCarryStyle(T);
     return h && h.list.map((x, i) => ({ inv: svInvArg(pane, h.paths[i], x, carry), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
   }
+  // the carried mesh of plane a's globe (drawSphere's st.carried): the colour plane's grid, plane min(a, T)'s, placed by
+  // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
+  // on the way from that plane to the colour plane
+  function svGlobeMesh(pane, a, T, map) {
+    const src = Math.min(a, T);
+    if (src > 0 && derivIn(src, T)) return null;
+    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svCarryKey(pane, src, a) });
+  }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
-  // homotopy), the plane's shapes and what the globe draws over them at rest (leftGlobeOver). Null when a region has
-  // no inverse plan: the caller draws the regions' exact images instead
+  // homotopy), or by the carried mesh where a region has no inverse plan, with the plane's shapes and what the globe draws
+  // over them at rest (leftGlobeOver). Null when neither can draw: the caller draws the regions' exact images instead
   function svGlobeRest(pane, k) {
-    const inv = svGlobeCarryInv(pane, k, null, svT());
-    if (!inv) return null;
-    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: false, stage: k, plane: !!xView().eq, role: 'L', carryRegions: inv }, leftGlobeOver()));
-    if (info) { info.carryPath = 'inverse'; info.carried = true; }
+    const T = svT(), inv = svGlobeCarryInv(pane, k, null, T);
+    const mesh = inv ? null : svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k });
+    if (!inv && !mesh) return null;
+    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: false, stage: k, plane: !!xView().eq, role: 'L', carryRegions: inv, carried: mesh }, leftGlobeOver()));
+    if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
   function svSphereMoving(pane) {
-    const { a, b, u, map, F, near, all } = svBetween();
+    const bt = svBetween(), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
-      imageMode: !svColoured(near), inRegions: svMaskOn() && svColoured(k), stage: k, plane: !!xView().eq, role: 'L',
+      imageMode: !svColoured(near), inRegions: svMaskOn() && svColoured(k), stage: k, plane: !!xView().eq, role: 'L', net: leftNet(),
       colorMap: svColoured(k) ? svColourMap(k) : null, lineMap: map, hom: { map, imageMap: map, F, imageF: F },
     });
     // The colour moves with the points, as on the plane: per pixel through the inverse pass of the glide's map
     // (svGlobeCarryInv), the regions' own colour on the plain globe, nothing blended in, so the ends are the planes'
     // own globes. A plane past the colour plane shows the colour carried to it, at rest too (u null), as the plane's
-    // svCarryExact. For a step with no inverse plan between two coloured planes, the carried mesh of plane a's sphere
-    // (drawSphere's st.carried); while neither can draw, plane b's globe fading in over plane a's
-    const T = svT(), still = u <= SV_REST_U || b === a, coloured = !still && svColoured(a) && svColoured(b);
+    // svCarryExact. For a step with no inverse plan, at rest or between two planes that show the colour, the carried mesh
+    // (svGlobeMesh); while neither can draw, plane b's globe fading in over plane a's
+    const T = svT(), still = u <= SV_REST_U || b === a;
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
     const inv = !still && !all && map.mode === 1 && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T) : null;
-    const carried = coloured && !inv && (all || map.mode === 1) ? {
-      map: all ? { mode: 3, a, b, t: u, base: a } : { mode: 1, base: a, hi: b, t: u }, s: a, T, mesh: SV_GLOBE_MESH,
-      lim: SV_GLOBE_CHORD, key: svCarryKey(pane, a, a), style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB,
-      ink: TH.inkRGB, dark: TH.dark,
-    } : null;
+    // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
+    const src = Math.min(a, T);
+    const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
+      ? svGlobeMesh(pane, a, T, all ? { mode: 3, a, b, t: u, base: src } : { mode: 1, base: src, hi: b, t: u }) : null;
     const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
-      : sphereView(pane, camL, CAML, Object.assign(look(a), { carried }));
+      : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
       svFadeCv = svCanvas(svFadeCv, pane);
       sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
@@ -1693,6 +1733,7 @@
         drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
       } catch (e) { console.error('steps view globe paths', e); mfGlobeDrawn = { T: paths.T, heads: 0, error: String((e && e.message) || e) }; }
     }
+    if (info) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, sphereProj(pane, info), cp.pre, u > 1e-6 && b !== a ? SV_CUT_THIN : 1); }
     leftSphereInfo = info;
   }
 

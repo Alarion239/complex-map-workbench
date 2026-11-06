@@ -25,7 +25,7 @@
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; XD.texts = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
-  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. The composer typesets synchronously, so it notes the promise, sets
   // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again.
   // MathJax throws only for the first formula that asks for a range still loading: another one with a letter of it
@@ -41,7 +41,7 @@
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
   const texCache = new Map();
-  // a Russian figure: Russian notation (tg, sh, ln). (#490) Its words, and the Italian ones with an accented letter
+  // a Russian figure: Russian notation (tg, sh, ln). Its words, and the Italian ones with an accented letter
   // (è, perché, più), are MathJax's too: the STIX2 font has Cyrillic and the accented Latin letters in its upright,
   // bold, italic and bold italic text, so words and maths are one face
   XD.tex = (tex, pt, color = '#000') => mjTex(XD.lang === 'ru' && I18 ? I18.notation(tex, 'ru') : tex, pt, color);
@@ -532,7 +532,7 @@
       line.push(wd); lw += (line.length > 1 ? sp : 0) + ww;
     }
     if (line.length) lines.push(line);
-    // (export review r3, verify-new-1) TeX's line spacing: baselines 1.2 pt apart (\baselineskip), unless the depth of a
+    // TeX's line spacing: baselines 1.2 pt apart (\baselineskip), unless the depth of a
     // line and the height of the next would leave less than \lineskiplimit (0) between them; then they are \lineskip
     // (0.1 pt) apart. A tall superscript (${H^{(2)}_{s}}'$) never touches the line above
     const lh = pt * 1.2, lskip = pt * 0.1;
@@ -548,7 +548,7 @@
   };
 
   // ---------- formats ----------
-  // (a library the offline page carries as a JSON block, build.py, #393, runs from a Blob URL; else from its CDN)
+  // (a library the offline page carries as a JSON block, build.py, runs from a Blob URL; else from its CDN)
   const loadScript = (src, id, b = id && document.getElementById(id)) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = b ? URL.createObjectURL(new Blob([JSON.parse(b.textContent)], { type: 'text/javascript' })) : src; s.async = true; s.onload = res; s.onerror = rej; document.head.append(s); });
   let pdfLibs = null;
   const pdfLib = () => {
