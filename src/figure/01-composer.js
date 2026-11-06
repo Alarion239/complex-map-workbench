@@ -82,25 +82,62 @@
     return { x0: left, x1: left + it.w, y0: base - it.a, y1: base + it.d, left, base };
   };
   // a label's or caption's TeX as the plain Unicode people read ("w₂", "Re z", "1/z", "log|F|"): operator names and
-  // symbols by one table, a fraction as a/b and a root as √x or ⁿ√x (a part with more than one symbol in parentheses), a bar as a combining
+  // symbols by one table, a fraction as a/b and a root as √x or ⁿ√x (a part that is not one symbol, or a power or root of one, in parentheses), a bar as a combining
   // overline, a subscript digit as its Unicode form; a command the table lacks is left out
   const SUB = '₀₁₂₃₄₅₆₇₈₉', SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   const SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', in: '∈', pm: '±', le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠',
     alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
     arg: 'arg ', log: 'log', ln: 'ln', exp: 'exp', sin: 'sin ', cos: 'cos ', tan: 'tan ', sinh: 'sinh ', cosh: 'cosh ', tanh: 'tanh ', Re: 'Re ', Im: 'Im ' };
-  XD.plain = (tex) => {
-    // (an index as superscript digits, n as ⁿ, any other index in parentheses)
-    const root = (n) => (/^\d+$/.test(n) ? [...n].map((c) => SUP[+c]).join('') : n === 'n' ? 'ⁿ' : `(${XD.plain(n)})`);
-    const part = (v) => (/^[^\s+\-×·/]$/.test(v) || /^\(.*\)$/.test(v) ? v : `(${v})`);
-    return String(tex)
-      .replace(/\\(?:operatorname|text|textit|textbf|mathrm|mathit|mathbf)\s*\{([^{}]*)\}/g, '$1').replace(/\\displaystyle\s*/g, '')
-      .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (m, n, d) => `${part(n.trim())}/${part(d.trim())}`)
-      .replace(/\\sqrt\s*(?:\[([^[\]]*)\])?\s*(?:\{([^{}]*)\}|([A-Za-z0-9]))/g, (m, n, a, b) => `${n ? root(n) : ''}√${part(XD.plain(a != null ? a : b))}`)
-      .replace(/\\(?:bar|overline)\s*(?:\{([^{}]*)\}|([A-Za-z]))/g, (m, a, b) => `${a || b}̄`)
-      .replace(/_\{?(\d+)\}?/g, (m, d) => [...d].map((c) => SUB[+c]).join(''))
-      .replace(/\\([A-Za-z]+)/g, (m, n) => SYM[n] || '')
-      .replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+  // (a fraction's or root's part: bare when it is one symbol, a power or a root of one, in parentheses otherwise)
+  const ATOM = '[^\\s+\\-×·/^√()](?:[₀-₉]|\\u0304)*';
+  const ROOT = `(?:ⁿ|[${SUP}])*√(?:${ATOM}|\\(.*\\))`;
+  const BARE = new RegExp(`^(?:${ATOM}(?:\\^${ATOM})?|${ROOT})$|^\\(.*\\)$`);
+  const part = (v) => (BARE.test(v) ? v : `(${v})`);
+  // an index as superscript digits, n as ⁿ, any other index in parentheses
+  const rootIndex = (n) => (/^\d+$/.test(n) ? [...n].map((c) => SUP[+c]).join('') : n === 'n' ? 'ⁿ' : `(${XD.plain(n)})`);
+  // the argument at s[i]: a braced group (balanced) without its braces, a command, or one character; [text, next index]
+  const argAt = (s, i) => {
+    while (s[i] === ' ') i++;
+    if (s[i] === '{') {
+      let depth = 0, j = i;
+      for (; j < s.length; j++) { if (s[j] === '{') depth++; else if (s[j] === '}' && --depth === 0) break; }
+      return [s.slice(i + 1, j), j + 1];
+    }
+    if (s[i] === '\\') { const m = /^\\(?:[A-Za-z]+|.)/.exec(s.slice(i)); return [m ? m[0] : '', i + (m ? m[0].length : 1)]; }
+    return [s[i] || '', i + 1];
   };
+  const plainRaw = (tex) => {
+    const s = String(tex);
+    let out = '';
+    for (let i = 0; i < s.length;) {
+      const c = s[i];
+      if (c === '{' || c === '}') { i++; continue; }
+      if (c === '_' || c === '^') {
+        const [a, j] = argAt(s, i + 1), t = XD.plain(a);
+        out += c === '_' && /^\d+$/.test(t) ? [...t].map((d) => SUB[+d]).join('') : c + t;
+        i = j; continue;
+      }
+      if (c !== '\\') { out += c; i++; continue; }
+      const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+      if (!m) { const x = s[i + 1] || ''; out += ',;:! '.includes(x) ? ' ' : x; i += 2; continue; }
+      const name = m[1];
+      i += m[0].length;
+      if (/^(?:operatorname|text|textit|textbf|mathrm|mathit|mathbf)$/.test(name)) { const [a, j] = argAt(s, i); out += plainRaw(a); i = j; }
+      else if (name === 'frac' || name === 'dfrac') {
+        const [n, j] = argAt(s, i), [d, k] = argAt(s, j);
+        out += `${part(XD.plain(n))}/${part(XD.plain(d))}`; i = k;
+      } else if (name === 'sqrt') {
+        let idx = '', j = i;
+        while (s[j] === ' ') j++;
+        if (s[j] === '[') { const e = s.indexOf(']', j); if (e > 0) { idx = s.slice(j + 1, e); i = e + 1; } }
+        const [a, k] = argAt(s, i);
+        out += `${idx ? rootIndex(idx) : ''}√${part(XD.plain(a))}`; i = k;
+      } else if (name === 'bar' || name === 'overline') { const [a, j] = argAt(s, i); out += `${XD.plain(a)}̄`; i = j; }
+      else if (name !== 'displaystyle') out += SYM[name] || '';
+    }
+    return out;
+  };
+  XD.plain = (tex) => plainRaw(tex).replace(/\s+/g, ' ').trim();
   // the kinds of label that carry text, in reading order: a panel's name (its title or its variable), the map arrow's label, the colour key's words,
   // the axis titles (ticks, point labels and captions carry none)
   const TEXT_KINDS = ['title', 'panel-letter', 'arrow', 'key', 'axis-name'];  // ('ring-mark', a key's 1, i, -1, -i, carries none)
