@@ -38,6 +38,41 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   ok(`${tag}: 1280 x 720 at 30 fps, H.264 or VP9`, v.W === 1280 && v.H === 720 && v.fps === 30 && /^(avc1|vp0?9|vp8)/.test(v.codec), v);
   ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < 12, v);
   ok(`${tag}: the thread's place is where it was`, v.at0 === v.at1, v);
+  // ruling 2 (#635): the video's first frame, at rest on the first plane, shows the still export's picture of that plane:
+  // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
+  // being that window widened to 16:9 (both at 320 px wide, so the pixels compare the same picture)
+  const fp = await ev(`await (async () => { try {
+    const mv = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
+    const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(mv.frames - 1, 640, 360);
+    const f = await __cmwFig.build({});
+    if (!f || !f.box) return { none: 1 };
+    const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
+    const im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+    const ld = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
+    const dv = await ld(chk.decoded), w = 320, h = Math.round(w * im[3] / im[2]);
+    const still = document.createElement('canvas'); still.width = w; still.height = h;
+    still.getContext('2d').drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
+    // the frame's window: f.box widened about its centre to 16:9
+    const b = f.box, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    let bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+    // (the picture is the frame but for the key's column at the right: chk.pic of its width)
+    const asp = chk.pic * 16 / 9;
+    if (bw / bh > asp) bh = bw / asp; else bw = bh * asp;
+    const sx = chk.pic * dv.width / bw, sy = dv.height / bh;
+    const vid = document.createElement('canvas'); vid.width = w; vid.height = h;
+    vid.getContext('2d').drawImage(dv, (b.x0 - (cx - bw / 2)) * sx, ((cy + bh / 2) - b.y1) * sy, (b.x1 - b.x0) * sx, (b.y1 - b.y0) * sy, 0, 0, w, h);
+    const a = vid.getContext('2d').getImageData(0, 0, w, h).data, c = still.getContext('2d').getImageData(0, 0, w, h).data;
+    let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]);
+    // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
+    // draws what the pane draws: no level curves of its own
+    const de = await ld(end.decoded), rc = (img) => { const c = document.createElement('canvas'); c.width = 60; c.height = 80; c.getContext('2d').drawImage(img, 0.89 * img.width, 0.1 * img.height, 0.08 * img.width, 0.14 * img.height, 0, 0, 60, 80); return c.getContext('2d').getImageData(0, 0, 60, 80).data; };
+    const r0 = rc(dv), r1 = rc(de); let sr = 0; for (let i = 0; i < r0.length; i += 4) sr += Math.abs(r0[i] - r1[i]) + Math.abs(r0[i + 1] - r1[i + 1]) + Math.abs(r0[i + 2] - r1[i + 2]);
+    return { mad: s / (w * h * 3), ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
+  info[tag + ' first frame vs PNG'] = fp;
+  ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
+  ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
+  ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place
   const s = await ev(`await (async () => {
     __cmwSteps({ park: 0.5 });
@@ -63,9 +98,54 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   ok(`${tag}: a frame at x = 0.5 matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > 0.04) && Math.abs(s.x - 0.5) < 1e-6, s);
 }
 // the dialog: Video is listed, with where it goes and how long it is
+// the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane
+// (its key caption, or the line saying where the colour is carried from, and its title's plane), then svKey is read from
+// plane 0 at each plane and either side of each midpoint between two (the words change at the midpoint)
+await open(1, 'plane');
+const nPl = await ev('__cmwSteps().planes.length');
+let carriedSeen = 0;
+// (T at the last plane, where each plane is coloured by its own map, and T = 0, where the later planes carry z's colour)
+for (const T of ['null', 0]) {
+  if (T !== 'null') await ev(`(__cmwSteps({ T: ${T} }), 1)`);
+  const pane = [];
+  for (let i = 0; i < nPl; i++) {
+    await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
+    await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: 15000 });
+    pane.push(JSON.parse(await ev(`JSON.stringify({ cap: __cmwLegend().caption, title: __cmwSteps().names.title.name.replace(/<\\/?i>/g, '').replace(/<sub>(\\d+)<\\/sub>/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[c]).join('')) })`)));
+  }
+  await ev(`(__cmwSteps({ go: 0, now: true }), 1)`);
+  await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0', max: 15000 });
+  for (let i = 0; i < nPl; i++) for (const [dx, at] of [[0, i], [0.4, i], [-0.4, i], [0.6, i + 1], [-0.6, i - 1]]) {
+    const x = i + dx, want = pane[Math.max(0, Math.min(nPl - 1, at))];
+    if (x < 0 || x > nPl - 1) continue;
+    const k = JSON.parse(await ev(`JSON.stringify(__cmwFig.svKey(${x}))`));
+    if (k.carried) carriedSeen++;
+    info[`key T ${T} at ${x}`] = { k, want };
+    ok(`T ${T}, thread position ${x}: the key's words are the pane's at plane ${at}`, (k.carried ? k.carried.text : k.caption) === want.cap && k.title === want.title, { k, want });
+  }
+}
+ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
+// the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
+// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture, which has no key
+for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
+  await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${go}, now: true }), 1)`);
+  await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${go} && __cmwSteps().T === ${T}`, max: 15000 });
+  const sv = await ev(`await (async () => { const f = await __cmwFig.build({}); return f && f.view; })()`, 60000);
+  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv === want, sv);
+}
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
+// UX60 (classic's check, ported to the steps view): Video is listed with no step to record too; it is aria-disabled with
+// the reason "Add a step to make a video", and a click neither chooses it nor opens the dialog on it
+// (a chain of one plane: an empty steps chain saved as the page's state, as steps_empty_cmd.js does)
+await loadView('steps', 'xgl0' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 90 } }, { lang: 'en' });
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+const bare = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; const n = __cmwSteps().planes.length; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); const fmts = [...document.querySelectorAll('#xfFmt > button')].map((x) => x.dataset.v); b.click(); return { n, fmts, aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
+info['video with no step'] = bare;
+ok('no step: the chain has one plane and Video is listed in the Format row', bare && bare.n < 2 && bare.fmts && bare.fmts.includes('video'), bare);
+ok('no step: Video is aria-disabled with "Add a step to make a video" as its tip, a click does not choose it', bare && bare.aria === 'true' && bare.tip === 'Add a step to make a video' && bare.checked === 'false' && bare.still && !bare.vsum, bare);
+await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 // the glide is recorded on the sphere and the Landscape, and the plane-only gate is gone
 for (const surf of ['sphere', 'land']) {
   await open(1, surf);

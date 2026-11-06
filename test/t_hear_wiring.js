@@ -252,7 +252,7 @@ const tick = (h) => { const f = h.timers.shift(); if (f) f(); };   // (the next 
   h.fk = 'f3';
   tick(h);
   check('F changed while it prepares: dropped silently, nothing plays', samplers() === 3 && p2 && h.snd.prep === null && gos() === 2 && h.said.length === ns && !h.timers.length);
-  // another curve while one prepares: the new one replaces it
+  // another curve while one prepares: the new one takes its place
   h.fk = 'f4';
   h.G.sndListen(pts, false, '', null, shape);
   const p3 = h.snd.prep;

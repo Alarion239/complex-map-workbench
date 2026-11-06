@@ -149,7 +149,7 @@
   }
   function hearGap(t) {
     const tt = Number.isFinite(t) ? t : performance.now() / 1000;
-    // the Glide's gate closes now: it rings down (T60 0.8 s, or 0.2 s after a key stroke)
+    // the Glide's gate closes at once: it rings down (T60 0.8 s, or 0.2 s after a key stroke)
     if (HH.live.stroke && ctx) { hearOut(HH.live.gap(tt).ev); if (glideOn() && G.synth && HH.gl.until > ctx.currentTime) { const now = ctx.currentTime + LEAD; G.synth.post([{ k: 'gl', at: now, mode: 'close', until: now, tag: 'hear' }]); HH.gl.until = now; hearLog({ k: 'gl', at: now, mode: 'close', until: now }); } }
     else HH.live.gap(tt);
     clearTimeout(HH.timer); HH.timer = 0; HH.off = null;

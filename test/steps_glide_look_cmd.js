@@ -2,7 +2,7 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
-// whole plane carried forward), a polynomial: Roots as preimages (a cubic) Everywhere, and the logarithm Everywhere, of an annulus and its sheets (a glide with no inverse,
+// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions, and the logarithm Everywhere, of an annulus and its sheets (a glide with no inverse,
 // drawn by the carried mesh); and the zeros of the zeta function Inside regions, for the parked camera alone. Paths are
 // off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
@@ -43,7 +43,7 @@
 // The strokes of the curves and region borders through a glide are steps_glide_strokes_cmd.js's. The pane is 1200 x 800
 // CSS px (the views shard's time; the look's spec names 1440 x 900). The device pixel ratio is the kit's (CMW_DPR);
 // LOOK_CASES (a preamble) names the cases a run makes, all by default: ci/browser_suites.js runs the default example
-// Inside regions, the Joukowski airfoil both ways, the Mountain King, Roots as preimages, the two logarithm cases and the zeros of the zeta
+// Inside regions, the Joukowski airfoil both ways, the Mountain King, the two polynomials, the two logarithm cases and the zeros of the zeta
 // function at 1, and the default example Inside regions and Everywhere at 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -109,6 +109,10 @@ const CASES = [
   // chain's first half runs z^3's exponent at 1 + 4u, four times the speed of a step's own path, so its ends are a
   // tenth as far from the planes: end)
   { tag: 'Roots as preimages, Everywhere', example: 'Roots as preimages', scope: 'all', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], step: 5, end: 1e-4 },
+  // (the partial sum of the exponential, degree 8, over a square Inside regions: the glide finds every root of
+  // H_u(z) = w, those in Newton's fractal basins included; its step's own path moves a point by u |p(z) - z|, up to
+  // 0.05 at the square's corners at u = 0.001, some pixels, so its ends are a tenth as far from the planes: end)
+  { tag: 'Partial sum of the exponential', example: 'Partial sums of the exponential', scope: 'in', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], end: 1e-4 },
   { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true },
   { tag: 'Sheets of the logarithm, Everywhere', example: 'Sheets of the logarithm', scope: 'all', cover: true },
   // (zeta Inside regions: the parked camera alone. The regions' image is a thin strip, where the exact picture finds
@@ -295,23 +299,26 @@ async function look(c, r) {
   await letGo();
   r.step = 'done';
 }
-// the parked camera: at each u of c.parked, the frame parked at u once a scrub held there is let go has the held
-// frame's camera (the glide record's view: centre and scale)
+// the parked frame: at each u of c.parked, the frame parked at u once a scrub held there is let go has the held
+// frame's camera (the glide record's view: centre and scale) and its pixels (at most SAME_FRAC of them more than
+// DIFF_TOL apart)
 async function heldParked(c, r) {
   r.step = 'the parked camera';
   await rest(0);
   const VIEW = '(() => { const g = __cmwSteps().glide, v = g && g.view; return v ? [v.cx, v.cy, v.s] : null; })()';
   const P = r.parked = {};
   for (const u of c.parked) {
-    const held = (await hold(u)).ok, vk = await ev(VIEW);
+    const held = (await hold(u)).ok, still = await grab('H' + u), vk = await ev(VIEW);
     await ev('window.__svScrubUp(), 1');
     const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
-    P[u] = { held, parked, view: [vk, await ev(VIEW)] };
+    const settledP = await grab('P' + u);
+    P[u] = { held, parked, still, settledP, view: [vk, await ev(VIEW)], diff: settledP && still ? await compare('H' + u, 'P' + u) : null };
     await rest(0);
   }
   for (const u of c.parked) {
     const q = P[u];
     ok(`${c.tag}: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q);
+    ok(`${c.tag}: the frame parked at u = ${u} is the held frame's pixels (at most ${SAME_FRAC * 100} % of them > ${DIFF_TOL}/255 apart)`, q.held && q.parked && !!q.diff && q.diff.frac <= SAME_FRAC, q);
   }
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more

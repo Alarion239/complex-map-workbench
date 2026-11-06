@@ -42,7 +42,7 @@
 //      samples {t, phi, ln, pan, n, src}) · Sound.along(smp, {tag, n, closed}) (Listen along: the function along a
 //      curve, events tier) · Sound.HT (the pure core: constants, law, crowd, copies, events, glideCtl, gate, Live,
 //      throughZP) · Sound.set({glide}) (Notes or the continuous Glide; the Glide needs the worklet engine).
-//      harpAlong with a score plays the composition (the old pointer harp and the Height voice are gone).
+//      harpAlong with a score plays the composition.
 // =====================================================================================================================
 
 // The synthesis library: the parts, the texture and the singer. Its source runs twice: in the AudioWorklet (inlined
@@ -340,7 +340,7 @@ function SND_LIB() {
             g.panS += ((c.pan || 0) - g.panS) * kPan;
             g.bS += ((c.b || 0) - g.bS) * kPh;
           }
-          // the harmonic weights at the brightness b̃ (b smoothed over 5 ms, as φ̃: a control's b at once was a step in
+          // the harmonic weights at the brightness b̃ (b smoothed over 5 ms, as φ̃: a control's b at once would be a step in
           // the waveform's harmonics, a click at fast changes of |F|), each copy's highest harmonic below 0.45 fs: once a
           // block, or when b̃ moved 0.002 (the 24th harmonic by under 2 %). A seat's fade holds b̃ with the pitch and pan
           // (compare.js [A14]: f, p, b held)
@@ -454,7 +454,7 @@ function HT_LIB() {
     PAN: 0.3, PAN_MAX: 0.4, short: 0.15, t60: 0.45, t60Exp: -0.6, vel: 0.6, softA: 2.6, softB: 1.2,
     wet: fz({ note: 0.16, crack: 0.04, glide: 0.14, query: 0.12 }), crackHz: 3100, active: 0.9,
     pathless: fz({ dphi: 0.25 }), GL4, LV,
-    // a slow finger's crossing waits this long (ms) to be confirmed (the hooks' sndHold; a provisional rule, #266)
+    // a slow finger's crossing waits this long (ms) to be confirmed (the hooks' sndHold; a provisional rule)
     confirmMs: 80,
   });
   // the loudness law dbV3 (dB against |F| = 1): −8 dB at zeros, +4 dB at poles, 1.91 dB per neper at |F| = 1
@@ -495,7 +495,7 @@ function HT_LIB() {
       if (OL) { const ka = Math.round(p.phi * N), km = Math.round(mu * N); if (Math.abs(p.phi * N - ka) <= HT.lineTol) { st.ca = ka; st.onA = ka; } if (Math.abs(mu * N - km) <= HT.lineTol) { st.cm = km; st.onM = km; } }
       return;
     }
-    // [V2] a stroke seated on a line that leaves it upward past the band has left it
+    // a stroke seated on a line that leaves it upward past the band has left it
     if (OL) { if (st.onA !== null && p.phi > st.onA / N + HB) st.onA = null; if (st.onM !== null && mu > st.onM / N + HB) st.onM = null; }
     const at = (x0, x1, th) => (x1 === x0 ? 1 : clamp((th - x0) / (x1 - x0), 0, 1));
     const qp = q.pan || 0, pp = p.pan || 0;
@@ -569,12 +569,12 @@ function HT_LIB() {
     }
     function cut(e) {
       const at = t0 + e.t;
-      // [V4] a crack at most once per cutGap; one inside it plays nothing (the held line still follows the jump)
+      // a crack at most once per cutGap; one inside it plays nothing (the held line still follows the jump)
       if (HT.cutGap && e.t - S.lastCut < HT.cutGap) { C.cutMerged++; out({ t: e.t, at, k: 'cut-merged' }); S.last = { line: Math.floor(e.phi1 * N + HT.lineTol), t: e.t + HT.cutHold, stroke: E.stroke(e.t) }; S.pend = null; return; }
       const cutG = crowd(1 / Math.max(1e-6, e.t - S.lastCut)); S.lastCut = e.t;
       C.cracks++; out({ t: e.t, at, k: 'crack', g: cutG, pan: e.pan });
-      S.last = { line: Math.floor(e.phi1 * N + HT.lineTol), t: e.t + HT.cutHold, stroke: E.stroke(e.t) }; S.pend = null;   // [A5] [V1]
-      // [A6] the two notes at the stream's crowding gain (the slower side) + cutDb, + the crack's own R0 gain
+      S.last = { line: Math.floor(e.phi1 * N + HT.lineTol), t: e.t + HT.cutHold, stroke: E.stroke(e.t) }; S.pend = null;
+      // the two notes at the stream's crowding gain (the slower side) + cutDb, + the crack's own R0 gain
       const cg = HT.cutDb + cutG + Math.min(crowd(E.rate(e.t, 'phi', 1, true)), crowd(E.rate(e.t, 'phi', 1)));
       const c0 = 12 * mod(e.phi0, 1), c1 = 12 * mod(e.phi1, 1);
       out({ t: e.t, at, k: 'cut', cg, c0, c1, db0: law(e.ln0), db1: law(e.ln1), ln0: e.ln0, ln1: e.ln1 });
@@ -584,7 +584,7 @@ function HT_LIB() {
     function edge(e) {
       const sk = E.stroke(e.t), held = S.last && S.last.stroke === sk;
       if (held && e.t - S.last.t < HT.RE_QUIET) return;   // notes are flowing: their loudness carries |F|
-      const line = held ? S.last.line : Math.floor(E.phiAt(e.t) * N + HT.lineTol), er = E.rate(e.t, 'ln', TAU);   // [V1]
+      const line = held ? S.last.line : Math.floor(E.phiAt(e.t) * N + HT.lineTol), er = E.rate(e.t, 'ln', TAU);
       // (+1 µs: nine deferred repeats exactly repGap apart stay strictly under 8 a second)
       if (S.lastRep && e.t - S.lastRep.t < HT.repGap) { S.pend = { due: S.lastRep.t + HT.repGap + 1e-6, stroke: sk, line, ln: e.ln, er, dir: e.dir }; return; }
       if (inCue(e.t)) { C.repCue++; out({ t: e.t, at: t0 + e.t, k: 'rep-cue' }); return; }   // [B5]
@@ -659,7 +659,7 @@ function HT_LIB() {
     const RATE = o.rate || 1000, n = smp.length, t0 = o.t0 || 0, N = o.n || HT.n, LOG = [];
     const out = { ctl: [], env: new Float64Array(n), db: new Float64Array(n), cracks: LOG, seats: [] };
     if (!n) return out;
-    { let lastCut = -1e9;   // [V4] the crack: the same gap and R0 rule; [B11] glCrackDb in the renderer
+    { let lastCut = -1e9;   // the crack: the same gap and R0 rule; glCrackDb in the renderer
       for (const e of crossings(smp, N)) if (e.kind === 'cut') { if (HT.cutGap && e.t - lastCut < HT.cutGap) { LOG.push({ t: e.t, at: t0 + e.t, k: 'cut-merged' }); continue; } const g = crowd(1 / Math.max(1e-6, e.t - lastCut)); lastCut = e.t; LOG.push({ t: e.t, at: t0 + e.t, k: 'crack', g, pan: e.pan }); } }
     // phi, ln and pan held across gaps
     const phi = new Float64Array(n), ln = new Float64Array(n), pan = new Float64Array(n);
@@ -681,7 +681,7 @@ function HT_LIB() {
     }
     for (let i = 0; i < n; i++) out.db[i] = law(ln[i]) + GL4.db;
     // the posts: every o.step (5 ms), at every gate change, seat and cut. until: the gate's next closing (the worklet's
-    // env attacks while currentTime < until), or now while it is off
+    // env attacks while currentTime < until), or the current time while it is off
     const nextOff = new Float64Array(n); { let j = n; for (let i = n - 1; i >= 0; i--) { if (!gateOn[i]) j = i; nextOff[i] = j; } }
     const step = Math.max(1, Math.round((o.step || 0.005) * RATE)), T = (i) => t0 + smp[0].t + i / RATE, seatSet = new Set(out.seats);
     let lastPost = -1e9;
@@ -806,7 +806,7 @@ function HT_LIB() {
         if (e.kind === 'arg') { arg++; args.push(e.t); if (((e.line % N) + N) % N === 0) { if (e.dir > 0) dUp++; else dDown++; } }
         else if (e.kind === 'mod') modN++;
         if (e.kind === 'mod') { waiting.push(e); continue; }
-        // a colour line or a cut decides every repeat waiting before it (its grace test is now known)
+        // a colour line or a cut decides every repeat waiting before it (its grace test is known)
         while (waiting.length && waiting[0].t <= e.t) D.take(waiting.shift());
         D.take(e);
       }
