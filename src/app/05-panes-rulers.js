@@ -769,7 +769,7 @@
     }
     const info = GLR.drawLandscape({
       map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
       colors: {
@@ -792,10 +792,24 @@
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
-    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
+    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
   render3D.linear = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
+  // null outside its box or with no mask
+  function landMaskAlpha(m, x, y) {
+    if (!m) return null;
+    const u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
+    if (!(u >= 0 && u < 1 && v >= 0 && v < 1)) return null;
+    if (!m.px) m.px = m.cv.getContext('2d').getImageData(0, 0, m.cv.width, m.cv.height).data;   // (read once per mask: a pick samples it along a ray)
+    return m.px[4 * (Math.floor(v * m.cv.height) * m.cv.width + Math.floor(u * m.cv.width)) + 3] / 255;
+  }
+  // whether the point z is outside the region set a cut surface (mask.cut) shows: nothing is drawn over it
+  function landOffRegion(m, z) {
+    const a = m && m.cut ? landMaskAlpha(m, z.re, z.im) : null;
+    return a !== null && a < 0.5;
+  }
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -814,6 +828,7 @@
     const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
     const top = Math.abs(info.top || 1) * 1.3, z0 = info.floorZ;
     const hAt = (p) => {
+      if (landOffRegion(pk.mask, toZ(p))) return z0 - 1;
       const w = pk.F(toZ(p));
       if (!CX.isFin(w)) return top;
       const hh = info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));

@@ -1115,8 +1115,9 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
-// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster)
-uniform sampler2D uMask; uniform float uMaskOn; uniform vec4 uMaskBox;
+// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
+// the Landscape's Inside regions, the surface is not drawn there at all)
+uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
@@ -1213,8 +1214,14 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   float ds = abs(lr) / max(flr, 1e-6);                                                  // sea level |F| = 1
   a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), la * uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
   a = mix(a, vec3(1.0), la * uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
-  // (outside the carried region set: plain, under the sheet cue, the cut's banks and the rim as everywhere)
-  a = mix(toLin(uPlaster), a, inRegions(vZ));
+  // (outside the carried region set: not drawn, or plain under the sheet cue, the cut's banks and the rim as
+  // everywhere; a cut surface carries the outline of the set along its edge)
+  float inside = inRegions(vZ);
+  if (uMaskCut > 0.5) {
+    if (inside < 0.5) discard;
+    float edgePx = (inside - 0.5) / max(fwidth(inside), 1e-6);
+    a = mix(a, ml, 0.85 * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, edgePx)));
+  } else a = mix(toLin(uPlaster), a, inside);
 ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
   // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
@@ -1287,7 +1294,7 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
   const FLOOR_FS = `
 in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
-uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
+uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA; uniform vec3 uFootCol;
 uniform highp sampler2D uT1; uniform int uN; uniform int uSheetK; uniform int uTileC;
 out vec4 o;
 void main() {
@@ -1318,6 +1325,13 @@ void main() {
       contact = t.w > 0.5 ? exp(-(t.z - uFloorZ) / 0.12) : 0.0;
     }
   }
+  // the carried region set of a cut surface: no shadow under the part that is not drawn, its outline in grey
+  if (uMaskCut > 0.5) {
+    float inside = inRegions(z);
+    contact *= step(0.5, inside);
+    float footPx = abs(inside - 0.5) / max(fwidth(inside), 1e-6);
+    lin = mix(lin, toLin(uFootCol), 0.75 * (1.0 - smoothstep(0.5 * uDpr, 0.5 * uDpr + 1.0, footPx)));
+  }
   lin = mix(lin, toLin(uShadow), clamp(0.7 * uShadowA * contact, 0.0, 1.0));
   vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out
   float a = uPlateA * smoothstep(0.0, 1.0, min(e.x, e.y));
@@ -1347,7 +1361,7 @@ void main() {
   // probe needle (domain point -> surface point), evaluated on the GPU; sheet: one needle and ring per sheet
   // combination (instance), each with the cuts placed opposite the probe itself
   const PROBE_VS = (sheet) => `
-uniform vec2 uProbe; uniform vec4 uBox; uniform vec2 uAspect; uniform float uFloorZ; uniform float uDpr;
+uniform vec2 uProbe; uniform float uFlat; uniform vec4 uBox; uniform vec2 uAspect; uniform float uFloorZ; uniform float uDpr;
 ${sheet ? SHEET_MAP : ''}
 ${MARK_EMIT}
 void main() {
@@ -1355,7 +1369,7 @@ void main() {
   vec2 hv = heightW(w);
   vec2 uv = (uProbe - uBox.xy) / uBox.zw;
   vec2 xy = (uv - 0.5) * 2.0 * uAspect;
-  vec3 top = vec3(xy, hv.y > 0.5 ? hv.x : uFloorZ), bot = vec3(xy, uFloorZ);
+  vec3 top = vec3(xy, hv.y > 0.5 && uFlat < 0.5 ? hv.x : uFloorZ), bot = vec3(xy, uFloorZ);
   int part = gl_VertexID / 6, k = gl_VertexID % 6;
   if (part == 0) emitLine(uMVP * vec4(bot, 1.0), uMVP * vec4(top, 1.0), k, 0.5 * uDpr);
   else if (part == 1) emitSprite(uMVP * vec4(top, 1.0), k, 2.0, 3.0 * uDpr, 0.5 * uDpr);

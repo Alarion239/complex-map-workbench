@@ -1678,7 +1678,7 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
-    svLandMaskC = { cv, key, box: Object.assign({}, box) };
+    svLandMaskC = { cv, key, box: Object.assign({}, box), cut: true };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
