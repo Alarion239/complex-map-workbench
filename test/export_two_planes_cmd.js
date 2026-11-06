@@ -18,7 +18,7 @@ const PAGE_GRID = `window.__grid = async (svg) => { const out = [], re = /<image
 const SPEC = { 'F': 'F', 'f_{2}': 'f₂', 'f_{1}': 'f₁' };
 const build = async (opts) => {
   await ev(`window.__xtp = null; (async () => { const f = await Figure.build(${JSON.stringify(opts)}); if (!f) return { none: true };
-    return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
+    return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, keyLine: f.info.keyLine, boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xtp != null', max: 120000, panes: false });
   return ev('window.__xtp');
 };
@@ -66,6 +66,18 @@ for (const c of CASES) {
   }
 }
 
+// a To plane past the colour plane brings the pane's key: the hue ring and the line saying where the colour is carried from,
+// in a column right of the second picture, inside the figure; a To plane that is the colour plane has none
+for (const to of [1, 2]) {
+  await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: ${to}, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === ${to} && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000 });
+  const wk = JSON.parse(await ev(`JSON.stringify(__cmwFig.svKey(${to}))`));
+  const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: to });
+  const carried = wk && wk.carried ? wk.carried.text : null;
+  ok(`to plane ${to}: the figure's key line is ${carried ? 'the pane\'s' : 'absent'}`, r && r.info && (r.info.keyLine || null) === carried, { carried, got: r && r.info && r.info.keyLine });
+  ok(`to plane ${to}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<clipPath id="[^"]*-key"/.test(r.svg) === !!carried, null);
+  info[`key to ${to}`] = carried; ok(`to plane ${to}: a carried key is exercised`, to === 1 ? !!carried : true, carried);
+}
 // the default planes follow the thread: example 18 has z and ζ's values only
 await ready(18);
 const r18 = await build({ svPic: 'two', crop: 'fit' });
