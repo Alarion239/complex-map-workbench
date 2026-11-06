@@ -37,7 +37,9 @@ await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && typeof _
 await ev(`__cmwSet('morphPaths', false); 1`);
 // the globe's pixels: where each is, the plane point w under it, and the point z it came from
 const run = async (scope) => {
-await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere', scope: '${scope}', T: 0 }); __cmwCam('L', { pitch: 0.35, yaw: -0.4 }); 1`); await wait(); await sleep(2000);
+await ev(`__cmwSteps({ go: 1, now: true, surf: 'sphere', scope: '${scope}', T: 0 }); __cmwCam('L', { pitch: 0.35, yaw: -0.4 }); 1`); await wait();
+// (the globe's last frame drew the carried colour, and no GL frame is pending)
+await settled({ max: 30000, until: `!__cmwSteps().moving && GLR.pendingLinks === 0 && __cmwSvGlobe(0, 0).carried` });
 const geo = await ev(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), out = []; const g0 = __cmwGlobeSnap('L', r.width / 2, r.height / 2); const R = g0 && g0.R;
   for (let j = 0; j < 40; j++) for (let i = 0; i < 60; i++) { const x = r.width / 2 + (i / 59 - 0.5) * 2 * R * ${RIM}, y = r.height / 2 + (j / 39 - 0.5) * 2 * R * ${RIM}; if (Math.hypot(x - r.width / 2, y - r.height / 2) > R * ${RIM}) continue; const g = __cmwGlobeSnap('L', x, y); if (g && g.g) out.push([x, y, g.g[0], g.g[1]]); }
   return { R, pts: out, dpr: window.devicePixelRatio }; })()`);
@@ -46,7 +48,8 @@ const got = await ev(`(() => { const c = document.getElementById('canvasL'), x2 
 // z = i (1 + w) / (1 - w): numerator i (1 + a + i b) = -b + i (1 + a); divided by (1 - a - i b)
 const keep = geo.pts.map(([, , a, b]) => scope === 'all' || Math.hypot(a, b) < 0.95);
 const Zs = geo.pts.map(([, , a, b]) => { const dn = (1 - a) * (1 - a) + b * b, nr = -b, ni = 1 + a; return [(nr * (1 - a) - ni * b) / dn, (ni * (1 - a) + nr * b) / dn]; });
-await ev(`__cmwSteps({ go: 0, now: true, surf: 'plane', scope: 'all', T: 0 }); 1`); await wait(); await sleep(1000);
+await ev(`__cmwSteps({ go: 0, now: true, surf: 'plane', scope: 'all', T: 0 }); 1`); await wait();
+await settled({ max: 30000, until: `!__cmwSteps().moving && GLR.pendingLinks === 0` });
 const ref = (await lpx(Zs)).px;
 let n = 0, wrong = 0, paper = 0; const ex = [];
 for (let k = 0; k < Zs.length; k++) {
