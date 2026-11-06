@@ -5,7 +5,7 @@
   // counted up minus down are exactly the winding number of any closed path that starts more than 3.75° from arg 0.
   // A harp's lines are lines of the Phase key: line s (0 … 11) at arg F = 30°·s plucks D + s semitones. The pointer's
   // harp has five, HARP_LINES; a composed piece (notes/sea-song/r2) has its own, exactly the pitch classes its score uses.
-  // v15.2 (review sound-3): the pointer's harp widens the band to what 2.5 px of the probe turn arg F (o.h: the app's
+  // the pointer's harp widens the band to what 2.5 px of the probe turn arg F (o.h: the app's
   // |F'/F| · 2.5 px, at most 1/8 turn), so a finger held still near a zero, where a pixel turns arg F by more than 7.5°,
   // plucks nothing; the count is the same (the trigger's state moves one line at a time, whatever the band)
   const HARP_LINES = [0, 2, 4, 7, 9], HARP_H = 1 / 96;
@@ -25,8 +25,8 @@
   // one note: the pitch class (s semitones above D) in octave copies (D2 … 2.4 kHz) under a Gaussian over log2 f
   // (σ 0.7 octave, centred on D5 + 0.5·tanh(ln|F| / 2.5): lower near zeros, higher near poles), copies under −30 dB
   // dropped (usually 3 remain); each a dark plucked string (T60 1.8 s at D5, ∝ f^−0.5), in tune: one detune (±1.5 cents)
-  // shared by all its strings, so its octaves are pure (notes/sea-song/r2). A D is +1.8 dB (×1.23; ×1.26 put the old
-  // harp's D at −29.4 LUFS-M, 0.1 dB over its −32 ± 2.5 window: review sound-5) and has the turn's accent on
+  // shared by all its strings, so its octaves are pure (notes/sea-song/r2). A D is +1.8 dB (×1.23; ×1.26 would put the
+  // harp's D at −29.4 LUFS-M, 0.1 dB over its −32 ± 2.5 window) and has the turn's accent on
   // its D4 copy: that string is louder by the accent (half the note's level, added in power, as two independent strings
   // added on average), one string and not a second one at the same pitch, whose sum would depend on the phases
   // (notes/sea-song/r3). sign: in the D-only zone an up D also sounds the A above, a down D the A below
@@ -56,8 +56,7 @@
   // a composed piece's note (notes/sea-song/r3): one string at the written pitch, m in MIDI (A4 = 440 Hz; a fraction is
   // the score's own tuning, e.g. its just fifth), no detune: a pitch is always the same string, plucked again (key) and
   // never two near-unisons. Its octave for small speakers is its own 2nd partial at dbl of the fundamental (one string,
-  // a fixed level), not a second string. PIECE_G: about the level of the two strings it replaces (1.25 at round 2's
-  // LV.harp, 0.0918)
+  // a fixed level), not a second string. PIECE_G: about the level of the two strings it stands for (1.25 at LV.harp 0.0918)
   const PIECE_G = 1.38;
   function pieceNote(g, m, vel, t, dir, pan, tier, tag, cap, dbl) {
     const bright = 0.2 + 0.25 * clamp((vel - 0.4) / 0.45, 0, 1), amp = LV.harp * PIECE_G * vel, pn = clamp((pan || 0) + 0.12 * dir, -0.4, 0.4);
@@ -65,7 +64,7 @@
     return harpString(g, 440 * Math.pow(2, (m - 69) / 12), amp, t, bright, pn, tier, tag, cap, dbl > 0 ? dbl : 0, Math.round(m));
   }
   // a harp step: the arg went from st.phi to phi over dt seconds of the probe, played from t0 on the audio clock (the
-  // notes spread over the step as the crossings were). o: {ln, pan, dt, shaky (the D-only zone near a zero or pole,
+  // notes spread over the step as the crossings are). o: {ln, pan, dt, shaky (the D-only zone near a zero or pole,
   // while the pointer moves), h (the band, turns: HARP_H … 1/8), tier, tag, vel, note, dbl, cap}. o.vel (a composed
   // curve's stored dynamics, notes/sea-song): the k-th crossing (st.k) sounds at velocity o.vel[k], in place of the rate
   // rules and the D-only thinning; under 0.02 it is silent (it still counts, and takes no string). o.note (a piece's
@@ -85,7 +84,7 @@
       st.k++;
       while (st.recent.length && st.recent[0] < at - 0.5) st.recent.shift();
       st.recent.push(at);
-      // notes per second: over the last 0.5 s, or implied by how fast arg F turns now (5 strings a turn), so the first
+      // notes per second: over the last 0.5 s, or implied by how fast arg F turns (5 strings a turn), so the first
       // notes of a sudden run are already lighter; above 24 a second only the Ds sound (the count survives)
       const rate = Math.max(st.recent.length / 0.5, 5 * rateT), dOnly = vk == null && (!!o.shaky || st.recent.length / 0.5 > 24);
       if (isD) { if (n.dir > 0) st.up++; else st.down++; }
@@ -94,7 +93,7 @@
       let vel = 0.55 + 0.3 * clamp(Math.log10(Math.max(rateT, 0.1) / 0.1), 0, 1);
       if (rate > 2.5) vel *= Math.pow(2.5 / rate, 0.6);
       if (rate > 14) vel *= 14 / rate;
-      // (review v16 sound-picture-1: a still probe under a changing F, a zero passing beside it, hears its sweep: the
+      // (a still probe under a changing F, a zero passing beside it, hears its sweep: the
       // fast-run rule is for a hand that sweeps, so here the notes keep at least 0.25, about 12 dB under a normal note,
       // not 30)
       if (o.still) vel = Math.max(vel, 0.25);
@@ -162,7 +161,7 @@
     return { A, n0: 4 + W, lam };
   }
   // a winding number the singer can sing: its harmonic 4 + W of D3 is one of 1 … NH (W = −3 … 20). Outside, curveAmps
-  // has no note (only the hum would sound), so the callers play the pings or speak W instead (review sound-2)
+  // has no note (only the hum would sound), so the callers play the pings or speak W instead
   const singable = (W) => Number.isInteger(W) && 4 + W >= 1 && 4 + W <= LIB.NH;
   // low notes lose most of their level on a phone or laptop speaker: +2, +3, +4 dB on harmonics 3, 2, 1
   const LOWMK = [1, Math.pow(10, 4 / 20), Math.pow(10, 3 / 20), Math.pow(10, 2 / 20)];
@@ -205,7 +204,7 @@
   }
 
   const leadOf = (c) => (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext ? 0 : LEAD);
-  // a target curve from wherever the param is, starting no earlier than now + LEAD
+  // a target curve from wherever the param is, starting no earlier than the current time + LEAD
   function follow(c, p, v, tau, t = 0) {
     const T = Math.max(t || 0, c.currentTime + leadOf(c));
     p.cancelScheduledValues(T);
@@ -238,7 +237,6 @@
   }
   // stop one tagged group (a "listen along"): what has not sounded is dropped, what sounds fades in 12 ms. The fallback's
   // sources fade on their own gain (a 12 ms raised cosine) and stop after it: a stop alone cut a ringing string's wave
-  // (review sound-4)
   function stopTag(tag) {
     if (HH.along && HH.along.tag === tag) HH.along = null;
     for (const [name, q] of [...pendQ]) if (q.o.tag === tag) pendQ.delete(name);
