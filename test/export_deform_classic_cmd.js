@@ -106,7 +106,7 @@ await key('m'); await settle(600);
 }
 
 if (process.env.CMW_ONLY !== 'preview') {
-// 4. round 3: the deformation in every view, the formats, the display-style F, the video
+// 4. the deformation in every view, the formats, the display-style F, the video
 R.r3 = { figs: {}, videos: {}, dialog: {} };
 await open('xvr3');
 await ev('__cmwExample(1); 1'); await settle(2200);
@@ -655,7 +655,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const c2 = await pvState();
   R.pv2.restart = { c0, c1, c2 };
   ok('preview (vp-2): during a restart the bar is cleared and the button shows the wish; Play there is kept', c0.id === 0 && c0.btn === 'Play' && c0.seek[1] === 0 && c0.time === '' && /drawing the frames, 0 %/.test(c0.note) && c1.btn === 'Pause' && c2.id > id1 && c2.playing && c2.btn === 'Pause', R.pv2.restart);
-  // (vp-1/vp-2 residual, review-video-preview-verify; v15.1 assembly) a restart while paused shows the new run's own
+  // a restart while paused shows the new run's own
   // frames, not the 960 px poster, and stays paused; then Play again for (vp-6)
   await clickSel('#xfPvPlay'); await sleep(100);
   const id2 = (await pvState()).id;
