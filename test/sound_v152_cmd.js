@@ -179,7 +179,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
   R.heldLap = await harpLoop([0, 0], 0.25, 1);
   ok('the same zero, one lap of radius 0.25: the red line 1 up 0 down, the 12 lines (11 or 12 notes)', R.heldLap.harp.up === 1 && R.heldLap.harp.down === 0 && R.heldLap.harp.notes + R.heldLap.harp.merged >= 11 && R.heldLap.harp.notes + R.heldLap.harp.merged <= 12, R.heldLap);
 }
-// 8. (verify-1) the phone: a long press near a zero, then one lap round it that stops where it began.
+// 8. The phone: a long press near a zero, then one lap round it that stops where it began.
 // Its D sounds at the end, from any start: 3°, 5° and 8° above the D line 15 px from the zero, 3° at 30 px, and 5.7°
 // at 6 px (inside the harp's D-only zone, where that lap is silent); then the finger held there with a ±1.5 px
 // tremor: no note at 15 and 30 px; at 6 px a few notes at most (#266, a declared limit)
