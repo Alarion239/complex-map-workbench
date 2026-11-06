@@ -85,8 +85,9 @@ const globeCheck = async (cls, step = 2, leak = null, cut = CUT_NONE) => {
   for (let y = 1; y < Hd - 1; y++) for (let x = 1; x < Wd - 1; x++) {
     const w = WW[y * Wd + x], a = WW[y * Wd + x - 1], b = WW[y * Wd + x + 1], c = WW[(y - 1) * Wd + x], e = WW[(y + 1) * Wd + x];
     if (!w || !a || !b || !c || !e) continue;
-    const g = Math.hypot(cutD(b) - cutD(a), cutD(e) - cutD(c)) / 2;
-    if (g > 0) cd[y * Wd + x] = cutD(w) / g * dpr;
+    // (the larger of the two one-sided differences, each way: a central difference is zero on the curve itself, where the distance has a crease)
+    const d0 = cutD(w), g = Math.hypot(Math.max(Math.abs(cutD(b) - d0), Math.abs(d0 - cutD(a))), Math.max(Math.abs(cutD(e) - d0), Math.abs(d0 - cutD(c))));
+    if (g > 0) cd[y * Wd + x] = d0 / g * dpr;
   }
   const onCut = (x, y) => cd[y * Wd + x] <= BAND;
   const near = (x, y) => { const c = C[y * Wd + x]; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) return true; if (dx * dx + dy * dy <= 16 && C[yy * Wd + xx] !== c) return true; } return false; };
