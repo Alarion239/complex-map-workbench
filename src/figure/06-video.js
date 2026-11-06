@@ -96,6 +96,8 @@
   // a globe or a relief frame is drawn at a device pixel ratio of at least PIC_DPR_MIN, and of the frame's height over PIC_H_PX
   // when that is more
   const PIC_DPR_MIN = 1.5, PIC_H_PX = 360;
+  // the screen's relief window (A.landBox) when all four of its bounds are finite, else null
+  const planLandBox = () => { const lb = A.landBox ? A.landBox() : null; return lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite) ? lb : null; };
   // the plan of the steps view's glide along its thread (gl: A.svGlide): the left pane at the screen's window widened to
   // the frame's aspect, or on the sphere and the Landscape the screen's camera at the frame's own aspect (the whole
   // picture, no crop: the frame is the screen's); video time t is the thread position gl.lo + t, so m is the number of
@@ -108,7 +110,7 @@
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' && A.landBox ? A.landBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -141,8 +143,8 @@
     const plan = { o, v, kind, side, W: Wpx, H: Hpx, dpr, m, pic, times: videoTimes(v, m), name: (o.name || defaultName(view, null, 'video') || 'deformation').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'deformation' };
     if (o.trace) plan.trace = o.trace;
     if (kind === 'land') {
-      const lb = A.landBox ? A.landBox() : null;
-      if (lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite)) plan.landBox = lb;
+      const lb = planLandBox();
+      if (lb) plan.landBox = lb;
     }
     if (!pic) { plan.box = await videoBox(side, kind, Wpx / Hpx, m, o, v); if (!plan.box) return null; }
     else { plan.crop = await videoCrop(side, plan, o); if (!plan.crop) return null; }

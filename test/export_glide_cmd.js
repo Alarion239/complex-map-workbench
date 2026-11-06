@@ -8,6 +8,9 @@
 const fails = [], info = {};
 // a pixel of the frame is 'drawn' where it differs from the frame's own paper by more than this (summed over r, g, b)
 const DRAWN = 60;
+// a 3D frame has its picture on it when more than this share of its pixels is drawn (a globe fills about a third of its frame, so
+// this says the picture is there and not the paper alone)
+const DRAWN_MIN = 0.04;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -45,11 +48,17 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     const mv = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
     const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(mv.frames - 1, 640, 360);
     const f = await __cmwFig.build({});
-    if (!f || !f.box) return { none: 1 };
-    const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
-    const im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+    if (!f) return { none: 1 };
     const ld = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
-    const dv = await ld(chk.decoded), w = 320, h = Math.round(w * im[3] / im[2]);
+    const dv = await ld(chk.decoded);
+    // the still's panel against the frame cropped to the still's window is the plane's picture: a globe or a relief has
+    // no window of the still's to crop to, and its frames are compared with the screen's pane below
+    let mad = null, im = null;
+    if (${surf === 'plane'}) {
+    if (!f.box) return { none: 1 };
+    const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
+    im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+    const w = 320, h = Math.round(w * im[3] / im[2]);
     const still = document.createElement('canvas'); still.width = w; still.height = h;
     still.getContext('2d').drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
     // the frame's window: f.box widened about its centre to 16:9
@@ -63,39 +72,44 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     vid.getContext('2d').drawImage(dv, (b.x0 - (cx - bw / 2)) * sx, ((cy + bh / 2) - b.y1) * sy, (b.x1 - b.x0) * sx, (b.y1 - b.y0) * sy, 0, 0, w, h);
     const a = vid.getContext('2d').getImageData(0, 0, w, h).data, c = still.getContext('2d').getImageData(0, 0, w, h).data;
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]);
+    mad = s / (w * h * 3);
+    }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
     // draws what the pane draws: no level curves of its own
     const de = await ld(end.decoded), rc = (img) => { const c = document.createElement('canvas'); c.width = 60; c.height = 80; c.getContext('2d').drawImage(img, 0.89 * img.width, 0.1 * img.height, 0.08 * img.width, 0.14 * img.height, 0, 0, 60, 80); return c.getContext('2d').getImageData(0, 0, 60, 80).data; };
     const r0 = rc(dv), r1 = rc(de); let sr = 0; for (let i = 0; i < r0.length; i += 4) sr += Math.abs(r0[i] - r1[i]) + Math.abs(r0[i + 1] - r1[i + 1]) + Math.abs(r0[i + 2] - r1[i + 2]);
-    return { mad: s / (w * h * 3), ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
+    return { mad, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
-  ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
+  if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
-  // a parked frame against the screen at the same place
-  const s = await ev(`await (async () => {
-    __cmwSteps({ park: 0.5 });
-    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
-    if (GLR.gpuDone) await GLR.gpuDone();
-    const cvs = [...document.querySelectorAll('#plotL canvas')].map((e) => [e, e.getBoundingClientRect()]).sort((p, q) => q[1].width * q[1].height - p[1].width * p[1].height)[0];
-    const w = 96, h = Math.max(8, Math.round(w * cvs[1].height / cvs[1].width));
-    const a = document.createElement('canvas'); a.width = w; a.height = h; a.getContext('2d').drawImage(cvs[0], 0, 0, w, h);
-    const r = await __cmwFig.glideArt(0.5, { wpt: cvs[1].width * 72 / 96, hpt: ${surf === 'plane' ? 'undefined' : 'cvs[1].height * 72 / 96'}, dpi: 96, raw: true, look: 'light' });
-    const b = document.createElement('canvas'); b.width = w; b.height = h; b.getContext('2d').drawImage(r.cv, 0, 0, w, h);
-    const da = a.getContext('2d').getImageData(0, 0, w, h).data, db = b.getContext('2d').getImageData(0, 0, w, h).data;
-    // (the 3D surfaces: the video's paper is white and the screen's is its tinted ground, so only the pixels the frame draws
-    // something on are compared: the picture and its camera)
-    const three = ${surf !== 'plane'}, bg = [db[0], db[1], db[2]];
-    let sum = 0, n = 0;
-    for (let i = 0; i < da.length; i += 4) {
-      if (three && Math.abs(db[i] - bg[0]) + Math.abs(db[i + 1] - bg[1]) + Math.abs(db[i + 2] - bg[2]) <= ${DRAWN}) continue;
-      sum += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]); n++;
-    }
-    return { mad: sum / (Math.max(1, n) * 3), drawn: n / (w * h), x: __cmwSteps().x };
-  })()`, 120000);
-  info[tag + ' screen'] = s;
-  ok(`${tag}: a frame at x = 0.5 matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > 0.04) && Math.abs(s.x - 0.5) < 1e-6, s);
+  // a parked frame against the screen at the same place; a globe or a relief has no window of the still's to crop to, so its
+  // first frame, at rest on the first plane, is judged the same way (parked at x = 0)
+  for (const park of surf === 'plane' ? [0.5] : [0, 0.5]) {
+    const s = await ev(`await (async () => {
+      __cmwSteps({ park: ${park} });
+      for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+      if (GLR.gpuDone) await GLR.gpuDone();
+      const cvs = [...document.querySelectorAll('#plotL canvas')].map((e) => [e, e.getBoundingClientRect()]).sort((p, q) => q[1].width * q[1].height - p[1].width * p[1].height)[0];
+      const w = 96, h = Math.max(8, Math.round(w * cvs[1].height / cvs[1].width));
+      const a = document.createElement('canvas'); a.width = w; a.height = h; a.getContext('2d').drawImage(cvs[0], 0, 0, w, h);
+      const r = await __cmwFig.glideArt(${park}, { wpt: cvs[1].width * 72 / 96, hpt: ${surf === 'plane' ? 'undefined' : 'cvs[1].height * 72 / 96'}, dpi: 96, raw: true, look: 'light' });
+      const b = document.createElement('canvas'); b.width = w; b.height = h; b.getContext('2d').drawImage(r.cv, 0, 0, w, h);
+      const da = a.getContext('2d').getImageData(0, 0, w, h).data, db = b.getContext('2d').getImageData(0, 0, w, h).data;
+      // (the 3D surfaces: the video's paper is white and the screen's is its tinted ground, so only the pixels the frame draws
+      // something on are compared: the picture and its camera)
+      const three = ${surf !== 'plane'}, bg = [db[0], db[1], db[2]];
+      let sum = 0, n = 0;
+      for (let i = 0; i < da.length; i += 4) {
+        if (three && Math.abs(db[i] - bg[0]) + Math.abs(db[i + 1] - bg[1]) + Math.abs(db[i + 2] - bg[2]) <= ${DRAWN}) continue;
+        sum += Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]); n++;
+      }
+      return { mad: sum / (Math.max(1, n) * 3), drawn: n / (w * h), x: __cmwSteps().x };
+    })()`, 120000);
+    info[tag + ' screen ' + park] = s;
+    ok(`${tag}: a frame at x = ${park} matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > DRAWN_MIN) && Math.abs(s.x - park) < 1e-6, s);
+  }
 }
 // the dialog: Video is listed, with where it goes and how long it is
 // the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane
