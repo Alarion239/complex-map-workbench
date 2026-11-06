@@ -325,10 +325,12 @@
   // The map from plane a to plane b of the cut handle's step j with its cut half a turn from the ray's, on the sheet that
   // agrees with the step's own values on the counter-clockwise side of the ray about p at q0 (there it is analytic, so a
   // pointer that leaves the image of the branch keeps a preimage). Null where the step has no sheet number to match
+  // (CUT_SIDE: the turn, in radians, from the ray to the second point tested on its counter-clockwise side)
+  const CUT_SIDE = 0.05;
   function cutFree(j, q0, p, a, b) {
     const st = S.steps[j - 1], bt = built[j - 1];
     if (!st || !bt || !bt.def || !bt.def.params.some((q) => q.key === 'k') || !Number.isFinite(Number(st.params.cut))) return null;
-    const rel = CX.sub(q0, p), q1 = CX.add(p, CX.mul(rel, C(Math.cos(0.05), Math.sin(0.05))));
+    const rel = CX.sub(q0, p), q1 = CX.add(p, CX.mul(rel, C(Math.cos(CUT_SIDE), Math.sin(CUT_SIDE))));
     const w0 = bt.f(q0), w1 = bt.f(q1), k0 = Math.round(+st.params.k || 0);
     const near = (u, v) => CX.isFin(u) && CX.isFin(v) && CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(v));
     for (const dk of [0, 1, -1, 2, -2, 3, -3, 4, -4]) {

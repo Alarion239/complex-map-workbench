@@ -1,6 +1,6 @@
 // A carried branch cut turns the same either way: in the plane after the cut, a drag of its handle by some distance one
 // way and by the same distance the other way give turns of the same size and opposite signs. The logarithm's cut (180°)
-// in w₁ is the case of the report (the cut moved up and not down); the square root's cut is the other multi-valued map.
+// in w₁ is dragged up and down, the square root's right and left.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, of, fails }.
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
