@@ -170,7 +170,7 @@ R.gChk = await ev(`await (async () => {
 })()`, 120000);
 ok('steps view, plane w1: the Checker pattern draws the same picture as Solid (carried phase, not the pattern)', R.gChk.st.i === 2 && R.gChk.n > 1000 && R.gChk.bad / R.gChk.n <= 1e-3 && R.gChk.colours > 8, R.gChk);
 
-// ---- 3. the globes' colour against the exact one (ux on #719: the steps view has one colouring, the phase pulled back
+// ---- 3. the globes' colour against the exact one (ux's ruling: the steps view has one colouring, the phase pulled back
 // or carried forward): the z-globe at stage 0 of z^i, and the w-globe of Cayley(H) with the colour plane z, z's colour
 // carried to w1. Each is judged as the steps view's flat planes are (carryCompare on the Sphere surface: each pixel's
 // globe point, its points of plane z ranked by the sheet key, and the front point's colour up to the globe's light), at
