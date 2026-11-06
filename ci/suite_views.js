@@ -269,6 +269,7 @@ const VIEWS = {
   'link_standin_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
+  'p3_accept_classic_cmd.js': classic('the spherical checker on the GPU is a region pattern, which the steps view does not have (one colouring, the carried phase), and the pattern menu the classic view hides from the user'),
   'p3_accept_export_cmd.js': port('export'),
   'p3_review_cmd.js': steps({ pin: true }),
   'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
