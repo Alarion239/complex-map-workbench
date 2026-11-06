@@ -19,6 +19,7 @@
 //   PAGES     how the extra pages are made
 const fs = require('fs');
 const path = require('path');
+const { seamFrameLines } = require('./seam_frames');
 
 const EXCLUDED = {
   // not pass/fail suites
@@ -102,6 +103,8 @@ const SUITES = {
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
   // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
   // baseline and does not now; the rest go to its result's report)
+  // (one `seam-frame:` line per frame measured, in the job's log)
+  'steps_seams_cmd.js': { logLine: (o) => seamFrameLines(o) },
   'layout_invariants_cmd.js': {
     keepShots: true,
     // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
