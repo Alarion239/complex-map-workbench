@@ -3418,5 +3418,7 @@
  "Step shown alone": "Passo mostrato da solo",
  "Moved {name} to {x}, {y}.": "{name} spostata in {x}, {y}.",
  "Moved {name}.": "{name} spostata.",
- "Previous or next plane; with a shape selected, nudge it": "Il piano precedente o successivo; con una figura selezionata, la sposta"
+ "Previous or next plane; with a shape selected, nudge it": "Il piano precedente o successivo; con una figura selezionata, la sposta",
+ "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
+ "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude."
 }
