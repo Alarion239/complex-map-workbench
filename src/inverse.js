@@ -485,15 +485,15 @@ const Inverse = (() => {
     return indexRange(n0, n1, nc, cap).map((n) => add(base, scale(step, n)));
   }
   // preimages of a finite point p of op o's output plane (members nearest ref for infinite families, at most
-  // 2 cap + 1 per base); null = infinity
-  function pullFinite(o, p, ref, cap = 16) {
+  // 2 cap + 1 per base; with span, the members within span of the nearest, which cap does not cut); null = infinity
+  function pullFinite(o, p, ref, cap = 16, span = 1) {
     const F = o.fam, out = [];
     if (o.kind === 'ROOTPOW' && isZero(p)) { const sr = o.p.s.re; return sr > 0 ? [ZERO] : sr < 0 ? [null] : []; }
     if (F && F.type === 'add') {
       F.bases(p).forEach((base, bi) => {
         if (!base || !isFin(base)) return;
         const ms = ref && isFin(ref) ? Math.round(div(sub(ref, base), F.p).re) : 0;
-        for (const m of indexRange(ms - 1, ms + 1, ms, 1)) out.push(F.member(p, bi, m, base).u);
+        for (const m of indexRange(ms - span, ms + span, ms, span)) out.push(F.member(p, bi, m, base).u);
       });
       return out;
     }
@@ -507,9 +507,9 @@ const Inverse = (() => {
         ms = Math.min(m1, Math.max(m0, logCentre(F, ref, l0)));
       } else {
         ms = logCentre(F, ref, l0);
-        m0 = ms - 1; m1 = ms + 1;
+        m0 = ms - span; m1 = ms + span;
       }
-      for (const m of indexRange(m0, m1, ms, cap)) { const mem = F.member(p, m, l0); if (mem.lvl >= 0 && isFin(mem.u)) out.push(mem.u); }
+      for (const m of indexRange(m0, m1, ms, Math.max(cap, span))) { const mem = F.member(p, m, l0); if (mem.lvl >= 0 && isFin(mem.u)) out.push(mem.u); }
       return out;
     }
     const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
@@ -579,20 +579,6 @@ const Inverse = (() => {
   // truncated (its zs are those members' preimages, not all of them). A power's log family (type 'log') gives every
   // member in its argument range when they are finitely many, else, with opts.fam, the 2K + 1 about its centre
   // (truncated)
-  // a log family's members over w (pullFinite's range): every m with its argument in (lo, hi], or of an infinite family
-  // m = c - K … c + K about its centre c
-  function logMembers(F, w, K) {
-    const l0 = F.L0(w);
-    if (!isFin(l0)) return [];
-    let m0, m1;
-    if (!F.inf) {
-      const xa = (F.lo - l0.im) / F.S.im, xb = (F.hi - l0.im) / F.S.im;
-      m0 = Math.ceil(Math.min(xa, xb)) - 1; m1 = Math.floor(Math.max(xa, xb)) + 1;
-    } else { const c = logCentre(F, null, l0); m0 = c - K; m1 = c + K; }
-    const out = [];
-    for (let m = m0; m <= m1; m++) out.push(F.member(w, m, l0));
-    return out;
-  }
   function pointPre(plan, p, cap = LEAF_CAP, opts = {}) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     const K = opts.fam;
@@ -612,10 +598,10 @@ const Inverse = (() => {
     for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
       const o = plan.ops[i], next = [];
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
-      const members = o.fam && o.fam.type === 'add' && K != null
-        ? (w) => o.fam.bases(w).filter(Boolean).flatMap((b) => Array.from({ length: 2 * K + 1 }, (_, i) => ({ u: add(b, scale(o.fam.p, i - K)), lvl: 0 })))
-        : logFam(o) ? (w) => logMembers(o.fam, w, K)
-          : (w) => o.pre(w);
+      // (a family's members -K … K about its centre: pullFinite's, with span K and no reference point)
+      const members = (o.fam && o.fam.type === 'add' && K != null) || logFam(o)
+        ? (w) => pullFinite(o, w, null, LEAF_CAP, K == null ? 1 : K).map((u) => ({ u, lvl: 0 }))
+        : (w) => o.pre(w);
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
         for (const mem of members(w)) {

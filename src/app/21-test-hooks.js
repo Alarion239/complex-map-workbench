@@ -336,14 +336,14 @@
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
-  // the steps view's frame at rest as maps, for test/cdp_kit/carry_compare.js: b and its sheet key (svSheetKey); pre(v),
+  // the steps view's frame at rest as maps, for test/cdp_kit/carry_compare.js: b and its sheet key (__cmwSvKey); pre(v),
   // plane z's points over v in plane b (Inverse.pointPre, family members -K … K; null past 512 or with no inverse); G, the
   // map into the colour plane. { parked: true } between two planes
   /** @type {any} */ (window).__cmwSvFrame = (K = 6) => {
     const fr = svBetween();
     if (!(fr.u <= 1e-6 || fr.b === fr.a) || isDeriv(fr.b)) return { parked: true };
-    const b = svStage(), T = svT(), plan = invPlan(0, b), k = svSheetKey(b);
-    return { parked: false, b, key: { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]) },
+    const b = svStage(), T = svT(), plan = invPlan(0, b);
+    return { parked: false, b, key: window.__cmwSvKey(b),
       pre: (v) => { const r = plan.ops && plan.ops.length ? Inverse.pointPre(plan, v, 512, { fam: K }) : { exact: true, zs: [v] }; return r.exact ? r.zs : null; },
       G: T === 0 ? (z) => z : stageF(T) };
   };
