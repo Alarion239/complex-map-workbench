@@ -5,8 +5,8 @@
 // the header and X fills what is left down to the tool row (the thread lies over X's foot: the steps view has no chain
 // bar); landscape: the strip sits in the header (X keeps its size) or in a 48 px row. Then: the Why panel is at most half
 // the screen, scrolls inside, folds on a touch in X and that touch reaches the app (the Planes chapter's first step, whose
-// task is the pan in X). (The v15.1 mini bar and its fold are gone with the callout. The classic views' 608 px X under
-// their chain bar and the Phase key sheet below the strip are tour_phone_classic_cmd.js.)
+// task is the pan in X). (The classic views' 608 px X under their chain bar and the Phase key sheet below the strip are
+// tour_phone_classic_cmd.js.)
 // (r3 review: the strip keeps one place per chapter; a chapter whose line needs three lines has a 76 px portrait row, or
 // in landscape the row under the header (48 or 56 px); portrait shows × End and a chevron after the count, Next is an
 // arrow named by its label; no lead, task, result, hint or caption of a chapter needs more lines than the strip has)
@@ -17,9 +17,8 @@ const R = [];
 // (the strip's height by its lines: portrait 68, 76 for three, 93 for four (#553); the landscape row 48, 56, 72)
 const rowH = (mode, lines) => (mode === 'port' ? (lines >= 4 ? 93 : lines === 3 ? 76 : 68) : (lines >= 4 ? 72 : lines === 3 ? 56 : 48));
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
-  for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
+const IDLE = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
+const settle = (until) => settled({ until: until ? `(${until}) && (${IDLE})` : IDLE });
 const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
 const tap = async (x, y) => { await T('touchStart', [[x, y]]); await sleep(50); await T('touchEnd', []); };
 const tdrag = async (x0, y0, x1, y1) => { await T('touchStart', [[x0, y0]]); for (let i = 1; i <= 10; i++) { await T('touchMove', [[x0 + (x1 - x0) * i / 10, y0 + (y1 - y0) * i / 10]]); await sleep(16); } await T('touchEnd', []); };
@@ -49,12 +48,12 @@ const PROBE = `(() => {
 for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (const lang of ['en', 'ru']) {
   const tag = `${w}x${h}-${lang}`;
   await view(w, h, lang === 'ru', true);
-  await nav(U + `?ns=ph${w}${lang}` + (lang === 'ru' ? '&lang=ru' : '')); await settle(1500);
+  await nav(U + `?ns=ph${w}${lang}` + (lang === 'ru' ? '&lang=ru' : '')); await settle();
   await ev('Tour.dismissSuggestion()');
   // X without the tour, for landscape (the strip in the header changes nothing)
   const x0 = await ev(`Math.round(document.querySelector('#paneL').getBoundingClientRect().height)`);
   await ev('Tour.auto(false)');
-  await ev(`Tour.start({ chapter: 'basics' })`); await settle(1500);
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive()`);
   let first = null, n = 0;
   const byCh = {};
   for (let k = 0; k < 60 && (await ev('Tour.isActive()')); k++) {
@@ -74,30 +73,29 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
     else check(`${nm}: landscape, the header (X keeps its size) or the row under it (${rowH('row', g.lines)} px)`, g.mode === 'head' ? g.strip[1] >= g.headTop - 1 && g.strip[3] <= g.head + 1 && g.lines === 2 : g.mode === 'row' && g.strip[3] - g.strip[1] === rowH('row', g.lines), g);
     check(`${nm}: the tool row and the view switch not covered by the strip`, g.covered.length === 0, g.covered);
     const before = JSON.stringify(await ev('Tour.current()'));
-    await ev('Tour.next()'); await settle(1000);
+    await ev('Tour.next()'); await settle(`!Tour.isActive() || JSON.stringify(Tour.current()) !== ${JSON.stringify(before)}`);
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${nm}: Next moves on`, false); break; }
   }
   check(`${tag}: the walk saw the steps (at least 40)`, n >= 40, n);
   if (first) {
-    // (#246: the chain bar is 56 px, 8 less than before, and X has them: 608, 600 with a three-line row)
     if (h > w) check(`${tag}: portrait, the strip is the row under the header and X fills the rest down to the tool row`, first.mode === 'port' && Math.abs(first.strip[1] - first.head) <= 1 && first.paneT === first.strip[3] && first.paneH === first.toolsTop - first.strip[3], first);
     else check(`${tag}: landscape, the strip in the header (X keeps its size) or a 48 or 56 px row`, (first.mode === 'head' && first.strip[1] >= first.headTop - 1 && first.strip[3] <= first.head + 1 && Math.abs(first.paneH - x0) <= 1) || (first.mode === 'row' && first.strip[3] - first.strip[1] === rowH('row', first.lines)), [first, x0]);
   }
   // Why: a panel at most half the screen, scrolling inside, folded by a touch in X, which reaches the app
   if (lang === 'en') {
-    await ev(`Tour.start({ chapter: 'planes', step: 0 })`); await settle(1500);
+    await ev(`Tour.start({ chapter: 'planes', step: 0 })`); await settle(`Tour.isActive() && Tour.current().chapter === 'planes'`);
     const tb = await ev(`(() => { const b = document.querySelector('.ts-text').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-    await tap(tb[0], tb[1]); await settle(400);
+    await tap(tb[0], tb[1]); await settle(`!document.querySelector('#tourWhy').hidden`);
     const wy = await ev(`(() => { const w = document.querySelector('#tourWhy'), b = w.getBoundingClientRect(), cs = getComputedStyle(w); return { open: !w.hidden, h: b.height, half: innerHeight / 2, scroll: /(auto|scroll)/.test(cs.overflowY), top: b.top, strip: document.querySelector('.tour-strip').getBoundingClientRect().bottom, held: Tour.lit().countdown.held }; })()`);
     check(`${tag}: Why opens a panel under the strip, at most half the screen, scrolling inside, holding the countdown`, wy.open && wy.h <= wy.half + 1 && wy.scroll && Math.abs(wy.top - wy.strip) <= 2 && wy.held.includes('why'), wy);
     const pb = await ev(`(() => { const b = document.querySelector('#paneL').getBoundingClientRect(), w = document.querySelector('#tourWhy').getBoundingClientRect(); return { l: b.left, t: Math.max(b.top, w.bottom), r: b.right, b: b.bottom }; })()`);
     // (the middle of X below the panel: clear of the plane's own buttons on its right and of the inset at its bottom left)
     const y = (pb.t + pb.b) / 2, x = (pb.l + pb.r) / 2;
-    await tdrag(x + 30, y - 10, x - 40, y + 20); await settle(300);
+    await tdrag(x + 30, y - 10, x - 40, y + 20); await settle(`document.querySelector('#tourWhy').hidden`);
     const after = await ev(`({ folded: document.querySelector('#tourWhy').hidden, done: document.querySelector('.ts-l2').classList.contains('done') })`);
     check(`${tag}: a touch in X folds Why and reaches the app (the pan ticks the task)`, after.folded && after.done, after);
   }
-  await ev('Tour.stop()'); await settle(300);
+  await ev('Tour.stop()'); await settle('!Tour.isActive()');
 }
 await view(1440, 900, false, false);
 // (r3 fix pass, as v16.2's audit: a step the layout leaves out, views/key on a landscape phone since v15, is the engine's

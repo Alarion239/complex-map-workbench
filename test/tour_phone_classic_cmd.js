@@ -5,21 +5,21 @@
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
+const IDLE = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
+const settle = (until) => settled({ until: until ? `(${until}) && (${IDLE})` : IDLE });
 for (const [w, h] of [[390, 844], [360, 780]]) {
   const tag = `${w}x${h}`;
   await view(w, h, false, true);
-  await nav(`http://localhost:${PORT}/test.html?ns=phc${w}`); await settle(1500);
+  await nav(`http://localhost:${PORT}/test.html?ns=phc${w}`); await settle();
   await ev('Tour.dismissSuggestion()'); await ev('Tour.auto(false)');
-  await ev(`Tour.start({ chapter: 'basics' })`); await settle(1500);
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(`Tour.isActive()`);
   const g = await ev(`(() => { const s = document.querySelector('.tour-strip').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect();
     return { mode: document.querySelector('.tour-strip').dataset.mode, top: Math.round(s.top), head: Math.round(document.querySelector('header.top').getBoundingClientRect().bottom), paneH: Math.round(p.height), lines: Tour.lit().lines }; })()`);
   check(`${tag}: portrait, the strip is the row under the header${w === 390 ? '; X is 608 px (600 with a three-line row)' : ''}`, g.mode === 'port' && Math.abs(g.top - g.head) <= 1 && (w !== 390 || g.paneH === (g.lines === 3 ? 600 : 608)), g);
-  await ev(`Tour.start({ chapter: 'views', step: 4 })`); await settle(1600);
+  await ev(`Tour.start({ chapter: 'views', step: 4 })`); await settle(`Tour.isActive() && Tour.current().chapter === 'views'`);
   const sh = await ev(`(() => { const s = [...document.querySelectorAll('.ph-sheet')].find((e) => !e.hidden && e.getClientRects().length); const t = document.querySelector('.tour-strip').getBoundingClientRect(); return s ? { sheet: Math.round(s.getBoundingClientRect().top), strip: Math.round(t.bottom), mode: document.querySelector('.tour-strip').dataset.mode } : null; })()`);
   check(`${tag}: a sheet the step opens starts below the strip`, !sh || sh.sheet >= sh.strip - 1 || sh.mode === 'head', sh);
-  await ev('Tour.stop()'); await settle(300);
+  await ev('Tour.stop()'); await settle('!Tour.isActive()');
 }
 await view(1440, 900, false, false);
 const fails = R.filter((r) => !r[1]);
