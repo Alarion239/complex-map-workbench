@@ -1171,13 +1171,14 @@
   // (clipWin's larger side / 80), and, about a singular point c the ring reaches in to past rho - h, outside the disc
   // of radius rho = h (SV_POLAR_NT / 2 pi - 1) about it, a cell inside the radius within which the ring's cells are the
   // finer (beside a logarithm's branch point a whole-plane cell spans radii the map sends far apart); the ring's
-  // everywhere else. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
+  // everywhere else. A ring with more cells a turn (ring.nt) is finer still, and keeps this share, so the whole plane's
+  // skip flags are not made again for each count. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
   // stretched outer cell, placed worse than the ring's), the ring every cell that reaches within 2h of the ring's share
   // (a corner outside clipWin shrunk by 2h, or within rho + 2h of c), so the two overlap along the edge, the ring's
   // drawn behind there (SV_POLAR_BEHIND).
   // svPolarShare: the radius rho about the ring's centre (0: none)
   function svPolarShare(ring) {
-    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * ring.nt / (2 * Math.PI) - h;
+    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
     return { h, rho: ring.sing && ring.r1 < rho - h ? rho : 0 };
   }
   // the whole plane's mesh r's skip flags under the polar ring: {skip, extra}, extra those of its fix-up fx's refined
