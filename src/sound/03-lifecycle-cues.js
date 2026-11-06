@@ -32,7 +32,7 @@
   function canSchedule(grace, wait) {
     if (ctx && ctx.state === 'running') return true;
     // the context is due just after this gesture: a one-shot waits for it (play queues it); anything else creates it
-    // now, as before
+    // at once
     if (pendT) { if (wait) return 'wait'; ensureNow(); return canSchedule(grace); }
     if (!ensure()) return false;
     if (ctx.state === 'running') return true;
@@ -41,7 +41,7 @@
     if (wait && performance.now() - bornAt < 1500) return 'wait';
     return false;
   }
-  // The first gesture's context (#271): new AudioContext() takes ~55 ms, so it is created just after the gesture, not
+  // The first gesture's context: new AudioContext() takes ~55 ms, so it is created just after the gesture, not
   // inside it, by a timer created in the activating event itself: WebKit carries a gesture only to a timer created while
   // it is processed (a timer created in a requestAnimationFrame callback has none); Chrome and Firefox keep transient
   // activation ~5 s. The work timer (0 ms) is (re)armed by click, keydown, pointerup and touchend, so for a click it
@@ -69,7 +69,7 @@
   }
   // the queued one-shots, once the clock runs and the worklet has settled (a statechange and loadWorklet's end call
   // this again): on the first gesture the cue is the worklet's, not a main-thread render. A cue that could not start
-  // within 1.5 s of its request is dropped: it would no longer belong to its gesture
+  // within 1.5 s of its request is dropped: it would not belong to its gesture any more
   function flushPend() {
     if (!pendQ.size || pendT) return;
     if (!ctx) { pendQ.clear(); return; }
@@ -134,7 +134,7 @@
       while (zpTry.length && now - zpTry[0] > 300) zpTry.shift();
       zpTry.push(now);
       if (now < zpQuietUntil) return false;
-      // (returns 'dense' when the cluster cue played instead: the app says so once, review snddef-4)
+      // (returns 'dense' when the cluster cue played instead: the app says so once)
       if (zpTry.length >= 3) { zpQuietUntil = now + 600; return play('dense', { pan: o.pan }) && 'dense'; }
       if (now - (lastStart.get('zp') || -1e9) < d.gap) return false;
       lastStart.set('zp', now);

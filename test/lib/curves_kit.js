@@ -136,7 +136,7 @@ const SC = [
     return out;
   } },
   // the preimage stroke is a crossing test, not a pole or a kink (review findings): tan(Re w) = 1 and 1/Re w = 1 add
-  // (maxFar: an isolated stray pixel is tolerated; the false pole-line stroke was a band ~4 px wide over the pane)
+  // (maxFar: an isolated stray pixel is tolerated; the false pole-line stroke is a band ~4 px wide over the pane)
   // no stroke along the pole lines of g (Re w = pi/2 + k pi; Re w = 0), and the complex-sided sin w = conj(sin w)
   // keeps its axes at any sub-pixel offset (|A - B| had a kink that the jump test dropped)
   { name: 'pre_target_tan_poles', maxFar: 2, target: '\\tan(\\operatorname{Re} w) = 1', steps: [{ type: 'custom', params: { expr: 'z+0.25i', cut: 180 } }], side: 'L', srcView: { cx: 1.5, cy: 0, s: 80 }, rv: { cx: 1.5, cy: 0, s: 80 },

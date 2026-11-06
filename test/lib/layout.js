@@ -156,7 +156,7 @@
 
   // a layer's stacking order: its own z-index or the nearest positioned ancestor's (auto: 0)
   const zOf = (e) => { for (let a = e; a && a !== document.documentElement; a = a.parentElement) { const z = getComputedStyle(a).zIndex; if (z !== 'auto') return +z; } return 0; };
-  // the layers open now (visible), outermost first in document order; under(e): the topmost element at e's centre is
+  // the layers currently open (visible), outermost first in document order; under(e): the topmost element at e's centre is
   // in a layer that does not hold e
   function openLayers() {
     const sel = INTENT.layers.join(', ');
@@ -345,7 +345,7 @@
   // a disabled control, a link inside a sentence
   function targetSizes(min = 24, scope = document.body) {
     const out = [];
-    // (a control under a layer that covers it is no target now, and the neighbours that count are in its own layer)
+    // (a control under a layer that covers it is no target, and the neighbours that count are in its own layer)
     const all = controls(scope).filter((e) => !disabled(e) && getComputedStyle(e).pointerEvents !== 'none' && seen(e) && !under(e));
     const inline = (e) => e.tagName === 'A' && getComputedStyle(e).display === 'inline' && /\S/.test((e.parentElement.textContent || '').replace(e.textContent, ''));
     const T = all.filter((e) => !inline(e) && !all.some((o) => o !== e && o.contains(e) && !disabled(o)))
