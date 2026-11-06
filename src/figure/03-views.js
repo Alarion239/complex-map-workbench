@@ -533,15 +533,9 @@
     // column's width, the plane's name in math; the figure is as tall as its picture or its key, the taller)
     let keyBottom = 0;
     if (keyW) {
-      const R = keyW / 2 - KEY_RING_ROOM, kx = xs.L + h * asp('L') + KEY_GAP + keyW / 2, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
-      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`), ...ringMarks(kx, ky, R, tp));
-      const lns = [];
-      let cur = '';
-      for (const wd of sk.carried.text.split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, sk.carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
-      if (cur) lns.push(cur);
-      const y0 = ky + R + 1.5 + lh + 2;
-      lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, sk.carried.from), tp), kx, y0 + j * lh, 'middle', 'top', 'key')));
-      keyBottom = y0 + lns.length * lh + 2;
+      const kx = xs.L + h * asp('L') + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp);
+      items.push(...k.items);
+      keyBottom = k.bottom;
     }
     const H = Math.max(y + h + bottom, keyBottom);
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
@@ -639,6 +633,20 @@
     return `<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0)} ${f2(ky)}a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(2 * r0)} 0a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(-2 * r0)} 0Z" clip-rule="evenodd"/></clipPath>`
       + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
       + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/>`;
+  }
+  // the key of a plane past the colour plane, in a column keyW pt wide centred on kx whose top is y: the ring, then the line
+  // saying where the colour is carried from, wrapped to the column's width, the plane's name in math. Returns its items and
+  // the y its last line ends at
+  async function carriedKey(carried, kx, y, keyW, tp) {
+    const R = keyW / 2 - KEY_RING_ROOM, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
+    const items = [await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`), ...ringMarks(kx, ky, R, tp)];
+    const lns = [];
+    let cur = '';
+    for (const wd of carried.text.split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
+    if (cur) lns.push(cur);
+    const y0 = ky + R + 1.5 + lh + 2;
+    lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, carried.from), tp), kx, y0 + j * lh, 'middle', 'top', 'key')));
+    return { items, bottom: y0 + lns.length * lh + 2 };
   }
   // the marks 1, i, -1, -i round a ring (offsets in pt, tp the tick text's size)
   const ringMarks = (kx, ky, R, tp) => [
