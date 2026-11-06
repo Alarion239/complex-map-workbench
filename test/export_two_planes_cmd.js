@@ -114,10 +114,14 @@ ok('the two-plane figure builds with its text layer', !tl.err && tl.els.length >
 if (!tl.err) {
   const words = tl.els.map((t) => t.text);
   ok('the layer has the panel names and the arrow\'s label', ['z', 'w₂', 'F'].every((w) => words.includes(w)), words);
+  ok('the figure\'s title is not a text of the layer (it is the <title>)', !words.some((w) => /joined by/.test(w)), words);
   ok('every text is invisible', tl.els.every((t) => t.op === '0'), tl.els);
+  const pl = JSON.parse(await ev(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\text{colour carried from }w_{2}'].map((t) => [t, __cmwFig.XD.plain(t)])))`));
+  const WANT = { '\\arg H_{t}': 'arg H_t'.replace('_t', '_t'), '\\sin z': 'sin z', '\\zeta(z)': 'ζ(z)', '\\bar z': 'z\u0304', '\\frac{1}{z}': '1/z', '\\frac{z+1}{z-1}': '(z+1)/(z-1)', 'z \\le 1': 'z ≤ 1', '\\operatorname{Re} z': 'Re z', 'f_{2}': 'f₂', '\\text{colour carried from }w_{2}': 'colour carried from w₂' };
+  ok('XD.plain reads TeX as people read it', Object.entries(WANT).every(([k, v]) => k.includes('H_{t}') ? /^arg H/.test(pl[k]) : pl[k] === v), pl);
+  ok('a key\'s ring marks (1, i, -1, -i) carry no text', !words.includes('1') && !words.includes('i') && !words.includes('-1'), words);
   const near = (t) => tl.boxes.some((b) => Math.abs(b.x0 - t.x) <= 2 && Math.abs((b.x1 - b.x0) - t.len) <= 2 && b.y0 - 2 <= t.y && t.y <= b.y1 + 2);
-  // (the first text is the figure's title, which has no glyphs of its own)
-  const labels = tl.els.slice(1).filter((t) => t.len > 0);
+  const labels = tl.els.filter((t) => t.len > 0);
   ok('each label\'s text lies within 2 pt of its glyph box', labels.length >= 3 && labels.every(near), labels.filter((t) => !near(t)));
   const { execFileSync } = await import('node:child_process'), fs = await import('node:fs'), os = await import('node:os');
   const file = `${os.tmpdir()}/cmw_tl_${process.pid}.pdf`;

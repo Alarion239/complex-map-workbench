@@ -81,16 +81,26 @@
     const base = ay === 'top' ? y + it.a : ay === 'bottom' ? y - it.d : ay === 'mid' ? y + it.a / 2 - it.d / 2 : y;
     return { x0: left, x1: left + it.w, y0: base - it.a, y1: base + it.d, left, base };
   };
-  // a label's TeX as the plain Unicode people read ("w₁", "Re z", "colour carried from z"), for the invisible text layer
-  const SUB = '₀₁₂₃₄₅₆₇₈₉', SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', alpha: 'α', beta: 'β', theta: 'θ', varphi: 'φ' };
-  XD.plain = (tex) => String(tex)
-    .replace(/\\(?:operatorname|text|textit|textbf|mathrm|mathit|displaystyle)\s*(?:\{([^{}]*)\})?/g, (m, a) => a || '')
-    .replace(/_\{?(\d+)\}?/g, (m, d) => [...d].map((c) => SUB[+c]).join(''))
-    .replace(/\\([A-Za-z]+)/g, (m, n) => SYM[n] || '')
-    .replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+  // a label's or caption's TeX as the plain Unicode people read ("w₂", "Re z", "1/z", "log|F|"): operator names and
+  // symbols by one table, a fraction as a/b (a part with more than one symbol in parentheses), a bar as a combining
+  // overline, a subscript digit as its Unicode form; a command the table lacks is left out
+  const SUB = '₀₁₂₃₄₅₆₇₈₉';
+  const SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', in: '∈', pm: '±', le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠',
+    alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+    arg: 'arg ', log: 'log', ln: 'ln', exp: 'exp', sin: 'sin ', cos: 'cos ', tan: 'tan ', sinh: 'sinh ', cosh: 'cosh ', tanh: 'tanh ', Re: 'Re ', Im: 'Im ' };
+  XD.plain = (tex) => {
+    const part = (v) => (/^[^\s+\-×·/]$/.test(v) || /^\(.*\)$/.test(v) ? v : `(${v})`);
+    return String(tex)
+      .replace(/\\(?:operatorname|text|textit|textbf|mathrm|mathit|mathbf)\s*\{([^{}]*)\}/g, '$1').replace(/\\displaystyle\s*/g, '')
+      .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (m, n, d) => `${part(n.trim())}/${part(d.trim())}`)
+      .replace(/\\(?:bar|overline)\s*(?:\{([^{}]*)\}|([A-Za-z]))/g, (m, a, b) => `${a || b}̄`)
+      .replace(/_\{?(\d+)\}?/g, (m, d) => [...d].map((c) => SUB[+c]).join(''))
+      .replace(/\\([A-Za-z]+)\s*/g, (m, n) => SYM[n] || '')
+      .replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+  };
   // the kinds of label that carry text, in reading order: a panel's name (its title or its variable), the map arrow's label, the colour key's words,
   // the axis titles (ticks, point labels and captions carry none)
-  const TEXT_KINDS = ['title', 'panel-letter', 'arrow', 'key', 'axis-name'];
+  const TEXT_KINDS = ['title', 'panel-letter', 'arrow', 'key', 'axis-name'];  // ('ring-mark', a key's 1, i, -1, -i, carries none)
   XD.rec = null;
   // place a typeset item; ax: start|middle|end, ay: base|mid|top|bottom. kind tags the box for the preflight
   XD.at = (it, x, y, ax = 'start', ay = 'base', kind = 'label', halo = 0) => {
@@ -99,8 +109,7 @@
     XD.boxes.push({ kind, tex: it.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
     if (XD.texts && TEXT_KINDS.includes(kind)) {
       const text = XD.plain(it.tex);
-      // (the ring's labels 1, i, -1, -i are marks, not words)
-      if (text && !(kind === 'key' && text.length < 3)) XD.texts.push({ kind, text, x: b.x0, base: b.base, w: b.x1 - b.x0, h: b.y1 - b.y0 });
+      if (text) XD.texts.push({ kind, text, x: b.x0, base: b.base, w: b.x1 - b.x0, h: b.y1 - b.y0 });
     }
     for (const [k, d] of it.glyphs) XD.glyphs.set(`${XD.ns}-${k}`, d);
     const inner = it.inner.split('@NS@').join(XD.ns);
@@ -269,10 +278,9 @@
     const glyphs = [...XD.glyphs.entries()].map(([id, d]) => `<path id="${id}" d="${d}"/>`).join('');
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
     // the invisible text layer over the glyph paths: each label's words, spread over its glyph box, in reading order (the
-    // figure's title, then the panels' names, the arrow's label, the key's words, the axis titles; each left to right)
-    // (the title has no glyphs of its own: a line TITLE_PT tall at the top left, TITLE_EM pt per letter, for a selection to land on)
-    const TITLE_PT = 8, TITLE_EM = 4.5;
-    const texts = [...(spec.title ? [{ kind: 'figure', text: String(spec.title), x: 0, base: TITLE_PT, w: Math.min(+W, TITLE_EM * String(spec.title).length), h: TITLE_PT }] : []), ...XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || a.x - b.x)];
+    // panels' names, the arrow's label, the key's words by line, the axis titles; each left to right; the figure's title is the
+    // <title> and the PDF's title)
+    const texts = XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || (a.kind === 'key' ? a.base - b.base || a.x - b.x : a.x - b.x));
     const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const layer = texts.length ? `<g class="cmw-text">${texts.map((q) => `<text x="${f2(q.x)}" y="${f2(q.base)}" font-size="${f2(q.h)}" textLength="${f2(q.w)}" lengthAdjust="spacingAndGlyphs" fill="#000000" fill-opacity="0">${esc(q.text)}</text>`).join('')}</g>` : '';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}${layer}</svg>`;
@@ -579,7 +587,9 @@
     if (doc.setLanguage) { try { doc.setLanguage(fig.lang === 'ru' ? 'ru-RU' : fig.lang === 'it' ? 'it-IT' : 'en-US'); } catch (e) { /* the language is optional */ } }
     doc.setFont('helvetica', 'normal');
     for (const q of fig.texts || []) {
-      const t = q.text.normalize('NFKD').replace(/[^\x20-\x7e]/g, '');
+      const n = q.text.normalize('NFKD').replace(/\p{M}/gu, '');
+      if (/(?![\x00-\x7f])\p{L}/u.test(n)) continue;
+      const t = n.replace(/[^\x20-\x7e]/g, '');
       if (!t) continue;
       doc.setFontSize(q.h);
       doc.text(t, q.x, q.base, { renderingMode: 'invisible' });
