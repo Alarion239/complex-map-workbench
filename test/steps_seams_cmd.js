@@ -55,6 +55,9 @@ const park = async (x, scope) => {
   await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
   ok('teeth: the frame is drawn with the fill\'s mask', await drawn(), null);
   const TEETH = `(() => {
+    // (a jump: colour distance over JUMP between vertically adjacent pixels; the band is BAND px; the mean is over the
+    // worst WORST rows; a row with LONG_RUN px or more jumping holds a seam along the rows)
+    const JUMP = 60, BAND = 40, WORST = 20, LONG_RUN = 20;
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
     const dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
@@ -64,8 +67,8 @@ const park = async (x, scope) => {
       for (let x = Math.floor(W * 0.2); x < Math.floor(W * 0.6); x++) if (sat(at(x, y)) > 40) { e = x; break; }
       if (e < 0) continue;
       let n = 0, run = 0, longest = 0;
-      for (let x = e; x < Math.min(W, e + 40); x++) {
-        if (dist(at(x, y), at(x, y + 1)) > 60) { n++; longest = Math.max(longest, ++run); } else run = 0;
+      for (let x = e; x < Math.min(W, e + BAND); x++) {
+        if (dist(at(x, y), at(x, y + 1)) > JUMP) { n++; longest = Math.max(longest, ++run); } else run = 0;
       }
       per.push([y, n, longest, e]);
     }
@@ -73,22 +76,22 @@ const park = async (x, scope) => {
     // horizontal step that is not the seam)
     // (the worst 20 rows in a row: the teeth of a sawtooth stand where the torn triangles are, not along the whole seam)
     let worst = 0, worstY = -1;
-    for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
-    // (a seam that runs along the rows, 20 px or more of the band jumping in one row, crosses that row along its whole
-    // band, however straight: there the same count is made along the seam, per column: in each column, the jumps
-    // between horizontally adjacent pixels in the 40 px band across the seam, and the worst 20 columns' mean)
+    for (let i = 0; i + WORST <= per.length; i++) { let s = 0; for (let j = i; j < i + WORST; j++) s += per[j][1]; if (s / WORST > worst) { worst = s / WORST; worstY = per[i][0]; } }
+    // (a seam along the rows crosses its row along the whole band, however straight, so there the same count is made
+    // along the seam: per column, the jumps between horizontally adjacent pixels in the band across the seam, and the
+    // worst columns' mean)
     let mode = 'rows', perCol = null, span = 0;
-    const hr = per.filter((q) => q[0] >= worstY && q[0] < worstY + 20 && q[2] >= 20).sort((a, b) => b[1] - a[1])[0];
+    const hr = per.filter((q) => q[0] >= worstY && q[0] < worstY + WORST && q[2] >= LONG_RUN).sort((a, b) => b[1] - a[1])[0];
     if (hr) {
-      const yw = hr[0], x0 = hr[3], jumps = (x, y) => dist(at(x, y), at(x, y + 1)) > 60;
+      const yw = hr[0], x0 = hr[3], jumps = (x, y) => dist(at(x, y), at(x, y + 1)) > JUMP;
       let x1 = x0;
       while (x1 < W - 1 && [-2, -1, 0, 1, 2].some((k) => jumps(x1, yw + k))) x1++;
       span = x1 - x0;
-      if (span >= 20) {
+      if (span >= LONG_RUN) {
         const cnt = [];
-        for (let x = x0; x < x1; x++) { let n = 0; for (let y = yw - 20; y < yw + 20; y++) if (dist(at(x, y), at(x + 1, y)) > 60) n++; cnt.push(n); }
+        for (let x = x0; x < x1; x++) { let n = 0; for (let y = yw - BAND / 2; y < yw + BAND / 2; y++) if (dist(at(x, y), at(x + 1, y)) > JUMP) n++; cnt.push(n); }
         let w = 0;
-        for (let i = 0; i + 20 <= cnt.length; i++) { let t = 0; for (let j = i; j < i + 20; j++) t += cnt[j]; w = Math.max(w, t / 20); }
+        for (let i = 0; i + WORST <= cnt.length; i++) { let t = 0; for (let j = i; j < i + WORST; j++) t += cnt[j]; w = Math.max(w, t / WORST); }
         mode = 'columns'; perCol = +w.toFixed(2);
       }
     }

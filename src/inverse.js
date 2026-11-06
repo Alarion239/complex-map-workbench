@@ -401,14 +401,14 @@ const Inverse = (() => {
   }
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
-  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // the tie band of each other, TIE_D (2^-14) octave plus the same part of D itself, are ties: a map symmetric about
-  // the window's centre (z^2 about 0) gives its points equal keys, which float rounding would order pixel by pixel.
-  // The band is the float error scale of D (the GPU's keys carry a few 1e-6 of it per unit, the tie band is ten times
-  // that) and a few hundredths of a pixel wide at a seam: a band edge is a contour of the key difference, parallel to
-  // the seam, where fixed steps of D would stagger it into teeth. A band is not transitive; keys chained through
-  // one only tie in the thin run where a symmetric map's equal keys are, and the walk's order is the same on the
-  // CPU and the GPU
+  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Two keys tie when
+  // they differ by at most the tie band: TIE_D (2^-14 octave) plus the same part of D itself, the float error scale of
+  // a key (the GPU's carry a few 1e-6 of it per unit; the band is ten times that). A map symmetric about the window's
+  // centre (z^2 about 0) gives its points equal keys, which float rounding would otherwise order pixel by pixel.
+  // The band is a few hundredths of a pixel wide at a seam, and its edge is a contour of the key difference, parallel
+  // to the seam: fixed steps of D (the earlier rule) staggered the seam into teeth. A band is not transitive (a ties
+  // b, b ties c, a does not tie c), but only keys that differ by float noise chain so; the CPU and the GPU insert
+  // candidates in the same walk order with the same comparison
   const TIE_D = 2 ** -14;
   const tieBand = (D) => TIE_D * (1 + D);
   // the early stops (a side stops when its members' keys provably exceed the front's by more than the margin): the
