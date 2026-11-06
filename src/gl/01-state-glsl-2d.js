@@ -723,7 +723,7 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
   // preKeyDepth(sa, stepped), sa the source point: depth = (s + 0.999 (tie order)) / (KEY_SMAX + 1), s = KEY_STEPS ln(1 + D).
-  // - KEY_STEPS = 2^14: the key's steps per unit of ln(1 + D). Inverse.front ties two sheets within a relative band of
+  // - KEY_STEPS = 2^14 (1 / the band's relative width): the key's steps per unit of ln(1 + D). Inverse.front ties two sheets within a relative band of
   //   2^-14 (1 + D), a constant step of ln(1 + D), so the key is uniform in that variable: keys a tie step apart are one
   //   unit of s apart, and the tie order, in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys
   //   within a step. A map symmetric about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|)
@@ -734,13 +734,19 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   //   triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
-  // - D is capped at KEY_DMAX = 63 (a point that far behind is behind every point that matters), so s <= KEY_SMAX
-  //   = 2^14 ln 64 (about 2^16.1) and the depth is linear in [0, 1): a step spans about 2^7.9 of the 24-bit depth buffer's levels,
-  //   which keep the tie order apart.
+  // - KEY_STEPS = 1 / KEY_TIE_D and KEY_SMAX (the largest s, rounded up, with room for the tie order) follow from the
+  //   band's width, so the key and Inverse.front share it.
+  // - D is capped at KEY_DMAX = 63: D is a log2 distance plus pole penalties, and a point 2^63 window radii (or a
+  //   pole's penalty that large) away is behind every point that matters. Then s <= KEY_SMAX (about 2^16.1) and the depth is
+  //   linear in [0, 1): a step spans about 2^7.9 of the 24-bit depth buffer's levels, which keep the tie order apart.
+  const KEY_TIE_D = 2 ** -14;   // (Inverse.TIE_D, the band's relative width)
+  const KEY_DMAX = 63;
+  const KEY_STEPS = 1 / KEY_TIE_D;
+  const KEY_SMAX = Math.ceil(Math.log(1 + KEY_DMAX) * KEY_STEPS) + 2;
   const PRE_KEY_DECL = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
-const float KEY_STEPS = 16384.0;
-const float KEY_DMAX = 63.0;
-const float KEY_SMAX = 68141.0;
+const float KEY_STEPS = ${KEY_STEPS.toFixed(1)};
+const float KEY_DMAX = ${KEY_DMAX.toFixed(1)};
+const float KEY_SMAX = ${KEY_SMAX.toFixed(1)};
 float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
