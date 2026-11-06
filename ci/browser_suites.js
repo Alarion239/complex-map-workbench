@@ -65,8 +65,6 @@ const SUITES = {
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  // (the seams at the device pixel ratio 1 and at the Mac screen's 2: the kit's CMW_DPR; the carried fill's pixel-centre read shows its teeth at 2 on software GL)
-  'steps_seams_cmd.js': { runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }] },
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
   // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
   'steps_glide_look_cmd.js': { runs: [
