@@ -318,7 +318,9 @@
   // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between them is split
   // there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
   // the chords would cut across it
-  const CUT_FLAT = 0.75, CUT_DEPTH = 6;
+  // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
+  // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT)
+  const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480;
   // the distance (px) of the point q from the segment a-b
   function segDist(q, a, b) {
     const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
@@ -341,7 +343,7 @@
       split(i0, p0, im, pm, depth + 1); put(pm); split(im, pm, i1, p1, depth + 1);
     };
     let prev = null;
-    for (let i = 0; i <= 480; i += step) {
+    for (let i = 0; i <= CUT_SAMPLES; i += step) {
       const p = at(i);
       if (prev) split(i - step, prev, i, p, 0);
       put(p);

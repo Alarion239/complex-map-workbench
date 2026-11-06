@@ -20,6 +20,8 @@ const NEAR_END = 0.2;      // how close to u = 0 or 1 the frame is parked: farth
 const INK_TOL = 40;        // per channel, #CC3311: the 1.75 px stroke's edge pixels are part paper; half strength is 100 off in green
 const HALF = 0.5;          // the glide parked half-way
 const THIN = 4;            // the glide's frames take every fourth sample of the rest set
+const MIN_VISIBLE = 50;    // the points of the rim bank that must show on the globe before it is read
+const MIN_SEG = 1;         // a segment under this many px is a point to the eye; its midpoint is not tested
 const CHORD_TOL = 0.05;    // a drawn segment's midpoint against the curve's circle, as a share of its radius (a pixel is about 1 %)
 await view(1200, 800, false, false);
 const J = (e) => ev(`(${e})`);
@@ -126,7 +128,11 @@ info.pre = { base: base.length, mid: mid && w0(mid).length };
 await open([{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true }]);
 await at({ go: 1, now: true, surf: 'sphere' }, 1);
 await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1');
-await sleep(2500);
+const rimKey = await settled({
+  max: 30000,
+  until: `(() => { const c = __cmwCutCurves().find((q) => !q.solid), k = c ? c.s.filter(Boolean).length : 0; const same = k > ${MIN_VISIBLE} && window.__rimKey === k; window.__rimKey = k; return same; })()`,
+});
+ok('chain C on the globe: the rim bank is drawn and settles', rimKey && rimKey.ok, rimKey);
 cv = await curves();
 const rim = cv.find((c) => !c.solid);   // (the clockwise bank, arg z = π: |w| = e^-π; the other is |w| = e^π, at the north pole)
 const chords = !rim ? null : await J(`(() => {
@@ -134,7 +140,7 @@ const chords = !rim ? null : await J(`(() => {
   let n = 0, worst = 0;
   for (let i = 0; i + 1 < S.length; i++) {
     const p = S[i], q = S[i + 1];
-    if (!p || !q || Math.hypot(p[0] - q[0], p[1] - q[1]) < 1) continue;
+    if (!p || !q || Math.hypot(p[0] - q[0], p[1] - q[1]) < ${MIN_SEG}) continue;
     const w = __cmwSphereWL((p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
     if (!w) continue;
     n++; worst = Math.max(worst, Math.abs(Math.hypot(w[0], w[1]) / R - 1));
