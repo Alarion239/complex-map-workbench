@@ -25,10 +25,13 @@ const press = async (d) => { await clickSel(`#svStrip .sv-awalk[data-d="${d}"]`)
 
 await open(1440, 900);
 ok('no walk buttons on the whole chain', (await walk(1)) === null && (await walk(-1)) === null);
+const pill = () => ev(`(() => { const g = document.querySelector('#svStrip .sv-alone'); if (!g) return null; const r = g.getBoundingClientRect(); return { role: g.getAttribute('role'), label: g.getAttribute('aria-label'), h: Math.round(r.height), kids: [...g.children].map((c) => c.className.split(' ')[0]), segs: [...g.children].map((c) => Math.round(c.getBoundingClientRect().height)) }; })()`);
 await clickSel('#svStrip .sv-step[data-k="1"] .sv-more');
 await until("[...document.querySelectorAll('[role=menuitem], .menu button')].some((e) => /Show alone/.test(e.textContent))");
 await ev(`(() => { const m = [...document.querySelectorAll('[role=menuitem], .menu button')].find((e) => /Show alone/.test(e.textContent)); if (m) m.click(); return 1; })()`); await until("!!document.querySelector('#svStrip .sv-whole')"); await quiet();
 const seq = [await alone()];
+info.pill = await pill();
+ok('Whole chain and ‹ › are one labelled group of 34 px', info.pill && info.pill.role === 'group' && info.pill.label === 'Step shown alone' && info.pill.kids.join() === 'sv-whole,sv-awalk,sv-awalk' && info.pill.h === 34 && info.pill.segs.every((v) => v >= 32), info.pill);
 const tips = [await walk(-1), await walk(1)];
 ok('f1 alone: ‹ is aria-disabled with its tip, › names f2', tips[0] && tips[0].off === 'true' && /f₁/.test(tips[0].tip) && /No step before/.test(tips[0].tip) && tips[1].off === 'false' && /f₂/.test(tips[1].tip) && tips[0].label === 'Previous step alone' && tips[1].label === 'Next step alone', tips);
 await press(-1); seq.push(await alone());
@@ -49,5 +52,6 @@ await clickSel('#svStrip .sv-whole'); await until("!document.querySelector('#svS
 ok('Whole chain leaves', (await alone()) === 0 && (await walk(1)) === null);
 await open(360, 740, 'en', { sv: { at: 0, T: -1, scope: 'chain', surf: 'plane', speed: 1, alone: 2 } });
 info.phone = await walk(1);
-ok('phone: 44 px targets when a step is shown alone', info.phone && info.phone.w >= 44, info.phone);
+info.phonePill = await pill();
+ok('phone: 44 px segments when a step is shown alone', info.phone && info.phone.w >= 44 && info.phonePill && info.phonePill.segs.every((v) => v >= 44), [info.phone, info.phonePill]);
 return { pass, fails, info };

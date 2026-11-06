@@ -3406,5 +3406,6 @@
  "Next step alone": "Passo successivo da solo",
  "Show f{k} alone": "Mostra solo f{k}",
  "No step before f{k}": "Nessun passo prima di f{k}",
- "No step after f{k}": "Nessun passo dopo f{k}"
+ "No step after f{k}": "Nessun passo dopo f{k}",
+ "Step shown alone": "Passo mostrato da solo"
 }
