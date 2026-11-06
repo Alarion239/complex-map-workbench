@@ -17,7 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
-  const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
+  const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // budgets (SPEC 3.1)
   const LEAF_CAP = 64, WIN_MAX = 17, MIN_WIN = 9, OPS_MAX = 16, POLY_MAX = 64, M_MAX = 2 ** 20, RAMP = 1;
@@ -35,7 +35,8 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -55,8 +56,10 @@ const Inverse = (() => {
     });
     return JSON.stringify(['inv2', sigs]);
   }
-  // an op's part of the key: its kind, and a NEWT op's seeding ops with their member counts (they shape its program)
+  // an op's part of the key: its kind, a NEWT op's seeding ops with their member counts and a polynomial NEWT op's degree
+  // (they shape its program)
   function opSig(o) {
+    if (o.kind === 'NEWT' && o.p && o.p.deg) return `NEWT^${o.p.deg}`;
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
     return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind;
   }
@@ -1602,6 +1605,18 @@ const Inverse = (() => {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
+    // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
+    if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
+      const { s, theta, k } = one.p, sv = add(ONE, scale(sub(s, ONE), t));
+      return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] };
+    }
+    // log on the cut theta, sheet k (logHom): (z^u - 1)/u + u, u = 1 - t, z^u on that branch; the logarithm itself
+    // where u is below logHom's 1e-6
+    if (one && one.kind === 'LOG' && !nat && id === 'log') {
+      const u = 1 - t, { theta, k } = one.p;
+      if (u < 1e-6) return own;
+      return { ok: true, ops: [opRootPow(C(u, 0), theta, k, (z) => CX.powReal(z, u, theta, k)), aff(C(1 / u, 0), C(u - 1 / u, 0))] };
+    }
     if (nat && nat.kind === 'pow' && nd) {
       const sv = C(1 + (nd.n - 1) * t, 0);
       return { ok: true, ops: [aff(ONE, neg(nd.c)), opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), aff(exp(scale(nd.la, t)), scale(nd.c, 1 - t))] };
@@ -1618,20 +1633,58 @@ const Inverse = (() => {
       const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);
       return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
     }
+    // Joukowski (Funcs joukHom): C^-1((Cz)^(1+t)), C(z) = (z - 1)/(z + 1), on the branch arg Cz in (-pi/2, 3pi/2]; as the
+    // principal power of -i Cz, (Cz)^s = e^(i pi s / 2) (-i Cz)^s with s = 1 + t. Its ROOTPOW carries glideKey: the
+    // chain's poles are the Cayley map's, not the homotopy's, so a glide frame keys its points by the glide's key
+    // points (invHomPath's singAt), as for a NEWT op
+    if (nat && nat.kind === 'jouk') {
+      const sv = C(1 + t, 0), k = C(Math.cos(HPI * (1 + t)), Math.sin(HPI * (1 + t))), mI = C(0, -1);
+      const rp = Object.assign(opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), { glideKey: true });
+      return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), rp, opMob([k, ONE, neg(k), ONE])] };
+    }
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
-  // step has its f); the step's own exact ops, when they have finitely many members (newtSeedCounts), seed Newton's
-  // walks back from t = 1. A step that is not analytic (no complex derivative for Newton): {ok: false, reason}
+  // step has its f). A polynomial step of degree 2 to NEWT_POLY_MAX (its degree known exactly) has a homotopy that is
+  // a polynomial in u of that degree at most (the straight line, or a zoom: f conjugated by affine maps): its members are
+  // every root of H_t(u) = w. Otherwise the step's own exact ops, when they have finitely many members
+  // (newtSeedCounts), seed Newton's walks back from t = 1. A step that is not analytic (no complex derivative for
+  // Newton): {ok: false, reason}
   function newtOps(b, t, reason) {
-    if (!(b.props && b.props.analytic)) return { ok: false, reason };
+    const P = b.props;
+    if (!(P && P.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
+    if (P.polynomial && P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
     const own = stepOps(b);
     return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
   }
-  // a stand-in for built step b whose ops are its homotopy's at t (stepOps reads them)
-  function homBuilt(b, t) { return Object.assign({}, b, { __homOps: () => homOps(b, t) }); }
+  // the image of z under the forward ops of plan
+  function fwdOps(plan, z) { for (const o of plan.ops) z = o.fwd(z); return z; }
+  // The anchor of a NEWT op for area shape sh drawn in window win: {re, y0, y1}, in the plane after the ops of plan (the
+  // prefix of a glide's chain, forward). re is that of Region.interiorPoint pushed through the ops; [y0, y1] is the
+  // extent of Im over the images of a grid on the shape's box within win, the part of the shape's preimage the window
+  // shows. null when the shape has no interior point or the images are not finite
+  const ANCHOR_GRID = 9;
+  function shapeAnchor(plan, sh, win) {
+    const p = RG().interiorPoint(sh, win);
+    if (!p) return null;
+    const c = fwdOps(plan, C(p[0], p[1]));
+    if (!isFin(c)) return null;
+    const bb = RG().bboxOf(sh);
+    const x0 = bb && win ? Math.max(bb.x0, win.x0) : (bb || win).x0, x1 = bb && win ? Math.min(bb.x1, win.x1) : (bb || win).x1;
+    const y0 = bb && win ? Math.max(bb.y0, win.y0) : (bb || win).y0, y1 = bb && win ? Math.min(bb.y1, win.y1) : (bb || win).y1;
+    let lo = c.im, hi = c.im;
+    for (let i = 0; i < ANCHOR_GRID; i++) {
+      for (let j = 0; j < ANCHOR_GRID; j++) {
+        const u = fwdOps(plan, C(x0 + (x1 - x0) * i / (ANCHOR_GRID - 1), y0 + (y1 - y0) * j / (ANCHOR_GRID - 1)));
+        if (isFin(u)) { lo = Math.min(lo, u.im); hi = Math.max(hi, u.im); }
+      }
+    }
+    return { re: c.re, im: c.im, y0: lo, y1: hi > lo ? hi : lo + 1 };
+  }
+  // a stand-in for built step b whose ops are hk's (homOps(b, t)'s result, the same object each time)
+  function homBuilt(b, hk) { return Object.assign({}, b, { __homOps: () => hk }); }
   // catalog types whose homotopy satisfies H_0 = id and H_1 = f (to 1e-12 (1 + |f|)): a paused morph at t = 0 or 1
   // may be drawn as the mode-0 map of the stage it equals
   const HOM_EXACT = new Set(['mul', 'add', 'affine', 'recip', 'mobius', 'blaschke', 'pown', 'root', 'powa', 'exp', 'log',
@@ -1642,7 +1695,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, newtBackK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

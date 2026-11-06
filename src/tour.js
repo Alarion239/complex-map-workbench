@@ -359,9 +359,9 @@ const Tour = (() => {
           try: { text: 'Circle the zero $1$, then the pole $-1$.', touch: 'Hold near $1$, slide round it, then round $-1$.', on: 'hear-turn', test: harpUpDown, then: 'A scale up and a scale down: one turn of $\\arg F$ each.' } },
         { id: 'loop', anchor: 'panes', needs: 'zp', act: 'listen', title: 'A loop sings its number', before: [['scene', 'harpLoop'], ['view', 'phase'], ['tool', 'select']],
           body: 'Listen along a closed curve plays the same notes, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.',
-          try: { text: 'Press ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || (!!e.closed && e.W === 1 && !!e.full), then: '$W=1$: one turn of $\\arg F$, sung as F♯.' } },
+          try: { text: 'Click ▶ and listen as the loop winds round the zero.', touch: 'Tap ▶ and listen as the loop winds round the zero.', off: 'Click ▶ to turn sound on and hear the loop wind round the zero.', on: 'listen-ended', test: (e) => !e || (!!e.closed && e.W === 1 && !!e.full), then: '$W=1$: one turn of $\\arg F$, sung as F♯.' } },
         { id: 'settings', anchor: ['soundBtn', 'soundBar', 'moreBtn'], needs: 'sound', title: 'Sound settings',
-          lead: 'Turn sound, or Hear the function, on or off here.',
+          lead: 'Switch Sound and Hear the function on or off here.',
           body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.',
           narrow: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. To hear the function, turn it on there: each colour line that $\\arg F$ crosses plays a note.',
           touch: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.' },
@@ -516,7 +516,7 @@ const Tour = (() => {
     examples: '#examplesBtn', palette: '#cmdBtn', exportBtn: '#exportBtn', helpBtn: '#helpBtn', moreBtn: '#hdrMoreBtn',
     // (#442: the steps view's thread, its ring, its Colour from here button, its two choices (a segmented control, or on a phone one
     // button that steps through them) and the first function chip)
-    svStrip: '#svStrip', svNext: () => vis1('#svStrip .sv-next'), svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: '#svHead .sv-scope',
+    svStrip: '#svStrip', svNext: () => vis1('#svStrip .sv-next'), svRing: '#svStrip .sv-thumb', svCp: '#svHead .sv-cp', svScope: () => vis1('#svHead .sv-scope, #svHead .sv-scope-menu'),
     svSurf: () => vis1('#svHead .sv-surf, #svHead .sv-surf1'), svChip: () => vis1('#svStrip .sv-fchip'), svChip2: () => vis1(SV_K2 + ' .sv-fchip'),
     // (the whole map's F chip, at the end of the rail; on a phone the rail scrolls, so it is brought into view for the step that lights it)
     svF: () => { const e = vis1('#svStrip .sv-wholemap'); if (e && e.scrollIntoView) e.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return e; },
