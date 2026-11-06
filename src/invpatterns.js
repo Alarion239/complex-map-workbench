@@ -32,6 +32,24 @@ const InvPatterns = (() => {
   const dfade = (w) => 1 - smooth(0.15, 0.35, w);
   const Gsaw = (x) => { const f = fract(x); return 0.5 * Math.floor(x) + 0.5 * f * f; };
   const sawAA = (x, w) => { w = Math.max(w, 1e-5); return (Gsaw(x + 0.5 * w) - Gsaw(x - 0.5 * w)) / w; };
+  // the colour wheel at arg th and lightness L: the OKLCH LUT through GLR.phaseRGB (the GPU's texels) when gl.js is
+  // loaded, else an HSV stand-in
+  const wheelRGB = (th, L) => {
+    if (GLR.phaseRGB) return GLR.phaseRGB(th, L);
+    const h = (th / TAU + 1) % 1;
+    const f = (n) => { const kk = (n + h * 6) % 6; return L - L * 0.55 * Math.max(0, Math.min(kk, 4 - kk, 1)); };
+    return [f(5), f(3), f(1)];
+  };
+  // The domain colouring of a value w (the GPU's dcolorAt, gl.js DCOLOR) in the wheel palette, for the styles 'phase'
+  // and 'enhanced' (the tiles: ln|w| and arg w in steps of 2π/sectors, |w| = 1 lightened): th = arg w, lr = ln|w|,
+  // flr and faw their changes over a pixel (0 for a point sample). [r, g, b] in 0..1; null for another style
+  function dcolorRGB(style, th, lr, flr = 0, faw = 0, sectors = 12) {
+    if (style === 'phase') return wheelRGB(th, 0.75);
+    if (style !== 'enhanced') return null;
+    const q = TAU / Math.max(sectors, 1), xm = lr / q, fm = flr / q, xp = th / q, fp = faw / q;
+    const sm = sawAA(xm, fm), sp = sawAA(xp, fp), d = 1 - smooth(0.25, 0.6, Math.max(fm, fp));
+    return mixc(wheelRGB(th, 0.62 + d * (0.20 * (sm - 0.5) + 0.07 * (sp - 0.5))), [1, 1, 1], 0.6 * iso0(lr, flr, 1.25));
+  }
   const net = (gx, gy, wx, wy) => Math.max(iso(gx, wx, 1), iso(gy, wy, 1)) * (1 - moire(wx, wy));
   const sdBox = (qx, qy, ax, ay, bx, by) => {
     const cx0 = 0.5 * (ax + bx), cy0 = 0.5 * (ay + by), hx = 0.5 * (bx - ax), hy = 0.5 * (by - ay);
@@ -158,13 +176,7 @@ const InvPatterns = (() => {
         const zz = isZero(z) ? C(1e-300, 0) : z, qx = div(dX, zz), qy = div(dY, zz);
         const flr = (Math.abs(qx.re) + Math.abs(qy.re)) * (6 / PI);
         const sw = sawAA(lr, flr) * (1 - moire(flr, flr)) + 0.5 * moire(flr, flr);
-        const L = 0.62 + 0.14 * sw;
-        if (GLR.phaseRGB) col = GLR.phaseRGB(th, L);
-        else {
-          const h = (th / TAU + 1) % 1, v = L;
-          const f = (n) => { const kk = (n + h * 6) % 6; return v - v * 0.55 * Math.max(0, Math.min(kk, 4 - kk, 1)); };
-          col = [f(5), f(3), f(1)];
-        }
+        col = wheelRGB(th, 0.62 + 0.14 * sw);
         if (lk.lines) col = mixc(col, k, 0.35 * net(g[0], g[1], gw[0], gw[1]));
         break;
       }
@@ -198,7 +210,7 @@ const InvPatterns = (() => {
     return { col, par, mo };
   }
 
-  return { PATTERNS, sqAA, hexRGB, patternColor };
+  return { PATTERNS, sqAA, hexRGB, patternColor, dcolorRGB };
 })();
 import { CX } from './cx.js';
 import { GLR } from './gl.js';
