@@ -45,6 +45,7 @@ const VIEWS = {
   'steps_fill_points_cmd.js': steps(),
   'steps_link_wait_cmd.js': steps(),
   'steps_seams_cmd.js': steps(),
+  'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),

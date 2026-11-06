@@ -369,7 +369,7 @@
   function prestartCarry() {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
-    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'], [1]);
+    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKCN'], [1]);
   }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
@@ -398,7 +398,7 @@
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     if (e) { e.carry = true; carryTmpT = performance.now(); }
-    let P = e ? program('regionKC', st.map) : null;
+    let P = e ? program(cuts ? 'regionKC' : 'regionKCN', st.map) : null;
     // (the fill's places from its point pass, fillPoints: the chain once per point of a torn sub-triangle. The fill never
     // evaluates them itself, so its frames are the point pass's whatever the compiler does with either program; while
     // the pass cannot run (fillPts or the fill still linking) the sheet program stands in, below)
@@ -425,7 +425,7 @@
       if (P && masked && !(mask = maskOf('regionKS', full, cache ? linked : program))) P = full = null;
       if (P) e = null;
     }
-    if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
+    if (!P) { e = null; P = (cache || cuts ? linked : program)(cuts ? 'regionK' : 'regionKN', st.map); }
     return P ? { L, e, P, fill, fp, full, clip, mask } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)

@@ -89,8 +89,10 @@
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
   // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
   // the fill draws through: drawRegionCarry)
-  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
-  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip, true);
+  const REGION_K_VS = (fetch, sheet, clip, centre) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip, centre: !!centre });
+  // (centre: vP read at the pixel centre, not at the centroid of the pixel's covered samples; the vertex stage's and the
+  // fragment stage's qualifiers match)
+  const REGION_K_FS = (clip, centre) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip, !centre);
   const REGION_KM_FS = () => UTIL + CARRY_MASK_FS;
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
@@ -100,6 +102,10 @@
     // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
     // triangle's own sheet)
     regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS() },
+    // (regionK and regionKC for a chain with no cut: the colour at the pixel centre, so the pixels along a triangle's edges read
+    // the point the map's plot reads, not one up to half a pixel off)
+    regionKN: { chain: true, vs: () => REGION_K_VS('chain', false, false, true), fs: REGION_K_FS(false, true) },
+    regionKCN: { chain: true, vs: () => REGION_K_VS('tex', false, false, true), fs: REGION_K_FS(false, true) },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
