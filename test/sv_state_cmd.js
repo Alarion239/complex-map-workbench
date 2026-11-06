@@ -80,7 +80,7 @@ ok('the speed menu writes both the state and the device', menu.dev === 'slower' 
 await ev(`localStorage.removeItem('cmw-sv-speed')`);
 // the classic view ignores it, and keeps it
 await load(ns, { steps, sv });
-await nav(`${base}/test.html?ns=${ns}&view=classic`); await sleep(2500);
+await nav(`${base}/test.html?ns=${ns}&view=classic`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 await hooked(); await sleep(500);
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 st = await ev('__cmwSteps()');
