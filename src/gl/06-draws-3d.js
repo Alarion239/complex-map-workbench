@@ -1122,6 +1122,9 @@
     lvCollect();
     // (#846) the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
     if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
+    // (a carry that moves nothing, plane s at rest: its own refined cells, the colour of the stages up to T)
+    const idc = st.carry && st.sheets && st.carry.map.mode === 0 && st.carry.map.a === st.carry.map.b && st.carry.s === st.carry.map.a ? st.carry.T : null;
+    if (idc != null) st = Object.assign({}, st, { carry: null, colT: idc });
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -1237,7 +1240,7 @@
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
       // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
-      const colB = hs && st.carry && st.carry.T < hs.b ? st.carry.T : hs ? hs.b : 0;
+      const colT = st.carry ? st.carry.T : st.colT, colB = hs && colT != null && colT < hs.b ? colT : hs ? hs.b : 0;
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
@@ -1272,8 +1275,8 @@
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
-      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 1 % of the distance)
-      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-2);
+      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
+      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -1438,6 +1441,7 @@
       }
     }
     resetState();
+    if (idc != null) info.carried = true;
     return info;
   }
 

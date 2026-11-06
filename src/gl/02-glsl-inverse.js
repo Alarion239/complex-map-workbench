@@ -75,6 +75,16 @@ uniform int uKsat; uniform int uKall;
 uniform int uIxTail;
 uniform highp sampler2D uPts; uniform int uShOff; uniform ivec4 uShape; uniform vec4 uShA; uniform vec4 uShB; uniform vec4 uShC;
 uniform int uFormSlot;
+#ifdef IX_STAGED
+// uShStage > 0 (programs with IX_STAGED: the carried one for the shapes of later planes): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
+uniform int uShStage;
+// uEdgeOnly = 1: the pass draws the shape's boundary band alone, not its fill: alpha uEdgeA over the pixels within uEdgeW
+// device px of the boundary of any candidate (the colour channels stay zero: it is drawn into a mask's alpha)
+uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA;
+// uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
+uniform float uStageGrow;
+float ixEdge;
+#endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
@@ -246,7 +256,19 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   int kind = uShape.x;
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
-  if (IX_HASLAM(L) && abs(L.lam.x) > 60.0) {
+#ifdef IX_STAGED
+  if (uShStage > 0) {
+    // (the shape's level at the point's image on its plane, along the image of the footprints)
+    if (!zf) return;
+    vec2 g0 = chainRange(z, 0, uShStage), gx = chainRange(z + dX, 0, uShStage) - g0, gy = chainRange(z + dY, 0, uShStage) - g0;
+    if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
+    z = g0; dX = gx; dY = gy;
+  }
+  bool ixOwn = uShStage == 0;
+#else
+  const bool ixOwn = true;
+#endif
+  if (ixOwn && IX_HASLAM(L) && abs(L.lam.x) > 60.0) {
     bool big = L.lam.x > 0.0, at0 = uShC.x > 0.5;
     float th = L.lam.y;
     if (kind == 4) { if (big || uShC.y > 0.5) ixDirHalf(uShA.zw, th, dLX, dLY, cs, s, n); else s = at0 ? IX_BIG : -IX_BIG; return; }
@@ -686,6 +708,11 @@ float invLeaf(Lf L, out bool cov) {
   }
 #endif
   if (!done) ixShapePx(z, zf, dX, dY, L, dLX, dLY, s, n);
+#ifdef IX_STAGED
+  // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
+  if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
+  if (uEdgeOnly == 1 && s == s) ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0) * uEdgeA);
+#endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
@@ -729,8 +756,11 @@ ${globe ? `  vec3 P = normalize(vP);
   ixDwX = vec2(uInvScale.x, 0.0); ixDwY = vec2(0.0, uInvScale.y);
   ixPix = uInvScale.x;`}
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+#ifdef IX_STAGED
+  ixEdge = 0.0;
+#endif
   invWalk(w);
-  ixTieOrder();
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}  ixTieOrder();
   float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {

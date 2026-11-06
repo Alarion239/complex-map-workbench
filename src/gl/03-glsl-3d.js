@@ -1140,7 +1140,9 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // the moving plane's points may go. Where the places fold (several points of plane s on one spot, at one height:
   // exp's or a power's image, uKeyOn 1), the fragment's depth is moved back by uKeyEps times the sheet key of its point
   // (preKeyDepth, the 2D carried colour's order) as a share of its distance from the eye, so the point the 2D picture
-  // shows is the one in front, and surfaces apart by more than that share keep their order
+  // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
+  // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
+  // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
@@ -1191,7 +1193,7 @@ void main() {
 ${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
-  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
+  const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
   float la = ht.y > 0.5${sheet ? ' && uCarryCol == 0' : ''} ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}

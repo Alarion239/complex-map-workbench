@@ -25,7 +25,8 @@
     const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const legIn = !!(leg && hd && leg.parentNode === hd);
     const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
-    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    // (the steps view's head fit folds the chip itself, sv-lg: it stays folded)
+    if (legIn) { leg.classList.toggle('glyph', SV.on && hd.classList.contains('sv-lg')); hd.classList.remove('tight', 'noled'); }
     if (legIn && !leg.hidden && tabsCut()) {
       leg.classList.add('glyph');
       if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
@@ -1241,6 +1242,11 @@
       ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, sy - 2); ctx.lineTo(mx, sy + sh + 2); ctx.stroke();
     }
   }
+  // the modulus key's facts, shared by the pane and the export's still and video: the bands' light and dark ends, the
+  // factor per band, and the caption words around the plane's variable
+  const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
+  const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
+  const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
   function paintLegend(ctx, anyCut, kind, st) {
     const { W, H: Hh } = LEG;
     ctx.clearRect(0, 0, W, Hh);
@@ -1339,6 +1345,7 @@
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
+      st.caption = words.join(' ');
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
@@ -1352,7 +1359,7 @@
     const Fl = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
-    if (kind !== '3d' && plainL) { caption(`arg ${Fl}`); return; }
+    if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
     // modulus strip
     st.strip = !(kind === 'color' && S.dc === 'classic');
     if (kind === 'color' && S.dc === 'classic') {
@@ -1365,7 +1372,7 @@
     } else {
       for (let b = 0; b < 3; b++) {
         const g = ctx.createLinearGradient(sx + b * sw / 3, 0, sx + (b + 1) * sw / 3, 0);
-        g.addColorStop(0, TH.dark ? '#3a4650' : '#9aa4ab'); g.addColorStop(1, TH.dark ? '#c9d2d8' : '#eef2f4');
+        g.addColorStop(0, keyStops(TH.dark)[0]); g.addColorStop(1, keyStops(TH.dark)[1]);
         ctx.fillStyle = g; ctx.fillRect(sx + b * sw / 3, sy, sw / 3, sh);
       }
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
@@ -1375,11 +1382,11 @@
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
-      else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
+      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
     }
     // (the steps view's Height key describes h(F), the same quantity on every plane)
     const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
-    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
+    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
   // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
