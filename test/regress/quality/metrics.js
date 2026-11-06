@@ -423,7 +423,7 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
   }
   if (pm) {
     if (strict) {
-      // parity of nothing is unknown: null when nothing was scored or far fewer pixels than the truth can score
+      // parity of nothing is unknown: null when nothing is scored or far fewer pixels than the truth can score
       const none = !parN || parN < MIN_SCORED * parExp;
       if (none) problems.push(`parity scored on ${parN} of the ${parExp} pixels the truth can score: reported as null`);
       m.parity_acc = none ? null : parOk / parN;
