@@ -412,6 +412,26 @@
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
   }
+  // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
+  const SV_CUT_THIN = 4;
+  // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
+  // - mapFor(j0): the map from the plane j0 (a cut's own plane) to the picture, the chain's steps up to the plane the glide
+  //   starts from, then the glide's homotopy at its u; null where the picture has no image of that plane (a plane past
+  //   the glide's, a d/dz step between, a middle plane of an All-at-once run);
+  // - pre: the cuts of the planes past the glide's, drawn as the preimages the plane it starts from shows at rest, carried
+  //   by the homotopy as every point of that plane is, so they meet the planes' own frames at both ends
+  // A picture at rest on a plane (or across a d/dz step) is that plane's
+  function svCutPlan(bt) {
+    const P = svPlanes(), { a, b, u, H, all, near } = bt, still = u <= 1e-6 || b === a;
+    if (still || isDeriv(b)) {
+      return { mapFor: (j0) => (j0 <= near && !derivIn(j0, near) ? rangeF(j0, near) : null), pre: { k: near, jMin: 0, H: null } };
+    }
+    const from = all ? P[bt.x0] : b - 1;
+    return {
+      mapFor: (j0) => (j0 <= from && !derivIn(j0, from) ? ((base) => (z) => H(base(z)))(rangeF(j0, from)) : null),
+      pre: { k: from, jMin: (all ? P[bt.x1] : b) + 1, H },
+    };
+  }
   // The steps view's deformation source for the paths t -> H_t(z) (classicSource's fields): the glide's run of planes
   // [lo, hi] (thread places), from where it started to where it goes (play: from its start; a glide: both ends; parked
   // or dragged between two planes: those two), with T the thread's place in it, so a glide over several planes keeps one
@@ -1400,7 +1420,7 @@
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
-    const { a, b, u, map, F, H: Hb, near } = svBetween(hold == null ? SV.g.x : hold), rest = !SV.anim && !(SV.drag && SV.drag.moved);
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
@@ -1498,6 +1518,7 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
+    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN); }
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
@@ -1665,7 +1686,7 @@
     return info;
   }
   function svSphereMoving(pane) {
-    const { a, b, u, map, F, near, all } = svBetween();
+    const bt = svBetween(), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
@@ -1704,6 +1725,7 @@
         drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
       } catch (e) { console.error('steps view globe paths', e); mfGlobeDrawn = { T: paths.T, heads: 0, error: String((e && e.message) || e) }; }
     }
+    if (info) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, sphereProj(pane, info), cp.pre, u > 1e-6 && b !== a ? SV_CUT_THIN : 1); }
     leftSphereInfo = info;
   }
 

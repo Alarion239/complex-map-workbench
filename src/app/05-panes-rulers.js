@@ -117,6 +117,8 @@
       if (typeof renderSphereLeft === 'function') info = renderSphereLeft(pane);
       else { paper(pane); paneNote(pane, $t('The sphere view of this plane is not available in this build.')); }
       leftSphereInfo = info;
+      // (the steps view's cuts: their image curves in this plane, on the globe)
+      if (SV.on && info) { const k = leftStage(); drawCutCurvesAt(pane, (j0) => (j0 <= k && !derivIn(j0, k) ? rangeF(j0, k) : null), sphereProj(pane, info), { k, jMin: 0, H: null }); }
       // the targets' roots (solved over the flat view's window) are lifted to the globe; renderSphereLeft paints
       // the pulled-back target regions on it
       if (hasTargets()) {
