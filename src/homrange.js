@@ -21,6 +21,9 @@ const HomRange = (function (factory) {
     // a d/dz segment's straight line with exact ends: G_{k−1} itself at t <= 0 and G_k at t >= 1,
     // so an infinite end does not make the other one NaN and a signed zero keeps its side of a cut (gl.js MAP_STAGE too)
     const lerpE = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : lerpF(F0, F1, t));
+    // the time of step k in an All-at-once map at time t: t, or, for the n steps (from, from + n] that one formula was split
+    // into (map.grp = { from, n }), that formula's own run of its steps in turn, step j on [j/n, (j+1)/n] (funcs.js r.hom)
+    const groupT = (grp, k, t) => (grp && k > grp.from && k <= grp.from + grp.n ? Math.max(0, Math.min(1, t * grp.n - (k - grp.from - 1))) : t);
     // the natural homotopy of step k at t, a map of its input plane; exact ends (D3): the identity at t <= 0, f at t >= 1
     function homF(k, t) {
       const f = env.stepFn(k);
@@ -145,7 +148,7 @@ const HomRange = (function (factory) {
       else if (mode === 3) {
         const F0 = env.rangeF(pb, map.a || 0), t = map.t || 0, Hs = [];
         top = map.b || 0;
-        for (let k = (map.a || 0) + 1; k <= top; k++) if (env.stepActive(k)) Hs.push(env.isDeriv(k) ? () => C(NaN, NaN) : homF(k, t));
+        for (let k = (map.a || 0) + 1; k <= top; k++) if (env.stepActive(k)) Hs.push(env.isDeriv(k) ? () => C(NaN, NaN) : homF(k, groupT(map.grp, k, t)));
         inner = (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
       } else return env.rangeF(map.a || 0, map.b || 0);
       const post = (map.post || 0) > top ? env.rangeF(top, map.post) : null;
@@ -162,7 +165,7 @@ const HomRange = (function (factory) {
       for (let b = Math.max(r.a, d, 1); b <= n; b++) okB.push(b);
       return { a: r.a, b: r.b, okA, okB, deriv: d };
     }
-    return { resolve, normal, write, range, state, cpuMap, homF, H0, lastDeriv, stops, leftStage, allAtOnce };
+    return { resolve, normal, write, range, state, cpuMap, homF, groupT, H0, lastDeriv, stops, leftStage, allAtOnce };
   }
   // ---- the step glide: the chain position x (the deformation's T, x = k the plane after k steps) follows an
   // integer target, which ‹ › move one step each. Not a tween: a critically damped spring, so a press never waits for
