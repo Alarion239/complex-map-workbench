@@ -12,13 +12,13 @@
 //   a part with no catalog reading is {type: 'custom', vals: {ast}} (the subtree as a function of its own input).
 //   groups: consecutive steps [from, to) that together are one piece of the formula as written; src is that piece as a
 //   function of the group's input (var z). Expr.compile(src) replays the formula's own arithmetic, signed zeros and
-//   overflow included, so the CPU values at the end of every group are the formula's bit for bit (review math-1..3).
+//   overflow included, so the CPU values at the end of every group are the formula's bit for bit.
 //   A step whose input is the value of a subtree of the formula as written carries that subtree as step.inp (a function
 //   of the formula's z): every log, root, power, inverse trigonometric step and formula part has one, so the
 //   deformation feeds it the formula's own value, signed zero included, and it reads the formula's side of its cut
-//   even inside a group (review verify-1).
+//   even inside a group.
 //   null: nothing to gain (no catalog step, or the formula is z itself, or a constant map): the formula stays as it is.
-// Shared numbers (num nodes with .param) never decide the structure (review math-5, frperf-1/2): every decision that
+// Shared numbers (num nodes with .param) never decide the structure: every decision that
 // reads a value (a zero or unit coefficient, two equal subtrees, a degree) is recorded on a tape at generic values of
 // the shared numbers (opts.tape = {mode: 'rec'}), and replayed at the current values (opts.tape = {mode: 'play', list}):
 // the chain keeps its step types while a slider moves. A value where the formula really changes kind (a constant map,
@@ -53,7 +53,7 @@ const Recognize = (() => {
     if (!e || e[0] !== tag) throw new Refuse('shape');
     return e[1];
   }
-  // a yes/no decision whose recorded answer must hold now (a structural equality that a value cannot create)
+  // a yes/no decision whose recorded answer must hold for the current input (a structural equality that a value cannot create)
   function must(tag, cur) {
     const r = pick(tag, cur);
     if (r && !cur) throw new Refuse('shape');
@@ -261,7 +261,7 @@ const Recognize = (() => {
   const callOf = (n, fs) => (n.t === 'call' && fs.includes(n.f) ? n : null);
   // a rational node read from its normal form: the formula, evaluated in doubles, must have the normal form's degree
   // (an exact decimal cancellation, (0.1+0.2−0.3)z³, or a snapped non-literal coefficient leaves the doubles a term the
-  // normal form does not have: review math-6). Compared far out, where the highest terms dominate.
+  // normal form does not have). Compared far out, where the highest terms dominate.
   function degreeHolds(n, P, Q) {
     const dp = P.length - 1, dq = Q.length - 1;
     // a polynomial: its expansion in doubles (Expr.polyDegree: hi is the highest coefficient that may be nonzero)
@@ -290,7 +290,7 @@ const Recognize = (() => {
   // catastrophically near a repeated or clustered root (z(z−1)^4 − (z−1)^4 = (z−1)^5: a relative error of 1e4 at
   // |z − 1| = 0.01). Unless the formula is itself typed expanded, such a step is used only for degree ≤ 4 with
   // well-separated roots (review frperf-3), and where Horner is well conditioned near every root: its relative error is
-  // about κ ε with κ = Σ|c_k||z|^k / |p(z)|, and κ ≤ HORNER_KAPPA at 0.01 from each root (review verify-3: roots far
+  // about κ ε with κ = Σ|c_k||z|^k / |p(z)|, and κ ≤ HORNER_KAPPA at 0.01 from each root (roots far
   // from 0 make large coefficients, (z−10)² + (z−11)² = 2z² − 42z + 221 has κ ≈ 4e4 there, z² − 1 has κ ≈ 100).
   // Otherwise the formula stays as typed.
   const HORNER_KAPPA = 1e4;
@@ -316,7 +316,7 @@ const Recognize = (() => {
   // The formula is undefined at every zero of a z-dependent divisor inside it (a division's denominator, a negative
   // power's base: CX.div by 0 is NaN). The rational reading P/Q is the same function elsewhere, so it must have a pole
   // at each of those points; otherwise it fills in a removable point that the normal form cancelled inside a sub-term
-  // (z/z + z = (z + z²)/z: rationalForm divides the common z out without listing it in removed; review verify-2).
+  // (z/z + z = (z + z²)/z: rationalForm divides the common z out without listing it in removed).
   function clusterMeans(co) {
     const rs = co.length > 1 ? CX.polyRoots(co).filter(fin) : [], used = rs.map(() => false), out = [];
     for (let i = 0; i < rs.length; i++) {
@@ -351,7 +351,7 @@ const Recognize = (() => {
     // 0. a product of powers of affine factors: product form (zp), or one root: affine, power, scale
     const fz = factored(n, cut);
     if (fz !== undefined) return fz;
-    // 1. rational in z: P/Q coprime, exact where the constants are; refused when a common root was divided out (the
+    // 1. rational in z: P/Q coprime, exact where the constants are; refused when a common root is divided out (the
     //    formula is 0/0 there, a catalog step would fill the point in)
     if (Inverse.rationalForm) {
       const rf = Inverse.rationalForm(n);
@@ -503,7 +503,7 @@ const Recognize = (() => {
     }
   }
   // a run of Möbius factors whose product loses a factor's pole: the formula is 1/(1/0) = NaN there (a removable
-  // point the merged matrix would fill in, review math-3), so the reading is refused
+  // point the merged matrix would fill in), so the reading is refused
   function runPolesHold(run, prod) {
     let acc = null;
     const pole = CX.isZero(prod[2]) ? null : CX.neg(CX.div(prod[3], prod[2]));
