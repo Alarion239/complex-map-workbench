@@ -1119,7 +1119,6 @@ uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // the Landscape's Inside regions, the surface is not drawn there at all)
 uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
 const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
-const float FOOTPRINT_INK = 0.75;    // the grey outline of the region set on the floor
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
@@ -1296,7 +1295,7 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
   const FLOOR_FS = `
 in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
-uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA; uniform vec3 uFootCol;
+uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
 uniform highp sampler2D uT1; uniform int uN; uniform int uSheetK; uniform int uTileC;
 out vec4 o;
 void main() {
@@ -1327,13 +1326,8 @@ void main() {
       contact = t.w > 0.5 ? exp(-(t.z - uFloorZ) / 0.12) : 0.0;
     }
   }
-  // the carried region set of a cut surface: no shadow under the part that is not drawn, its outline in grey
-  if (uMaskCut > 0.5) {
-    float inside = inRegions(z);
-    contact *= step(0.5, inside);
-    float footPx = abs(inside - 0.5) / max(fwidth(inside), 1e-6);
-    lin = mix(lin, toLin(uFootCol), FOOTPRINT_INK * (1.0 - smoothstep(0.5 * uDpr, 0.5 * uDpr + 1.0, footPx)));
-  }
+  // a cut surface (uMaskCut) casts no shadow where it is not drawn
+  if (uMaskCut > 0.5) contact *= step(0.5, inRegions(z));
   lin = mix(lin, toLin(uShadow), clamp(0.7 * uShadowA * contact, 0.0, 1.0));
   vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out
   float a = uPlateA * smoothstep(0.0, 1.0, min(e.x, e.y));

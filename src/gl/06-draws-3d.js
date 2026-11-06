@@ -1277,8 +1277,7 @@
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', C.shadowA);
       u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1);
       u1f(Fp, 'uPlateA', alpha);
-      u3(Fp, 'uFootCol', C.box);
-      // (the footprint of the carried region set, where the mask is over the floor's own block)
+      // (the shadow's cut, where the mask is over the floor's own block)
       const fm = st.mask && st.mask.cut && st.mask.box.x0 === box.x0 && st.mask.box.x1 === box.x1 && st.mask.box.y0 === box.y0 && st.mask.box.y1 === box.y1 ? st.mask : null;
       maskUniforms(Fp, fm);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
