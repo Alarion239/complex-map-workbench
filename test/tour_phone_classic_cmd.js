@@ -6,7 +6,9 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const IDLE = `!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`;
-const settle = (until) => settled({ until: until ? `(${until}) && (${IDLE})` : IDLE });
+const waitFails = [];
+const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails: waitFails });
+const settle = (cond) => until(cond ? `(${cond}) && (${IDLE})` : IDLE);
 for (const [w, h] of [[390, 844], [360, 780]]) {
   const tag = `${w}x${h}`;
   await view(w, h, false, true);
@@ -22,5 +24,6 @@ for (const [w, h] of [[390, 844], [360, 780]]) {
   await ev('Tour.stop()'); await settle('!Tour.isActive()');
 }
 await view(1440, 900, false, false);
+check('no wait timed out', !waitFails.length, waitFails);
 const fails = R.filter((r) => !r[1]);
 return { pass: R.length - fails.length, of: R.length, fails };
