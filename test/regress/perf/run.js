@@ -1174,7 +1174,7 @@ async function svInteractUnit(scene) {
 // no frames fails the unit. The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot). o: {id: the
 // unit's id and its rows' prefix (default sv.glide.<scene>), surf: the steps view's surface ('plane' | 'sphere' | 'land'),
 // scope ('all': Everywhere | 'in': Inside regions), planes: [a, b] the glide's two planes (default [0, 1]), info: its rows
-// are info}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
+// are info, state: the saved page to open instead of the default one}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
 // reference without the Landscape's glide makes it NEW (refCannot)
 const SV_GLIDE_JANK_MS = 25;
 async function svGlideUnit(scene, o = {}) {
@@ -1203,7 +1203,10 @@ async function svGlideUnit(scene, o = {}) {
         // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
         // limit: fewer reps, not a timeout, which aborts the whole run)
         if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
-        await B.nav(`${BASE}test.html?ns=perfsvg${process.pid}_${++nsCounter}&view=steps`);
+        const gns = `perfsvg${process.pid}_${++nsCounter}`;
+        const seed = o.state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(gns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + gns)}, ${JSON.stringify(JSON.stringify(o.state))}); } catch (e) {} }`) : null;
+        await B.nav(`${BASE}test.html?ns=${gns}&view=steps`);
+        if (seed) await B.removeInit(seed);
         await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
         await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
         if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
@@ -2029,6 +2032,11 @@ unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zet
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
 unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default', { id: 'sv.glide.globe', surf: 'sphere' }));
 unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
+// (a chain with a ray cut: √z (cut 180°) then z + 2, the glide between w₁ and w₂ carrying the cut's two banks and, on the
+// globe, lifting them)
+const SV_CUT_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'add', params: { c: '2' }, on: true }] };
+unit('sv.glide.cut', 'the steps view (on a GPU), a chain with a ray cut (√z, cut 180°, then z + 2): a warm glide there and back between w₁ and w₂ on the plane, the cut\'s image curve carried by the homotopy (#912): frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('cut', { id: 'sv.glide.cut', state: SV_CUT_STATE, planes: [1, 2] }));
+unit('sv.glide.cut_globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the same chain with a ray cut: the glide between w₁ and w₂ with the cut\'s image curve lifted to the globe (#912)', () => svGlideUnit('cut', { id: 'sv.glide.cut_globe', surf: 'sphere', state: SV_CUT_STATE, planes: [1, 2] }));
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
 unit('sv.glide.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere (the carried grid, its heights and colour moving with the points); info rows only, until it has a baseline', () => svGlideUnit('default', { id: 'sv.glide.land', surf: 'land', info: true }));
 unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the same glide in Inside regions (the carried region mask); info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_in', surf: 'land', scope: 'in', info: true }));
