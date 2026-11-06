@@ -64,6 +64,12 @@ for (const dh of [0, -17, -7, -2, 3, 11, 20]) {
   await ev(`__cmwSteps({ scope: 'in', surf: 'land', T: 2, go: 0, now: true }); 1`);
   await rest(0);
   ok(`bare (pane ${900 + dh}), T = w₂: the own relief is still`, await grab('bare2'), null);
+  // (the frame settled() returned on is the refined one: a redraw once the refinement's programs have had their time, over
+  // RF_LATE, changes none of the window's pixels)
+  await sleep(1500); await ev(rAF2);
+  ok(`bare (pane ${900 + dh}), T = w₂: a later redraw is still`, await grab('bare2late'), null);
+  const late = info['late' + dh] = await compare('bare2', 'bare2late', { x: [0.28, 0.62], y: [0.2, 0.6] });
+  ok(`bare (pane ${900 + dh}): the first rest frame is the later frame (none of the window apart)`, !!late && late.frac === 0, late);
   await ev(`__cmwSteps({ T: 1 }); 1`);
   await rest(0);
   ok(`bare (pane ${900 + dh}), T = w₁: the carried frame is still`, await grab('bare1'), null);
