@@ -38,4 +38,4 @@ declare const module: any;
 declare function require(id: string): any;
 // (issue #72) the test hook the quality harness settles on (test/regress/quality/run_quality.js): a screen pane's own
 // last GPU frame; dist/test.html only
-interface Window { __cmwPaneStatus?: (role?: 'L' | 'R') => { pending: boolean, compiling: boolean, error: string, exact: number, t: number } | null }
+interface Window { __cmwPaneStatus?: (role?: 'L' | 'R') => { pending: boolean, refining: boolean, compiling: boolean, error: string, exact: number, t: number } | null }

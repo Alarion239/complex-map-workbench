@@ -1,8 +1,8 @@
 // @ts-check
 'use strict';
 // The patterns of the mapped views with analytic footprints, float64 (notes/sphere-design/SPEC.md, 6.1-6.3): the
-// CPU twin of the GPU's (gl.js), moved out of inverse.js (issue #20, the file-size budget), which takes these names
-// back at the top of its closure (const { ... } = InvPatterns). A closure of its own, as every module of src/ is.
+// CPU twin of the GPU's (gl.js). Inverse takes these names
+// at the top of its closure (const { ... } = InvPatterns). A closure of its own, as every module of src/ is.
 const InvPatterns = (() => {
   const { C } = CX;
   const { add, sub, mul, div, abs, log, scale, isZero } = CX;
