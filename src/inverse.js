@@ -38,7 +38,7 @@ const Inverse = (() => {
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
-  const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
+  const { PATTERNS, sqAA, hexRGB, patternColor, dcolorRGB } = InvPatterns;
 
   // =====================================================================================================
   // 3. Plans (SPEC 3.4) and the program key (4.4)
@@ -485,15 +485,15 @@ const Inverse = (() => {
     return indexRange(n0, n1, nc, cap).map((n) => add(base, scale(step, n)));
   }
   // preimages of a finite point p of op o's output plane (members nearest ref for infinite families, at most
-  // 2 cap + 1 per base); null = infinity
-  function pullFinite(o, p, ref, cap = 16) {
+  // 2 cap + 1 per base; with span, the members within span of the nearest, which cap does not cut); null = infinity
+  function pullFinite(o, p, ref, cap = 16, span = 1) {
     const F = o.fam, out = [];
     if (o.kind === 'ROOTPOW' && isZero(p)) { const sr = o.p.s.re; return sr > 0 ? [ZERO] : sr < 0 ? [null] : []; }
     if (F && F.type === 'add') {
       F.bases(p).forEach((base, bi) => {
         if (!base || !isFin(base)) return;
         const ms = ref && isFin(ref) ? Math.round(div(sub(ref, base), F.p).re) : 0;
-        for (const m of indexRange(ms - 1, ms + 1, ms, 1)) out.push(F.member(p, bi, m, base).u);
+        for (const m of indexRange(ms - span, ms + span, ms, span)) out.push(F.member(p, bi, m, base).u);
       });
       return out;
     }
@@ -507,9 +507,9 @@ const Inverse = (() => {
         ms = Math.min(m1, Math.max(m0, logCentre(F, ref, l0)));
       } else {
         ms = logCentre(F, ref, l0);
-        m0 = ms - 1; m1 = ms + 1;
+        m0 = ms - span; m1 = ms + span;
       }
-      for (const m of indexRange(m0, m1, ms, cap)) { const mem = F.member(p, m, l0); if (mem.lvl >= 0 && isFin(mem.u)) out.push(mem.u); }
+      for (const m of indexRange(m0, m1, ms, Math.max(cap, span))) { const mem = F.member(p, m, l0); if (mem.lvl >= 0 && isFin(mem.u)) out.push(mem.u); }
       return out;
     }
     const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
@@ -574,22 +574,37 @@ const Inverse = (() => {
   // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
-  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
-  function pointPre(plan, p, cap = LEAF_CAP) {
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out. opts.fam = K: a periodic
+  // family (exp, the trig functions: type 'add') gives its members m = -K … K of each base, and the result says
+  // truncated (its zs are those members' preimages, not all of them). A power's log family (type 'log') gives every
+  // member in its argument range when they are finitely many, else, with opts.fam, the 2K + 1 about its centre
+  // (truncated)
+  function pointPre(plan, p, cap = LEAF_CAP, opts = {}) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
-    let total = 1;
+    const K = opts.fam;
+    let total = 1, truncated = false;
+    // (a log family: its finitely many members in (lo, hi] all, or of an infinite one the 2K + 1 about its centre)
+    const logFam = (o) => o.fam && o.fam.type === 'log' && (!o.fam.inf || K != null);
     for (const o of plan.ops) {
-      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin')) return { exact: false, reason: 'a step with infinitely many branches' };
-      total *= o.fam ? o.fam.count : 1;
+      const fam = o.fam && o.fam.type === 'add' && K != null, lf = logFam(o);
+      const other = typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin');
+      if (!fam && !lf && other) return { exact: false, reason: 'a step with infinitely many branches' };
+      if (o.lattice) return { exact: false, reason: 'a step with infinitely many branches' };
+      total *= fam ? (2 * K + 1) * o.fam.nb : lf ? (o.fam.inf ? 2 * K + 1 : o.fam.count) : o.fam ? o.fam.count : 1;
+      truncated = truncated || fam || (lf && o.fam.inf);
       if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
     }
     let cur = isFin(p) ? [{ z: p, m: 1 }] : [];
     for (let i = plan.ops.length - 1; i >= 0 && cur.length; i--) {
       const o = plan.ops[i], next = [];
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
+      // (a family's members -K … K about its centre: pullFinite's, with span K and no reference point)
+      const members = (o.fam && o.fam.type === 'add' && K != null) || logFam(o)
+        ? (w) => pullFinite(o, w, null, LEAF_CAP, K == null ? 1 : K).map((u) => ({ u, lvl: 0 }))
+        : (w) => o.pre(w);
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
-        for (const mem of o.pre(w)) {
+        for (const mem of members(w)) {
           if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
           const each = m * (mem.mult || 1);
           // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
@@ -600,7 +615,7 @@ const Inverse = (() => {
       }
       cur = next;
     }
-    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
+    return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total, truncated };
   }
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
@@ -1695,7 +1710,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    shapePx, patternColor, dcolorRGB, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
