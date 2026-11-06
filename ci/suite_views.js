@@ -60,6 +60,7 @@ const VIEWS = {
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
+  'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_glide_look_cmd.js': steps({ pin: true }),
   'steps_glide_black_cmd.js': steps({ pin: true }),
