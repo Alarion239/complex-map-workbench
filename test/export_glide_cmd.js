@@ -158,6 +158,13 @@ for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
   // (a plain plane's still carries the pane's key: its line is the caption the pane's legend shows; a Phase still has none of its own here)
   ok(`T ${T}, plane ${go}: the still's key line ${want === 'xyL' ? 'is the pane\'s' : 'is absent'}`, want === 'xyL' ? !!sv.key && sv.key === sv.cap : !sv.key, sv);
 }
+// a short, wide pane makes a short picture: the figure is as tall as its key, whose last line is inside it
+await view(1440, 430, false);
+await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
+await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().T === 0`, max: 15000 });
+const short = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ H: f.H, view: f.view, boxes: f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => ({ k: b.kind, y1: b.y1, tex: b.tex })) }); })()`, 60000));
+ok('a short pane: the still\'s key (ring marks and lines) lies inside the figure', short.view === 'xyL' && short.boxes.length >= 5 && short.boxes.every((b) => b.y1 <= short.H + 0.01), short);
+await view(1440, 900, false);
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
