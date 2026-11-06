@@ -1118,6 +1118,8 @@ uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
 // the Landscape's Inside regions, the surface is not drawn there at all)
 uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
+const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
+const float FOOTPRINT_INK = 0.75;    // the grey outline of the region set on the floor
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
@@ -1220,7 +1222,7 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   if (uMaskCut > 0.5) {
     if (inside < 0.5) discard;
     float edgePx = (inside - 0.5) / max(fwidth(inside), 1e-6);
-    a = mix(a, ml, 0.85 * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, edgePx)));
+    a = mix(a, ml, CUT_EDGE_INK * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, edgePx)));
   } else a = mix(toLin(uPlaster), a, inside);
 ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
@@ -1330,7 +1332,7 @@ void main() {
     float inside = inRegions(z);
     contact *= step(0.5, inside);
     float footPx = abs(inside - 0.5) / max(fwidth(inside), 1e-6);
-    lin = mix(lin, toLin(uFootCol), 0.75 * (1.0 - smoothstep(0.5 * uDpr, 0.5 * uDpr + 1.0, footPx)));
+    lin = mix(lin, toLin(uFootCol), FOOTPRINT_INK * (1.0 - smoothstep(0.5 * uDpr, 0.5 * uDpr + 1.0, footPx)));
   }
   lin = mix(lin, toLin(uShadow), clamp(0.7 * uShadowA * contact, 0.0, 1.0));
   vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out

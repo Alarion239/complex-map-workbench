@@ -27,7 +27,8 @@ const maskAt = (x, y) => ev(`typeof __cmwLandMask === 'function' ? __cmwLandMask
 const px = (tag, x, y) => ev(`(() => { const p = __cmwLandSurfacePx(${x}, ${y}), cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width; if (!p) return null; const i = Math.round(p[0] * k), j = Math.round(p[1] * k), A = window.__ss[${JSON.stringify(tag)}], n = 4 * (j * cv.width + i); return { at: [p[0], p[1]], c: [A[n], A[n + 1], A[n + 2]] }; })()`);
 const pickAt = (p) => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return __cmwSound({ pick: [r.left + ${p[0]}, r.top + ${p[1]}] }); })()`);
 const gap = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));
-const near = (v, want) => typeof v === 'number' && Math.abs(v - want) < 0.05;
+const TOL = 0.05;   // a mask value, or a plane distance, counts as equal within it
+const near = (v, want) => typeof v === 'number' && Math.abs(v - want) < TOL;
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landin${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
 // ---- at rest ----
@@ -61,7 +62,7 @@ for (const [i, pts] of planes) {
       // (the probe under the pointer at the surface point: that point inside the set, the floor behind it outside)
       const z = await pickAt(b.at);
       info.rest[i].pick = (info.rest[i].pick || []).concat([[x, y, z]]);
-      const hit = !!z && Math.hypot(z[0] - x, z[1] - y) < 0.05;
+      const hit = !!z && Math.hypot(z[0] - x, z[1] - y) < TOL;
       ok(`plane ${i}, Inside regions: the probe at the surface point of ${x} + ${y}i ${want ? 'finds it' : 'passes through to the floor'}`, hit === !!want, z);
     }
     if (want) ok(`plane ${i}, Inside regions: inside the set (${x} + ${y}i) the surface keeps Everywhere's colour`, gap(a.c, b.c) <= 40, [a, b]);
@@ -72,6 +73,7 @@ for (const [i, pts] of planes) {
 }
 // ---- between z and w₁ ----
 // the share of the pane's pixels within 15/255 of its ground (the corner pixel): the cut part shows the ground
+const GROUND_GAIN = 0.02;   // the least share of the pane the cut part gives back to the ground
 const groundShare = () => ev(`(() => { const cv = document.getElementById('canvasL'), A = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, g = [A[12], A[13], A[14]]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - g[0]), Math.abs(A[i + 1] - g[1]), Math.abs(A[i + 2] - g[2])) <= 15) n++; return n / (A.length / 4); })()`);
 info.ground = {};
 for (const u of [0.25, 0.5]) {
@@ -86,7 +88,7 @@ for (const u of [0.25, 0.5]) {
   await ev(rAF2);
   const inside = await groundShare();
   info.ground[u] = { everywhere, inside };
-  ok(`parked at ${u}: the part outside the set is not drawn (more of the pane shows its ground than with Everywhere, by 2 %)`, inside > everywhere + 0.02, info.ground[u]);
+  ok(`parked at ${u}: the part outside the set is not drawn (more of the pane shows its ground than with Everywhere, by 2 % of it)`, inside > everywhere + GROUND_GAIN, info.ground[u]);
 }
 await at('in', 0);
 await ev('__cmwSteps({ park: 0.5 }); 1');
