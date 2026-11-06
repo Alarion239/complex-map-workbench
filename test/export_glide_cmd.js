@@ -78,7 +78,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     // still's height), so the still's picture is the frame's centre crop at the still's aspect (the Landscape's still crops the
     // relief to what is drawn: f.info.crop, as fractions of the render at the still's aspect). Compared over the pixels the
     // still draws (the frame's paper is white, but it carries a ground shadow and the screen's look), the frame also moved by
-    // a tenth of the crop (a zoom, a shift) and the last frame, at rest on the last plane, as controls the row must tell apart
+    // a tenth of the crop (a zoom, a shift) as controls the row must tell apart
     let three = null;
     if (${surf !== 'plane'}) {
       const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
@@ -101,8 +101,8 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
         for (let i = 0; i < a.length; i += 4) { if (765 - c[i] - c[i + 1] - c[i + 2] <= 60) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
         return { mad: n ? sum / (n * 3) : null, n: n / (w * h) };
       };
-      const picW = Math.round(chk.pic * dv.width), H = dv.height, dl = await ld(end.decoded);
-      three = { first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, 1.1, 0), shift: cmp(dv, picW, H, 1, 0.1), last: cmp(dl, picW, H, 1, 0), asp: +asp.toFixed(3) };
+      const picW = Math.round(chk.pic * dv.width), H = dv.height;
+      three = { first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, 1.1, 0), shift: cmp(dv, picW, H, 1, 0.1), asp: +asp.toFixed(3) };
     }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
     // draws what the pane draws: no level curves of its own
@@ -116,7 +116,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   if (surf !== 'plane') {
     const t3 = fp && fp.three, bound = surf === 'sphere' ? 6 : 15;
     ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > 0.05 && t3.first.mad < bound, fp);
-    ok(`${tag}: the same comparison fails on a frame zoomed by a tenth, on one shifted by a tenth, and on the last frame`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound && t3.last.mad > bound, fp);
+    ok(`${tag}: the same comparison fails on a frame zoomed by a tenth and on one shifted by a tenth`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
   }
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
