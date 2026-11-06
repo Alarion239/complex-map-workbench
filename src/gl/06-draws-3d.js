@@ -296,8 +296,9 @@
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP);
     return true;
   }
-  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z): their textures, kept between frames
-  const CARRY_POLES = 5, CARRY_POLE_N = 96, landPP = [];
+  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
+  // the slot after them): their textures, kept between frames
+  const CARRY_POLES = 5, CARRY_POLE_N = 96, CARRY_FAR_N = [256, 96], landPP = [];
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
@@ -1203,10 +1204,13 @@
     const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
+    const farPatches = [];
     if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
       const o = landPP[pp.length] || (landPP[pp.length] = {});
-      pp.push({ polar, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
+      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
     }
+    // (the far patches, the last: their own textures)
+    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: CARRY_FAR_N[k], o: carryHeights(st, CARRY_FAR_N[k], mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
     if (!hd) return info;
     // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
     if (!st.card) {
@@ -1280,20 +1284,27 @@
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0); u1f(Pc, 'uPatch', 0);
+      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
+      // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
+      gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+      gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
-      if (pp.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8); }
-      for (let i = 0; i < pp.length; i++) {
-        u4f(Pc, 'uPolar', ...pp[i].polar); u1i(Pc, 'uN', CARRY_POLE_N); u1f(Pc, 'uPatch', 1);
-        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, pp[i].o.tex1);
-        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, pp[i].o.tex2);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * (CARRY_POLE_N - 1) * (CARRY_POLE_N - 1));
-      }
-      if (pp.length) gl.disable(gl.POLYGON_OFFSET_FILL);
+      const drawPatch = (p) => {
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
+      };
+      gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
+      for (const p of pp) drawPatch(p);
+      gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      for (const p of farPatches) drawPatch(p);
+      gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N;
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
