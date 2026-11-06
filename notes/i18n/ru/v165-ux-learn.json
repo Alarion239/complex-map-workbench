@@ -245,11 +245,6 @@
   "ru": "Шаг %{k} из %{m} · %{f} · %{p} %",
   "note": "UX103: the transport's readout (was «t = 0,84 / 3»); f is the step's function as its tick names it (f₂, d/dz)."
  },
- "deform.readout.tip": {
-  "en": "The step t is in, and how far along it: t runs from 0 to {m}, one unit per step",
-  "ru": "Шаг, на котором сейчас t, и насколько он пройден: t идёт от 0 до %{m}, по единице на шаг",
-  "note": ""
- },
  "deform.fromto": {
   "en": "from {a} to {b}",
   "ru": "от %{a} до %{b}",
