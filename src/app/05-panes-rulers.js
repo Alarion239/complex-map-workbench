@@ -20,6 +20,8 @@
   }
   // CPU samples of what a stage shows, restricted to the part that comes from the visible z-window
   // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
+  // (at most this many mesh vertices and this many points of a polygon go into a fit's samples)
+  const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
   function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
   // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
   function* stageSampler(F0, xs, ys, k) {
@@ -39,7 +41,7 @@
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
-        const stride = Math.max(1, Math.floor(nv / 2500));
+        const stride = Math.max(1, Math.floor(nv / MESH_SAMPLE_CAP));
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
@@ -51,7 +53,7 @@
       let unbounded = s.kind === 'line' || s.kind === 'ray' || s.kind === 'fcurve';
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
-        const n = p.length / 2, stride = Math.max(1, Math.floor(n / 400));
+        const n = p.length / 2, stride = Math.max(1, Math.floor(n / POLY_SAMPLE_CAP));
         for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
       }
     }

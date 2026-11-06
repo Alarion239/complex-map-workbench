@@ -3186,9 +3186,10 @@
     items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
     return items;
   }
+  const REPEAT_TYPE_SETTLE_MS = 400;
   function repeatField(getK) {
     const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
-    // (typed for the step it was typed on: a chain or example switch within the 400 ms must not take the N)
+    // (typed for the step it was typed on: a chain or example switch within the settle delay must not take the N)
     let settle = 0, typedFor = null;
     const apply = () => {
       clearTimeout(settle);
@@ -3202,7 +3203,7 @@
       repeatMoved(S.steps.indexOf(st) + 1, rp);
     };
     // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
-    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, 400); });
+    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, REPEAT_TYPE_SETTLE_MS); });
     inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
     inp.addEventListener('blur', () => { delete inp.dataset.typing; });
     // (the arrow keys step a typed N, as a number field does)
@@ -3238,7 +3239,7 @@
     if (S.focus > k) setFocusStep(S.focus + n - 1);
     else if (alone && only) setFocusStep(0);
     chainChanged(true);
-    setFocus(S.focus);
+    if (!SV.on || S.focus) setFocus(S.focus);   // (the steps view's planes share one camera: with no focus, a split does not fit it again)
     setSel(k);
     if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
     commit();
