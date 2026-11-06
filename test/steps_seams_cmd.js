@@ -98,8 +98,10 @@ const park = async (x, scope) => {
     const g = __cmwSteps().glide || {};
     return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: mode === 'columns' ? perCol : +worst.toFixed(2), mode, rowsPerRow: +worst.toFixed(2), span, worstY, W, H };
   })()`;
+  let keepSettled = null;
   const teeth = () => ev(TEETH);
   info.teeth = await teeth();
+  keepSettled = await ev(`document.getElementById('canvasL').toDataURL('image/png')`);
   // (the same frame without the cut fill: what the seam looks like where no torn triangle is drawn; for reference)
   await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('without the fill: the frame is drawn', await drawn(), null);
@@ -120,7 +122,9 @@ const park = async (x, scope) => {
   await settled({ max: 20000, panes: false, until: '__cmwSteps().planes.length === 4' });
   await ev(`__cmwSteps({ T: 0, bare: true }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
     window.__seamsAfter = []; window.__seamsDone = false;
-    { const t0 = performance.now(), tick = () => { window.__seamsAfter.push(${TEETH});
+    window.__seamsWorst = null;
+    { const t0 = performance.now(), tick = () => { const t = ${TEETH}; window.__seamsAfter.push(t);
+        if (t.perRow != null && (!window.__seamsWorst || t.perRow > window.__seamsWorst.perRow)) window.__seamsWorst = { perRow: t.perRow, url: document.getElementById('canvasL').toDataURL('image/png') };
         if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else window.__seamsDone = true; };
       requestAnimationFrame(tick); } 1`);
   await settled({ max: 30000, panes: false, until: 'window.__seamsDone === true' });
@@ -128,6 +132,10 @@ const park = async (x, scope) => {
   const after = (await ev('__seamsAfter.map((t) => ({ label: t.label, rows: t.rows, perRow: t.perRow }))')).filter((t) => t.rows > 0);
   info.afterChange = { frames: after.length, perRow: after.map((t) => t.perRow) };
   ok('teeth: frames were drawn in the 2 s after a chain change', after.length > 0, info.afterChange);
+  // (the frames the numbers come from, kept as shots/steps_seams-*.png for a look: the settled seam and the worst frame of the window)
+  const keep = (name, url) => { if (!url) return; fs.mkdirSync(DIR + '/shots', { recursive: true }); fs.writeFileSync(`${DIR}/shots/${name}.png`, Buffer.from(url.split(',')[1], 'base64')); };
+  keep('steps_seams-parked-w1w2', keepSettled);
+  keep('steps_seams-window-worst', await ev('window.__seamsWorst && window.__seamsWorst.url'));
   const worst = after.reduce((w, t) => (t.perRow > w.perRow ? t : w), { perRow: 0 });
   ok('teeth: in the 2 s after a chain change, no frame shows a sawtooth along the seam (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', worst.perRow <= 1.5, worst);
   // (and once settled, the seam is drawn: the colour reaches it in most rows)
