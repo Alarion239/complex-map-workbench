@@ -35,7 +35,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
@@ -1680,8 +1680,32 @@ const Inverse = (() => {
     const own = stepOps(b);
     return { ok: true, ops: [opNewt(t, H, own.ok && newtSeedCounts(own.ops) ? own.ops : null)] };
   }
-  // a stand-in for built step b whose ops are its homotopy's at t (stepOps reads them)
-  function homBuilt(b, t) { return Object.assign({}, b, { __homOps: () => homOps(b, t) }); }
+  // the image of z under the forward ops of plan
+  function fwdOps(plan, z) { for (const o of plan.ops) z = o.fwd(z); return z; }
+  // The anchor of a NEWT op for area shape sh drawn in window win: {re, y0, y1}, in the plane after the ops of plan (the
+  // prefix of a glide's chain, forward). re is that of Region.interiorPoint pushed through the ops; [y0, y1] is the
+  // extent of Im over the images of a grid on the shape's box within win, the part of the shape's preimage the window
+  // shows. null when the shape has no interior point or the images are not finite
+  const ANCHOR_GRID = 9;
+  function shapeAnchor(plan, sh, win) {
+    const p = RG().interiorPoint(sh, win);
+    if (!p) return null;
+    const c = fwdOps(plan, C(p[0], p[1]));
+    if (!isFin(c)) return null;
+    const bb = RG().bboxOf(sh);
+    const x0 = bb && win ? Math.max(bb.x0, win.x0) : (bb || win).x0, x1 = bb && win ? Math.min(bb.x1, win.x1) : (bb || win).x1;
+    const y0 = bb && win ? Math.max(bb.y0, win.y0) : (bb || win).y0, y1 = bb && win ? Math.min(bb.y1, win.y1) : (bb || win).y1;
+    let lo = c.im, hi = c.im;
+    for (let i = 0; i < ANCHOR_GRID; i++) {
+      for (let j = 0; j < ANCHOR_GRID; j++) {
+        const u = fwdOps(plan, C(x0 + (x1 - x0) * i / (ANCHOR_GRID - 1), y0 + (y1 - y0) * j / (ANCHOR_GRID - 1)));
+        if (isFin(u)) { lo = Math.min(lo, u.im); hi = Math.max(hi, u.im); }
+      }
+    }
+    return { re: c.re, im: c.im, y0: lo, y1: hi > lo ? hi : lo + 1 };
+  }
+  // a stand-in for built step b whose ops are hk's (homOps(b, t)'s result, the same object each time)
+  function homBuilt(b, hk) { return Object.assign({}, b, { __homOps: () => hk }); }
   // catalog types whose homotopy satisfies H_0 = id and H_1 = f (to 1e-12 (1 + |f|)): a paused morph at t = 0 or 1
   // may be drawn as the mode-0 map of the stage it equals
   const HOM_EXACT = new Set(['mul', 'add', 'affine', 'recip', 'mobius', 'blaschke', 'pown', 'root', 'powa', 'exp', 'log',
@@ -1692,7 +1716,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, frontByStep: byStep, order, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
