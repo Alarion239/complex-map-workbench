@@ -51,6 +51,7 @@ for (const c of CASES) {
     await ev(`__cmwExample(${ex}); 1`);
   }
   await settled({ max: 60000 });
+  await ready();
   // (paths off: the glide's paths are drawn over the colour; the colour from the last plane)
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'in', surf: 'plane' }), __cmwSteps({ T: __cmwSteps().planes.slice(-1)[0] }), 1`);
   ok(`${c.tag}: the chain has two planes (z and the root's)`, (await ev('__cmwSteps().planes.length')) === 2, await ev('__cmwSteps().planes'));
