@@ -41,7 +41,8 @@
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
   // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
-  // (no re-pick, so no side flips), and a full placement keeps it unless the spot now touches a curve or a label
+  // (no re-pick, so no side flips). A full placement is a function of the view alone (the parked-frame rule), so the
+  // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
   const labelSlots = new Map();
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
@@ -154,7 +155,7 @@
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
         const cc = curveCost(x0, y0, x1, y1);
-        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0), touch: cc > 0 || amb };
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) };
       };
       const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
       let x, y;
@@ -162,15 +163,11 @@
         // on the move: the last full placement's offset, drawn as it is
         [x, y] = [g.x + (slot || LABEL_DEFAULT)[0], g.y + (slot || LABEL_DEFAULT)[1]];
       } else {
-        // at rest: the last offset while its spot is free of curves and labels (hysteresis), else the best candidate
-        const keep = slot ? evalCand(slot[0], slot[1], 0) : null;
-        let best = keep && !keep.touch ? keep : null;
-        if (!best) {
-          let bestCost = Infinity;
-          for (const [dx, dy, pen] of cands) {
-            const e = evalCand(dx, dy, pen);
-            if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
-          }
+        // at rest: the best candidate for the view alone, so a resting picture does not depend on the path taken to it
+        let best = null, bestCost = Infinity;
+        for (const [dx, dy, pen] of cands) {
+          const e = evalCand(dx, dy, pen);
+          if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
         }
         if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
         ({ x, y } = best);
