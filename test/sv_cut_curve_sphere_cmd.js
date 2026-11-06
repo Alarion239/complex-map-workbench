@@ -19,6 +19,7 @@ const ON_LINE = 1e-3;      // a bank against its line: the ray's bank is offset 
 const NEAR_END = 0.2;      // how close to u = 0 or 1 the frame is parked: farther from a plane than an eighth of a step (.125), within which the thread settles on the plane
 const INK_TOL = 40;        // per channel, #CC3311: the 1.75 px stroke's edge pixels are part paper; half strength is 100 off in green
 const HALF = 0.5;          // the glide parked half-way
+const SAMPLE_PX = 0.5;     // a drawn sample from the exact image, in px: at the surface they agree to the pick's own pixel (0.00 measured); at the 1.004 shell the median is 1.2 and at 1.01 2.9
 const THIN = 4;            // the glide's frames take every fourth sample of the rest set
 await view(1200, 800, false, false);
 const J = (e) => ev(`(${e})`);
@@ -119,6 +120,31 @@ ok('chain B glide at u = .2: the parked samples + .2', !!start && w0(start).leng
 const end = await preAt(1 - NEAR_END);
 ok('chain B glide at u = .8: the parked samples + .8, left of the cut\'s own ray at u = 1', !!end && w0(end).length === base.length && dist(end, (p) => [p[0] + 1 - NEAR_END, p[1]]) < EXACT && Math.max(...w0(end).map((p) => p[0])) < 0, w0(end).length);
 info.pre = { base: base.length, mid: mid && w0(mid).length };
+
+// ---- chain C: the cut of log (Im w = ±π) at the globe's limb, where a stroke off the surface is shifted by the parallax:
+// the drawn samples lie on the line, as the picks see it (the offset in px through the pick's gradient of the distance to the line)
+await open([{ type: 'log', params: { cut: 180, k: 0 }, on: true }]);
+await at({ go: 1, now: true, surf: 'sphere' }, 1);
+await ev('__cmwCam("L", { pitch: 1.2, yaw: -1.57, dist: 3 }); 1');
+const limbKey = await settled({
+  max: 30000,
+  until: `(() => { const c = __cmwCutCurves().find((q) => !q.solid), k = c ? c.s.filter(Boolean).length : 0; const same = k > 100 && window.__limbKey === k; window.__limbKey = k; return same; })()`,
+});
+ok('chain C on the globe: the cut at the limb is drawn and settles', limbKey && limbKey.ok, limbKey);
+const limbOff = await J(`(() => {
+  const f = (v) => Math.min(Math.abs(v - Math.PI), Math.abs(v + Math.PI)), d = [];
+  for (const c of __cmwCutCurves()) for (const p of c.s || []) {
+    if (!p || p[0] < 5 || p[1] < 5 || p[0] > 840 || p[1] > 700) continue;
+    const w = __cmwSphereWL(p[0], p[1]), wx = __cmwSphereWL(p[0] + 1, p[1]), wy = __cmwSphereWL(p[0], p[1] + 1);
+    if (!w || !wx || !wy) continue;
+    const g = Math.hypot(f(wx[1]) - f(w[1]), f(wy[1]) - f(w[1]));
+    if (g > 1e-9) d.push(f(w[1]) / g);
+  }
+  d.sort((a, b) => a - b);
+  return { n: d.length, median: d.length ? +d[d.length >> 1].toFixed(2) : null, p90: d.length ? +d[Math.floor(d.length * 0.9)].toFixed(2) : null };
+})()`);
+info.limbOffset = limbOff;
+ok('chain C on the globe: the drawn cut is on its exact image at the limb (px)', limbOff.n > 100 && limbOff.p90 <= SAMPLE_PX, limbOff);
 
 const lg = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', lg.length === 0, lg);

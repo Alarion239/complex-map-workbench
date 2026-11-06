@@ -1733,7 +1733,7 @@
         drawMorphPathsX(pane, sel, F, globeSelP(info, pane.w, pane.h, 0.02), { T: paths.T, side: 'L' });
       } catch (e) { console.error('steps view globe paths', e); mfGlobeDrawn = { T: paths.T, heads: 0, error: String((e && e.message) || e) }; }
     }
-    if (info) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, sphereProj(pane, info), cp.pre, u > 1e-6 && b !== a ? SV_CUT_THIN : 1); }
+    if (info) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, sphereProj(pane, info, 1), cp.pre, u > 1e-6 && b !== a ? SV_CUT_THIN : 1); }
     leftSphereInfo = info;
   }
 

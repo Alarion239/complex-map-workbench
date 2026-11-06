@@ -238,13 +238,15 @@ const Integrals = (() => {
     }
     return out;
   }
-  // the left plane's sphere view: z lifted to the globe (stereographic) and projected, null on the far side
-  function sphereProj(pane, info) {
+  // the left plane's sphere view: z lifted to the globe (stereographic) and projected, null on the far side; shell: the
+  // radius the point is drawn at, 1 the surface itself (the default, 1.01, stands a mark clear of it; a curve that is
+  // meant to lie on the surface, as the cut's, passes 1)
+  function sphereProj(pane, info, shell = 1.01) {
     return (z) => {
       const p = CX.isFin(z) ? liftC(z.re, z.im) : [0, 0, 1];
       const tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]];
       if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1) <= 0) return null;
-      return project(pane, info.MVP, p.map((v) => v * 1.01));
+      return project(pane, info.MVP, p.map((v) => v * shell));
     };
   }
   function strokePath(ctx, xy, close) {
