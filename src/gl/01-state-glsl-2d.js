@@ -408,7 +408,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `centroid out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `centroid out vec2 vP;\nout vec2 vPm;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -466,7 +466,7 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
 ` : ''}  int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+${o.carry ? `  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n  vPm = vP;\n` : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
   vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
   vWTol = uKPx + 0.25 * longest(w0, w1, w2);
@@ -1224,17 +1224,18 @@ void main() {
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
-  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
-  // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
-  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
-  // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
-  // edge, the grid's identity)
+  // (centroid: REGION_VS's carry option's two copies of the source point, vP at the centroid of the pixel's covered
+  // samples and vPm at the pixel centre; uCentre 1 reads vPm, exact where the places are linear across a triangle's
+  // edge, the fill of a chain without a cut. A chain with a cut reads vP: a triangle at the cut's image, torn or beside
+  // a torn one, takes its colour inside the triangle at a pixel it only partly covers, where vPm extrapolated past its
+  // edge would land on the other sheet. Otherwise vP at the pixel centre, as CARRY_VS and PRE_VS write it)
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in vec2 vP; in vec2 vPm; uniform int uCentre;' : 'in vec2 vP;'}
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 vq = ${centroid ? 'uCentre == 1 ? vPm : vP' : 'vP'};
+  vec2 sa = ${pre ? 'uPreZ == 1 ? vq : preSrc(vq)' : 'vq'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;

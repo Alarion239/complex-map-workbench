@@ -1,0 +1,55 @@
+// A region fill's carried colour is read at the pixel centre off the branch cuts (issue #966, GLR.drawRegion with
+// st.carry): with the places the identity (the grid's own plane s), the fill of a disc is the colour plot of the map from
+// s to T (GLR.drawColorPlot, {a: s, b: T}) pixel for pixel, inside the disc: the pixels along the fill's interior
+// triangle edges too, where the point read at the centroid of the covered samples would be up to half a pixel off, a
+// full colour step on a colour line. At most FRAC of the disc's pixels more than TOL levels apart. The chains are
+// steps_carry_cmd.js's (the examples 1, 5, 8, 26 at s = 0, T = 1 and 2).
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
+// Prints {pass, fails, info}.
+const fails = [], info = {};
+const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const TOL = 6, FRAC = 0.002;
+await view(1200, 800, false, false);
+await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=regcentre${Date.now()}` });
+await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof GLR === "object" && typeof Region === "object"' });
+const CASES = typeof RC_CASES !== 'undefined' ? RC_CASES : [[1, 1], [5, 1], [8, 2], [26, 2]];
+for (const [ex, T] of CASES) {
+  await ev(`__cmwExample(${ex}); 1`);
+  await settled({ max: 30000 });
+  const rr = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => {
+    const W = 240, H = 160, v = { cx: 0.13, cy: -0.07, s: 40 }, R = 1.7;
+    const st = { view: v, dpr: 1, style: 'enhanced', sectors: 12, grid: 0.5, plane: [0.99, 0.99, 0.99], ink: [0.07, 0.1, 0.12], dark: false };
+    const win = { x0: v.cx - W / v.s, x1: v.cx + W / v.s, y0: v.cy - H / v.s, y1: v.cy + H / v.s };
+    const res = GLR.createMesh(Region.meshInstances(Region.buildMesh({ kind: 'disc', c: [v.cx, v.cy], r: R }, win, 48)));
+    const cv = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    const a = cv(), b = cv();
+    for (let i = 0; i < 480; i++) {
+      GLR.begin(W, H);
+      GLR.drawRegion(res, Object.assign({ map: { mode: 0, a: 0, b: 0 }, L: 4, carry: { s: 0, T: ${T}, style: st.style, sectors: st.sectors, grid: st.grid, plane: st.plane, ink: st.ink, dark: st.dark }, sync: true, cacheKey: null }, st));
+      GLR.blit(a.getContext('2d'));
+      GLR.begin(W, H);
+      GLR.drawColorPlot(Object.assign({ map: { mode: 0, a: 0, b: ${T} }, cauchy: null }, st));
+      GLR.blit(b.getContext('2d'));
+      if (!GLR.pendingLinks) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    const pa = a.getContext('2d').getImageData(0, 0, W, H).data, pb = b.getContext('2d').getImageData(0, 0, W, H).data;
+    let max = 0, over = 0, n = 0, blank = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const wx = v.cx + (x + 0.5 - W / 2) / v.s, wy = v.cy - (y + 0.5 - H / 2) / v.s;
+      if (Math.hypot(wx - v.cx, wy - v.cy) > R - 3 / v.s) continue;
+      const i = 4 * (y * W + x);
+      n++;
+      if (pa[i + 3] === 0) blank++;
+      const d = Math.max(Math.abs(pa[i] - pb[i]), Math.abs(pa[i + 1] - pb[i + 1]), Math.abs(pa[i + 2] - pb[i + 2]));
+      max = Math.max(max, d); if (d > ${TOL}) over++;
+    }
+    return { max, over: +(over / n).toFixed(4), n, blank };
+  })()` });
+  const r = rr.exceptionDetails ? { err: rr.exceptionDetails.exception && rr.exceptionDetails.exception.description } : rr.result.value;
+  info[`ex${ex} T${T}`] = r;
+  ok(`ex ${ex}, T ${T}: the disc is drawn`, r.n > 5000 && r.blank === 0, r);
+  ok(`ex ${ex}, T ${T}: the fill is the colour plot of {a: s, b: T} pixel for pixel, at most ${FRAC * 100} % of the pixels more than ${TOL} levels off`, r.over <= FRAC, r);
+}
+return { pass: fails.length === 0, fails, info };
