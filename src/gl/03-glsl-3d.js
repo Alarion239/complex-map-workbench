@@ -554,20 +554,39 @@ vec2 carryZ(vec2 ij) {
 }
 `;
   const LAND_CARRY_TF_VS = `
-uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform int uGt2; uniform float uHu;
+uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform int uGt2; uniform float uHu; uniform float uChord;
 out vec4 tfOut;
 ` + CARRY_Z + `
-void main() {
-  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
-  gl_PointSize = 1.0;
-  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
-  vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
+// the height at plane s's point z: the stages (s, uGt], or between those and (s, uGt2] by uHu (a glide between two planes'
+// heights; a point is kept where the end it is nearer to has a height)
+vec2 carryH(vec2 z) {
+  vec2 hv = heightW(chainRange(z, uGs, uGt));
   if (uGt2 != uGt) {
     vec2 h2 = heightW(chainRange(z, uGs, uGt2));
     bool both = hv.y > 0.5 && h2.y > 0.5;
     hv = uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
   }
-  tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
+  return hv;
+}
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  vec2 ij = vec2(float(gl_VertexID % uN), float(gl_VertexID / uN));
+  vec2 z = carryZ(ij);
+  vec2 q = mapPoint(z), hv = carryH(z);
+  float fin = 1.0;
+  // (uChord > 0, a far patch: the cell this vertex starts is kept (w = 1) where the height at its middle and at its two
+  // triangles' centroids is within uChord of the height range (uH) from the mean of the corners' heights, which is what the
+  // draw's chords give; else it is
+  // marked (w = 0.75) and the draw leaves it out. A far cell is many box sizes across, so a pole of the height inside it,
+  // one of the periodic map's, lies under a flat facet)
+  if (uChord > 0.0 && cfin(q) && hv.y > 0.5 && ij.x < float(uN - 1) && ij.y < float(uN - 1)) {
+    vec2 a = carryH(carryZ(ij + vec2(1.0, 0.0))), b = carryH(carryZ(ij + vec2(0.0, 1.0))), c = carryH(carryZ(ij + vec2(1.0, 1.0)));
+    vec2 m = carryH(carryZ(ij + vec2(0.5, 0.5))), t1 = carryH(carryZ(ij + vec2(2.0 / 3.0, 1.0 / 3.0))), t2 = carryH(carryZ(ij + vec2(1.0 / 3.0, 2.0 / 3.0)));
+    if (a.y > 0.5 && b.y > 0.5 && c.y > 0.5 && m.y > 0.5 && t1.y > 0.5 && t2.y > 0.5
+        && max(abs(m.x - 0.25 * (hv.x + a.x + b.x + c.x)), max(abs(t1.x - (hv.x + a.x + c.x) / 3.0), abs(t2.x - (hv.x + c.x + b.x) / 3.0))) > uChord * uH) fin = 0.75;
+  }
+  tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, fin) : vec4(0.0);
 }
 `;
   // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
@@ -632,7 +651,7 @@ void main() {
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
-  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
+  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5 || t0.w < 0.9) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);

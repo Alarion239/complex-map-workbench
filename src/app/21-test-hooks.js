@@ -340,6 +340,38 @@
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());
+  // the carried Landscape's far patches (ln |F| heights, the default), the triangles the last frame drew (all three corners
+  // finite and not left out): per ring { N, drawn, bad }, bad being the drawn triangles whose chord height is not the
+  // surface's: the exact height at the corners' centroid (CPU, from the stages the heights read: the glide's two planes,
+  // as the carried points' heights blend) lies farther than tol (a share of the height range H) from the mean of the
+  // corners' heights (the GPU's). Only triangles over tiny, under floor, are not counted
+  window.__cmwLandFar = (tol = 0.1) => {
+    const c = render3D.carried;
+    if (!c || !c.far || !c.farRead || c.heightMode !== 0) return null;
+    const g = svBetween(), e = g.b == null ? g.a : g.b, H = c.heightH, ta = svHT(g.a), te = svHT(e), h1 = ta === c.s ? (z) => z : rangeF(c.s, ta), h2 = te === c.s ? (z) => z : rangeF(c.s, te);
+    const v = (w) => (CX.isFin(w) ? (2 / Math.PI) * Math.atan(Math.log(Math.max(CX.abs(w), 1e-37)) / 1.4) : NaN);
+    const exact = (z) => { const a = v(h1(z)), b = v(h2(z)); return Number.isFinite(a) && Number.isFinite(b) ? (c.u >= 1 ? b : c.u <= 0 ? a : (1 - c.u) * a + c.u * b) : NaN; };
+    return c.far.map(([px, py, r0, r1, N], k) => {
+      const a = c.farRead(k);
+      if (!a) return { N, error: 'no texels' };
+      const zAt = (i, j) => { const th = -2 * Math.PI * i / (N - 1), r = r0 * Math.pow(r1 / r0, j / (N - 1)); return [px + r * Math.cos(th), py + r * Math.sin(th)]; };
+      const tx = (i, j) => { const o = 4 * (j * N + i); return [a[o + 2], a[o + 3] > 0.5, a[o + 3] >= 0.9]; };
+      let drawn = 0, bad = 0, worst = 0, out = 0;
+      const tri = (vs) => {
+        const t = vs.map(([i, j]) => tx(i, j));
+        if (!t.every((q) => q[1])) return;
+        if (!t[0][2]) { out++; return; }
+        drawn++;
+        const z = vs.map(([i, j]) => zAt(i, j)), x = exact(CX.C((z[0][0] + z[1][0] + z[2][0]) / 3, (z[0][1] + z[1][1] + z[2][1]) / 3));
+        if (!Number.isFinite(x)) return;
+        const err = Math.abs(H * x - (t[0][0] + t[1][0] + t[2][0]) / 3) / H;
+        worst = Math.max(worst, err);
+        if (err > tol) bad++;
+      };
+      for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) { tri([[i, j], [i + 1, j], [i + 1, j + 1]]); tri([[i, j], [i + 1, j + 1], [i, j + 1]]); }
+      return { N, drawn, out, bad, worst: +worst.toFixed(3) };
+    });
+  };
   // the steps view's globe: whether its last frame drew the carried colour and by which path ('inverse' or 'mesh'),
   // and where the point (re, im) of the glide's plane a is at the glide's u (H_u of svBetween; the point itself at
   // rest); H: that map ({re, im} -> {re, im}, the identity at rest); eye and key: the last frame's camera position and
