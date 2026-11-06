@@ -52,11 +52,12 @@ ok('… and Y shows F\'s picture', h3 === hF, [h3, hF]);
 // a change to the chain ends it
 await ev('__cmwGlide(-1)'); await rest(); await settle(300);
 ok('parked again', (await layout()).g.peek === true, null);
-// (a step bypassed from the Inspector: a change of the chain)
-await ev(`document.querySelector('#propsPanel .insp-step .bypass').click(); 1`); await settle(700);
+// (a step bypassed from the Inspector's ⋯ menu: a change of the chain)
+const bypass = () => ev(`(async () => { document.querySelector('#propsPanel .insp-step .ihead .more').click(); await new Promise((r) => setTimeout(r, 300)); const b = [...document.querySelectorAll('.mi')].find((x) => /^(Bypass this step|Turn this step back on)$/.test(x.textContent.trim())); if (!b) return false; b.click(); return true; })()`);
+await bypass(); await settle(700);
 const ch = await layout();
 ok('a change to the chain ends the glide', ch.g.peek === false && ch.g.at === -1 && ch.g.open === false, ch.g);
-await ev(`document.querySelector('#propsPanel .insp-step .bypass').click(); 1`); await settle(700);
+await bypass(); await settle(700);
 // the Deformation button opens the inspectable version, paused at the step Y is on, and ends the glide
 await ev('__cmwGlide(-1)'); await rest(); await settle(300);
 ok('parked once more', (await layout()).g.peek === true, null);
