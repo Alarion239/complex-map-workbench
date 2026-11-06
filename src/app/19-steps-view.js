@@ -828,7 +828,8 @@
     const next = (dl) => {
       if (tok !== svPoleJob) return;
       const t0 = performance.now();
-      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl ? dl.timeRemaining() : SV_POLE_BUDGET);
+      // (a callback the browser ran for its timeout, not in an idle moment, has no time remaining and still runs one slice)
+      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl && !dl.didTimeout ? dl.timeRemaining() : SV_POLE_BUDGET);
       try {
         while (left() > 0) {
           const P = svPolesLeft();
@@ -984,6 +985,8 @@
   // (read by the test hooks)
   let svGlideRec = null;
   const SV_CARRY_L = 2;
+  // the whole plane's carried mesh: cells a side over clipWin
+  const SV_ALL_BASE = 80;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
   // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
   // clipWin's centre, from its inscribed circle out to m times its half-diagonal: the least m of SV_RING_M whose circle
@@ -1039,7 +1042,7 @@
         ring = SV_RING_M[SV_RING_M.length - 1]; fits = false;
         for (const x of SV_RING_M) if (yield* all(about(C(cx, cy), x * R))) { ring = x; fits = true; break; }
       }
-      const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / 80)));
+      const deep = c && !(yield* all(about(c, (w.x1 - w.x0) / SV_ALL_BASE)));
       if (!deep && fits) return ring;
       const o = c || C(cx, cy);
       // (outward: the least k with the circle of radius R 2^k about o past the view; inward from c: the least k with
@@ -1068,9 +1071,70 @@
         const K1 = Math.max(1, Math.floor(Math.log2(R / floor)));
         k1 = kq(yield* svLeastK(inner, K1), K1);
       }
-      m = { polar: true, c: [o.re, o.im], k1, k2, ring };
+      const r1 = k1 === null ? Math.min(ax, ay) : R * Math.pow(2, -k1);
+      m = { polar: true, c: [o.re, o.im], k1, k2, ring, nt: svPolarCap(yield* svGlideCells(g, o, R, v, pw, ph), r1, R * Math.pow(2, k2)) };
     } catch (e) { m = SV_RING_M[0]; }
     return m;
+  }
+  // The cells a turn of the glide's polar annuli. A cell's picture is its corners' chord, so a point the cell holds is
+  // off by the map's curvature across the cell, in the picture, by about (cell size)^2 |F''| / 8 (a conformal map: as
+  // much across as along). svPolarWorst measures that error at SV_POLAR_NT cells a turn, svGlideCells takes it over the
+  // glide and sets the cells a turn from it, svPolarCap keeps an annulus within its cell budget.
+  // svPolarWorst, a generator: the largest error, in px, of the cells of the annulus r1 to r2 about o under the map F
+  // at the view v (hw, hh: the half sides of the box of the view's points that matter), over a grid of SV_POLAR_PROBE_R
+  // radii by SV_POLAR_PROBE_T angles whose points land in the view: the middle of a cell's edge against the middle of
+  // its ends' pictures, in the angle (a conformal map's chord error is the same across as along, so the radial one is not measured); points the pole of the map sets are left out
+  function* svPolarWorst(F, o, r1, r2, v, hw, hh) {
+    const d = 2 * Math.PI / SV_POLAR_NT, L = Math.log(r2 / r1);
+    let worst = 0, n = 0;
+    for (let i = 0; i < SV_POLAR_PROBE_R; i++) {
+      const r = r1 * Math.exp(L * (i + 0.5) / SV_POLAR_PROBE_R);
+      for (let j = 0; j < SV_POLAR_PROBE_T; j++) {
+        const th = -Math.PI + 2 * Math.PI * (j + 0.5) / SV_POLAR_PROBE_T;
+        if (++n % 32 === 0) yield;
+        const at = (t) => F(C(o.re + r * Math.cos(t), o.im + r * Math.sin(t)));
+        const m = at(th), a = at(th - d / 2), b = at(th + d / 2);
+        if (!m || !a || !b || !CX.isFin(m) || !CX.isFin(a) || !CX.isFin(b)) continue;
+        if (Math.abs(m.re - v.cx) > hw || Math.abs(m.im - v.cy) > hh) continue;
+        const e = Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2) * v.s;
+        if (e <= worst) continue;
+        // (the same cell halved: a smooth map's error falls to a quarter, a pole's does not, so a point where it falls
+        // by less than 2.5 is the pole's, and no cell count brings it down)
+        const a2 = at(th - d / 4), b2 = at(th + d / 4);
+        if (a2 && b2 && CX.isFin(a2) && CX.isFin(b2) && Math.hypot(m.re - (a2.re + b2.re) / 2, m.im - (a2.im + b2.im) / 2) * v.s <= e / SV_POLAR_FALL) worst = e;
+      }
+    }
+    return worst;
+  }
+  // svGlideCells, a generator: the cells a turn for every annulus of the glide g about o (R: clipWin's half-diagonal)
+  // in the view v of a pw x ph pane, one count a glide, so its twentieths share their annuli's ids (kept by id,
+  // SV_POLAR_KEEP of them): the worst error of the annuli R 2^-SV_POLAR_SPAN to R 2^SV_POLAR_SPAN (the radii the view's
+  // points come from) over the glide's first, middle and last twentieth, which falls as the square of the cell, so the cells a
+  // turn that bring it to SV_POLAR_TOL px are SV_POLAR_NT times the root of the ratio, rounded up to a multiple of
+  // SV_POLAR_STEP, at most SV_POLAR_DOUBLINGS doublings (a pole of the map in the view has an error no cell count
+  // brings down). The probe is small, so the idle job makes it in a slice or two. Kept for the glide's planes, window, view and chain (svCellsMemo, as many as svRingSizes)
+  const svCellsMemo = new Map();
+  function* svGlideCells(g, o, R, v, pw, ph) {
+    const w = clipWin, key = [g.a, g.b, g.all ? 1 : 0, o.re, o.im, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|');
+    if (svCellsMemo.has(key)) return svCellsMemo.get(key);
+    const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s, span = Math.pow(2, SV_POLAR_SPAN);
+    let worst = 0;
+    for (let q = 0; q <= 20; q += 10) {
+      const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1 } : null);
+      worst = Math.max(worst, yield* svPolarWorst(gq.F, o, R / span, R * span, v, hw, hh));
+    }
+    const nt = Math.min(SV_POLAR_NT << SV_POLAR_DOUBLINGS, Math.max(SV_POLAR_NT, SV_POLAR_STEP * Math.ceil(SV_POLAR_NT * Math.sqrt(worst / SV_POLAR_TOL) / SV_POLAR_STEP)));
+    if (svCellsMemo.size >= SV_RING_SIZES_MAX) svCellsMemo.clear();
+    svCellsMemo.set(key, nt);
+    return nt;
+  }
+  // svPolarCap: nt lowered by SV_POLAR_STEP (to SV_POLAR_NT at least) while the annulus r1 to r2 (nt cells a turn,
+  // ln(r2 / r1) nt / 2 pi rings of them) has more than SV_POLAR_CELLS cells, twice the whole plane's mesh's (SV_ALL_BASE a side): the build and the
+  // draw cost of one annulus
+  function svPolarCap(nt, r1, r2) {
+    const L = Math.log(r2 / r1);
+    while (nt > SV_POLAR_NT && nt * Math.ceil(L * nt / (2 * Math.PI)) > SV_POLAR_CELLS) nt -= SV_POLAR_STEP;
+    return nt;
   }
   // the least k in [0, K] whose test passes (a generator of the test's own), the tests taken to pass from some k on: by
   // doubling, then halving the last gap; K when none does
@@ -1112,7 +1176,7 @@
     const w = clipWin, cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
     if (m && m.polar) {
       const r1 = m.k1 === null ? Math.min(ax, ay) : R * Math.pow(2, -m.k1);
-      return Object.assign({}, SV_RING, { id: [SV_RING.id, 'polar', m.c[0], m.c[1], r1, m.k2, R].join('|'), polar: true, sing: m.k1 !== null, c: m.c.slice(), r1, r2: R * Math.pow(2, m.k2) });
+      return Object.assign({}, SV_RING, { id: [SV_RING.id, 'polar', m.c[0], m.c[1], r1, m.k2, R, m.nt || SV_POLAR_NT].join('|'), polar: true, nt: m.nt || SV_POLAR_NT, sing: m.k1 !== null, c: m.c.slice(), r1, r2: R * Math.pow(2, m.k2) });
     }
     return m ? Object.assign({}, SV_RING, { id: SV_RING.id + '|' + m, c: [cx, cy], r1: Math.min(ax, ay), r2: m * R }) : null;
   }
@@ -1131,22 +1195,24 @@
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
   const SV_POLAR_BEHIND = 16384;
+  const SV_POLAR_PROBE_R = 6, SV_POLAR_PROBE_T = 12, SV_POLAR_TOL = 1, SV_POLAR_FALL = 2.5, SV_POLAR_CELLS = 2 * SV_ALL_BASE * SV_ALL_BASE, SV_POLAR_DOUBLINGS = 4, SV_POLAR_STEP = 8, SV_POLAR_SPAN = 4;
   const SV_POLAR_NT = 48, SV_POLAR_EPS = 1e-6, SV_POLAR_KOUT = 40, SV_POLAR_KQ = 4, SV_POLAR_KEEP = 12;
   const svPolarRes = new Map();
   let svPolarBuilds = 0;
   // Under a polar ring the whole plane's mesh and the ring's share the plane, each where its cells are the finer, so
   // no point is drawn twice by two meshes that place it differently (in the same depth, the worse one's straight edges
   // would cut into the other's picture): the whole plane's inside clipWin, where its cells are uniform, h across
-  // (clipWin's larger side / 80), and, about a singular point c the ring reaches in to past rho - h, outside the disc
+  // (clipWin's larger side / SV_ALL_BASE), and, about a singular point c the ring reaches in to past rho - h, outside the disc
   // of radius rho = h (SV_POLAR_NT / 2 pi - 1) about it, a cell inside the radius within which the ring's cells are the
   // finer (beside a logarithm's branch point a whole-plane cell spans radii the map sends far apart); the ring's
-  // everywhere else. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
+  // everywhere else. A ring with more cells a turn (ring.nt) is finer still, and keeps this share, so the whole plane's
+  // skip flags are not made again for each count. The whole plane's keeps the triangles wholly in its share (one that reaches past clipWin is a
   // stretched outer cell, placed worse than the ring's), the ring every cell that reaches within 2h of the ring's share
   // (a corner outside clipWin shrunk by 2h, or within rho + 2h of c), so the two overlap along the edge, the ring's
   // drawn behind there (SV_POLAR_BEHIND).
   // svPolarShare: the radius rho about the ring's centre (0: none)
   function svPolarShare(ring) {
-    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / 80, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
+    const w = clipWin, h = Math.max(w.x1 - w.x0, w.y1 - w.y0) / SV_ALL_BASE, rho = h * SV_POLAR_NT / (2 * Math.PI) - h;
     return { h, rho: ring.sing && ring.r1 < rho - h ? rho : 0 };
   }
   // the whole plane's mesh r's skip flags under the polar ring: {skip, extra}, extra those of its fix-up fx's refined
@@ -1209,7 +1275,7 @@
     let r = svPolarRes.get(ring.id);
     if (r) { svPolarRes.delete(ring.id); svPolarRes.set(ring.id, r); return r; }
     if (!GLR.ok) return null;
-    const NT = SV_POLAR_NT, d = 2 * Math.PI / NT, NR = Math.max(1, Math.ceil(Math.log(ring.r2 / ring.r1) / d)), dl = Math.log(ring.r2 / ring.r1) / NR;
+    const NT = ring.nt, d = 2 * Math.PI / NT, NR = Math.max(1, Math.ceil(Math.log(ring.r2 / ring.r1) / d)), dl = Math.log(ring.r2 / ring.r1) / NR;
     // (the points relative to c, rho (cos, sin) theta; two triangles a cell, as meshInstances lays them out)
     const px = new Float64Array((NR + 1) * (NT + 1)), py = new Float64Array(px.length);
     for (let i = 0, v = 0; i <= NR; i++) {
@@ -1308,7 +1374,7 @@
   }
   // a carried shape's tessellated mesh (shapeGPU; the whole plane's at 80 base cells a side, not 140: it has no edge
   // to draw)
-  const svCarryGPU = (x) => shapeGPU(x, x === SV_ALL ? { base: 80 } : undefined);
+  const svCarryGPU = (x) => shapeGPU(x, x === SV_ALL ? { base: SV_ALL_BASE } : undefined);
   // The carried meshes of a chain with a step whose glide has no inverse plan (Inverse.homOps of its homotopy fails:
   // its frames, and those of the glides after it, draw svCarryRegions): built, and their carried colour's textures
   // reserved, by the idle job, so the first frame of such a glide builds and allocates nothing. svMeshNext: the key of
