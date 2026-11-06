@@ -44,7 +44,7 @@ uniform float uStageGrow;
 float ixEdge, ixEdgeC;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
-${PAT_UNIFORMS}out vec4 o;
+${PAT_UNIFORMS}layout(location = 0) out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
 vec2 ixDwX, ixDwY;
 const int IX_B = ${B};
@@ -698,6 +698,9 @@ ${globe ? `  vec3 P = normalize(vP);
   ixAwX = ixDwX; ixAwY = ixDwY;
   ixPix = sqrt(abs(ixDwX.x * ixDwY.y - ixDwX.y * ixDwY.x));` : `  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
   vec2 w = uCenter + (f * uInvScale + uCenterLo);
+#ifdef IX_NR_N
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+#endif
   ixDwX = vec2(uInvScale.x, 0.0); ixDwY = vec2(0.0, uInvScale.y);
   ixPix = uInvScale.x;`}
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);

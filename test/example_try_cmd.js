@@ -1,5 +1,5 @@
 // An example's Try line closes when the user does what it asks, and only then (issue #34): "press Deformation" closes
-// when the Deformation opens, not on any other action; another example's line replaces it, as before; an example whose
+// when the Deformation opens, not on any other action; another example's line takes its place; an example whose
 // line asks for something we cannot see (its X, Show me) keeps working. A command file for a CDP daemon.
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
