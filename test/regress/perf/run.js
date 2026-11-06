@@ -915,9 +915,9 @@ async function svPrestartEditUnit() {
     await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
     await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
     await settle(await pageNow());
-    await sleep(SV_IDLE_MS);
+    await B.until('__cmwSteps().ready.ready === true', SETTLE_TIMEOUT, 50);
     await B.ev(`__cmwAddStep('joukowski', {}), 1`);
-    await sleep(350);
+    await B.until('__cmwSteps().ready.ready === false', SETTLE_TIMEOUT, 20);
     const r = await B.ev('(() => { const s = __cmwSteps(); return s.ready ? s.ready.total - s.ready.done : -1; })()');
     const w = await dragLeg('L', 200, 120, 'left', 150, 16);
     frame.push(quant(w.frame, 0.95));

@@ -2625,22 +2625,12 @@
   // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
   // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
   // chain changes
-  // (the lists svPrestart starts and svReady counts: [name, map mode] pairs of the current chain)
-  const SV_PRESTART_MODES = ['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'];
-  const svPrestartList = () => {
-    const l = [];
-    for (const n of SV_PRESTART_MODES) for (const m of [0, 1]) l.push([n, m]);
-    for (const n of ['regionP', 'keepA']) l.push([n, 0]);
-    l.push(['carry', 1]);
-    for (const n of GLR.carryNames ? GLR.carryNames() : []) l.push([n, 1]);
-    return l;
-  };
   function svPrestart() {
     try {
       if (!GLR.ok) return;
       if (GLR.prestartModes) GLR.prestartModes([1]);
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
-      if (GLR.prestartNames) GLR.prestartNames(SV_PRESTART_MODES, [0, 1]);
+      if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
       // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
       // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
@@ -2670,7 +2660,7 @@
   function svReady() {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
-    parts.programs = GLR.progStatus(svPrestartList());
+    parts.programs = GLR.progStatus();
     parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
