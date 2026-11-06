@@ -141,7 +141,7 @@ const TIMING = {
   'morphfig_classic_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
-  'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
+  'p3_accept_export_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   // (the export completed with both globes inverse; only its long tasks missed)
   'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
@@ -193,6 +193,8 @@ const SOFTWARE = {
   'p3_accept_cmd.js': [
     s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
       (d) => Array.isArray(d) && d.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'pending' && p.reason === 'compiling')),
+  ],
+  'p3_accept_export_cmd.js': [
     s(/^\(h\) the dialog: the last option wins$/, 'the last option is the one checked, but the figure is still being rebuilt when the suite\'s 10 s wait ends (a figure takes 25-40 s to build here); a finished figure with other columns still fails',
       (d) => d && d.checked === '1' && (d.cols === null || d.building === true)),
   ],

@@ -269,6 +269,7 @@ const VIEWS = {
   'link_standin_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render'),
+  'p3_accept_export_cmd.js': port('export'),
   'p3_review_cmd.js': steps({ pin: true }),
   'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
   'p3b_accept_cmd.js': steps({ pin: true }),
