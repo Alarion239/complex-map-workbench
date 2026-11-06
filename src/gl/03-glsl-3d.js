@@ -38,8 +38,8 @@ vec2 heightW(vec2 w) {
   // across it, not in squares. uLv: the levels (Lx + 8 Ly), four cells per texel along x. uLst: the refined cells
   // (cell index per texel, 1024 per row), grouped by (Lx, Ly). Positions are in 16ths of a cell (exact integers), so
   // a vertex two cells share comes from the same numbers in both.
-  // While something moves the levels may be a frame or two older than the heights (read back fenced, never waited for:
-  // r2 review math-3): a cell that now holds a real jump (LAND_EDGE_VS, the current heights') counts as level 0 in
+  // While something moves the levels may be a frame or two older than the heights (read back fenced, never waited for):
+  // a cell that holds a real jump (LAND_EDGE_VS, the current heights') counts as level 0 in
   // every program, so its refined neighbours meet its base edges and the base draw splits it at the cut
   const REFINE = `
 uniform highp sampler2D uLv; uniform highp sampler2D uLst; uniform int uM;
@@ -147,14 +147,14 @@ float levels2(vec4 h, float m0, float m1, float m2, float m3, float m4) {
   return float(levelOf(ex) + 8 * levelOf(ey));
 }
 `;
-  // The principal surface's chain pass, as small as it was (one call site of the chain): F and its height at the grid's
+  // The principal surface's chain pass, kept small (one call site of the chain): F and its height at the grid's
   // vertices (uPass 0: uN x uN over the box: the mesh, or the quarter / half cells of the refinement's lattice), or at
   // the points of uPq (uPass 1: the refined vertices and their normals' neighbours, LAND_RP_VS). Everything else of
   // the refinement is in programs without the chain (LAND_LV_VS, LAND_RP_VS, LAND_RA_VS), compiled once per page: a
-  // formula's first Landscape compiles what it compiled before (r2 cold opens: a larger chain program held the GPU
+  // formula's first Landscape compiles what it compiled before (a larger chain program held the GPU
   // process for 0.7 to 0.9 s at its first use).
   // The heights pass (uPass 0: the grid), the refinement's chain pass (uPass 1: the points in uPq) and, in the same
-  // program, the edge pass (uPass 3, LAND_EDGE_VS's work for the cut kind this program was built for, issue #47): one
+  // program, the edge pass (uPass 3, LAND_EDGE_VS's work for the cut kind this program was built for): one
   // call site of the chain, evalAt, in one loop whose trip count is a uniform, so the program stays about the size of
   // the height pass's and the edge pass costs no second program's link and first draw. kind 'P': the principal map
   // (mapF), for the cuts the sheets cannot continue (kind 2, bisection on the height step); 'S' / 'H': the
@@ -397,7 +397,7 @@ void main() {
   // function, arg, or a d/dz after a cut): a height step that does not shrink under bisection is a jump, unless F grows
   // without bound on both sides (a pole on the edge).
   // (Each kind has one call site of one chain evaluation, in loops whose trip counts are uniforms: the program stays
-  // about the size of the height pass's and compiles about as fast, review pictures-1. No return inside a loop:
+  // about the size of the height pass's and compiles about as fast. No return inside a loop:
   // ANGLE's Metal translation lost the result of this pass when a loop returned early.)
   const LAND_EDGE_VS = (kind) => (kind === '2' ? `
 vec2 princAt(vec2 z) { return mapF(z); }
@@ -656,7 +656,7 @@ void main() {
   // vertices each; vW: F at the vertex, for sub-cells under about a pixel, LAND_FS)
   // While something moves (uSteep 1), a base triangle with a corner sloped over 1 (its normal), in a cell without a
   // jump, is drawn by landB instead (LAND_B_VS), which has facetW; the levels come a frame or two late, and a wall that
-  // has moved past them lies on base cells (r3 review pictures-1: at the Max mesh it moved 15 to 20 cells between two
+  // has moved past them lies on base cells (at the Max mesh it moves 15 to 20 cells between two
   // reads near the domain's edge, past any fill-in around the walls of the last levels)
   const STEEP = `
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
@@ -817,8 +817,7 @@ void main() {
   // Vertices are not shared between cells: the height texture holds a 2 x 2 block per cell (its corners), one tile
   // of 2M x 2M texels (M = uN - 1 cells per side) per combo, uTileC tiles per row. Texel: (height, valid, nx, ny)
   // with the normal from central differences of the height on the same sheet (nz > 0 follows).
-  // the surface number combo of the drawn map at (zc, z): mode 0 the steps (uSheetA, uSheetB] (chainSheetRange, as
-  // before); a deformation (modes 1 and 3, the map's own uniforms) H_t on the sheets that become F's (chainSheetHom,
+  // the surface number combo of the drawn map at (zc, z): mode 0 the steps (uSheetA, uSheetB] (chainSheetRange); a deformation (modes 1 and 3, the map's own uniforms) H_t on the sheets that become F's (chainSheetHom,
   // notes/v16-user5/SHEETS-DESIGN.md)
   const SHEET_MAP = `
 uniform int uSheetA; uniform int uSheetB; uniform int uSheetMap[24];
@@ -963,7 +962,7 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
   // two coincide (a deformation near t = 0) the first one shows, never a mix of the two.
   // (clip: the variant for linear heights, whose triangles are clipped at the block, landSheetC; its polygon's arrays
   // in the same program cost every vertex of every other mode too: the GPU sizes a program's registers by its largest
-  // path, and the sheets' draw at the Max mesh took twice the base's, 27 to 38 fps orbiting, r3 review speed-1)
+  // path, and the sheets' draw at the Max mesh takes twice the base's, 27 to 38 fps orbiting)
   const LAND_SHEET_VS = (clip) => REFINE + `
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
@@ -1148,7 +1147,7 @@ in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc; uniform float uPatch;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1231,11 +1230,12 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
-  // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile
-  vec2 uv = (vZ - ${carry ? 'uSrc.xy) / uSrc.zw' : 'uBox.xy) / uBox.zw'};
-  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
+  // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile. The carried
+  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it
+${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
-${carry ? '  rim *= 1.0 - uPatch;   // (a patch of the carried grid (CARRY_Z) has no domain edge of its own)\n' : ''}  // where the block's top or bottom clips the surface: the same rim as the domain's edges
+  // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
                          vBoxE.y * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.y))),
                          vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z))));
@@ -1373,14 +1373,14 @@ void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
   // uNet (panels.md 9.5, P3b): the graticule is the snap net of the active tool. 0: the polar net (meridians every
   // 15 deg, parallels |z| = 1/8 ... 8), for Select and the round kinds; 1: the lifted Cartesian lattice in the plane's
   // own graph-paper tiers, for the Cartesian kinds; 2: the P3 graticule (meridians every 30 deg, |z| = 1/4 ... 4) of a
-  // globe that takes no drawing (Morph open, solo, a focused stage), which panels.md 9.5 leaves as it was. The real
+  // globe that takes no drawing (Morph open, solo, a focused stage), which panels.md 9.5 keeps. The real
   // great circle and |z| = 1 are drawn in all three.
-  const SPHERE_FS = (phase) => `
-in vec3 vP;
-uniform vec3 uPlaneCol; uniform vec3 uGridMaj; uniform vec3 uAxisCol; uniform vec3 uEye; uniform int uNet;
-out vec4 o;
-void main() {
-  vec3 n = normalize(vP);
+  // The graticule's coverages at the sphere point n (unit): net (the tier of uNet), re (the real great circle) and eq
+  // (|z| = 1), each 0..1, and phaseLines' mix of them over a colour (the globe's phase portrait, and the steps view's
+  // carried colour, which share it). Needs TIERS and UTIL.
+  const SPHERE_LINES = `
+uniform int uNet;
+void sphereLines(vec3 n, out float net, out float re, out float eq) {
   float nz = clamp(n.z, -1.0, 1.0);
   float y = 0.5 * log2(max(1.0 + nz, 1e-12) / max(1.0 - nz, 1e-12));   // log2 |z|
   float fy = fwidth(y);
@@ -1388,22 +1388,32 @@ void main() {
   float th = atan(n.y, n.x) * mk;
   float fa = argWidth(n.xy) * mk;
   float fny = fwidth(n.y);
-  vec2 z = vec2(n.x, -n.y) / max(1.0 - nz, 1e-7);   // S = 0, N = infinity (the conjugate lift's inverse)
-${phase ? `
-  vec3 base = dcolor(mapF(z));` : `
-  vec3 base = uPlaneCol;`}
   float mer = iso(th, fa, 1.0) * dfade(fa);                                        // meridians every 15 (30) deg
   float par = iso(y, fy, 1.0) * dfade(fy) * step(0.5, abs(y)) * step(abs(y), uNet == 2 ? 2.5 : 3.5);  // |z| = 1/8 (1/4) ... 8 (4)
-  float net = max(mer, par);
-  if (uNet == 1) net = tiersOver(z, vec4(0.0), 1.0).a;                             // the lifted lattice (coverage)
-  float eq = iso0(y, fy, 1.5 * uDpr);                                              // |z| = 1
-  float re = iso0(n.y, fny, 1.25 * uDpr);                                          // real great circle
-${phase ? `
+  net = max(mer, par);
+  if (uNet == 1) net = tiersOver(vec2(n.x, -n.y) / max(1.0 - nz, 1e-7), vec4(0.0), 1.0).a;   // the lifted lattice (coverage)
+  eq = iso0(y, fy, 1.5 * uDpr);                                                    // |z| = 1
+  re = iso0(n.y, fny, 1.25 * uDpr);                                                // real great circle
+}
+vec3 phaseLines(vec3 base, float net, float re, float eq) {
   vec3 ink = vec3(0.0431, 0.0667, 0.0784);
   vec3 col = mix(base, ink, 0.18 * net);
   col = mix(col, ink, 0.35 * re);
-  col = mix(col, ink, 0.45 * eq);` : `
-  vec3 col = mix(base, uGridMaj, net);
+  return mix(col, ink, 0.45 * eq);
+}
+`;
+  const SPHERE_FS = (phase) => `
+in vec3 vP;
+uniform vec3 uPlaneCol; uniform vec3 uGridMaj; uniform vec3 uAxisCol; uniform vec3 uEye;
+out vec4 o;
+void main() {
+  vec3 n = normalize(vP);
+  float net, re, eq;
+  sphereLines(n, net, re, eq);
+${phase ? `
+  vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7)));   // S = 0, N = infinity (the conjugate lift's inverse)
+  vec3 col = phaseLines(base, net, re, eq);` : `
+  vec3 col = mix(uPlaneCol, uGridMaj, net);
   col = mix(col, uAxisCol, 0.7 * re);
   col = mix(col, uAxisCol, eq);`}
   vec3 v = normalize(uEye - vP);
