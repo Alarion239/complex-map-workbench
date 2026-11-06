@@ -101,12 +101,12 @@ const SUITES = {
   // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
   'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
+  // (one `seam-frame:` line per frame measured, in the job's log)
+  'steps_seams_cmd.js': { logLine: (o) => seamFrameLines(o) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
   // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
   // baseline and does not; the rest go to its result's report)
-  // (one `seam-frame:` line per frame measured, in the job's log)
-  'steps_seams_cmd.js': { logLine: (o) => seamFrameLines(o) },
   'layout_invariants_cmd.js': {
     keepShots: true,
     // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
