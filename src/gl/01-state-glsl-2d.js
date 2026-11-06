@@ -723,12 +723,13 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
   // preKeyDepth(sa, stepped), sa the source point: x = KEY_STEPS D + 0.999 (tie order), depth x / (x + 1024).
-  // - KEY_STEPS = 256 = 1 / Inverse.front's TIE_D: keys a tie step apart are one unit of x apart, and the tie order,
+  // - KEY_STEPS = 256 = 2^8: the depth's own tie step, 2^-8 octave (the inverse pass's order, Inverse.front, ties within
+  //   a far narrower band: a depth has no band): keys a tie step apart are one unit of x apart, and the tie order,
   //   in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric
   //   about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|) would otherwise order
   //   fragment by fragment.
-  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): KEY_STEPS D rounded to its step, as Inverse.front
-  //   and the inverse pass compare keys, so two sheets in one step are ordered by the tie order alone. Not stepped (a
+  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): KEY_STEPS D rounded to its step, so two
+  //   sheets in one step are ordered by the tie order alone. Not stepped (a
   //   vertex stage: REGION_VS's carry option): KEY_STEPS D itself, since a depth interpolated across a triangle whose
   //   vertices straddle a step would order the sheets wrongly over the whole triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
@@ -736,7 +737,7 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // - x / (x + 1024) maps x >= 0 into [0, 1), monotone, finest for small D (depth 0.5 at D = 4). D is capped at 1e4
   //   (a point that far behind is behind every point that matters) so x stays finite.
   const PRE_KEY_DECL = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
-// (the key's steps per octave: 1 / Inverse.front's TIE_D)
+// (the key's steps per octave: the depth's tie step, 2^-8 octave)
 const float KEY_STEPS = 256.0;
 float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);

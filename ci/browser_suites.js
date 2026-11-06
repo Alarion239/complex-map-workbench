@@ -101,6 +101,8 @@ const SUITES = {
   // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
   'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
+  // (the settled seam frame and the worst frame of the 2 s window, for a look at the frames the numbers come from)
+  'steps_seams_cmd.js': { keepShots: true },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
   // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the

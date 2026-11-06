@@ -254,6 +254,14 @@ jobs:
         env:
           SUITES: ${{ inputs.suites }}
         run: node ci/browser.js --only "$SUITES"
+      # (the shots a suite keeps, e.g. steps_seams' frames, to look at)
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: browser-shots-${{ matrix.machine }}
+          path: .ci/browser/shots/
+          if-no-files-found: ignore
+          retention-days: 3
 
   glsl:
     name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
