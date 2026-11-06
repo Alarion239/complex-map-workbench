@@ -687,5 +687,14 @@
  "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено; кривые, которые она переводит в них, нарисованы здесь же.",
  "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
  "Scope": "Охват",
- "landscape": "рельеф"
+ "landscape": "рельеф",
+ "Previous step alone": "Предыдущий шаг отдельно",
+ "Next step alone": "Следующий шаг отдельно",
+ "Show f{k} alone": "Показать только f%{k}",
+ "No step before f{k}": "Перед f%{k} шагов нет",
+ "No step after f{k}": "После f%{k} шагов нет",
+ "Step shown alone": "Шаг, показанный отдельно",
+ "Moved {name} to {x}, {y}.": "{name} перемещена в {x}, {y}.",
+ "Moved {name}.": "{name} перемещена.",
+ "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её"
 }
