@@ -32,7 +32,7 @@ const BASE = (() => { const i = argv.indexOf('--base'); return i >= 0 ? argv[i +
 let bad = 0;
 const check = (what, ok, got) => { if (!ok) bad++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${what.padEnd(78)} ${got}`); };
 
-// a synthetic WebGL2 page: forward frame now, inverse program linked at linkAt ms, first inverse draw at drawAt ms
+// a synthetic WebGL2 page: forward frame at the start, inverse program linked at linkAt ms, first inverse draw at drawAt ms
 // (never when drawAt is null); pendingFlag: GLR.frameStatus().pending is true from the link to the first draw
 function page({ linkAt = 200, drawAt = 1200, pendingFlag = true }) {
   return `<!doctype html><meta charset="utf-8"><canvas id="c" width="64" height="64"></canvas><script>
