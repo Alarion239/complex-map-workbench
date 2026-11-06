@@ -66,6 +66,7 @@ const VIEWS = {
   'steps_glide_black_cmd.js': steps({ pin: true }),
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
   'steps_glide_later_cmd.js': steps({ pin: true }),
+  'steps_glide_outline_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
   'steps_walk_cmd.js': steps({ pin: true }),
   'steps_split_remap_cmd.js': steps({ pin: true }),
