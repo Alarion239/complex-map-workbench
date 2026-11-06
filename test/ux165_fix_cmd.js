@@ -139,7 +139,6 @@ await settle(1200);
   const st = await ST(), K = st.list.find((x) => x.def && x.def.op === 'circle3');
   ok('rail-5: three globe picks on C are gliders and the circle is C', K && Math.abs(K.r - 0.8) < 1e-12 && st.list.filter((x) => x.def && x.def.op === 'glider').length === 3, sum(st));
   await key('Escape');
-  // (Orthogonal on the globe says to switch to the plane after a press: the classic view's hint, in ux165_fix_classic_cmd.js)
   // (before any press: the chip of a tool that picks a curve says where the curve is picked)
   const q = await pt(60);
   for (const t of ['perp', 'touch', 'hyper', 'meet']) {
@@ -161,13 +160,11 @@ await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); 
   ok('regress-3: the "Added" message sits over the plot, above the thread', tr && tr[0] && tr[1] === placed, tr); }
 // regress-1, regress-2: example 8 with the deformation; example 10's "Opened" toast and M
 await openEx(8); await key('m'); await settle(1200);
-// (regress-1, the deformation bar's one row, is the classic view's transport: ux165_fix_classic_cmd.js)
 await key('m'); await settle(500);
 await openEx(10); await key('m'); await settle(1200);
 { const t = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), d = document.querySelector('.tdock:not([hidden])'); if (!t || !d) return null; const a = t.getBoundingClientRect(), b = d.getBoundingClientRect(); return a.bottom <= b.top || a.top >= b.bottom; })()`);
   ok('regress-2: the toast is not over the deformation bar', t !== false, t); }
 await key('m'); await settle(500);
-// (regress-5, the planes staying put when Listen starts the melody, is in ux165_fix_classic_cmd.js)
 // regress-9: a Tab focus shows the tip; a focus the app moves does not
 await ev(`document.getElementById('undoBtn').focus(), 1`); await settle(400);
 ok('regress-9: no tip for a focus the app moves', await ev(`document.getElementById('tip').hidden`));

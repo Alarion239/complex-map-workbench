@@ -23,7 +23,7 @@ const SHARDS = [
   { id: 'export-3', suites: ['export_deform_cmd.js#preview', 'export_deform_cmd.js#4b'] },                               // 571 + 167
   // (480 + 295, with meetnear_coincide and between: 5 + 23)
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'meetnear_coincide_cmd.js', 'between_cmd.js'] },
-  { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_nat_classic_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js', 'deform_dirichlet_cmd.js'] },   // 340 + 292 + 114 + 22 + 24 + about 30
+  { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'rel162_sheets_cmd.js', 'deform_dirichlet_cmd.js'] },   // 340 + 292 + 114 + 22 + 24 + about 30
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
   { id: 'tour', suites: ['tour_cmd.js', 'tour_cmd_classic_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_auto_classic_cmd.js', 'tour_tasks_cmd.js', 'tour_tasks_classic_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'tour_skip_hover_cmd.js', 'phone_fwell_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js', 'tour_it360_cmd.js'] },                   // 552 + 16 + 44
@@ -47,7 +47,7 @@ const SHARDS = [
   { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_learn_first_run_cmd.js', 'ux165_learn_sound_cmd.js', 'ux165_rail_cmd.js', 'd1_replace_cmd.js', 'ux165_plane_classic_cmd.js'] },            // 210 + 169 + 195 (ux165_rail: the steps view and the classic view) + 116
-  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_phone_classic_cmd.js', 'ux165_plane_cmd.js', 'key_popup_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'phone_ctx_tex_cmd.js', 'phone_ctx_slide_cmd.js', 'phone_palette_cmd.js', 'phone_glide_cmd.js', 'phone_glide_export_cmd.js', 'ux165_merge_classic_cmd.js', 'ux165_fix_classic_cmd.js', 'phone_export_steps_cmd.js'] },   // 149 (ux165_phone and ux165_phone_classic together) + 108 + 130 (key_popup) + 70 + 63 (it threw)
+  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_phone_classic_cmd.js', 'ux165_plane_cmd.js', 'key_popup_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'phone_ctx_tex_cmd.js', 'phone_ctx_slide_cmd.js', 'phone_palette_cmd.js', 'ux165_merge_classic_cmd.js', 'phone_export_steps_cmd.js'] },   // 149 (ux165_phone and ux165_phone_classic together) + 108 + 130 (key_popup) + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
   // (#470: the layout checks; en 376 points in 11 min on SwiftShader in a sandbox, both views; ru and it 3 sizes each)
   { id: 'layout-1', suites: ['layout_invariants_cmd.js#en'] },
@@ -56,7 +56,7 @@ const SHARDS = [
   // (the browser suites no area shard lists, in three parts of about 8 minutes each, balanced by their hosted suite times)
   { id: 'misc-1', suites: ['i18n_walk_steps_cmd.js', 'pane_heads_1024_cmd.js', 'header_layout_cmd.js', 'phase_key_cmd.js', 'complex_point_cmd.js', 'a11y_axe_cmd.js', 'steps_colour_pick_cmd.js', 'tour_words_classic_cmd.js', 'field_settle_cmd.js', 'complex_lang_export_cmd.js', 'example_try_events_cmd.js', 'repeat_settle_cmd.js', 'top_bar_focus_cmd.js', 'steps_rail_fit_cmd.js', 'pin_view_cmd.js', 'steps_stage_handles_cmd.js'] },
   { id: 'misc-2', suites: ['steps_glide_look_cmd.js', 'cauchy_residue_cmd.js', 'export_fit_cmd.js', 'steps_listen_cmd.js', 'sv_globe_mask_cmd.js', 'land_release_cmd.js', 'steps_readout_cmd.js', 'steps_why_cmd.js', 'repeat_cmd.js', 'tour_words_cmd.js', 'phone_fmap_cmd.js', 'mj_ranges_cmd.js', 'param_planes_cmd.js', 'steps_carry_cmd.js', 'kit_seed_cmd.js'] },
-  { id: 'misc-3', suites: ['sv_state_cmd.js', 'phase_style_cmd.js', 'custom_show_cmd.js', 'example_try_cmd.js', 'example_try_repeat_cmd.js', 'complex_params_cmd.js', 'steps_arrows_cmd.js', 'series_edit_cmd.js', 'series_params_cmd.js', 'stage_shapes_cmd.js', 'shape_rows_cmd.js', 'offline_cmd.js', 'steps_chipname_cmd.js', 'kit_settled_cmd.js', 'kit_ev_cmd.js'] },
+  { id: 'misc-3', suites: ['sv_state_cmd.js', 'phase_style_cmd.js', 'custom_show_cmd.js', 'example_try_repeat_cmd.js', 'complex_params_cmd.js', 'steps_arrows_cmd.js', 'series_edit_cmd.js', 'series_params_cmd.js', 'stage_shapes_cmd.js', 'shape_rows_cmd.js', 'offline_cmd.js', 'steps_chipname_cmd.js', 'kit_settled_cmd.js', 'kit_ev_cmd.js'] },
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },
 ];
 

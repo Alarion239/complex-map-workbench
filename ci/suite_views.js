@@ -104,14 +104,10 @@ const VIEWS = {
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'mv_views_cmd.js': classic('the merged X → Y / Phase / Landscape views and their switch, which the steps view replaces'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
-  'phone_glide_export_cmd.js': classic('the export while the classic ‹ › glide has Y on a step\'s plane, and the chip over it: the steps view\'s export of a step\'s plane is phone_export_steps_cmd'),
-  'phone_glide_cmd.js': classic('the phone\'s ‹ › glide of Y between X and Y: the steps view glides its one plane (steps_view_cmd)'),
   'phone_plane_cmd.js': steps({ pin: true }),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
-  'deform_range_gl_cmd.js': classic('it drives the Deformation bracket itself (__cmwMorph({ range }), #homOrderSel), which the steps view does not have'),
-  'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
 
   // to port: interact
   'a11y_axe_cmd.js': steps({ pin: true }),
@@ -138,7 +134,6 @@ const VIEWS = {
   'stage_shapes_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
   'top_bar_focus_classic_cmd.js': classic('the classic top bar\'s view switch and Deformation in the Tab order, and the segments of the view switch and of the classic heads: the steps view has none of them (top_bar_focus_cmd)'),
-  'ux165_fix_classic_cmd.js': classic('the classic transport dock\'s one row, the Sphere view\'s switch-to-the-plane hint for Orthogonal, and the planes staying put when Listen starts: the steps view has no dock, takes no curve pick on its globe yet, and its Listening-along note moves the plane'),
   'ux165_fix_cmd.js': steps({ pin: true }),
   'ux165_merge_classic_cmd.js': classic('Y\'s head with its "Y · " tag: the classic right pane; the steps view has one plane and no such head'),
   'ux165_merge_cmd.js': steps({ pin: true }),
@@ -151,7 +146,6 @@ const VIEWS = {
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
   'deform_nat_cmd.js': steps({ pin: true }),
-  'deform_nat_classic_cmd.js': classic('the classic Deformation dock: its Paths button, key P and palette entry, the figure export with paths, the order select and all at once as one homotopy with its scrubber, caption and play loop, Phase beside the deformation, and the 60 fps check of the paths: the steps view has no dock, draws a glide over several steps as one run of them, and keeps its own Paths and order controls (steps_paths_cmd, steps_order_cmd)'),
 
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
