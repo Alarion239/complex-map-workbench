@@ -1,5 +1,5 @@
 'use strict';
-// The planes' context menu (v15; notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press" and "Keyboard and
+// The planes' context menu (notes/ui-redesign-2/desktop/DESIGN.md 2.5, INTERFACE.md "Long-press" and "Keyboard and
 // screen readers", phone/DESIGN.md 3.6). One menu for every plane: a right-click, the touch long-press (450 ms ring, a
 // release without moving), Shift+F10 or the Menu key. A head with the point and the map there, then groups, empty
 // ones left out:
@@ -7,7 +7,7 @@
 //                  Listen along, Hide, Delete)
 //   constructions: (construct.js) what acts on the shape there: Mark the intersection, Point on this curve, Put on
 //                  this curve, Make free
-// It is a menu of objects only (issue #13): over empty plane nothing opens (a right-click there only pans; the view is
+// It is a menu of objects only: over empty plane nothing opens (a right-click there only pans; the view is
 // centred with a double-click), and while a drawing is in progress the app's right-click cancels it instead.
 // The app hands over an adapter with PlaneMenu.init(api) (app.js planeMenuApi); other builds add items with
 // PlaneMenu.register(group, provider): provider(ctx) returns a list of items {label | html, sub?, icon?, key?, danger?,
@@ -29,7 +29,7 @@ const PlaneMenu = (() => {
   const tag = (t, cls, html) => { const e = document.createElement(t); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
   // ---- numbers: as many decimals as a pixel of the plane needs (2 at 52 px per unit), upright digits, real minus
-  // (at most 6 decimals: a menu head is a reading, not a computation; review math-8)
+  // (at most 6 decimals: a menu head is a reading, not a computation)
   function dpFor(s) { return Number.isFinite(s) && s > 0 ? Math.max(0, Math.min(6, Math.ceil(Math.log10(s) - 0.3))) : 3; }
   function fmtR(x, dp) {
     const ax = Math.abs(x);
@@ -161,7 +161,7 @@ const PlaneMenu = (() => {
     ringEl.style.left = cx + 'px'; ringEl.style.top = cy + 'px';
     document.body.append(ringEl);
   }
-  // the ring is full: the press is a long press now
+  // the ring is full: the press counts as a long press
   function ringFull() { if (ringEl) ringEl.classList.add('full'); try { if (navigator.vibrate) navigator.vibrate(10); } catch (e) { /* no vibration */ } }
   function ringStop() { if (ringEl) { ringEl.remove(); ringEl = null; } }
 
@@ -210,19 +210,19 @@ const PlaneMenu = (() => {
       }
     }
     // the shape under the pointer: the line integral along one curve there (that shape's when it is a curve near the
-    // pointer, else the nearest) and its Listen along, then Hide and Delete (a left click already selects; issue #13)
+    // pointer, else the nearest) and its Listen along, then Hide and Delete (a left click already selects)
     const vtx = ctx.surface === 'flat' && api.vertexAt ? api.vertexAt(ctx.side, ctx.x, ctx.y, ctx.touch) : null;
     if (vtx) out.push({ id: 'vertex-remove', icon: 'trash', label: $t('Remove vertex'), disabled: vtx.n <= 3, run: () => api.removeVertex(vtx.id, vtx.i) });
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
     const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id).map((it) => ({ id: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', icon: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', label: it.label, run: it.run }));
-    // ([v16.5 UX56] a point is the menu's subject: its items come before the curve's integral)
+    // (a point is the menu's subject: its items come before the curve's integral)
     if (!(s && s.kind === 'point')) out.push(...integrals);
     if (s) {
-      // ([v16.5 UX56] a point on a curve says so on its first line: "z₁ · on Arc 1")
+      // (a point on a curve says so on its first line: "z₁ · on Arc 1")
       const on = s.on && s.on.length ? $t('lies on {x}', { x: s.on.join(', ') }) : null;
       if (on) out.push({ id: 'shape-on', icon: 'select', label: s.name, sub: on, disabled: true });
-      // (UX42: shapes that cover each other: every one under the pointer can be selected from here, and the subject can
-      // go to the front or the back; not under a point, the menu's subject (UX56), whose curve is a few pixels away)
+      // (shapes that cover each other: every one under the pointer can be selected from here, and the subject can
+      // go to the front or the back; not under a point, the menu's subject, whose curve is a few pixels away)
       if (s.kind !== 'point' && s.all && s.all.length > 1) for (const x of s.all) out.push({ id: 'shape-select', icon: 'select', label: $t('Select {name}', { name: x.name }), disabled: x.selected, run: () => api.select(x.id) });
       if (s.canFront) out.push({ id: 'shape-front', icon: 'select', label: $t('Bring to front'), run: () => api.front(s.id) });
       if (s.canBack) out.push({ id: 'shape-back', icon: 'select', label: $t('Send to back'), run: () => api.back(s.id) });
@@ -230,7 +230,7 @@ const PlaneMenu = (() => {
       out.push({ id: 'shape-delete', icon: 'trash', danger: true, label: $t('Delete {name}', { name: s.name }), run: () => api.del(s.id) });
       if (s.kind === 'point') out.push(...integrals);
     }
-    // a complex number at the pointer, with its point (in the plane X shows: [#252] its value is the point's place
+    // a complex number at the pointer, with its point (in the plane X shows: its value is the point's place
     // there): in a menu that is already open for a shape there (a plane with nothing under the pointer opens no menu)
     if (s && api.newNumber && ctx.plane === 'X' && ctx.surface === 'flat') out.push({ id: 'number-new', icon: 'number', label: $t('New complex number here'), run: () => api.newNumber(ctx.z) });
     return out;
