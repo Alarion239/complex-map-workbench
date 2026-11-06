@@ -600,6 +600,26 @@ const Region = (() => {
     const L = K[s.kind].level(s);
     return s.complement ? (z) => -L(z) : L;
   }
+  // A point inside area shape s, as [x, y], or null (a curve, or no point of positive level found): the centre of its
+  // bounding box when that lies inside it, else the deepest point (greatest level) of a 25 x 25 grid over the box, or
+  // over win ({x0, x1, y0, y1}) when it has no box, the one nearest the origin among equals
+  function interiorPoint(s, win) {
+    if (!K[s.kind] || K[s.kind].type !== 'area') return null;
+    let L;
+    try { L = levelOf(s); } catch (e) { return null; }
+    const bb = bboxOf(s) || win;
+    if (!bb) return null;
+    const at = (x, y) => { const l = L(C(x, y)); return l > 0 ? l : 0; };
+    const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    if (bboxOf(s) && at(cx, cy) > 0) return [cx, cy];
+    const N = 25;
+    let best = null, bl = 0, bd = Infinity;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const x = bb.x0 + (bb.x1 - bb.x0) * (i + 0.5) / N, y = bb.y0 + (bb.y1 - bb.y0) * (j + 0.5) / N, l = at(x, y), d = Math.hypot(x, y);
+      if (l > bl + 1e-9 * (1 + bl) || (l > 0 && Math.abs(l - bl) <= 1e-9 * (1 + bl) && d < bd)) { best = [x, y]; bl = l; bd = d; }
+    }
+    return best;
+  }
   function bboxOf(s) {
     if (s.complement) return null;
     const b = K[s.kind].bbox && K[s.kind].bbox(s);
@@ -1590,7 +1610,7 @@ const Region = (() => {
   const Globe = { lift, unlift, finiteOf, capFamily, capOf, shapeOfCap, applyCap, rotationTo, rotAxis, rot3, rotateShape, capFrame, rimPoint, rimAngle,
     globeHandlesOf, setGlobeHandle, sphereCurvesOf, globeInside, CAP_INF_EPS, CAP_MIN, HANDLE_FAR, dot3, cross3, norm3 };
 
-  return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, segCurvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
+  return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, interiorPoint, curvesOf, segCurvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
     supportOf, clipPrimitive, shapeClip, convexOf, formulaBox, Globe, curveDesc, traceWin, fcurveTrace,
     capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf, dhAngle, dhStamp, dhAsync: null };
 })();

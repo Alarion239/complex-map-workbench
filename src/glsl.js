@@ -2144,6 +2144,8 @@ void ixAncTan(vec2 w) {
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
+  // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
+  const NEWT_HIT_F = '1e-3';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
@@ -2159,12 +2161,12 @@ void ixAncTan(vec2 w) {
     const bk = o.kind === 'NEWT' && newtBack(o);
     return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0);
   };
-  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, a polynomial one its degree
+  // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, an unseeded one 2 + the ladder's, a polynomial one its degree
   const ixFinMax = (o) => {
     const D = newtDeg(o);
     if (D) return D;
     const bk = o.kind === 'NEWT' && newtBack(o);
-    return bk ? 1 + bk.seeds : IX_FIN[o.kind];
+    return bk ? 1 + bk.seeds : o.kind === 'NEWT' ? 2 + Inverse.NEWT_LADDER.length : IX_FIN[o.kind];
   };
   const IX_ADD = { EXP: 1, EXPC: 1, SIN: 2, COS: 2, TAN: 1, SINH: 2, COSH: 2, TANH: 1 };
   const IX_OPS_MAX = 16;
@@ -2183,7 +2185,7 @@ void ixAncTan(vec2 w) {
   // is walked again (the pass's member is the full walk's, so a read is the walk's result; the check guards a target
   // that does not hold this frame's)
   const newtCoreFns = (P, H, rd) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
-bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= 1e-3 * (1.0 + cx_abs(w)); }
+bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 bool ${P}_step(inout vec2 u, vec2 w, float t) {
   vec2 hu = ${H('u', 't')};
@@ -2196,7 +2198,12 @@ bool ${P}_step(inout vec2 u, vec2 w, float t) {
 }
 bool ${P}_polish(inout vec2 u, vec2 w, float t) {
   bool ok = true;
-  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) if (ok) ok = ${P}_step(u, w, t);
+  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) {
+    if (!ok) break;
+    vec2 p = u;
+    ok = ${P}_step(u, w, t);
+    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
+  }
   return ok;
 }
 bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
@@ -2465,6 +2472,7 @@ ${seeded ? '' : `  vec2 v1;
         if (D) return newtPolyFns(o, j, c, D, H, rd);
         const bk = newtBack(o);
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
+        const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL;
         return `vec2 chainHom(int i, vec2 z, float t);
 ${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
 vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
@@ -2486,24 +2494,43 @@ bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
   }
   return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
 }
-int ${P}_nb(Lf L) { return ixFin(L.u) ? 2 : 0; }
-bool ${P}_one_b(inout Lf L, int b) {
-  vec2 w = L.u, u, v;
-  float t = ${U(0)}.x;
-  if (!${P}_root(w, t, u)) return false;
-  if (b == 0) return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
-  bool ok = false, got = false;
-${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS) && IX_NR_N >= 2
-  // (the pass's member 1, deflated from the same member 0: read where it hits w and is not member 0)
-  if (uNrRead == 1 && w == ixPixW) {
-    v = texelFetch(uNrTex1, ixNrTexel, 0).zw;
-    got = !(abs(v.x) < ${NEWT_FINITE}) || (${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u)));
-    ok = abs(v.x) < ${NEWT_FINITE};
+vec2 ${P}_r[${NB}];
+bool ${P}_k[${NB}];
+void ${P}_roots(vec2 w, float t) {
+  if (${P}_has && ${P}_w == w) return;
+  ${P}_has = true; ${P}_w = w;
+  vec2 u, v = vec2(0.0);
+  ${P}_k[0] = ${P}_root(w, t, u);
+  ${P}_r[0] = u;
+  ${P}_k[1] = ${P}_k[0] && ${P}_defl(w, t, u, v);
+  ${P}_r[1] = v;
+  vec4 an = uInv[${c}];
+  bool anch = an.y >= an.w;
+  vec2 lo = anch ? vec2(an.z, an.w) : vec2(w.x / (1.0 - t), w.y / (1.0 - t) - ${Inverse.NEWT_SPAN.toFixed(1)});
+  float span = anch ? an.y - an.w : ${(2 * Inverse.NEWT_SPAN).toFixed(1)};
+  float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
+  for (int i = 0; i < ${NL}; i++) {
+    vec2 v = lo + vec2(0.0, span * lad[i]);
+    bool okv = true;
+    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
+      if (!okv) break;
+      vec2 p = v;
+      okv = ${P}_step(v, w, t);
+      if (okv && cx_abs(v - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(v))) break;
+    }
+    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
   }
-#endif
-` : ''}  if (!got) ok = ${P}_defl(w, t, u, v);
-  if (!ok) return false;
-  return ixApply(L, v, cinv(${P}_d(v, t)), ${NOR});
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 w = L.u;
+  float t = ${U(0)}.x;
+  ${P}_roots(w, t);
+  if (!${P}_k[b]) return false;
+  vec2 u = ${P}_r[b];
+  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
 }
 `;
       }
@@ -2754,7 +2781,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
           }
           break;
         }
-        put(c, p.t, 0, 0, 0);
+        put(c, p.t, p.anchor ? p.anchor.y1 : -1, p.anchor ? p.anchor.re : 0, p.anchor ? p.anchor.y0 : 0);
         let cell = c + IX_SLOTS.NEWT;
         for (const q of p.back || []) { invOpValues(q, put, cell); cell += IX_SLOTS[q.kind] || 0; }
         break;
