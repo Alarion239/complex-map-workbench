@@ -22,7 +22,7 @@
   const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36).slice(0, 5); };
   let uid = 0;
   // one figure at a time: its id namespace, its glyph table, the boxes of everything typeset (for collision checks)
-  XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
+  XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; XD.texts = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
   // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
@@ -81,12 +81,27 @@
     const base = ay === 'top' ? y + it.a : ay === 'bottom' ? y - it.d : ay === 'mid' ? y + it.a / 2 - it.d / 2 : y;
     return { x0: left, x1: left + it.w, y0: base - it.a, y1: base + it.d, left, base };
   };
+  // a label's TeX as the plain Unicode people read ("w₁", "Re z", "colour carried from z"), for the invisible text layer
+  const SUB = '₀₁₂₃₄₅₆₇₈₉', SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', alpha: 'α', beta: 'β', theta: 'θ', varphi: 'φ' };
+  XD.plain = (tex) => String(tex)
+    .replace(/\\(?:operatorname|text|textit|textbf|mathrm|mathit|displaystyle)\s*(?:\{([^{}]*)\})?/g, (m, a) => a || '')
+    .replace(/_\{?(\d+)\}?/g, (m, d) => [...d].map((c) => SUB[+c]).join(''))
+    .replace(/\\([A-Za-z]+)/g, (m, n) => SYM[n] || '')
+    .replace(/\\[,;:! ]/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+  // the kinds of label that carry text, in reading order: a panel's name (its title or its variable), the map arrow's label, the colour key's words,
+  // the axis titles (ticks, point labels and captions carry none)
+  const TEXT_KINDS = ['title', 'panel-letter', 'arrow', 'key', 'axis-name'];
   XD.rec = null;
   // place a typeset item; ax: start|middle|end, ay: base|mid|top|bottom. kind tags the box for the preflight
   XD.at = (it, x, y, ax = 'start', ay = 'base', kind = 'label', halo = 0) => {
     const b = XD.boxOf(it, x, y, ax, ay);
     if (XD.rec) XD.rec.push({ tex: it.tex, pt: it.pt, color: it.color, x, y, ax, ay, halo });
     XD.boxes.push({ kind, tex: it.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
+    if (XD.texts && TEXT_KINDS.includes(kind)) {
+      const text = XD.plain(it.tex);
+      // (the ring's labels 1, i, -1, -i are marks, not words)
+      if (text && !(kind === 'key' && text.length < 3)) XD.texts.push({ kind, text, x: b.x0, base: b.base, w: b.x1 - b.x0, h: b.y1 - b.y0 });
+    }
     for (const [k, d] of it.glyphs) XD.glyphs.set(`${XD.ns}-${k}`, d);
     const inner = it.inner.split('@NS@').join(XD.ns);
     const g = `<g transform="translate(${f2(b.left - it.vb0 * it.k)} ${f2(b.base)}) scale(${+it.k.toFixed(6)})">`;
@@ -253,8 +268,13 @@
     const meta = spec.meta ? `<metadata id="${XD.ns}-meta"><![CDATA[${JSON.stringify(spec.meta)}]]></metadata>` : '';
     const glyphs = [...XD.glyphs.entries()].map(([id, d]) => `<path id="${id}" d="${d}"/>`).join('');
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
-    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
+    // the invisible text layer over the glyph paths: each label's words, spread over its glyph box, in reading order (the
+    // figure's title, then the panels' names, the arrow's label, the key's words, the axis titles; each left to right)
+    const texts = [...(spec.title ? [{ kind: 'figure', text: String(spec.title), x: 0, base: 8, w: Math.min(+W, 4.5 * String(spec.title).length), h: 8 }] : []), ...XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || a.x - b.x)];
+    const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const layer = texts.length ? `<g class="cmw-text">${texts.map((q) => `<text x="${f2(q.x)}" y="${f2(q.base)}" font-size="${f2(q.h)}" textLength="${f2(q.w)}" lengthAdjust="spacingAndGlyphs" fill="#000000" fill-opacity="0">${esc(q.text)}</text>`).join('')}</g>` : '';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}${layer}</svg>`;
+    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), texts, lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
   };
   // point markers (shape carries identity in grey): dot | square | tri | diamond | ring | cross
   XD.marker = (kind, px, py, r, fill, stroke, sw) => {
@@ -546,12 +566,22 @@
       const at = a + b, x = /\sx="([^"]*)"/.exec(at), y = /\sy="([^"]*)"/.exec(at), rest = at.replace(/\s[xy]="[^"]*"/g, '');
       const path = `<path${rest} d="${(fig.glyphs || {})[id] || ''}"/>`;
       return x || y ? `<g transform="translate(${x ? x[1] : 0} ${y ? y[1] : 0})">${path}</g>` : path;
-    }).replace(/<metadata[\s\S]*?<\/metadata>/, '');
+    }).replace(/<metadata[\s\S]*?<\/metadata>/, '').replace(/<g class="cmw-text">[\s\S]*?<\/g>/, '');
     const el = new DOMParser().parseFromString(src, 'image/svg+xml').documentElement;
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden';
     host.append(el); document.body.append(host);
     try { await lib.svg2pdf(el, doc, { x: 0, y: 0, width: fig.W, height: fig.H }); } finally { host.remove(); }
+    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order; the standard font has
+    // Latin only, so a subscript digit is written as the digit and a letter it lacks is left out
+    if (doc.setLanguage) { try { doc.setLanguage(fig.lang === 'ru' ? 'ru-RU' : fig.lang === 'it' ? 'it-IT' : 'en-US'); } catch (e) { /* the language is optional */ } }
+    doc.setFont('helvetica', 'normal');
+    for (const q of fig.texts || []) {
+      const t = q.text.normalize('NFKD').replace(/[^\x20-\x7e]/g, '');
+      if (!t) continue;
+      doc.setFontSize(q.h);
+      doc.text(t, q.x, q.base, { renderingMode: 'invisible' });
+    }
     return doc.output('blob');
   };
   // PNG of the whole figure at dpi: opaque (RGB, or grey for B/W), pHYs, the scene in iTXt

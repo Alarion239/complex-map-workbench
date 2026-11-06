@@ -101,4 +101,30 @@ ok('example 18: Fit frames each plane, and the caption says so', r18 && r18.info
 const r18s = await build({ svPic: 'two', crop: 'screen' });
 ok('example 18: As on screen keeps the camera window, with no note', r18s && r18s.info && !r18s.info.ownWin && !/own window/.test(r18s.cap), r18s && r18s.cap);
 
+// the labels carry text (#1015): an invisible <text> over each label's glyph box (within 2 px), in the SVG; the same words,
+// invisible, in the PDF's text layer, in reading order
+await ready(1);
+const tl = JSON.parse(await ev(`await (async () => { try {
+  const f = await Figure.build({ svPic: 'two', crop: 'screen' });
+  const buf = new Uint8Array(await (await Figure.pdf(f)).arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
+  const els = [...new DOMParser().parseFromString(f.svg, 'image/svg+xml').querySelectorAll('g.cmw-text > text')].map((t) => ({ text: t.textContent, x: +t.getAttribute('x'), y: +t.getAttribute('y'), fs: +t.getAttribute('font-size'), len: +t.getAttribute('textLength'), op: t.getAttribute('fill-opacity') }));
+  return JSON.stringify({ els, boxes: f.boxes, pdf: btoa(bin) });
+} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, 120000));
+ok('the two-plane figure builds with its text layer', !tl.err && tl.els.length >= 3, tl.err || tl.els);
+if (!tl.err) {
+  const words = tl.els.map((t) => t.text);
+  ok('the layer has the panel names and the arrow\'s label', ['z', 'w₂', 'F'].every((w) => words.includes(w)), words);
+  ok('every text is invisible', tl.els.every((t) => t.op === '0'), tl.els);
+  const near = (t) => tl.boxes.some((b) => Math.abs(b.x0 - t.x) <= 2 && Math.abs((b.x1 - b.x0) - t.len) <= 2 && b.y0 - 2 <= t.y && t.y <= b.y1 + 2);
+  // (the first text is the figure's title, which has no glyphs of its own)
+  const labels = tl.els.slice(1).filter((t) => t.len > 0);
+  ok('each label\'s text lies within 2 pt of its glyph box', labels.length >= 3 && labels.every(near), labels.filter((t) => !near(t)));
+  const { execFileSync } = await import('node:child_process'), fs = await import('node:fs'), os = await import('node:os');
+  const file = `${os.tmpdir()}/cmw_tl_${process.pid}.pdf`;
+  fs.writeFileSync(file, Buffer.from(tl.pdf, 'base64'));
+  let txt = ''; try { txt = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' }); } catch (e) { txt = 'ERR ' + e.message; } finally { fs.rmSync(file, { force: true }); }
+  const at = (w) => txt.search(new RegExp(`(^|\\s)${w}(\\s|$)`));
+  ok('pdftotext lists the panel names, then the arrow\'s label', at('z') >= 0 && at('w2') > at('z') && at('F') > at('w2') - 1000 && at('F') >= 0, txt);
+}
+
 return { pass: fails.length === 0, fails, info };
