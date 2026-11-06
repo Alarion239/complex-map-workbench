@@ -46,10 +46,13 @@ const frames = async () => {
   await ev('window.__p3D0 = window.__p3grab.L; __cmwSteps({ scope: "in" }); 1');
   await sleep(700);
 };
-// (CUT_PX: the cuts of a step are drawn whole under Inside regions, also across the pixels outside its region (ux); the
-// judge leaves out the pixels within CUT_PX of that drawn curve and no others)
-const CUT_PX = 3;
-const globeCheck = async (cls, step = 2) => {
+// (the cuts of a step are drawn whole under Inside regions, also across the pixels outside its region (ux). Within CUT_PX of
+// that drawn curve the judge leaves out the pixels of the stroke's own colour, STROKE, alone or blended with the globe's
+// grey (its anti-aliased edge and halo: some t of STROKE over some grey from GREY_LO, each channel within STROKE_TOL);
+// any other tint or fill there still counts. leak: the control, which copies the Everywhere frame's coloured pixels over
+// up to 200 pixels outside the region within that band of the Inside frame, a fill leak right next to the cut)
+const CUT_PX = 3, STROKE = [204, 51, 17], GREY_LO = 150, STROKE_TOL = 10;
+const globeCheck = async (cls, step = 2, leak = false) => {
   await frames();
   return ev(`(() => {
   const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect();
@@ -80,17 +83,34 @@ const globeCheck = async (cls, step = 2) => {
     }
   }
   for (let y = 0; y < Hd; y++) for (let x = 0; x < Wd; x++) { const w = pick(x + 0.5, y + 0.5); C[y * Wd + x] = w ? (cls(w) || 2) : 3; WW.push(w); }
+  const S0 = ${JSON.stringify(STROKE)};
+  const isStroke = (A, i) => {
+    for (let t = 0; t <= 1.0001; t += 0.05) for (let g = ${GREY_LO}; g <= 255; g += 5) {
+      if (Math.abs(A[i] - (t * S0[0] + (1 - t) * g)) <= ${STROKE_TOL} && Math.abs(A[i + 1] - (t * S0[1] + (1 - t) * g)) <= ${STROKE_TOL} && Math.abs(A[i + 2] - (t * S0[2] + (1 - t) * g)) <= ${STROKE_TOL}) return true;
+    }
+    return false;
+  };
+  const injected = [];
+  if (${leak}) {
+    for (let y = 4; y < Hd - 4 && injected.length < 200; y++) for (let x = 4; x < Wd - 4 && injected.length < 200; x++) {
+      if (C[y * Wd + x] !== -1 || !onCut[y * Wd + x]) continue;
+      const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
+      if (Math.max(D0[i], D0[i + 1], D0[i + 2]) - Math.min(D0[i], D0[i + 1], D0[i + 2]) < 40 || isStroke(D0, i)) continue;
+      D1[i] = D0[i]; D1[i + 1] = D0[i + 1]; D1[i + 2] = D0[i + 2]; injected.push([x, y]);
+    }
+  }
   const near = (x, y) => { const c = C[y * Wd + x]; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= Wd || yy >= Hd) return true; if (dx * dx + dy * dy <= 16 && C[yy * Wd + xx] !== c) return true; } return false; };
   const o = { inN: 0, inBad: 0, outN: 0, outBad: 0, badIn: [], badOut: [] };
   for (let y = 4; y < Hd - 4; y += ${step}) for (let x = 4; x < Wd - 4; x += ${step}) {
     const c = C[y * Wd + x]; if (c !== 1 && c !== -1) continue;
-    if (near(x, y) || onLabel(x, y) || onCut[y * Wd + x]) continue;
+    if (near(x, y) || onLabel(x, y) || (onCut[y * Wd + x] && isStroke(D1, 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr))))) continue;
     const i = 4 * (Math.floor((y + 0.5) * dpr) * GW + Math.floor((x + 0.5) * dpr));
     const fill = ${FILL}(D1, D0, i);
     const w = WW[y * Wd + x];
     if (c > 0) { o.inN++; if (!fill) { o.inBad++; if (o.badIn.length < 4) o.badIn.push([x, y, w.map((v) => +v.toPrecision(4)), [D1[i], D1[i + 1], D1[i + 2]]]); } }
     else { o.outN++; if (fill) { o.outBad++; if (o.badOut.length < 4) o.badOut.push([x, y, w.map((v) => +v.toPrecision(4)), [D1[i], D1[i + 1], D1[i + 2]], [D0[i], D0[i + 1], D0[i + 2]]]); } }
   }
+  o.injected = injected.length;
   return o;
 })()`, 60000);
 };
@@ -218,6 +238,10 @@ await ev('__cmwCam("L", { pitch: -1.45, yaw: -0.6, dist: 2.2 }); 1'); await sett
 R.n_hole = await globeCheck(ANNULUS);
 ok('(n) plane w1 on the globe: hole cap empty, annulus filled', R.n_hole.outN >= 400 && R.n_hole.outBad === 0 && R.n_hole.inN >= 400 && R.n_hole.inBad === 0, R.n_hole);
 await shot('p3_n_hole');
+// the judge's control: a fill leak right next to the cut (the Everywhere colour copied over outside pixels within the cut's
+// band) is counted, so the stroke-colour exclusion does not hide it
+R.n_leak = await globeCheck(ANNULUS, 2, true);
+ok('(n) control: a fill leak next to the cut is counted by the judge', R.n_leak.injected >= 20 && R.n_leak.outBad >= 20, R.n_leak);
 
 // ---- (g) plane w1 of [z^i, z^2] on the Plane surface is exact: its fill equals the CPU render of z^i(H) (IoU >= 0.999)
 await plane(1, 'plane'); await settle();
