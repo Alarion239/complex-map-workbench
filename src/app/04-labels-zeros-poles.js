@@ -290,22 +290,69 @@
     const w0 = F(q0), win = stageWin(a);
     return CX.isFin(w0) ? trackRoot(F, q0, 1, w0, w, Math.max(win.x1 - win.x0, win.y1 - win.y0), performance.now() + PRE_TRACK_MS) : null;
   }
+  // The pieces of the screen curves that lie on no earlier part of their own path: a curve that winds round a circle (the
+  // image of a cut under z^i or the logarithm) traces it many times, and a dash pattern laid over each turn from its own
+  // phase fills the turns' gaps. A segment that lies within CUT_OVERLAP_PX of an earlier one (at least CUT_TURN_PX of the
+  // path before it, with a direction within about 15° of it, either way round) is left out, and the pen lifts there.
+  // Returns the polylines to stroke (null points break a polyline, as in the input)
+  const CUT_OVERLAP_PX = 1.2, CUT_TURN_PX = 24, CUT_CELL_PX = 12;
+  function distinctArcs(curves) {
+    const out = [], grid = new Map();
+    for (const pts of curves) {
+      let pen = null, arc = 0, cur = null;
+      const lift = () => { if (cur && cur.length > 1) out.push(cur); cur = null; };
+      for (const q of pts) {
+        if (!q) { lift(); pen = null; continue; }
+        if (!pen) { pen = q; continue; }
+        const dx = q[0] - pen[0], dy = q[1] - pen[1], len = Math.hypot(dx, dy);
+        if (!(len > 0)) { pen = q; continue; }
+        const ux = dx / len, uy = dy / len, mx = (q[0] + pen[0]) / 2, my = (q[1] + pen[1]) / 2;
+        const cx = Math.floor(mx / CUT_CELL_PX), cy = Math.floor(my / CUT_CELL_PX);
+        let seen = false;
+        for (let i = -1; i <= 1 && !seen; i++) {
+          for (let j = -1; j <= 1 && !seen; j++) {
+            for (const g of grid.get((cx + i) + ',' + (cy + j)) || []) {
+              if (arc - g.arc < CUT_TURN_PX || Math.abs(ux * g.ux + uy * g.uy) < 0.97) continue;
+              const rx = mx - g.mx, ry = my - g.my;
+              if (Math.abs(rx * g.uy - ry * g.ux) < CUT_OVERLAP_PX && Math.abs(rx * g.ux + ry * g.uy) <= g.len / 2 + CUT_OVERLAP_PX) { seen = true; break; }
+            }
+          }
+        }
+        if (seen) lift();
+        else {
+          if (!cur) cur = [pen];
+          cur.push(q);
+        }
+        const key = cx + ',' + cy;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push({ mx, my, ux, uy, len, arc });
+        arc += len;
+        pen = q;
+      }
+      lift();
+    }
+    return out;
+  }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
-  // jump of more than a quarter of the pane
+  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
   function strokeCurves(pane, curves, dash) {
     const ctx = pane.ctx;
     ctx.setLineDash(dash || []);
+    const arcs = distinctArcs(curves.map((pts) => {
+      let pen = null;
+      return pts.flatMap((q) => {
+        if (!q || Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; return [null]; }
+        const jump = pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > 0.25 * Math.max(pane.w, pane.h);
+        pen = q;
+        return jump ? [null, q] : [q];
+      });
+    }));
     for (const [wd, al, col] of [[3.5, TH.haloA, TH.halo], [1.75, 1, TH.cut]]) {
       ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = wd;
       ctx.beginPath();
-      for (const pts of curves) {
-        let pen = null;
-        for (const q of pts) {
-          if (!q || Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; continue; }
-          if (pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > 0.25 * Math.max(pane.w, pane.h)) pen = null;
-          if (pen) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]);
-          pen = q;
-        }
+      for (const pts of arcs) {
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       }
       ctx.stroke();
     }
