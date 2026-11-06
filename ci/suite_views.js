@@ -209,8 +209,7 @@ const VIEWS = {
   'tour_cmd_classic_cmd.js': classic('the classic views\' tour: X\'s pan task and the strip\'s arrow keys, the Views chapter (the view'
     + ' switch, Phase, Sphere, Phase key) and the Deformation chapter (Paths, All steps at once, Part of the chain); the steps view\'s'
     + ' is tour_cmd'),
-  'tour_it360_cmd.js': port('words', 'it walks every step of every chapter and expects at least 40; it waits on the steps-view tour'
-    + ' chapters (#717), whose tour has 42 steps'),
+  'tour_it360_cmd.js': steps({ pin: true }),
   'tour_lane_cmd.js': steps({ pin: true }),
   'tour_lit_cmd.js': steps({ pin: true }),
   'tour_perf_cmd.js': steps({ pin: true }),
