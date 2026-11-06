@@ -572,7 +572,9 @@ float wabs(vec2 w) {
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
   // compile; null when nothing can draw: frameErr says why for a failed compile, framePending for one in flight.
   // map: the draw's map (the one passed to use()), which picks the program of its mode
-  function program(name, map) {
+  // exact: the current chain's own program or null, never an earlier chain version's (a program of another chain reads
+  // the map's indices as its own steps and paints another picture)
+  function program(name, map, exact) {
     const P = getProg(name, cur, true, map);
     if (P) return P;
     const e = progs.get(progId(name, cur, map));
@@ -581,21 +583,9 @@ float wabs(vec2 w) {
     if (!cur.info) return null;
     framePending = true;
     if (e && e.state === 'pending') standIn(e.id);
-    if (sideMode) return null;   // a side chain draws only with its own programs
+    if (exact || sideMode) return null;   // a side chain draws only with its own programs
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
-  }
-  // The program `name` for the current chain alone: no earlier chain version's program draws in its place while it
-  // compiles (a program of another chain reads its map's indices as its own steps, so it paints another picture).
-  // Started when it is not; null while it links (framePending, and the frame waits on it) or when it failed
-  function programExact(name, map) {
-    const P = getProg(name, cur, true, map);
-    if (P) return P;
-    const e = progs.get(progId(name, cur, map));
-    if (e && e.state === 'error') { frameErr = friendly(e.error); return null; }
-    framePending = true;
-    if (e && e.state === 'pending') standIn(e.id);
-    return null;
   }
   // program's stand-ins without its own compile: the program `name` for the current chain when it is linked, else the
   // newest earlier chain version's that is, as program() draws while its own compiles; null when none is (nothing is
