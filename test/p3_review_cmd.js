@@ -170,6 +170,26 @@ R.gChk = await ev(`await (async () => {
 })()`, 120000);
 ok('steps view, plane w1: the Checker pattern draws the same picture as Solid (carried phase, not the pattern)', R.gChk.st.i === 2 && R.gChk.n > 1000 && R.gChk.bad / R.gChk.n <= 1e-3 && R.gChk.colours > 8, R.gChk);
 
+// ---- 3. the globes' colour against the exact one (ux on #719: the steps view has one colouring, the phase pulled back
+// or carried forward): the z-globe at stage 0 of z^i, and the w-globe of Cayley(H) with the colour plane z, z's colour
+// carried to w1. Each is judged as the steps view's flat planes are (carryCompare on the Sphere surface: each pixel's
+// globe point, its points of plane z ranked by the sheet key, and the front point's colour up to the globe's light), at
+// most MAX_BAD of the samples wrong (antialiased seams and the probe's rounding). The scope is Everywhere: Inside
+// regions leaves the globe's paper bare outside the region's image, which is not a colour to judge
+const MAX_BAD = 0.01;
+const DC = 'enhanced';   // (the Tiles colouring, set in each page's state)
+const judged = (r, min) => !!r && !r.error && r.considered >= min && r.wrong <= MAX_BAD * r.considered && r.unlisted === 0 && r.paper === 0;
+await load('p3rvC0' + Date.now(), { dc: DC, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6, complement: true }], steps: [ZI], srcView: { cx: 0, cy: 0, s: 60 } });
+await ev('__cmwSteps({ T: 0, go: 0, now: true, surf: "sphere", scope: "all" }); 1'); await settled({ max: 30000, until: '!__cmwSteps().moving' });
+await ev('__cmwCam("L", { pitch: 0.9, yaw: -1.0, dist: 3.4 }); 1'); await settled();
+R.chkL0 = await carryCompare({ surf: 'sphere', nx: 40, ny: 30, style: DC });
+ok('the z-globe at stage 0 shows the exact colour (around infinity)', judged(R.chkL0, 300), R.chkL0);
+await load('p3rvCc' + Date.now(), { dc: DC, shapes: [H], steps: [CAY], srcView: { cx: 0, cy: 1, s: 60 } });
+await ev('__cmwSteps({ T: 0, go: 1, now: true, surf: "sphere", scope: "all" }); 1'); await settled({ max: 30000, until: '__cmwSteps().i === 1 && !__cmwSteps().moving' });
+await ev('__cmwCam("L", { pitch: 0.35, yaw: -0.4, dist: 3.4 }); 1'); await settled();
+R.chkCay = await carryCompare({ surf: 'sphere', nx: 40, ny: 30, style: DC });
+ok('the w-globe of Cayley(H) with the colour plane z shows the colour carried from z', judged(R.chkCay, 300), R.chkCay);
+
 
 // through the test hook above is the renderer's, which stays)
 
