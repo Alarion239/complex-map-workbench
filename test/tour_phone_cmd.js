@@ -1,10 +1,10 @@
-// v16.4 (notes/tour-r3/SPEC.md 7.5): the tour on a phone, now a docked strip. 390 × 844 and 360 × 780 in portrait,
+// The tour on a phone (notes/tour-r3/SPEC.md 7.5), a docked strip. 390 × 844 and 360 × 780 in portrait,
 // 844 × 390 and 780 × 360 in landscape, English and Russian, touch. Every step: its title and its lead or task show on
 // arrival (no tap); the strip stays in one place; the tool row's buttons and the view switch are not covered by it (the
 // topmost element at their centres, the tour's shade aside, is the button); portrait: the strip is the 68 px row under
 // the header and X is 608 px high at 390 × 844 (600 before #246's 56 px chain bar); landscape: the strip sits in the header (X keeps its size) or in a 48 px
 // row. Then: the Why panel is at most half the screen, scrolls inside, folds on a touch in X and that touch reaches the
-// app; a sheet a step opens starts below the strip. (The v15.1 mini bar and its fold are gone with the callout.)
+// app; a sheet a step opens starts below the strip.
 // (r3 review: the strip keeps one place per chapter; a chapter whose line needs three lines has a 76 px portrait row, or
 // in landscape the row under the header (48 or 56 px); portrait shows × End and a chevron after the count, Next is an
 // arrow named by its label; no lead, task, result, hint or caption of a chapter needs more lines than the strip has)
@@ -16,7 +16,7 @@ const R = [];
 const rowH = (mode, lines) => (mode === 'port' ? (lines >= 4 ? 93 : lines === 3 ? 76 : 68) : (lines >= 4 ? 72 : lines === 3 ? 56 : 48));
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
+  // (and until the step has settled: the strip not busy, the spotlight's morph over)
   for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
 const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
 const tap = async (x, y) => { await T('touchStart', [[x, y]]); await sleep(50); await T('touchEnd', []); };
@@ -102,7 +102,7 @@ for (const [w, h] of [[390, 844], [360, 780], [844, 390], [780, 360]]) for (cons
   await ev('Tour.stop()'); await settle(300);
 }
 await view(1440, 900, false, false);
-// (r3 fix pass, as v16.2's audit: a step the layout leaves out, views/key on a landscape phone since v15, is the engine's
+// (as in the audit: a step the layout leaves out, views/key on a landscape phone, is the engine's
 // report and is counted by "the walk saw the steps"; it is listed in skipped, not failed here)
 const LALL = logs();
 const SKIPS = [...new Set(LALL.filter((l) => /\[tour\] step skipped/.test(l.m)).map((l) => l.m))];

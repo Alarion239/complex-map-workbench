@@ -1,8 +1,8 @@
-// v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
-// of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX60, UX97, UX99, UX102-UX104 (the laptop's sound checks,
-// UX70-UX74, UX87 and UX88, are ux165_learn_sound_cmd.js; its first-run line, UX21 with #250 and UX90, is
-// ux165_learn_first_run_cmd.js, and its Undo message, UX80, is ux165_learn_msg_classic_cmd.js; standards-ok: those checks
-// moved there unchanged), on a
+// The learn piece (notes/ux-audit/REPORT.md; the built version: notes/ux-build/w1-learn-AS-BUILT.md): every fix
+// of the learn fixes (the laptop's sound checks,
+// are in ux165_learn_sound_cmd.js; the first-run line is
+// in ux165_learn_first_run_cmd.js, and the Undo message in ux165_learn_msg_classic_cmd.js; standards-ok: those checks
+// ), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
@@ -38,7 +38,7 @@ check('UX21 landscape phone: the line in the header (or the row under it), never
 await shot('ux165-ux21-phone-land');
 grab();
 
-// ---------------------------------------------------------------- UX20: keys and options in the pane head
+// ---------------------------------------------------------------- keys and options in the pane head
 await laptop();
 await fresh('ux165a'); await settle(1800);
 g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => { const r = c.getBoundingClientRect(), hd = c.closest('.pane-head'), h = hd && hd.getBoundingClientRect(); return !!h && r.top >= h.top - 1 && r.bottom <= h.bottom + 1; }) }; })()`);
@@ -75,7 +75,7 @@ check('UX20 landscape phone: Y\'s pattern key is the folded glyph, not the box o
 check('UX20 phone: the glyph carries none of the head\'s words', await ev(`!document.querySelector('#leftLegend .lg-sum, #rightLegend .lg-sum')`));
 grab();
 
-// ---------------------------------------------------------------- V01 (phone): the target's note
+// ---------------------------------------------------------------- (phone): the target's note
 await phone(412, 860);
 await fresh('ux165c'); await settle(2200);
 // (a pulse is the class going on: a record that only rewrites the pane's classes, as a resize does, is not one)
@@ -92,8 +92,8 @@ await fresh('ux165d'); await settle(1800);
 await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(200);
 const pr = await box('#plotR');
 await drag(pr.l + pr.w * 0.5, pr.t + pr.h * 0.45, pr.l + pr.w * 0.55, pr.t + pr.h * 0.5); await settle(1200);
-// (v16.5 UX20/V01 and the wave 1 merge, W1-MERGE.md 8: the note "gives way before the title itself would" (fitTitle,
-// class nofit). With plane's worded Plane | Sphere (UX37), the "Y · " tag (UX27) and the key chip in Y's head, a
+// (the note "gives way before the title itself would" (fitTitle,
+// class nofit). With plane's worded Plane | Sphere, the "Y · " tag and the key chip in Y's head, a
 // 1366 px head may have no room for it: then it must be hidden by that rule only, i.e. Y's title would not fit beside
 // it (measured as fitTitle measures, with the note and the title's classes put back at once), and never cut)
 g = await ev(`(() => { const n = document.querySelector('#paneR .pane-head #rightNote'), t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'); const o = { note: n && n.textContent, shown: !!n && getComputedStyle(n).display !== 'none', cut: !!n && n.scrollWidth > n.clientWidth + 1, tip: n && n.dataset.tip, roleCut: getComputedStyle(pr).display !== 'none' && pr.scrollWidth > pr.clientWidth + 1, tiny: document.querySelector('#paneR').classList.contains('tiny'), calc: document.querySelector('#calcChip').hidden, targets: __cmwState().targets, nofit: !!n && n.classList.contains('nofit') };
@@ -104,7 +104,7 @@ check('UX20 laptop: the note\'s tooltip is plain words', /^Where F lands in the 
 await shot('ux165-v01-laptop');
 grab();
 
-// an example's fit keeps X's bottom margin, measured on the plane (the bar is in the head now): the tour's Grieg step
+// an example's fit keeps X's bottom margin, measured on the plane (the bar is in the head): the tour's Grieg step
 // and the next step have a finite view (it went NaN / div)
 await laptop(1440, 900);
 await fresh('ux165t'); await settle(1500);
@@ -116,7 +116,7 @@ check('UX20: with X\'s options in the head, an example\'s fit stays finite (the 
 await ev('Tour.stop()'); await settle(400);
 await laptop();
 
-// ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
+// ---------------------------------------------------------------- the empty chain's Add function in Y's head
 // (the Undo message of the same page is ux165_learn_msg_classic_cmd.js)
 await laptop();
 await fresh('ux165e'); await settle(1800);
@@ -136,7 +136,7 @@ check('UX80 phone: the message sits in its own row under the chain bar, clear of
 await shot('ux165-ux80-phone');
 grab();
 
-// ---------------------------------------------------------------- UX89: a tap that closes a layer does nothing else
+// ---------------------------------------------------------------- a tap that closes a layer does nothing else
 await phone(412, 860);
 await fresh('ux165g'); await settle(2000);
 await ev(`Tour.auto(true); Tour.start({ chapter: 'basics', step: 1 })`); await settle(1800);
@@ -151,7 +151,7 @@ check('UX89: the next tap on the strip opens the sheet as before', (await ev('To
 await ev('Tour.stop()'); await settle(300);
 grab();
 
-// ---------------------------------------------------------------- UX78, UX93: Russian
+// ---------------------------------------------------------------- Russian
 await phone(360, 780);
 await fresh('ux165h', '&lang=ru'); await settle(2400);
 g = await ev(`({ auto: I18N.t('Move on by itself'), tour: I18N.t('Guided tour'), welcome: I18N.t('Welcome to the Workbench'), start: I18N.t('Start the tour') })`);
@@ -175,7 +175,7 @@ grab();
 await phone(412, 860);
 await fresh('ux165s2'); await settle(2000);
 check('UX88 phone: the sound settings show no keyboard help on touch', await ev(`getComputedStyle(document.querySelector('.snd-keys')).display === 'none'`));
-// UX72 phone: More, then the curve's row in Shapes (real taps): its editor has Listen along, a 44 px button
+// Phone: More, then the curve's row in Shapes (real taps): its editor has Listen along, a 44 px button
 await tapSel('#toolMore'); await settle(600);
 await ev(`Phone.tab('shapes')`); await settle(300);   // (the Shapes tab of the Tools sheet)
 await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-name'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
@@ -186,11 +186,11 @@ check('UX72 phone: the selected curve\'s editor in the Shapes sheet has Listen a
 await shot('ux165-ux72-editor-phone');
 grab();
 
-// ---------------------------------------------------------------- deformation: UX102, UX103, UX104, UX97 (K, Shift+→), UX60
+// ---------------------------------------------------------------- deformation: K and Shift+→
 await laptop();
 await fresh('ux165m'); await settle(1800);
 await key('m'); await settle(800);
-// (v16.5 fix regress-1: a row too tight for the words takes the short form "1/2 · f₁ · 53 %", marked data-short, the
+// (a row too tight for the words takes the short form "1/2 · f₁ · 53 %", marked data-short, the
 // words staying in the tooltip; the title's two spans read "Deformation" and "from z to w" with no space between)
 g = await ev(`({ ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null, title: __qa.txt('#rightTitle'), speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent) })`);
 check('UX103: the readout is in words ("Step k of m · fₖ · p %"; in a tight row its short form, v16.5 regress-1) and the title too ("Deformation from z to w")', (/^Step \d+ of 2 · f[₁₂] · \d+ %$/.test(g.ro) || (g.short === '1' && /^\d\/2 · f[₁₂] · \d+ %$/.test(g.ro))) && /^Deformation\s*from z to w$/.test(g.title), g);
@@ -208,7 +208,7 @@ await key('ArrowLeft', 8); await key('ArrowLeft', 8); await key('ArrowLeft', 8);
 const t0 = await ev('__cmwState().morph.T');
 await key('ArrowRight', 8); await settle(150);
 g = await ev(`({ T: __cmwState().morph.T, ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null })`);
-// (the readout in words, or its short form in a tight row: v16.5 regress-1)
+// (the readout in words, or its short form in a tight row)
 check('UX97: Shift+← goes back to t = 0, Shift+→ to the next step\'s tick', t0 === 0 && g.T === 1 && (/Step 2 of 2 · f₂ · 0 %|Step 1 of 2 · f₁ · 100 %/.test(g.ro) || (g.short === '1' && /^(2\/2 · f₂ · 0 %|1\/2 · f₁ · 100 %)$/.test(g.ro))), Object.assign({ t0 }, g));
 await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(300);
 g = await ev(`({ chip: __qa.txt('#sphereChipR'), btn: !!document.querySelector('#sphereChipR .chip-draw') })`);
@@ -218,7 +218,7 @@ await ev(`document.querySelector('#sphereChipR .chip-draw').click()`); await set
 g = await ev(`({ open: __cmwState().morph.open, tool: (document.querySelector('#tools .tool.on, #tools .tool[aria-pressed="true"]') || { dataset: {} }).dataset.tool || null })`);
 check('UX102: it turns the deformation off and keeps the chosen tool', g.open === false && g.tool === 'disc', g);
 await ev(`document.querySelector('#tools [data-tool="select"]').click()`);
-// UX60: Video listed with the deformation off; choosing it turns the deformation on and opens on Video
+// Video listed with the deformation off; choosing it turns the deformation on and opens on Video
 await ev(`Figure.open()`); await settle(1500);
 g = await ev(`({ fmts: [...document.querySelectorAll('#xfFmt > button')].map((b) => b.dataset.v), dis: (document.querySelector('#xfFmt [data-v="video"]') || {}).disabled })`);
 check('UX60: Video is listed with the deformation off', g.fmts.includes('video') && g.dis === false, g);
@@ -241,7 +241,7 @@ await key('m'); await settle(300);
 await nav(U + '?ns=ux165m&lang=en'); await settle(800);
 await ev(`localStorage.removeItem('cmw-lang:ux165m'); localStorage.removeItem('cmw-lang'); 1`);
 
-// ---------------------------------------------------------------- UX97 keys on shapes, UX99 right-click menus
+// ---------------------------------------------------------------- keys on shapes, right-click menus
 await laptop();
 await fresh('ux165k'); await settle(1800);
 await ev(`__cmwSelect('s2')`); await settle(200);
@@ -270,7 +270,7 @@ g = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu'); i
 check('UX99: a right click on a chain card opens its ⋯ menu at the pointer', g && g.n > 2 && Math.abs(g.x - (cb.l + 32)) < 4 && (Math.abs(g.y - (cb.t + 32)) < 4 || Math.abs(g.b - (cb.t + 28)) < 4), Object.assign({ at: [cb.l + 30, cb.t + 30] }, g));
 await shot('ux165-ux99-card');
 await key('Escape');
-// UX97: Alt+→ / Alt+← move the focused chain step right / left (its ⋯ menu's Move right / left), the card keeps focus
+// Alt+→ / Alt+← move the focused chain step right / left (its ⋯ menu's Move right / left), the card keeps focus
 await settle(200);
 const st0 = await ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
 await ev(`document.querySelector('#pipeline .card[data-k="1"]').focus(); 1`);

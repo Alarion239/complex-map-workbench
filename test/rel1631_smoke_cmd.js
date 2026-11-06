@@ -1,8 +1,8 @@
-// v16.3.1 release smoke: test/rel163_smoke_cmd.js (sections 1 to 11) plus the patch's fixed items: 10/11 the chip at
+// Release smoke: test/rel163_smoke_cmd.js (sections 1 to 11) plus these items: 10/11 the chip at
 // 1440 (chip-wrap-1440), 12 a perpendicular circle on the 3-point circle through 0, 1, i with a decimal mirror pair
-// (verify-1), 13 the loader toast, saved and by link (loader-toast), 14 (phone) the tour's shapes step in landscape
+// 13 the loader toast, saved and by link (loader-toast), 14 (phone) the tour's shapes step in landscape
 // (gate-tour-landscape-shapes), 15 (phone) a tap on Landscape while the page is busy, and a real long-press
-// (phone-landscape-tap). Section 9 now waits for the Export dialog to stop moving before it clicks More formats
+// (phone-landscape-tap). Section 9 waits for the Export dialog to stop moving before it clicks More formats
 // (smoke-more-formats). On the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a
 // viewport meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state
 // in localStorage and the page's own globals (Sound, Tour, Params) only.
@@ -103,7 +103,7 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
 
 // 2. the deformation range: [√z, f] with f1 alone deforms from f(z) to f(√z) (H_t = f2 ∘ G_t); then f2 alone, a
 // push-forward of f1's image (H_t = G_t ∘ f1). Desktop: the bracket from the saved state; phone: the Display sheet's
-// Deformed steps selects, whose 'from …' line must follow (review v16 verify-1)
+// Deformed steps selects, whose 'from …' line must follow
 {
   const steps = [{ type: 'custom', params: { expr: '\\sqrt{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2+z', cut: 180 }, on: true }];
   const shapes = [{ id: 's1', kind: 'rect', a: [-1.5, -1.2], b: [1.5, 1.2] }];
@@ -181,8 +181,8 @@ ok('section 2: no console errors or warnings', lB.length === 0, lB.slice(0, 6));
 const lB2 = errs(logs());
 ok('section 2b: no console errors or warnings', lB2.length === 0, lB2.slice(0, 6));
 
-// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane,
-// review v16 verify-7) with Listen; Listen plays the piece along the spiral (its harp counts the notes)
+// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane)
+// with Listen; Listen plays the piece along the spiral (its harp counts the notes)
 {
   await openNs('smkm' + tag + Date.now(), { shapes: [], steps: [] });
   if (!phone) { await click(700, 12); } else { await touch(200, 12); }
@@ -336,7 +336,7 @@ ok('section 8: no console errors or warnings', lF.length === 0, lF.slice(0, 6));
   await key('e', 2);
   let ready = false;
   for (let i = 0; i < 100 && !ready; i++) { await sleep(150); ready = await ev(`(() => { const m = document.querySelector('.modal.xf'), b = document.getElementById('xfMore'); return !!(m && b && !b.disabled && b.getBoundingClientRect().width > 0); })()`); }
-  // (v16.3.1 smoke-more-formats: the dialog still grows after the button is ready; wait until the button has kept its
+  // (smoke-more-formats: the dialog still grows after the button is ready; wait until the button has kept its
   // place for 4 polls in a row, at most 6 s)
   { let last = null, same = 0; const t0 = Date.now(); while (ready && same < 4 && Date.now() - t0 < 6000) { await sleep(150); const p = await ev(`(() => { const b = document.getElementById('xfMore'); const r = b && b.getBoundingClientRect(); return r ? [Math.round(r.left), Math.round(r.top)].join() : null; })()`); same = p && p === last ? same + 1 : 0; last = p; } R.info.xfSettleMs = Date.now() - t0; }
   const MP =`(() => { const p = document.querySelector('#popHost .pop.menu'), m = document.querySelector('.modal.xf'); if (!p) return { open: false, dialog: !!m };
@@ -378,7 +378,7 @@ const pdrag = async (p, dx, dy) => {
   if (phone) { await T('touchStart', [p]); await sleep(120); for (let i = 1; i <= 12; i++) { await T('touchMove', [[p[0] + dx * i / 12, p[1] + dy * i / 12]]); await sleep(16); } await T('touchEnd', []); }
   else await drag(p[0], p[1], p[0] + dx, p[1] + dy, 12, 16);
 };
-// the construction chip over X: its text, its line count, cut or not (as notes/v16.3-patch1-evidence/cmd/chip_check.js)
+// the construction chip over X: its text, its line count, cut or not
 const chipNow = () => ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t || !t.offsetParent) return null; const r = document.createRange(); r.selectNodeContents(t); const tops = new Set([...r.getClientRects()].map((q) => Math.round(q.top))); const c = document.querySelector('#draftChipL').getBoundingClientRect(); return { text: t.textContent, lines: tops.size, cut: t.scrollHeight > t.clientHeight + 1, chipW: Math.round(c.width) }; })()`);
 const through = (c, pts, tol = 1e-12) =>c && isFinite(c.r) && pts.every((p) => Math.abs(dist(p, c.c) - c.r) <= tol * Math.max(1, c.r));
 const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = Math.hypot(d[0], d[1]); return Math.abs(d[0] * (p[1] - L.a[1]) - d[1] * (p[0] - L.a[0])) / n; };
@@ -387,7 +387,7 @@ const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = M
   await openNs('smkh10' + tag + Date.now(), { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: sv, unit: true, snap: true, pattern: 'checker' });
   const armed = await armTool('perp');
   if (!phone) {
-    // (v16.3.1 chip-wrap-1440) the Orthogonal tool's first chip: one line; in Russian without " · Esc — отмена"
+    // (chip-wrap-1440) the Orthogonal tool's first chip: one line; in Russian without " · Esc — отмена"
     const e0 = await W(0.3, -0.6, sv); await move(e0[0], e0[1]); await settle(250);
     const c0 = await chipNow();
     const want = CFG.lang === 'ru' ? 'Выберите прямую или окружность · Ортогональная' : 'Pick a line or a circle · Orthogonal · Esc cancels';
@@ -463,7 +463,7 @@ ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6))
   await tap(uz[0] + 4, uz[1] - 3); await settle(700);
   const chipTan = await chipNow();
   if (!phone) {
-    // (v16.3.1 chip-wrap-1440) English: one line without " · Esc cancels"; Russian: the whole text on two full lines
+    // (chip-wrap-1440) English: one line without " · Esc cancels"; Russian: the whole text on two full lines
     // (the Russian text has no-break spaces; they are compared as spaces)
     const okChip = (c) => !!c && !c.cut && (CFG.lang === 'ru' ? c.lines === 2 && c.text.replace(/ /g, ' ') === 'Точка касания на кривой: Окружность 1 или кольцо — касательная · Касание · Esc — отмена' : c.lines === 1 && c.text === 'Touching point on Circle 1, or a ring for a tangent · Touching');
     ok('fix chip-wrap-1440: the touching circle\'s chip after P\' and after the ring\'s tangent: ' + (CFG.lang === 'ru' ? 'the whole text on two lines, not cut' : 'one line, Esc dropped'), okChip(chipRings) && okChip(chipTan), { chipRings, chipTan });
@@ -481,9 +481,9 @@ ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6))
 const lI = errs(logs());
 ok('section 11: no console errors or warnings', lI.length === 0, lI.slice(0, 6));
 
-// 12. (v16.3.1 verify-1) Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
-// P = 0.6 + 0.5i, Q = 5.5 + 0.5i (Q is P's mirror image in C): the pencil, undefined with its reason. v16.3 gave the
-// line through C's centre here
+// 12. Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
+// P = 0.6 + 0.5i, Q = 5.5 + 0.5i (Q is P's mirror image in C): the pencil, undefined with its reason, not the
+// line through C's centre
 {
   const sv = phone ? { cx: 2.75, cy: 0.5, s: 55 } : { cx: 2.75, cy: 0.5, s: 60 };
   const pt = (id, p) => ({ id, kind: 'point', p, ci: 0, visible: true });
@@ -511,7 +511,7 @@ ok('section 11: no console errors or warnings', lI.length === 0, lI.slice(0, 6))
 const lJ = errs(logs());
 ok('section 12: no console errors or warnings', lJ.length === 0, lJ.slice(0, 6));
 
-// 13. (v16.3.1 loader-toast) a figure with a construction this build cannot read (an op from a later build): opened from
+// 13. (loader-toast) a figure with a construction this build cannot read (an op from a later build): opened from
 // the saved state, the toast says so and the shape is a plain circle; opened from a link, the link's toast says both
 {
   const STf = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', steps: [], shapes: [{ id: 'a', kind: 'point', p: [0, 0], ci: 0, visible: true }, { id: 'b', kind: 'point', p: [1, 0], ci: 0, visible: true }, { id: 'k', kind: 'circle', c: [0.5, 0], r: 0.5, ci: 1, visible: true, def: { op: 'future2', args: [{ s: 'a' }, { s: 'b' }] } }] };
@@ -539,7 +539,7 @@ const lK = errs(logs());
 ok('section 13: no console errors or warnings', lK.length === 0, lK.slice(0, 6));
 
 if (phone) {
-  // 14. (v16.3.1 gate-tour-landscape-shapes) phone landscape, 780 x 360 and 844 x 390: the tour's shapes step (chapter
+  // 14. (gate-tour-landscape-shapes) phone landscape, 780 x 360 and 844 x 390: the tour's shapes step (chapter
   // basics) keeps its card on the screen (below the screen in 3 of 4 configs)
   const ROW = `(() => { const c = Tour.current(); const card = document.querySelector('[data-tour=card]'); if (!c || !card) return null; const b = card.getBoundingClientRect(); const L = Tour.lit(); const cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2; const e = cy >= 0 && cy <= innerHeight && cx >= 0 && cx <= innerWidth ? document.elementFromPoint(cx, cy) : null; return { id: c.chapter + '/' + c.id, card: [b.left, b.top, b.right, b.bottom].map(Math.round), iw: innerWidth, ih: innerHeight, mini: !!(L && L.mini), vis: e && card.contains(e) ? 'visible' : e ? 'covered' : 'centre off screen' }; })()`;
   const rows = [];
@@ -562,8 +562,8 @@ if (phone) {
   const lL = errs(logs());
   ok('section 14: no console errors or warnings', lL.length === 0, lL.slice(0, 6));
 
-  // 15. (v16.3.1 phone-landscape-tap) a 60 ms tap on Landscape while the page's main thread is busy 700 or 1200 ms right
-  // after the touch starts: the view switches (v16.3 lost these taps); a 700 ms press on an idle page shows the tip and
+  // 15. (phone-landscape-tap) a 60 ms tap on Landscape while the page's main thread is busy 700 or 1200 ms right
+  // after the touch starts: the view switches; a 700 ms press on an idle page shows the tip and
   // keeps the view
   const ST15 = { shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'sin', params: {}, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 60 }, view: { main: 'xy' }, sheets: true, height: 'im', homRange: { a: 1, b: 1 } };
   const vstate = () => ev(`(() => { const on = document.querySelector('#viewSwitch > button.on'); const tip = document.querySelector('#tip'); const tv = !!tip && !tip.hidden && getComputedStyle(tip).display !== 'none' && getComputedStyle(tip).visibility !== 'hidden' && tip.getBoundingClientRect().width > 0 && +getComputedStyle(tip).opacity > 0; return { main: on && on.dataset.mode, tip: tv ? tip.textContent.slice(0, 40) : null }; })()`);

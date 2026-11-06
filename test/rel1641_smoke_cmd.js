@@ -1,11 +1,11 @@
-// v16.4.1 release smoke: v16.4's (test/rel164_smoke_cmd.js in work/xv164, sections 0b to 12) plus v16.3.1's fixed items
-// from test/rel1631_smoke_cmd.js: 10 (desktop) the Orthogonal tool's first chip on one line (chip-wrap-1440), now with
-// v16.4's Whole | Inside; 11 (desktop) the touching circle's rings chip; 13 a perpendicular circle on the 3-point
-// circle through 0, 1, i with a decimal mirror pair (verify-1); 14 the loader toast: saved, by link and by a dropped
+// Release smoke: test/rel164_smoke_cmd.js (sections 0b to 12) plus these items
+// from test/rel1631_smoke_cmd.js: 10 (desktop) the Orthogonal tool's first chip on one line (chip-wrap-1440), with
+// Whole | Inside; 11 (desktop) the touching circle's rings chip; 13 a perpendicular circle on the 3-point
+// circle through 0, 1, i with a decimal mirror pair; 14 the loader toast: saved, by link and by a dropped
 // scene file (loader-toast); 15 (phone) a quick tap on Landscape while the page is busy, and a real long-press
-// (phone-landscape-tap). v16.3.1's section 14 (the old tour card on landscape phones) is not here: v16.4's tour has
+// (phone-landscape-tap). section 14 of rel1631_smoke_cmd.js (the tour card on landscape phones) is not here: the tour has
 // no pop-up card (the docked strip, section 0b).
-// v16.4 release smoke: v16.3's (notes/v16.3-candidate/evidence/smoke_cmd.js, sections 1 to 11) plus v16.4's pieces:
+// Release smoke, sections 1 to 11 plus these pieces:
 // 0b the tour started from the first-run card in the docked strip; 6 the Draw step ticks and moves on by itself about
 // 3 s later; 6c the Sound chapter's Grieg step plays; 8 sin √z with All sheets in Landscape while the deformation plays;
 // 10b a hyperbolic line made with Inside (an arc inside the unit circle); 12 the corrected Help sentence. Earlier text:
@@ -14,9 +14,9 @@
 // meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state in
 // localStorage and the page's own globals (Sound) only.
 const BASEU = process.env.CMW_BASE || 'http://localhost:9889/';   // (a server of your own: CMW_BASE=http://localhost:<port>/)
-// the Orthogonal tool's first chip at 1440 (section 10), as v16.4: English, the text with the Whole | Inside icons on
+// the Orthogonal tool's first chip at 1440 (section 10): English, the text with the Whole | Inside icons on
 // one line; Russian, the whole text on two lines, not cut (without " · Esc — отмена" it does not fit one line next to
-// the icons either, so the v16.3.1 rule keeps the whole text)
+// the icons either, so the rule keeps the whole text)
 const PERP_CHIP_EN = 'Pick a line or a circle · Orthogonal · Esc cancels', PERP_CHIP_RU = 'Выберите прямую или окружность · Ортогональная · Esc — отмена';
 const phone = CFG.w < 600;
 const tag = `${CFG.lang}_${CFG.w}_${CFG.dark ? 'dark' : 'light'}`;
@@ -74,7 +74,7 @@ ok('fix deform_range_fps: no :has() rule on a style attribute (--at) in the page
 await shot(`${tag}_1_start`);
 const l0 = errs(logs());
 ok('load: no console errors or warnings', l0.length === 0, l0.slice(0, 6));
-// 0b. (v16.4 tour r3) a fresh profile shows the first-run card; its Start opens Basics in the docked strip: on a
+// 0b. a fresh profile shows the first-run card; its Start opens Basics in the docked strip: on a
 // desktop the stage's first row, on a phone (portrait) the row under the header. No pop-up card; clear of both planes
 {
   let sg = -1;
@@ -138,7 +138,7 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
 
 // 2. the deformation range: [√z, f] with f1 alone deforms from f(z) to f(√z) (H_t = f2 ∘ G_t); then f2 alone, a
 // push-forward of f1's image (H_t = G_t ∘ f1). Desktop: the bracket from the saved state; phone: the Display sheet's
-// Deformed steps selects, whose 'from …' line must follow (review v16 verify-1)
+// Deformed steps selects, whose 'from …' line must follow
 {
   const steps = [{ type: 'custom', params: { expr: '\\sqrt{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2+z', cut: 180 }, on: true }];
   const shapes = [{ id: 's1', kind: 'rect', a: [-1.5, -1.2], b: [1.5, 1.2] }];
@@ -216,8 +216,8 @@ ok('section 2: no console errors or warnings', lB.length === 0, lB.slice(0, 6));
 const lB2 = errs(logs());
 ok('section 2b: no console errors or warnings', lB2.length === 0, lB2.slice(0, 6));
 
-// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane,
-// review v16 verify-7) with Listen; Listen plays the piece along the spiral (its harp counts the notes)
+// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane)
+// with Listen; Listen plays the piece along the spiral (its harp counts the notes)
 {
   await openNs('smkm' + tag + Date.now(), { shapes: [], steps: [] });
   if (!phone) { await click(700, 12); } else { await touch(200, 12); }
@@ -360,7 +360,7 @@ ok('section 5: no console errors or warnings', l1.length === 0, l1.slice(0, 8));
 const lE = errs(logs());
 ok('section 6-7: no console errors or warnings', lE.length === 0, lE.slice(0, 6));
 
-// 6c. (v16.4 tour r3) the Sound chapter's Grieg step: Listen in the strip plays the piece along the curve; the caption
+// 6c. the Sound chapter's Grieg step: Listen in the strip plays the piece along the curve; the caption
 // follows it (0 s, then the drum at 8.9 s); a stop past 9 s counts, and the tour moves on about 3 s later
 {
   await openNs('smkg' + tag + Date.now(), { shapes: [], steps: [] });
@@ -400,7 +400,7 @@ ok('section 6c: no console errors or warnings', lE2.length === 0, lE2.slice(0, 6
   await openNs('smks8' + tag + Date.now(), { shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps, pattern: 'checker', srcView: { cx: 0, cy: 0, s: 60 }, view: { main: 'land' }, sheets: true, height: 'im', homRange: { a: 1, b: 1 }, loop: true });
   await press('#viewSwitch [data-mode="land"]'); await sleep(1500); await settle(300);
   await press('#morphBtn'); await sleep(1500); await settle(300);
-  // (v16.4 walls) while the deformation plays (Loop on): it plays, the frames (after the first-open stalls the user
+  // (walls) while the deformation plays (Loop on): it plays, the frames (after the first-open stalls the user
   // accepted), two pictures of the walls while moving
   const isPlaying = () => ev(`/^(Pause|Пауза)$/.test((document.getElementById('morphPlay') || { getAttribute: () => '' }).getAttribute('aria-label') || '')`);
   if (!(await isPlaying())) { await ev(`document.getElementById('morphPlay').click(); 1`); await sleep(300); }
@@ -475,7 +475,7 @@ const pdrag = async (p, dx, dy) => {
   if (phone) { await T('touchStart', [p]); await sleep(120); for (let i = 1; i <= 12; i++) { await T('touchMove', [[p[0] + dx * i / 12, p[1] + dy * i / 12]]); await sleep(16); } await T('touchEnd', []); }
   else await drag(p[0], p[1], p[0] + dx, p[1] + dy, 12, 16);
 };
-// the construction chip over X: its text, its line count, cut or not (as notes/v16.3-patch1-evidence/cmd/chip_check.js)
+// the construction chip over X: its text, its line count, cut or not
 const chipNow = () => ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t || !t.offsetParent) return null; const r = document.createRange(); r.selectNodeContents(t); const tops = new Set([...r.getClientRects()].map((q) => Math.round(q.top))); const c = document.querySelector('#draftChipL').getBoundingClientRect(); return { text: t.textContent, lines: tops.size, cut: t.scrollHeight > t.clientHeight + 1, chipW: Math.round(c.width) }; })()`);
 const through = (c, pts, tol = 1e-12) => c && isFinite(c.r) && pts.every((p) => Math.abs(dist(p, c.c) - c.r) <= tol * Math.max(1, c.r));
 const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = Math.hypot(d[0], d[1]); return Math.abs(d[0] * (p[1] - L.a[1]) - d[1] * (p[0] - L.a[0])) / n; };
@@ -484,8 +484,8 @@ const lineDist = (L, p) => { const d = [L.b[0] - L.a[0], L.b[1] - L.a[1]], n = M
   await openNs('smkh10' + tag + Date.now(), { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: sv, unit: true, snap: true, pattern: 'checker' });
   const armed = await armTool('perp');
   if (!phone) {
-    // (v16.3.1 chip-wrap-1440, with v16.4's Whole | Inside) the Orthogonal tool's first chip: not cut, with Whole | Inside
-    // as icons; English on one line, Russian the whole text on two lines (the rule's fallback; as v16.4)
+    // (chip-wrap-1440, with Whole | Inside) the Orthogonal tool's first chip: not cut, with Whole | Inside
+    // as icons; English on one line, Russian the whole text on two lines (the rule's fallback)
     const e0 = await W(0.3, -0.6, sv); await move(e0[0], e0[1]); await settle(250);
     const c0 = await chipNow();
     const seg0 = await ev(`(() => { const s = document.querySelector('#draftChipL .cm-seg'); return s ? { icons: s.classList.contains('cm-icons'), labels: [...s.querySelectorAll('.cm-sb')].map((x) => x.getAttribute('aria-label')) } : null; })()`);
@@ -562,7 +562,7 @@ ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6))
   await tap(uz[0] + 4, uz[1] - 3); await settle(700);
   const chipTan = await chipNow();
   if (!phone) {
-    // (v16.3.1 chip-wrap-1440) English: one line without " · Esc cancels"; Russian: the whole text on two full lines
+    // (chip-wrap-1440) English: one line without " · Esc cancels"; Russian: the whole text on two full lines
     // (the Russian text has no-break spaces; they are compared as spaces)
     const okChip = (c) => !!c && !c.cut && (CFG.lang === 'ru' ? c.lines === 2 && c.text.replace(/ /g, ' ') === 'Точка касания на кривой: Окружность 1 или кольцо — касательная · Касание · Esc — отмена' : c.lines === 1 && c.text === 'Touching point on Circle 1, or a ring for a tangent · Touching');
     ok('fix chip-wrap-1440: the touching circle\'s chip after P\' and after the ring\'s tangent: ' + (CFG.lang === 'ru' ? 'the whole text on two lines, not cut' : 'one line, Esc dropped'), okChip(chipRings) && okChip(chipTan), { chipRings, chipTan });
@@ -580,7 +580,7 @@ ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6))
 const lI = errs(logs());
 ok('section 11: no console errors or warnings', lI.length === 0, lI.slice(0, 6));
 
-// 10b. (v16.4 hyperbolic lines) Perpendicular circle with Inside on the chip, on the shown unit circle, through two
+// 10b. (hyperbolic lines) Perpendicular circle with Inside on the chip, on the shown unit circle, through two
 // points inside: an arc (seg 1) whose ends are on |z| = 1, whose middle is inside, on the circle through both points
 // at right angles to the unit circle
 const circ3 = (a, b, c) => { const [ax, ay] = a, [bx, by] = b, [cx, cy] = c; const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)); const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d; const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d; return { c: [ux, uy], r: Math.hypot(ax - ux, ay - uy) }; };
@@ -614,7 +614,7 @@ const circ3 = (a, b, c) => { const [ax, ay] = a, [bx, by] = b, [cx, cy] = c; con
 const lH2 = errs(logs());
 ok('section 10b: no console errors or warnings', lH2.length === 0, lH2.slice(0, 6));
 
-// 12. (v16.4 Help fix) the Help's Deformation paragraph: polynomials are zoomed into (no "zeros one by one"); H_t is
+// 12. the Help's Deformation paragraph: polynomials are zoomed into (no "zeros one by one"); H_t is
 // analytic for every t only for an analytic step; the straight line also for an analytic formula with no zoom centre
 {
   await openNs('smkhelp' + tag + Date.now(), { shapes: [], steps: [] });
@@ -634,9 +634,9 @@ ok('section 10b: no console errors or warnings', lH2.length === 0, lH2.slice(0, 
 }
 const lJ = errs(logs());
 ok('section 12: no console errors or warnings', lJ.length === 0, lJ.slice(0, 6));
-// 13. (v16.3.1 verify-1) Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
-// P = 0.6 + 0.5i, Q = 5.5 + 0.5i (Q is P's mirror image in C): the pencil, undefined with its reason. v16.3 gave the
-// line through C's centre here
+// 13. Perpendicular circle on the 3-point circle C through 0, 1 and i, with the decimal mirror pair
+// P = 0.6 + 0.5i, Q = 5.5 + 0.5i (Q is P's mirror image in C): the pencil, undefined with its reason, not the
+// line through C's centre
 {
   const sv = phone ? { cx: 2.75, cy: 0.5, s: 55 } : { cx: 2.75, cy: 0.5, s: 60 };
   const pt = (id, p) => ({ id, kind: 'point', p, ci: 0, visible: true });
@@ -664,7 +664,7 @@ ok('section 12: no console errors or warnings', lJ.length === 0, lJ.slice(0, 6))
 const lJ2 = errs(logs());
 ok('section 13: no console errors or warnings', lJ2.length === 0, lJ2.slice(0, 6));
 
-// 14. (v16.3.1 loader-toast) a figure with a construction this build cannot read (an op from a later build): opened from
+// 14. (loader-toast) a figure with a construction this build cannot read (an op from a later build): opened from
 // the saved state, the toast says so and the shape is a plain circle; opened from a link, the link's toast says both
 {
   const STf = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', steps: [], shapes: [{ id: 'a', kind: 'point', p: [0, 0], ci: 0, visible: true }, { id: 'b', kind: 'point', p: [1, 0], ci: 0, visible: true }, { id: 'k', kind: 'circle', c: [0.5, 0], r: 0.5, ci: 1, visible: true, def: { op: 'future2', args: [{ s: 'a' }, { s: 'b' }] } }] };
@@ -704,8 +704,8 @@ const lK = errs(logs());
 ok('section 14: no console errors or warnings', lK.length === 0, lK.slice(0, 6));
 
 if (phone) {
-  // 15. (v16.3.1 phone-landscape-tap) a 60 ms tap on Landscape while the page's main thread is busy 700 or 1200 ms right
-  // after the touch starts: the view switches (v16.3 lost these taps); a 700 ms press on an idle page shows the tip and
+  // 15. (phone-landscape-tap) a 60 ms tap on Landscape while the page's main thread is busy 700 or 1200 ms right
+  // after the touch starts: the view switches; a 700 ms press on an idle page shows the tip and
   // keeps the view
   const ST15 = { shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'sin', params: {}, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 60 }, view: { main: 'xy' }, sheets: true, height: 'im', homRange: { a: 1, b: 1 } };
   const vstate = () => ev(`(() => { const on = document.querySelector('#viewSwitch > button.on'); const tip = document.querySelector('#tip'); const tv = !!tip && !tip.hidden && getComputedStyle(tip).display !== 'none' && getComputedStyle(tip).visibility !== 'hidden' && tip.getBoundingClientRect().width > 0 && +getComputedStyle(tip).opacity > 0; return { main: on && on.dataset.mode, tip: tv ? tip.textContent.slice(0, 40) : null }; })()`);

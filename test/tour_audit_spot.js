@@ -1,5 +1,5 @@
-// The engine-independent spotlight probe of the v16.2 audit (test/tour_audit_cmd.js of v16.2, its PROBE: targets(),
-// paths(), spot(), ringsOff()), for the r3 strip: the strip is a window of the shade like a hosting panel's, a step whose
+// The engine-independent spotlight probe of the tour audit (test/tour_audit_cmd.js, its PROBE: targets(),
+// paths(), spot(), ringsOff()), for the strip: the strip is a window of the shade like a hosting panel's, a step whose
 // task waits for an earlier one (try.after) is read, and the controls table follows the r3 steps. Read by
 // test/tour_audit_cmd.js (eval of this file's text).
 const SPOT = String.raw`(() => {

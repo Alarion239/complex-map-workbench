@@ -1,4 +1,4 @@
-// v15 desktop and tablet redesign (notes/ui-redesign-2/desktop/DESIGN.md; as built: notes/ui-redesign-2/build/desktop.md).
+// Desktop and tablet layout (notes/ui-redesign-2/desktop/DESIGN.md; as built: notes/ui-redesign-2/build/desktop.md).
 // Checks: the cards follow the view (X → Y, Phase, Landscape, the Deformation) and are cumulative; the last card's
 // picture is exact against the main plane (Phase: colours at the same z; X → Y: the image at the same w); selecting a
 // card is not Show alone; the Inspector edits a step (indexed coefficients, 32 px fields), Add zero / Add pole never
@@ -183,7 +183,7 @@ await key(']'); await settle(800);
 // 7. frame times while dragging a parameter (a zero of a zeros-and-poles step in X) and a shape: the perf suite's
 // instrumentation (test/regress/perf/inject.js: each animation frame's main-thread time plus its GPU sync): the
 // design's gate (DESIGN.md 2.3) p95 ≤ 16.7 ms; BUDGET60 (p95 ≤ 14 ms) is the perf suite's paired gate (this ad-hoc
-// scene measured 14.8 to 16.4 ms on the v15-base build too); then the time the cards take to redraw after the drag
+// scene measured 14.8 to 16.4 ms on the base build too); then the time the cards take to redraw after the drag
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, '..', 'regress', 'perf', 'inject.js'), 'utf8') });
 await load(ns + 'f', Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0, 0.4], r: 0.8 }], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0.3i' }, on: true }, { type: 'exp', params: {}, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
 await settle(1500); await drawCards();

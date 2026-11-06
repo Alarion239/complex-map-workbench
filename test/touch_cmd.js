@@ -1,4 +1,4 @@
-// v16.3 the Touching circle (notes/orthogonal-circle/TANGENT-SPEC.md 7, "test/touch_cmd.js"). In the real app, with real
+// The Touching circle (notes/orthogonal-circle/TANGENT-SPEC.md 7, "test/touch_cmd.js"). In the real app, with real
 // pointer events (mouse; touch on the phone):
 //   A (desktop 1440, light, English): the sixth Construct tile and its tooltip; refusals before the curve; the shown unit
 //     circle as C, T on its stroke at 1, P = 2 + i (one undo step, the row, g / S at rest and over 20-frame drags of T once
@@ -7,7 +7,7 @@
 //     one (a tangent and its touching point, exactly tp); Intersect on K and C (one point, exactly T; the hover ring);
 //     P inside (no rings); a tangent's P dragged inside (the reason) and out; refusals; Backspace, Esc, the plane menu;
 //     ⋯ Region and Use complement (a tangent has none); Delete C with the cascade toast, then Undo.
-//   B reload (bitwise), a link in a fresh namespace, the v16.2 test page on the same link (the cached curves).
+//   B reload (bitwise), a link in a fresh namespace, an older build's test page on the same link (the cached curves).
 //   C Russian: the tile fits 52 px, the chips, the rows, the reason, a caption.
 //   D dark at 1440; 1024 × 768 and 768 × 1024 (the rail fits); the phone 390 × 844 (Android Chrome, touch): six
 //     Construct tiles in More, a tile closes the sheet, the hint and the rings drawn without hover, a tap 8 px off the
@@ -18,7 +18,7 @@
 //   G Y: a touching circle on a target circle, through z₀″.
 //   H screenshots (touch-*.png; copied to notes/orthogonal-circle/shots/touch/).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/touch_cmd.js
-// For B's v16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
+// For B's older page, copy the older build's dist/test.html to dist/v162-test.html first (removed afterwards).
 // (CMW_ONLY=A,G runs those sections alone)
 const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
@@ -182,7 +182,7 @@ await section('A', async () => {
   const nA = (await ST()).list.length;
   const em = await W(-1.2, -1.4);
   await click(em[0], em[1]); await settle(150);
-  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (v16.5 UX52: a refusal is said in the chip)
+  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (a refusal is said in the chip)
   const t1s = await chipWarn();
   const fz = await W(-0.4, -2.65);
   await click(fz[0], fz[1] + 1); await settle(150);
@@ -196,7 +196,7 @@ await section('A', async () => {
   await move(u[0] + 2, u[1] - 2); await settle(120);
   ok('A2 hover: the ring on the unit circle', ((await CI()).ring || {}).chip === 'on the unit circle', (await CI()).ring);
   await click(u[0] + 2, u[1] - 2); await settle(150);
-  ok('A2 the unit circle is picked (no shape yet); the chip', (await ST()).list.length === n0 && (await chipT()) === 'Pick the touching point on the unit circle, or a point off it · 1 of 2 · Touching · ⌫ undo pick · Esc', await chipT());   // (v16.5 UX48)
+  ok('A2 the unit circle is picked (no shape yet); the chip', (await ST()).list.length === n0 && (await chipT()) === 'Pick the touching point on the unit circle, or a point off it · 1 of 2 · Touching · ⌫ undo pick · Esc', await chipT());
   const t0 = await W(1, 0);
   // (on the real axis, 3 px outside: the projection onto the circle is 1 exactly)
   await move(t0[0] + 3, t0[1]); await settle(120);
@@ -217,7 +217,7 @@ await section('A', async () => {
   ok('A3 made in one undo step: Circle 1 (the unit circle), the glider z₀ at 1, the free z₁ = 2 + i, K', st.list.length === n0 + 4 && st.hi === hi0 + 1 && C1 && C1.kind === 'circle' && C1.r === 1 && T1.def && T1.def.op === 'glider' && T1.p[0] === 1 && T1.p[1] === 0 && P1.p[0] === 2 && P1.p[1] === 1 && K1.def.op === 'touch' && K1.ci !== C1.ci, info.K1);
   let nm = await names();
   info.rowK1 = await rowD(K1.id);
-  ok('A3 the row: through z₁, touching the unit circle at z₀', info.rowK1 === 'through z₁, touching the unit circle at z₀' && nm(C1.id) === 'the unit circle', info.rowK1);   // (v16.5 rail-4: the unit circle by its name, no number)
+  ok('A3 the row: through z₁, touching the unit circle at z₀', info.rowK1 === 'through z₁, touching the unit circle at z₀' && nm(C1.id) === 'the unit circle', info.rowK1);   // (the unit circle by its name, no number)
   let forms = await FORMS();
   let e = touchErr(forms[K1.id], T1.p, P1.p);
   info.restK1 = { g: f1(e.g), inc: f1(e.inc), tchIsC: sameForm(forms[K1.id].tch.G, unitForm) };
@@ -281,7 +281,7 @@ await section('A', async () => {
   await click(p0[0], p0[1]); await settle(120);
   d = (await CI()).draft;
   // (a chip that would wrap keeps one line without its keyboard tail; the rings' chip in X at 1440 does.
-  // v16.5 UX48 wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
+  // wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const a5 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t');
     if (!t) return null;
     const r = document.createRange();
@@ -360,8 +360,8 @@ await section('A', async () => {
   forms = await FORMS();
   nm = await names();
   info.tangent = { L2: L2.def, M2: M2.def, p: M2.p, tp: up.tp, row: await rowD(M2.id), rowL: await rowD(L2.id) };
-  // ([v16.5 rail SPEC 1.1] P clicked at 2 on the real axis is a point on the real axis, which becomes a fixed shape in
-  // the same step: one shape more than in v16.4, and the tangent is Line 2: v16.5 rail-4 numbers no fixed line or circle)
+  // (P clicked at 2 on the real axis is a point on the real axis, which becomes a fixed shape in
+  // the same step: one shape more, and the tangent is Line 2, since a fixed line or circle gets no number)
   ok('A7 the ring: z₂ = 2 on the real axis, a tangent (index ' + up.k + ') and its touching point, one undo step', st.list.length === nB + 4 && st.hi === hiB + 1 && L2.def.op === 'tangent' && L2.def.index === up.k && P2.p[0] === 2 && P2.p[1] === 0 && P2.def && P2.def.op === 'glider' && byId(st, P2.def.args[0].s).fixed === 'real' && M2.def.op === 'meet' && M2.def.args[0].s === L2.id, info.tangent);
   ok('A7 the touching point equals tp exactly', M2.p[0] === up.tp[0] && M2.p[1] === up.tp[1] && !M2.cundef, info.tangent);
   ok('A7 its row: "Line 2 ∩ the unit circle, where they touch"; the tangent\'s row', info.tangent.row === 'Line 2 ∩ the unit circle, where they touch' && info.tangent.rowL === `tangent to the unit circle at ${nm(M2.id)}, through z₂`, info.tangent);
@@ -559,13 +559,13 @@ await section('C', async () => {
   const M = last(st), L = st.list[st.list.length - 2];
   info.ruRows = { K: info.ruRow, L: await rowD(L.id), M: await rowD(M.id) };
   const N = ' ';
-  const ub = `⌫${N}— отменить выбор · Esc`;   // (v16.5 UX48: what to pick, the count, then how to back up)
+  const ub = `⌫${N}— отменить выбор · Esc`;   // (what to pick, the count, then how to back up)
   // (a chip drops its keyboard tail when it would wrap and fits one line without it, as A5 accepts; #35: it
   // first drops the tool's name, which the pane head's chip shows, and keeps the tail when that fits)
   const ruChip = (got, base, tail) => got === `${base} · ${tail}` || got === base || got === `${base.slice(0, base.lastIndexOf(' · '))} · ${tail}`;
   ok('C RU chips', ruChip(info.ruChips[0], 'Выберите прямую или окружность · Касание', esc) && ruChip(info.ruChips[1], 'Выберите точку касания (на кривой: единичная окружность) или точку вне её · 1 из 2 · Касание', ub) && ruChip(info.ruChips[2], 'Выберите точку вне кривой (единичная окружность) или штриховую касательную · 2 из 2 · Касание', ub) && ruChip(info.ruChips[3], 'Выберите точку касания (на кривой: единичная окружность) или кольцо для касательной · 2 из 2 · Касание', ub), info.ruChips);
   ok('C RU ring chips: привязка: касательная в точке z₀ / касательная из z₂', info.ruHint === 'привязка: касательная в точке z₀' && info.ruRing === 'привязка: касательная из z₂', [info.ruHint, info.ruRing]);
-  ok('C RU rows', info.ruRows.K === `через z₁, касается кривой: единичная окружность; точка касания${N}— z₀` && /^касательная к кривой: единичная окружность в точке z., через z₂$/.test(info.ruRows.L) && info.ruRows.M === 'Прямая 1 ∩ единичная окружность, точка касания', info.ruRows);   // ([v16.5 rail] P = 2 lies on the real axis, a fixed shape now; rail-4: fixed shapes have names, not numbers: the tangent is Line 1)
+  ok('C RU rows', info.ruRows.K === `через z₁, касается кривой: единичная окружность; точка касания${N}— z₀` && /^касательная к кривой: единичная окружность в точке z., через z₂$/.test(info.ruRows.L) && info.ruRows.M === 'Прямая 1 ∩ единичная окружность, точка касания', info.ruRows);   // (P = 2 lies on the real axis, a fixed shape; fixed shapes have names, not numbers: the tangent is Line 1)
   await shot('touch-d1440-ru-made');
   // the reason: the tangent's P dragged inside
   await tool('select');
@@ -770,8 +770,8 @@ await section('F', async () => {
     info.perf[what] = r;
     ok(`F drag ${what} with 10 touching circles and 10 tangents: they follow (g / S ≤ 1e-12)`, r.follows, r);
     ok(`F BUDGET60 drag ${what}: rAF work p95 ≤ 14 ms`, r.work_p95 != null && r.work_p95 <= 14, r);
-    // (T is a glider: its drag recomputes in the pointermove handler, as v16.2 does for a glider with region
-    // dependents (a circle3 scene of the same size: pointermove p95 17 ms in v16.2); P's drag defers to the frame)
+    // (T is a glider: its drag recomputes in the pointermove handler, as it does for a glider with region
+    // dependents (a circle3 scene of the same size: pointermove p95 17 ms); P's drag defers to the frame)
     if (what === 'P') ok(`F BUDGET60 drag ${what}: pointermove p95 ≤ 14 ms`, r.move_p95 != null && r.move_p95 <= 14, r);
     ok(`F BUDGET60 drag ${what}: frame delta p95 ≤ 16.7 ms`, r.delta_p95 != null && r.delta_p95 <= 16.8, r);
   }

@@ -1,9 +1,9 @@
-// v16.5 wave 1, the chain piece (notes/ux-build/w1-chain-AS-BUILT.md; the audit: notes/ux-audit/REPORT.md): every fix of
+// The chain piece (notes/ux-build/w1-chain-AS-BUILT.md; the audit: notes/ux-audit/REPORT.md): every fix of
 // UX01 UX03 UX16 UX22 UX23 UX25 UX32 UX33 UX65 UX79 UX81 UX82 UX84 UX85 V03, on a laptop (1366×768) and a phone
 // (412×860 and 915×412, Android emulation, real touch events), in light and dark, and in Russian.
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/ux165_chain_cmd.js
-// Prints {pass, fails, info, shots}; screenshots go to <daemon folder>/shots/ux165-*.png. With dist/base.html (the v16.4
+// Prints {pass, fails, info, shots}; screenshots go to <daemon folder>/shots/ux165-*.png. With dist/base.html (the baseline
 // snapshot's test page) next to dist/test.html, the same scenes are shot there too, as ux165-*-before.png.
 const fails = [], shots = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -341,7 +341,7 @@ c = await C();
 ok('UX01 phone landscape: adding keeps F', c.focus === 0 && c.sel === 3, c);
 await grab();
 
-// ======================= before: the same scenes on the v16.4 snapshot =======================
+// ======================= before: the same scenes on the baseline snapshot =======================
 if (BASE) {
   const before = async (name, st, fn, w = 1366, h = 768, dark = false, mobile = false, q = '') => { await openApp('base.html', st, w, h, dark, mobile, q); try { await fn(); } catch (e) { info['before-' + name] = String(e); } await shot2(name + '-before'); await palClose(); };
   await before('ux01-after-add', { shapes: [DISC], steps: CHAIN }, async () => { await palType('sin z'); await key('Enter'); await settle(900); });

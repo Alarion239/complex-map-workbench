@@ -1,4 +1,4 @@
-// All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md). A command file for a CDP daemon
+// All sheets while the deformation shows. A command file for a CDP daemon
 // (test/cdp_kit README):  python3 build.py && <runner> test/sheets_deform_cmd.js
 // The user's case: chain √, sin with √ bracketed (Only f1, inside F), Landscape, All sheets, height Im, at t = 0, 1/2, 1:
 // two surfaces drawn (the deformation's, info.hom), the title "…, both sheets" ("…, оба листа"; the merge with the exact sheet captions), the CPU twin's two
@@ -47,9 +47,9 @@ for (const [w, h, phone] of [[1440, 900, false], [390, 844, true]]) {
         const s = await ls(), map = await ev('__cmwState().homView && __cmwState().homView.map');
         ok(`${tag} t=${T}: the bracket's map (mode 1, hi 1, post 2)`, map && map.mode === 1 && map.hi === 1 && map.post === 2 && map.t === T, map);
         ok(`${tag} t=${T}: two surfaces of H_t drawn`, s.drawn && s.drawn.K === 2 && s.drawn.hom === true, s.drawn);
-        // (v16.1 review math-1: the title names F's sheets as the carrier, not sheets of H_t)
+        // (the title names F's sheets as the carrier, not sheets of H_t)
         ok(`${tag} t=${T}: title says on both sheets of F`, lang ? /, на обоих листах <i>F<\/i>/.test(s.title) && /H/.test(s.title) : /, on both sheets of <i>F<\/i>/.test(s.title) && /<i>H<\/i><sub><i>t<\/i><\/sub>/.test(s.title), s.title);
-        // (v16.1 review user-7: a phone has no title; its chip says the same)
+        // (a phone has no title; its chip says the same)
         if (phone) { const chip = await ev(`(() => { const e = document.querySelector('#leftReadout .rhint'); return e ? e.innerHTML : null; })()`); ok(`${tag} t=${T}: the phone's chip names the sheets`, lang ? /на обоих листах/.test(chip || '') : /on both sheets of/.test(chip || ''), chip); }
         if (!phone || T === 0.5 || !dark) await snap(`${tag}-t${T}`);
         if (tag === '1440-en-light') {
@@ -112,7 +112,7 @@ await setView(1440, 900, false, false);
   await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 } })'); await settle(800);
   await ev('__cmwMorph({ T: 0.5 })'); await settle(800);
   const s = await ls();
-  // (v16.5 UX20; #247: on a desktop the pane's options, All sheets among them, are in its head or behind its ⋯ button)
+  // (on a desktop the pane's options, All sheets among them, are in its head or behind its ⋯ button)
   const opts = (open) => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && (b.getAttribute('aria-expanded') === 'true') !== ${open}) b.click(); return 1; })()`);
   await opts(true); await settle(300);
   const tip = await ev(`(() => { const c = document.getElementById('sheetsChk'); const l = c && c.closest('label'); return l ? l.dataset.tip || '' : null; })()`);
@@ -140,7 +140,7 @@ await setView(1440, 900, false, false);
 }
 
 // ---------------- 3. frame times while playing (desktop and phone), All sheets on and off ----------------
-// (v16.2, review rv162-2: one 3 s window per state failed at random on a busy machine. Now 3 windows each, alternating
+// (one 3 s window per state fails at random on a busy machine, so 3 windows each, alternating
 // sheets, plain, sheets, plain, sheets, plain at each size, and the medians are compared, as perf_rerun.js does)
 const med = (a) => { const b = a.filter((x) => Number.isFinite(x)).sort((x, y) => x - y); return b.length ? b[(b.length - 1) >> 1] : NaN; };
 for (const [w, h, phone] of [[1440, 900, false], [390, 844, true]]) {
