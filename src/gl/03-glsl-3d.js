@@ -1253,7 +1253,7 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
   o = vec4(toSrgb(fogged(c, vPos)), 1.0);
-${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
+${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;
   const FLOOR_VS = `
 uniform mat4 uMVP; uniform vec2 uExt; uniform float uFloorZ;
