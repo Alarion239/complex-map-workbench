@@ -45,7 +45,11 @@ for (const [name, w, h, touch] of [['desk', 1280, 800, false], ['phone', 390, 84
       park: async () => { await ev(`window.__cmwSteps({ park: 0.5 }), 1`); },
       colour: async () => { await press('#svHead .sv-cp'); },
       carried: async () => { await press('#svStrip .sv-next'); await sleep(1800); const c = await pos('#plotL'); for (const d of [0, 20, 40, 60]) { await move(c.x + d, c.y + d / 2); await sleep(150); } },
-      inside: async () => { await press('#svHead .sv-scope [data-v="in"]'); },
+      inside: async () => {
+        // (short of room the scope is a menu button: its menu holds the choice)
+        if (await press('#svHead .sv-scope [data-v="in"]')) return;
+        if (await press('#svHead .sv-scope-menu')) { await waitFor(`!!document.querySelector('.pop.menu [role=menuitemradio]')`); await press('.pop.menu [role=menuitemradio]:last-child'); }
+      },
       surface: async () => { await press('#svHead .sv-surf1'); await sleep(400); await ev(`(() => { const b = document.querySelectorAll('.pop.menu [role=menuitemradio]')[1]; if (b) b.click(); return !!b; })()`); },
       step: async () => { await press('#svStrip .sv-fchip'); },
     };

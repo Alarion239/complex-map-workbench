@@ -5,7 +5,7 @@
 //   aria-required-children    the Numbers list has role list only with items
 //   aria-allowed-role         the split offer (a details) has no region role
 //   scrollable-region-focusable  the Inspector's formula box is a tab stop
-// and what the fixes must keep: the card's actions work under a mouse, Clear stays where it was in the header.
+// and what the fixes must keep: the card's actions work under a mouse, Clear stays in its place in the header.
 // A command file for a CDP daemon.
 const AXE = fs.readFileSync(path.join(DIR, '..', '..', 'node_modules', 'axe-core', 'axe.min.js'), 'utf8');
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };

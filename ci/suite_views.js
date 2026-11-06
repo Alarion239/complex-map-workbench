@@ -24,9 +24,12 @@ const VIEWS = {
   // already in the steps view
   'example_lane_cut_cmd.js': steps(),
   'sv_cut_curve_cmd.js': steps(),
+  'sv_cut_curve_sphere_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
+  'export_two_planes_cmd.js': steps(),
+  'export_two_planes_dialog_cmd.js': steps(),
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
@@ -48,13 +51,17 @@ const VIEWS = {
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
+  'steps_land_specks_cmd.js': steps({ pin: true }),
+  'steps_land_poles_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
+  'steps_glide_linkhold_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_glide_look_cmd.js': steps({ pin: true }),
   'steps_glide_black_cmd.js': steps({ pin: true }),
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
+  'steps_glide_later_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
@@ -78,6 +85,7 @@ const VIEWS = {
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),
   'toast_keys_cmd.js': steps(),
+  'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
@@ -88,6 +96,7 @@ const VIEWS = {
   'steps_sphere_glide_cmd.js': steps(),
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
+  'steps_sphere_rest_cmd.js': steps(),
   'steps_sphere_cut_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
@@ -99,7 +108,8 @@ const VIEWS = {
   'tour_planes_cmd.js': steps(),
 
   // the classic views' own parts, pinned to the classic view
-  'deform_range_cmd.js': classic('the classic Deformation with a range set by its hook (its paths, captions and sound): the thread\'s range is steps_play_cmd\'s'),
+  'deform_range_classic_cmd.js': classic('the Deformation bracket over the card row, its menu items and chain edits, the phone bar, the sound probe and the morph figure\'s captions: the thread\'s range is deform_range_cmd\'s and steps_play_cmd\'s'),
+  'deform_range_cmd.js': steps({ pin: true }),
   'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which only the classic view has'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'mv_views_cmd.js': classic('the merged X → Y / Phase / Landscape views and their switch, which the steps view replaces'),
@@ -108,6 +118,7 @@ const VIEWS = {
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
+  'deform_range_gl_cmd.js': steps({ pin: true }),
 
   // to port: interact
   'a11y_axe_cmd.js': steps({ pin: true }),
@@ -195,7 +206,7 @@ const VIEWS = {
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
-  'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the Video format (UX60), the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu (UX97, UX99), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
+  'ux165_learn_cmd.js': port('words', 'what is left of it asks what the steps view does not have yet: the playback readout in words (UX103), the draw-tool chip while a deformation is open (UX102), the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu (UX97, UX99), the empty chain\'s Add function not over the picture, with its tooltip words and the plane\'s title whole beside it (UX20), the plane\'s pattern key and target note (UX20, V01: steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
   'v151_cmd.js': steps({ pin: true }),
@@ -203,7 +214,8 @@ const VIEWS = {
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': steps({ pin: true }),
   'export_cmd.js': steps({ pin: true }),
-  'export_deform_cmd.js': port('export', 'the deformation\'s export in every view and its video: the glide\'s export (#620 item 8)'),
+  'export_deform_cmd.js': steps({ pin: true }),
+  'export_deform_classic_cmd.js': classic('the classic views\' deformation export: the X → Y, Phase, globe and Landscape figures and videos, the display-style F, their Russian captions and the dialog\'s classic Deformation row; the steps view\'s export is export_deform_cmd, export_steps_cmd and morphfig_cmd'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),

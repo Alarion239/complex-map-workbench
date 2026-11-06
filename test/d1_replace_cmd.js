@@ -1,4 +1,4 @@
-// D1, issue #23: the function search replaces as well as inserts. A chip in the search row says where the function
+// The function search can replace as well as insert. A chip in the search row says where the function
 // goes (Insert, Replace F, Replace f_k; Tab or a click changes it, and it is remembered); the best match is listed all
 // three ways; a step's ⋯ on the thread has "Replace…"; the Inspector's title opens the search ready to replace its
 // step; Clear chain is the palette's command. On a laptop (1366×768), a phone (412×860) and in Russian.

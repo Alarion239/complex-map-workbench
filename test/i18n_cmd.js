@@ -172,6 +172,8 @@ for (const w of [1024, 1440]) {
   await ev(`I18N.setPref('auto'), 1`); await sleep(4000);
 }
 // ---- 5: ЙЦУКЕН shortcuts ----
+// (the classic views' part, in i18n_classic_cmd.js: С is the Circle tool there, here it is the colour plane; Ь opens the
+// deformation and З its Paths; digits 1 and 2 pick X → Y and Phase, and the steps view picks its plane by stage)
 {
   await view(1440, 900, false, false);
   await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);

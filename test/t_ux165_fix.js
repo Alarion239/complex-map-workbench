@@ -1,4 +1,4 @@
-// v16.5 wave 1 fix round (notes/ux-build/w1-fix-AS-BUILT.md): the logic of the review fixes that runs without a
+// The review fixes (notes/ux-build/w1-fix-AS-BUILT.md): the logic of them that runs without a
 // browser (the detent steps of rail-2 in constr.js), and the source checks of the rest. The browser look of the same
 // fixes: test/ux165_fix_cmd.js. Run: node test/t_ux165_fix.js
 'use strict';
@@ -53,7 +53,7 @@ ok(/Constr\.angleDetent\(pc\.r \* sc, R\)/.test(DET) && /Constr\.latticeDetentR\
 ok(/add\(deg \/ 15 \/ 24, label, null, ad\.R\)/.test(DET), 'rail-2: the turn-exact parameter (k/24) is kept, so 1, i, −1, −i stay exact');
 ok(/if \(id === o\.self\) continue;/.test(DET) && /if \(!z \|\| clash\(z\)\) return;/.test(DET), 'rail-3: no detent on a co-argument of a construction built on the dragged point');
 ok(/detentAt\(side, tg, touch, ex, e, \{ self: s\.id \}\)/.test(CON) && /pend: false, self: s\.id \}/.test(CON), 'rail-3: the rail and the free drag pass the dragged point');
-// (v16.5 check app-4: inside a sentence by its 'ref' form, the same words in English and Russian, with its article in Italian)
+// (inside a sentence by its 'ref' form, the same words in English and Russian, with its article in Italian)
 ok(/const fx = fixedRef\(s\);\s*if \(fx\) return fx;/.test(fnBody(CON, 'shapeLabel')) && /if \(fixedName\(x\)\) continue;/.test(fnBody(CON, 'shapeLabel')), 'rail-4: a fixed unit circle or axis is called by that name and takes no number (X and Y)');
 ok(/fixedName: \(s\) => \(A \? fixedName\(s\) : null\)/.test(CON), 'rail-4: Construct.fixedName for the app\'s rows');
 ok(/const FIXREF = \{ unit: \(\) => \$tx\('ref', 'the unit circle'\), real: \(\) => \$tx\('ref', 'the real axis'\), imag: \(\) => \$tx\('ref', 'the imaginary axis'\) \};/.test(CON) && /return FIXREF\[ref\.disp\] \? FIXREF\[ref\.disp\]\(\)/.test(fnBody(CON, 'curveName')), 'check app-4: the unit circle and the axes in a sentence by their ref names');
@@ -89,7 +89,7 @@ const RU = (() => { const t = R('src/i18n_ru.js'); const m = /^I18N\.define\('ru
 for (const v of Object.values(FIX)) if (v && v.en) ok(RU[v.en] === v.ru, 'Russian shipped: ' + v.en, RU[v.en]);
 ok(RU['Hold and slide to read F(z)'] === 'Удерживайте палец\u00a0— F(z)', 'user-4: the short Russian probe line wins');
 
-// (v16.5 check app-4) Italian joins a definite article to the simple preposition before it; English and Russian unchanged
+// Italian joins a definite article to the simple preposition before it; English and Russian unchanged
 {
   const I18N = require(path.join(__dirname, '..', 'src', 'i18n.js'));
   global.I18N = I18N;

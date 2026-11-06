@@ -35,12 +35,7 @@ await press('з', 'KeyP'); await until(`${paths} === ${JSON.stringify(p0)}`);
 await press('ь', 'KeyM'); await until(`!(${morph})`); check('ЙЦУКЕН Ь again → deformation off', !(await ev(morph)));
 await press('2', 'Digit2'); await until(`__cmwState().view.main === 'phase'`); check('digit 2 → Phase', (await ev(`__cmwState().view.main`)) === 'phase');
 await press('1', 'Digit1'); await until(`__cmwState().view.main === 'xy'`); check('digit 1 → X → Y', (await ev(`__cmwState().view.main`)) === 'xy');
-// a text field keeps its letters: the region formula field
-await press('м', 'KeyV');
-await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
-await press('м', 'KeyV'); await press('с', 'KeyC'); await press('ь', 'KeyM');
-const typed = await ev(`({ v: document.getElementById('formulaInput').value, tool: (document.querySelector('.tool.on') || { dataset: {} }).dataset.tool, morph: !!document.getElementById('morphPlay') })`);
-check('typing in a text field is never taken', typed.v === 'мсь' && typed.tool === 'select' && !typed.morph, typed);
+// text fields keep their letters: this check runs in i18n_cmd.js under the steps view (standards-ok: its steps-view twin is there, with the steps view's keys)
 // the logarithm's example and its Landscape title say which sheets, in Russian
 await nav(`${U}?ns=i18nc-log-${Date.now()}&lang=ru`); await loaded(3500);
 await ev(`document.getElementById('examplesBtn').click(), 1`); await until(`!!document.querySelector('#popHost .examples .ex-name')`);

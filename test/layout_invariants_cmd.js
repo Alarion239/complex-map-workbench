@@ -77,7 +77,7 @@ info.counts = {};
 for (const r of report) info.counts[r.check] = (info.counts[r.check] || 0) + 1;
 info.declared = DECLARED.map((d, i) => ({ check: d.check, key: String(d.key), why: d.why, n: meant.get(i) || 0 }));
 // the gate (tiers on #475): against this run's baseline, made on one renderer over one matrix. A key the baseline lacks
-// fails, and so does a state that did not open and was open then (its violations would quietly go); the keys it has
+// fails, and so does a state that opened in the baseline and did not open in the run (its violations would quietly go); the keys it has
 // and the run did not see are fixed (lower the baseline). Another matrix asks for a new baseline; another renderer
 // fails too, asking for a new baseline (a runner image's new Mesa or LLVM would otherwise switch the gate off unseen)
 const label = CFG.label || CFG.langs.join('+');
