@@ -231,7 +231,8 @@ const VIEWS = {
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': steps({ pin: true }),
   'export_cmd.js': steps({ pin: true }),
-  'export_deform_cmd.js': port('export', 'the deformation\'s export in every view and its video: the glide\'s export (#620 item 8)'),
+  'export_deform_cmd.js': steps({ pin: true }),
+  'export_deform_classic_cmd.js': classic('the classic views\' deformation export: the X → Y, Phase, globe and Landscape figures and videos, the display-style F, their Russian captions and the dialog\'s classic Deformation row; the steps view\'s export is export_deform_cmd, export_steps_cmd and morphfig_cmd'),
   'export_fit_cmd.js': steps({ pin: true }),
   'export_sheet_cmd.js': steps({ pin: true }),
   'export_tex_cmd.js': steps({ pin: true }),
