@@ -19,7 +19,8 @@ const settle = async (ms = 2500) => { await sleep(ms); await ev('new Promise((r)
 // a plane of the steps view on a surface: plane k ('sphere' or 'plane'), shown at once
 const plane = (k, surf) => ev(`__cmwSteps({ go: ${k}, now: true, surf: '${surf}' }); 1`);
 // how the shown plane drew shape id: 'inverse' or 'forward' (__cmwDrawn, with exact images on)
-const drawn = (id) => ev(`__cmwDrawn()['L|${id}'] || null`);
+// (a shape's record is an object while its program compiles: waited out, up to 30 s)
+const drawn = (id) => ev(`new Promise((res) => { const t0 = performance.now(), f = () => { const p = __cmwDrawn()['L|${id}']; if (typeof p === 'string' || performance.now() - t0 > 30000) res(typeof p === 'string' ? p : p || null); else setTimeout(f, 100); }; f(); })`, 40000);
 // a pixel is fill (page code FILL(A, B, i), A the frame Inside regions, B the same frame coloured Everywhere, i the
 // pixel's offset) where A shows B's colour: within 24/255 summed over the channels, or A not grey (its channels spread
 // by 24/255 or more) with B's hue (each channel's share of the sum within 0.03; a line of the globe's net drawn over
