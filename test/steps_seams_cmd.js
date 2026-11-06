@@ -87,18 +87,18 @@ const park = async (x, scope) => {
   ok('teeth: exp then log, parked between w1 and w2: the seam along the cut is smooth (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', info.teeth.perRow != null && info.teeth.perRow <= 1.5, info.teeth);
   // (the first frames after a chain change: a step put first, the same seam now between w2 and w3, parked there at
   // once. The window is what is checked: every animation frame of the 2 s after the park, on the page's clock, while
-  // the new chain's programs link; a frame with no colour edge yet has no rows and does not count. Nor does a frame
-  // that is not a new draw between the planes (no new glide record): while the inverse pass's program links, the
-  // page shows plane w2 itself at rest (svLinkHold), with the cut's dashed handle along the very rows the scan reads,
-  // each dash a jump. Plane w2 itself is read below)
+  // the new chain's programs link; a frame with no colour edge yet has no rows and does not count. The colour layer
+  // alone is read (bare): a frame held on plane w2 at rest while the inverse pass's program links (svLinkHold) has the
+  // cut's dashed handle along the very rows the scan reads, each dash a jump)
   await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
   await settled({ max: 20000, panes: false, until: '__cmwSteps().planes.length === 4' });
-  await ev(`__cmwSteps({ T: 0 }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
+  await ev(`__cmwSteps({ T: 0, bare: true }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
     window.__seamsAfter = []; window.__seamsDone = false;
-    { const t0 = performance.now(), g0 = __cmwSteps().glide, tick = () => { if (__cmwSteps().glide !== g0) window.__seamsAfter.push(${TEETH});
+    { const t0 = performance.now(), tick = () => { window.__seamsAfter.push(${TEETH});
         if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else window.__seamsDone = true; };
       requestAnimationFrame(tick); } 1`);
   await settled({ max: 30000, panes: false, until: 'window.__seamsDone === true' });
+  await ev(`__cmwSteps({ bare: false }); 1`);
   const after = (await ev('__seamsAfter.map((t) => ({ label: t.label, rows: t.rows, perRow: t.perRow }))')).filter((t) => t.rows > 0);
   info.afterChange = { frames: after.length, perRow: after.map((t) => t.perRow) };
   ok('teeth: frames were drawn in the 2 s after a chain change', after.length > 0, info.afterChange);
