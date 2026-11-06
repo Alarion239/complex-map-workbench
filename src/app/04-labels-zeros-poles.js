@@ -332,6 +332,7 @@
     if (!st || !bt || !bt.def || !bt.def.params.some((q) => q.key === 'k') || !Number.isFinite(Number(st.params.cut))) return null;
     const rel = CX.sub(q0, p), q1 = CX.add(p, CX.mul(rel, C(Math.cos(CUT_SIDE), Math.sin(CUT_SIDE))));
     const w0 = bt.f(q0), w1 = bt.f(q1), k0 = Math.round(+st.params.k || 0);
+    // 1e-9 (relative): the candidate sheet must reproduce the step's own values at both samples, so a neighbouring sheet, whose values differ by far more, is rejected
     const near = (u, v) => CX.isFin(u) && CX.isFin(v) && CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(v));
     for (const dk of [0, 1, -1, 2, -2, 3, -3, 4, -4]) {
       let f = null;
@@ -419,10 +420,11 @@
   // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
   // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
-  // as drawCarriedCuts draws them
+  // as drawCarriedCuts draws them. While the strokes are hidden (the tests' __cmwHideStrokes) none is drawn
   function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
     if (artMode) return;
     carriedCuts = [];
+    if (hideStrokes) return;
     pane.ctx.save();
     pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
     for (let j = 1; j <= S.steps.length; j++) {
