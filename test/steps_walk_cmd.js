@@ -52,7 +52,8 @@ await clickSel('#svStrip .sv-whole'); await until("!document.querySelector('#svS
 ok('Whole chain leaves', (await alone()) === 0 && (await walk(1)) === null);
 // the phone: Whole chain is a pinned 44 px icon outside the rail; the walk is in the step's ⋯ menu
 const items = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => ({ text: b.querySelector('.mi-label').textContent.trim(), dis: b.disabled }))`);
-const clickItem = (re) => ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => ${re}.test(x.querySelector('.mi-label').textContent)); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' })); b.click(); return true; })()`);
+// (the menu ignores a click just after the long press that raised it: the click is tried at each poll until the step is shown)
+const pressUntilShown = (re, k) => until(`(() => { const P = __cmwSteps().planes; if (document.querySelector('#svStrip .sv-whole') && P[P.length - 1] === ${k}) return true; const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => ${re}.test(x.querySelector('.mi-label').textContent)); if (b && !b.disabled) { b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' })); b.click(); } return false; })()`);
 const WORDS = { en: [/Previous step alone/, /Next step alone/], ru: [/Предыдущий шаг отдельно/, /Следующий шаг отдельно/] };
 for (const lang of ['en', 'ru']) {
   await open(360, 740, lang, { sv: { at: 0, T: -1, scope: 'chain', surf: 'plane', speed: 1, alone: 2 } });
@@ -64,13 +65,10 @@ for (const lang of ['en', 'ru']) {
     c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: 1 })); return 1; })()`);
   await until(`document.querySelectorAll('#popHost .menu .mi').length > 3`);
   await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect(); c.dispatchEvent(new PointerEvent('pointerup', { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: 0 })); return 1; })()`);
-  // (a click on the menu in the first 450 ms after the lift of the long press that raised it does nothing: the floor is that time)
-  await settled({ floor: 600, max: 20000 });
   const it = await items();
   info['menu-' + lang] = it;
   ok(`phone ${lang}: the step's ⋯ menu has Previous and Next step alone, both on`, WORDS[lang].every((re) => it.some((x) => re.test(x.text) && !x.dis)), it);
-  info['click-' + lang] = await clickItem(WORDS[lang][1]);
-  await until(`(() => { const P = __cmwSteps().planes; return !!document.querySelector('#svStrip .sv-whole') && P[P.length - 1] === 4; })()`);
-  ok(`phone ${lang}: Next step alone shows f4 alone (f3 is bypassed)`, (await alone()) === 4, [await alone(), info['click-' + lang], await items()]);
+  await pressUntilShown(WORDS[lang][1], 4);
+  ok(`phone ${lang}: Next step alone shows f4 alone (f3 is bypassed)`, (await alone()) === 4, await alone());
 }
 return { pass, fails, info };
