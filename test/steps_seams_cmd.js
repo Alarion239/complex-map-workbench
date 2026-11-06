@@ -141,6 +141,10 @@ const park = async (x, scope) => {
       const g = __cmwSteps().glide || {};
       return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
+    // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws none, so
+    // its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
+    info.cutCurves = await ev('__cmwCutCurves().length');
+    ok('cracks: Square root, parked half-way, strokes hidden: no cut curve is drawn', info.cutCurves === 0, info.cutCurves);
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
