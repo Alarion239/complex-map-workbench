@@ -40,8 +40,21 @@
   // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
+  // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
+  // (no re-pick, so no side flips), and a full placement keeps it unless the spot now touches a curve or a label
+  const labelSlots = new Map();
+  const LABEL_DEFAULT = [7, -7];   // north-east of the point
+  // (the points that are gone, deleted or replaced with the chain, lose their offsets)
+  function pruneLabelSlots() {
+    if (!labelSlots.size) return;
+    const live = new Set();
+    for (const s of S.shapes) live.add(s.id);
+    for (const s of S.targets || []) live.add(s.id);
+    for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
+  }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
+    const lite = !!r.lite;
     // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
     const marks = r.marks;
     const hard = [];
@@ -101,7 +114,7 @@
       const g = groups.find((q) => Math.abs(q.x - it.x) < 2.5 && Math.abs(q.y - it.y) < 2.5);
       const word = /\s|[a-z]{3,}/i.test(it.text) && !/^[a-z][′″‴⁽]?/i.test(it.text.slice(0, 2)) ? true : !!it.word;
       if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; }
-      else groups.push({ x: it.x, y: it.y, texts: [it.text], word });
+      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id });
     }
     const placed = [];
     const th = 13;
@@ -128,26 +141,45 @@
           cands.splice(4, 0, [ax - g.x + (ux / ul - 1) * tw / 2, ay - g.y + (uy / ul + 1) * th / 2, pen]);
         }
       }
-      let best = null, bestCost = Infinity;
-      for (const [dx, dy, pen] of cands) {
+      // a candidate spot at offset (dx, dy) from the point, or null when a label, a marker or a handle is there
+      const evalCand = (dx, dy, pen) => {
         const x0 = g.x + dx, y1 = g.y + dy, y0 = y1 - th, x1 = x0 + tw;
-        if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) continue;
+        if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) return null;
         const hit = (b) => x0 < b.x1 && x1 > b.x0 && y0 < b.y1 && y1 > b.y0;
-        if (placed.some(hit) || hard.some(hit)) continue;
-        if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) continue;
+        if (placed.some(hit) || hard.some(hit)) return null;
+        if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) return null;
         // a label nearer another marker than its own reads as that marker's: allowed only as a last resort
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
-        const cost = Math.min(3, 0.5 * curveCost(x0, y0, x1, y1)) + pen + (amb ? 4 : 0);
-        if (cost < bestCost) { best = [x0, y1]; bestCost = cost; if (cost === 0) break; }
+        const cc = curveCost(x0, y0, x1, y1);
+        return { x: x0, y: y1, cost: Math.min(3, 0.5 * cc) + pen + (amb ? 4 : 0), touch: cc > 0 || amb };
+      };
+      const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
+      let x, y;
+      if (lite && g.id !== undefined) {
+        // on the move: the last full placement's offset, drawn as it is
+        [x, y] = [g.x + (slot || LABEL_DEFAULT)[0], g.y + (slot || LABEL_DEFAULT)[1]];
+      } else {
+        // at rest: the last offset while its spot is free of curves and labels (hysteresis), else the best candidate
+        const keep = slot ? evalCand(slot[0], slot[1], 0) : null;
+        let best = keep && !keep.touch ? keep : null;
+        if (!best) {
+          let bestCost = Infinity;
+          for (const [dx, dy, pen] of cands) {
+            const e = evalCand(dx, dy, pen);
+            if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
+          }
+        }
+        if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
+        ({ x, y } = best);
+        if (g.id !== undefined) labelSlots.set(g.id, [x - g.x, y - g.y]);
       }
-      if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
-      const [x, y] = best;
       placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
       ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
+    if (!lite) pruneLabelSlots();
     if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
   // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
@@ -160,9 +192,9 @@
     const labels = [];
     // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
-    // (opt.lite: a view on the move, a glide or a scrub, places its labels with no curve to keep off: sampling every curve
-    // through the plane's map costs up to 600 evaluations a curve; the view at rest, and so the frame a glide lands in, keeps the
-    // labels off the curves)
+    // (opt.lite: a view on the move, a glide or a scrub, has no curves to keep the labels off: sampling every curve through the
+    // plane's map costs up to 600 evaluations a curve. Its labels keep their last full placement's offsets, so they do not
+    // re-pick; the full placement of the view at rest keeps the curves off)
     if (!opt.thin && !opt.lite) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
     for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
@@ -181,7 +213,7 @@
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         ctx.strokeStyle = ink.edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-        if (!opt.thin && mk !== 'helper') labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+        if (!opt.thin && mk !== 'helper') labels.push({ x, y, id: s.id, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
         continue;
       }
       ctx.fillStyle = ink.edge;
@@ -189,9 +221,9 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, opt.thin ? 2.6 : 4, 0, TAU); ctx.stroke(); ctx.fill();
       if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+      if (!opt.thin) labels.push({ x, y, id: s.id, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
     }
-    if (labels.length) placeLabels(ctx, pane, labels);
+    if (labels.length) { labelReg(pane).lite = !!opt.lite; placeLabels(ctx, pane, labels); }
   }
   // branch cuts and poles of step k+1 live in the plane of stage k
   const offEdge = (pane, x, y, m) => x < m || y < m || x > pane.w - m || y > pane.h - m;

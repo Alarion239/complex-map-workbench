@@ -1346,6 +1346,20 @@
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
+  // (#1059) the labels are placed in full once the picture has been still for SV_LABEL_STILL ms, held or released (on the
+  // move they keep their offsets, see drawPoints). The picture is what it draws: a pan or a zoom counts as a change too
+  const SV_LABEL_STILL = 120;
+  let svPicKey = '', svPicAt = 0, svPicTimer = 0;
+  function svPictureSettled(pane, a, b, u) {
+    const key = [a, b, u, pane.w, pane.h, JSON.stringify(pane.view)].join('|');
+    const now = performance.now();
+    if (key !== svPicKey) { svPicKey = key; svPicAt = now; }
+    const left = SV_LABEL_STILL - (now - svPicAt);
+    if (left <= 0) return true;
+    // (a held thread draws no frame of its own: this one draws the still picture's full placement)
+    if (!svPicTimer) svPicTimer = setTimeout(() => { svPicTimer = 0; requestRender('L'); }, left);
+    return false;
+  }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
@@ -1447,7 +1461,9 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
-    drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, rest ? {} : { lite: true }));
+    // (a glide or a play is under way: its frames stay on the move, whatever a stalled frame shows)
+    const settled = rest || (!SV.anim && !SV.play && svPictureSettled(pane, a, b, u));
+    drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, settled ? {} : { lite: true }));
     // (at rest on plane a, the points of later planes by their preimages here, as on a coloured plane)
     if (still && rest) { updatePre('L', pane, a); drawPre(pane, 'L', a); }
     if (rest) drawRulers(pane, 'L');
