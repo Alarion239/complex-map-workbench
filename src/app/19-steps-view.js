@@ -365,8 +365,8 @@
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p, r1 = cell * 8) => [p.re, p.im, cell * 1e-4, r1];
-    // (a height pole in the far patches takes the patch of its far cell's size, as the spike is faceted over the whole cell)
-    const far = (p) => Math.max(cell * 8, svFarCell(src, Math.hypot(p.re - cx, p.im - cy)));
+    // (a height pole in the far patches takes a patch of its far cell's size and half the spacing to its neighbour, the spike's tail, short of the neighbour)
+    const far = (p) => Math.max(cell * 8, Math.min(svFarCell(src, Math.hypot(p.re - cx, p.im - cy)) + p.sp / 2, 0.95 * p.sp));
     return near.map((p) => patch(p)).concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8, F, box).map((p) => patch(p, far(p))) : []);
   }
   // The poles of the height map hF (plane s to the height plane) outside the carried box src, within LAND_HEIGHT_REACH
@@ -376,7 +376,7 @@
   // patch of its own like the glide map's poles (svLandPatches); one whose image is not in the block is never seen. hF
   // does not move with the glide, so the candidates (the LAND_HEIGHT_CANDIDATES nearest) are searched once per plane s
   // and box (hKey names hF); F, which does, picks among them each frame
-  const LAND_HEIGHT_POLES = 24, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, svLandHeightMemo = { key: '', poles: [] };
+  const LAND_HEIGHT_POLES = 40, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach, F, box) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
     const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2;
@@ -387,12 +387,16 @@
         .sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_HEIGHT_CANDIDATES);
       Object.assign(svLandHeightMemo, { key, poles: all });
     }
-    const mx = (box.x1 - box.x0) / 10, my = (box.y1 - box.y0) / 10;
-    return svLandHeightMemo.poles.filter((p) => {
+    const mx = (box.x1 - box.x0) / 10, my = (box.y1 - box.y0) / 10, cand = svLandHeightMemo.poles;
+    const seen = cand.filter((p) => {
       let w = null;
       try { w = F(p); } catch (e) { w = null; }
       return !!w && CX.isFin(w) && w.re >= box.x0 - mx && w.re <= box.x1 + mx && w.im >= box.y0 - my && w.im <= box.y1 + my;
-    }).slice(0, LAND_HEIGHT_POLES);
+    });
+    // (sp: the distance to the nearest other pole; a far cell wider than that holds several spikes, whose heights average
+    // out, so the poles that need a patch are those the far cell is no wider than sp)
+    return seen.map((p) => Object.assign(p, { sp: Math.min(...cand.filter((q) => q !== p).map((q) => Math.hypot(p.re - q.re, p.im - q.im))) }))
+      .filter((p) => svFarCell(src, Math.hypot(p.re - x, p.im - y)) <= p.sp).slice(0, LAND_HEIGHT_POLES);
   }
   // The carried grid's far patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: plane s outside its carried box
   // src, in two rings about the box's centre, from its inscribed circle to LAND_FAR_NEAR times that, then on to
