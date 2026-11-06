@@ -65,8 +65,9 @@ for (const dh of [0, -17, -7, -2, 3, 11, 20]) {
   await rest(0);
   ok(`bare (pane ${900 + dh}), T = w₂: the own relief is still`, await grab('bare2'), null);
   // (the frame settled() returned on is the refined one: a redraw once the refinement's programs have had their time, over
-  // RF_LATE, changes none of the window's pixels)
-  await sleep(1500); await ev(rAF2);
+  // RF_LATE = 900 ms, changes none of the window's pixels. The floor is that time: an app that reported settled with its
+  // refinement still to come shows its late frame in it, and no flag of its own says so)
+  await settled({ floor: 1100 }); await ev(rAF2);
   ok(`bare (pane ${900 + dh}), T = w₂: a later redraw is still`, await grab('bare2late'), null);
   const late = info['late' + dh] = await compare('bare2', 'bare2late', { x: [0.28, 0.62], y: [0.2, 0.6] });
   ok(`bare (pane ${900 + dh}): the first rest frame is the later frame (none of the window apart)`, !!late && late.frac === 0, late);
