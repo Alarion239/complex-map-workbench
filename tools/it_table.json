@@ -3406,8 +3406,17 @@
  "Where {x} lands in the targets of {p} is shaded here.": "Qui è ombreggiata la zona dove {x} cade nei bersagli di {p}.",
  "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Qui è ombreggiata la zona dove {x} cade nei bersagli di {p}; sono disegnate anche le curve che la funzione manda su di essi.",
  "Add a step to make a video": "Aggiungi un passo per fare un video",
- "Video of the Landscape is not ready yet": "Il video del «Paesaggio» non è ancora pronto",
- "Video of the sphere is not ready yet": "Il video della sfera non è ancora pronto",
  "Scope": "Ambito",
- "landscape": "paesaggio"
+ "landscape": "paesaggio",
+ "Previous step alone": "Passo precedente da solo",
+ "Next step alone": "Passo successivo da solo",
+ "Show f{k} alone": "Mostra solo f{k}",
+ "No step before f{k}": "Nessun passo prima di f{k}",
+ "No step after f{k}": "Nessun passo dopo f{k}",
+ "Step shown alone": "Passo mostrato da solo",
+ "Moved {name} to {x}, {y}.": "{name} spostata in {x}, {y}.",
+ "Moved {name}.": "{name} spostata.",
+ "Previous or next plane; with a shape selected, nudge it": "Il piano precedente o successivo; con una figura selezionata, la sposta",
+ "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
+ "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude."
 }

@@ -30,7 +30,7 @@ const Inverse = (() => {
   const RG = () => Region;
   const cx = (re, im) => ({ re, im });
 
-  // (issue #20) the primitive ops and the catalog decomposition live in src/invops.js, the analytic patterns in
+  // the primitive ops and the catalog decomposition live in src/invops.js, the analytic patterns in
   // src/invpatterns.js
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
@@ -204,7 +204,7 @@ const Inverse = (() => {
         return centralPx(z, mul(z, dLX), mul(z, dLY));
       };
     } else if (s._g && s._g.A !== 0 && s.kind === 'disc') {
-      // a gcircle disc; through 0 by incidence [C9]: near 0 it is its tangent half-plane there
+      // a gcircle disc; through 0 by incidence: near 0 it is its tangent half-plane there
       const G = s._g, gx = G.B[0] - G.A * G.o[0], gy = G.B[1] - G.A * G.o[1], gl = Math.hypot(gx, gy) || 1, d = C(-gy / gl, gx / gl);
       lamRule = (big, th, dLX, dLY) => (big ? sure(G.A < 0) : G.thru0 ? dirHalf(d, th, dLX, dLY, 1) : sure(at0()));
     } else if (bounded) {
@@ -404,13 +404,22 @@ const Inverse = (() => {
   }
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
-  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Keys within
-  // the same step of TIE_D octave (round(D / TIE_D)) are ties: a map symmetric about the window's centre (z^2
-  // about 0) gives its points equal keys, which float rounding would order pixel by pixel; steps, not a band, so that
-  // the order is one (a band is not transitive: the front would depend on the order the walk meets its members)
-  const TIE_D = 2 ** -8;
-  const dStep = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
-  const dTie = (a, b) => a === b || dStep(a) === dStep(b);
+  // Inverse.front(a, b): candidate a is in front of b (smaller D; ties: larger Im z, then larger Re z). Two keys tie when
+  // they differ by at most the tie band: TIE_D (2^-14 octave) plus the same part of D itself, the float error scale of
+  // a key (the GPU's carry a few 1e-6 of it per unit; the band is ten times that). A map symmetric about the window's
+  // centre (z^2 about 0) gives its points equal keys, which float rounding would otherwise order pixel by pixel.
+  // The band is a few hundredths of a pixel wide at a seam, and its edge is a contour of the key difference, parallel
+  // to the seam: fixed steps of D (the earlier rule) staggered the seam into teeth. A band is not transitive (a ties
+  // b, b ties c, a does not tie c), but only keys that differ by float noise chain so; the CPU and the GPU insert
+  // candidates in the same walk order with the same comparison
+  const TIE_D = 2 ** -14;
+  const tieBand = (D) => TIE_D * (1 + D);
+  // the early stops (a side stops when its members' keys provably exceed the front's by more than the margin): the
+  // tie band, and 2^-8 octave more for the error of the lower bounds, which the GPU computes in float; a bound
+  // short by more than the tie band would stop a side whose member comes in front
+  const STOP_D = 2 ** -8;
+  const stopBand = (D) => STOP_D + tieBand(D);
+  const dTie = (a, b) => a === b || Math.abs(a - b) <= tieBand(Math.min(a, b));
   function front(a, b) {
     if (!dTie(a.D, b.D)) return a.D < b.D;
     const za = tieZ(a), zb = tieZ(b);
@@ -454,7 +463,7 @@ const Inverse = (() => {
     return { x0: x0 - px, x1: x1 + px, y0: y0 - py, y1: y1 + py };
   }
   // Member and lattice indices are counted with integers that must stay exact and must change when incremented: an
-  // index beyond IDX_SAFE (where float64 positions base + n step no longer resolve neighbouring points anyway) makes
+  // index beyond IDX_SAFE (where float64 positions base + n step do not resolve neighbouring points anyway) makes
   // the lattice / family unusable here, and every index loop below is bounded by an iteration count, never by a float
   // comparison (n++ is a no-op above 2^53).
   const IDX_SAFE = 2 ** 50;
@@ -571,7 +580,7 @@ const Inverse = (() => {
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
   // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
-  // integer roots, recognized rational formulas; [#291] a parameter point's preimages). total: the product of the
+  // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
   // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
@@ -636,7 +645,7 @@ const Inverse = (() => {
     }
     return out;
   }
-  // [issue #276] Inverse.singularAfter(plan, win, sing, cap): the singular points of a chain whose last step has no plan
+  // Inverse.singularAfter(plan, win, sing, cap): the singular points of a chain whose last step has no plan
   // (ζ takes each value infinitely often) but names all of its own, finitely many, sing(ub, ref, cap) -> [{z, kind}] in
   // its input plane (ub: the box of expandBox(win, 3) there, null when unbounded; ref: the image of win's centre). plan
   // is that of the steps before it (ok; it may have no ops) and injective, so the points pulled back are finitely many
@@ -842,7 +851,7 @@ const Inverse = (() => {
   //    (measured: 2^{M(z)} of H with the pole of M on the real axis); such shapes take the rules below.
   //  - a pole on the boundary (in the closure, not the interior): unbounded, farCover false
   //  - unbounded shapes: the exact Möbius image of a generalised disc (opts.mob: u = M(z)); otherwise unbounded
-  //  - bounded shapes (rev 2 replaced; review P1, findings 4 and 5): branch and bound over a quadtree of the shape's
+  //  - bounded shapes branch and bound over a quadtree of the shape's
   //    bounds (8 x 8 cells to start). Each cell is enclosed by chainDisc (a disc that provably contains the image of the
   //    cell's circumscribed disc), giving an interval of coord; a cell is skipped when it lies outside the shape
   //    (level < -radius), and split only while its interval reaches beyond the extremes attained so far (values at cell
@@ -1369,19 +1378,19 @@ const Inverse = (() => {
             let stop = false;
             if (!prep.stopMob) {
               const dk = DK();
-              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + TIE_D;
+              stop = dk < Infinity && affStopLB(prep, F, sp, lf, goUp) > dk + stopBand(dk);
               // the tail rule (prepare's tail flag; gl.js ixDKTail): K > B for the own alpha, the buffer full, U final, the
               // side still in range up to infinity without a hole, its last three members covering, and every member to
               // come behind the buffer's last key: the full walk would close the tail there anyway
               if (!stop && noStop && prep.tail && dk === Infinity && !(hlo <= hhi) && (goUp ? lp.cU >= 3 && hi === Infinity : lp.cD >= 3 && lo === -Infinity)
-                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + TIE_D) { stop = true; tailInf = true; }
+                && ent.length >= B && U >= 1 && affStopLB(prep, F, sp, lf, goUp) > ent[B - 1].D + stopBand(ent[B - 1].D)) { stop = true; tailInf = true; }
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
                 const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
                 const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
                 const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + (sm.pInP ? Math.max(0, Math.log2(prep.rs / r)) : 0);
-                stop = LB > DK() + TIE_D;
+                stop = LB > DK() + stopBand(DK());
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1433,7 +1442,7 @@ const Inverse = (() => {
   // Each term is minimised separately (the min of a sum is at least the sum of the mins). The GPU's ixStop implements
   // the same bound (gl.js, P2). (13.14) The members still to come start at the NEXT member, z_m + dir q (additive) or
   // za + (z_m - za) e^(dir Re S) (ROOTPOW), so the rays and the segment start there: a side stops as soon as the member
-  // after the one just visited is provably behind the front, instead of after visiting it.
+  // after the one just visited is provably behind the front, not after visiting it.
   function affStopLB(prep, F, sp, lf, goUp) {
     if (!sp || sp.kind !== 'clip') return -Infinity;
     const zm = lf.z, dir = goUp ? 1 : -1, W = prep.win;
@@ -1694,7 +1703,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, TIE_D, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
