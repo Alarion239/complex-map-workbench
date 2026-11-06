@@ -84,7 +84,7 @@ const FWD = {
 };
 // log Φ_M(c) - log c = Σ_k 2^{-k} log(1 + c/u_k²) with u_k the orbit of c (u_1 = c); each term's logarithm is the one
 // continued from far out: from the previous point when it is within 0.01 (the samplers go row by row), else along
-// c + 20 t for t from 1 down to 0 in 400 steps; each term kept within half its period (2π / 2^k) of where it was
+// c + 20 t for t from 1 down to 0 in 400 steps; each term kept within half its period (2π / 2^k) of its value at the previous step
 const DH_LAST = { x: NaN, y: NaN, t: null };
 function fdhTerms(cx, cy) {
   const out = [];
@@ -267,7 +267,7 @@ MEMBERS.quad3_disc = (w) => {
   return zs.filter(([x, y]) => Math.hypot(x - 0.2, y - 0.1) < 0.8).map(([x, y]) => ({ re: x, im: y }));
 };
 // Φ_M is one-to-one: the member is the z in the disc with fdh(z) = w, by Newton (the derivative by differences), from
-// the last member found when it was for a w within 0.01, else along the segment from Φ_M(0.6 + 0.9i) to w in 16 steps;
+// the last member found, when that is for a w within 0.01, else along the segment from Φ_M(0.6 + 0.9i) to w in 16 steps;
 // none outside the box of fdh of the disc's circle (widened by 0.02), and none unless fdh(z) = w to 1e-10
 const DHM_BOX = (() => {
   const b = [Infinity, -Infinity, Infinity, -Infinity];

@@ -4,7 +4,7 @@
     canvas = cnv || document.createElement('canvas');
     if (!cnv) { canvas.width = 640; canvas.height = 480; }
     try {
-      gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+      gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
@@ -33,7 +33,7 @@
         invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
-        // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone; r2 review math-4)
+        // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
         rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
@@ -59,7 +59,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
+      frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
     gl.viewport(0, 0, pw, ph);
@@ -68,7 +68,7 @@
     gl.clearColor(c[0], c[1], c[2], c[3]);
     gl.clearDepth(1);
     gl.depthMask(true);
-    // (a frame writes every channel: a write mask (#440) ends with the frame it was set in)
+    // (a frame writes every channel: a write mask ends with the frame it was set in)
     if (!maskRGB || !maskA) { maskRGB = maskA = true; gl.colorMask(true, true, true, true); }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     resetState();
@@ -78,7 +78,7 @@
     if (preActive) { preActive = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
     if (halfOpen && halfOpen.pre) halfOpen = null;
     fw = w; fh = h; vpX = x; vpY = y;
-    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
     gl.viewport(x, y, w, h);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, w, h);
@@ -97,6 +97,7 @@
     gl.depthMask(true);
     gl.depthFunc(gl.LESS);
     gl.disable(gl.CULL_FACE);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
   }
   // a promise that settles once the GPU has finished every command issued so far: a fence polled between tasks,
   // never waited on (SPEC 10.6: the export reads its rasters back only then, so a readback does not hold the main
@@ -645,7 +646,7 @@
     nodeKey = c.nodes; nodeO = [ox, oy];
     return n;
   }
-  // the residue theorem's data (#235; st.cauchy.plan = {poles: [{z, order <= 4, n, a: [{re, im}]}]}, st.cauchy.edges =
+  // the residue theorem's data (st.cauchy.plan = {poles: [{z, order <= 4, n, a: [{re, im}]}]}, st.cauchy.edges =
   // Float64Array [ax, ay, bx, by] * m: the polygon's edges, simplified to a fraction of a pixel): the edges as a texture
   // row relative to their centre, the poles and their principal parts as uniforms. -> {n edges, origin}
   let edgeTex = null, edgeKey = null, edgeO = [0, 0], edgeN = 0;
@@ -699,9 +700,9 @@
     u2f(P, 'uInvScale', 1 / (st.view.s * dpr), 1 / (st.view.s * dpr));
     u4f(P, 'uVp', vpX, vpY, fw, fh);
     dcUniforms(P, st, dpr);
-    // ((#366 prototype) st.dstAlpha: kept only where the frame's alpha is, the regions an alphaOnly pass drew: the
+    // (st.dstAlpha: kept only where the frame's alpha is, the regions an alphaOnly pass drew: the
     // colour times the alpha there, the alpha unchanged)
-    // ((#439 I) st.alpha < 1: over what the frame holds at that opacity, source-over as a 2D draw at globalAlpha alpha,
+    // (st.alpha < 1: over what the frame holds at that opacity, source-over as a 2D draw at globalAlpha alpha,
     // so a glide's cross-faded plots and the carried colour compose in one frame and reach the page in one copy)
     const fade = !st.dstAlpha && st.alpha != null && st.alpha < 1;
     if (st.dstAlpha) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ZERO, gl.ZERO, gl.ONE);
@@ -713,7 +714,7 @@
     gl.enable(gl.BLEND);
     if (st.dstAlpha || fade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
-  // (#440) which of the frame's channels what follows writes: its alpha alone (a mask of the regions, for drawColorPlot's
+  // which of the frame's channels what follows writes: its alpha alone (a mask of the regions, for drawColorPlot's
   // dstAlpha or keepInAlpha), its colour alone (drawn over that mask), or all of them again
   function writeMask(rgb, a) { if (ok) { maskRGB = !!rgb; maskA = !!a; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); } }
   function alphaOnly(on) { writeMask(!on, true); }
@@ -741,7 +742,7 @@
     return true;
   }
 
-  // (#366 F) the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
+  // the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
   // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
   // (st.s, st.T); triangles longer than st.lim on the plane are left out. False when the program is not ready
   function drawCarried(st) {
@@ -777,7 +778,7 @@
   // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
   // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
   // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
-  // False when the program is not ready
+  // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's). False when the program is not ready
   function drawCarriedGlobe(st, sph) {
     if (!ok) return false;
     const P = program(st.s === st.T ? 'carryGId' : 'carryG', st.map);
@@ -785,6 +786,7 @@
     use(P, st.map);
     uM4(P, 'uMVP', sph.MVP); u3(P, 'uEye', sph.eye);
     globeLight(P, sph);
+    sphereNetUniforms(P, st.net, st.gridMajor);
     const g = st.mesh;
     u2i(P, 'uN', g.nx, g.ny);
     u1f(P, 'uLim', st.lim);
@@ -805,7 +807,7 @@
 
   // ---------------- preimages (Preimage mode) ----------------
   const TKIND = { disc: 1, rect: 2, polygon: 3, halfplane: 4, annulus: 5, sector: 6, formula: 7, segment: 11, line: 12, ray: 13, circle: 14, arc: 15, curve: 16, cgrid: 17, pgrid: 18, fcurve: 19 };
-  // v16 (notes/constructions-v16/SPEC.md 2.2): a gcircle disc or circle (s._g, A != 0) packs its exact form instead of
+  // (notes/constructions-v16/SPEC.md 2.2) a gcircle disc or circle (s._g, A != 0) packs its exact form instead of  standards-ok: a spec path in notes/
   // (c, r): kind 8 (gdisc, the area form: inverse and Preimage area paths) or 20 (gcurve, the curve paths), A = (o, A,
   // C), B = (B, tangent at 0 when the curve passes through 0 by incidence), relative to an anchor o re-anchored in
   // float64 at the point of the curve nearest formAnchor (the view's centre, GLR.setFormAnchor), so float32 sees only
@@ -981,7 +983,7 @@
       }
       const area = kind < 10;
       const col = col3(t.color, area ? [0.23, 0.44, 0.83] : [0.04, 0.23, 0.61]);
-      const cmp = t.complement && area && kind !== 8;   // (v16: a gdisc's form holds its side)
+      const cmp = t.complement && area && kind !== 8;   // (a gdisc's form holds its side)
       const edge = col3(t.edge, col.map((x) => 0.55 * x));
       const cell = size > 0 ? nice125(size / 4) : (st.wGrid > 0 ? st.wGrid : 0.5);
       recs.push(kind, cmp ? 1 : 0, start, count, ...A, ...B, ...col, t.alpha ?? (area ? 0.4 : 1), ...edge, t.width ?? 2 * (st.dpr || 1), cell, 0, 0, 0);

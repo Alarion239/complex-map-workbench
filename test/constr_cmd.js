@@ -1,4 +1,4 @@
-// v16 constructions, the interface (notes/constructions-v16/SPEC.md 4-12, 15, 16, 18 "constr_cmd"). In the real app,
+// The constructions, the interface (sections 4-12, 15, 16, 18 of the constructions spec). In the real app,
 // with real pointer events (mouse, and touch on the phone):
 //   A (desktop 1440, light, English): Circle through 3 points from two points and a zero of f₁ (the press on ζ₁ picks,
 //     never drags; Shift-click still adds a zero); dragging ζ₁ moves the disc (it passes through ζ₁ exactly); a
@@ -16,7 +16,7 @@
 //   F frame times while dragging a point with 1, 10 and 50 dependents (BUDGET60: rAF work and the pointermove handler
 //     p95 ≤ 14 ms, frame delta p95 ≤ 16.7 ms; 50 is reported).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/constr_cmd.js
-// Prints {pass, fails, info}; shots go to <daemon folder>/shots/cm-*.png (copied to notes/constructions-v16/shots).
+// Prints {pass, fails, info}; shots go to <daemon folder>/shots/cm-*.png.
 // (CMW_ONLY=A,G runs those sections alone)
 const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
@@ -142,7 +142,7 @@ await section('A', async () => {
       'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels',
     await ev(`(document.querySelector('#draftChipL') || {}).textContent`)
   );
-  // (v16.5 UX48: what to pick, then the count)
+  // (what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -245,8 +245,8 @@ await section('A', async () => {
   ok('the Point tool on a stroke: a point on the curve', gl.def && gl.def.op === 'glider' && gl.def.args[0].s === 's4' && Number.isFinite(gl.t), gl);
   ok('… on the circle', near(dist(gl.p, [1.5, -0.5]), 0.8, 1e-12), gl.p);
   await tool('select');
-  // ([v16.5 rail SPEC 2.3] a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
-  // within the glide zone; the old drag, 58 px straight off the stroke, now frees it at the drop point)
+  // (a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
+  // within the glide zone; a drag of 58 px straight off the stroke frees it at the drop point)
   const g1 = await W(1.5 + 0.8 * Math.cos(5.85), -0.5 + 0.8 * Math.sin(5.85));
   await dragH(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
   st = await ST();
@@ -258,7 +258,7 @@ await section('A', async () => {
   st = await ST();
   ok('a meet point does not move', byId(st, m.id).p[0] === m.p[0], byId(st, m.id).p);
   info.builtToast = await toastText();
-  // ([v16.5 rail SPEC 2.4] a meet point comes off by a pull: 30 px is the stretch zone, so it stays, with the chip
+  // (a meet point comes off by a pull: 30 px is the stretch zone, so it stays, with the chip
   // "Pull further to free z₃" while held, and no "built from" toast; ux165_rail_cmd C and D test the pull itself)
   ok('… a 30 px drag only stretches it (v16.5: a pull frees a meet point)', !/is built from/.test(info.builtToast), info.builtToast);
   // 7. Midpoint of z₀, z₁; a circle through z₀, z₁ and the midpoint: the half-plane, A = 0 exactly
@@ -369,7 +369,7 @@ await section('A', async () => {
   await key('Delete'); await settle(300);
   st = await ST();
   info.delToast = await toastText();
-  // [UX54] the other points keep their names: no z₂ becomes z₁
+  // the other points keep their names: no z₂ becomes z₁
   const nm1 = await zNames();
   info.delNames = { before: nm0, after: nm1 };
   ok('delete z₁: the other points keep their names', nm0.some((x) => x.name === 'z₂') && !nm1.some((x) => x.name === 'z₁') && nm1.every((x) => (nm0.find((y) => y.id === x.id) || {}).name === x.name), info.delNames);
@@ -682,7 +682,7 @@ await section('G', async () => {
     })()`);
   info.capRu = capRu;
   ok('G: the Russian caption names the circle', /проходящей через|проходящая через/.test(capRu || ''), capRu);
-  // v16 verify-2: no English inside the Russian caption (outside maths and TeX commands)
+  // no English inside the Russian caption (outside maths and TeX commands)
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
   ok('G verify-2: the Russian caption has no English words', !!capRu && !/[A-Za-z]{3,}/.test(ruText), ruText.match(/.{0,30}[A-Za-z]{3,}.{0,30}/g));
   await grab();
@@ -748,7 +748,7 @@ await section('I', async () => {
   st = await ST();
   const z0 = byId(st, 'i1').p, pg2 = byId(st, pg.id);
   ok('I: a press on the bound vertex drags z₀; the polygon follows', z0[0] < -1.2 && pg2.pts[0][0] === z0[0] && pg2.pts[0][1] === z0[1] && pg2.pts[2][1] === 1, [z0, pg2.pts]);
-  // a free point dropped on another point: no binding, no merge [C22]
+  // a free point dropped on another point: no binding, no merge
   const zq = await W(z0[0], z0[1]);
   await clickSel('.shape[data-id="i2"] .shape-name'); await settle(150);
   const bq = await W(1, -1);
@@ -759,7 +759,7 @@ await section('I', async () => {
 });
 
 await section('R', async () => {
-  // the v16 review fixes (notes/constructions-v16/ledger.json), in the app
+  // the in-app checks
   await view(1440, 900, false, false);
   const RS = {
     shapes: [
@@ -780,7 +780,7 @@ await section('R', async () => {
   // user-5: a line bound to two points reads by its points
   const lrow = await ev(`(document.querySelector('.shape[data-id="rl"] .d') || {}).textContent`);
   ok('R user-5: the bound line\'s row is "line through z₀ and z₁"', lrow === 'line through z₀ and z₁', lrow);
-  // v16 verify-4: the definition is not cut off in its row at 1440 (it takes the full width under the name)
+  // the definition is not cut off in its row at 1440 (it takes the full width under the name)
   const lclip = await ev(`(() => { const e = document.querySelector('.shape[data-id="rl"] .d > .cm-def'); return e ? [e.scrollHeight, e.clientHeight, e.scrollWidth, e.clientWidth] : null; })()`);
   ok('R verify-4: the bound line\'s definition is shown whole', !!lclip && lclip[0] <= lclip[1] + 1 && lclip[2] <= lclip[3] + 1, lclip);
   // user-11: the definition wraps, and the tooltip holds it whole
@@ -844,7 +844,7 @@ await section('R', async () => {
 });
 
 await section('V', async () => {
-  // v16 verify-1: in Select, a press on a point of a 3-point Circle (Curve) takes the point, not the circle through it
+  // in Select, a press on a point of a 3-point Circle (Curve) takes the point, not the circle through it
   await view(1440, 900, false, false);
   const pt = (id, p, ci) => ({ id, kind: 'point', p, ci, visible: true });
   await load(NS + 'v', { shapes: [Object.assign(pt('v0', [-2, 1.5], 4), { label: 'P' }), pt('v1', [-1, -0.5], 0), pt('v2', [1, -0.5], 1), pt('v3', [0.2, 1], 2),

@@ -67,8 +67,8 @@ async function waitFor(files, child, ms) {
   }
 }
 
-// (#504 item 4) the renderer, asked once, of the first run's own Chrome (before its suite), in place of a separate
-// gpu_probe.js start on every browser job: the same JSON in the log, the same line in the summary, and no WebGL2 fails
+// the renderer, asked once, of the first run's own Chrome (before its suite), so a browser job needs no separate
+// gpu_probe.js start: the same JSON in the log, the same line in the summary, and no WebGL2 fails
 // the job with the same error. -> null until asked, then { webgl2, renderer, vendor, parallelCompile }
 let PROBE = null;
 const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|basic render|warp|microsoft basic|software/i;

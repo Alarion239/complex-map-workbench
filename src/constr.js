@@ -1,5 +1,5 @@
 'use strict';
-// Constructions (v16 CORE, notes/constructions-v16/SPEC.md; from notes/ui-redesign-2/constructions/poc/constr.js):
+// Constructions (notes/constructions-v16/SPEC.md):  standards-ok: a spec path in notes/
 // exact geometry of generalized circles, refs to the points on the page, and the dependency graph of the app's
 // constructed shapes. Plain JS, no DOM, no strings (undefined reasons are codes): window.Constr in the page,
 // module.exports in node.
@@ -14,7 +14,7 @@
 //
 // Part 1 (the proof of concept, kept whole: its 84 tests run against this file in test/t_constr.js): the exact
 // predicate, forms, meets with the entering rule, Moebius gliders, a named-node graph with formulas.
-// Part 2 (v16 CORE, below "v16 CORE"): the app's shapes. A shape may carry s.at (bound handles) and s.def (a
+// Part 2 (below): the app's shapes. A shape may carry s.at (bound handles) and s.def (a
 // construction: circle3, meet, glider, midpoint, bisector); Constr.recompute writes their concrete fields, the
 // runtime form s._g, s.cundef / s.cHid (undefined) and s._atInf (a point at infinity), in topological order.
 const Constr = (function (factory) {
@@ -25,7 +25,7 @@ const Constr = (function (factory) {
   const INF = 'inf';                       // the point at infinity
   const isInf = (p) => p === INF;
 
-  // (issue #20) part 1, the proof of concept, lives in src/constrpoc.js
+  // Part 1, the proof of concept, lives in src/constrpoc.js
   const Poc = ConstrPoc({ EPS, INF, isInf, reanchor });
   const {
     isXY, decompose, ldexp, orient, decOf, orientD, add, sub, mul, div, scl, abs, dot, cross, latin, parse, namesOf,
@@ -35,7 +35,7 @@ const Constr = (function (factory) {
   } = Poc;
 
   // =====================================================================================================
-  // v16 CORE (notes/constructions-v16/SPEC.md): constructions on the app's own shapes. Everything below works on
+  // Constructions (notes/constructions-v16/SPEC.md) on the app's own shapes. Everything below works on  standards-ok: a spec path in notes/
   // the app's state {shapes, targets, steps, nextId} and its shape objects; no DOM, no strings (reasons are codes).
   // =====================================================================================================
   const TAU = 2 * Math.PI;
@@ -68,7 +68,7 @@ const Constr = (function (factory) {
   // (one argument, the proof of concept's form: anchored at the point nearest 0, C = 0 exactly)
   function reanchor(G, z0) {
     if (z0 == null) { const o = projectForm(G, [0, 0]); return { A: G.A, B: add(G.B, scl(sub(o, G.o), G.A)), C: 0, o: o.slice() }; }
-    const o2 = projectForm(G, z0);      // ([review math-1]: never through the centre)
+    const o2 = projectForm(G, z0);      // (never through the centre)
     if (!isXY(o2)) return Object.assign({}, G);
     const du = [o2[0] - G.o[0], o2[1] - G.o[1]];
     const B2 = [G.B[0] + G.A * du[0], G.B[1] + G.A * du[1]];
@@ -86,7 +86,7 @@ const Constr = (function (factory) {
     const qp = sub(Q, P), rq = sub(R, Q);
     return div(add(scl(mul(R, qp), t), mul(P, rq)), add(scl(qp, t), rq));
   };
-  // [review math-12] the same map when one of P, Q, R is infinity (its limit, so a glider does not jump when a meet
+  // the same map when one of P, Q, R is infinity (its limit, so a glider does not jump when a meet
   // of lines turns parallel): R = inf: P + t (Q - P); P = inf: R + (Q - R) / t; Q = inf: (R t - P) / (t - 1)
   function mob3x(P, Q, R, t) {
     if (!Number.isFinite(t)) return isInf(R) ? INF : R.slice();
@@ -104,7 +104,7 @@ const Constr = (function (factory) {
     return w[0];
   }
   // the M(R) parametrization of a form anchored on its curve (C = 0): z(tau) = o + i B tau / (1 - i A tau / 2):
-  // arc length near o, the antipode (A != 0) or infinity (A = 0) at tau = inf; continuous through A = 0 (SPEC 2.2 [C7])
+  // arc length near o, the antipode (A != 0) or infinity (A = 0) at tau = inf; continuous through A = 0 (SPEC 2.2)
   function mR(G, tau) {
     if (!Number.isFinite(tau)) return G.A === 0 ? INF : [G.o[0] - 2 * G.B[0] / G.A, G.o[1] - 2 * G.B[1] / G.A];
     const num = [-G.B[1] * tau, G.B[0] * tau], den = [1, -G.A * tau / 2];
@@ -120,7 +120,7 @@ const Constr = (function (factory) {
   function refKey(r) {
     if (!r) return '?';
     if (r.inf) return 'inf';
-    // [v16.5 rail SPEC 3.2] a construction's pending pick (a point target while the draft is open); a shown display curve
+    // a construction's pending pick (a point target while the draft is open); a shown display curve
     // not yet a shape ({disp}); a crossing by its two curves and its index or seed (never 's:undefined')
     if (Number.isInteger(r.pend)) return `pend:${r.pend}`;
     if (typeof r.disp === 'string') return `d:${r.disp}`;
@@ -168,12 +168,12 @@ const Constr = (function (factory) {
   const RADIUS_KEYS = new Set(['r', 'r1', 'r2']);
   const U = (code, args) => ({ undef: { code, args: args || {} } });
 
-  // ---------------------------------------------------------------- steps: uids and zero ids (SPEC 1.2 [C12])
+  // ---------------------------------------------------------------- steps: uids and zero ids (SPEC 1.2)
   // ids come from the shapes' counter (state.nextId), with their own prefixes: steps 'f', zeros and poles 'q'
-  // [review regress-1] the shapes' counter (state.nextId) is left alone: step and zero ids have their own prefixes,
+  // the shapes' counter (state.nextId) is left alone: step and zero ids have their own prefixes,
   // and a run-time counter skips every id in use, including the ids of refs whose step or zero is gone (so a stale ref
   // never finds a new owner). Ids nothing refers to are not saved (stripIds), so a scene without constructions saves
-  // and links as in v15.1
+  // and links without them
   function freshId(state, prefix, taken) {
     let n = Number.isInteger(state._idn) && state._idn > 0 ? state._idn : 1;
     while (taken.has(prefix + n)) n++;
@@ -201,7 +201,7 @@ const Constr = (function (factory) {
     return out;
   }
   // Constr.idReplacer(state): a JSON.stringify replacer that leaves out uid and zpIds of the steps nothing refers to
-  // (and run-time fields, as the app's noRuntime does) [review regress-1]
+  // (and run-time fields, as the app's noRuntime does)
   function idReplacer(state) {
     const used = referencedSteps(state || {});
     return function (k, v) {
@@ -213,9 +213,8 @@ const Constr = (function (factory) {
   // syncSteps(state, env): every step gets a unique uid; every zeros-and-poles step zpIds parallel to its lists. A list
   // whose length changed is matched to its ids greedily by nearest value (ties by index) against the last values seen
   // (st._zpv, runtime); values left over get fresh ids, ids left over are removed. Returns true if anything changed.
-  // [UX54] zpNums, parallel too, are the numbers the zeros and poles are called by (ζ₃, p₁): each keeps its number while
-  // others come and go, a new one takes the next after the largest, and they are saved (a save without them, from an
-  // earlier build, numbers by place, as that build did)
+  // zpNums, parallel too, are the numbers the zeros and poles are called by (ζ₃, p₁): each keeps its number while
+  // others come and go, a new one takes the next after the largest, and they are saved (a save without them numbers by place)
   function syncSteps(state, env) {
     let ch = false;
     const steps = Array.isArray(state.steps) ? state.steps : [];
@@ -273,7 +272,7 @@ const Constr = (function (factory) {
     }
     return ch;
   }
-  // a zero (pole) new in the list, at the value a removed one last had: the refs that lost it take it again [user-6]
+  // a zero (pole) new in the list, at the value a removed one last had: the refs that lost it take it again
   function rebindZero(state, st, kind, id, v, live) {
     if (!isXY(v)) return;
     const tol = 1e-9 * (1 + Math.hypot(v[0], v[1]));
@@ -314,11 +313,11 @@ const Constr = (function (factory) {
   // ctx: {state, idx (index()), env: {zp(st, kind, i) -> [x, y] | null, F(z) -> [x, y] | INF | null}}
   function zpMark(ref, st, i) {
     const j = Number.isInteger(i) ? i : (Number.isInteger(ref.i) ? ref.i : 0);
-    // (n: its number now, so a reason still names a zero after it is removed)
+    // (n: its number, so a reason still names a zero after it is removed)
     return { kind: ref.kind, i: j, n: zpNum(st, ref.kind, j), step: st ? (ctxStepIndex(st) + 1) : null };
   }
   let ctxSteps = null;
-  // [review user-6] the last value each zero ref resolved to (run time): the reason names a removed zero by its value,
+  // the last value each zero ref resolved to (run time): the reason names a removed zero by its value,
   // and a zero added back at that value takes the ref again (syncSteps)
   const lastZp = typeof WeakMap !== 'undefined' ? new WeakMap() : new Map();
   const ctxStepIndex = (st) => (ctxSteps ? ctxSteps.indexOf(st) : -1);
@@ -386,7 +385,7 @@ const Constr = (function (factory) {
     const full = !(span < TAU);
     return { part, kind: 'circle', G: G || { A: 1 / r, B: [0, 0], C: -r, o: c.slice() }, c: c.slice(), r, a0: a0 || 0, span: full ? TAU : span, closed: full, period: full ? 1 : 0 };
   }
-  // [review math-8] a slot that is gone (a side of zero length, a sector's missing edge): it keeps its part number, so
+  // a slot that is gone (a side of zero length, a sector's missing edge): it keeps its part number, so
   // the parts after it are never renumbered, and it meets nothing
   const NONE = (part) => ({ part, kind: 'none', closed: false, period: 0 });
   // the traced components of a formula or freehand curve: [{pts: [[x, y]...], g?: (x, y) -> level}] (env.trace gives
@@ -406,7 +405,7 @@ const Constr = (function (factory) {
       if (G.A === 0) push(Object.assign(linePiece(geomOf(G).p, add(geomOf(G).p, geomOf(G).d), -Infinity, Infinity, 0) || {}, { G }));
       else { const g = geomOf(G); push(circlePiece(g.c, g.r, 0, 0, TAU, G)); }
       if (out[0] && s.def && (s.def.op === 'circle3' || s.def.op === 'perp' || (s.def.op === 'touch' && !(s.def.args[2] && s.def.args[2].inf)))) out[0].c3 = true;
-      // [v16.4 segments] Inside C only: the arc (its carrier's kind, G and c3 kept), t from 0 to 1 between its ends
+      // Inside C only: the arc (its carrier's kind, G and c3 kept), t from 0 to 1 between its ends
       if (out[0] && s._seg && s.def && s.def.op === 'perp' && (s.def.seg || s.def.between)) Object.assign(out[0], { seg: s._seg, closed: false, period: 0 });
       return out.filter((p) => p && p.kind);
     }
@@ -417,7 +416,7 @@ const Constr = (function (factory) {
       case 'circle': case 'disc': if (isXY(s.c)) push(circlePiece(s.c, s.r, 0, 0, TAU)); break;
       case 'annulus': if (isXY(s.c)) { slot(circlePiece(s.c, Math.min(s.r1, s.r2), 0, 0, TAU)); slot(circlePiece(s.c, Math.max(s.r1, s.r2), 1, 0, TAU)); } break;
       case 'arc': {
-        // [review math-7] the exact form of the circle through a, m, b (its huge radius loses nothing), tested and
+        // the exact form of the circle through a, m, b (its huge radius loses nothing), tested and
         // parametrized through a, m, b; c, r and the angles are for drawing and distances only
         if (!(isXY(s.a) && isXY(s.m) && isXY(s.b))) break;
         const G = circle3(s.a, s.m, s.b);
@@ -441,12 +440,12 @@ const Constr = (function (factory) {
           pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         } else pts = (s.pts || []).filter(isXY);
         const poly = { pts, closed: true };
-        // one slot per side, part = the side's index [math-8]
+        // one slot per side, part = the side's index
         for (let i = 0; i < pts.length; i++) slot(linePiece(pts[i], pts[(i + 1) % pts.length], 0, 1, i, { poly, side: i }));
         break;
       }
       case 'sector': {
-        // fixed slots [math-8]: 0 the first edge, 1 the arc, 2 the second edge
+        // fixed slots: 0 the first edge, 1 the arc, 2 the second edge
         if (!isXY(s.c)) break;
         const span = (((s.t2 - s.t1) % 360) + 360) % 360 || 360, t1 = s.t1 * Math.PI / 180, t2 = (s.t1 + span) * Math.PI / 180;
         const u1 = [Math.cos(t1), Math.sin(t1)], u2 = [Math.cos(t2), Math.sin(t2)];
@@ -463,7 +462,7 @@ const Constr = (function (factory) {
       }
       case 'curve': if (Array.isArray(s.pts) && s.pts.length >= 2) { const pts = s.pts.filter(isXY); push({ kind: 'traced', pts, comps: [{ pts }], closed: false, period: 0 }); } break;
       case 'fcurve': {
-        // [review math-11] one piece, its components kept apart (never joined into one polyline: no phantom crossings),
+        // one piece, its components kept apart (never joined into one polyline: no phantom crossings),
         // each with its level function for the float64 Newton step
         const comps = compsOf(env && env.trace ? env.trace(s) : null);
         if (comps.length) push({ kind: 'traced', pts: comps[0].pts, comps, closed: false, period: 0, formula: true });
@@ -473,11 +472,11 @@ const Constr = (function (factory) {
     return out;
   }
   // on the piece (to within a relative tolerance)? line: its t range; circle: its angular range; arc: the side of its
-  // chord that holds m [math-7]
+  // chord that holds m
   function onPiece(pc, z) {
     if (!pc || pc.kind === 'none') return false;
     if (pc.seg) {
-      // [v16.4 segments SPEC 2.4] the ends (bitwise, or within 1e-9 of the arc's size), else by u along the arc
+      // the ends (bitwise, or within 1e-9 of the arc's size), else by u along the arc
       const q = pc.seg;
       if (z === INF) return q.ends.some(isInf) || (pc.G.A === 0 && segInU(q, 0.5));
       for (const e of q.ends) if (isXY(e) && (eqP(z, e) || abs(sub(z, e)) <= 1e-9 * q.L)) return true;
@@ -505,11 +504,11 @@ const Constr = (function (factory) {
     }
     return true;
   }
-  // two pieces are "two lines" [C6] only by kind: lines, segments, rays, half-plane edges, polygon sides, bisectors,
+  // two pieces are "two lines" only by kind: lines, segments, rays, half-plane edges, polygon sides, bisectors,
   // 3-point circles that are lines by incidence. A 3-point circle or an arc that is a line for the moment keeps the
-  // entering rule, which orders [p, inf] continuously through that instant [review math-5]
+  // entering rule, which orders [p, inf] continuously through that instant
   const lineByKind = (pc) => pc.kind === 'line' && !pc.gen && (!pc.c3 || !!(pc.G && pc.G.byInc));
-  // the meets of two pieces with the entering rule: [{z | INF | null, index}] (two lines: one, index 'finite') [C6]
+  // the meets of two pieces with the entering rule: [{z | INF | null, index}] (two lines: one, index 'finite')
   /** @returns {({ z: any, index: number | string }[] & { coincide?: boolean })} */
   function meetsOf(pa, pb) {
     if (!pa || !pb || pa.kind === 'none' || pb.kind === 'none') return [];
@@ -518,7 +517,7 @@ const Constr = (function (factory) {
     if (tp != null) return lineByKind(pa) && lineByKind(pb) ? [{ z: tp, index: 'finite' }] : [{ z: tp, index: 0 }, { z: tp, index: 1 }];
     const sa = segAt(pa, pb);
     if (sa) return sa;
-    // (review math-5) two hyperbolic lines of one C that share an end are limiting parallels: their carriers touch only
+    // two hyperbolic lines of one C that share an end are limiting parallels: their carriers touch only
     // there, at an ideal point, which is no point of the plane, so neither index meets
     if (segParallel(pa, pb)) return lineByKind(pa) && lineByKind(pb) ? [{ z: null, index: 'finite' }] : [{ z: null, index: 0 }, { z: null, index: 1 }];
     if (lineByKind(pa) && lineByKind(pb)) {
@@ -533,7 +532,7 @@ const Constr = (function (factory) {
   }
   // Constr.meets on pieces (spec name): [{z | INF, index}]
   function meetsPieces(pa, pb) { return meetsOf(pa, pb).filter((x) => x.z != null); }
-  // polyline crossings of two traced (or sampled) pieces: per component [math-11]
+  // polyline crossings of two traced (or sampled) pieces: per component
   function polysOf(pc, box) {
     if (pc.kind === 'traced') return pc.comps || [{ pts: pc.pts }];
     // a carrier sampled finely inside the box (for a traced partner)
@@ -573,7 +572,7 @@ const Constr = (function (factory) {
     const G = pc.G;
     return G ? (x, y) => fOf(G, [x, y]) : null;
   }
-  // [review math-11] Newton on two level functions from a polyline crossing, to float64 (central differences); the
+  // Newton on two level functions from a polyline crossing, to float64 (central differences); the
   // estimate stays when it does not converge within the chord's reach h
   function newton2(z, fa, fb, h) {
     if (!fa || !fb) return z;
@@ -611,7 +610,7 @@ const Constr = (function (factory) {
     return isXY(p) && Math.hypot(p[0] - z[0], p[1] - z[1]) <= 2 * h + 1e-12 ? p : z;
   }
   // the crossing of two pieces nearest z (traced pieces: the polyline crossing nearest the seed z, refined); box limits
-  // the search ({x0, x1, y0, y1}, optional). Returns {z, index} | {z, seed} | null [C28]
+  // the search ({x0, x1, y0, y1}, optional). Returns {z, index} | {z, seed} | null
   function meetNear(pa, pb, z, box) {
     if (!pa || !pb || pa.kind === 'none' || pb.kind === 'none') return null;
     const inBox = (p) => !box || (p[0] >= box.x0 && p[0] <= box.x1 && p[1] >= box.y0 && p[1] <= box.y1);
@@ -639,12 +638,12 @@ const Constr = (function (factory) {
   }
   // a point of a piece by its parameter (wraps on closed pieces) and the parameter of the point nearest z
   //   c3 (a circle through three points): S(t) = M(tan(pi t)), M(0, 1, inf) = P, Q, R: S(0) = P, S(1/4) = Q, S(1/2) = R
-  //   (one of P, Q, R may be infinity: the limit map [math-12]); an arc a, m, b: S(t) = M(tan(pi t / 2)), M(0, 1, inf) =
-  //   a, m, b: S(0) = a, S(1/2) = m, S(1) = b [math-7]
+  //   (one of P, Q, R may be infinity: the limit map); an arc a, m, b: S(t) = M(tan(pi t / 2)), M(0, 1, inf) =
+  //   a, m, b: S(0) = a, S(1/2) = m, S(1) = b
   function glide(pc, t, pts3) {
     if (!pc || !Number.isFinite(t) || pc.kind === 'none') return null;
     if (pc.kind === 'traced') return null;
-    // [v16.4 segments] the arc: its ends bitwise at t <= 0 and t >= 1, else K's glider map at u0 + t D
+    // the arc: its ends bitwise at t <= 0 and t >= 1, else K's glider map at u0 + t D
     if (pc.seg) { const q = pc.seg; return t <= 0 ? cpz(q.ends[0]) : t >= 1 ? cpz(q.ends[1]) : segAtU(q, q.u0 + t * q.D); }
     if (pts3 && pts3.mr) {
       const u = (((t % 1) + 1) % 1), H = reanchorAt(pc.G, pts3.mr);
@@ -666,12 +665,12 @@ const Constr = (function (factory) {
     }
     if (pc.kind === 'line') return [pc.a[0] + t * (pc.b[0] - pc.a[0]), pc.a[1] + t * (pc.b[1] - pc.a[1])];
     const u = pc.closed ? (((t % 1) + 1) % 1) : t, an = pc.a0 + u * (pc.closed ? TAU : pc.span);
-    // [v16.5 rail SPEC 3.4] a whole circle from 0: cos and sin of the turn u, exact at the quarter turns, and the half-turn
+    // a whole circle from 0: cos and sin of the turn u, exact at the quarter turns, and the half-turn
     // partner the bitwise negation (a detent at i is i; t and t + 1/2 are antipodes)
     if (pc.closed && pc.a0 === 0) { const [cu, su] = turnCS(u); return [pc.c[0] + pc.r * cu, pc.c[1] + pc.r * su]; }
     return [pc.c[0] + pc.r * Math.cos(an), pc.c[1] + pc.r * Math.sin(an)];
   }
-  // [v16.5 rail SPEC 3.4] the perpendicular circle through two gliders on C's own plain circle (no pts3, its t a turn
+  // the perpendicular circle through two gliders on C's own plain circle (no pts3, its t a turn
   // fraction) whose parameters are half a turn apart (to 2^-40): the line through C's centre and P, its normal on the side
   // of K's normal at P (the orientation of the circle it is the limit of). ctx: {idx}; G: perpForm's form. null: not that
   function antipodeLine(ctx, pc, cr, ra, rb, P, G) {
@@ -701,7 +700,7 @@ const Constr = (function (factory) {
     else { const v = u - 0.25; if (v === 0) { c = 0; s = 1; } else { const a = TAU * v; c = -Math.sin(a); s = Math.cos(a); } }
     return [sg * c + 0, sg * s + 0];
   }
-  // ---------------------------------------------------------------- [v16.5 rail] the grid lattice and the pull off a rail
+  // ---------------------------------------------------------------- the grid lattice and the pull off a rail
   // the finest drawn grid tier at least 14 px apart (gl.js drawGrid's tiers: 0.5, 1, 5, 10, 50, 100 times d0)
   const GRID_TIERS = [0.5, 1, 5, 10, 50, 100];
   function gridStep(s) {
@@ -710,7 +709,7 @@ const Constr = (function (factory) {
     for (const m of GRID_TIERS) if (d0 * m * s >= 14) return +(d0 * m).toPrecision(12);
     return +(d0 * 100).toPrecision(12);
   }
-  // [v16.5 fix rail-2, user-2] the detents may never quantize a rail: a circle drawn rPx px in radius takes the finest of
+  // the detents may never quantize a rail: a circle drawn rPx px in radius takes the finest of
   // 15°, 30°, 45° and 90° whose arc is at least 5 detent radii R on screen, so one detent's window covers at most 40 % of
   // the rail (60 px per unit: 30° with a mouse, 90° with a finger, which then rests at 37°; 15° again zoomed in).
   // {deg, R} | null (a circle too small for any). A line's lattice detents: R capped at a fifth of the step
@@ -724,8 +723,8 @@ const Constr = (function (factory) {
   // the zones of a pull (SPEC 2.3), in screen px: glide below glide; stretch up to free; let go at free held for dwell
   // ms, or at yank at once
   const RAIL = { mouse: { glide: 16, free: 40, yank: 80 }, touch: { glide: 24, free: 64, yank: 128 }, dwell: 120 };
-  // railPull(state, d, now, touch) -> {zone: 'glide' | 'stretch' | 'free', state}: state is {since} (the time d first
-  // reached free in the current run) or null; pure
+  // railPull(state, d, now, touch) -> {zone: 'glide' | 'stretch' | 'free', state}; pure. standards-ok: now is a parameter name
+  // state is {since} (the time d first reached free in the current run) or null
   function railPull(state, d, now, touch) {
     const R = touch ? RAIL.touch : RAIL.mouse;
     if (!(d >= R.glide)) return { zone: 'glide', state: null };
@@ -755,12 +754,12 @@ const Constr = (function (factory) {
         }
       }
       if (!best) return null;
-      const r = newton1(best, bc && typeof bc.g === 'function' ? bc.g : null, bh);     // [math-11] onto the level set
+      const r = newton1(best, bc && typeof bc.g === 'function' ? bc.g : null, bh);     // onto the level set
       return { seed: r, z: r };
     }
     if (pc.seg) {
-      // [v16.4 segments] the nearest point of the carrier, by its u along the arc; off the arc, the nearer end (on the sphere)
-      // (infinity, review math-2: u = 1/2; an infinite end is that end, else its t on the arc, else the nearer end)
+      // the nearest point of the carrier, by its u along the arc; off the arc, the nearer end (on the sphere)
+      // (infinity: u = 1/2; an infinite end is that end, else its t on the arc, else the nearer end)
       const q = pc.seg, w = isInf(z) ? INF : projectForm(pc.G, z), v = isInf(w) ? span1(q.u0, 0.5) : isXY(w) ? span1(q.u0, segU(q.H, q.k, w)) : NaN;
       const ie = isInf(z) ? q.ends.findIndex(isInf) : -1;
       const t = ie >= 0 ? ie : v <= q.D ? v / q.D : v >= 1 - 1e-12 ? 0 : (chordal(z, q.ends[0]) <= chordal(z, q.ends[1]) ? 0 : 1);
@@ -841,7 +840,7 @@ const Constr = (function (factory) {
     const pr = projectPiece(pc, z);
     return pr && isXY(pr.z) ? Math.hypot(pr.z[0] - z[0], pr.z[1] - z[1]) : Infinity;
   }
-  // a piece's bounding box (Infinity for unbounded pieces): the snap's prefilter [review regress-4]
+  // a piece's bounding box (Infinity for unbounded pieces): the snap's prefilter
   function pieceBox(pc) {
     if (!pc || pc.kind === 'none') return null;
     if (pc.kind === 'traced') return bboxPts([].concat(...(pc.comps || [{ pts: pc.pts }]).map((c) => c.pts)));
@@ -943,7 +942,7 @@ const Constr = (function (factory) {
       return out;
     };
     // the targets a gesture on shape id (handle key) may not use: itself, everything built on it, and the
-    // co-arguments of every construction it (or that handle) defines [C11]
+    // co-arguments of every construction it (or that handle) defines
     const excluded = (id, key) => {
       const out = closure(G, [id]);
       for (const uid of G.users.get(id) || []) {
@@ -1004,7 +1003,7 @@ const Constr = (function (factory) {
     if (!e || !e.s.def) return out;
     const d = e.s.def;
     if (d.op === 'meet') for (const c of d.args) for (const k of lineKeysOfCurve(ctx, c, depth + 1)) out.add(k);
-    // [review math-4] a glider on a polygon or rectangle slides over every side: it is on no one side's line
+    // a glider on a polygon or rectangle slides over every side: it is on no one side's line
     if (d.op === 'glider') {
       const ce = ctx.idx.get(d.args[0] && d.args[0].s), pc = ce ? ctx.piecesOf(ce.s)[d.args[0].part | 0] : null;
       if (!(pc && pc.poly)) for (const k of lineKeysOfCurve(ctx, d.args[0], depth + 1)) out.add(k);
@@ -1050,10 +1049,10 @@ const Constr = (function (factory) {
     if (!region) return { kind: 'circle', f: { c: g.c, r: g.r, a: undefined, b: undefined, complement: undefined } };
     return { kind: 'disc', f: { c: g.c, r: g.r, a: undefined, b: undefined, complement: G.A < 0 ? true : undefined } };
   }
-  // the ops whose def.flip is Use complement (a curve built on one undoes it: K never turns over) [v16.3 review math-2]
+  // the ops whose def.flip is Use complement (a curve built on one undoes it: K never turns over)
   const FLIPPED = ['circle3', 'perp', 'touch', 'tangent'];
   // T on the curve of the form G, to within rounding: the distance |f(T)| / |grad f(T)| at most 1e-12 S, S the figure's
-  // size (|T|, |P|, |P - T|, C's centre and radius, or its anchor for a line) [v16.3 review math-1]
+  // size (|T|, |P|, |P - T|, C's centre and radius, or its anchor for a line)
   function onCarrier(G, T, P) {
     const u = sub(T, G.o), f = G.A * dot(u, u) + 2 * dot(G.B, u) + G.C, gr = 2 * abs([G.A * u[0] + G.B[0], G.A * u[1] + G.B[1]]);
     if (f === 0) return true;
@@ -1100,14 +1099,14 @@ const Constr = (function (factory) {
         let G = circle3(P[0], P[1], P[2], inc);
         if (!G) return fail(U('coincide3'));
         // at creation (SPEC 2.3): the disc whatever the order of the taps (sign(A) of the same form that is drawn, so
-        // the decimal-collinear rule [math-3] holds here too); collinear points keep the left side of P -> Q [math-9]
+        // the decimal-collinear rule holds here too); collinear points keep the left side of P -> Q
         if (def.flip == null) def.flip = fin.length === 3 && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(P[1], P[0])) < 0));
         if (def.flip) G = flipG(G);
         G.byInc = inc && G.A === 0;
-        // (v16.3.1, verify-1: the three points the form was built through, for perpForm's decimal mirror test; a
+        // (the three points the form was built through, for perpForm's decimal mirror test; a
         // flip keeps them, as a re-anchoring does)
         if (fin.length === 3) G.p3 = P.map((z) => z.slice());
-        // the Lambda rule's thru0 from incidence [C9]: a defining point exactly at 0 (the anchor, C = 0 exactly)
+        // the Lambda rule's thru0 from incidence: a defining point exactly at 0 (the anchor, C = 0 exactly)
         const zi = fin.findIndex((p) => p[0] === 0 && p[1] === 0);
         if (zi >= 0) { G = reanchorAt(G, fin[zi]); G.thru0 = true; }
         const ff = fieldsOfForm(G, def.fill === 'in');
@@ -1125,7 +1124,7 @@ const Constr = (function (factory) {
         const pc = ctx.piecesOf(e.s)[cr.part];
         if (!pc || (pc.kind !== 'line' && pc.kind !== 'circle') || !pc.G) return fail(U('notCircle', { x: cr.s }));
         // the curve's own orientation: Use complement on a 3-point, perpendicular or touching circle does not turn K
-        // over [v16.3 review math-2: one list for perp and touch]
+        // over
         const cd = e.s.def, Gc = cd && cd.flip && FLIPPED.includes(cd.op) ? flipG(pc.G) : pc.G;
         const R = [args[1], args[2]].map(pt);
         const bad = R.find((x) => x.undef);
@@ -1134,7 +1133,7 @@ const Constr = (function (factory) {
         const r = perpForm(Gc, P, Q, pc);
         if (r.undef) return fail(U(r.undef));
         let G = r.G;
-        // [v16.5 rail SPEC 3.4] P and Q gliders on C's own plain circle, half a turn apart by their parameters: the diameter
+        // P and Q gliders on C's own plain circle, half a turn apart by their parameters: the diameter
         if (G.A !== 0 && !isInf(P) && !isInf(Q)) { const L = antipodeLine(ctx, pc, cr, args[1], args[2], P, G); if (L) G = L; }
         // at creation (SPEC 2.3, as circle3): the disc; a line keeps the left side of P -> Q
         if (def.flip == null) def.flip = !isInf(P) && !isInf(Q) && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(Q, P)) < 0));
@@ -1142,7 +1141,7 @@ const Constr = (function (factory) {
         const fin = [P, Q].filter((z) => !isInf(z));
         if (fin.length === 2) { G.e = abs(sub(fin[1], fin[0])); withPts(G, fin); }
         if (G.o[0] === 0 && G.o[1] === 0) G.thru0 = true;
-        // [issue #70] Between z0 and z1: the segment of K from P to Q (the side follows P: nothing stored)
+        // Between z0 and z1: the segment of K from P to Q (the side follows P: nothing stored)
         if (def.between === 1 && def.fill !== 'in') {
           const sd = betweenOf(G, pc.G, P, Q, !!def.flip);
           if (sd.undef) { delete s._seg; return fail(U(sd.undef)); }
@@ -1151,7 +1150,7 @@ const Constr = (function (factory) {
           res.ch = true; res.kindChanged = rr.kindChanged;
           return res;
         }
-        // [v16.4 segments SPEC 2] Inside C only: the arc of K on the side seg of Gc, its ends K ∩ C
+        // Inside C only: the arc of K on the side seg of Gc, its ends K ∩ C
         if ((def.seg === 1 || def.seg === -1) && def.fill !== 'in') {
           const sd = segOf(G, pc.G, Gc, def.seg, P, Q, !!def.flip);
           if (sd.undef) { delete s._seg; return fail(U(sd.undef)); }
@@ -1180,7 +1179,7 @@ const Constr = (function (factory) {
         const bad = R.find((x) => x.undef);
         if (bad) return fail(bad);
         const Z = R.map((x) => (x.inf ? INF : x.z));
-        // [v16.3 review math-1] T must lie on C's carrier (a rectangle's corner moves to other sides as its handles are
+        // T must lie on C's carrier (a rectangle's corner moves to other sides as its handles are
         // dragged; a crafted save): else K touches nothing, and the meet rule would report T as a crossing
         if (op === 'touch' && !isInf(Z[0]) && !onCarrier(pc.G, Z[0], Z[1])) return fail(U('offCurve', { x: cr.s, part: cr.part }));
         const r = op === 'touch' ? touchForm(Gc, Z[0], Z[1]) : tangentForm(Gc, Z[0], def.index === 1 ? 1 : 0);
@@ -1222,7 +1221,7 @@ const Constr = (function (factory) {
             if (!m && ms.length === 1 && ms[0].index === 'finite') z = ms[0].z;          // a pair turned into two lines
             else if (m) z = m.z;
             // two lines turned into a pair with a circle (an older save's 'finite' on a 3-point circle): the meet nearest
-            // the last value, so the point does not jump to the far crossing [review math-5]
+            // the last value, so the point does not jump to the far crossing
             if (z == null && ms.length === 2 && def.index === 'finite') {
               const fin = ms.filter((x) => isXY(x.z) && onPiece(cs[0].pc, x.z) && onPiece(cs[1].pc, x.z));
               const last = isXY(s.p) && !s._atInf ? s.p : null;
@@ -1265,7 +1264,7 @@ const Constr = (function (factory) {
       }
       return fail(U('argUndef', { x: null }));
     }
-    // bound handles: positions first, then the radii through their points [C15]
+    // bound handles: positions first, then the radii through their points
     const at = s.at || {};
     const keys = Object.keys(at);
     for (const k of keys) {
@@ -1301,7 +1300,7 @@ const Constr = (function (factory) {
     return out;
   }
 
-  // (issue #20) Inside C only, the perpendicular and the touching circles live in src/constrortho.js
+  // Inside C only, the perpendicular and the touching circles live in src/constrortho.js
   const {
     segU, segAtU, span1, cpz, segInU, chordal, segOf, betweenOf, gcOf, segSideOf, segSides, mirrorIn, setSeg,
     setBetween, segCurves, perpForm, touchForm, tangentNear, tangentForm, touchAt, segAt, segParallel, onCurveByRefs
@@ -1341,7 +1340,7 @@ const Constr = (function (factory) {
       if (r.undef) {
         const same = s.cundef && s.cundef.code === r.undef.code && JSON.stringify(s.cundef.args) === JSON.stringify(r.undef.args);
         if (!same) { s.cundef = r.undef; out.undefChanged.push(id); }
-        // two owners [C2]: the graph hides it (cHid) when it is shown, or when the other owner hides it
+        // two owners: the graph hides it (cHid) when it is shown, or when the other owner hides it
         if (!s.cHid && (s.visible !== false || s.undefHid)) { s.visible = false; s.cHid = true; }
         if (!was) out.ids.push(id);
         continue;
@@ -1364,7 +1363,7 @@ const Constr = (function (factory) {
     const ctx = { state, idx, env: env || {}, pieceCache };
     ctx.piecesOf = (s) => { if (!pieceCache.has(s)) pieceCache.set(s, pieces(s, ctx.env)); return pieceCache.get(s); };
     // the three points of a circle3 for its glider parameter, null when it is not a circle3; 'inf': an argument is
-    // undefined. One of them may be infinity (INF): the limit map keeps the glider continuous [review math-12]
+    // undefined. One of them may be infinity (INF): the limit map keeps the glider continuous
     ctx.pts3Of = (cs, plane) => pts3In(ctx, cs, plane);
     return ctx;
   }
@@ -1400,7 +1399,7 @@ const Constr = (function (factory) {
   }
 
   // ---------------------------------------------------------------- validate (load), plans (SPEC 8, 9)
-  // Constr.validate(state, env): fallbacks [C29], refs, argument types, cycles. Shapes that fail drop def and at
+  // Constr.validate(state, env): fallbacks, refs, argument types, cycles. Shapes that fail drop def and at
   // (their concrete fields stay). Returns {freed: n}
   function validate(state, env) {
     let freed = 0;
@@ -1423,8 +1422,8 @@ const Constr = (function (factory) {
           if (!['zeros', 'poles'].includes(r.kind) || !Number.isInteger(r.i)) return false;
         }
         if (!uids.has(r.zp)) {
-          // [C29] a uid found nowhere: rebind to f1 when f1 is a zeros-and-poles step
-          if (!f1) return true;          // stays (undefined: "the step was removed")
+          // a uid found nowhere: rebind to f1 when f1 is a zeros-and-poles step
+          if (!f1) return true;          // stays (undefined: the step is gone)
           r.zp = f1.uid;
         }
         const st = steps.find((x) => x && x.uid === r.zp);
@@ -1468,9 +1467,9 @@ const Constr = (function (factory) {
           else if (d.op === 'tangent' && !(d.index === 0 || d.index === 1)) d.index = 0;
           if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.fill !== 'in') d.fill = 'none';
           if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.flip != null) d.flip = !!d.flip;
-          // [v16.4 segments] Inside C only: a perpendicular circle drawn as a curve, seg 1 or -1 (Region wins)
+          // Inside C only: a perpendicular circle drawn as a curve, seg 1 or -1 (Region wins)
           if (ok && 'seg' in d && !(d.op === 'perp' && (d.seg === 1 || d.seg === -1) && d.fill !== 'in')) delete d.seg;
-          // [issue #70] Between z0 and z1: between 1 on a perpendicular circle drawn as a curve; it wins over seg
+          // Between z0 and z1: between 1 on a perpendicular circle drawn as a curve; it wins over seg
           if (ok && 'between' in d && !(d.op === 'perp' && d.between === 1 && d.fill !== 'in')) delete d.between;
           if (ok && d.between === 1) delete d.seg;
           if (ok && d.op === 'glider' && !Number.isFinite(s.t)) s.t = 0;
@@ -1487,8 +1486,8 @@ const Constr = (function (factory) {
     for (const L of lists(state)) for (const s of L) if (s && s.helper && !idx.has(s.owner)) { delete s.helper; delete s.owner; }
     return { freed };
   }
-  // Constr.deletePlan(state, ids) -> {del, freed: [{id, key}], undef: []}: only definitions cascade [C17]; the at
-  // bindings to a deleted shape are freed; helpers go with their owner when nothing else uses them [C16]
+  // Constr.deletePlan(state, ids) -> {del, freed: [{id, key}], undef: []}: only definitions cascade; the at
+  // bindings to a deleted shape are freed; helpers go with their owner when nothing else uses them
   function deletePlan(state, ids) {
     const G = graphOf(state);
     const del = new Set(ids);
@@ -1513,7 +1512,7 @@ const Constr = (function (factory) {
     }
     return { del: [...del], freed, undef: [] };
   }
-  // Constr.zeroRemovePlan(state, zref {zp, kind, id}) -> {undef: [ids], freed: [{id, key}]} [C12]
+  // Constr.zeroRemovePlan(state, zref {zp, kind, id}) -> {undef: [ids], freed: [{id, key}]}
   function zeroRemovePlan(state, zref) {
     const G = graphOf(state);
     const hit = (r) => r && r.zp === zref.zp && r.kind === zref.kind && r.id === zref.id;
@@ -1536,7 +1535,7 @@ const Constr = (function (factory) {
     }
   }
   // Constr.moveRoots(state, id) -> [free point ids] | null: translating those moves the shape and everything built on
-  // them exactly (constructions commute with translation) [C18]
+  // them exactly (constructions commute with translation)
   function moveRoots(state, id) {
     const G = graphOf(state), idx = G.idx;
     const n0 = G.nodes.get(id);
@@ -1569,14 +1568,14 @@ const Constr = (function (factory) {
     return [...out].sort((a, b) => pos.indexOf(a) - pos.indexOf(b));
   }
   // Constr.wouldCycle(state, id, refs): would shape id depending on these refs close a cycle (a ref to id itself or to
-  // anything built on it)? [review math-6]
+  // anything built on it)?
   function wouldCycle(state, id, refs) {
     const G = graphOf(state);
     const bad = closure(G, [id]);
     return (refs || []).some((r) => { const d = refDep(r); return d != null && bad.has(d); });
   }
   // Constr.dragRoots(state, id) -> [refs]: what the user can drag to change shape id, following definitions and bound
-  // handles down to free points, free handles, zeros and free curves [review user-13]
+  // handles down to free points, free handles, zeros and free curves
   function dragRoots(state, id) {
     const idx = index(state), out = [], seen = new Set(), keys = new Set();
     const add = (r) => { const k = refKey(r); if (!keys.has(k)) { keys.add(k); out.push(r); } };
@@ -1605,7 +1604,7 @@ const Constr = (function (factory) {
   // Constr.describe(state, id) -> {op, args, fill, flip, index, family, t, at, inf, undef, note} (no text)
   // Constr.setFlip(state, id, flip): Use complement on a 3-point, perpendicular or touching circle. Flipping K's form
   // reverses the entering rule of every meet on it (index 0 and 1 trade places), so the meet points on K swap their index
-  // in the same step and stay where they are [v16.3 review math-5]. Returns the ids of the meets swapped
+  // in the same step and stay where they are. Returns the ids of the meets swapped
   function setFlip(state, id, flip) {
     const e = index(state).get(id), d = e && e.s.def;
     if (!d) return [];
@@ -1635,7 +1634,7 @@ const Constr = (function (factory) {
       inf: !!s._atInf, undef: s.cundef || null, note: s._note || null,
     };
   }
-  // the M(R) samples of a huge circle or a gcircle near a window (SPEC 2.2 [C7]): Float64Array [x0, y0, ...],
+  // the M(R) samples of a huge circle or a gcircle near a window (SPEC 2.2): Float64Array [x0, y0, ...],
   // dense (step) within the window's reach, geometric (ratio) beyond, closing through the antipode
   function sampleMR(G, win, step, far) {
     const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
@@ -1666,14 +1665,14 @@ const Constr = (function (factory) {
     orient, circle3, line2, circleCP, circleCR, bisector, onCurve, paramNear, fOf, geomOf, isLine, shapeOf, equationCurve,
     CURVE_KINDS, POINT_KINDS, get exactCalls() { return Poc.exactCalls; },
     mob3t, mob3inv, meets2: meets, meets0,
-    // v16 CORE (SPEC 20.2)
+    // the app's shapes (SPEC 20.2)
     formOf, formOfFields, level, reanchor, mob3: mob3obj, mR, sampleMR,
     pieces, meets: (a, b) => (a && a.G ? meetsPieces(a, b) : meets(a, b)), meetNear, project2: projectPiece, projectPiece, glide, onPiece, tRange,
     resolve, planeOf: (state, s) => (lists(state)[1].includes(s) ? 'T' : stageOf(s)), listOfPlane, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
     syncSteps, zpRemoveId, zpNum, zpRenumber, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
-    // v16.5 rail (notes/ux-build/rail/SPEC.md)
+    // the rail (notes/ux-build/rail/SPEC.md)
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
-    // v16 review fixes
+    // forms, pieces and edit helpers
     orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, tangentNear, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
     // Inside C only (notes/orthogonal-circle/segments/SPEC.md)
     segOf, betweenOf, segAt, segSideOf, segSides, setSeg, setBetween, segCurves, mirrorIn, gcOf, onCarrier,
