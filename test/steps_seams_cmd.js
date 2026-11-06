@@ -89,7 +89,8 @@ const park = async (x, scope) => {
   // once. The window is what is checked: every animation frame of the 2 s after the park, on the page's clock, while
   // the new chain's programs link; a frame with no colour edge yet has no rows and does not count. Nor does a frame
   // that is not a new draw between the planes (no new glide record): while the inverse pass's program links, the
-  // page shows plane w2 itself (svLinkHold), a picture with no such seam, whose own colour changes count as jumps)
+  // page shows plane w2 itself at rest (svLinkHold), with the cut's dashed handle along the very rows the scan reads,
+  // each dash a jump. Plane w2 itself is read below)
   await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
   await settled({ max: 20000, panes: false, until: '__cmwSteps().planes.length === 4' });
   await ev(`__cmwSteps({ T: 0 }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
@@ -108,6 +109,27 @@ const park = async (x, scope) => {
   ok('after the chain change: the frame is drawn', await drawn(), null);
   info.afterSettled = await teeth();
   ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
+  // (parked on w2 itself, the colour layer alone (the cut's handle is drawn along the seam): the log's cut is the
+  // negative real axis there, a horizontal seam, its place in each column the row where the colour passes from the sheet
+  // above to the sheet below. The inverse pass orders the two sheets by their keys, so that place is the same row in
+  // every column, to a pixel; a staircase of teeth is a place that wanders)
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', park: 2, bare: true }); 1`); await settled({ max: 30000 });
+  info.atW2 = await ev(`(() => {
+    const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
+    const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), ox = (o[0] - r.left) * k, yc = Math.round((o[1] - r.top) * k), m = Math.round(10 * k);
+    const at = (x, y) => (y * W + x) * 4, dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
+    const ys = [];
+    for (let x = Math.round(0.05 * W); x < ox - 20 * k; x++) {
+      const a = at(x, yc - m), b = at(x, yc + m);
+      if (dist(a, b) < 60) continue;
+      let y = yc - m;
+      while (y < yc + m && dist(at(x, y), a) <= dist(at(x, y), b)) y++;
+      ys.push(y);
+    }
+    return { cols: ys.length, spread: ys.length ? Math.max(...ys) - Math.min(...ys) : null, yc, k, label: __cmwSteps().label };
+  })()`);
+  await ev(`__cmwSteps({ bare: false }); 1`);
+  ok('parked on w2: the seam along the cut is on one row in every column, to a pixel (no teeth)', info.atW2.cols > 100 && info.atW2.spread <= Math.ceil(info.atW2.k), info.atW2);
 }
 
 // cracks: Square root and its sheets
