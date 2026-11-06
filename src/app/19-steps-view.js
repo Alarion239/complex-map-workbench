@@ -1551,7 +1551,7 @@
     if (!st) return;
     const own = st.list.map((x, i) => i).filter((i) => shapeStage(st.list[i]) >= st.g.b && shapeStage(st.list[i]) <= st.g.near);
     if (!own.length) return;
-    svDrawInverse(pane, own.map((i) => st.list[i]), own.map((i) => st.paths[i]), svT(), { open: true }, null, (x) => {
+    svDrawInverse(pane, own.map((i) => st.list[i]), own.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => {
       const k = shapeStroke(x, pane.dpr, { plane: st.g.near });
       return { w: k.width, a: k.alpha, rgb: k.color, casing: k.casing && { w: k.casing.width, a: k.casing.alpha, rgb: k.casing.color } };
     });
