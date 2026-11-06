@@ -336,6 +336,8 @@ P._local(list);
   ok(!P.isPlaying('q'), 'editing a playing number into a complex value stops its play');
   P.set('q', 2);
   ok(!P.isPlaying('q'), 'and a real value does not restart it');
+  // the attribute-selector escape that finds a row again after a redraw escapes a backslash as well as a quote
+  eq(P._cssEsc('a\\"]x'), 'a\\\\\\"]x', 'cssEsc escapes backslash and quote');
   console.log(`${n - fails}/${n} passed`);
   if (fails) process.exit(1);
 })().catch((e) => { console.error(e); process.exit(1); });
