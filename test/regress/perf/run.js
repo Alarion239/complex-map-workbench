@@ -130,7 +130,7 @@ async function pageNow() { return B.ev('performance.now()'); }
 async function openApp(state) {
   const ns = `perf${process.pid}_${++nsCounter}`;
   const key = `complex-map-workbench-v1:${ns}`;
-  // (v15: the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
+  // (the app's chain is 188 px; the scenes keep a 272 px chain, through the test hook)
   const id = await B.addInit(`window.__cmwChainH = 272; if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)}) { try { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`);
   const t0 = Date.now();
   await B.nav(`${BASE}test.html?ns=${ns}`);
@@ -146,7 +146,7 @@ async function openApp(state) {
   if (OPENED) OPENED.push(health);
   return { ns, loadMs: Date.now() - t0, mathjax: mj, settled: !s.timeout, state: st, health };
 }
-// [#292] what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
+// what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
 // have geometry (a mesh or lines). A paired run compares the two sides' (refCannot): a reference that fails where the
 // current build succeeds lacks the feature the unit measures (a formula its parser cannot read draws nothing)
 let OPENED = null;   // the scenes the running unit opened on the running side
@@ -451,7 +451,7 @@ async function modeUnit(pre, scene, mode, kind) {
   const viewSide = await B.ev(`typeof __cmwPaneOf === 'function' ? __cmwPaneOf(${JSON.stringify(mode)}, ${JSON.stringify(st.sphereMode || 'image')}) : 'R'`);
   detail(`${pre}.viewPane`, viewSide);
   // Merged views (notes/ui-design/merged-views.md): Phase and Landscape are one wide panel, with no other pane beside
-  // them (__cmwOtherPane: null). The old layout's other pane was the shapes plane X next to the view, so `.panL` then
+  // them (__cmwOtherPane: null). Where the other pane is the shapes plane X next to the view, `.panL`
   // pans X's plane in the X → Y view (the same picture, the same pane width as the reference's), and the view is
   // switched back before `.panR` / `.orbit`. A build without the hook has the other pane beside the view.
   const otherSide = await B.ev(`typeof __cmwOtherPane === 'function' ? __cmwOtherPane(${JSON.stringify(mode)}, ${JSON.stringify(st.sphereMode || 'image')}) : ${JSON.stringify(viewSide === 'R' ? 'L' : 'R')}`);
@@ -540,7 +540,7 @@ async function examplesUnit() {
       const s = await settle(from);
       const mem = await B.ev('__perf.mem()');
       const info = await B.ev('__cmwInfo()');
-      // compiles (SPEC 12.5): the programs linked for this load, when the last one was ready, and the inverse
+      // compiles (SPEC 12.5): the programs linked for this load, when the last one is ready, and the inverse
       // programs (none before P2): their compile + first draw (from the first inverse link to the end of the first
       // frame that drew with one) and the time from the call to that frame. A slow inverse compile may outlast the
       // settle (the app shows a forward stand-in meanwhile): wait for its first frame, bounded
@@ -573,7 +573,7 @@ async function examplesUnit() {
     put(`${id}.compile_ms`, 'oneshot_ms', 'ms', r.compile, { name: r.name });
     put(`${id}.inv_programs`, 'info', '', r.invProgs, { name: r.name });
     put(`${id}.inv_compile_ms`, 'info', 'ms', r.invCompile, { name: r.name });
-    // expect: an inverse program was linked in some rep, so a value must exist (null would mean the harness lost it)
+    // expect: an inverse program is linked in some rep, so a value must exist (null would mean the harness lost it)
     put(`${id}.inv_first_draw_ms`, 'limit', 'ms', r.invFirst, { name: r.name, limit: INV_FIRST_DRAW_LIMIT, expect: r.invProgs.some((n) => n > 0), never_drew: r.invNever.some(Boolean) });
     // a rep whose inverse program never drew is not outvoted by the median: the value is then the worst rep
     if (r.invNever.some(Boolean)) RES.metrics[`${id}.inv_first_draw_ms`].value = r3(Math.max(...r.invFirst.filter(Number.isFinite)));
@@ -616,9 +616,9 @@ async function examplesColdUnit() {
   }
 }
 
-// programs linked in [a, b] (page times): how many, when the last forward one was ready (ms after a; 0 when nothing
-// was compiled), and the inverse programs: count, ready, compile + first draw, first inverse frame after a. An inverse
-// program that was linked but drew no frame by b is NOT "nothing measured": inv_first_draw_ms is then the whole
+// programs linked in [a, b] (page times): how many, when the last forward one is ready (ms after a; 0 when nothing
+// is compiled), and the inverse programs: count, ready, compile + first draw, first inverse frame after a. An inverse
+// program linked with no frame drawn by b is NOT "nothing measured": inv_first_draw_ms is then the whole
 // window b - (its link), a lower bound of the real time (inv_never_drew), so the 250 ms limit still judges it.
 const INV_FIRST_DRAW_LIMIT = 250;   // SPEC 4.7: compile plus first draw of the inverse program <= 250 ms
 async function compileStats(a, b) {
@@ -637,8 +637,8 @@ async function compileStats(a, b) {
     inv_never_drew: never,
   };
 }
-// after an inverse program was linked (since page time a), wait (bounded) for the first frame drawn with one:
-// returns that frame's end time, or null when none came within timeout (or no inverse program was linked)
+// once an inverse program is linked (since page time a), wait (bounded) for the first frame drawn with one:
+// returns that frame's end time, or null when none comes within timeout (or no inverse program is linked)
 async function waitInverseFrame(a, timeout = 5000) {
   const t0 = Date.now();
   for (;;) {
@@ -654,7 +654,7 @@ async function pathsSayInverse() {
   return B.ev(`(() => { if (typeof __cmwPaths !== 'function') return null; try { const p = __cmwPaths(); return Array.isArray(p) && p.some((r) => r && r.role === 'R' && (r.viewKind || 'flat') === 'flat' && r.path === 'inverse'); } catch (e) { return null; } })()`);
 }
 // the unit measured the path it meant to: when the app says a shape is inverse (or, without the hook, an inverse
-// program was linked), some draws of the unit must have used an inverse program (SPEC 12.5; before P2: true)
+// program is linked), some draws of the unit must have used an inverse program (SPEC 12.5; before P2: true)
 async function inverseDrawnCheck(name, draws, linkedSince = 0) {
   const says = await pathsSayInverse();
   const linked = (await B.ev(`__perf.progsSince(${linkedSince}).some((p) => p[2])`));
@@ -674,7 +674,7 @@ async function scrubUnit(morph = false) {
     await sleep(400);
     await settle(await pageNow());
   }
-  // (v15: a step's fields are in the Inspector, #i1_phi, once step 1 is selected; earlier builds: the card's #p1_phi)
+  // (a step's fields are in the Inspector, #i1_phi, once step 1 is selected; without an Inspector: the card's #p1_phi)
   const PHI = `(document.getElementById('i1_phi') || document.getElementById('p1_phi'))`;
   await B.ev(`(() => { if (document.querySelector('#propsPanel .insp-sel') && !document.getElementById('i1_phi')) { const c = document.querySelector('#pipeline .card[data-k="1"]'); if (c) c.click(); } return 1; })()`);
   await sleep(200);
@@ -729,12 +729,12 @@ async function morphOpenUnit() {
   }
 }
 
-// [#326] The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
+// The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
 // user would, and the cards redraw on their own schedule (renderThumbs). Per edit, with the CPU profiler on from the
 // edit until every card is fresh again: the time spent drawing the cards (samples under renderThumbs) and their longest
 // unbroken stretch, which is the longest task the cards add (the #326 target: none over 100 ms once they draw in idle
 // slices); also the edit's longest task overall (a chain change also links programs), how many went over 100 ms, how
-// long the cards took to be fresh, and whether every card was drawn
+// long the cards took to be fresh, and whether every card is drawn
 const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
 const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
 // a CPU profile -> {ms, link, sync, longest}: the time in samples whose stack holds fn, and the longest run of
@@ -795,7 +795,7 @@ async function cardsRebuildUnit() {
     await B.ev('typeof __cmwCardsNow === "function" && __cmwCardsNow(); 1');
     await settle(await pageNow());
     nCards = await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`);
-    // (v15: a step's fields are in the Inspector once its card is selected, #i2_n; earlier builds: the card's #p2_n)
+    // (a step's fields are in the Inspector once its card is selected, #i2_n; without an Inspector: the card's #p2_n)
     await B.ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="2"]'); if (c && !document.getElementById('i2_n')) c.click(); return 1; })()`);
     await sleep(300);
     await settle(await pageNow());
@@ -835,12 +835,12 @@ async function cardsRebuildUnit() {
   put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
 }
 
-// [#326] The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
+// The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
 // drawn: `page`, the default page as a first visit opens it (no saved state; #326's 0.7 s and #350's target), and
 // `chain4`, a saved 4-step chain (many cards). Per scene: the time to the first drawn frame, the cards' longest
 // unbroken stretch under renderThumbs (limit 100 ms: #326 draws them after the first frame, in idle slices), their
 // total, the part of it spent waiting for program links (GPU work: on a software renderer it lands on the main thread,
-// inside renderThumbs, so its stretch there is mostly links; a real GPU's numbers count), and whether every card was
+// inside renderThumbs, so its stretch there is mostly links; a real GPU's numbers count), and whether every card is
 // drawn (not by when: openApp's own waits, MathJax's up to 12 s, would hide it)
 async function openFresh() {
   // (a first visit: a namespace with nothing saved, the app's own default page)
@@ -1109,7 +1109,7 @@ async function svInteractUnit(scene) {
       for (const scope of ['all', 'in']) {
         await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
         await settle(await pageNow());
-        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
+        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane moves)
         const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
         const r1 = await stripAt();
         const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }), attr);
@@ -1292,8 +1292,8 @@ async function cardsStartupUnit() {
 }
 
 // The deformation playing in the Phase and Landscape views (merged-views review): one full-width panel paints H_t at
-// every frame (868 px wide at 1440 x 900, against v11's ~430 px pane). The scene opens in the view (rightMode color /
-// 3d: the Phase / Landscape view here, the old layout's pane in the reference), the toggle (#morphBtn) opens the
+// every frame (868 px wide at 1440 x 900, against a ~430 px pane). The scene opens in the view (rightMode color /
+// 3d: the Phase / Landscape view here, the pane in the reference), the toggle (#morphBtn) opens the
 // deformation, which plays; 2 s of playback are measured. The reference cannot paint H_t in its phase pane (its
 // deformation is a view of the right pane), so this unit is like-for-unlike against it and is gated by the absolute
 // 60 fps budget (compare_perf BUDGET60: frame p95 <= 14 ms, fps >= 55); `.view` says which picture played.
@@ -1524,7 +1524,7 @@ async function scrubMobiusUnit() {
     const cl = GLR.createLines; GLR.createLines = function () { c.up++; return cl.apply(this, arguments); };
     const sc = Region.sampleCurve; Region.sampleCurve = function () { c.samp++; return sc.apply(this, arguments); }; return 1; })()`);
   const count = () => B.ev('[__lineCount.up, __lineCount.samp]');
-  // (v15: the Inspector's #i1_phi once step 1 is selected; earlier builds: the card's #p1_phi)
+  // (the Inspector's #i1_phi once step 1 is selected; without an Inspector: the card's #p1_phi)
   const PHI = `(document.getElementById('i1_phi') || document.getElementById('p1_phi'))`;
   await B.ev(`(() => { if (document.querySelector('#propsPanel .insp-sel') && !document.getElementById('i1_phi')) { const c = document.querySelector('#pipeline .card[data-k="1"]'); if (c) c.click(); } return 1; })()`);
   await sleep(200);
@@ -1661,8 +1661,8 @@ async function hoverDimUnit() {
   put(`${pre}.no_job`, 'check', '', [busy === 0]);
 }
 
-// ---------------- wave 1's pointer and per-frame work (issue #63) ----------------
-// Work wave 1 added to pointer paths and to the frame (notes/ux-build/w1-review-regress.json regress-6, regress-7):
+// ---------------- pointer and per-frame work ----------------
+// Work on pointer paths and on the frame (notes/ux-build/w1-review-regress.json regress-6, regress-7):
 // the snap and detent search of a hover with Point or a construction tool, of a body drag with Snap on and of a rail
 // glide; the hover probe's readout on X; the Y render's target note and the overlay frame's undo state while the
 // deformation plays. On the GPU gate these meet the 60 fps budget (frames, input handlers); on GitHub's machines they
@@ -2003,7 +2003,7 @@ unit('mesh', 'CPU mesh build per shape kind (Region.buildMesh) and mesh quality'
 for (const scene of ['default', 'logUHP', 'chain4']) {
   for (const meshN of MESHES) unit(`image.${scene}.m${meshN}`, `Image mode, ${SCENES[scene].label}, mesh ${meshN}: statics, remesh, pan L/R${meshN === 240 ? ', wheel zoom L/R' : ''}`, () => imageUnit(scene, meshN));
 }
-// [#253] shapes of later planes pulled back in X: one pass per plane, one blit
+// shapes of later planes pulled back in X: one pass per plane, one blit
 unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
@@ -2252,7 +2252,7 @@ async function main() {
     }
     OPENED = null;
     RES = RES_B; BASE = BASE_B; B = B_B;
-    // [#292] a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
+    // a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
     // compare_perf.py reports the unit's metrics as NEW instead of comparing them with an empty scene's
     if (RES_A) {
       const why = refCannot(scenes.get(RES_A) || [], scenes.get(RES_B) || [], failed.get(RES_A), failed.get(RES_B));
