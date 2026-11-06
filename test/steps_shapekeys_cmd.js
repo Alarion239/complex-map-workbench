@@ -23,8 +23,9 @@ const box = (sel) => ev(`(() => { const e = [...document.querySelectorAll(${JSON
 const mid = (b) => [b.l + b.w / 2, b.t + b.h / 2];
 const rclick = async (x, y) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 }); await sleep(400); };
 
+const onPlane = () => ev(`(() => { const c = document.querySelector('#paneL canvas'); c.tabIndex = 0; c.focus(); return document.activeElement === c; })()`);
 await ev(`__cmwSelect('h1')`); await sleep(300);
-await ev(`document.activeElement && document.activeElement.blur(), document.body.focus(), 1`);
+check('the plane has focus', await onPlane());
 const i0 = await ev('__cmwSteps().i');
 const s0 = await shapes();
 await press('ArrowRight');
@@ -33,6 +34,14 @@ check('and does not step the chain', (await ev('__cmwSteps().i')) === i0, i0);
 const s1 = await shapes();
 await press('ArrowUp', 8);
 check('Shift + an arrow moves it ten steps', (await shapes()) !== s1, null);
+await sleep(1700);
+const s2 = await shapes();
+await press('ArrowRight'); await press('ArrowRight');
+await sleep(1000);
+check('the shape\'s place is said once the nudges stop', await ev(`[...document.querySelectorAll('#toastHost .toast')].some((t) => /^Moved .+[.]$/.test(t.textContent) && !/undefined/.test(t.textContent))`), await ev(`document.getElementById('toastHost').textContent`));
+check('a run of nudges is one undo step', await (async () => { await ev(`document.getElementById('undoBtn').click()`); await sleep(300); return (await shapes()) === s2; })(), null);
+await ev(`document.getElementById('redoBtn').click()`); await sleep(300);
+await onPlane();
 const n0 = (await ids()).length;
 await press('d', 4);
 const after = await ids();
@@ -45,13 +54,20 @@ await press(']', 4);
 const fwd = await ids();
 check('⌘] brings it forward', fwd.indexOf(copy) === fwd.length - 1, fwd);
 
-// no shape selected: the arrows step the chain as before
-await ev(`__cmwSelect(null)`); await sleep(200);
+// off the plane (the page body) the arrows step the chain even with a shape selected
 await ev(`document.activeElement && document.activeElement.blur(), document.body.focus(), 1`);
+const sb = await shapes(), jb = await ev('__cmwSteps().i');
+await press('ArrowRight');
+await settled({ max: 8000, only: true, until: `!__cmwSteps().moving` });
+check('off the plane an arrow steps the chain and leaves the shape', (await ev('__cmwSteps().i')) !== jb && (await shapes()) === sb, jb);
+// Esc deselects, and then the arrows on the plane step the chain
+await onPlane();
+await press('Escape');
+check('Esc deselects the shape', (await sel()) === null, await sel());
 const j0 = await ev('__cmwSteps().i');
 await press('ArrowRight');
 await settled({ max: 8000, only: true, until: `!__cmwSteps().moving` });
-check('with no shape selected an arrow still steps the chain', (await ev('__cmwSteps().i')) !== j0, j0);
+check('with no shape selected an arrow on the plane steps the chain', (await ev('__cmwSteps().i')) !== j0, j0);
 
 // the right click
 await sleep(300);

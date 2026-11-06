@@ -2549,10 +2549,10 @@
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
-      // (PageUp / PageDown on a focused plane too; the arrows only while no shape is selected, which they nudge wherever the
-      // focus is (14-interaction.js), and not on the plane that is the sound's keyboard probe, whose arrows move the probe)
+      // (PageUp / PageDown on a focused plane too; the arrows only while no shape is selected, which they nudge while the focus is on a
+      // plane (14-interaction.js), and not on the plane that is the sound's keyboard probe, whose arrows move the probe)
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key)) || (t && t.closest && t.closest('canvas[aria-keyshortcuts~="ArrowLeft"]')))) return;
+      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR')) || (t && t.closest && t.closest('canvas[aria-keyshortcuts~="ArrowLeft"]')))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);

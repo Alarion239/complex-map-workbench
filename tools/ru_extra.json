@@ -689,5 +689,8 @@
  "Video of the Landscape is not ready yet": "Видео рельефа пока не готово",
  "Video of the sphere is not ready yet": "Видео сферы пока не готово",
  "Scope": "Охват",
- "landscape": "рельеф"
+ "landscape": "рельеф",
+ "Moved {name} to {x}, {y}.": "{name} перемещена в {x}, {y}.",
+ "Moved {name}.": "{name} перемещена.",
+ "Steps view: the previous or next plane; with a shape selected, move it (⇧ ↑ ↓: ten steps)": "Вид шагов: предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её (⇧ ↑ ↓: десять шагов)"
 }
