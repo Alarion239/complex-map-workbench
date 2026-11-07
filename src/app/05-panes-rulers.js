@@ -1161,11 +1161,7 @@
         const p = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live }) : null;
         if (p && p.path === 'inverse') {
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
-          let gbox = null;
-          if (shapeBounded(s)) {
-            if (p.plan.ops.length) gbox = invBox(p.e, p.plan, s, live);
-            else { try { gbox = Region.bboxOf(s); } catch (err) { gbox = null; } }
-          }
+          const gbox = globeImageBox(p, s, live);
           regions.push({
             inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
