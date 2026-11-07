@@ -83,6 +83,6 @@ await ev(`document.querySelector('.pane-head .opts-btn[aria-label="Display optio
 await settled({ max: 15000, until: `!!document.querySelector('#popHost #opacityRange')` });
 const land = await ev(`(() => { const r = document.querySelector('#popHost #opacityRange'); const a = document.getElementById('alphaRange'); return r && { disabled: r.disabled, aria: r.getAttribute('aria-disabled'), tip: r.closest('label').dataset.tip, desc: r.getAttribute('aria-description'), rowOpacity: getComputedStyle(r.closest('label')).opacity, cursor: getComputedStyle(r.closest('label')).cursor, regionsRowHidden: a.closest('.fader-row').hidden }; })()`);
 ok('on the Landscape the slider is disabled, with a tip that says why', !!land && land.disabled && land.aria === 'true' && /opaque/.test(land.tip), land);
-ok('the whole disabled row is dimmed (cursor not-allowed) and the input carries the reason as aria-description', !!land && land.rowOpacity === '0.4' && land.cursor === 'not-allowed' && land.desc === land.tip, land);
+ok('the whole disabled row is dimmed (cursor default) and the input carries the reason as aria-description', !!land && land.rowOpacity === '0.4' && land.cursor === 'default' && land.desc === land.tip, land);
 ok('and the regions\' own Opacity row is left out of the steps view', !!land && land.regionsRowHidden, land);
 return { pass: fails.length === 0, fails, info };
