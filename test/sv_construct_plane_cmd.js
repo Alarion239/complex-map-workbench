@@ -17,17 +17,25 @@ await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350
 const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [{ id: 'z0', kind: 'point', p: [0.5, 0.5], ci: 0, visible: true, num: 0 }], steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] };
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
 await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
-for (let i = 0; i < 40 && !(await ev(`typeof __cmwSteps === 'function' && typeof __cmwPlaneMenu === 'function'`)); i++) await sleep(250);
-await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
-await ev(`(() => { const b = [...document.querySelectorAll('[data-tool="circle3"]')].find((e) => e.offsetParent) || document.querySelector('[data-tool="circle3"]'); b.click(); return 1; })()`); await quiet();
+// the app is driven once the page has loaded and the chain is in (a glide to plane 1 needs two planes), and a pick is
+// read once it has landed: the stage is plane 1, and the chip counts the picks made
+await settled({ max: 30000, until: "typeof __cmwSteps === 'function' && typeof __cmwPlaneMenu === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 1" });
+await ev(`__cmwSteps({ go: 1, now: true }); 1`);
+const onPlane1 = () => settled({ floor: 300, max: 15000, until: "__cmwSteps().stage === 1 && !__cmwSteps().moving" });
+await onPlane1();
+const picked = (n) => settled({ max: 8000, until: `[...document.querySelectorAll('.cm-chip')].some((e) => !!e.offsetParent && e.textContent.includes('${n} of 3'))` });
+await ev(`(() => { const b = [...document.querySelectorAll('[data-tool="circle3"]')].find((e) => e.offsetParent) || document.querySelector('[data-tool="circle3"]'); b.click(); return 1; })()`); await onPlane1();
 const n0 = (await shapes()).length;
 const P = [[0.35, 0.45], [0.7, -0.35], [-0.45, -0.4]];
 const p0 = await at(P[0][0], P[0][1]);
 await move(p0[0], p0[1]); await settled({ max: 3000, until: `[...document.querySelectorAll('.cm-chip')].some((e) => !!e.offsetParent)` });
-await click(p0[0], p0[1]); await settle(300);
+await click(p0[0], p0[1]); await picked(2);
 const c1 = await chip();
 ok('a 3-point circle on plane 1: the chip names the plane while picks are under way', /on w₁/.test(c1), c1);
-for (const q of P.slice(1)) { const s = await at(q[0], q[1]); await move(s[0], s[1]); await settle(150); await click(s[0], s[1]); await settle(300); }
+for (const [i, q] of P.slice(1).entries()) {
+  const s = await at(q[0], q[1]); await move(s[0], s[1]); await settle(150); await click(s[0], s[1]);
+  if (i === 0) await picked(3); else await settled({ max: 8000, until: `__cmwShapes().shapes.length === ${n0 + 4}` });
+}
 await quiet();
 const S1 = await shapes(), circle = S1.find((s) => s.def && s.def.op === 'circle3');
 ok('a 3-point circle on plane 1: the circle is made', !!circle && S1.length === n0 + 4, S1);
