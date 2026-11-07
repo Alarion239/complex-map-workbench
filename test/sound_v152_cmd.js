@@ -1,8 +1,9 @@
 // v15.2 sound (notes/sound/AS-BUILT-v152.md): hearing the function as the user chose it, in the app. Under the
 // pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, which replaced the
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
-// a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1), and while the
-// deformation plays, the last loop's note changes the moment a zero crosses it; the motion bed; Esc and off silent. A command file for the CDP daemon (test/cdp_kit README):
+// a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1); off
+// silences the notes; a held finger and a phone's long press near a zero. The parts that run on the classic Deformation (the loop
+// singing while t runs, palette B's scrub, Esc while it plays) are in sound_v152_deform_classic_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
@@ -19,9 +20,6 @@ const loadHere = async (ns, st) => {
 // the crossings merged into one note, cracks the cuts; as sound_cmd.js's hearCount)
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__hearCount = () => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; }; })();' });
 const fails = [], R = {};
-// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
-// the digit keys and the toggle button are gone
-const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
@@ -97,31 +95,6 @@ R.l3 = await lasso([-1, 0], 0.4);
 ok('loop 3 with Hear F off: the pings (loopDone), no note', /Winding number 1/.test(R.l3.live) && R.l3.made.includes('loopDone') && R.l3.sang === -1, R.l3);
 await key('v'); await settle(200);
 
-// 3. curves sing while the deformation plays: z − 1 (H_t(z) = z − t: its zero runs from 0 to 1), the last loop
-// |z − 0.75| = 0.3 (from 0.45 to 1.05): W = 0 until the zero enters it at t = 0.45, then W = 1; the note steps there
-await start('z-1');
-{
-  const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); }
-  await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`);
-  await move(5, 600); await settle(200);
-  await morphKey();
-  const tr = await ev(`await new Promise((res) => { const out = [], t0 = performance.now(); const f = () => { const s = __cmwSound(), m = __cmwState().morph; out.push([s.cv.T == null ? m.T : s.cv.T, s.cv.W, s.cv.on ? 1 : 0, Sound.singState().on ? 1 : 0]); if (performance.now() - t0 < 2600) requestAnimationFrame(f); else res(out); }; requestAnimationFrame(f); })`, 20000);
-  const Ws = tr.filter((x) => x[1] != null);
-  const step = tr.find((x, i) => i && x[1] === 1 && tr[i - 1][1] !== 1);
-  R.deformLoop = { n: tr.length, first: Ws[0], last: Ws[Ws.length - 1], step, singing: tr.filter((x) => x[3]).length, live: (await snd()).live };
-  ok('deformation: the loop sings while t runs (W 0 at first, 1 at the end)', Ws.length > 40 && Ws[0][1] === 0 && Ws[Ws.length - 1][1] === 1 && R.deformLoop.singing > 40, R.deformLoop);
-  // (the t at which the loop's note was computed: the frame steps t by up to 0.03 in the middle of the eased play)
-  const before = step && tr[tr.indexOf(step) - 1];
-  R.deformLoop.before = before;
-  ok('deformation: the note steps 0 → 1 when the zero enters the loop (t = 0.45, between two frames)', step && before && before[0] <= 0.45 + 1e-9 && step[0] >= 0.45 && step[0] - before[0] < 0.05, { before, step });
-  ok('deformation: the change is spoken once', /Winding number of the loop: 1/.test(R.deformLoop.live), R.deformLoop.live);
-  await sleep(1500);
-  R.deformAfter = { sing: await ev('Sound.singState()'), cv: (await snd()).cv };
-  ok('deformation: the note fades 0.9 s after t stops', !R.deformAfter.sing.on && !R.deformAfter.cv.on, R.deformAfter);
-  // the motion bed is off while Hear F is on; with Hear F off it follows a play (the synth's texture 2)
-  await morphKey();
-}
-
 // 5. off while the notes ring: silent, suspended
 await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
 {
@@ -129,25 +102,6 @@ await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
   await glide(pts, 10);
   R.off = await ev(`await (async () => { __made.length = 0; Sound.set({ on: false }); const m = __made.length; await new Promise((r) => setTimeout(r, 150)); return { made: m, audio: Sound.state().audio, hear: Sound.hear.step({ t: performance.now() / 1000, phi: 0.3, ln: 0 }) }; })()`);
   ok('off while the notes ring: no sound made, suspended, Sound.hear refuses a step', R.off.made === 0 && R.off.audio === 'suspended' && R.off.hear === null, R.off);
-}
-// 6. (review sound-1) Esc while the deformation plays: silent until the next thing a person does. Hear F off: the motion
-// bed is over for this play (no re-arm on the next frames); Hear F on: the last loop does not sing H_t again
-for (const hear of [false, true]) {
-  await start('z-1');
-  await ev(`Sound.set({ sonify: ${hear} }); 1`);
-  if (hear) { const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); } await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`); }
-  await move(5, 600); await settle(200);
-  await ev(`__cmwSet('morphSecs', 4); 1`);
-  await morphKey(); await sleep(600);   // standards-ok: the recording and the loop run in real time
-  const before = { arm: (await snd()).morphArm, sing: (await ev('Sound.singState()')).on };
-  await key('Escape');
-  const after = [];
-  for (let i = 0; i < 8; i++) { await sleep(100); const s = await snd(); after.push({ playing: (await ev('__cmwState().morph.playing')), arm: s.morphArm, sing: (await ev('Sound.singState()')).on, cv: s.cv.on }); }
-  R['esc' + (hear ? 'HearOn' : 'HearOff')] = { before, after };
-  ok(`Esc while the deformation plays (Hear F ${hear ? 'on' : 'off'}): it plays on, and nothing sounds again (no motion bed, no loop note) for 0.8 s`, after.some((a) => a.playing) && after.every((a) => !a.arm && !a.sing && !a.cv) && (hear ? before.sing : before.arm), { before, after });
-  // the next action lets it sound: Play again
-  if (hear) { await morphKey(); await sleep(150); await morphKey(); await sleep(700); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }   // standards-ok: the recording and the loop run in real time
-  await morphKey();
 }
 // 7. (review sound-3) a finger held still 10 px from a zero on the D line (arg F = 0), trembling ±1.5 px at about
 // 9 Hz for 3 s: no note (the harp chattered there: 100+ notes in 10 s before; the notes' Schmitt band holds)
