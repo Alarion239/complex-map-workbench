@@ -367,7 +367,7 @@
     return true;
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
-  // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
+  // map (from plane s) in plane s's carried box src, from a ten-millionth of a cell of the box's N x N grid to eight
   // cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far plane, where
   // the box's cells stretch past the tear limit and are left out.
   // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
@@ -400,7 +400,7 @@
     for (const b of svLandBranchPoints(map, src, E)) if (!poles.some((q) => CX.abs(CX.sub(b, q)) < 1e-6 * (1 + CX.abs(b)))) poles.push(b);
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
-    const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
+    const patch = (p) => [p.re, p.im, cell * 1e-7, cell * 8];
     return near.map(patch).concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's

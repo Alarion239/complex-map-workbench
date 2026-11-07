@@ -805,7 +805,7 @@
     render3D.tickMu = carry ? mu : undefined;   // (a carried frame's labels step in its own scale, which ends at the parked plane's)
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, a: carry.a, b: carry.b, morph: carryMorph, mu, box, sheets: !!info.sheets && !(sheets && sheets.rest), plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, a: carry.a, b: carry.b, morph: carryMorph, mu, box, sheets: !!info.sheets && !(sheets && sheets.rest), plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN, MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, w: pane.w, h: pane.h } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)

@@ -361,6 +361,16 @@
     const h = pk.info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));
     return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
   };
+  // the last carried frame's pane position (CSS px) of the glide map's image of each pole patch's centre (null where it is not finite), at the plate's height
+  window.__cmwLandPolePx = () => {
+    const c = render3D.carried;
+    if (!c || !c.MVP) return null;
+    const F = cpuMap(c.map), b = c.box, [ax, ay] = c.aspect;
+    return (c.polar || []).slice(0, c.patches || 0).map(([px, py]) => {
+      const w = F(C(px + 1e-9, py));
+      return CX.isFin(w) ? project(c, c.MVP, [(2 * (w.re - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (w.im - b.y0) / (b.y1 - b.y0) - 1) * ay, c.floorZ]) : null;
+    });
+  };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (v16.5 test/ux165_chain_cmd.js)
