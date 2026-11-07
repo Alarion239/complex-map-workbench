@@ -20,7 +20,7 @@ const FRAME_W = 240, FRAME_H = 160, MESH_NX = 96, MESH_NY = 64;
 const LINK_POLL_MS = 250, LINK_POLL_MAX = 480;
 // the page's bounds for a ready page and for the view to settle, and the window's size
 const PAGE_READY_MS = 30000, SETTLE_MS = 15000, WIN_W = 1200, WIN_H = 800;
-const state = { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy' };
+const state = { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy', alpha: 1 };
 await view(WIN_W, WIN_H, false, false);
 const ns = 'cauchycarry' + Date.now();
 await load(ns, state);
@@ -64,6 +64,7 @@ for (const show of ['both', 'in', 'out']) {
   ok(`${show}: the carried colour is the plot of the style on plane z, pixel for pixel`, r && r.over <= EDGE_SHARE_MAX, r);
 }
 // (Outside is the sharp case: F(z0) at an outside point is the colour of f₋ there, not the plain colour of F)
+// (alpha 1: the sheet is opaque, so its pixels are the carried colour and not a blend with the plane behind it)
 // the steps view itself: with the colour plane z and the thread parked at plane 1, the point F(z0) of plane 1 has the colour that z0 has on plane z
 // (inside the circle coloured, outside the circle coloured, for Both); the pane's pixels at two points compared plane against plane
 const pixel = async (x, y) => {
