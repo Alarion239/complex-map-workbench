@@ -68,6 +68,7 @@ const SUITES = {
   // (keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
   // job log shows where along the seam the jumps stand)
   'steps_seams_cmd.js': {
+    runs: [{ label: 'dpr2', env: { CMW_DPR: '2' } }],
     keepShots: true,
     logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
   },
