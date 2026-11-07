@@ -13,12 +13,11 @@
     const n = GLChain.ZETA_LN_K_COUNT, out = new Float32Array(n);
     out[0] = 1;
     for (let k = 1; k < n; k++) out[k] = Math.fround(Math.log(k));
-    const p = gl.createProgram();
-    gl.attachShader(p, shader(gl.VERTEX_SHADER, '#version 300 es\nprecision highp float;\nout vec4 v;\nvoid main() {\n  int i = gl_VertexID;\n  v = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n'));
-    gl.attachShader(p, shader(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;\nout vec4 o;\nvoid main() { o = vec4(0.0); }\n'));
-    gl.transformFeedbackVaryings(p, ['v'], gl.SEPARATE_ATTRIBS);
-    gl.linkProgram(p);
-    if (gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const e = { name: 'logK' };
+    startLink(e, '#version 300 es\nprecision highp float;\nout vec4 tfOut;\nvoid main() {\n  int i = gl_VertexID;\n  tfOut = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n', TF_FS, true);
+    finishLink(e);
+    const p = e.p;
+    if (e.state === 'ready') {
       const tf = gl.createTransformFeedback(), buf = gl.createBuffer(), vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING), gpu = new Float32Array(n);
       gl.bindVertexArray(null);
       gl.bindBuffer(gl.COPY_WRITE_BUFFER, buf);
@@ -41,7 +40,7 @@
       gl.deleteBuffer(buf); gl.deleteTransformFeedback(tf);
       if (gpu.every((x, k) => k === 0 || (Number.isFinite(x) && Math.abs(x - out[k]) <= LOGK_GPU_REL_TOL * (1 + out[k])))) { gpu[0] = 1; out.set(gpu); }
     }
-    gl.deleteProgram(p);
+    if (p) gl.deleteProgram(p);
     logKData = out;
     return out;
   }
