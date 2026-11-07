@@ -295,7 +295,7 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
 // the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
 // adds no zeros)
-check('45 steps: 39 tasks (2 doors), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [45, 39, 2, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
+check('44 steps: 38 tasks (1 door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [44, 38, 1, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);
