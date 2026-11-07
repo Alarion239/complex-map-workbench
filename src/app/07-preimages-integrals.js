@@ -886,7 +886,7 @@
   // reassign as getters (and setters for the state they write)
   function integralsApi() {
     return {
-      C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
       rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,

@@ -6,7 +6,7 @@
 // and so on. The state the rest of the app reads too (intPop, lastPan, holdMenuT, cauchyCache) stays the app's.
 const Integrals = (() => {
   let A = null;
-  let C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+  let C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
     integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage,
     requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
     sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed;
@@ -111,9 +111,9 @@ const Integrals = (() => {
   }
   // one shape's curves in the left plane (stage leftStage()), mapped there from the shape's own plane: {s, name, comps:
   // [{flat, closed, part}], closed, box, bad}; null for a shape not drawn in that plane
-  function shapeGeom(s, dense, names) {
+  function shapeGeom(s, dense, names, lk = leftStage()) {
     if (!s || kindType(s) === 'point') return null;
-    const lk = leftStage(), G = shapeF(s, stageF(lk), lk);
+    const G = shapeF(s, stageF(lk), lk);
     if (!G) return null;
     const pieces = curvePieces(s, dense);
     if (!pieces.length) return null;
@@ -134,24 +134,28 @@ const Integrals = (() => {
   }
   // the curves the Phase view's Cauchy style may use, in the left plane: the selected shape's, the open integral
   // popover's, else every curve and bounded region boundary
-  function integralGeom() {
+  // the cache slot of the curves taken in plane lk: the left plane's own, or the one slot of any other plane
+  const geomSlot = (lk) => (lk === leftStage() ? integ : (integ.alt = integ.alt || { gkey: '', geom: [] }));
+  // (lk: the plane the curves are taken in, the left plane's by default; the other plane's geometry has a cache slot of its own)
+  function integralGeom(lk = leftStage()) {
     const sel = A.S.shapes.find((s) => s.id === A.selected && s.visible !== false && kindType(s) !== 'point');
     const pop = !sel && A.intPop ? A.S.shapes.find((s) => s.id === A.intPop.id && s.visible !== false) : null;
     // coarser while a shape is being dragged (a pan changes nothing here)
     const dense = !(A.drag && (A.drag.mode === 'move' || A.drag.mode === 'handle' || A.drag.mode === 'draw'));
-    const key = JSON.stringify([A.chainSig[leftStage()], leftStage(), sel ? sel.id : '', pop ? pop.id : '', dense, A.clipWin, A.S.shapes.map((s) => (s.visible === false ? '' : shapeKey(s)))]);
-    if (key === integ.gkey) return integ.geom;
+    const slot = geomSlot(lk);
+    const key = JSON.stringify([A.chainSig[lk], lk, sel ? sel.id : '', pop ? pop.id : '', dense, A.clipWin, A.S.shapes.map((s) => (s.visible === false ? '' : shapeKey(s)))]);
+    if (key === slot.gkey) return slot.geom;
     const names = shapeNames();
     const list = sel ? [sel] : pop ? [pop] : A.S.shapes.filter((s) => s.visible !== false && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid');
     const geom = [];
     for (const s of list) {
       if (geom.length >= 12) break;
-      const g = shapeGeom(s, dense, names);
+      const g = shapeGeom(s, dense, names, lk);
       // an unbounded area has no closed boundary to go around: skipped unless it is picked
       if (!g || (!sel && !pop && kindType(s) === 'area' && !g.closed)) continue;
       geom.push(g);
     }
-    integ.gkey = key; integ.geom = geom;
+    slot.gkey = key; slot.geom = geom;
     return geom;
   }
   // ∫γ F dz along one shape's curves (components in turn, each starting where the last ended), with the running path
@@ -562,12 +566,12 @@ const Integrals = (() => {
   const planMemo = { shape: null, sk: '', fk: '', memo: null, force: false, t: 0 };
   function cauchyPlot() {
     if (!hasCalc('cauchyNodes')) return null;
-    const geom = integralGeom();
+    const lk = cauchyStage(), geom = integralGeom(lk);
     const g = geom.find((x) => x.s.id === A.selected && x.closed) || geom.find((x) => x.closed);
     if (!g || g.bad) return null;
-    const key = integ.gkey + '|' + g.s.id + '|' + A.chainSig[nSteps()] + '|' + A.S.focus;
+    const key = geomSlot(lk).gkey + '|' + g.s.id + '|' + A.chainSig[nSteps()] + '|' + A.S.focus;
     if (cauchyCache.key === key) return cauchyCache.val;
-    const F = focusF();
+    const F = cauchyF();
     const lens = g.comps.map((c) => { let l = 0; for (let i = 2; i + 1 < c.flat.length; i += 2) l += Math.hypot(c.flat[i] - c.flat[i - 2], c.flat[i + 1] - c.flat[i - 1]); return l; });
     const tot = lens.reduce((a, b) => a + b, 0) || 1, N = 256, parts = [];
     let n = 0;
@@ -636,7 +640,7 @@ const Integrals = (() => {
 
   function init(api) {
     A = api;
-    ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
+    ({ C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
   return { init, curvePieces, shapeGeom, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();
