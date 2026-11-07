@@ -19,6 +19,7 @@ const ON_LINE = 1e-3;      // a bank against its line: the ray's bank is offset 
 const NEAR_END = 0.2;      // how close to u = 0 or 1 the frame is parked: farther from a plane than an eighth of a step (.125), within which the thread settles on the plane
 const INK_TOL = 40;        // per channel, #CC3311: the 1.75 px stroke's edge pixels are part paper; half strength is 100 off in green
 const HALF = 0.5;          // the glide parked half-way
+const SAMPLE_PX = 0.5;     // a drawn sample from the exact image, in px: at the surface they agree to the pick's own pixel (0.00 measured); at the 1.004 shell the median is 1.2 and at 1.01 2.9
 const THIN = 4;            // the glide's frames take every fourth sample of the rest set
 const MIN_VISIBLE = 50;    // the points of the rim bank that must show on the globe before it is read
 const MIN_SEG = 1;         // a segment under this many px is a point to the eye; its midpoint is not tested
@@ -149,6 +150,35 @@ const chords = !rim ? null : await J(`(() => {
 })()`);
 info.chords = chords;
 ok('chain C on the globe: the cut hugs its circle (segment midpoints on |w| = e^-π)', !!chords && chords.n > 50 && chords.worst < CHORD_TOL, chords);
+
+// ---- chain D: the cut of log (Im w = ±π) at the globe's limb, where a stroke off the surface is shifted by the parallax:
+// the drawn samples lie on the line, as the picks see it (the offset in px through the pick's gradient of the distance to the line)
+await open([{ type: 'log', params: { cut: 180, k: 0 }, on: true }]);
+await at({ go: 1, now: true, surf: 'sphere' }, 1);
+await ev('__cmwCam("L", { pitch: 1.2, yaw: -1.57, dist: 3 }); 1');
+const limbKey = await settled({
+  max: 30000,
+  until: `(() => { const MIN_SAMPLES = 100, c = __cmwCutCurves().find((q) => !q.solid), k = c ? c.s.filter(Boolean).length : 0; const same = k > MIN_SAMPLES && window.__limbKey === k; window.__limbKey = k; return same; })()`,
+});
+ok('chain D on the globe: the cut at the limb is drawn and settles', limbKey && limbKey.ok, limbKey);
+// The probe samples the cut inside the canvas window: EDGE_PX clear of the left and top edges, and the right and bottom
+// bounds W_PX and H_PX, which keep the samples off the right and bottom margins of the 1100 × 700 frame (the same
+// frame as onScreen above). The 90th percentile of the offsets is read at P90.
+const limbOff = await J(`(() => {
+  const EDGE_PX = 5, W_PX = 840, H_PX = 700, P90 = 0.9;
+  const f = (v) => Math.min(Math.abs(v - Math.PI), Math.abs(v + Math.PI)), d = [];
+  for (const c of __cmwCutCurves()) for (const p of c.s || []) {
+    if (!p || p[0] < EDGE_PX || p[1] < EDGE_PX || p[0] > W_PX || p[1] > H_PX) continue;
+    const w = __cmwSphereWL(p[0], p[1]), wx = __cmwSphereWL(p[0] + 1, p[1]), wy = __cmwSphereWL(p[0], p[1] + 1);
+    if (!w || !wx || !wy) continue;
+    const g = Math.hypot(f(wx[1]) - f(w[1]), f(wy[1]) - f(w[1]));
+    if (g > 1e-9) d.push(f(w[1]) / g);
+  }
+  d.sort((a, b) => a - b);
+  return { n: d.length, median: d.length ? +d[d.length >> 1].toFixed(2) : null, p90: d.length ? +d[Math.floor(d.length * P90)].toFixed(2) : null };
+})()`);
+info.limbOffset = limbOff;
+ok('chain D on the globe: the drawn cut is on its exact image at the limb (px)', limbOff.n > 100 && limbOff.p90 <= SAMPLE_PX, limbOff); // 100: the same sample floor as the settle check above
 
 const lg = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', lg.length === 0, lg);
