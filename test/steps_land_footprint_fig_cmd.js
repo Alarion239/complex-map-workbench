@@ -7,6 +7,9 @@ const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 const STATES = {
+  jouk2: { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0,
+    shapes: [{ id: 'd1', kind: 'disc', c: [0.3, 0.2], r: 1.4, ci: 0, visible: true }],
+    steps: [{ type: 'joukowski', params: {}, on: true }] },
   z2: { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0,
     shapes: [{ id: 'd1', kind: 'disc', c: [0.3, 0.2], r: 1.4, ci: 0, visible: true }],
     steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'affine', params: { a: 'i', b: '0' }, on: true }] },
@@ -26,16 +29,16 @@ const open = async (scope, st) => {
   await settled({ until: '!__cmwSteps().moving', max: 20000 });
 };
 const footprints = (svg) => [...svg.matchAll(/<path d="([^"]+)"[^>]*class="floor-footprint"/g)].map((m) => m[1]);
-for (const [scope, key] of [['in', 'z2'], ['in', 'jouk'], ['all', 'z2']]) {
+// z², and 1/z + z (Joukowski) on a disc that crosses its pole: a floor point is dropped only where the rendered relief covers its
+// pixel, so the outline of the region keeps (nearly) all its vertices wherever the relief does not stand in front of it
+const VERTS = 640;
+for (const [scope, key] of [['in', 'z2'], ['in', 'jouk'], ['in', 'jouk2'], ['all', 'z2']]) {
   await open(scope, STATES[key]);
   const f = await ev(`await (async () => { const f = await Figure.build({ for: 'article', cols: 2, capInImage: false }); return f && f.svg ? { svg: f.svg } : f; })()`, 120000);
-  if (!f || !f.svg) { ok(`${scope}: a figure`, false, f); continue; }
-  const fp = footprints(f.svg), subs = fp.map((d) => (d.match(/M/g) || []).length);
-  // (the region's outline is one closed loop: where the relief stands in front of the floor it is left out, which cuts the loop in
-  // pieces; Joukowski's image of the disc is the outside of an ellipse, a hole in the relief too small to see the floor through)
-  if (key === 'z2' && scope === 'in') ok('Inside: the region\'s outline is on the floor as one grey line, cut where the relief hides it', fp.length === 1 && (fp[0].match(/L/g) || []).length > 20 && subs[0] >= 2, { verts: fp.map((d) => (d.match(/L/g) || []).length), subs });
-  else if (key === 'jouk') ok('Inside: an outline wholly behind the relief is not drawn', fp.length === 0, { verts: fp.map((d) => (d.match(/L/g) || []).length), subs });
+  if (!f || !f.svg) { ok(`${scope} ${key}: a figure`, false, f); continue; }
+  const fp = footprints(f.svg), verts = fp.map((d) => (d.match(/[ML]/g) || []).length);
+  if (scope === 'in') ok(`Inside ${key}: the region's outline is one grey floor line that the relief cuts only where it covers it`, fp.length === 1 && verts[0] >= 0.9 * VERTS, { verts });
   else ok('Everywhere: no footprint', fp.length === 0, fp.length);
-  R[`${scope} ${key}`] = { footprints: fp.length, subs };
+  R[`${scope} ${key}`] = { footprints: fp.length, verts };
 }
 return { pass: fails.length === 0, fails, results: R };

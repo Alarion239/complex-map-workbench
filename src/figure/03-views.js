@@ -735,14 +735,15 @@
       for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) { const q = 3 * (j * r.w + i); if (r.rgb[q] < 232 || r.rgb[q + 1] < 232 || r.rgb[q + 2] < 232) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; } }
       return [i0, i1, j0, j1];
     };
-    let r = await A.art('L', { wpt, hpt, dpi: 300, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox });
+    let dpi = 300;
+    let r = await A.art('L', { wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox });
     if (!r) return null;
     {
       // the crop is enlarged to the panel (up to 1.6 x): rendered again at 300 dpi times that, so the printed image
       // stays at 300 ppi or more
       const [a0, a1] = look(r), kk = wpt / r.w, cwpt = a1 >= a0 ? (a1 - a0 + 36 / kk) * kk : wpt;
       const up = Math.min((W - 8) / cwpt, 1.6);
-      if (up > 1.02) { const r2 = await A.art('L', { wpt, hpt, dpi: Math.ceil(300 * up), ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox }); if (!r2) return null; r = r2; }
+      if (up > 1.02) { dpi = Math.ceil(300 * up); const r2 = await A.art('L', { wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox }); if (!r2) return null; r = r2; }
     }
     // crop to what is drawn, with a margin for the floor labels
     const unit = { x0: 0, x1: r.w, y0: 0, y1: r.h };
@@ -773,6 +774,8 @@
     const items = [`<image x="${f2(x)}" y="${f2(top)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${art.url}"/>`];
     items.push(`<rect x="${f2(x)}" y="${f2(top)}" width="${f2(iw)}" height="${f2(ih)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
+    // the relief's coverage, at the art layer's pixels, for the Inside regions' footprint (rendered only when it is drawn)
+    const cov = A.svOn() && A.svMaskOn() ? await A.art('L', { wpt, hpt, dpi, alive: o.alive, landBox, reliefOnly: true }) : null;
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
     if (L && L.MVP && GLR.M4) {
@@ -814,17 +817,12 @@
       // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
       if (A.svOn() && A.svMaskOn()) {
         const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
-        // a floor point is hidden where the relief (the shown plane's, over the region's image: the app's own height field) stands
-        // in front of it: the ray from the eye to it runs below the field (the last stretch of the ray, at the point's own place,
-        // is left out)
-        const field = A.svReliefField(L), RAY_STEPS = 64, RAY_END = 0.97;
+        // a floor point is hidden where the rendered relief covers its pixel (the coverage render: the relief alone)
         const hidden = (p) => {
-          const e = L.eye || [1, 1, 1];
-          for (let i = 1; i < RAY_STEPS * RAY_END; i++) {
-            const u = i / RAY_STEPS, r = [e[0] + u * (p[0] - e[0]), e[1] + u * (p[1] - e[1]), e[2] + u * (p[2] - e[2])];
-            if (Math.abs(r[0]) <= ax && Math.abs(r[1]) <= ay && r[2] < field.hAt(r)) return true;
-          }
-          return false;
+          const q = proj(p);
+          if (!q || !cov) return false;
+          const ii = Math.floor((q[0] - x) / k / scale + c0), jj = Math.floor((q[1] - top) / k / scale + d0);
+          return ii >= 0 && jj >= 0 && ii < r.w && jj < r.h && cov.cov[jj * r.w + ii] > 127;
         };
         let fp = '';
         for (const s of A.shapes()) {

@@ -541,6 +541,7 @@
   // (r = 1 at the corners)
   function backdrop(pane) {
     const ctx = pane.ctx;
+    if (artRelief) return; // the coverage render: a transparent backdrop, so the alpha is the relief's coverage
     if (figMode) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pane.w, pane.h); return; } // print: plain paper
     const g = ctx.createLinearGradient(0, 0, 0, pane.h);
     g.addColorStop(0, TH.landTop); g.addColorStop(1, TH.landBottom);
@@ -601,7 +602,7 @@
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
   function render3D(pane, carry) {
-    pane.begin(TH.plane);
+    pane.begin(artRelief ? 'rgba(255,255,255,0)' : TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
     const box = carry ? carryBox(carry) : landBox();
@@ -773,7 +774,7 @@
       map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
-      motion: !offRender && interacting(), full: offRender || figMode,
+      motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
       colors: {
         floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
         shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
