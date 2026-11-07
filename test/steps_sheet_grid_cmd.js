@@ -1,5 +1,6 @@
 // The phone's Display sheet (the colour panel): the colour style is a wrapping grid of 48 px choices with their words
-// under them, four to a row at 360 px, words wrapped to two lines at most and never cut, the chosen one marked; the
+// under them, four to a row at 360 px, words wrapped to two lines at most and never cut, the chosen one marked and
+// ringed; the
 // sheet stays under 60 % of the viewport; a dimmed toggle keeps the default cursor.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -31,7 +32,8 @@ const grid = () => ev(`(() => {
   const sheet = document.querySelector('.ph-sheet').getBoundingClientRect();
   return { n: bs.length, rows: tops.length, perRow: bs.filter((b) => Math.round(r(b).top) === tops[0]).length,
     minW: Math.min(...bs.map((b) => r(b).width)), minH: Math.min(...bs.map((b) => r(b).height)), cut, lines,
-    on: bs.filter((b) => b.classList.contains('on') || b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-pressed') === 'true').length,
+    on: bs.filter((b) => b.getAttribute('aria-checked') === 'true').length,
+    ring: bs.filter((b) => b.getAttribute('aria-checked') === 'true').every((b) => /inset/.test(getComputedStyle(b).boxShadow) && /2px/.test(getComputedStyle(b).boxShadow)),
     sheetShare: sheet.height / innerHeight, inside: bs.every((b) => r(b).left >= g.getBoundingClientRect().left - 1 && r(b).right <= g.getBoundingClientRect().right + 1) };
 })()`);
 for (const lang of ['en', 'ru', 'it']) {
@@ -41,7 +43,7 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang} 360: six styles, four to a row, two rows`, g && g.n === 6 && g.perRow === 4 && g.rows === 2, g);
   ok(`${lang} 360: every choice is at least 48 px both ways`, g && g.minW >= 48 && g.minH >= 48, g);
   ok(`${lang} 360: no word is cut and none takes more than two lines`, g && g.cut === 0 && g.lines <= 2 && g.inside, g);
-  ok(`${lang} 360: one choice is marked`, g && g.on === 1, g);
+  ok(`${lang} 360: one choice is marked (aria-checked), with a 2 px ring inside it`, g && g.on === 1 && g.ring, g);
   ok(`${lang} 360: the sheet is at most 60 % of the viewport`, g && g.sheetShare <= 0.6, g);
 }
 await open(390, 'en', false);
