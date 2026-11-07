@@ -2812,9 +2812,9 @@
   }
   // ▶ and pause, the loop's state
   function svPlaySync() {
-    const E = SV.els, on = !!SV.play, label = on ? $t('Pause') : $t('Play');
+    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown ? $t('Cancel') : on ? $t('Pause') : $t('Play');
     // (the pause is two bars, drawn: no glyph of the bundled faces)
-    if (E.play.dataset.on !== String(on)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
+    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
     E.play.setAttribute('aria-pressed', String(on));
@@ -2845,41 +2845,57 @@
     const r = svReady().parts;
     return !r.programs || !r.warm || r.programs.done < r.programs.total || r.warm.done < r.warm.total || !r.programs.total;
   }
+  // The wait shows nothing for its first SV_GATE_SHOW_MS (a ready chain just starts); then the button is a ✕ in a ring that
+  // fills by svReady's done / total
+  const SV_GATE_SHOW_MS = 300;
   function svGateCancel() {
-    if (!SV.gate) return;
-    clearTimeout(SV.gate.timer);
+    const g = SV.gate;
+    if (!g) return;
+    clearTimeout(g.timer);
+    if (g.toast) { g.toast.querySelector('.toast-x') ? g.toast.querySelector('.toast-x').click() : g.toast.remove(); }
     SV.gate = null;
     svGateSync();
+    svPlaySync();
   }
   function svGateSync() {
     const E = SV.els, g = SV.gate;
     if (!E || !E.play) return;
-    E.play.toggleAttribute('aria-busy', !!g);
-    if (g) {
-      const r = svReady();
+    const shown = !!g && g.shown;
+    E.play.toggleAttribute('aria-busy', shown);
+    if (shown) {
+      const r = svReady().parts, d = (r.programs ? r.programs.done : 0) + (r.warm ? r.warm.done : 0), t = (r.programs ? r.programs.total : 0) + (r.warm ? r.warm.total : 0);
       E.play.dataset.wait = g.hung ? 'hung' : 'busy';
-      E.play.style.setProperty('--wait', r.total ? String(r.done / r.total) : '0');
-    } else { delete E.play.dataset.wait; E.play.style.removeProperty('--wait'); }
+      E.play.style.setProperty('--wait', String(t ? d / t : 0.25));
+      E.play.setAttribute('aria-label', $t('Cancel'));
+      E.play.setAttribute('aria-description', $t('Preparing the glide…'));
+      E.play.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
+      if (E.play.dataset.on !== 'wait') { E.play.dataset.on = 'wait'; E.play.textContent = '✕'; }
+    } else { delete E.play.dataset.wait; E.play.style.removeProperty('--wait'); E.play.removeAttribute('aria-description'); if (E.play.dataset.on === 'wait') delete E.play.dataset.on; }
   }
   function svGateTick() {
     const g = SV.gate;
     if (!g) return;
     if (svPlanes().length < 2) { svGateCancel(); return; }
     if (!svGateNeeded()) { svGateCancel(); svPlayNow(); return; }
-    if (!g.hung && performance.now() - g.t0 > SV_GATE_HANG_MS) {
+    const t = performance.now() - g.t0;
+    if (!g.shown && t >= SV_GATE_SHOW_MS) {
+      g.shown = true;
+      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
+    }
+    if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
-      if (SV.els.live) SV.els.live.textContent = $t('Still preparing. Press Play to try again.');
+      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateCancel(); svPlay(); }, false, { sticky: true });
+      if (g.toast) g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateCancel() }, $t('Cancel')));
     }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }
   function svPlay() {
     if (SV.play || svPlanes().length < 2) return;
-    if (SV.gate) { if (SV.gate.hung) svGateCancel(); else return; }
+    if (SV.gate) return;
     if (svGateNeeded()) {
-      SV.gate = { t0: performance.now(), timer: 0, hung: false };
+      SV.gate = { t0: performance.now(), timer: 0, hung: false, shown: false, toast: null };
       svPrestartSoon(0);
-      if (SV.els.live) SV.els.live.textContent = $t('Preparing…');
       svGateTick();
       return;
     }
