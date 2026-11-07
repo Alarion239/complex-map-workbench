@@ -950,9 +950,9 @@
   // (on the Landscape the sheets are opaque: the slider is there, disabled, after the Landscape's own controls, and its tip says so)
   function opacityScrub(idSuffix, land) {
     const rng = h('input', { type: 'range', class: 'sv-opacity', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, 'aria-label': $t('Opacity'), oninput: (e) => setFillOpacity(+e.target.value) });
-    if (land) { rng.disabled = true; rng.setAttribute('aria-disabled', 'true'); }
     const tip = land ? $t('The Landscape draws its sheets opaque; opacity applies to the plane.') : $t('How much the layers behind show through where the picture covers a point more than once.');
-    const row = h('label', { class: 'fader-row compact', 'data-tip': tip }, h('span', { class: 'fl' }, $t('Opacity')), rng, h('span', { class: 'fval mono' }));
+    if (land) { rng.disabled = true; rng.setAttribute('aria-disabled', 'true'); rng.setAttribute('aria-description', tip); }
+    const row = h('label', { class: 'fader-row compact' + (land ? ' is-disabled' : ''), 'data-tip': tip }, h('span', { class: 'fl' }, $t('Opacity')), rng, h('span', { class: 'fval mono' }));
     syncOpacityRange(rng);
     return row;
   }
