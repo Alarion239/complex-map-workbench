@@ -131,6 +131,35 @@ n++;
   await grab('figCam link');
 }
 
+// figCam names its camera (`of`): a link saved while the steps view shows the z-globe carries camL and opens on camL; a figCam
+// without `of` (a classic-saved link, the Landscape's) moves cam only and leaves camL where it was
+n++;
+{
+  const GLOBE = { ...XY, rightMode: 'image', leftSphere: true };
+  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+  const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
+  const open = async (figCam) => {
+    const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
+    await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
+    await reloadedFigure('Opened the figure from the link.');
+  };
+  const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
+  await open(base);   // no `of`: the Landscape's camera
+  const land0 = await camsOf();
+  const sph = { yaw: 0.7, pitch: 0.35, d: 1.4, tx: 0.05, ty: -0.15, of: 'sphere' };
+  await open(sph);
+  const got = await camsOf();
+  const { of, ...sphCam } = sph;
+  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam), got);
+  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam) && !near(got.cam, base), got);
+  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base), land0);
+  ok('figCam without `of`: camL is untouched', !near(land0.camL, base), land0);
+  const out = await ev('__cmwFigureState().figCam');
+  info['figCam written on the globe'] = out;
+  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam), out);
+  await grab('figCam of');
+}
+
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
 n++;
 {
