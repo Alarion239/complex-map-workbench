@@ -735,6 +735,10 @@
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
         continue;
       }
+      // (the steps view's mask while its SphereMesh is still being built: what is drawn below stands in for it, so the
+      // frame is pending and the job's end draws it again; a frame drawn while the pointer or a glide is moving the
+      // view is not: the job waits for the move to end)
+      if (smd && (!smd.e || smd.e.data.n) && smRole === 'SV' && !interacting() && !SV.anim && !(SV.drag && SV.drag.moved) && GLR.markPending) GLR.markPending();
       let smOld = null, smOut = null;
       if (smd && smd.old && smRes(smd.old)) {
         const so = GLR.standInOf(smd.old.guardBox, pane.view, pane.dpr);
