@@ -13,7 +13,9 @@
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
   // two more steps on the chain (sine, exponential) and the script that undoes them
-  const grow = async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } };
+  const grow = async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); }
+    // (the "step added" toasts are not part of the state: they would sit over the sheet)
+    await ev(`(() => { for (const t of document.querySelectorAll('#toastHost > *')) t.remove(); return 1; })()`); };
   const GROWN = `document.querySelectorAll('#pipeline .card:not(.region-card)').length >= 4`;
   const SHRINK = `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()`;
   const STATES = [
