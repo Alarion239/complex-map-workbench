@@ -50,6 +50,9 @@
   const SV_FADE_U = 0.01;
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
+  // which way the shown plane is painted: 'pull' on a coloured plane (the colour is pulled back through the map), 'push' past it
+  // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
+  const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
   // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
   // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
