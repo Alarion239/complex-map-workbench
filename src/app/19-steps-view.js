@@ -2187,7 +2187,7 @@
     // (the room is the rail's with "+ Add function" folded, which svFitStrip does when the names would not fit beside its words)
     // (the rail's room is what it has with no centring margin, svCentreRail's)
     const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
-    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
+    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0, E.centreLetters ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
@@ -2209,7 +2209,7 @@
     const names = measure(false), letters = measure(true);
     const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
     const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
-    const mode = fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
+    const mode = E.centreLetters ? SV_RAIL_LETTERS : fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
     E.railMode = mode;
     E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
@@ -2263,9 +2263,9 @@
       add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
       return;
     }
-    // (the whole order applies to a step shown alone, whose pill and planes need the room; a chain keeps Speed and Loop on the strip,
+    // (the whole order applies to a step shown alone and to a one-step chain, whose thread is short enough to centre; a chain keeps Speed and Loop on the strip,
     // and its thread gives way by the steps' own widths, svFitRail's)
-    if (!E.strip.querySelector('.sv-whole-pin')) {
+    if (!E.strip.querySelector('.sv-whole-pin') && E.track.querySelectorAll('.sv-step').length !== 1) {
       const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
       apply(0);
       if (E.addLabelW != null) add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
@@ -2285,6 +2285,7 @@
     // (and the rail's width, and the width a thread centred on the strip has: the strip beside the wider side group)
     const measure = (lv) => {
       apply(lv);
+      svFoldPlay(lv >= SV_FOLD_PLAY);   // (Speed and Loop where this level has them, so the side groups are measured as they will be)
       const sr = E.strip.getBoundingClientRect(), rr = E.rail.getBoundingClientRect();
       const wasL = parseFloat(E.rail.style.marginLeft) || 0, wasR = parseFloat(E.rail.style.marginRight) || 0;
       const inL = sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), inR = sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
@@ -2295,6 +2296,10 @@
     for (let lv = 0; lv <= top; lv++) ms.push(measure(lv));
     // (the first level the thread centres at; else the first it fits the rail at; else every level, the rail scrolling)
     let lv = ms.findIndex((m) => m.w <= m.centred);
+    // (a one-step thread whose names do not centre but whose letters do: the chips take their letters, svFitRail's)
+    const lettersAt = lv < 0 && E.track.querySelectorAll('.sv-step').length === 1 ? ms.findIndex((m) => m.wl <= m.centred) : -1;
+    if (lettersAt >= 0) lv = lettersAt;
+    E.centreLetters = lettersAt >= 0;
     if (lv < 0) lv = ms.findIndex((m) => m.w <= m.rail);
     if (lv < 0) lv = ms.findIndex((m) => m.wl <= m.rail);
     if (lv < 0) lv = top;
