@@ -219,4 +219,17 @@ ok(`mixed paths: the frame is within ${100 * MIXED_DIFF} % of the all-exact fram
 await shot('p3s_mixed');
 await ev('__cmwForceForward([]); 1'); await wait();
 
+// ---- the all-mesh frame against the all-exact one (both shapes forced forward): the carried globe is drawn on the unit
+// sphere, so the line work (silhouette, graticule, region rims) lands on the same pixels as the exact pass's
+const MESH_DIFF = 0.005;
+await globe('p3accr', [H, MIXED_DISC], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -0.35, yaw: -0.9, dist: 8 });
+await ev('__cmwSet("pattern", "checker"); __cmwSet("alpha", 0.85); 1'); await wait();
+await grab('L'); await ev('window.__p3Ex = window.__p3grab.L; 1');
+await ev('__cmwForceForward(["s1", "s2"]); 1'); await wait();
+await grab('L');
+R.meshDiff = await ev(`(() => { const A = window.__p3Ex, B = window.__p3grab.L; let d = 0, n = 0; for (let k = 0; k < A.length; k += 4) { n++; if (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2]) > ${FILL_DIFF}) d++; } return { d, n, share: d / n }; })()`);
+ok(`all-mesh frame: within ${100 * MESH_DIFF} % of the all-exact frame`, R.meshDiff.share <= MESH_DIFF, R.meshDiff);
+await shot('p3s_allmesh');
+await ev('__cmwForceForward([]); 1'); await wait();
+
 return { pass: fails.length === 0, fails, results: R };
