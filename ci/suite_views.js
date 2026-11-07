@@ -239,6 +239,7 @@ const VIEWS = {
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': port('words', 'what is left of it asks for things the steps view does not have yet: the playback readout in words, the draw-tool chip while a deformation is open, the shape keys (⌘D, arrows, ⌘[) and the chain card\'s right-click menu, the empty chain\'s Add function not over the picture with its tooltip words and the plane\'s title whole beside it, and the plane\'s pattern key and target note (steps_head_cmd asks the head\'s row, style buttons, scope and surface only); its phone legs wait for the phone work'),
+  'ux165_learn_classic_cmd.js': classic('the classic views\' learn checks: Y\'s pane head (the pattern key, option bar, target note, the empty chain\'s Add function), the deformation\'s readout, play button, draw chip and Video format, the Shapes list\'s shape keys and the right-click menus of the Shapes rows and chain cards; the steps view has none of these'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the plot, above the strip'),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
