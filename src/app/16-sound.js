@@ -42,6 +42,7 @@
       render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
       updateDraftChips, zerosPolesTimed,
       get S() { return S; },
+      get stepsView() { return SV.on; },
       get TH() { return TH; },
       get built() { return built; },
       get chainSig() { return chainSig; },

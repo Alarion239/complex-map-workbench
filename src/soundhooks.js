@@ -126,7 +126,7 @@ const SoundHooks = (() => {
     // the keyboard probe: the X plane takes the focus while sound is on
     if (A.paneL) {
       const cv = A.paneL.ocanvas;
-      if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown ArrowLeft ArrowRight Q Z O D Enter L'); }
+      if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', (A.stepsView ? 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight' : 'ArrowUp ArrowDown ArrowLeft ArrowRight') + ' Q Z O D Enter L'); }
       else if (!on && cv.hasAttribute('tabindex')) { cv.removeAttribute('tabindex'); cv.removeAttribute('aria-keyshortcuts'); }
     }
     if (!(on && s.sonify)) { sndVoiceOff(true); sndCurveOff(); }
@@ -1260,8 +1260,10 @@ const SoundHooks = (() => {
     return L;
   }
   function sndKey(e) {
-    if (!A.sndP.on || !SND || !snd.kbd || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!A.sndP.on || !SND || !snd.kbd || e.ctrlKey || e.metaKey) return;
     const k = e.key, done = () => { e.preventDefault(); e.stopPropagation(); };
+    // (in the steps view ← → step the chain, so the probe's arrows are Alt / Option + arrow; the other keys take no Alt)
+    if (/^Arrow/.test(k) ? e.altKey !== A.stepsView : e.altKey) return;
     const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
     const st0 = sndStep();
     if (arrows[k]) {
@@ -1335,7 +1337,7 @@ const SoundHooks = (() => {
       sndKeyStart();
       snd.kloop = [[snd.kz.re, snd.kz.im]];
       if (A.sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
-      sndSay($t('Loop started. Move with the arrow keys; Enter closes it.'));
+      sndSay(A.stepsView ? $t('Loop started. Move with Alt + the arrow keys; Enter closes it.') : $t('Loop started. Move with the arrow keys; Enter closes it.'));
       return;
     }
     if (kl === 'l') {
