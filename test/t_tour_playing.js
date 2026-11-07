@@ -14,7 +14,7 @@ const ok = (name, cond, got) => { n++; if (!cond) fails.push({ name, got }); };
 const SV = read('src/app/19-steps-view.js');
 const body = (name) => { const m = SV.match(new RegExp(`\\n  function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n  \\}\\n`)); return m ? m[0] : ''; };
 
-ok('svPlay sends play-started', /tourEmit\('play-started'/.test(body('svPlay')));
+ok('svPlayNow sends play-started', /tourEmit\('play-started'/.test(body('svPlayNow')));
 
 ok('svSetLoop sends loop-changed with the new state', /tourEmit\('loop-changed', \{ on/.test(body('svSetLoop')));
 

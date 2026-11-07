@@ -297,11 +297,13 @@ float wabs(vec2 w) {
   // thread, over 50 with the stage-0 inverse pass's start (P3 review). The app calls this when a switch to Sphere is
   // coming (the pointer over a Sphere control, or the switch itself, a frame ahead of its draw): the links run in
   // parallel, and the first use reads a finished one or waits for the slowest only. -> the number started
+  const staticWanted = new Set();
   function prestart(names) {
     if (!ok || lost || !pcExt) return 0;
     let n = 0;
     for (const name of names) {
       const d = DEFS[name], id = name + '|static';
+      if (d && !d.chain) staticWanted.add(name);
       if (!d || d.chain || progs.has(id)) continue;
       const e = { id, name, key: 'static', mode: 0, chain: false, ch: null, state: 'pending', used: ++useClock, side: false };
       progs.set(id, e);
@@ -351,8 +353,17 @@ float wabs(vec2 w) {
   // transform feedback, the colour plot and the pull-backs, in modes 0 (a plane) and 1 (a step's homotopy))
   // (without the extension a link blocks: they are linked one at a time in idle time
   // instead, so the block lands before the first glide rather than in it)
+  // the [name, mode] programs prestartNames was asked for, per chain key (progStatus counts them: a caller's list
+  // is the one place a name is written); the chains before the last few are forgotten
+  const wanted = new Map();
+  function noteWanted(names, modes) {
+    let w = wanted.get(cur.key);
+    if (!w) { w = new Map(); wanted.set(cur.key, w); if (wanted.size > PROG_KEEP + 2) wanted.delete(wanted.keys().next().value); }
+    for (const n of names) for (const m of modes) w.set(n + '|' + m, [n, m]);
+  }
   function prestartNames(names, modes) {
     if (!ok || lost || sideMode || !cur.info) return 0;
+    noteWanted(names, modes);
     if (!pcExt) {
       const todo = [];
       for (const name of names) for (const m of modes) if (DEFS[name]) todo.push([name, m]);
@@ -375,6 +386,68 @@ float wabs(vec2 w) {
     }
     if (n) schedulePoll();
     return n;
+  }
+  // How far the current chain's programs that prestartNames was asked for have come: {done, total}. done: linked (or
+  // failed: nothing more will come of it); a program not started counts in total only. The chain's inverse programs
+  // (the exact images', started at their first use) that are still compiling are counted in total as well, so the
+  // answer is complete only when nothing of the chain is left linking
+  function progStatus() {
+    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
+    const w = wanted.get(cur.key), ids = [];
+    // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
+    if (!w) return { done: 0, total: 1 };
+    for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
+    for (const name of staticWanted) ids.push(name + '|static');
+    const extra = [];
+    for (const e of progs.values()) if (e.inv && !e.side && e.chk === cur.key && e.state === 'pending') extra.push(e.id);
+    const r = warmCount([['chain', ids]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
+    return { done: r.done, total: r.total };
+  }
+  // ---- what a chain owns ----
+  // A chain's GPU and CPU state is its programs (forward, and the inverse ones, which carry the chain's key as chk), its
+  // cached transform-feedback evaluations (chk), its prestart list and its version record (hist). freeChain deletes all
+  // of it; the current chain and the side chains are never freed.
+  function dropProg(e) {
+    if (e.p) gl.deleteProgram(e.p);
+    if (e.vs) gl.deleteShader(e.vs);
+    if (e.fs) gl.deleteShader(e.fs);
+    progs.delete(e.id);
+  }
+  function freeChain(key) {
+    if (!key || key === cur.key) return;
+    for (const e of [...progs.values()]) {
+      if (e.side || (e.chain ? e.key : e.chk) !== key) continue;
+      dropProg(e);
+    }
+    wanted.delete(key);
+    const i = hist.findIndex((h) => h.key === key);
+    if (i >= 0) hist.splice(i, 1);
+    for (const e of [...cacheAll.keys()]) if (e.chk === key) freeEntry(e);
+  }
+  // Every chain but the current one is freed at the next setChain: the user discarded them (an example or a new scene
+  // replaced the chain), so none of them can be drawn again
+  let discardPending = false;
+  const discardChains = () => { discardPending = true; };
+  // the keys of every chain that owns a program, a cached evaluation, a prestart list or a version record
+  function chainKeys() {
+    const keys = new Set(hist.map((h) => h.key));
+    for (const k of wanted.keys()) keys.add(k);
+    for (const e of progs.values()) if (!e.side && (e.chain || e.inv)) keys.add(e.chain ? e.key : e.chk);
+    for (const e of cacheAll.keys()) if (e.chk) keys.add(e.chk);
+    return keys;
+  }
+  function dropOtherChains() {
+    discardPending = false;
+    for (const k of chainKeys()) freeChain(k);
+  }
+  // What the chains own, for the tests: the chain keys that own anything, and the counts of what they own
+  function chainStats() {
+    const n = { hist: hist.length, wanted: wanted.size, programs: 0, inverse: 0, cache: 0 };
+    for (const e of progs.values()) if (!e.side) { if (e.chain) n.programs++; else if (e.inv) n.inverse++; }
+    for (const e of cacheAll.keys()) if (e.chk) n.cache++;
+    const keys = chainKeys();
+    if (cur.info) keys.add(cur.key);
+    return Object.assign(n, { keys: [...keys].sort(), cacheBytes });
   }
   // the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
@@ -509,10 +582,7 @@ float wabs(vec2 w) {
     list.sort((a, b) => a.used - b.used);
     for (let i = 0; i < list.length - ((sideMode ? SIDE_KEEP : PROG_KEEP) - 1); i++) {
       const e = list[i];
-      if (e.p) gl.deleteProgram(e.p);
-      if (e.vs) gl.deleteShader(e.vs);
-      if (e.fs) gl.deleteShader(e.fs);
-      progs.delete(e.id);
+      dropProg(e);
     }
   }
   function schedulePoll() { if (!pollT) pollT = setTimeout(pollCompiles, 16); }
@@ -1206,7 +1276,7 @@ float wabs(vec2 w) {
       if (cacheBytes + bytes <= CACHE_BYTES) break;
       if (now - e0.t > 250) freeEntry(e0);
     }
-    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L };
+    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L, chk: P.ch.key };
     use(P, map);
     originUniforms(P, res.org);
     const vao = isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L);
