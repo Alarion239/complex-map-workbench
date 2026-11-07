@@ -1005,7 +1005,7 @@
     // cells per side: about the plain landscape's cell count in all, at least 96 per side
     const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
     let M = Math.max(Math.min(N - 1, 96), Math.floor(Math.sqrt(2 * (N - 1) * (N - 1) / K)));
-    M = Math.max(8, Math.min(M, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
+    M = Math.max(8, Math.min(M, 223, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
     const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, morphKey(mo), sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
