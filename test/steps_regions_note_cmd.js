@@ -3,6 +3,8 @@
 // - colour plane w₁ (set on w₁, the view back on z): both say "phase of w₁";
 // - the note follows the language (Russian).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// (ms to let a pop-up or a sheet finish opening before its note is read)
+const POP_FLOOR = 400, SHEET_FLOOR = 500;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'svrn' + Date.now();
@@ -25,19 +27,20 @@ const note = () => ev(`(() => { const n = document.querySelector('#regionsBox > 
 const desk = async (lang, T) => {
   await open(1440, 900, false, lang, T);
   await ev(`document.querySelector('.pane-head .opts-btn').click(); 1`);
-  await settled({ floor: 400 });
+  await settled({ floor: POP_FLOOR });
   const t = await note();
   await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
   return t;
 };
-ok('colour plane z: the ⋯ pop-up says phase of z', /\bz\b/.test(await desk('en', 0) || '') , null);
+const t0 = await desk('en', 0);
+ok('colour plane z: the ⋯ pop-up says phase of z', /phase of z,/.test(t0 || ''), t0);
 const t1 = await desk('en', 1);
 ok('colour plane w₁: the ⋯ pop-up says phase of w₁', /phase of w₁,/.test(t1 || ''), t1);
 const r1 = await desk('ru', 1);
 ok('in Russian it names w₁ too', /фазе w₁/.test(r1 || ''), r1);
 await open(390, 800, true, 'en', 1);
 await ev(`document.querySelector('.ph-dsp').click(); 1`);
-await settled({ floor: 500 });
+await settled({ floor: SHEET_FLOOR });
 const p1 = await note();
 ok('colour plane w₁: the phone Display sheet says phase of w₁', /phase of w₁,/.test(p1 || ''), p1);
 info.notes = { t1, r1, p1 };

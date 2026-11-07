@@ -89,7 +89,7 @@ const VIEWS = {
   'steps_colour_pick_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
-  'steps_regions_note_cmd.js': steps(),
+  'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
