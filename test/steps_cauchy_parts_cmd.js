@@ -73,4 +73,27 @@ const ti = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
 ok('off z: the title of plane z keeps the Cauchy subject', /^Cauchy integral over /.test(ti.role), ti);
 const h = await ev(`(() => { __cmwLegend(); const c = document.querySelector('.legend-chip canvas'); return c ? c.height / 2 : -1; })()`);
 ok('off z: the key is one line of text', h > 0 && h <= KEY_LINE_MAX, h);
+// a plane past z: the Colouring pop-up carries the parts control and the note, and a choice there changes the carried colour's setting
+const popParts = () => ev(`JSON.stringify((() => { const p = document.querySelector('.cp-pop'); if (!p) return null; const seg = p.querySelector('#cauchySeg'), n = p.querySelector('.foot-note'); return { seg: !!seg, buttons: seg ? [...seg.querySelectorAll('button')].map((b) => ({ v: b.dataset.v, on: b.classList.contains('on'), disabled: b.disabled, tip: b.dataset.tip || '' })) : [], note: n ? n.textContent : '' }; })())`).then(JSON.parse);
+const openPop = async () => {
+  await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
+  await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
+  await ev(`document.querySelector('.pane-head .pat-btn').click(); 1`);
+  await settled({ until: '!!document.querySelector(".cp-pop")', max: 5000 });
+};
+await open(ns, stateOf('z+\\frac{1}{z}'));
+await openPop();
+const f = await popParts();
+info.pop = f;
+ok('past z: the colouring pop-up has the parts control, three choices, enabled', f && f.seg && f.buttons.length === 3 && f.buttons.every((x) => !x.disabled), f);
+ok('past z: the pop-up note names f₊ and f₋', f && /f₊/.test(f.note) && /f₋/.test(f.note), f);
+await ev(`document.querySelector('.cp-pop #cauchySeg button[data-v="out"]').click(); 1`);
+await settled({ floor: 400 });
+const g = await popParts();
+ok('past z: choosing a part in the pop-up checks it and keeps the pop-up open', g && g.buttons.some((x) => x.v === 'out' && x.on), g);
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+await open(ns2, stateOf('z^2-1'));
+await openPop();
+const k = await popParts();
+ok('past z, no pole inside: the pop-up parts are disabled with the reason', k && k.seg && k.buttons.every((x) => x.disabled && x.tip === NO_POLE), k);
 return { pass: !fails.length, fails, info };
