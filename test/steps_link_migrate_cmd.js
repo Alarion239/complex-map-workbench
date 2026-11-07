@@ -16,6 +16,22 @@ const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.
 const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 const openAt = async (url) => { await go(url); await settled({ max: 30000, until: READY }); };
+// A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
+// settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
+// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read. Any
+// other error still fails the suite; the deadline is 30 s.
+const NAV = /navigated or closed/;
+const reloadedFigure = async (toastText) => {
+  const until = `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
+  for (let i = 0; i < 120; i++) {
+    let r = null;
+    try { r = await ev(until); } catch (e) { if (!NAV.test(String(e && e.message || e))) throw e; }
+    if (r && r.__exc && NAV.test(String(r.__exc))) r = null;
+    if (r === true) return;
+    await sleep(250);
+  }
+  throw new Error(`the figure did not open: no "${toastText}" on the reloaded page`);
+};
 const grab = async (name) => { const e = exc(await logs()); if (e.length) errs.push({ name, e: e.slice(0, 3) }); };
 // a link's payload, as the app makes it: #cmw=0.<base64url JSON> or #cmw=1.<base64url of deflate-raw JSON>
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -84,7 +100,8 @@ const FORMS = [
 for (const [name, url] of FORMS) {
   n++;
   const ns = 'lmig' + n + Date.now();
-  await openAt(url(ns));
+  await go(url(ns));
+  await reloadedFigure('Opened the figure from the link.');
   const got = await ev(READ);
   info[name] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`${name}: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
@@ -97,7 +114,7 @@ n++;
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
   await ev(`__cmwPOpen(${JSON.stringify(LINK_STATE)}, 'scene'); 1`);
-  await settled({ max: 30000, until: READY });
+  await reloadedFigure('Opened the scene.');
   const got = await ev(READ);
   info['open a classic state in the page (scene)'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`scene: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
