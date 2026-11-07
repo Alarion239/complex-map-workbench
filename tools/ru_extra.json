@@ -344,6 +344,7 @@
  "<span>In the plane {w}</span>": "<span>В плоскости %{w}</span>",
  "<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane; every later plane and card shows its image, and the <i>z</i>-plane and the planes before it show its preimage, everything the steps between them map into it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.": "<b>Фигуры в плоскости шага.</b> Когда шаг показан отдельно, <i>X</i> — его входная плоскость, <i>w</i><sub><i>k</i>−1</sub>. Инструменты рисуют и там: фигура принадлежит этой плоскости; все следующие плоскости и карточки показывают её образ, а плоскость <i>z</i> и плоскости до неё — её прообраз, всё, что шаги между ними переводят в неё. Список фигур группирует их по плоскостям. Построения выполняются в плоскости <i>z</i>.",
  "Tour options": "Параметры обучения",
+ "Next in {n} s": "Далее через %{n} с",
  "Next step in {n} s.": "Следующий шаг через %{n} с.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Перетаскивание вращает сферу и сдвигает фигуры; пробел вращает; ∞ — северный полюс",
  "Styles belong to the flat Phase view": "Стили относятся к плоскому виду «Фаза»",
@@ -624,8 +625,7 @@
  "On": "Вкл",
  "Off": "Выкл",
  "Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.": "Попробуйте: у шага d/dz ⋯ → «Сдвинуть влево» (Alt+←): картина изменится.",
- "Click + Add function.": "Нажмите «+ Добавить функцию».",
- "Tap + Add function.": "Нажмите «+ Добавить функцию».",
+ "Click Add function.": "Нажмите «Добавить функцию».",
  "Reorder steps": "Порядок шагов",
  "A step's place in the chain decides what every plane after it shows. Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.": "Место шага в цепочке определяет, что показывает каждая плоскость после него. Сдвиньте шаг через его меню ⋯ или клавишами Alt+← и Alt+→ на выбранной метке.",
  "A step's place in the chain decides what every plane after it shows. Move one with its ⋯ menu.": "Место шага в цепочке определяет, что показывает каждая плоскость после него. Сдвиньте шаг через его меню ⋯.",
@@ -700,5 +700,7 @@
  "Moved {name}.": "{name} перемещена.",
  "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её",
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
- "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её."
+ "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
+  "How much the layers behind show through where the picture covers a point more than once.": "Насколько слои позади просвечивают там, где картина покрывает точку больше одного раза.",
+  "The Landscape draws its sheets opaque; opacity applies to the plane.": "Рельеф рисует листы непрозрачными; прозрачность действует на плоскость."
 }
