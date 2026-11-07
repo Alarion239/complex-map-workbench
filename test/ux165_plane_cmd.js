@@ -433,7 +433,7 @@ await section('L86', async () => {
   await clickSel(`.shape[data-id="${id}"] .icon-btn.more`); await settle(200);
   const items = await menuItems();
   ok('UX95 a shape\'s ⋯ has no "Clear shapes"', !items.some((t) => /Clear shapes/.test(t)), items);
-  await ev(`(() => { const b = [...document.querySelectorAll('.menu .mi')].find((x) => x.textContent.trim().startsWith('Color')); if (b) b.click(); return !!b; })()`); await settle(200);
+  await ev(`(() => { const b = [...document.querySelectorAll('.menu .mi')].find((x) => x.textContent.trim().startsWith('Colour')); if (b) b.click(); return !!b; })()`); await settle(200);
   const cols = await menuItems();
   ok('UX95 colours by name: Blue … Slate', cols.includes('Blue') && cols.includes('Slate') && !cols.some((t) => /Preset/.test(t)), cols);
   await closeMenus(); await closeMenus();
