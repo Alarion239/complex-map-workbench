@@ -297,11 +297,11 @@
   function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > MIN_PANE_PX ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
   function svPathsFig() {
     const P = svPlanes(), i = Math.round(SV.g.x);
-    if (!SV.on || (SV.surf !== 'plane' && SV.surf !== 'sphere') || P.length < 2) return null;
+    if (!SV.on || P.length < 2) return null;
     if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
     const src = svPathsSeg(P, i - 1, i, i);
-    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
+    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]), height: svHeightValue(P[i - 1]) };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,

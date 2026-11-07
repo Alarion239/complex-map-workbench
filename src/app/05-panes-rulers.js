@@ -786,7 +786,7 @@
     });
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
+    if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)

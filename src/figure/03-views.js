@@ -773,6 +773,7 @@
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
+    let leg = null;
     if (L && L.MVP && GLR.M4) {
       const proj = (p) => { const c = GLR.M4.apply(L.MVP, p); if (c[3] <= 1e-6) return null; const px = (c[0] / c[3] * 0.5 + 0.5) * L.w, py = (1 - (c[1] / c[3] * 0.5 + 0.5)) * L.h; const ii = px * r.w / L.w, jj = py * r.h / L.h; return [x + (ii - c0) * k * scale, top + (jj - d0) * k * scale]; };
       const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
@@ -809,8 +810,22 @@
       edge(tks(bx.x0, bx.x1), (t) => [Xw(t), sy * ay, z0], [0, sy], `\\operatorname{Re} ${v}`);
       edge(tks(bx.y0, bx.y1), (t) => [sx * ax, Yw(t), z0], [sx, 0], `\\operatorname{Im} ${v}`);
       if (tk) items.push(`<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>`);
+      if (o.sv) {
+        const sv = o.sv, onBox = (q) => q.re >= bx.x0 && q.re <= bx.x1 && q.im >= bx.y0 && q.im <= bx.y1;
+        // a point of the path at the height of its path: the Landscape carries a point of plane s at the height of its image
+        // under the height map, which the glide does not change
+        const ofZ = (z) => { const v = sv.height(z); return Number.isFinite(v) ? L.heightOf(v) : null; };
+        const place = (z, hz) => (q) => (hz != null && onBox(q) ? proj([Xw(q.re), Yw(q.im), hz]) : null);
+        const whole = (z) => { const hz = ofZ(z), f = place(z, hz); for (let i = 0; i <= 12; i++) if (!f(sv.Fat(i / 12)(z))) return false; return true; };
+        leg = await A.svPathsMorph({ box: bx, w: SV_PATHS_PICK_W, h: SV_PATHS_PICK_W * (bx.y1 - bx.y0) / (bx.x1 - bx.x0), alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
+        if (!leg || (o.alive && !o.alive())) return null;
+        const zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
+        const its = [];
+        for (const z of zs) its.push(...pathItems([z], sv.Fat, sv.m, place(z, ofZ(z))));
+        items.push(A.pathsSvg(its, { u: 1 }));
+      }
     }
-    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };
+    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art, svPaths: !!o.sv, svLand: !!o.sv, sentence: leg ? leg.sentenceTex || '' : '' } };
   }
 
   // ---------- (4) The deformation: a filmstrip of H_t, or the one-plane paths figure ----------
@@ -945,6 +960,7 @@
   // gray outline, and the paths those of the last step)
   async function figPaths(o, P, W, T) {
     if (o.sv && o.sv.surf === 'sphere') return figGlobePaths(o, P, W, T);
+    if (o.sv && o.sv.surf === 'land') return figLand(o, P, W, T);
     const st = A.state(), sv = o.sv || null;
     const [tp, lp] = T;
     const m = sv ? sv.m : A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = sv ? A.svBox() : A.screenBox('R');

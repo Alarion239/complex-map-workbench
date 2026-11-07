@@ -531,13 +531,13 @@
     if (!Calc.zerosPoles) return [];
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + ms }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
+  // the width (pt) at which the steps view's paths are picked on the sphere and the Landscape: wide enough that, of the paths
+  // picked over the whole source window, several lie wholly in view
+  const SV_PATHS_PICK_W = 600;
   // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
   // t -> H_t(z) of a few points (the point shapes, else points of the boundaries) with heads at F(z)
   // (o.sv, the steps view's A.svPathsFig() on the sphere: the shown plane's globe, the paths those of the step that leads to
   // it, their starts chosen in the camera's window as on the plane, and the caption the plane's own then the paths' sentence)
-  // the width (pt) at which the steps view's paths are picked for the sphere: wide enough that, of the paths picked over the
-  // whole source window, several lie wholly on the camera's side
-  const SV_PATHS_PICK_W = 600;
   async function figGlobePaths(o, P, W, T) {
     const [tp] = T;
     const sv = o.sv || null, d = sv ? { m: sv.m } : A.defo(), m = d.m, st = A.state();
