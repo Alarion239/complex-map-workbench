@@ -1436,8 +1436,22 @@
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
       return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, behind: d.behind || 0 };
     });
-    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
-    for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
+    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh. Below full
+    // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
+    // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
+    // layers cannot be drawn, the front layer alone is drawn)
+    const a = svOpacity();
+    let layers = a < 0.999 && !!GLR.carryLayers;
+    for (let pass = 0; pass < 2; pass++) {
+      let ready = true;
+      for (let i = 0; i < n; i++) {
+        sts[i].peel = layers; sts[i].prep = null;
+        if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
+      }
+      if (ready) break;
+      if (!layers) return false;
+      layers = false;
+    }
     const drawAll = () => {
       for (let i = 0; i < n; i++) {
         const d = lay[i], st = sts[i];
@@ -1449,9 +1463,7 @@
       if (tail) GLR.carryDepthEnd();
       return true;
     };
-    // (below full opacity every covering layer shows, as the exact pass composites them: GLR.carryLayers draws the meshes
-    // once per layer; null: it cannot, nothing was drawn, and the front layer alone is)
-    const a = svOpacity(), layered = a < 0.999 && GLR.carryLayers ? GLR.carryLayers(a, drawAll) : null;
+    const layered = layers ? GLR.carryLayers(a, drawAll) : null;
     return layered === null ? drawAll() : layered;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the

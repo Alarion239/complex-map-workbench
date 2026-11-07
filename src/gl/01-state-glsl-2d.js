@@ -754,8 +754,7 @@ float preKeyDepth(vec2 sa, bool stepped) {
   return x / (KEY_SMAX + 1.0);
 }
 `;
-  const PEEL_DROP = (d) => `  if (uPeelOn > 0 && ${d} <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n`;
-  const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n' + PEEL_DROP('kd') + '  gl_FragDepth = kd;\n';
+  const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
@@ -1241,11 +1240,11 @@ void main() {
   // edge, the grid's identity)
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : PEEL_DECL}${centroid ? 'centroid in' : 'in'} vec2 vP;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : PEEL_DROP('gl_FragCoord.z')}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
   // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
@@ -1307,8 +1306,10 @@ void main() {
   // torn across a cut meets the other side is the cut's image, pixel for pixel; the depth, the sheet key of the
   // fragment's source point, then lets the colour program draw only the fragment kept in front. One chain (mapPoint),
   // none of the colour's: a fragment stage with two inlined chains links many times slower
-  const CARRY_MASK_FS = `
-centroid in vec2 vP; in vec2 vW;
+  // (key: the depth is the sheet key of the fragment's source point, as CARRY_FS's with a key, for the carried colour's
+  // layers: GLR.carryLayers)
+  const CARRY_MASK_FS = (key) => `
+${key ? PRE_KEY_DECL : ''}centroid in vec2 vP; in vec2 vW;
 flat in float vWTol; flat in float vTorn;
 out vec4 o;
 void main() {
@@ -1316,7 +1317,7 @@ void main() {
     vec2 dw = mapPoint(vP) - vW;
     if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;
   }
-  o = vec4(0.0);
+${key ? '  vec2 sa = vP;\n' + PRE_KEY : ''}  o = vec4(0.0);
 }
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the

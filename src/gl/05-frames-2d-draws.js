@@ -413,7 +413,7 @@
   function carryLayersReserve(alpha) {
     if (!ok || peelBad) return;
     const n = Math.min(PEEL_MAX, invK(alpha));
-    if (n >= 2 && program('carryLayers')) peelTarget(n);
+    if (n >= 2 && program('carryLayers')) { peelTarget(n); prestartCarry(true); }
   }
   // draw() issues the frame's carried draws (every mesh, in one shared depth) and returns whether they all drew.
   // -> null: layers cannot be drawn here (opacity >= 1, one layer, no target or program yet): nothing was drawn, the
@@ -465,10 +465,12 @@
   const carryKinds = () => (cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : []);
   // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
-  function prestartCarry() {
+  // (peel: the variants of carryLayers, which write the sheet key per fragment)
+  function prestartCarry(peel) {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
-    return prestartNames(clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'], [1]);
+    const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'];
+    return prestartNames(peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names, [1]);
   }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
@@ -481,6 +483,8 @@
   function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
+    // (st.peel: the variants that write the sheet key per fragment, for the layers of carryLayers)
+    const N = (n) => (st.peel ? n + 'P' : n);
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
     // triangles they tear across a cut on their centre's sheet (regionKSCpt, its places from its point pass); without
     // the cache, every triangle
@@ -497,7 +501,7 @@
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     if (e) { e.carry = true; carryTmpT = performance.now(); }
-    let P = e ? program('regionKC', st.map) : null;
+    let P = e ? program(N('regionKC'), st.map) : null;
     // (the fill's places from its point pass, fillPoints: the chain once per point of a torn sub-triangle. The fill never
     // evaluates them itself, so its frames are the point pass's whatever the compiler does with either program; while
     // the pass cannot run (fillPts or the fill still linking) the sheet program stands in, below)
@@ -511,8 +515,8 @@
     };
     let fill = null, fp = null, mask = null;
     if (cuts && P && !carryProbe.noFill) {
-      const Q = program(clip ? 'regionKSCclippt' : 'regionKSCpt', st.map);
-      const QM = Q && masked ? maskOf('regionKSCpt', Q, program) : null;
+      const Q = program(N(clip ? 'regionKSCclippt' : 'regionKSCpt'), st.map);
+      const QM = Q && masked ? maskOf(N('regionKSCpt'), Q, program) : null;
       // (with the mask, the point pass's second run too: the places of the fill's pass 1)
       fp = Q && (!masked || QM) ? fillPoints(res, L, st.map, { e, skip: st.skip || null, kpx: 4 / ((st.view.s || 1) * (st.dpr || 1)), lim: st.lim || 1e30, two: !!QM }) : null;
       if (fp) { fill = Q; mask = QM; }
@@ -520,11 +524,11 @@
     }
     let full = null;
     if (cuts && !fill && !carryProbe.noFill) {
-      P = full = (cache ? linked : program)(clip ? 'regionKSclip' : 'regionKS', st.map);
-      if (P && masked && !(mask = maskOf('regionKS', full, cache ? linked : program))) P = full = null;
+      P = full = (cache ? linked : program)(N(clip ? 'regionKSclip' : 'regionKS'), st.map);
+      if (P && masked && !(mask = maskOf(N('regionKS'), full, cache ? linked : program))) P = full = null;
       if (P) e = null;
     }
-    if (!P) { e = null; P = (cache || cuts ? linked : program)('regionK', st.map); }
+    if (!P) { e = null; P = (cache || cuts ? linked : program)(N('regionK'), st.map); }
     return P ? { L, e, P, fill, fp, full, clip, mask } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)
