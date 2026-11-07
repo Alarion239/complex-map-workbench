@@ -1,34 +1,49 @@
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = `
 uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
+// The height function morphed along a glide (uMorphOn 1): the height of a value w, in units of the block's height uH, is the
+// mix, by uHM (0..1), of its heights in units of each function's own block height (uHMode1, uH1, uMu1 at uHM 0; uHMode2,
+// uH2, uMu2 at 1), so a mix stays within the block as each end does
+uniform int uMorphOn; uniform int uHMode1; uniform int uHMode2; uniform float uH1; uniform float uH2; uniform float uMu1; uniform float uMu2; uniform float uHM;
+vec2 heightWm(vec2 w, int hMode, float uH, float uMu);
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
+  if (uMorphOn == 1) {
+    vec2 a = heightWm(w, uHMode1, uH1, uMu1), b = heightWm(w, uHMode2, uH2, uMu2);
+    return vec2(uH * mix(a.x / uH1, b.x / uH2, uHM), a.y * b.y);
+  }
+  return heightWm(w, uHMode, uH, uMu);
+}
+vec2 heightWm(vec2 w, int hMode, float uH, float uMu) {
   bool nanx = isnan(w.x) || !(w.x < 0.0 || w.x >= 0.0), nany = isnan(w.y) || !(w.y < 0.0 || w.y >= 0.0);
   bool infv = (!nanx && abs(w.x) > 3e38) || (!nany && abs(w.y) > 3e38);
   float mu = uMu > 0.0 ? uMu : 1.0;
   // linear Re / Im (modes 4, 5): the stacked sheets of a covering surface keep their true pitch (atan made plateaus).
   // The block ends at 1.25 H; the landscape's mesh (uHClip > 0) keeps heights up to uHClip H and is clipped at the
   // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block
-  if (uHMode == 4 || uHMode == 5) {
-    float x = uHMode == 4 ? w.x : w.y;
-    bool bad = uHMode == 4 ? nanx : nany;
+  if (hMode == 4 || hMode == 5) {
+    float x = hMode == 4 ? w.x : w.y;
+    bool bad = hMode == 4 ? nanx : nany;
     float lim = uHClip > 0.0 ? uHClip : 1.25;
     return vec2(uH * clamp(x / mu, -lim, lim), bad ? 0.0 : 1.0);
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
-  if (uHMode == 6 || uHMode == 7) {
-    float x = clamp((uHMode == 6 ? w.x : w.y) / mu, -1e30, 1e30), a = abs(x), c = 0.5 / PI;
-    bool bad = uHMode == 6 ? nanx : nany;
+  if (hMode == 6 || hMode == 7) {
+    // (the clamp keeps x finite through the atan; 1e30 is far past any height that matters)
+    float x = clamp((hMode == 6 ? w.x : w.y) / mu, -1e30, 1e30), a = abs(x), c = 0.5 / PI;
+    bool bad = hMode == 6 ? nanx : nany;
     return vec2(uH * sign(x) * (a <= 1.0 ? a : 1.0 + c * atan((a - 1.0) / c)), bad ? 0.0 : 1.0);
   }
-  if (uHMode == 2 || uHMode == 3) {
-    float x = uHMode == 2 ? w.x : w.y;
-    bool bad = uHMode == 2 ? nanx : nany;
+  if (hMode == 2 || hMode == 3) {
+    float x = hMode == 2 ? w.x : w.y;
+    bool bad = hMode == 2 ? nanx : nany;
     return vec2(uH * (2.0 / PI) * atan(clamp(x / mu, -1e30, 1e30)), bad ? 0.0 : 1.0);
   }
   bool bad = (nanx || nany) && !infv;
   float r = infv ? 3e38 : wabs(w);
-  float v = uHMode == 1 ? (4.0 / PI) * atan(min(r / mu, 1e30)) - 1.0 : (2.0 / PI) * atan(log(clamp(r, 1e-37, 3e38)) / 1.4);
+  // (mode 1: |F| over mu, finite to 1e30; mode 0: log |F| over 1.4, the scale that puts |F| = e^1.4 at half the block's height; |F| is
+  // clamped to the float range 1e-37 .. 3e38 so the log is finite)
+  float v = hMode == 1 ? (4.0 / PI) * atan(min(r / mu, 1e30)) - 1.0 : (2.0 / PI) * atan(log(clamp(r, 1e-37, 3e38)) / 1.4);
   return vec2(uH * v, bad ? 0.0 : 1.0);
 }
 `;
@@ -573,18 +588,31 @@ void main() {
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
 }
 `;
-  // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
-  // s), without a height: (place x, y, 0, finite). The sheets keep their heights at plane s, of the stages (s, hT]
-  // (LAND_SHEET_VS, uCarry 1 reads these places). With uPolar (CARRY_Z) the grid is a pole's patch
+  // the carried All sheets' places: the cells' corners of plane s's grid over the box uSrc (uN x uN points; or a pole's
+  // patch, uPolar, CARRY_Z), each sheet's tile laid out as the sheets' heights are (LAND_SHEET_TF_VS: a texel a corner of a
+  // cell, uTileC tiles a row), at its image on that sheet under the glide's map: the branch of the map the sheet's
+  // heights continue (chainSheetHom / chainSheetRange from the cell's centre, with local cuts opposite it), so every
+  // sheet has its own footprint on the plane, as its surface has at rest. Texel: (place x, y, 0, finite)
+  // (LAND_SHEET_VS, uCarry 1 reads these places)
   const LAND_CARRY_PLACE_TF_VS = `
-uniform int uN; uniform vec4 uSrc;
+uniform int uN; uniform vec4 uSrc; uniform int uSheetK; uniform int uTileC; uniform int uTexW; uniform int uSheetB; uniform int uSheetMap[24];
 out vec4 tfOut;
 ` + CARRY_Z + `
+vec2 sheetPlace(vec2 zc, vec2 z, int combo) {
+  if (uMode == 1 || uMode == 3) return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, combo, uSheetB);
+  if (uMode == 0) return chainSheetRange(zc, z, uA, uB, combo);
+  return mapPoint(z);
+}
 void main() {
+  int M = uN - 1, T = 2 * M;
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
-  vec2 q = mapPoint(z);
+  tfOut = vec4(0.0);
+  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+  ivec2 tile = p / T, qq = p - tile * T, cell = qq / 2, cor = qq - cell * 2;
+  int combo = tile.y * uTileC + tile.x;
+  if (combo >= uSheetK) return;
+  vec2 q = sheetPlace(carryZIn(uSrc, vec2(cell) + 0.5), carryZIn(uSrc, vec2(cell + cor)), uSheetMap[combo]);
   tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
 }
 `;
@@ -972,8 +1000,10 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
-// the carried sheets (uCarry 1, the steps view's glide): the grid corners' places under the glide's map (uCP, over the grid
-// of the cells, uN x uN; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
+// the sheets drawn: 0 all, 1 the principal one (surface uPrin), 2 the others
+uniform int uSel; uniform int uPrin;
+// the carried sheets (uCarry 1, the steps view's glide): the cells' corners' places under the glide's map (uCP, laid out
+// as uT1 is; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
 // uCLim on the plane (torn across a cut or a pole of the map) is left out
 // A pole's patch (uPatch 1): the same, over the grid of the patch (CARRY_Z, uPolar), whose cells carry their own heights
 // uCP and uT1 are the patch's too
@@ -1001,7 +1031,8 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     // the vertex's place: the cell's four corners' places by bilinear weights, the tangents of the moved sheet from
     // their differences (the slopes of the height at rest, nrm, carried over) in the block over uCBox
     vec2 f = q.xy / 16.0 - vec2(c);
-    vec4 p00 = texelFetch(uCP, c, 0), p10 = texelFetch(uCP, c + ivec2(1, 0), 0), p01 = texelFetch(uCP, c + ivec2(0, 1), 0), p11 = texelFetch(uCP, c + ivec2(1, 1), 0);
+    ivec2 po = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
+    vec4 p00 = texelFetch(uCP, po, 0), p10 = texelFetch(uCP, po + ivec2(1, 0), 0), p01 = texelFetch(uCP, po + ivec2(0, 1), 0), p11 = texelFetch(uCP, po + ivec2(1, 1), 0);
     vec2 pl = mix(mix(p00.xy, p10.xy, f.x), mix(p01.xy, p11.xy, f.x), f.y);
     vec2 toW = 2.0 * uAspect / uCBox.zw;
     vPos = vec3(((pl - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, q.z);
@@ -1011,7 +1042,7 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     vec3 tx = vec3(dx, -nrm.x / nz * rest.x), ty = vec3(dy, -nrm.y / nz * rest.y);
     if (uPatch == 1) {
       // (a patch's cells are not the plane's grid: the slopes come from the cell's four corners, each at its place)
-      ivec2 o = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
+      ivec2 o = po;
       vec3 P00 = vec3(((p00.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o, 0).x);
       vec3 P10 = vec3(((p10.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 0), 0).x);
       vec3 P01 = vec3(((p01.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(0, 1), 0).x);
@@ -1052,6 +1083,7 @@ void main() {
     s0 = ivec2(sub % n2.x, sub / n2.x);
     c = lstCell(uRefE + en);
   }
+  if ((uSel == 1 && combo != uPrin) || (uSel == 2 && combo == uPrin)) return;
   ivec2 A = ivec2(0), B = tri == 0 ? ivec2(1, 0) : ivec2(1, 1), C = tri == 0 ? ivec2(1, 1) : ivec2(0, 1);
   // the corners of this triangle's (sub-)cell on its sheet: (h, valid, nx, ny), and (positions in 16ths of a cell; a
   // refined corner's, and its value, from the right half of its block). (Two branches, not selects between the two
@@ -1068,17 +1100,20 @@ void main() {
     pA = texelFetch(uRf, o + A + ivec2(2, 0), 0); pB = texelFetch(uRf, o + B + ivec2(2, 0), 0); pC = texelFetch(uRf, o + C + ivec2(2, 0), 0);
   }
   if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5)) return;
+  int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
+  // (the slots after the first belong to the clip polygon: a triangle inside the block uses none, so they leave before
+  // the carried corners' fetches)
+  if (sub > 0 && ${clip ? 'max(max(abs(ta.x), abs(tb.x)), abs(tc.x)) <= 1.25 * uH' : 'true'}) return;
   if (uCarry == 1) {
-    vec4 ca = texelFetch(uCP, c + A, 0), cb = texelFetch(uCP, c + B, 0), cc = texelFetch(uCP, c + C, 0);
+    ivec2 po = ivec2(combo % uTileC, combo / uTileC) * T + 2 * c;
+    vec4 ca = texelFetch(uCP, po + A, 0), cb = texelFetch(uCP, po + B, 0), cc = texelFetch(uCP, po + C, 0);
     if (ca.w < 0.5 || cb.w < 0.5 || cc.w < 0.5) return;
     if (length(ca.xy - cb.xy) > uCLim || length(cb.xy - cc.xy) > uCLim || length(cc.xy - ca.xy) > uCLim) return;
   }
-  int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
   // (a triangle inside the block, every one without linear heights: its own corners, without the clip's polygon,
   // whose arrays the GPU keeps in memory; clipping every triangle took the sheets' draw at the Max mesh to twice the
   // base's, 27 to 38 fps orbiting, r3 review speed-1)
   if (${clip ? 'max(max(abs(ta.x), abs(tb.x)), abs(tc.x)) <= 1.25 * uH' : 'true'}) {
-    if (sub > 0) return;
     vec4 tq = k == 0 ? ta : (k == 1 ? tb : tc), pq = k == 0 ? pA : (k == 1 ? pB : pC);
     emitV(vec3(pq.zw, tq.x), nrmOf(tq), pq.xy, vec3(0.0), k, c, s0, L, combo);
     return;
@@ -1166,7 +1201,7 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol; uniform int uMaskPass; uniform int uExtra; uniform highp sampler2D uPMask;' : ''}
 out vec4 o;
 ${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
@@ -1196,24 +1231,33 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   float wt = smoothstep(1.0, 2.0, length(nf.xy) / max(abs(nf.z), 1e-4));
   vec2 ht = heightW(w);
   if (!(wt > 0.0) || ht.y < 0.5) return w;
-  float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
-  if (uHMode >= 2) {
+  // (a morphed height (uMorphOn) has no closed inverse between its two ends: F stays as it is there, and at an end the
+  // inverse is that end's height function's)
+  if (uMorphOn == 1 && uHM > 0.0 && uHM < 1.0) return w;
+  int hMode = uMorphOn == 1 ? (uHM >= 1.0 ? uHMode2 : uHMode1) : uHMode;
+  float hH = uMorphOn == 1 ? (uHM >= 1.0 ? uH2 : uH1) : uH, hMu = uMorphOn == 1 ? (uHM >= 1.0 ? uMu2 : uMu1) : uMu;
+  // (hc: the height in block units kept a hair inside +-1, where the tangent of the inverse would be infinite)
+  float h = mix(ht.x, vPos.z, wt) / hH, mu = hMu > 0.0 ? hMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
+  if (hMode >= 2) {
     // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
-    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
-    if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
+    // (the tangent's argument stops 1e-3 short of a quarter turn, where it would be infinite)
+    float x = hMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : hMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
+    if (hMode == 2 || hMode == 4 || hMode == 6) w.x = x; else w.y = x;
     return w;
   }
   float r = wabs(w);
   if (!(r > 1e-30 && r < 1e30)) return w;
-  float lr = uHMode == 1 ? log(max(mu * tan(0.25 * PI * (hc + 1.0)), 1e-37)) : 1.4 * tan(0.5 * PI * hc);
+  // (1e-37: the smallest |F| kept, so the log is finite; 1.4: the log map's scale, as heightWm's)
+  float lr = hMode == 1 ? log(max(mu * tan(0.25 * PI * (hc + 1.0)), 1e-37)) : 1.4 * tan(0.5 * PI * hc);
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {
-${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}${sheet ? '  // (a carried frame with All sheets off: uMaskPass 1 marks the places the principal sheet covers, uExtra 1 leaves them to it)\n  if (uMaskPass == 1) { o = vec4(1.0); return; }\n  if (uExtra == 1 && texture(uPMask, vPos.xy / uClipA * 0.5 + 0.5).a > 0.5) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
+  // (1e-9 floors a screen derivative, 0 on a flat face seen edge-on, so the divisions by it never see 0)
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
   float la = ht.y > 0.5${sheet ? ' && uCarryCol == 0' : ''} ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
@@ -1258,8 +1302,10 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile. The carried
-  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it
-${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it (a carried
+  // sheet's vZ is a point of plane s, not of the box uBox of the plane it lands on)
+${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : sheet ? `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  vec2 er = uCarry == 1 ? (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)) : min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
   // where the block's top or bottom clips the surface: the same rim as the domain's edges

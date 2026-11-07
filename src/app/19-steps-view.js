@@ -374,15 +374,30 @@
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
-  const svLandPoleMemo = { key: '', poles: [] };
+  const svLandPoleMemo = { key: '', poles: [] }, svLandBranchMemo = { key: '', pts: [] };
+  // The singular points of the glide's landing map that are not poles (the logarithm's 0, a root's branch point), found
+  // once per carry for t = 1. Along the glide the map is still singular there: its cells stretch and fold about the
+  // point (a power's, z^(1-t), is not smooth at 0 though it is finite) so they are left out, but the pole search at t
+  // finds nothing, as |F| does not grow without bound, so these points carry the patches of the frames before t = 1.
+  function svLandBranchPoints(map, src, E) {
+    if (!(map.t < 1) || (map.mode !== 1 && map.mode !== 3)) return [];
+    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, src.x0, src.x1, src.y0, src.y1]);
+    if (svLandBranchMemo.key === key) return svLandBranchMemo.pts;
+    const Fe = cpuMap(Object.assign({}, map, { t: 1 }));
+    const pts = Fe ? svDrain(svPolesIn(Fe, src, SV_SING_GRID, src, E, true)).filter((p) => !svDrain(svPoleAt(Fe, p, src, E))) : [];
+    Object.assign(svLandBranchMemo, { key, pts });
+    return pts;
+  }
   function svLandPatches(map, src, N, hF, hKey) {
     const F = cpuMap(map);
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
     let poles;
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E, src)) || p);
-    else poles = svDrain(svPolesIn(F, src, 16, src, E, true));
+    else poles = svDrain(svPolesIn(F, src, SV_SING_GRID, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    // (a branch point within 1e-6 of its size of a pole found at this t is that pole: the merge tolerance of svPolesIn)
+    for (const b of svLandBranchPoints(map, src, E)) if (!poles.some((q) => CX.abs(CX.sub(b, q)) < 1e-6 * (1 + CX.abs(b)))) poles.push(b);
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
@@ -716,9 +731,12 @@
     const p = yield* svPeakAt(F, z, big, E);
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
-  const SV_SING_BIG = 10;
+  // (SV_SING_BIG: |F| a singular point's peak must pass; SV_SING_START: the grid value a start's climb to one begins from: a
+  // root's unbounded point between two grid points of a coarse grid shows there as a value of 2 to 3, not past SV_SING_BIG)
+  // (SV_SING_GRID: the grid's points a side in the search for singular points)
+  const SV_SING_BIG = 10, SV_SING_START = 2, SV_SING_GRID = 16;
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  // sing, a start Newton's method does not settle on and where |F| is at least SV_SING_START is climbed to its singular point
   function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
@@ -747,7 +765,7 @@
     const out = [];
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
-      if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
+      if (!p && sing && M[j * (n + 1) + i] >= SV_SING_START) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;

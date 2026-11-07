@@ -614,7 +614,8 @@
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
     const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
     const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
-    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
+    // (a carried frame with All sheets off carries the sheets' branches too, as the one surface the plane at rest is: rest 1)
+    const sheets = (S.sheets || carry) && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW), rest: S.sheets ? 0 : 1 } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svHeightMap(carry.a), svHeightF(carry.a));
@@ -633,7 +634,8 @@
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
     // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
     // and a log window keeps its pitch instead of the compressed height's plates)
-    const fm = carry ? carry.hmap : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
+    let carryMorph = null;
+    const fm = carry ? carry.hmap : focusMap(), si = sheets && !sheets.rest && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
@@ -675,6 +677,19 @@
       const ofPlane = (k, v) => scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v));
       const c = carry ? (() => {
         const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
+        // (linear heights, a glide into a plane with one sheet left: the surface at the start is plane a's frame, whose height
+        // function is the linear one with its scale and boost, at the end plane b's parked frame, whose height function is
+        // the compressed one with the median scale; the sheets' heights are mixed from one to the other over u. A plane that
+        // still has sheets parks with the linear function, the one the frames before it have)
+        if (lin && carry.b != null && sheets && !sheets.rest && sheetUniqOf(svColourMap(carry.b), sheetW).length < 2) {
+          const mb = medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
+          // (eased, flat at both ends: the start's linear heights are unbounded where the map is, so at the end their
+          // share must be negligible for the frame to be the parked one)
+          // (smootherstep: flat in slope and curvature at both ends)
+          const e = carry.u * carry.u * carry.u * (carry.u * (6 * carry.u - 15) + 10);
+          carryMorph = { a: { height: `${S.height}Lin`, scale: lscale * ra.boost, mu: ra.mu }, b: { height: S.height, scale: lscale, mu: mb }, u: e };
+          return { mu: logLerp(ra.mu, mb, e), boost: logLerp(ra.boost, 1, e) };
+        }
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
       })() : scaleOf(fm, box);
       mu = c.mu;
@@ -770,7 +785,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
-      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, morph: carryMorph } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
@@ -787,9 +802,10 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
+    render3D.tickMu = carry ? mu : undefined;   // (a carried frame's labels step in its own scale, which ends at the parked plane's)
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, a: carry.a, b: carry.b, morph: carryMorph, mu, box, sheets: !!info.sheets && !(sheets && sheets.rest), plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
@@ -797,7 +813,7 @@
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.tickMu = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -974,7 +990,7 @@
     let vals;                                     // [value, label], in order of priority
     if (S.height === 'log' || !S.height) vals = [1, 10, 0.1, 100, 0.01].map((m) => [m, fmt(m)]);
     else {
-      const b = Axes.niceStep(medianAbs(box));
+      const b = Axes.niceStep(render3D.tickMu || medianAbs(box));
       vals = (S.height === 'abs' ? [1, 0, 4, 2, 10, 0.5] : [0, 1, -1, 4, -4, 2, -2]).map((m) => [m * b, fmt(m * b)]);
     }
     ctx.strokeStyle = TH.rulerTick;
