@@ -1,5 +1,5 @@
 // The steps view's Landscape with Inside regions: the region's outline on the floor (#1156, ux's ruling on #1174: a thin
-// grey line in the theme's box colour, under the relief), carried by the glide as the surface is. The default page (z, exp,
+// line in the theme's footprint colour, under the relief), carried by the glide as the surface is. The default page (z, exp,
 // Möbius; the region |Im z| < π/2, drawn as its boundary lines Im z = ±π/2):
 // - at rest on plane z and on plane w₁ and held at u = 0.25 and 0.5 between them: the floor pixel under the place of
 //   boundary points of the region (z for plane z; exp z for plane w₁; the glide's map at u between) is the footprint ink in
@@ -16,7 +16,7 @@ const INK_TOL = 12, FOOT_MIN = 1;
 // where the region's boundary points are drawn on the floor in the last frame: places(zs) is a page expression giving
 // the floor place of each boundary point; the answer lists the pane's device pixels of the floor under them
 const hits = (placeExpr) => ev(`(() => {
-  const ink = getComputedStyle(document.documentElement).getPropertyValue('--land-box').trim();
+  const ink = getComputedStyle(document.documentElement).getPropertyValue('--land-footprint').trim();
   const rgb = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
   const cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width, cx = cv.getContext('2d');
   const img = cx.getImageData(0, 0, cv.width, cv.height).data;

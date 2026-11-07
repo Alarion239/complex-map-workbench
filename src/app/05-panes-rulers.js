@@ -771,7 +771,7 @@
       const r = shapeGPU(s);
       if (!r.lineRes) continue;
       const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
-      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landBox), map: omap, cacheKey, width: 1 }
+      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
         : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const info = GLR.drawLandscape({
