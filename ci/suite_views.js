@@ -87,6 +87,7 @@ const VIEWS = {
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
   'steps_colour_pick_cmd.js': steps(),
+  'steps_colour_parity_cmd.js': steps(),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
@@ -240,6 +241,7 @@ const VIEWS = {
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
+  'steps_cauchy_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps(),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
@@ -264,6 +266,8 @@ const VIEWS = {
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': steps({ pin: true }),
+  'steps_paths_sphere_cmd.js': steps({ pin: true }),
+  'steps_paths_sphere_fig_cmd.js': steps({ pin: true }),
   'morphfig_classic_cmd.js': classic('the classic view\'s deformation as one picture: pathsGen\'s selection on the Y pane, the transport and the 3 prototype cases; the steps view\'s paths figure is morphfig_cmd'),
 
   // to port: geometry
