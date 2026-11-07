@@ -330,6 +330,8 @@
   // the deformation transport is open, its homotopy at t
   // ((#366 prototype) the steps view colours the shown plane from the colour plane: the map into it, 19)
   const focusMap = () => (SV.on ? svMap() : endMap());
+  // the map the Cauchy style is drawn of: the whole chain, whichever plane the steps view's thread is parked at (cauchyF is the same map as a function)
+  const cauchyMap = () => (SV.on ? endMap() : focusMap());
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
