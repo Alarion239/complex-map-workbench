@@ -37,11 +37,12 @@ for (const lang of ['', 'ru', 'it']) {
     ok(`${at}: the hidden h1 and the title stay`, p.h1.pos === 'absolute' && p.h1.w <= 2 && /Complex Map Workbench/.test(p.title), p);
     ok(`${at}: the bar does not overflow`, !p.over, p);
     ok(`${at}: every view tab's content (icon and word) is centred in its tile (±1 px)`, p.tabs.length >= 4 && p.tabs.every((t) => Math.abs(t.d) <= 1), p.tabs);
-    // (the four words, Export, Share, Theme and Sound, show together or not at all; where the search has words at all (below) they stay while the four show theirs, because the four fold first)
+    // (the four words, Export, Share, Theme and Sound, show together or not at all; the four fold first, so the search's words are never the ones to go while any of them shows)
     ok(`${at}: Export, Share, Theme and Sound show their words together or not at all`, p.words.every((x) => x === p.words[0]), p.words);
     if (w < 1100) ok(`${at}: under 1100 px the four are icons`, !p.words.some(Boolean), p.words);
     if (w >= 1440) ok(`${at}: the four words show at 1440`, p.words.every(Boolean), p.words);
-    if (w >= 1280 && !lang || w >= 1440) ok(`${at}: the search shows its words`, p.cmd, p);
+    ok(`${at}: none of the four words shows while the search is icon-only`, !(p.words.some(Boolean) && !p.cmd), p);
+    if (w >= 1100) ok(`${at}: the search shows its words`, p.cmd, p);
     // (#334) the Phase view has no style button in the bar either, and the bar still does not overflow
     await ev(`__cmwSetMain('phase'); 1`); await settle(500);
     const ph = await ev(`({ btn: !!document.getElementById('styleBtn'), over: (() => { const t = document.querySelector('.top'); return t.scrollWidth > t.clientWidth + 1; })() })`);
