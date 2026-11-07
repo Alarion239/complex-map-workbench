@@ -2887,13 +2887,13 @@
   // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
   // again or Cancel cancels; nothing starts afterwards
   const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
+  // the ring's fill while the gauge has no total yet
+  const SV_GATE_UNKNOWN_FILL = 0.25;
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
   function svGateNeeded() {
-    if (!GLR.ok || !GLR.progStatus) return false;
-    const r = svReady().parts;
-    return !r.programs || !r.warm || !r.jobs || !r.programs.total || ['programs', 'warm', 'jobs'].some((k) => r[k].done < r[k].total);
+    return !!(GLR.ok && GLR.progStatus) && !svReady().ready;
   }
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
@@ -2938,10 +2938,10 @@
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
-    const r = svReady().parts, d = (r.programs ? r.programs.done : 0) + (r.warm ? r.warm.done : 0) + (r.jobs ? r.jobs.done : 0), t = (r.programs ? r.programs.total : 0) + (r.warm ? r.warm.total : 0) + (r.jobs ? r.jobs.total : 0);
+    const r = svReady();
     B.toggleAttribute('aria-busy', true);
     B.dataset.wait = g.hung ? 'hung' : 'busy';
-    g.fill = Math.max(g.fill || 0, t ? d / t : 0.25);
+    g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
     B.style.setProperty('--wait', String(g.fill));
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
