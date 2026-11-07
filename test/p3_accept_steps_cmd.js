@@ -22,9 +22,10 @@ const globe = async (ns, shapes, steps, srcView, cam) => {
   await ev(`__cmwCam("L", ${JSON.stringify(cam)}); 1`);
   await wait();
 };
-// the shapes' paths, and the pane's own GPU status. (The steps view draws the globe's regions with programs of its own, which
-// __cmwPaths' status query does not see: a shape that takes the exact path reads 'pending' there for good, 'forward' when it does not)
-const paths = async () => ({ paths: await ev('__cmwPaths()'), status: await ev('__cmwPaneStatus("L")') });
+// what the pane drew its regions with: the steps globe's carry path ('inverse', the exact pass, or 'mesh', the forward
+// meshes: __cmwSvGlobe), the shapes' paths (a shape the exact pass cannot take reads 'forward'), and the pane's own GPU status.
+// (__cmwPaths' status field reads 'pending' for good on the steps globe, which draws with programs of its own, so it is not asked)
+const paths = async () => ({ carry: await ev('(() => { const g = __cmwSvGlobe(0.5, 0.5); return { carried: g.carried, path: g.path }; })()'), paths: await ev('__cmwPaths()'), status: await ev('__cmwPaneStatus("L")') });
 const check = (side, cls, step) => globeCheck(side, cls, step, 'scope');
 
 // ---- z^i(H): the camera under the south pole, zoomed in on the hole cap (|w| < e^-pi is a cap of 5 degrees; closer, the
@@ -32,7 +33,7 @@ const check = (side, cls, step) => globeCheck(side, cls, step, 'scope');
 await view(1440, 900, false);
 await globe('p3accs', [H], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -1.45, yaw: -0.6, dist: 2.2 });
 R.pathsZi = await paths();
-ok('(f) z^i(H) on the w-globe draws inverse (the exact path, not forward; nothing pending, compiling or failed)', R.pathsZi.paths.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path !== 'forward') && !R.pathsZi.paths.some((p) => p.path === 'forward') && !!R.pathsZi.status && !R.pathsZi.status.pending && !R.pathsZi.status.compiling && !R.pathsZi.status.error, R.pathsZi);
+ok('(f) z^i(H) on the w-globe draws inverse (the globe carries its regions by the exact pass; no shape is forward; nothing pending, compiling or failed)', R.pathsZi.carry.carried && R.pathsZi.carry.path === 'inverse' && R.pathsZi.paths.some((p) => p.role === 'L' && p.viewKind === 'globe') && !R.pathsZi.paths.some((p) => p.path === 'forward') && !!R.pathsZi.status && !R.pathsZi.status.pending && !R.pathsZi.status.compiling && !R.pathsZi.status.error, R.pathsZi);
 R.f_hole = await check('L', ANNULUS);
 ok('(f) hole cap: globe-coloured, >= 400 samples', R.f_hole.outN >= 400 && R.f_hole.outBad === 0, R.f_hole);
 ok('(f) annulus near the hole: fill, >= 400 samples', R.f_hole.inN >= 400 && R.f_hole.inBad === 0, R.f_hole);
@@ -41,6 +42,11 @@ await ev('__cmwCam("L", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await wait()
 R.f_side = await check('L', ANNULUS);
 ok('(f) annulus from the side: fill / outside clean', R.f_side.inN >= 400 && R.f_side.inBad === 0 && R.f_side.outBad === 0, R.f_side);
 await shot('p3s_f_side');
+// the signal tells the paths apart: with the shape forced forward the globe's regions are the meshes, and the shape reads forward
+await ev('__cmwForceForward(["s1"]); 1'); await wait();
+R.forced = await paths();
+ok('(f) control: forced forward, the globe carries by the meshes and the shape reads forward', R.forced.carry.path === 'mesh' && R.forced.paths.some((p) => p.path === 'forward'), R.forced);
+await ev('__cmwForceForward([]); 1'); await wait();
 
 // ---- the Cayley images: (z - i)/(z + i) of H is |w| < 1 (w = 1 the image of infinity: no notch); of the lower
 // half-plane it is |w| > 1, which covers the north pole (the image of z = -i)
