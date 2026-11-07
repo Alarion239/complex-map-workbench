@@ -699,7 +699,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-fchip:focus-visible, .sv-wholemap:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-fchip .sv-fk, .sv-wholemap .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }
 .sv-fchip .sv-fn, .sv-wholemap .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; height: 36px; }
+.sv-choice { flex: 0 0 auto; align-self: center; height: 36px; display: inline-flex; align-items: center; gap: 6px; justify-content: space-between; }
+.sv-choice::after { content: ""; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid currentColor; opacity: .7; }
+.sv-choice:disabled { cursor: default; }
 .sv-playmore { align-self: center; flex: 0 0 auto; width: 36px; height: 36px; }
 .sv-playpop { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: grid; gap: 6px; max-width: min(320px, calc(100vw - 16px)); padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
 .sv-playpop[hidden], .sv-playpop-why[hidden] { display: none; }
@@ -795,7 +797,7 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-sheet-why { margin: -4px 0 0; font: 400 13px/1.35 var(--f-ui); color: var(--muted); }
 .sv-sheet-why[hidden] { display: none; }
 .sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
-.sv-sheet select.sel.sv-speed, .sv-sheet select.sel.sv-order { display: block; height: 44px; min-width: 140px; font-size: 15px; }
+.sv-sheet .sv-choice { height: 44px; min-width: 140px; font-size: 15px; }
 .sv-sheet .sv-loop, .sv-sheet .sv-paths { height: 44px; min-width: 96px; }
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
 /* the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */

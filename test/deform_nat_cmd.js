@@ -65,7 +65,7 @@ for (const [id, sc] of Object.entries(PA)) {
   // frame is drawn the app's way, but a runner whose frames take seconds still has frames mid-glide
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
   await settled({ max: 10000, until: `!__cmwSteps().moving` });
-  await ev(`(() => { const e = document.querySelector('#svStrip .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+  await choose('#svStrip .sv-speed', 'slower');
   const last = sc.steps.length;
   await ev(`window.__svGlide = null; __cmwSteps({ clock: 300 }); __cmwSteps({ go: ${last} }), 1`);
   await settled({ panes: false, max: 30000, until: `(() => { const s = __cmwSteps(); if (s.anim && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) window.__svGlide = { paths: s.paths, zs: JSON.stringify(__cmwMorphCache().zs), all: s.all }; return !!window.__svGlide || !s.moving; })()` });

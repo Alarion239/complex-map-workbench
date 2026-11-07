@@ -1862,9 +1862,21 @@
     const { name, role, short } = svTitleParts();
     return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
   }
-  // the glide speed's select (the shared field-styled one, selectEl) and the Loop toggle, the strip's and the playback sheet's
+  // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
+  // word follows), `.disabled` greys it
+  function svChoiceBtn(cur, pairs, pick, title, cls) {
+    let val = cur;
+    const word = h('span', { class: 'sv-choice-t' });
+    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, title, 'aria-label': title, 'aria-haspopup': 'menu',
+      onclick: () => svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }) }, word));
+    b.choices = pairs;   // (the suites pick an item by its value through it)
+    Object.defineProperty(b, 'value', { get: () => val, set: (v) => { val = v; word.textContent = (pairs.find((q) => q[0] === v) || pairs[0])[1]; } });
+    b.value = cur;
+    return b;
+  }
+  // the glide speed's choice and the Loop toggle, the strip's and the playback sheet's
   function svSpeedSel(title) {
-    return selectEl(null, SV.speed, [['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]], svSetSpeed, title, 'sv-speed');
+    return svChoiceBtn(SV.speed, [['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]], svSetSpeed, title, 'sv-speed');
   }
   function svLoopBtn(cls, tip) {
     return h('button', { type: 'button', class: cls, 'aria-pressed': String(SV.loop), 'data-tip': tip || null, onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
@@ -1882,7 +1894,7 @@
   }
   // the order of a glide across several planes (S.homAll): plane by plane, or all at once as one homotopy of the whole range
   function svOrderSel(title) {
-    return selectEl(null, S.homAll ? 'all' : 'steps', [['steps', $t('Step by step')], ['all', $t('All at once')]], svSetOrder, title, 'sv-order');
+    return svChoiceBtn(S.homAll ? 'all' : 'steps', [['steps', $t('Step by step')], ['all', $t('All at once')]], svSetOrder, title, 'sv-order');
   }
   function svSetOrder(v) {
     const all = v === 'all';
@@ -1903,7 +1915,7 @@
       if (!sel) continue;
       sel.disabled = !ok;
       sel.value = S.homAll && ok ? 'all' : 'steps';
-      // (a disabled select gets no pointer events, so its reason is the native title and a description)
+      // (a disabled button gets no pointer events, so its reason is the native title and a description)
       sel.dataset.tip = tip;
       sel.title = tip;
       sel.setAttribute('aria-description', ok ? '' : tip);

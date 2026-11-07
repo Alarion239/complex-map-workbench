@@ -29,7 +29,7 @@ const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwStep
 // (H.settled does not fit: it answers when the page is quiet or its condition holds, checked every 50 ms and two frames apart, and a glide
 // crosses that part of its way between two of its checks, so the check would see it landed)
 const underway = (from = 0.25) => ev(`await new Promise((done) => { const t0 = performance.now(), look = () => { const s = __cmwSteps(); if (((s.anim || s.play) && s.x >= ${from}) || performance.now() - t0 > 4000) done(s); else setTimeout(look, 10); }; look(); })`, 9000);
-const pick = (v) => ev(`(() => { const e = document.querySelector('#svStrip .sv-order'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('change', { bubbles: true })); return e.value; })()`);
+const pick = async (v) => { await choose('#svStrip .sv-order', v); return ev(`document.querySelector('#svStrip .sv-order').value`); };
 
 await open(base([step('exp'), step('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), step('pown', { n: 3 })]), ns);
 await ctl({ go: 0, now: true }); await arrived();
@@ -38,7 +38,7 @@ await ctl({ go: 0, now: true }); await arrived();
 for (const o of ['steps', 'all']) { await ctl({ order: o }); await ctl({ go: 3 }); await arrived(); await ctl({ go: 0 }); await arrived(); }
 await ctl({ order: 'steps' });
 // the select: after the speed, before Loop, two names, off at Step by step
-const sel = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'), kids = [...document.getElementById('svStrip').children].map((c) => c.className.split(' ').find((x) => /^sv-(speed|loop|playmore)$/.test(x)) || ''); return e ? { opts: [...e.options].map((o) => [o.value, o.textContent]), value: e.value, disabled: e.disabled, name: e.getAttribute('aria-label'), order: kids.filter(Boolean) } : null; })()`);
+const sel = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'), kids = [...document.getElementById('svStrip').children].map((c) => c.className.split(' ').find((x) => /^sv-(speed|loop|playmore)$/.test(x)) || ''); return e ? { opts: e.choices.map((o) => [o[0], o[1]]), value: e.value, disabled: e.disabled, name: e.getAttribute('aria-label'), order: kids.filter(Boolean) } : null; })()`);
 ok('the strip keeps Speed and Loop and ends with the ⋯ Playback button; the order select is in its dialog', sel && sel.order.join() === 'sv-speed,sv-loop,sv-playmore', sel);
 // the dialog: opened by the ⋯, focus inside, Esc returns it to the ⋯
 { const dlg = () => ev(`(() => { const d = document.querySelector('#svStrip .sv-playpop'), b = document.querySelector('#svStrip .sv-playmore'), a = document.activeElement; return { hidden: d.hidden, role: d.getAttribute('role'), name: d.getAttribute('aria-label'), expanded: b.getAttribute('aria-expanded'), inside: d.contains(a), onMore: a === b, haspopup: b.getAttribute('aria-haspopup') }; })()`);
