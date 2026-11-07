@@ -58,7 +58,7 @@
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   window.__cmwPaths = () => {
     const views = [], out = [];
-    if (SV.on) views.push(['L', 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L)
+    if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)
     else if (solo() !== 'L') {
       if (rImage()) views.push(['R', 'flat', trans.k ? transState().map : morphOn() ? morphState(false).map : stageMap(rightStage())]);
       else { const hv = homView(); views.push(['R', 'globe', hv ? (hv.imageMap || hv.map) : stageMap(rightStage())]); }

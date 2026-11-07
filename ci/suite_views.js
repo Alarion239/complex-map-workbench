@@ -284,6 +284,7 @@ const VIEWS = {
   'land_release_cmd.js': steps({ pin: true }),
   'link_standin_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
+  'p3_accept_steps_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render', 'the exact globes and their strokes, the spherical checker on the GPU, the globes\' figure export and the globe orientation: the steps view has its own globe suites (sv_globe_*), and these checks are not yet in the steps view'),
   'p3_review_cmd.js': steps({ pin: true }),
   'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
