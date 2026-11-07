@@ -772,7 +772,7 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, m), 1, 0, gl.RGBA, gl.FLOAT, d);
     edgeKey = c.edges; edgeO = [ox, oy];
   }
-  // the plan's uniforms of the Cauchy shader (CAUCHY_CORE): the edge row on unit 4, the poles and their principal parts relative to edgeO, the part shown
+  // the plan's uniforms of the Cauchy shader (CAUCHY_CORE): the edge row on sampler `unit` (4 for the plot, CARRY_EDGE_UNIT for the carried colour), the poles and their principal parts relative to edgeO, the part shown
   function cauchyPlan(P, cp, unit) {
     cauchyEdges(cp, unit);
     u1i(P, 'uEdgeN', edgeN);

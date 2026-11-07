@@ -2042,6 +2042,8 @@ for (const scene of ['default', 'logUHP', 'chain4']) {
 unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 // the edge counts timed, the draw's size in px, the timings taken per count and the draws in each timing (the median is the middle one)
 const EDGE_LOOP_COUNTS = [0, 60, 600, 2000], EDGE_LOOP_W = 1000, EDGE_LOOP_H = 700, EDGE_LOOP_TIMINGS = 8, EDGE_LOOP_DRAWS = 5;
+// the winding loop's pixel-to-plane scale: one plane unit is this many px
+const EDGE_LOOP_SCALE = 150;
 const EDGE_LOOP_MAX = EDGE_LOOP_COUNTS[EDGE_LOOP_COUNTS.length - 1];
 // The per-fragment cost of the Cauchy integral's winding-number loop (CAUCHY_CORE's cauchyWind): a full-screen draw of that loop
 // alone over N edges read from a float texture row, N = 0 (the draw's own cost), 60, 600 and 2000, the median of 8 timings of 5 draws
@@ -2061,7 +2063,7 @@ async function cauchyEdgeLoopUnit() {
     gl.useProgram(prog);
     const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.uniform2f(gl.getUniformLocation(prog, 'uInv'), 1 / 150, 1 / 150);
+    gl.uniform2f(gl.getUniformLocation(prog, 'uInv'), 1 / ${EDGE_LOOP_SCALE}, 1 / ${EDGE_LOOP_SCALE});
     const out = { gpu: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '?', ms: {} }, px = new Uint8Array(4);
     for (const N of ${JSON.stringify(EDGE_LOOP_COUNTS)}) {
       const d = new Float32Array(Math.max(1, N) * 4);

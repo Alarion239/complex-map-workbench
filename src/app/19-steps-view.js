@@ -1871,7 +1871,7 @@
   // there while z is the colour plane, and with no closed curve (cz, cauchyDraw's data) there is nothing to draw
   function svCauchyWhy(cz) {
     if (S.dc !== 'cauchy') return '';
-    if (svT() !== 0) return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+    if (svT() !== 0) return cauchyOffZWhy();
     return cz ? '' : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.');
   }
   // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
