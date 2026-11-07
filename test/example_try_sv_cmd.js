@@ -31,9 +31,12 @@ for (const lang of ['en', 'ru']) {
   // › closes the quarter-plane line; another plane change does not close a line about something else
   await ev(`__cmwExample(${idx.quarter})`); await settle(1200);
   ok(`${lang}: quarter line is open`, !!(await lane()), null);
+  // (a › waits for the prestart: pressed once it is done, it glides at once)
+  await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
   await next(); await settle(1500);
   ok(`${lang}: › closes the quarter line`, !(await lane()), await lane());
   await ev(`__cmwExample(${idx.gamma})`); await settle(1200);
+  await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
   await next(); await settle(1500);
   ok(`${lang}: a plane change does not close the Gamma line`, !!(await lane()), null);
   // Cayley then cube: one › is not enough, two are
