@@ -1998,7 +1998,7 @@
     // (a phone has no room for the pill beside the thread: Whole chain is a pinned icon, the F of the whole map, outside the
     // scrolling rail, and the step's ⋯ menu carries the walk ‹ ›)
     for (const old of E.strip.querySelectorAll('.sv-whole-pin')) old.remove();
-    const wholePin = () => E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk', html: '<i>F</i>' })), E.rail);
+    const wholePin = () => E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk sv-pin-i', html: SV_PIN_ICON })), E.rail);
     if (al) wholePin();
     if (al && !document.documentElement.classList.contains('ph')) {
       // (Whole chain and the walk ‹ › are one pill: the walk's arrows are the step's, not the planes')
@@ -2244,6 +2244,8 @@
   // folds to its round +, Speed and Loop move into the Playback ⋯, the Whole chain pill folds to its pin, and last the rail
   // scrolls. A phone has only the first (its words are hidden by CSS; the rest of its strip is the sheet's).
   const SV_FOLD_ADD = 1, SV_FOLD_PLAY = 2, SV_FOLD_WHOLE = 3;
+  // the Whole chain pin: three nodes on a line (the chain), not the F of the whole map
+  const SV_PIN_ICON = '<svg viewBox="0 0 18 10" width="18" height="10" aria-hidden="true"><path d="M4 5h10" stroke="currentColor" stroke-width="1.4"/><circle cx="3" cy="5" r="2.2" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="5" r="2.2" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/><circle cx="15" cy="5" r="2.2" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/></svg>';
   function svFitStrip() {
     const E = SV.els; if (!E || !E.add) return;
     if (!E.track.firstElementChild) { E.add.classList.remove('fold'); E.strip.classList.remove('sv-fold-play', 'sv-fold-whole'); svFoldPlay(false); return; }
@@ -2272,34 +2274,14 @@
       svFoldPlay(false);
       return;
     }
-    const top = SV_FOLD_WHOLE;
-    const cs = getComputedStyle(E.strip);
-    // (the thread's own width, with the names and with the letters alone: what its steps need, not the width the rail gives them)
-    const wasLetters = E.strip.classList.contains('sv-letters');
-    const natural = (letters) => {
-      E.strip.classList.add('sv-measure'); E.strip.classList.toggle('sv-letters', letters);
-      const w = last.offsetLeft + last.offsetWidth - first.offsetLeft;
-      E.strip.classList.remove('sv-measure'); E.strip.classList.toggle('sv-letters', wasLetters);
-      return w;
-    };
-    // (and the rail's width, and the width a thread centred on the strip has: the strip beside the wider side group)
-    const measure = (lv) => {
-      apply(lv);
-      const sr = E.strip.getBoundingClientRect(), rr = E.rail.getBoundingClientRect();
-      const wasL = parseFloat(E.rail.style.marginLeft) || 0, wasR = parseFloat(E.rail.style.marginRight) || 0;
-      const inL = sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), inR = sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
-      const L = rr.left - wasL - inL, R = inR - (rr.right + wasR);
-      return { w: natural(false), wl: natural(true), rail: rr.width, centred: inR - inL - 2 * Math.max(L, R) };
-    };
-    const ms = [];
-    for (let lv = 0; lv <= top; lv++) ms.push(measure(lv));
-    // (the first level the thread centres at; else the first it fits the rail at; else every level, the rail scrolling)
-    let lv = ms.findIndex((m) => m.w <= m.centred);
-    if (lv < 0) lv = ms.findIndex((m) => m.w <= m.rail);
-    if (lv < 0) lv = ms.findIndex((m) => m.wl <= m.rail);
-    if (lv < 0) lv = top;
-    apply(lv);
-    svFoldPlay(lv >= SV_FOLD_PLAY);
+    // (each level is tried as it would stand: the folds made, the steps fitted to the rail, and the rail's own overflow read; the
+    // first level that does not overflow stands, else the last, the rail scrolling)
+    let lv = 0;
+    for (; lv <= SV_FOLD_WHOLE; lv++) {
+      apply(lv); svFoldPlay(lv >= SV_FOLD_PLAY);
+      E.railKey = null; svFitRail();
+      if (E.rail.scrollWidth <= E.rail.clientWidth + 1 || lv === SV_FOLD_WHOLE) break;
+    }
   }
   // Speed and Loop are on the strip, or, when it has no room for them, in the Playback ⋯ beside Order and Paths
   function svFoldPlay(on) {

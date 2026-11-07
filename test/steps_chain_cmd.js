@@ -239,9 +239,10 @@ for (const w of [1440, 1280, 1024, 780]) {
     const strip = R('#svStrip'), rail = R('#svStrip .sv-rail'), next = R('#svStrip .sv-nav:last-of-type') || R('#svStrip .sv-nav + .sv-nav');
     const nexts = [...document.querySelectorAll('#svStrip .sv-nav')].map((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; });
     const chip = R('#svStrip .sv-alone .sv-whole') || R('#svStrip .sv-whole-pin');
-    return { strip, rail, nextB: nexts[nexts.length - 1], add: R('#svStrip .sv-add'), f: R('#svStrip .sv-wholemap'), chip, pin: !!R('#svStrip .sv-whole-pin'), scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
+    return { strip, rail, nextB: nexts[nexts.length - 1], add: R('#svStrip .sv-add'), f: R('#svStrip .sv-wholemap'), chip, pin: !!R('#svStrip .sv-whole-pin'), walks: [...document.querySelectorAll('#svStrip .sv-awalk')].filter((e) => e.getClientRects().length).length, over: document.querySelector('#svStrip .sv-rail').scrollWidth > document.querySelector('#svStrip .sv-rail').clientWidth + 1, scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
   const inside = (b) => b && b[0] >= m.strip[0] && b[1] <= m.strip[1], clear = (b, o) => b[1] <= o[0] + 1 || b[0] >= o[1] - 1;
   ok(`${w}: Add and F are in the strip and overlap neither Next nor the rail`, inside(m.add) && inside(m.f) && clear(m.add, m.nextB) && clear(m.f, m.nextB) && clear(m.add, m.rail) && clear(m.f, m.rail), m);
+  ok(`${w}: the step's ‹ › stay, and the pill folds to its pin only when it would overflow the rail`, m.walks === 2 && (m.pin || !m.over), m);
   ok(`${w}: Whole chain is whole: its pill inside the rail at its start, or its pin in the strip clear of the rail`, m.scrolled === 0 && m.chip && (m.pin ? inside(m.chip) && clear(m.chip, m.rail) : m.chip[0] >= m.rail[0] && m.chip[1] <= m.rail[1]), m);
 }
 // ---- the phone ----
@@ -284,8 +285,9 @@ await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2
 await sleep(700); await ev(`__lp('pointerup'); 1`); await settle(400); await pick('Show alone'); await settle(600);
 const alone360 = await ev(`(() => { const rr = document.querySelector('#svStrip .sv-rail').getBoundingClientRect();
   const planes = [...document.querySelectorAll('#svStrip .sv-rail .sv-plane, #svStrip .sv-rail .sv-step')].map((e) => e.getBoundingClientRect());
-  return { rail: [Math.round(rr.left), Math.round(rr.right)], planes: planes.map((b) => [Math.round(b.left), Math.round(b.right)]) }; })()`);
+  return { rail: [Math.round(rr.left), Math.round(rr.right)], fadeR: document.querySelector('#svStrip .sv-rail').classList.contains('fade-r'), planes: planes.map((b) => [Math.round(b.left), Math.round(b.right)]) }; })()`);
 ok('360 px, a step shown alone: the rail keeps its 126 px and its planes are in view (each centre inside it)', alone360.rail[1] - alone360.rail[0] >= 126 && alone360.planes.length > 0 && alone360.planes.every((b) => b[0] >= alone360.rail[0] - 1 && (b[0] + b[1]) / 2 <= alone360.rail[1]), alone360);
+ok('360 px, a step shown alone: the rail fades at its end, where F and Add are scrolled to', alone360.fadeR, alone360);
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-add'), r = c.getBoundingClientRect();
   window.__lp2 = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp2('pointerdown'); return 1; })()`);
 await sleep(700);
