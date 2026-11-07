@@ -12,39 +12,47 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PIXEL_TOL = 6;
 // the share of pixels that may differ by more than PIXEL_TOL: those on an edge of a sector or of the curve
 const EDGE_SHARE_MAX = 0.002;
+// a colour pixel has channels that differ by more than this (of 255); a coloured reference has more than COLOUR_SHARE_MIN of them
+const COLOUR_CHANNEL_GAP = 20, COLOUR_SHARE_MIN = 0.05;
+// the pixel comparison's frame: its size in px and the carried mesh's cells across and down
+const FRAME_W = 240, FRAME_H = 160, MESH_NX = 96, MESH_NY = 64;
+// the shaders link in the background: the frame is drawn again every LINK_POLL_MS until they are linked, at most LINK_POLL_MAX times
+const LINK_POLL_MS = 250, LINK_POLL_MAX = 480;
+// the page's bounds for a ready page and for the view to settle, and the window's size
+const PAGE_READY_MS = 30000, SETTLE_MS = 15000, WIN_W = 1200, WIN_H = 800;
 const state = { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy' };
-await view(1200, 800, false, false);
+await view(WIN_W, WIN_H, false, false);
 const ns = 'cauchycarry' + Date.now();
 await load(ns, state);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
-await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0 && typeof GLR === "object"', max: 30000 });
+await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0 && typeof GLR === "object"', max: PAGE_READY_MS });
 await ev(`__cmwSelect('s1'); 1`);
-await settled({ until: '!__cmwSteps().moving', max: 15000 });
+await settled({ until: '!__cmwSteps().moving', max: SETTLE_MS });
 for (const show of ['both', 'in', 'out']) {
   await ev(`__cmwCauchyOpt('${show}', true)`);
   const rr = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => {
-    const W = 240, H = 160, v = { cx: 0.13, cy: -0.07, s: 70 }, cz = __cmwCauchyCarry();
+    const W = ${FRAME_W}, H = ${FRAME_H}, v = { cx: 0.13, cy: -0.07, s: 70 }, cz = __cmwCauchyCarry();
     if (!cz) return { err: 'no residue data' };
     const st = { view: v, dpr: 1, style: 'cauchy', sectors: 12, grid: 0.5, plane: [0.99, 0.99, 0.99], ink: [0.07, 0.1, 0.12], dark: false };
     const cv = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
     const a = cv(), b = cv();
-    for (let i = 0; i < 480; i++) {
+    for (let i = 0; i < ${LINK_POLL_MAX}; i++) {
       GLR.begin(W, H);
       const ok1 = GLR.drawCarried(Object.assign({ map: { mode: 0, a: 0, b: 0 }, s: 0, T: 1, lim: 1e30, cauchy: cz,
-        mesh: { x0: v.cx - W / v.s, y0: v.cy - H / v.s, dx: 2 * W / v.s / 96, dy: 2 * H / v.s / 64, nx: 96, ny: 64 } }, st));
+        mesh: { x0: v.cx - W / v.s, y0: v.cy - H / v.s, dx: 2 * W / v.s / ${MESH_NX}, dy: 2 * H / v.s / ${MESH_NY}, nx: ${MESH_NX}, ny: ${MESH_NY} } }, st));
       if (ok1) GLR.blit(a.getContext('2d'));
       GLR.begin(W, H);
       GLR.drawColorPlot(Object.assign({ map: { mode: 0, a: 0, b: 1 }, cauchy: cz }, st));
       GLR.blit(b.getContext('2d'));
       if (ok1 && !GLR.pendingLinks) break;
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, ${LINK_POLL_MS}));
     }
     const pa = a.getContext('2d').getImageData(0, 0, W, H).data, pb = b.getContext('2d').getImageData(0, 0, W, H).data;
     let over = 0, n = 0, blank = 0, colour = 0;
     for (let i = 0; i < pa.length; i += 4) {
       n++;
       if (pa[i + 3] === 0) blank++;
-      if (Math.abs(pb[i] - pb[i + 1]) > 20 || Math.abs(pb[i + 1] - pb[i + 2]) > 20) colour++;
+      if (Math.abs(pb[i] - pb[i + 1]) > ${COLOUR_CHANNEL_GAP} || Math.abs(pb[i + 1] - pb[i + 2]) > ${COLOUR_CHANNEL_GAP}) colour++;
       if (Math.max(Math.abs(pa[i] - pb[i]), Math.abs(pa[i + 1] - pb[i + 1]), Math.abs(pa[i + 2] - pb[i + 2])) > ${PIXEL_TOL}) over++;
     }
     return { over: +(over / n).toFixed(4), blank, colour: +(colour / n).toFixed(3), show: cz.show };
@@ -52,7 +60,7 @@ for (const show of ['both', 'in', 'out']) {
   const r = rr.exceptionDetails ? { err: rr.exceptionDetails.exception && rr.exceptionDetails.exception.description } : rr.result.value;
   info[show] = r;
   ok(`${show}: drawn (the program ready)`, r && r.blank === 0, r);
-  ok(`${show}: the reference plot is coloured (the check is not between two blanks)`, r && r.colour > 0.05, r);
+  ok(`${show}: the reference plot is coloured (the check is not between two blanks)`, r && r.colour > COLOUR_SHARE_MIN, r);
   ok(`${show}: the carried colour is the plot of the style on plane z, pixel for pixel`, r && r.over <= EDGE_SHARE_MAX, r);
 }
 // (Outside is the sharp case: F(z0) at an outside point is the colour of f₋ there, not the plain colour of F)
@@ -67,7 +75,7 @@ const pixel = async (x, y) => {
 };
 const parkAt = async (g) => {
   await ev(`(__cmwSteps({ T: 0, go: ${g}, now: true }), 1)`);
-  await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${g}`, max: 15000 });
+  await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${g}`, max: SETTLE_MS });
 };
 // F(z) = z + 1/z at two points of plane z, 0.55 + 0.3i inside the circle and 1.9 + 0.45i outside it. F takes z and 1/z to the same
 // point, so the point F(z0) of plane 1 carries the colour of whichever of the two the front sheet holds: the colour z0 has on plane z or

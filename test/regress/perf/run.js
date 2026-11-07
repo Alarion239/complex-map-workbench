@@ -2005,6 +2005,9 @@ for (const scene of ['default', 'logUHP', 'chain4']) {
 }
 // shapes of later planes pulled back in X: one pass per plane, one blit
 unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
+// the edge counts timed, the draw's size in px, the timings taken per count and the draws in each timing (the median is the middle one)
+const EDGE_LOOP_COUNTS = [0, 60, 600, 2000], EDGE_LOOP_W = 1000, EDGE_LOOP_H = 700, EDGE_LOOP_TIMINGS = 8, EDGE_LOOP_DRAWS = 5;
+const EDGE_LOOP_MAX = EDGE_LOOP_COUNTS[EDGE_LOOP_COUNTS.length - 1];
 // The per-fragment cost of the Cauchy integral's winding-number loop (CAUCHY_CORE's cauchyWind): a full-screen draw of that loop
 // alone over N edges read from a float texture row, N = 0 (the draw's own cost), 60, 600 and 2000, the median of 8 timings of 5 draws
 // ended by a one-pixel read-back. The carried colour on the planes past z runs the loop for every fragment of every frame, so the
@@ -2012,7 +2015,7 @@ unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh
 async function cauchyEdgeLoopUnit() {
   await openApp(sceneState('default', { rightMode: 'color', meshN: 240 }));
   const r = JSON.parse(await B.ev(`(() => {
-    const c = document.createElement('canvas'); c.width = 1000; c.height = 700;
+    const c = document.createElement('canvas'); c.width = ${EDGE_LOOP_W}; c.height = ${EDGE_LOOP_H};
     const gl = c.getContext('webgl2'); gl.getExtension('EXT_color_buffer_float');
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const sh = (t, src) => { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
@@ -2025,20 +2028,20 @@ async function cauchyEdgeLoopUnit() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.uniform2f(gl.getUniformLocation(prog, 'uInv'), 1 / 150, 1 / 150);
     const out = { gpu: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '?', ms: {} }, px = new Uint8Array(4);
-    for (const N of [0, 60, 600, 2000]) {
+    for (const N of ${JSON.stringify(EDGE_LOOP_COUNTS)}) {
       const d = new Float32Array(Math.max(1, N) * 4);
       for (let j = 0; j < N; j++) { const a = 2 * Math.PI * j / N, b = 2 * Math.PI * (j + 1) / N, rr = 1 + 0.12 * Math.sin(3 * a); d.set([rr * Math.cos(a), rr * Math.sin(a), rr * Math.cos(b), rr * Math.sin(b)], 4 * j); }
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, N), 1, 0, gl.RGBA, gl.FLOAT, d);
       gl.uniform1i(gl.getUniformLocation(prog, 'uEdgeN'), N);
       const t = [];
-      for (let k = 0; k < 8; k++) { const t0 = performance.now(); for (let q = 0; q < 5; q++) gl.drawArrays(gl.TRIANGLES, 0, 3); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); t.push((performance.now() - t0) / 5); }
-      t.sort((x, y) => x - y); out.ms[N] = t[3];
+      for (let k = 0; k < ${EDGE_LOOP_TIMINGS}; k++) { const t0 = performance.now(); for (let q = 0; q < ${EDGE_LOOP_DRAWS}; q++) gl.drawArrays(gl.TRIANGLES, 0, 3); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); t.push((performance.now() - t0) / 5); }
+      t.sort((x, y) => x - y); out.ms[N] = t[t.length >> 1];
     }
     return JSON.stringify(out);
   })()`));
   detail('phase.cauchy_edge_loop.gpu', r.gpu);
-  for (const N of [0, 60, 600, 2000]) put(`phase.cauchy_edge_loop.n${N}_ms`, 'info', 'ms', [r.ms[N]]);
-  put('phase.cauchy_edge_loop.per_edge_ms', 'info', 'ms', [(r.ms[2000] - r.ms[0]) / 2000]);
+  for (const N of EDGE_LOOP_COUNTS) put(`phase.cauchy_edge_loop.n${N}_ms`, 'info', 'ms', [r.ms[N]]);
+  put('phase.cauchy_edge_loop.per_edge_ms', 'info', 'ms', [(r.ms[EDGE_LOOP_MAX] - r.ms[0]) / EDGE_LOOP_MAX]);
 }
 unit('phase.cauchy_edge_loop', 'the Cauchy winding-number loop alone over 0 / 60 / 600 / 2000 edges, a full-screen draw: ms per draw and per edge (information only; the carried colour on the planes past z runs it per fragment)', cauchyEdgeLoopUnit);
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
