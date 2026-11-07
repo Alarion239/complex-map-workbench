@@ -408,6 +408,13 @@
     peelBad = true; peelFree();
     return null;
   }
+  // the program and targets of carryLayers at opacity alpha made ahead (the idle job), so the first layered frame of a glide
+  // creates nothing
+  function carryLayersReserve(alpha) {
+    if (!ok || peelBad) return;
+    const n = Math.min(PEEL_MAX, invK(alpha));
+    if (n >= 2 && program('carryLayers')) peelTarget(n);
+  }
   // draw() issues the frame's carried draws (every mesh, in one shared depth) and returns whether they all drew.
   // -> null: layers cannot be drawn here (opacity >= 1, one layer, no target or program yet): nothing was drawn, the
   // caller draws the front layer as it does at opacity 1; else draw()'s last result (false: a layer's draw failed, nothing

@@ -1359,7 +1359,7 @@
     if (!svMeshFalls.falls) return null;
     const L = svCarryShapes();
     if (!L || !L.length) return null;
-    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope].concat(L.map((x) => shapeKey(x))).join('|');
+    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope, svOpacity()].concat(L.map((x) => shapeKey(x))).join('|');
     return key === svMeshDone ? null : key;
   }
   // the idle job's share of those meshes: all of them at once (each built whole), only with at least half a slice's
@@ -1368,6 +1368,7 @@
     const key = svMeshNext();
     if (!key || ms < SV_POLE_BUDGET / 2) return false;
     svMeshDone = key;
+    if (svOpacity() < 0.999 && GLR.carryLayersReserve) GLR.carryLayersReserve(svOpacity());
     for (const x of svCarryShapes() || []) {
       const r = svCarryGPU(x);
       if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
