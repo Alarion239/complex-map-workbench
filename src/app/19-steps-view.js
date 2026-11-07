@@ -1689,6 +1689,9 @@
   // top), opaque inside the set and clear outside; the surface is plain (the Plain material's colour) there. One per
   // chain, plane, box and shapes; null with the colour everywhere (Everywhere)
   let svLandMaskC = null;
+  // (the number of masks drawn while a program of the pass still linked: each one's key is its own, so the surface's
+  // texture is uploaded again for it and the next frame draws the mask afresh)
+  let svLandMaskLinking = 0;
   // the mask of a plain Landscape (svPlain): transparent, so its surface is plain everywhere
   let svLandPlainC = null;
   function svLandPlainMask() {
@@ -1712,7 +1715,10 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
-    svLandMaskC = { cv, key, box: Object.assign({}, box), cut: true };
+    // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
+    // that follows the link draws it afresh)
+    const linking = !!GLR.frameStatus().pending;
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
