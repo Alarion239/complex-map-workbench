@@ -562,7 +562,7 @@
     let leg = null, zs;
     if (sv) {
       const sb = A.screenBox('L0'), bw = 150, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
-      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang });
+      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => seen(C(z.re, z.im)) });
       if (!leg || (o.alive && !o.alive())) return null;
       zs = leg.kept.map((q) => C(q.z[0], q.z[1])).filter(seen);
       if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);

@@ -293,7 +293,8 @@
   // place i - 1 + t; surf: the surface the plane is shown on), or {why} when there is none ('first': plane 0; 'deriv': a d/dz
   // step), null on the Landscape
   // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
-  function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > 20 ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
+  const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in
+  function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > MIN_PANE_PX ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
   function svPathsFig() {
     const P = svPlanes(), i = Math.round(SV.g.x);
     if (!SV.on || (SV.surf !== 'plane' && SV.surf !== 'sphere') || P.length < 2) return null;
