@@ -30,6 +30,8 @@
       moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
       regionsView: () => SV.on || S.view.main === 'xy',   // the views that hold the regions' display
+      // (the steps view's Display sheet is the colour panel: it names the shown plane)
+      displayTitle: () => (SV.on ? `${$t('Colour')} · ${svName(svStage())}` : ''),
       targetNote: () => (SV.on ? svTargetNote() : null),   // what the shown plane draws or shades from shapes on later planes: the Display sheet's first line
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),

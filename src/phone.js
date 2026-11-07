@@ -707,7 +707,7 @@ const Phone = (() => {
     const guard = () => { clearTimeout(gT); els.sheet.dataset.guard = '1'; gT = setTimeout(() => { delete els.sheet.dataset.guard; }, 400); };
     for (const ev of ['mousedown', 'click']) els.sheet.addEventListener(ev, (e) => { if (els.sheet.dataset.guard && !e.target.closest('.ph-sh')) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
-  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
+  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: A.displayTitle() || $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
 
   // ---------------- the chain row and the chain sheet ----------------
   let chainSeen = '', chainK = null;

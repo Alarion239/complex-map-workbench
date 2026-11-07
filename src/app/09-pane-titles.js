@@ -224,6 +224,7 @@
   function checkEl(id, checked, label, onchange, icon) {
     const inp = h('input', { type: 'checkbox', id, onchange: (e) => onchange(e.target.checked) });
     inp.checked = !!checked;
+    if (icon) inp.setAttribute('aria-label', label);   // (the icon form's word is hidden in the head: the name is the input's)
     if (!icon) return h('label', { class: 'check' }, inp, h('span', null, label));
     return h('label', { class: 'check ic-tg', 'data-tip': label }, inp, h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: icon }), h('span', { class: 'tg-l' }, label));
   }
@@ -330,6 +331,7 @@
       l.classList.add('ic-tg'); l.setAttribute('data-tip', $t('Unit circle'));
       const w = l.querySelector(':scope > span'); if (w) w.classList.add('tg-l');
       l.insertBefore(h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: ICONS.unit }), w);
+      const ui = l.querySelector('input'); if (ui) ui.setAttribute('aria-label', $t('Unit circle'));
     }
     return u;
   }
@@ -380,8 +382,10 @@
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
     // and the toggles, so the plane's title keeps its room)
-    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf');
-    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
+    // (the steps view's head is the same on every plane: the style row stays inline and every other control is behind ⋯,
+    // whatever the title's width, so no control comes and goes as the shown plane changes)
+    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf') || (SV.on && !e.classList.contains('seg'));
+    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit && !isNote(unit) ? [unit] : []), ...ft.kids.filter(isNote), ...(unit && isNote(unit) ? [unit] : [])] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
     // (#320: first a key of what the layout depends on that needs no layout read and no write: the head's and its key
@@ -920,7 +924,7 @@
     el.setAttribute('aria-disabled', 'true');
     el.setAttribute('data-tip', reason);
     const inp = el.querySelector('input');
-    if (inp) inp.disabled = true;
+    if (inp) { inp.disabled = true; inp.setAttribute('aria-description', reason); }
   }
   function buildFootL(f) {
     const Fn = fnText();
