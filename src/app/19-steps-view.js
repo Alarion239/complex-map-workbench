@@ -175,8 +175,10 @@
   const svSigNow = () => svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
   function svAdopt(force) {
     const ext = S.view.main;
-    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to)
-    if ((ext === svMain() || ext === SV.main) && !force) return;
+    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to; a Phase view on the
+    // other surface is one from outside too: a save that asked for the sphere opens on it)
+    const own = ext === 'land' || Views.xOf(S.view).surf === (SV.surf === 'sphere' ? 'sphere' : 'plane');
+    if ((ext === svMain() || ext === SV.main) && !force && own) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
