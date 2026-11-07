@@ -8,9 +8,16 @@
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const SETTLE_MS = 900, LOAD_MS = 1500, CAM_MS = 800, TOOL_MS = 300, MOVE_GAP_MS = 16; // waits for frames to run
+const LOAD_MAX_MS = 30000;
+const settle = async (ms = SETTLE_MS) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const CAY = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true };
-await view(1440, 900, false);
+const VIEW_W = 1440, VIEW_H = 900;
+const CAM = { pitch: 0.55, yaw: -1.0 }; // N is on screen from here
+const CAP_Y = 1.2; // a source point near the cap's centre (the unit disc's rim is at 1)
+const PAST_N = [3, 2]; // px from N where the pointer is released
+const SRC_SCALE = 80; // px per unit of the source plane
+await view(VIEW_W, VIEW_H, false);
 const at = async (x, y) => {
   const o = await ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left, r.top]; })()`);
   const q = await ev(`__cmwGlobeXY('L', ${x}, ${y})`);
@@ -18,21 +25,21 @@ const at = async (x, y) => {
 };
 const N_STEPS = 12;
 for (const [name, moves] of [['the whole path', N_STEPS], ['all moves but the last', N_STEPS - 1], ['no move after the press', 0]]) {
-  await load('globerel' + Date.now(), { shapes: [], steps: [CAY], srcView: { cx: 0, cy: 0, s: 80 }, snap: true });
-  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.getElementById("canvasL")' });
-  await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere' }); 1`); await settle(1500);
-  await ev('__cmwCam("L", { pitch: 0.55, yaw: -1.0 }); 1'); await settle(800);
+  await load('globerel' + Date.now(), { shapes: [], steps: [CAY], srcView: { cx: 0, cy: 0, s: SRC_SCALE }, snap: true });
+  await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.getElementById("canvasL")' });
+  await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere' }); 1`); await settle(LOAD_MS);
+  await ev(`__cmwCam("L", ${JSON.stringify(CAM)}); 1`); await settle(CAM_MS);
   const inf = await at(NaN, NaN);
-  await ev(`document.querySelector('#tools .tool[data-tool="disc"]').click(); 1`); await settle(300);
-  const c0 = await at(0, 1.2);
+  await ev(`document.querySelector('#tools .tool[data-tool="disc"]').click(); 1`); await settle(TOOL_MS);
+  const c0 = await at(0, CAP_Y);
   ok(`${name}: N and the cap's centre are on screen`, !!inf && !!c0, { inf, c0 });
   if (!inf || !c0) continue;
-  const x1 = inf[0] + 3, y1 = inf[1] + 2;
+  const x1 = inf[0] + PAST_N[0], y1 = inf[1] + PAST_N[1];
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c0[0], y: c0[1] });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c0[0], y: c0[1], button: 'left', clickCount: 1 });
   for (let i = 1; i <= moves; i++) {
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c0[0] + (x1 - c0[0]) * i / N_STEPS, y: c0[1] + (y1 - c0[1]) * i / N_STEPS, button: 'left', buttons: 1 });
-    await sleep(16);
+    await sleep(MOVE_GAP_MS);
   }
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 });
   await settle();
