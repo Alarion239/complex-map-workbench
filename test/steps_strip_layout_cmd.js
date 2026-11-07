@@ -7,6 +7,7 @@
 // - laptop: the thread's centre (first dot to last) lies on the pane's centre line within 4 px, or, where the groups of
 //   controls beside it do not leave the room, the thread is as near the centre as it can be: its gap to the group on the
 //   centre's side is the bar's own (at most 9.5 px, 8 plus rounding); a thread that needs the whole rail scrolls, as it did;
+// - the ring (parked on z) sits on the first plane's dot, within 1 px;
 // - a one-step chain has no F chip at any width (F is f₁ there), and its thread fits the rail without scrolling; the thread
 //   is centred (phone: in its rail, within 4 px);
 // - a chain of two or more steps has the F chip: on a phone, with the thread fitting, the thread and F are centred in the
@@ -42,18 +43,19 @@ const measure = () => ev(`(() => {
   const nodes = [...document.querySelectorAll('.sv-plane .sv-node')].filter(vis).map(box), first = nodes[0], last = nodes[nodes.length - 1];
   const tc = (first.l + first.r) / 2 / 2 + (last.l + last.r) / 2 / 2, pc = (body.l + body.r) / 2;
   const F = q('.sv-wholemap'), fb = F && vis(F) ? box(F) : null, track = box(q('.sv-track'));
-  const shown = nodes[Math.round(__cmwSteps().x)], dotOff = shown ? (shown.l + shown.r) / 2 - (rb.l + rb.r) / 2 : null, atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1, atStart = rail.scrollLeft <= 0;
+  const ring = box(q('.sv-thumb')), ringOff = (ring.l + ring.r) / 2 - (nodes[0].l + nodes[0].r) / 2, shown = nodes[Math.round(__cmwSteps().x)], dotOff = shown ? (shown.l + shown.r) / 2 - (rb.l + rb.r) / 2 : null, atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1, atStart = rail.scrollLeft <= 0;
   const unit = { l: track.l, r: Math.max(track.r, fb ? fb.r : 0) };
   const left = others.filter((o) => o.r <= rb.l + ${EPS}).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - ${EPS}).reduce((a, o) => Math.min(a, o.l), Infinity);
   return { ph, clear: top - body.b, meet, off: tc - pc, gapL: rb.l - left, gapR: right - rb.r, scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rb.r - rb.l,
-    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
+    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, ringOff, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
 })()`);
-const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true]];
+const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true], [740, 360, true], [915, 412, true]];
 for (const lang of ['en', 'ru']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
   await open(w, h, mobile, lang, chain);
   const m = await measure(), tag = `${w} ${lang} ${chain}`, one = CHAINS[chain].length === 1;
   info[tag] = m;
   ok(`${tag}: the rail's elements are clear of the ruler (≥ ${m.ph ? 6 : 8} px)`, m.clear >= (m.ph ? 6 : 8) - 0.01, m.clear);
+  ok(`${tag}: the ring is on the first plane's dot (parked on z)`, Math.abs(m.ringOff) <= 1, m.ringOff);
   ok(`${tag}: the rail meets no other control of the bar`, m.meet.length === 0, m.meet);
   if (one) {
     ok(`${tag}: a one-step chain has no F chip, and its thread does not scroll`, !m.fShown && !m.scrolls, m);
