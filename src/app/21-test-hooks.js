@@ -13,6 +13,7 @@
     const held = pm !== r;
     return { id: s.id, role, held, mismatch: held && pm.skey !== r.skey && L === r };
   }));
+  window.__cmwFigureState = () => figureState();   // what a link or a scene file carries
   window.__cmwSet = (k, v) => {
     // the view fields of earlier builds (the suites set rightMode in many scenes): applied through the migration table,
     // on top of the old fields that name the current view (panels.md 10)
