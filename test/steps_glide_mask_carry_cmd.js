@@ -12,6 +12,11 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const DEFAULT_PORT = '8793';
 const SAME_FRAC = 0.005;      // (steps_glide_look_cmd.js: the parked frame is the held frame's pixels)
+const VIEW_W = 1200, VIEW_H = 800;   // (the views shard's pane, as steps_glide_look_cmd.js)
+const SETTLE_MAX_MS = 60000;  // the page's start-up, an example, a rest frame and a parked frame each settle within it
+const MESH_MAX_MS = 150000;   // a SphereMesh job of the zeta regions on a software renderer
+const JOB_ASK_MS = 1500;      // the parked frame's draw asks for the SphereMesh job within it, before the job list is read
+const PARK_EPS = 1e-3;        // how near u the thread has parked
 const CASES = [
   { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', us: [0.25, 0.5, 0.75] },
   { tag: 'Partial sum of the exponential', example: 'Partial sums of the exponential', us: [0.5] },
@@ -19,12 +24,12 @@ const CASES = [
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, DEFAULT_PORT])[1];
 const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-const ready = () => settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
+const ready = () => settled({ max: SETTLE_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 // (at rest on plane i, its frame drawn)
-const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
+const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: SETTLE_MAX_MS, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
 // (no SphereMesh job left to run: none is wanted by a frame, or the one asked for has been built)
 const MESH_IDLE = `(() => { const q = __cmwSphere(); return !(Array.isArray(q.jobs) ? q.jobs.length : q.jobs); })()`;
-await view(1200, 800, false, false);
+await view(VIEW_W, VIEW_H, false, false);
 for (const c of CASES) {
   const r = info[c.tag] = {};
   try {
@@ -33,15 +38,15 @@ for (const c of CASES) {
     const ex = names.indexOf(c.example);
     ok(`${c.tag}: the example is found`, ex >= 0, names.length);
     await ev(`__cmwExample(${ex}); 1`);
-    await settled({ max: 60000 });
+    await settled({ max: SETTLE_MAX_MS });
     await ev(`__cmwSet('morphPaths', false), __cmwSet('alpha', 1), __cmwSteps(${JSON.stringify({ scope: 'in', surf: 'plane' })}), 1`);
     await rest(0);
     for (const u of c.us) {
       const held = (await hold(u)).ok, still = await grab('H' + u);
       await ev('window.__svScrubUp(), 1');
-      const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
-      await sleep(1500);
-      const built = (await settled({ max: 150000, until: MESH_IDLE })).ok;
+      const parked = (await settled({ max: SETTLE_MAX_MS, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < ${PARK_EPS}` })).ok;
+      await sleep(JOB_ASK_MS);
+      const built = (await settled({ max: MESH_MAX_MS, until: MESH_IDLE })).ok;
       const settledP = await grab('P' + u);
       const diff = held && still && parked && built && settledP ? await compare('H' + u, 'P' + u) : null;
       r[u] = { held, still, parked, built, settledP, diff };
