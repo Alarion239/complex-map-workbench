@@ -1670,7 +1670,9 @@ const Inverse = (() => {
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:
   // {p, res, reg} with f = res / (z - p) + reg + O(z - p) (res, reg from f at p +- POLE_EPS; the fit is checked at 2 POLE_EPS
-  // and the homotopy against the line at a point off the pole), or null
+  // and the homotopy against the line at a point off the pole), or null. The tolerances: the two-sided difference at POLE_EPS
+  // leaves O(POLE_EPS^2) = 1e-6 in res and reg, so a simple pole predicts f at 2 POLE_EPS within 1e-4 (1 + |f|) where a
+  // double pole or an essential one misses by far more; H and the line are one formula, so they agree to 1e-9 (1 + |line|)
   const POLE_EPS = 1e-3;
   function simplePole(b, H) {
     if (!b.poles || b.poles.length !== 1 || !b.f) return null;
