@@ -86,8 +86,11 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place; a globe or a relief has no window of the still's to crop to, so its
   // first frame, at rest on the first plane, is judged the same way (parked at x = 0)
-  for (const park of surf === 'plane' ? [0.5] : [0, 0.5]) {
+  // (the Landscape with Inside regions draws only the region, a strip of under 4 % of the frame on plane z at rest: there
+  // the frame is judged with the colour Everywhere, the surface drawn whole; at x = 0.5 with Inside regions, as the example is)
+  for (const [park, scope] of surf === 'plane' ? [[0.5, null]] : [[0, surf === 'land' ? 'all' : null], [0.5, null]]) {
     const s = await ev(`await (async () => {
+      ${scope ? `__cmwSteps({ scope: '${scope}' });` : ''}
       __cmwSteps({ park: ${park} });
       for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
       if (GLR.gpuDone) await GLR.gpuDone();
@@ -108,8 +111,14 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
       return { mad: sum / (Math.max(1, n) * 3), drawn: n / (w * h), x: __cmwSteps().x };
     })()`, 120000);
     info[tag + ' screen ' + park] = s;
+    if (scope) await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
     ok(`${tag}: a frame at x = ${park} matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > DRAWN_MIN) && Math.abs(s.x - park) < 1e-6, s);
   }
+}
+// the picture check has teeth: a frame of paper alone has no drawn pixels, so it is below DRAWN_MIN
+{
+  const paperShare = await ev(`(() => { const w = 96, h = 54, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); const d = x.getImageData(0, 0, w, h).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) + Math.abs(d[i + 2] - d[2]) > ${DRAWN}) n++; return n / (w * h); })()`);
+  ok('a frame of paper alone is not a drawn picture (its drawn share is under DRAWN_MIN)', paperShare <= DRAWN_MIN, paperShare);
 }
 // the dialog: Video is listed, with where it goes and how long it is
 // the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane
