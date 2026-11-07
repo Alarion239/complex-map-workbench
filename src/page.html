@@ -353,11 +353,16 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .vsw .arr { font: var(--t-label); }
 .phbtn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
 .phbtn[aria-disabled="true"]:hover { color: var(--muted); }
-@media (max-width: 1279px) {
+/* (the view tabs' and Deformation's words: below 1024 px always; from 1024 px app.js hdrFit takes them away, after the example's name,
+   where the bar has no room for them) */
+@media (max-width: 1023px) {
   .top > .vsw > button > span, .top > .defbtn > span { display: none; }
   .top > .vsw > button { padding: 0 8px; }
   .top > .defbtn { padding: 0 8px; }
 }
+.top.tabs-off > .vsw > button > span, .top.tabs-off > .defbtn > span { display: none; }
+.top.tabs-off > .vsw > button { padding: 0 8px; }
+.top.tabs-off > .defbtn { padding: 0 8px; }
 .hdr-menu { display: contents; }
 .mlabel { display: none; }
 .menu-btn { max-width: 240px; gap: 4px; padding: 0 6px 0 8px; }
@@ -2086,14 +2091,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* the sound popover's engine line is mono in English; its Russian words are not («Звук: ещё не запущен») */
 :root[data-lang="ru"] #sndState { font-family: var(--f-ui); }
 /* Russian only (notes/i18n/ledger-2b.json) */
-/* at 1024-1199 px the examples button says «Примеры» (not a cut example name) and the command field «Поиск» */
+/* the command field's short label («Поиск»): app.js hdrFit shows it, in place of the full label, where that does not fit */
 .cmd-text .ct-s { display: none; }
-@media (min-width: 1024px) and (max-width: 1199px) {
-  :root[data-lang="ru"] .top #examplesBtn > .exlabel { display: none; }
-  :root[data-lang="ru"] .top #examplesBtn > .mlabel { display: inline; white-space: nowrap; }
-  :root[data-lang="ru"] .top #cmdBtn .ct-l { display: none; }
-  :root[data-lang="ru"] .top #cmdBtn .ct-s { display: inline; }
-}
 /* below 390 px «Прямо-угольник» and «Много-угольник» ran into each other: the bar keeps five tools and Polygon
    moves into «Ещё» (shown there, and in the bar while it is the active tool) */
 @media (max-width: 389px) { :root[data-lang="ru"] #secDraw:not(:has(.tool-more[open])) > .tools > .tool[data-tool="polygon"]:not(.on) { display: none; } }

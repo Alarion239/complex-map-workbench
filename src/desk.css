@@ -580,9 +580,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   :root:not(.ph) .top #examplesBtn > .exlabel.stale, :root:not(.ph) .top #examplesBtn > .exlabel:empty { display: none; }
 }
 .examples .ex-item.ex-new { border-bottom: 1px solid var(--line); }
-@media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* Italian too: the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
-@media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
+/* (app.js hdrFit: the example's name gives way, after the words of Export, Share, Theme and Sound, where the bar has no room for it) */
+:root:not(.ph) .top.ex-off #examplesBtn > .exlabel { display: none; }
 /* in the X → Y view each pane head's pattern button: the pattern's swatch, its pop-up the regions'
    display (page.html #regionsHome) */
 .pane-head .pat-btn { height: 26px; padding: 0 3px 0 5px; gap: 2px; }

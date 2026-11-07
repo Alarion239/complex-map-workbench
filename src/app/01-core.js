@@ -397,33 +397,33 @@
   }
   let saveT = 0, storageWarned = false;
   let figureSwap = false;   // v15: a link or a scene was written for the reload that opens it (nothing else is saved)
-  // ([v16.5 check app-1, app-2] the header search's words are never cut: where its field is too narrow for them (an
-  // example's name beside Examples, Italian's longer label, "Ctrl K"), it shows its short label (Russian, Italian) when
-  // that fits, else its icon and shortcut alone (named by its aria-label and tooltip), and the example's name takes the
-  // room. Measured in a frame when the header's width, the example's name or the fonts change; a phone has no field)
+  // ([v16.5 check app-1, app-2] no word of the bar is cut: where it does not fit, words give way one level at a time, in this
+  // order, until it does: the words of Export, Share, Theme and Sound (together), an open example's name, the view tabs' and
+  // Deformation's words, the search's full label, its short label (Russian, Italian), then its icon and shortcut alone (named
+  // by its aria-label and tooltip). Measured in a frame when the header's width, the example's name or the fonts change; a
+  // phone has no field)
   let hdrFitRaf = 0;
   function hdrFit() {
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'hw-off');
+    const LEVELS = ['hw-off', 'ex-off', 'tabs-off', 'cmd-short', 'cmd-cut'];
+    top.classList.remove(...LEVELS);
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
-    const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
-    const ex = $('examplesBtn');
-    const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    // (the words of Export, Share, Theme and Sound give way first, together, before any other word of the bar: while the search's
-    // words are cut, Examples' own word or the field is squeezed, the bar overflows, or the width has already folded another word
-    // (the search's short label, the view tabs' words, an open example's name); only then does the search lose its own)
-    const shown = (/** @type {Element | null} */ e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
-    const exName = document.querySelector('#examplesBtn .exlabel'), vs = $('viewSwitch');
-    const otherFolded = () => (!!exName && !exName.classList.contains('stale') && !!(exName.textContent || '').trim() && !shown(exName))
-      || (!!vs && shown(vs) && [...vs.querySelectorAll(':scope > button > span')].some((s) => !shown(s)))
-      || shown(f.querySelector('.ct-s')) || !shown(t);
-    if (cut() || tight() || otherFolded()) top.classList.add('hw-off');
-    if (cut()) {
-      if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
-      if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
+    const ex = $('examplesBtn'), exName = ex && ex.querySelector('.exlabel');
+    const clipped = (/** @type {Element | null} */ e) => !!e && e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 0.5;
+    // (a name longer than Examples' own width cap ends in an ellipsis by design; one cut for want of room does not fit)
+    const capped = () => !!ex && ex.offsetWidth >= parseFloat(getComputedStyle(ex).maxWidth) - 1;
+    const fits = () => !(top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1) || clipped(t) || (clipped(exName) && !capped()));
+    // (each word gives way only where the bar does not fit, in this order: the words of Export, Share, Theme and Sound, together;
+    // an open example's name; the view tabs' and Deformation's words; the search's full label, its short label, its icon alone)
+    for (const level of LEVELS) {
+      if (fits()) break;
+      if (level === 'cmd-short' && !f.querySelector('.ct-s')) continue;
+      top.classList.add(level);
+      if (level === 'cmd-short' && fits()) break;
+      if (level === 'cmd-short') top.classList.remove(level);
     }
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };

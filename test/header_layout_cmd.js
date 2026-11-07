@@ -46,8 +46,11 @@ for (const lang of ['', 'ru', 'it']) {
     ok(`${at}: the four words show only while the view tabs and the search keep their full words`, !(p.words.some(Boolean) && p.other), p);
     // (and before an open example's name: it takes room beside Examples)
     await ev(`(() => { const x = document.querySelector('#examplesBtn .exlabel'); x.textContent = 'Zeta function'; x.classList.remove('stale'); return 1; })()`); await settle(600);
-    const px = await ev(`(() => { const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { name: vis(document.querySelector('#examplesBtn .exlabel')), words: ['#exportBtn .hw', '#shareBtn .hw', '#themeBtn .hw', '#soundBtn .slbl'].map((q) => vis(document.querySelector(q))) }; })()`);
+    const px = await ev(`(() => { const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; const nm = document.querySelector('#examplesBtn .exlabel'); return { name: vis(nm), nameCut: vis(nm) && nm.scrollWidth > nm.clientWidth + 0.5, words: ['#exportBtn .hw', '#shareBtn .hw', '#themeBtn .hw', '#soundBtn .slbl'].map((q) => vis(document.querySelector(q))) }; })()`);
     ok(`${at}: with an example open, the four words show only while its name does`, !(px.words.some(Boolean) && !px.name), px);
+    // (hdrFit measures the name: it shows wherever it fits, in every language, and is never shown cut)
+    ok(`${at}: an open example's name is never shown cut`, !px.nameCut, px);
+    if (w >= 1440) ok(`${at}: a short example name shows beside Examples`, px.name, px);
     if (w >= 1100) ok(`${at}: the search shows its words`, p.cmd, p);
     // (#334) the Phase view has no style button in the bar either, and the bar still does not overflow
     await ev(`__cmwSetMain('phase'); 1`); await settle(500);
