@@ -95,6 +95,7 @@ const VIEWS = {
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
+  'steps_paths_caption_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
@@ -316,6 +317,7 @@ const VIEWS = {
   'mj_ranges_cmd.js': steps({ pin: true }),
   'offline_cmd.js': steps({ pin: true }),
   'smoke_cmd.js': steps({ pin: true }),
+  'zeta_logk_cmd.js': steps(),
   'warm_bar_cmd.js': steps({ pin: true }),
 };
 
