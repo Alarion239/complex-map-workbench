@@ -191,7 +191,8 @@ H.load = async (ns, st, extra, viewName) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S); await sleep(2200);
+  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
+  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)

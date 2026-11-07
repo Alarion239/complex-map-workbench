@@ -232,7 +232,7 @@ for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCa
   await open(1280, 800, false);
   st.steps = keep;
   const g0 = await ev(`__cmwSteps({ go: 1 })`);
-  await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300);
+  await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settled({ only: true, until: `!!document.querySelector('#popHost .menu .mi')` });
   await pick('Bypass this step');
   await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
   const g1 = await sv();

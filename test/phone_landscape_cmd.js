@@ -85,9 +85,9 @@ for (const [w, h] of [[740, 360], [915, 412]]) {
   }
 }
 // a laptop-sized window below 768 px with a mouse (no coarse pointer) keeps the portrait layout, and 1024 px wide is no phone
-await view(700, 360, false, false); await load('plm' + Date.now(), ST, '', 'classic'); await settle(1200);
+await view(700, 360, false, false); await load('plm' + Date.now(), ST, '', 'classic'); await settled();
 const m = await probe(); ok('700×360 with a mouse: ph, no ph-land (not a phone landscape)', m.ph && !m.land, m);
-await view(1280, 800, false, false); await load('pld' + Date.now(), ST, '', 'classic'); await settle(1200);
+await view(1280, 800, false, false); await load('pld' + Date.now(), ST, '', 'classic'); await settled();
 const d = await probe(); ok('1280×800: no phone layout', !d.ph && !d.land, d);
 const dq = await secs(); info.sec1280 = dq;
 ok('1280×800: the panel sections are always open, their summaries headings', dq && dq.n > 0 && dq.heads === dq.n && !dq.closed, dq);

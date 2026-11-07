@@ -129,7 +129,7 @@ for (const p of ['article1', 'homework']) {
   }
   if (r && p === 'article1') ok('article: solid boundaries, (a) (b)', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /^\(a\) /.test(r.cap) && / \(b\) /.test(r.cap), r.cap);
 }
-await ev(`__cmwSetMain('phase'); 1`); await settled(); await settle(1500);
+await ev(`__cmwSetMain('phase'); 1`); await settled({ until: `__cmwView().main === 'phase'` });
 for (const p of ['article1', 'article2']) {
   const r = await build(`phase-strip-${p}`, PRESETS[p]);
   if (r && p === 'article1') ok('phase: zeros and poles named, level lines', /Zeros \(dots\) at \$0\$/.test(r.cap) && /Poles/.test(r.cap) && /level sets/.test(r.cap), r.cap);
@@ -317,7 +317,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   // the deformation on: the landscape draws H_t on the sheets that become F's (work/xvsh), so the clause names them
   // (both of √z's), with no Ln (the map is H_t) and never "all sheets of the Riemann surface"
   await loadSt(`u5smorph${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
-  await ev('__cmwMorph({ open: true }); 1'); await settled({ until: '__cmwMorph().open === true' }); await settle(2000);
+  await ev('__cmwMorph({ open: true }); 1'); await settled({ until: '__cmwMorph().open === true' });
   const mt = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
   const mc = await build('u5-sheets-morph-article1', { for: 'article', deform: 'frame' }, []);
   const mr = await build('u5-sheets-ru-morph-article1', { for: 'article', deform: 'frame', lang: 'ru' }, []);
@@ -334,7 +334,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   R.u5.caps.film = { en: fe && fe.cap.slice(-900), ru: fr && fr.cap.slice(-900), view: fe && fe.view };
   ok('sheets, film: the English caption has the sheets clause and no principal branch', fe && /Landscapes of \$H_t\$/.test(fe.cap) && homEN.test(fe.cap) && !/principal branch/.test(fe.cap) && /\(on every sheet\)/.test(fe.cap), fe && fe.cap.slice(0, 900));
   ok('sheets, film: the Russian caption too', fr && homRU.test(fr.cap) && !/главная ветвь/.test(fr.cap) && /\(на каждом листе\)/.test(fr.cap), fr && fr.cap.slice(0, 900));
-  await ev('__cmwMorph({ open: false }); 1'); await settled({ until: '__cmwMorph().open === false' }); await settle(600);
+  await ev('__cmwMorph({ open: false }); 1'); await settled({ until: '__cmwMorph().open === false' });
   // (v16.1 review user-1) the user's case: sin √z, √ bracketed; the film and the single frame
   await loadSt(`u5susr${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 }, T: 0.5 })'); await settle(2000);
