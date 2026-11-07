@@ -1437,15 +1437,21 @@
     });
     // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
     for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
-    for (let i = 0; i < n; i++) {
-      const d = lay[i], st = sts[i];
-      if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
-        if (i > 0) GLR.carryDepthEnd();
-        return false;
+    const drawAll = () => {
+      for (let i = 0; i < n; i++) {
+        const d = lay[i], st = sts[i];
+        if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
+          if (i > 0) GLR.carryDepthEnd();
+          return false;
+        }
       }
-    }
-    if (tail) GLR.carryDepthEnd();
-    return true;
+      if (tail) GLR.carryDepthEnd();
+      return true;
+    };
+    // (below full opacity every covering layer shows, as the exact pass composites them: GLR.carryLayers draws the meshes
+    // once per layer; null: it cannot, nothing was drawn, and the front layer alone is)
+    const a = svOpacity(), layered = a < 0.999 && GLR.carryLayers ? GLR.carryLayers(a, drawAll) : null;
+    return layered === null ? drawAll() : layered;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;

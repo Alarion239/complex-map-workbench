@@ -30,7 +30,7 @@
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
-        invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
+        peel = null; peelOn = 0; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
@@ -360,7 +360,87 @@
     if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
   }
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
-  function carryDepthEnd() { if (!ok) return; gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // (a layer of carryLayers keeps its depth: the next layer reads it)
+  function carryDepthEnd() { if (!ok) return; if (!peelOn) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // ---- the carried colour's layers (opacity below 1) ----
+  // The carried colour shows the front sheet alone (one depth for all meshes). With opacity a < 1 it shows the layers as the
+  // exact pass does: carryLayers calls draw once per layer, front to back, into a target of the canvas's size (the layers
+  // share the frame's viewport and scissor); layer j keeps the fragments behind layer j-1's key (PRE_KEY's uPeelOn: the
+  // previous layer's depth, two 32-bit float depth textures alternating), and one pass composites them into the frame,
+  // each layer at a, the farthest opaque
+  const PEEL_MAX = 8, PEEL_UNIT = 7;
+  let peel = null, peelBad = false;
+  let peelOn = 0;   // the 1-based layer being drawn, 0 outside carryLayers
+  let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
+  function peelFree() {
+    if (!peel) return;
+    gl.deleteFramebuffer(peel.fbo); gl.deleteTexture(peel.col); peel.dep.forEach((t) => gl.deleteTexture(t));
+    peel = null;
+  }
+  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep}, or null when the target is not complete
+  function peelTarget(n) {
+    const W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
+    if (peel && peel.W === W && peel.H === H && peel.n >= n) return peel;
+    peelFree();
+    const set = (target) => {
+      gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    };
+    gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT);
+    const col = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, col); gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, W, H, n); set(gl.TEXTURE_2D_ARRAY);
+    const dep = [0, 1].map(() => {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT32F, W, H); set(gl.TEXTURE_2D);
+      return t;
+    });
+    const fbo = gl.createFramebuffer();
+    peel = { W, H, n, fbo, col, dep };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, col, 0, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, dep[0], 0);
+    const good = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (good) return peel;
+    peelBad = true; peelFree();
+    return null;
+  }
+  // draw() issues the frame's carried draws (every mesh, in one shared depth) and returns whether they all drew.
+  // -> null: layers cannot be drawn here (opacity >= 1, one layer, no target or program yet): nothing was drawn, the
+  // caller draws the front layer as it does at opacity 1; else draw()'s last result (false: a layer's draw failed, nothing
+  // reached the frame)
+  function carryLayers(alpha, draw) {
+    if (!ok || peelBad || peelOn) return null;
+    const n = Math.min(PEEL_MAX, invK(alpha));
+    if (n < 2) return null;
+    const Q = program('carryLayers'), T = Q ? peelTarget(n) : null;
+    if (!T) return null;
+    let done = true;
+    // (the layers hold alpha: the frame's write mask does not apply to them)
+    gl.colorMask(true, true, true, true);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+    try {
+      for (let j = 0; j < n && done; j++) {
+        gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, j);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, T.dep[j & 1], 0);
+        gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[(j + 1) & 1]);
+        gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        peelOn = j + 1;
+        done = draw();
+      }
+    } finally { peelOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!done) return false;
+    layerFrames++;
+    use(Q);
+    gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D_ARRAY, T.col);
+    u1i(Q, 'uL', PEEL_UNIT); u1i(Q, 'uN', n); u1f(Q, 'uA', alpha);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    return true;
+  }
   // the chain's cut kinds (a deformation map's carried colour draws a fill for a path cut the sheets continue, clipped
   // at a cut marked clip)
   const carryKinds = () => (cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : []);
@@ -434,7 +514,7 @@
     if (typeof prep === 'boolean') return prep;
     const { L, e, P, fill, fp, full, clip, mask } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    const k = st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     const sheet = fill || full;
     const set = (Q) => {
       use(Q, st.map);
@@ -490,6 +570,7 @@
   // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
+    u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
     sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });

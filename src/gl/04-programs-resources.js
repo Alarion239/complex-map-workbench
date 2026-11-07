@@ -189,6 +189,7 @@
     sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(true) },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
+    carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
   };
   // vertex-stage subset of UTIL (no derivatives)
@@ -1053,7 +1054,7 @@ float wabs(vec2 w) {
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
-    const k = !sph && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));

@@ -737,6 +737,27 @@ ${globe ? `  float a = U * (1.0 - T);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}
 }
 `;
+  // the carried colour's layers (GLR.carryLayers): uL's layers 0 .. uN-1 front to back, alpha 1 where a layer covers the pixel,
+  // composited as the exact pass does: each layer at uA, the farthest opaque
+  const CARRY_LAYERS_FS = `
+uniform highp sampler2DArray uL; uniform int uN; uniform float uA;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  vec3 C = vec3(0.0);
+  float T = 1.0;
+  vec4 cur = texelFetch(uL, ivec3(p, 0), 0);
+  for (int j = 0; j < 8; j++) {
+    if (j >= uN || cur.a < 0.5) break;
+    vec4 nxt = j + 1 < uN ? texelFetch(uL, ivec3(p, j + 1), 0) : vec4(0.0);
+    float a = nxt.a < 0.5 ? 1.0 : uA;
+    C += T * a * cur.rgb;
+    T *= 1.0 - a;
+    cur = nxt;
+  }
+  o = vec4(C, 1.0 - T);
+}
+`;
   // half-resolution passes (cost guard, motion frames): the half-size target, upscaled bilinearly over the pane
   const INV_UP_FS = `
 uniform sampler2D uHalf; uniform vec4 uVp; uniform vec2 uHalfSz;
