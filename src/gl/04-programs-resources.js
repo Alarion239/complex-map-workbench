@@ -407,14 +407,17 @@ float wabs(vec2 w) {
   // A chain's GPU and CPU state is its programs (forward, and the inverse ones, which carry the chain's key as chk), its
   // cached transform-feedback evaluations (chk), its prestart list and its version record (hist). freeChain deletes all
   // of it; the current chain and the side chains are never freed.
+  function dropProg(e) {
+    if (e.p) gl.deleteProgram(e.p);
+    if (e.vs) gl.deleteShader(e.vs);
+    if (e.fs) gl.deleteShader(e.fs);
+    progs.delete(e.id);
+  }
   function freeChain(key) {
     if (!key || key === cur.key) return;
     for (const e of [...progs.values()]) {
       if (e.side || (e.chain ? e.key : e.chk) !== key) continue;
-      if (e.p) gl.deleteProgram(e.p);
-      if (e.vs) gl.deleteShader(e.vs);
-      if (e.fs) gl.deleteShader(e.fs);
-      progs.delete(e.id);
+      dropProg(e);
     }
     wanted.delete(key);
     const i = hist.findIndex((h) => h.key === key);
@@ -425,23 +428,24 @@ float wabs(vec2 w) {
   // replaced the chain), so none of them can be drawn again
   let discardPending = false;
   const discardChains = () => { discardPending = true; };
-  function dropOtherChains() {
-    discardPending = false;
+  // the keys of every chain that owns a program, a cached evaluation, a prestart list or a version record
+  function chainKeys() {
     const keys = new Set(hist.map((h) => h.key));
     for (const k of wanted.keys()) keys.add(k);
     for (const e of progs.values()) if (!e.side && (e.chain || e.inv)) keys.add(e.chain ? e.key : e.chk);
     for (const e of cacheAll.keys()) if (e.chk) keys.add(e.chk);
-    for (const k of keys) freeChain(k);
+    return keys;
+  }
+  function dropOtherChains() {
+    discardPending = false;
+    for (const k of chainKeys()) freeChain(k);
   }
   // What the chains own, for the tests: the chain keys that own anything, and the counts of what they own
   function chainStats() {
-    const keys = new Set(hist.map((h) => h.key)), n = { hist: hist.length, wanted: wanted.size, programs: 0, inverse: 0, cache: 0 };
-    for (const k of wanted.keys()) keys.add(k);
-    for (const e of progs.values()) {
-      if (e.side) continue;
-      if (e.chain) { n.programs++; keys.add(e.key); } else if (e.inv) { n.inverse++; keys.add(e.chk); }
-    }
-    for (const e of cacheAll.keys()) if (e.chk) { n.cache++; keys.add(e.chk); }
+    const n = { hist: hist.length, wanted: wanted.size, programs: 0, inverse: 0, cache: 0 };
+    for (const e of progs.values()) if (!e.side) { if (e.chain) n.programs++; else if (e.inv) n.inverse++; }
+    for (const e of cacheAll.keys()) if (e.chk) n.cache++;
+    const keys = chainKeys();
     if (cur.info) keys.add(cur.key);
     return Object.assign(n, { keys: [...keys].sort(), cacheBytes });
   }
@@ -578,10 +582,7 @@ float wabs(vec2 w) {
     list.sort((a, b) => a.used - b.used);
     for (let i = 0; i < list.length - ((sideMode ? SIDE_KEEP : PROG_KEEP) - 1); i++) {
       const e = list[i];
-      if (e.p) gl.deleteProgram(e.p);
-      if (e.vs) gl.deleteShader(e.vs);
-      if (e.fs) gl.deleteShader(e.fs);
-      progs.delete(e.id);
+      dropProg(e);
     }
   }
   function schedulePoll() { if (!pollT) pollT = setTimeout(pollCompiles, 16); }
