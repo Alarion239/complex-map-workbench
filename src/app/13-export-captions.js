@@ -290,14 +290,17 @@
     return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
   }
   // the shown plane's paths figure: the paths of the step that leads to it. {i, m, Fat, z, end} (Fat(t): z -> the thread's
-  // place i - 1 + t), or {why} when there is none ('first': plane 0; 'deriv': a d/dz step), null off the plane surface
+  // place i - 1 + t; surf: the surface the plane is shown on), or {why} when there is none ('first': plane 0; 'deriv': a d/dz
+  // step), null on the Landscape
+  // the window of the camera every plane shares (S.srcView) at the left pane's size: where a path's start is chosen on the sphere
+  function svSrcBox() { const v = S.srcView, hw = paneL.w / 2 / v.s, hy = paneL.h / 2 / v.s; return { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hy, y1: v.cy + hy }; }
   function svPathsFig() {
     const P = svPlanes(), i = Math.round(SV.g.x);
-    if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
+    if (!SV.on || (SV.surf !== 'plane' && SV.surf !== 'sphere') || P.length < 2) return null;
     if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
     const src = svPathsSeg(P, i - 1, i, i);
-    return { i, m: 1, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
+    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
@@ -343,6 +346,7 @@
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
+    svSrcBox,
     svSurf: () => SV.surf,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
     // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
