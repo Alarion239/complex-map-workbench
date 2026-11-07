@@ -30,11 +30,13 @@ ${GI_REF}
 1`;
 // the frame at thread place x, once a frame there was drawn (by either path), and its record
 // (max: a software renderer takes minutes over a frame of the Mountain King's plane F; ms: until that frame)
-const at = async (x, want, max = 60000) => {
+const at = async (x, want, max = 60000, whole = false) => {
   const t0 = Date.now();
   await ev(`__cmwSteps({ x: ${x} }), 1`);
   const until = `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < 1e-9 && ${want ? `g.path === '${want}'` : 'true'}; })()`;
   await settled({ max, until });
+  // (whole: the idle job that makes the glide's pole tracks has ended: until then the frame is made from the poles a seed step finds at t itself, and is redrawn when the tracks are whole)
+  if (whole) await settled({ max, until: '!__cmwSvKey().busy' });
   const ms = Date.now() - t0;
   await ev('await new Promise((r) => setTimeout(r, 1500)), 1');
   const g = await ev('(() => { const g = __cmwSteps().glide; return g ? { b: g.b, u: g.u, path: g.path, reason: g.reason } : null; })()');
@@ -106,7 +108,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   await ev(`__cmwExample(${ex}), 1`);
   await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
   for (const x of [0.25, 0.5, 0.75]) {
-    const g = await at(x, 'inverse', 600000);
+    const g = await at(x, 'inverse', 600000, true);
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta x ${x}`] = { g, share };
     ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });
