@@ -1990,7 +1990,7 @@ const Tour = (() => {
   }
   // Next (r3 review user-7): on a wide screen "Start", "Finish", "Next: <chapter>" or "Next", shortened to "Next →" (the
   // full label its name) when it does not fit or would cut the lead line; on a phone an arrow, its label its name. With
-  // reduced motion during a countdown, the seconds left ("Next · 3"; on a phone "3")
+  // reduced motion during a countdown, the seconds left ("Next in 3 s"; on a phone "3")
   function paintNext(ui) {
     const n = ui.next, cnt = n.dataset.count || '';
     const ph = !!ui.mode && ui.mode !== 'desk';
@@ -2001,7 +2001,7 @@ const Tour = (() => {
     const base = open ? $t('Skip') : n.dataset.base || $t('Next');
     const cap = !ph && keyHints();
     const html = ph ? (cnt ? `<span class="ts-ncount">${esc(cnt)}</span>` : ICON_RIGHT) : null;
-    const text = ph ? null : cnt ? $t('Next · {n}', { n: cnt }) : base;
+    const text = ph ? null : cnt ? $t('Next in {n} s', { n: cnt }) : base;
     const aria = ph || cnt ? base : null;
     const sig = [html, text, aria, cap, open].join('|');
     // (a laptop's Next names the key that steps forward in its tooltip)
