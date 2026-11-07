@@ -2238,7 +2238,18 @@
     const thread = last.offsetLeft + last.offsetWidth - first.offsetLeft;
     const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
     // (and while the chips are their letters: the room their names needed is not given back to the words)
-    add.classList.toggle('fold', thread > room || E.railMode === SV_RAIL_LETTERS);
+    add.classList.toggle('fold', thread > room || E.railMode === SV_RAIL_LETTERS || !svCentrable(E, thread));
+  }
+  // Whether the thread (width thread) can sit on the strip's centre line with "+ Add function" showing its words: the thread's
+  // right end and the 8 px gap stay left of where the first control after the rail starts with the words. A phone centres in
+  // its rail, so the words never block it.
+  function svCentrable(E, thread) {
+    if (document.documentElement.classList.contains('ph')) return true;
+    const sr = E.strip.getBoundingClientRect();
+    const after = E.wholeMap && E.wholeMap.getClientRects().length ? E.wholeMap : E.add;
+    const wordsNeed = E.add.classList.contains('fold') ? E.addLabelW : 0;
+    const start = after.getBoundingClientRect().left - wordsNeed;
+    return (sr.left + sr.right) / 2 + thread / 2 + 8 <= start;
   }
   // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
   // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
