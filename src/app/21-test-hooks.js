@@ -351,6 +351,7 @@
   };
   // (#846) the last Landscape frame's Inside-regions mask at the point (x, y) of its plane: 0 to 1 (1: in the carried
   // region set), null outside its box or with no mask
+  window.__ipProbe = () => ({ glOk: !!GLR.ok, log: window.__ipLog || [] });
   window.__cmwLandMask = (x, y) => landMaskAlpha(render3D.mask, x, y);
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
   window.__cmwLandSurfacePx = (x, y) => {

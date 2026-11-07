@@ -1614,7 +1614,8 @@
       mp.begin = () => {};
       try {
         // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
-        withSolidRegions(() => { drawScene(mp, map, 'L', opt); if (k != null) stagePullbacks(mp, k); });
+        const ipA = () => [[1, 1], [2, 0]].map(([x, y]) => { const v = pane.view, d = pane.dpr || 1; return svMaskCv.getContext('2d').getImageData(Math.round(pane.pw / 2 + (x - v.cx) * v.s * d), Math.round(pane.ph / 2 - (y - v.cy) * v.s * d), 1, 1).data[3]; });
+        withSolidRegions(() => { drawScene(mp, map, 'L', opt); const a0 = k === 1 ? ipA() : null; const r = k != null ? stagePullbacks(mp, k) : null; if (k === 1) (window.__ipLog = window.__ipLog || []).push({ path: 'cc', k, before: a0, after: ipA(), pending: r }); });
       } catch (e) { console.error('steps view mask', e); }
       o.cc.save();
       o.cc.setTransform(1, 0, 0, 1, 0, 0);
@@ -1623,6 +1624,7 @@
       o.cc.restore();
       return true;
     }
+    if (k === 1) (window.__ipLog = window.__ipLog || []).push({ path: 'gl', k, glOk: !!GLR.ok, writeMask: !!GLR.writeMask, keepInAlpha: !!GLR.keepInAlpha });
     if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
     let onPage = false;
     const mp = Object.create(pane);

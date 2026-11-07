@@ -64,6 +64,7 @@ for (const [i, pts] of planes) {
     info.rest[i].got.push([x, y, v]);
     ok(`plane ${i}, Inside regions: the mask at ${x} + ${y}i is ${want}`, near(v, want), v);
   }
+  if (i === 1) { info.probe = { probe: await ev('JSON.stringify(__ipProbe())').then(JSON.parse), alpha: [await maskAt(1, 1), await maskAt(2, 0)] }; console.log('INREGIONS-PROBE ' + JSON.stringify(info.probe)); }
   // the surface's own pixel at each point, in both frames (Everywhere's frame was grabbed first, with its pick data
   // read here after the Inside frame: the camera and heights are the same)
   info.rest[i].px = [];

@@ -1007,6 +1007,7 @@
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, 1, 0, gl.RGBA, gl.FLOAT, data);
     const dpr = st.dpr || 1;
+    (window.__ipLog = window.__ipLog || []).push({ pre: [st.map.a, st.map.b], fboStatus: gl.checkFramebufferStatus(gl.FRAMEBUFFER), fboBound: !!gl.getParameter(gl.FRAMEBUFFER_BINDING), attrs: gl.getContextAttributes() });
     u1f(P, 'uDpr', dpr);
     u1i(P, 'uTN', nt);
     u3(P, 'uHalo', col3(st.halo, [1, 1, 1]));
