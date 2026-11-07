@@ -337,6 +337,8 @@
   // Deformation asked for it five times a side (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
   // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
   // microtask, force if any asked for it; nothing paints in between)
+  // (a formula note, the Cauchy sentence: the strip's layout and the ⋯ pop-up both order it apart from the controls)
+  const isFootNote = (/** @type {Element} */ e) => e.classList.contains('foot-note');
   const footDue = { L: 0, R: 0 };
   let footFlush = false;
   function layoutFootSide(side, force) {
@@ -379,7 +381,7 @@
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
     // and the toggles, so the plane's title keeps its room)
-    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf');
+    const unit = inHead ? unitKid(side) : null, isNote = (e) => isFootNote(e) || e.classList.contains('ovf');
     const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
@@ -520,7 +522,7 @@
   // pop-up a note stands directly under that control when it is behind ⋯ too, else at the pop-up's top, next to the
   // control that stays in the head
   function notesUnderControls(rest, kids) {
-    const notes = rest.filter((e) => e.classList.contains('foot-note'));
+    const notes = rest.filter(isFootNote);
     if (!notes.length) return rest;
     const out = rest.filter((e) => !notes.includes(e));
     for (const note of notes) out.splice(out.indexOf(kids[kids.indexOf(note) - 1]) + 1, 0, note);
