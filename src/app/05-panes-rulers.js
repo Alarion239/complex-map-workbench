@@ -88,14 +88,16 @@
     pane.begin(TH.plane);
     if (!GLR.drawGrid || !GLR.ok) Axes.draw(pane, TH, { unitCircle: S.unit, labels: false });
   }
+  // the left plane: the steps view draws it through svDrawPlane, which keeps this function's classic drawing (drawLeft) for
+  // the planes it draws that way
   function renderLeft() {
     const pane = paneL;
-    // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
-    // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
-    // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
-    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
-    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
-    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; svDrawPlane(pane, drawLeft); return; }
+    drawLeft(pane);
+  }
+  // the classic drawing of the left plane: a flat coloured plane, X Phase, X Landscape and X Sphere, the steps view's
+  // coloured planes and its globes and relief at rest among them
+  function drawLeft(pane) {
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
