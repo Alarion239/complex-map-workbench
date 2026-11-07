@@ -58,16 +58,16 @@ const Tour = (() => {
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'zp', params: { a: '1', zeros: '', poles: 'i, -i' } }],
     },
-    // the same maps with a first step z: the steps view shows no F chip on a one-step chain, so its F tour steps run on two steps
+    // the same maps as z² + 1 and then 1/w: the steps view shows no F chip on a one-step chain, so its F tour steps run on two steps
     residueZp2: {
       name: 'A residue by integration', needs: 'zp', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
-      steps: [{ type: 'custom', params: { expr: 'z', cut: 180 } }, { type: 'zp', params: { a: '1', zeros: '', poles: 'i, -i' } }],
+      steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'zp', params: { a: '1', zeros: '', poles: '0' } }],
     },
     residue2: {
       name: 'A residue by integration', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
-      steps: [{ type: 'custom', params: { expr: 'z', cut: 180 } }, { type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }],
+      steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'custom', params: { expr: '\\frac{1}{z}', cut: 180 } }],
     },
     residue: {
       name: 'A residue by integration', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
