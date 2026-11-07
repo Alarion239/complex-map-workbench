@@ -3370,7 +3370,6 @@
  "phase of ": "fase di ",
  "Regions key: point at it to unfold, click to keep it open": "Legenda delle regioni: passa il puntatore per aprirla, fai clic per tenerla aperta",
  "coloured by the phase of %{z}": "a colori secondo la fase di %{z}",
- "Regions are coloured by the phase of z, carried by the map": "Le regioni sono colorate secondo la fase di z, trasportata dalla funzione",
  "Regions are coloured by the phase of {p}, carried by the map": "Le regioni sono colorate secondo la fase di {p}, trasportata dalla funzione",
  "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.": "X mostra le tue figure, qui la striscia $|\\operatorname{Im} z|<\\pi/2$, colorata secondo la fase di $z$, con una griglia nelle coordinate $z$. Pizzica per lo zoom e trascina un'area vuota per spostare la vista.",
  "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.": "X mostra le tue figure, qui la striscia $|\\operatorname{Im} z|<\\pi/2$, colorata secondo la fase di $z$, con una griglia nelle coordinate $z$. Scorri per lo zoom, trascina un'area vuota per spostare la vista e {Z} adatta la vista a entrambi i piani.",

@@ -3,7 +3,6 @@
 // - colour plane w₁ (set on w₁, the view back on z): both say "phase of w₁";
 // - the note follows the language (Russian).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
-const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ns = 'svrn' + Date.now();
@@ -15,9 +14,7 @@ const toPlane = async (i) => {
 };
 const open = async (w, h, touch, lang, T) => {
   await view(w, h, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await loadView('steps', ns, st, { lang });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
   if (T) { await toPlane(T); await ev(`document.querySelector('.sv-cp').click(); 1`); await settled({}); await toPlane(0); }
   else { await ev(`document.querySelector('.sv-cp').click(); 1`); await settled({}); }

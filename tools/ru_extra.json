@@ -610,7 +610,6 @@
  "Phase of z": "Фаза z",
  "phase of ": "фаза ",
  "coloured by the phase of %{z}": "цвет по фазе %{z}",
- "Regions are coloured by the phase of z, carried by the map": "Области окрашены по фазе z, переносимой отображением",
  "Regions are coloured by the phase of {p}, carried by the map": "Области окрашены по фазе %{p}, переносимой отображением",
  "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Pinch to zoom and drag empty space to pan.": "X показывает ваши фигуры — здесь это полоса $|\\operatorname{Im} z|<\\pi/2$, окрашенная по фазе $z$, с сеткой в координатах $z$. Сводите и разводите пальцы, чтобы менять масштаб, и перетаскивайте пустое место, чтобы сдвигать вид.",
  "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, coloured by the phase of $z$, with a grid in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.": "X показывает ваши фигуры — здесь это полоса $|\\operatorname{Im} z|<\\pi/2$, окрашенная по фазе $z$, с сеткой в координатах $z$. Прокрутка меняет масштаб, перетаскивание пустого места сдвигает вид, а клавиша {Z} вписывает обе плоскости в окно.",
