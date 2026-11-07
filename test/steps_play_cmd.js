@@ -51,7 +51,7 @@ const watchX = async (ms) => {
 const CLOCK = 40;
 const rateAt = async (speed) => {
   await ctl({ go: 0, now: true, clock: CLOCK });
-  await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
+  await choose('.sv-speed', speed);
   await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(); window.__rt.s.push(x); if (x >= 1.999 || performance.now() - t0 > 60000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); __cmwSteps({ play: true }); })(); 1`);
   let rt = null;
   for (let i = 0; i < 700; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
@@ -72,7 +72,7 @@ ok('the Loop toggle is 36 px high, as the speed select', lh >= 35.5 && lh <= 37,
 ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold for speed and loop\\. Glide order: (Step by step|All at once)$/.test(document.querySelector('.sv-play').getAttribute('aria-description'))`), 'desc');
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'fast');
 await calm();
 const tClick = Date.now();
 // (the glide is 0.9 s of frame time and the button's label follows on a frame: from the press, every frame is looked at
@@ -108,12 +108,12 @@ ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x
 { const r = await rateAt('slow'), n = await rateAt('normal');
   ok('the speeds are what they say: slow about 0.5 planes a second, normal about 1.1', r.n >= 3 && n.n >= 3 && r.rate > 0.45 && r.rate < 0.55 && n.rate > 1.0 && n.rate < 1.2, { slow: r, normal: n }); }
 await ctl({ go: 0, now: true });
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'slow');
 await ev(`document.querySelector('.sv-play').click(); 1`);
 await sleep(1000);
 const sl = await S();
 ok('a play at slow is still going a second in', sl.play === 'glide', sl);
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'fast');
 const e2 = await until((s) => !s.play);
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
@@ -134,7 +134,7 @@ await rest();
 
 // pause between two planes (more than the eighth that snaps): it parks there, and a state loaded afterwards is adopted
 await ctl({ go: 0, now: true });
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'slower');
 // (paused from inside the page the moment it passes 0.3, so no poll's lag decides where; ev does not wait for a promise, so the page
 // leaves its answer in window.__midR. A frame gap that carries it past 0.7 (a cold start) is tried again, at most three times)
 let midR = null, pk = null;
@@ -153,7 +153,7 @@ await ev(`(__cmwExample(3), 1)`); await sleep(2500); await settle(500);
 const ad = await S();
 ok('… and a state loaded after that is adopted (back on its first plane, not left parked)', Math.abs(ad.x - Math.round(ad.x)) < 1e-9 && ad.i === 0 && !ad.moving, ad);
 // an example loaded under a Play, Loop on: Play stops and the new example's view is adopted (rework on #460)
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'slow');
 await ctl({ go: 0, now: true });
 await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'true' || document.querySelector('.sv-loop').click(); 1`);
 await ctl({ play: true });
@@ -162,7 +162,7 @@ await ev(`(__cmwExample(5), 1)`); await sleep(2500); await settle(500);
 const xl = await S();
 ok('an example loaded while playing (Loop on) stops Play and shows its view from the first plane', xl.play === null && xl.i === 0 && Math.abs(xl.x - Math.round(xl.x)) < 1e-9 && !xl.moving, xl);
 await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'false' || document.querySelector('.sv-loop').click(); 1`);
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'fast');
 await open(1280, 800, false, true);
 await ctl({ scope: 'all' });
 
@@ -264,7 +264,7 @@ ok('Tab stays in the sheet', await ev(`!!document.activeElement.closest('.sv-she
 ok('… and the release is not a press: nothing plays', (await S()).play === null, await S());
 await ev(`document.querySelector('.sv-sheet .sv-loop').click(); 1`);
 ok('the sheet\'s Loop sets it', (await S()).loop === true, await S());
-await ev(`(() => { const e = document.querySelector('.sv-sheet .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-sheet .sv-speed', 'slower');
 ok('the sheet\'s Speed sets the state\'s speed too (one setting), and the strip\'s select follows', (await S()).svSpeed === 'slower' && await ev(`document.querySelector('#svStrip .sv-speed').value === 'slower'`), await S());
 await ctl({ loop: false });
 await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);

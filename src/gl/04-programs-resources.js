@@ -2,6 +2,52 @@
   const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
+  // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
+  // with the log the zeta loops call: a vertex shader's transform feedback, read back, so each entry is what log(float(k))
+  // gives there. If that pass cannot run, the host's float32 logs stand in
+  let logKData = null;
+  // A GPU's log may differ from Math.log by a few float32 ulps; the table is kept only while every entry is within this relative distance of it
+  const LOGK_GPU_REL_TOL = 1e-5;
+  function logK() {
+    if (logKData) return logKData;
+    const n = GLChain.ZETA_LN_K_COUNT, out = new Float32Array(n);
+    out[0] = 1;
+    for (let k = 1; k < n; k++) out[k] = Math.fround(Math.log(k));
+    const e = { name: 'logK' };
+    startLink(e, '#version 300 es\nprecision highp float;\nout vec4 tfOut;\nvoid main() {\n  int i = gl_VertexID;\n  tfOut = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n', HEAD + TF_FS, true);
+    finishLink(e);
+    const p = e.p;
+    if (e.state === 'ready') {
+      const tf = gl.createTransformFeedback(), buf = gl.createBuffer(), vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING), gpu = new Float32Array(n);
+      gl.bindVertexArray(null);
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, buf);
+      gl.bufferData(gl.COPY_WRITE_BUFFER, gpu.byteLength, gl.DYNAMIC_READ);
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+      gl.useProgram(p);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buf);
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, n / 4);
+      gl.endTransformFeedback();
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+      gl.bindBuffer(gl.COPY_READ_BUFFER, buf);
+      gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, gpu);
+      gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+      gl.bindVertexArray(vao);
+      gl.deleteBuffer(buf); gl.deleteTransformFeedback(tf);
+      if (gpu.every((x, k) => k === 0 || (Number.isFinite(x) && Math.abs(x - out[k]) <= LOGK_GPU_REL_TOL * (1 + out[k])))) { gpu[0] = 1; out.set(gpu); }
+    }
+    if (p) gl.deleteProgram(p);
+    logKData = out;
+    return out;
+  }
+  // a freshly linked program's constant arrays, set once (a program's uniforms stay while it lives)
+  function programConstants(loc, p) {
+    if (loc.uLogK) { const d = logK(); gl.useProgram(p); gl.uniform4fv(loc.uLogK, d); }
+  }
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -75,6 +121,7 @@
       loc[name] = gl.getUniformLocation(p, u.name);
       if (name in SAMPLER_UNITS) gl.uniform1i(loc[name], SAMPLER_UNITS[name]);
     }
+    programConstants(loc, p);
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
@@ -90,8 +137,9 @@
   // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
   // the fill draws through: drawRegionCarry)
   const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
-  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip, true);
-  const REGION_KM_FS = () => UTIL + CARRY_MASK_FS;
+  const REGION_K_FS = (clip, key) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, true);
+  const PEEL_PROGS = ['regionK', 'regionKC', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
+  const REGION_KM_FS = (key) => () => UTIL + CARRY_MASK_FS(key);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
@@ -99,21 +147,21 @@
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
     // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
     // triangle's own sheet)
-    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS() },
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS(false) },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
-    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
-    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS(false) },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS(false) },
     // (regionKS for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
     regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
     // (the fill after regionKC: only the triangles the cached places tear, on their centre's sheet, each place read from
     // the fill's point pass, fillPts: drawRegionCarry, fillPoints; regionKSCclippt for a clipped cut)
-    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS() },
+    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS(false) },
     // (the masks of regionKS and regionKSCpt: their vertex stage, CARRY_MASK_FS's fragments, so a torn
     // triangle shows only where the map sends its points; started with them, prestartCarry, and drawn once linked:
     // carryPrep)
-    regionKSm: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_KM_FS },
-    regionKSCptm: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_KM_FS },
+    regionKSm: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_KM_FS(false) },
+    regionKSCptm: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_KM_FS(false) },
     regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
     fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
@@ -189,8 +237,14 @@
     sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(true) },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
+    carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
   };
+  // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
+  // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets
+  // whose keys are a tie order apart, would not compare): each tessellated-mesh program has a variant 'P' that writes it
+  PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true) }); });
+  ['regionKSm', 'regionKSCptm'].forEach((n) => { DEFS[n.slice(0, -1) + 'Pm'] = Object.assign({}, DEFS[n], { fs: REGION_KM_FS(true) }); });
   // vertex-stage subset of UTIL (no derivatives)
   const UTIL_V = `
 float wabs(vec2 w) {
@@ -1123,7 +1177,7 @@ float wabs(vec2 w) {
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
-    const k = !sph && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));

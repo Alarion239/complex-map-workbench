@@ -170,6 +170,19 @@ H.clickSel = async (sel) => {
   if (!r || r.__exc) return 'nosel ' + sel;
   await H.click(r[0], r[1]); return r;
 };
+// choose(css, value): the steps view's choice button (Speed, Order) set the way a user sets it: its menu opened, the item for
+// value picked (a menu a touch raised is deaf to a click for a moment, so the pick is tried again until the button holds value).
+// Returns whether it does.
+H.choose = async (sel, value) => {
+  const q = `document.querySelector(${JSON.stringify(sel)})`, want = `${q} && ${q}.value === ${JSON.stringify(value)}`;
+  for (let i = 0; i < 20 && !(await H.ev(want)); i++) {
+    await H.ev(`(() => { const b = ${q}; if (!b) return 0; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return 1; })()`);
+    await H.settled({ until: `!!document.querySelector('#popHost .menu .mi')`, only: true, max: 400 });
+    await H.ev(`(() => { const b = ${q}, c = b && b.choices.find((p) => p[0] === ${JSON.stringify(value)}), m = c && [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === c[1]); if (!m) return 0; m.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); m.click(); return 1; })()`);
+    await H.settled({ until: want, only: true, max: 400 });
+  }
+  return !!(await H.ev(want));
+};
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
 // seed(ns, state): the saved state the app reads under ns on its first load, written from the helper page (a page of the same
 // origin that starts no app); waits for the helper page's load event
