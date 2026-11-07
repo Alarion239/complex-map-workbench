@@ -1,4 +1,4 @@
-// The classic views' learn checks of UX20, V01, UX80, UX102-UX104, UX97, UX99 and UX60: the pattern key, option bar and
+// The classic views' learn checks: the pattern key, option bar and
 // target note in Y's pane head, the empty chain's Add function in Y's head, the deformation's readout, play button, chip
 // and Video format, and the shape keys and right-click menus of the Shapes list and the chain cards. The steps view has
 // no Y pane head, chain head or chain cards; its own learn checks are ux165_learn_cmd.js.
@@ -13,11 +13,11 @@ const phone = async (w, h, dark = false) => { await send('Emulation.setUserAgent
 const rclick = async (x, y) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', clickCount: 1 }); await settled({ until: "!!document.querySelector('#popHost .pop.menu')", max: 1500 }); };
 logs();
 let g = null;
-// ---------------------------------------------------------------- UX20: keys and options in the pane head
+// ---------------------------------------------------------------- keys and options in the pane head
 await laptop();
 await fresh('ux165a'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
 g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => { const r = c.getBoundingClientRect(), hd = c.closest('.pane-head'), h = hd && hd.getBoundingClientRect(); return !!h && r.top >= h.top - 1 && r.bottom <= h.bottom + 1; }) }; })()`);
-// (#247: the head's controls are inline, compact, every one inside the head)
+// (the head's controls are inline, compact, every one inside the head)
 check('UX20 laptop X → Y: the pattern key and the options are in Y\'s pane head, nothing of theirs on the plot', g.legHead && g.footHead && g.inPlot === 0 && /^cell /.test(g.sum || '') && g.onlyBtn, g);
 let lb = await box('#rightLegend');
 await move(lb.l + 8, lb.t + 8); await settled({ until: "getComputedStyle(document.querySelector('#rightLegend > canvas')).display !== 'none'" });
@@ -26,7 +26,7 @@ check('UX20: the key unfolds under the head only while pointed at (invited)', g.
 await shot('ux165-ux20-key-hover');
 await move(300, 300); await settled({ until: "getComputedStyle(document.querySelector('#rightLegend > canvas')).display === 'none'" });
 check('UX20: and folds again', await ev(`getComputedStyle(document.querySelector('#rightLegend > canvas')).display === 'none'`));
-// (#247: View outline and Phase key are toggles in Y's head, or behind its ⋯ when the head has no room, or, when the head
+// (View outline and Phase key are toggles in Y's head, or behind its ⋯ when the head has no room, or, when the head
 // holds no toggle at all, in the pattern button's pop-up above the patterns (one button); never over the plot)
 const inlineKey = await ev(`(() => { const k = document.getElementById('wKeyChkR'), l = k && k.closest('label'); return !!(l && l.getClientRects().length && l.closest('#paneR .pane-head')); })()`);
 if (!inlineKey) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settled({ until: "!!document.querySelector('.opts-pop')" }); }
@@ -36,7 +36,7 @@ await key('Escape'); await settled({ until: "!document.querySelector('.opts-pop'
 for (const v of ['phase', 'land']) {
   await ev(`__cmwSetMain('${v}')`); await settled({});
   g = await ev(`(() => { const F = document.querySelector('#leftFoot'), plot = document.querySelector('#plotL'); return { head: F.parentNode.classList.contains('pane-head'), bars: [...plot.querySelectorAll(':scope > .options, :scope > .legend-chip:not([hidden]):not(.calc-chip)')].filter((e) => e.getClientRects().length).length, leg: document.querySelector('#leftLegend').parentNode.classList.contains('pane-head') }; })()`);
-  // (#365: Phase's colour key lies on the plot, top right, always shown; the Landscape's height key is the head's chip)
+  // (Phase's colour key lies on the plot, top right, always shown; the Landscape's height key is the head's chip)
   if (v === 'phase') check('UX20/#365 laptop phase: its option bar is in X\'s pane head, the key is the one thing on the plot', g.head && !g.leg && g.bars === 1, g);
   else check(`UX20 laptop ${v}: its option bar and key are in X's pane head, none over the plot`, g.head && g.leg && g.bars === 0, g);
   await shot('ux165-ux20-' + v);
@@ -70,7 +70,7 @@ grab();
 
 await laptop();
 
-// ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
+// ---------------------------------------------------------------- the empty chain's Add function in Y's head
 // (the Undo message of the same page is ux165_learn_msg_classic_cmd.js)
 await laptop();
 await fresh('ux165e'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
@@ -81,7 +81,7 @@ check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not 
 g = await ev(`(() => { const t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'), pt = t.querySelector('.ptitle'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { cls: t.className, prCut: vis(pr) && pr.scrollWidth > pr.clientWidth + 1, ptCut: vis(pt) && pt.scrollWidth > pt.clientWidth + 1 }; })()`);
 check('UX20 laptop: with "Add function" in Y\'s head the title and its role are not cut', !g.prCut && !g.ptCut, g);
 
-// ---------------------------------------------------------------- deformation: UX102, UX103, UX104, UX97 (K, Shift+→), UX60
+// ---------------------------------------------------------------- deformation: readout, play button, draw chip, keys (K, Shift+→), Video
 await laptop();
 await fresh('ux165m'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
 await key('m'); await settled({ until: "!!document.querySelector('#morphLabel') && __cmwState().morph.open === true" });
@@ -113,7 +113,7 @@ await ev(`document.querySelector('#sphereChipR .chip-draw').click()`); await set
 g = await ev(`({ open: __cmwState().morph.open, tool: (document.querySelector('#tools .tool.on, #tools .tool[aria-pressed="true"]') || { dataset: {} }).dataset.tool || null })`);
 check('UX102: it turns the deformation off and keeps the chosen tool', g.open === false && g.tool === 'disc', g);
 await ev(`document.querySelector('#tools [data-tool="select"]').click()`);
-// UX60: Video listed with the deformation off; choosing it turns the deformation on and opens on Video
+// Video listed with the deformation off; choosing it turns the deformation on and opens on Video
 await ev(`Figure.open()`); await settled({ until: "!!document.querySelector('#xfFmt > button')" });
 g = await ev(`({ fmts: [...document.querySelectorAll('#xfFmt > button')].map((b) => b.dataset.v), dis: (document.querySelector('#xfFmt [data-v="video"]') || {}).disabled })`);
 check('UX60: Video is listed with the deformation off', g.fmts.includes('video') && g.dis === false, g);
@@ -135,7 +135,7 @@ await key('m'); await settled({ until: "__cmwState().morph.open === false" });
 await nav(U + '?ns=ux165m&lang=en'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
 await ev(`localStorage.removeItem('cmw-lang:ux165m'); localStorage.removeItem('cmw-lang'); 1`);
 
-// ---------------------------------------------------------------- UX97 keys on shapes, UX99 right-click menus
+// ---------------------------------------------------------------- keys on shapes, right-click menus
 await laptop();
 await fresh('ux165k'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
 await ev(`__cmwSelect('s2')`); await settled({ until: "__cmwShapes().selected === 's2'", only: true });
@@ -164,7 +164,7 @@ g = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu'); i
 check('UX99: a right click on a chain card opens its ⋯ menu at the pointer', g && g.n > 2 && Math.abs(g.x - (cb.l + 32)) < 4 && (Math.abs(g.y - (cb.t + 32)) < 4 || Math.abs(g.b - (cb.t + 28)) < 4), Object.assign({ at: [cb.l + 30, cb.t + 30] }, g));
 await shot('ux165-ux99-card');
 await key('Escape'); await settled({ until: "!document.querySelector('#popHost .pop.menu')", only: true });
-// UX97: Alt+→ / Alt+← move the focused chain step right / left (its ⋯ menu's Move right / left), the card keeps focus
+// Alt+→ / Alt+← move the focused chain step right / left (its ⋯ menu's Move right / left), the card keeps focus
 const st0 = await ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
 await ev(`document.querySelector('#pipeline .card[data-k="1"]').focus(); 1`);
 await key('ArrowRight', 1); await settled({ until: "document.activeElement && document.activeElement.closest('.card') && document.activeElement.closest('.card').dataset.k === '2'", only: true });

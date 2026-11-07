@@ -1,9 +1,10 @@
-// The learn checks the steps view has (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): UX21's
-// tour line, an example's fit with the tour's Sound chapter, UX89, UX78 and UX93's Russian strings, UX88 and UX72, on a phone (412 x 860, Android Chrome emulation, real touch
-// events through Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. The classic views' own
-// checks (the pane head's key, options and note, the deformation, the Shapes keys and menus) are
-// ux165_learn_classic_cmd.js and the classic phone's (V01's note, UX80's message row) ux165_learn_phone_classic_cmd.js; the laptop's sound checks are ux165_learn_sound_cmd.js, the first-run line is
-// ux165_learn_first_run_cmd.js and the Undo message is ux165_learn_msg_classic_cmd.js. A command file for a CDP daemon
+// The learn checks the steps view has: the tour line on a phone and a landscape phone, an example's fit with the tour's
+// Sound chapter, a tap that closes a layer doing nothing else, the Russian strings (tour, tool row, tiles), and the
+// sound settings' keyboard help and the Shapes editor's Listen along on a phone (412 x 860, Android Chrome emulation,
+// real touch events through Input.dispatchTouchEvent). The classic views' own checks (the pane head's key, options and note,
+// the deformation, the Shapes keys and menus) are ux165_learn_classic_cmd.js and the classic phone's (the target note, the
+// message row) ux165_learn_phone_classic_cmd.js; the laptop's sound checks are ux165_learn_sound_cmd.js, the first-run line
+// is ux165_learn_first_run_cmd.js and the Undo message is ux165_learn_msg_classic_cmd.js. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
 // Prints { pass, of, fails: [[name, false, detail]], exc }.
 const { U, R, check, settle, exc, grab, UA0, laptop, fresh, ready, firstVisit } = await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ux165_kit.js'), 'utf8'));
@@ -22,6 +23,7 @@ let g = null;
 // phone portrait: the row under the header, 44 px buttons, real taps
 await phone(412, 860);
 await firstVisit();
+check('the page under test is the steps view (the suite is pinned to it)', await ev(`typeof __cmwSteps === 'function' && __cmwSteps().on === true`));
 g = await ev(`(() => { const s = document.querySelector('.tour-lane'); if (!s) return null; const b = s.getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(), p = document.querySelector('.panes').getBoundingClientRect(); return { mode: s.dataset.mode, top: b.top, hdr: h.bottom, bot: b.bottom, panes: p.top, w: b.width, minB: Math.min(...[...s.querySelectorAll('button')].map((x) => x.getBoundingClientRect().height)), scroll: document.documentElement.scrollHeight <= innerHeight }; })()`);
 check('UX21 phone: the line is the row under the header, the planes start under it, 44 px buttons, no page scroll', g && g.mode === 'port' && Math.abs(g.top - g.hdr) <= 1 && g.panes >= g.bot - 0.5 && g.w >= 410 && g.minB >= 44 && g.scroll, g);
 await shot('ux165-ux21-phone');

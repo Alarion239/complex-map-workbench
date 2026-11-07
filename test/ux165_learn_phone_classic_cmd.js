@@ -1,5 +1,5 @@
-// The classic phone's learn checks: V01's note after a target (Y's chip "Shaded in X (the inset)", the inset's pulse) and
-// UX80's message row under the chain bar, clear of the inset, Fit and the key column. The steps view's phone has no
+// The classic phone's learn checks: the note after a target (Y's chip "Shaded in X (the inset)", the inset's pulse) and
+// the message row under the chain bar, clear of the inset, Fit and the key column. The steps view's phone has no
 // inset and no chain bar. Phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent). A command file for a CDP daemon (test/cdp_kit README): python3 build.py &&
 // test/<you>_cdp/q.sh test/ux165_learn_phone_classic_cmd.js. Prints { pass, of, fails: [[name, false, detail]], exc }.
@@ -14,7 +14,7 @@ const tdrag = async (x0, y0, x1, y1, n = 14) => { await send('Input.dispatchTouc
 const tapSel = async (sel) => { const b = await box(sel); if (!b) return false; await tap(...mid(b)); return true; };
 logs();
 let g = null;
-// ---------------------------------------------------------------- V01 (phone): the target's note
+// ---------------------------------------------------------------- phone: the target's note
 await phone(412, 860);
 await fresh('ux165c'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
 // (a pulse is the class going on: a record that only rewrites the pane's classes, as a resize does, is not one)
@@ -26,7 +26,7 @@ g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#
 check('V01 phone: after a target, Y\'s chip says "Shaded in X (the inset)", no note over Y, and the inset pulsed once', g.targets === 1 && /Shaded in X \(the inset\)/.test(g.ro) && g.calc === true && g.pulse === 1, g);
 await shot('ux165-v01-phone');
 
-// ---------------------------------------------------------------- UX80 (phone): the message row
+// ---------------------------------------------------------------- phone: the message row
 await phone(412, 860);
 await fresh('ux165f'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
 await ev(`document.querySelector('#clearChain').click()`); await settled({ until: "!!document.querySelector('#toastHost .toast')" });
