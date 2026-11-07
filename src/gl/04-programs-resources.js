@@ -14,7 +14,7 @@
     out[0] = 1;
     for (let k = 1; k < n; k++) out[k] = Math.fround(Math.log(k));
     const e = { name: 'logK' };
-    startLink(e, '#version 300 es\nprecision highp float;\nout vec4 tfOut;\nvoid main() {\n  int i = gl_VertexID;\n  tfOut = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n', TF_FS, true);
+    startLink(e, '#version 300 es\nprecision highp float;\nout vec4 tfOut;\nvoid main() {\n  int i = gl_VertexID;\n  tfOut = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n', HEAD + TF_FS, true);
     finishLink(e);
     const p = e.p;
     if (e.state === 'ready') {
