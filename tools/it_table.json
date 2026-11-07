@@ -1032,7 +1032,7 @@
  "New: empty canvas": "Nuovo: tela vuota",
  "Next": "Avanti",
  "Next sheet": "Foglio successivo",
- "Next · {n}": "Avanti · {n}",
+ "Next in {n} s": "Avanti tra {n} s",
  "Next: {chapter}": "Avanti: {chapter}",
  "No derivative is known for {label}": "Nessuna derivata nota per {label}",
  "No derivative known for {f}": "Nessuna derivata nota per {f}",
@@ -3345,6 +3345,7 @@
  "Open the chain, click $f_1$, then Show alone.": "Apri la catena, fai clic su $f_1$, poi «Mostra da solo».",
  "Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.": "Tocca qui per aggiungere un passo: sceglilo dal catalogo o digita una formula come $\\sin(z^2)$. Per riordinare, trascina una scheda tenendola per l'intestazione.",
  "Open the chain with the steps button under the planes and click Add function: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, drag a step by its grip.": "Apri la catena con il pulsante dei passi sotto i piani e fai clic su «Aggiungi funzione»: scegline una dal catalogo o digita una formula come $\\sin(z^2)$. Per riordinare, trascina un passo per la sua maniglia.",
+ "Click Add function.": "Fai clic su «Aggiungi funzione».",
  "Tap Add function.": "Tocca «Aggiungi funzione».",
  "Open the chain, then click Add function.": "Apri la catena, poi fai clic su «Aggiungi funzione».",
  "X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel.": "X → Y mostra i due piani affiancati. «Fase» e «Paesaggio» sono rappresentazioni di $F$ su X, ciascuna in un unico pannello largo.",
@@ -3421,5 +3422,7 @@
  "Previous or next plane; with a shape selected, nudge it": "Il piano precedente o successivo; con una figura selezionata, la sposta",
  "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude.",
- "Outlines are drawn on the colour plane": "I contorni sono disegnati sul piano del colore"
+ "Outlines are drawn on the colour plane": "I contorni sono disegnati sul piano del colore",
+ "How much the layers behind show through where the picture covers a point more than once.": "Quanto i livelli dietro si vedono dove l'immagine copre un punto più di una volta.",
+ "The Landscape draws its sheets opaque; opacity applies to the plane.": "Il Paesaggio disegna i fogli opachi; l'opacità vale per il piano."
 }
