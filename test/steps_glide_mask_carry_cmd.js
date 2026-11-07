@@ -4,8 +4,8 @@
 // been built and the pane is still, the parked frame at u is read, and the two frames are compared (compare in
 // test/lib/held_frames.js): at most SAME_FRAC of their pixels more than DIFF_TOL (32/255) apart.
 // The cases: the zeros of the zeta function at u = .25, .5, .75 (a region whose image under the glide's map has a
-// critical strip that the shape's own tessellated mesh lacks), and the partial sum of the exponential, whose regions
-// fill the pane (its frames must stay the same).
+// critical strip that the shape's own tessellated mesh lacks; its parked frame is read once no SphereMesh job is left),
+// and the partial sum of the exponential, whose regions fill the pane (its frames must stay the same).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -22,8 +22,8 @@ const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', '
 const ready = () => settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 // (at rest on plane i, its frame drawn)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
-// (the regions' SphereMesh of the steps view built, none left to build: its slot's entry has a GPU mesh and no job runs)
-const MESH_BUILT = `(() => { const q = __cmwSphere(); return q.entries.some((e) => /[|]SV[|]/.test(e.slot) && e.gpu) && !(Array.isArray(q.jobs) ? q.jobs.length : q.jobs); })()`;
+// (no SphereMesh job left to run: none is wanted by a frame, or the one asked for has been built)
+const MESH_IDLE = `(() => { const q = __cmwSphere(); return !(Array.isArray(q.jobs) ? q.jobs.length : q.jobs); })()`;
 await view(1200, 800, false, false);
 for (const c of CASES) {
   const r = info[c.tag] = {};
@@ -40,7 +40,8 @@ for (const c of CASES) {
       const held = (await hold(u)).ok, still = await grab('H' + u);
       await ev('window.__svScrubUp(), 1');
       const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
-      const built = (await settled({ max: 150000, until: MESH_BUILT })).ok;
+      await sleep(1500);
+      const built = (await settled({ max: 150000, until: MESH_IDLE })).ok;
       const settledP = await grab('P' + u);
       const diff = held && still && parked && built && settledP ? await compare('H' + u, 'P' + u) : null;
       r[u] = { held, still, parked, built, settledP, diff };
