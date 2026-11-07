@@ -816,5 +816,5 @@ html.ph .cp-pop .seg { display: grid; grid-template-columns: repeat(3, 1fr); }
 html.ph .ph-tnote { font: var(--t-label); color: var(--muted); padding: 4px 0; white-space: normal; }
 /* the strip's overflow order (svFitStrip): Speed and Loop leave it for the Playback ⋯, the Whole chain pill gives way to its pin */
 .sv-strip.sv-fold-play > .sv-speed, .sv-strip.sv-fold-play > .sv-loop { display: none; }
-.sv-strip.sv-fold-whole .sv-alone { display: none; }
+.sv-strip.sv-fold-whole .sv-alone .sv-whole { display: none; }
 :root:not(.ph) .sv-strip:not(.sv-fold-whole) > .sv-whole-pin { display: none; }
