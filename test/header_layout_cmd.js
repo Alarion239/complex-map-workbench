@@ -7,6 +7,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const LAPTOP_PX = 1100;    // (from this width the four words and the search's words show where they fit; under it the four are icons)
 const WIDE_PX = 1440;      // (from this width the four words and a short example name must all show)
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } };
 const probe = () => ev(`(() => {
@@ -40,7 +41,7 @@ for (const lang of ['', 'ru', 'it']) {
     ok(`${at}: every view tab's content (icon and word) is centred in its tile (±1 px)`, p.tabs.length >= 4 && p.tabs.every((t) => Math.abs(t.d) <= 1), p.tabs);
     // (the four words, Export, Share, Theme and Sound, show together or not at all; the four fold first, so the search's words are never the ones to go while any of them shows)
     ok(`${at}: Export, Share, Theme and Sound show their words together or not at all`, p.words.every((x) => x === p.words[0]), p.words);
-    if (w < 1100) ok(`${at}: under 1100 px the four are icons`, !p.words.some(Boolean), p.words);
+    if (w < LAPTOP_PX) ok(`${at}: under ${LAPTOP_PX} px the four are icons`, !p.words.some(Boolean), p.words);
     if (w >= WIDE_PX) ok(`${at}: the four words show at ${WIDE_PX}`, p.words.every(Boolean), p.words);
     ok(`${at}: none of the four words shows while the search is icon-only`, !(p.words.some(Boolean) && !p.cmd), p);
     // (the four fold before any other word of the bar: the view tabs' words, the search's short label or none)
@@ -52,7 +53,7 @@ for (const lang of ['', 'ru', 'it']) {
     // (hdrFit measures the name: it shows wherever it fits, in every language, and is never shown cut)
     ok(`${at}: an open example's name is never shown cut`, !px.nameCut, px);
     if (w >= WIDE_PX) ok(`${at}: a short example name shows beside Examples`, px.name, px);
-    if (w >= 1100) ok(`${at}: the search shows its words`, p.cmd, p);
+    if (w >= LAPTOP_PX) ok(`${at}: the search shows its words`, p.cmd, p);
     // (#334) the Phase view has no style button in the bar either, and the bar still does not overflow
     await ev(`__cmwSetMain('phase'); 1`); await settle(500);
     const ph = await ev(`({ btn: !!document.getElementById('styleBtn'), over: (() => { const t = document.querySelector('.top'); return t.scrollWidth > t.clientWidth + 1; })() })`);
