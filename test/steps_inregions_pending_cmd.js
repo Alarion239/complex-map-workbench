@@ -8,14 +8,17 @@
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const DEFAULT_PORT = '8793';
+const MAX_HELD_FRAMES = 40;   // frames waited for the pane's pending status while the links are held
+const MASK_TOL = 0.05;        // a mask value counts as equal within it
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, DEFAULT_PORT])[1];
 await view(1440, 900, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=inpend${Date.now()}&glhold`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR', panes: false });
 await ev(`__cmwSteps({ scope: 'in', surf: 'land', go: 1, now: true }); 1`);
 // (frames drawn while the links are held; the last one is the pane's status)
 let held = null;
-for (let i = 0; i < 40; i++) {
+for (let i = 0; i < MAX_HELD_FRAMES; i++) {
   await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
   held = await ev(`(() => { const s = __cmwPaneStatus('L'); return s && { pending: !!s.pending, compiling: !!s.compiling, mask: typeof __cmwLandMask === 'function' ? __cmwLandMask(1, 1) : 'no hook' }; })()`);
   if (held && held.pending) break;
@@ -32,7 +35,7 @@ const mask = [];
 for (const [x, y, want] of [[1, 1, 1], [2, 0, 1], [-1, 0.5, 0]]) {
   const v = await ev(`typeof __cmwLandMask === 'function' ? __cmwLandMask(${x}, ${y}) : 'no hook'`);
   mask.push([x, y, v]);
-  ok(`released and quiet: the mask at ${x} + ${y}i is ${want}`, typeof v === 'number' && Math.abs(v - want) < 0.05, v);
+  ok(`released and quiet: the mask at ${x} + ${y}i is ${want}`, typeof v === 'number' && Math.abs(v - want) < MASK_TOL, v);
 }
 info.mask = mask;
 return { pass: fails.length === 0, fails, info };
