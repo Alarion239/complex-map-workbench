@@ -299,6 +299,13 @@
     const src = svPathsSeg(P, i - 1, i, i);
     return { i, m: 1, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
+  // the step that leads to the shown plane, for the deformation film: {i, from, to (the planes' names as TeX), deriv: it
+  // differentiates}, or {why: 'first', name} on plane 0 or off the steps view
+  function svStepAt() {
+    const P = svPlanes(), i = Math.round(SV.g.x);
+    if (!SV.on || P.length < 2 || i < 1) return { why: 'first', name: SV.on && P.length ? svName(P[Math.max(0, i)]) : 'z' };
+    return { i, from: wvar(P[i - 1]), to: wvar(P[i]), deriv: derivIn(P[i - 1], P[i]) };
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
     // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
@@ -322,7 +329,7 @@
         : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
       try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
-    svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
+    svStepAt, svPathsFig, svPathsMorph:(o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
     // it is drawn on, null without a step or where the left pane shows no picture of that surface; svGlideArt draws the
     // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving),

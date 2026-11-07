@@ -334,16 +334,18 @@
   // The frames are laid out as the deformation's filmstrips (figFilmPic, figFilmPhase): 8 pt between frames, a title
   // 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the frame and at least 2 pt
   // of room right of it for the last x label
-  async function figSvFilm(o, P, W, T) {
+  // (film: the frames drawn instead of the planes: {n, cols, titles(lp) -> the frames' title items, art(i, o) -> a raster, info},
+  // each in the camera's window)
+  async function figSvFilm(o, P, W, T, film = null) {
     const [tp, lp] = T;
-    const frames = A.svFrames(), n = frames.length, gap = 8;
-    const cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
+    const frames = film ? [...Array(film.n).keys()] : A.svFrames(), n = frames.length, gap = 8;
+    const cols = film ? film.cols : Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
     const ink = printInkFor(o, A.state().alpha);
     // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
-    const fit = svFitBoxes(o, frames.map((f, i) => i));
+    const fit = film ? { boxes: null, fellBack: false } : svFitBoxes(o, frames.map((f, i) => i));
     let boxes = fit.boxes;
     const fellBack = fit.fellBack;
-    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
+    const titles = film ? film.titles(lp) : frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
     const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
     // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
     const roughW = (W - gap * (cols - 1)) / cols;
@@ -361,7 +363,8 @@
     for (let i = 0; i < n; i++) {
       // (rendered at SV_FILM_OVER times the frame's width: the frames are small, and the extra pixels keep thin level
       // lines sharp in print)
-      const r = await A.svArt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
+      const fo = Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {});
+      const r = await (film ? film.art(i, fo) : A.svArt(i, fo));
       if (!r) return null;
       raws.push(r);
     }
@@ -384,7 +387,21 @@
     }
     // (ownWin: the frames' windows differ, which the caption says)
     const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
-    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
+    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: Object.assign({ svFilm: !film, frames, ownWin, fellBack: ownWin && fellBack, boxes }, film ? film.info : {}) };
+  }
+  // the steps view's deformation film: the glide of the step that leads to the shown plane at t = 0, 1/3, 2/3 and 1, each frame
+  // the screen's own picture of that place on the thread (A.svGlideArt, the glide video's renderer) on the surface the pane shows
+  async function figSvDefo(o, P, W, T) {
+    const st = A.svStepAt();
+    if (st.i == null) return null;
+    const ts = filmTimes(1), lab = fracTexOf(1), flat = A.svSurf() === 'plane';
+    const film = {
+      n: ts.length, cols: W >= 400 || o.for === 'slides' ? 4 : 2,
+      titles: (lp) => ts.map((t, i) => frameTitle(i, lab(t), lp)),
+      art: (i, fo) => A.svGlideArt(st.i - 1 + ts[i], flat ? fo : Object.assign(fo, { hpt: fo.wpt * A.paneAspect('L') })),
+      info: { svDefo: true, step: st, labs: ts.map(lab) },
+    };
+    return figSvFilm(o, P, W, T, film);
   }
   // the steps view's two-plane figure: plane o.svFrom and plane o.svTo of the thread (indexes into A.svFrames(); by
   // default z and the last plane) side by side, each as the Shown plane exports it, each headed by its name, with the
