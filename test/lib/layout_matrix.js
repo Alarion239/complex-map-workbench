@@ -12,6 +12,10 @@
   // key, run (an async function with the daemon's helpers), sizes (the sizes it is measured at; all when absent), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
+  // two more steps on the chain (sine, exponential) and the script that undoes them
+  const grow = async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } };
+  const GROWN = `document.querySelectorAll('#pipeline .card:not(.region-card)').length >= 4`;
+  const SHRINK = `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()`;
   const STATES = [
     { name: 'start' },
     { name: 'phase', go: `__cmwSetMain('phase'), 1`, wait: 1200, views: ['classic'] },
@@ -49,9 +53,11 @@
     { name: 'sheet numbers', go: `(Phone.open('edit', { params: true }), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === 'edit'` },
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
-    { name: 'chain of 4', run: async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } },
-      wait: 1500, ready: `document.querySelectorAll('#pipeline .card:not(.region-card)').length >= 4`,
-      after: `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()` },
+    { name: 'chain of 4', run: grow, wait: 1500, ready: GROWN, after: SHRINK },
+    // (the palette and the phone's sheets over that longer chain: they were only measured over the default two steps)
+    { name: 'palette on chain of 4', dev: 'desktop', run: async () => { await grow(); await key('k', 4); }, wait: 1500, ready: `${GROWN} && ${LAYER}`, after: SHRINK },
+    ...['edit', 'chain'].map((k) => ({ name: 'sheet ' + k + ' on chain of 4', dev: 'phone', run: async () => { await grow(); await ev(`(Phone.open(${JSON.stringify(k)}), 1)`); }, wait: 1500,
+      ready: `${GROWN} && Phone.sheet() === ${JSON.stringify(k)}`, after: SHRINK })),
   ].map((s) => (s.click && !s.ready ? Object.assign({ ready: LAYER }, s) : s));
 
   const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
