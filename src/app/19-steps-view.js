@@ -1626,7 +1626,7 @@
       });
       let nDi = 0;
       const dlog = (name, a) => { if (nDi++ >= 4) return; const s = a[0] || {}; const isCv = typeof s.getContext === 'function';
-        log.push({ path: name, i: nDi, src: s.constructor && s.constructor.name, w: s.width, h: s.height, gl: isCv && !!(s.getContext('webgl2') || s.getContext('webgl')), gco: c2.globalCompositeOperation, ga: c2.globalAlpha, n: a.length }); };
+        log.push({ path: name, i: nDi, src: s.constructor && s.constructor.name, w: s.width, h: s.height, gl: isCv && !!(s.getContext('webgl2') || s.getContext('webgl')), pdb: isCv && (s.getContext('webgl2') || s.getContext('webgl')) ? (s.getContext('webgl2') || s.getContext('webgl')).getContextAttributes().preserveDrawingBuffer : null, now: Math.round(performance.now()), gco: c2.globalCompositeOperation, ga: c2.globalAlpha, n: a.length }); };
       wrap('drawImage', (a) => dlog('drawImage', a));
       wrap('putImageData', (a) => dlog('putImageData', a));
     }
