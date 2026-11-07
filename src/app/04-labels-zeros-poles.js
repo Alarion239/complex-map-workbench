@@ -310,16 +310,39 @@
   // The point z of the cut's plane (stage a) that lands on w in plane b, F = the map between them, on the branch of q0:
   // of the exact preimages of w (the inverse branches, whatever the cut), the one nearest q0; else reached from q0 by
   // moving the target from F(q0) to w in small steps, a Newton solve at each (the continuation keeps the drag on one
-  // branch). Null where there is none
-  function cutPull(F, w, q0, a, b) {
+  // branch). Off the image of F's branch (the exact preimages are then none) the continuation runs on Fc, the same map
+  // with its cut turned half a turn away (cutFree), so a drag leaves the image either way. Null where there is none
+  function cutPull(F, w, q0, a, b, Fc) {
     const ex = exactPre(a, b, [w.re, w.im]);
-    if (ex) {
+    if (ex && ex.zs.length) {
       let best = null, bd = Infinity;
       for (const z of ex.zs) { const d = CX.abs(CX.sub(z, q0)); if (d < bd) { bd = d; best = z; } }
       return best;
     }
-    const w0 = F(q0), win = stageWin(a);
-    return CX.isFin(w0) ? trackRoot(F, q0, 1, w0, w, Math.max(win.x1 - win.x0, win.y1 - win.y0), performance.now() + PRE_TRACK_MS) : null;
+    const G = Fc || F, w0 = G(q0), win = stageWin(a);
+    return CX.isFin(w0) ? trackRoot(G, q0, 1, w0, w, Math.max(win.x1 - win.x0, win.y1 - win.y0), performance.now() + PRE_TRACK_MS) : null;
+  }
+  // The map from plane a to plane b of the cut handle's step j with its cut half a turn from the ray's, on the sheet that
+  // agrees with the step's own values on the counter-clockwise side of the ray about p at q0 (there it is analytic, so a
+  // pointer that leaves the image of the branch keeps a preimage). Null where the step has no sheet number to match
+  // (CUT_SIDE: the turn, in radians, from the ray to the second point tested on its counter-clockwise side)
+  const CUT_SIDE = 0.05;
+  function cutFree(j, q0, p, a, b) {
+    const st = S.steps[j - 1], bt = built[j - 1];
+    if (!st || !bt || !bt.def || !bt.def.params.some((q) => q.key === 'k') || !Number.isFinite(Number(st.params.cut))) return null;
+    const rel = CX.sub(q0, p), q1 = CX.add(p, CX.mul(rel, C(Math.cos(CUT_SIDE), Math.sin(CUT_SIDE))));
+    const w0 = bt.f(q0), w1 = bt.f(q1), k0 = Math.round(+st.params.k || 0);
+    // 1e-9 (relative): the candidate sheet must reproduce the step's own values at both samples, so a neighbouring sheet, whose values differ by far more, is rejected
+    const near = (u, v) => CX.isFin(u) && CX.isFin(v) && CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(v));
+    for (const dk of [0, 1, -1, 2, -2, 3, -3, 4, -4]) {
+      let f = null;
+      try { f = Funcs.build({ type: st.type, params: Object.assign({}, st.params, { cut: Number(st.params.cut) + 180, k: k0 + dk }) }).f; } catch (e) { f = null; }
+      if (typeof f !== 'function' || !near(f(q0), w0) || !near(f(q1), w1)) continue;
+      const fs = [];
+      for (let i = a + 1; i <= b; i++) { const g = i === j ? f : stepFn(i); if (g) fs.push(g); }
+      return (z) => { for (const g of fs) z = g(z); return z; };
+    }
+    return null;
   }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
   // jump of more than a quarter of the pane
@@ -397,10 +420,11 @@
   // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
   // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
-  // as drawCarriedCuts draws them
+  // as drawCarriedCuts draws them. While the strokes are hidden (the tests' __cmwHideStrokes) none is drawn
   function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
     if (artMode) return;
     carriedCuts = [];
+    if (hideStrokes) return;
     pane.ctx.save();
     pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
     for (let j = 1; j <= S.steps.length; j++) {
