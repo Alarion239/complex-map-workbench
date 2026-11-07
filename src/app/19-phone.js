@@ -34,7 +34,7 @@
       colourPick: () => (SV.on && S.view.main === 'xy' ? colourPop().el : null),   // a plane past the colour plane: the colouring's picker for the regions' display
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
-      theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
+      theme: () => curTheme, setTheme: pickTheme,
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
       styleState: () => ({ ...styleState(), svg: STYLE_SVG[S.dc] || '' }), styleMenu: (a, done) => openMenu(a, styleItems(done)),

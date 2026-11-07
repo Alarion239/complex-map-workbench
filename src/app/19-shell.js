@@ -2,10 +2,11 @@
   // (the area wiring init() calls, at the point where it had it; the theme the header's menu sets, which the phone's More
   // sheet reads and sets too)
   let curTheme = 'auto';
+  // a theme picked from the header's menu, Settings' entry or the phone's sheet
+  function pickTheme(v) { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }
   // the theme's one menu, from the header button and from Settings: Auto, Light, Dark, the current one checked
   function openThemeMenu(btn) {
-    const names = [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]];
-    openMenu(btn, Object.assign(names.map(([v, label]) => ({ label, radio: true, checked: curTheme === v, run: () => { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); } })), { menuLabel: $t('Theme'), focusChecked: true }));
+    svChoiceMenu(btn, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], curTheme, $t('Theme'), pickTheme);
   }
   // the header: the icons, the command field, its fit (init: before the view controls)
   function setupHeader() {
