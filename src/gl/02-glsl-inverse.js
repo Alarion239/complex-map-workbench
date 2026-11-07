@@ -8,6 +8,49 @@
   // uShA, uShB (drawPreimage's record), uShC (inside at z = 0, boundary through 0, -, -), uFormSlot; the record in
   // the points texture (unit 4) at uShOff holds the clip primitive (header, 2 texels per piece) and polygon vertices.
   // IX_RECORD(L, D, cov) is a hook for the parity test (test/glsl_inverse_test.js), empty here.
+  // The buffer's final order (the CPU twin is Inverse.order): ixTieOrder puts the walk's buffer front to back. Needs IX_B, IX_TIE_D, ixTieBand, nb and the buffer arrays bD, bZ, bC, bCol; a standalone shader of the
+  // test (test/glsl_tie_order_cmd.js) declares them and includes this text.
+  const IX_TIE_ORDER = `
+// the tie rule: a before b when its tie point has the larger Im z, then the larger Re z
+bool ixTieWins(vec2 t1, vec2 t2) {
+  if (t1.y != t2.y) return t1.y > t2.y;
+  return t1.x > t2.x;
+}
+// two keys tie when equal or within the tie band of each other (Inverse.dTie)
+bool ixKeyTie(float D1, float D2) { return D1 == D2 || abs(D1 - D2) <= ixTieBand(min(D1, D2)); }
+// buffer entries i and j swap
+void ixSwap(int i, int j) {
+  float d = 0.0; vec2 z = vec2(0.0); float c = 0.0; highp uint col = 0u;
+  for (int k = 0; k < IX_B; k++) if (k == i) { d = bD[k]; z = bZ[k]; c = bC[k]; col = bCol[k]; }
+  for (int k = 0; k < IX_B; k++) if (k == j) { float d2 = bD[k]; vec2 z2 = bZ[k]; float c2 = bC[k]; highp uint col2 = bCol[k]; bD[k] = d; bZ[k] = z; bC[k] = c; bCol[k] = col; d = d2; z = z2; c = c2; col = col2; }
+  for (int k = 0; k < IX_B; k++) if (k == i) { bD[k] = d; bZ[k] = z; bC[k] = c; bCol[k] = col; }
+}
+// The buffer front to back (Inverse.order), after the walk, which keeps it in key steps: the front of the entries still
+// to place is the tie rule's winner among those whose key is within the tie band of the smallest of them, so no entry's
+// place depends on where the walk put it. Most pixels have no two keys within a tie of each other: one comparison per
+// slot, and the buffer stands.
+void ixTieOrder() {
+  bool tie = false;
+  for (int i = 0; i < IX_B - 1; i++) if (i + 1 < nb && bD[i + 1] - bD[i] <= ixTieBand(bD[i])) tie = true;
+  if (!tie) return;
+  for (int r = 0; r < IX_B - 1; r++) {
+    if (r + 1 >= nb) break;
+    float dmin = bD[r];
+    int best = r;
+    for (int j = 1; j < IX_B; j++) {
+      if (j <= r || j >= nb) continue;
+      if (bD[j] < dmin) { dmin = bD[j]; best = j; }
+    }
+    vec2 bz = bZ[best];
+    float bd = bD[best];
+    for (int j = 0; j < IX_B; j++) {
+      if (j < r || j >= nb || j == best) continue;
+      if (ixKeyTie(dmin, bD[j]) && (ixTieWins(bZ[j], bz) || (bz == bZ[j] && bD[j] < bd))) { bz = bZ[j]; bd = bD[j]; best = j; }
+    }
+    if (best != r) ixSwap(r, best);
+  }
+}
+`;
   const INV_HEAD = (B, forms) => `
 #ifndef IX_RECORD
 #define IX_RECORD(L, D, cov)
@@ -51,7 +94,7 @@ ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
 vec2 ixDwX, ixDwY;
 const int IX_B = ${B};
-float bD[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; float bG[IX_B]; highp uint bCol[IX_B];   // colour: 8 bits per channel
+float bD[IX_B]; float bQ[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; float bG[IX_B]; highp uint bCol[IX_B];   // colour: 8 bits per channel
 highp uint ixPack(vec3 c) { uvec3 u = uvec3(clamp(c, 0.0, 1.0) * 255.0 + 0.5); return u.r | (u.g << 8) | (u.b << 16); }
 vec3 ixUnpack(highp uint u) { return vec3(float(u & 255u), float((u >> 8) & 255u), float((u >> 16) & 255u)) / 255.0; }
 int nb; int nCov; float U; bool ixTailInf; float ixTr;
@@ -406,7 +449,7 @@ void ixRangeLog(int j, Lf L, vec2 L0, vec2 S, vec4 P, vec4 Q, out float lo, out 
   }
   ixRangeFinish(lo, hi, hlo, hhi, ms);
 }
-// ---- compositing buffer (4.2): front to back by D, ties larger Im z, then larger Re z ----
+// ---- compositing buffer (4.2): in key steps during the walk (ties larger Im z, then larger Re z); ixTieOrder puts it front to back ----
 // the buffer is indexed by loop counters only (unrolled: entries stay in registers, no thread-memory spill)
 int ixK() { return min(uKsat, IX_B); }
 float ixDK() {
@@ -433,11 +476,12 @@ float ixDKTail() {
 // a covering candidate the buffer does not keep (not admitted, or dropped off its end): its transmittance, with the
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
-bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  // (keys within the tie band of each other are ties: Inverse.front's)
-  if (abs(D1 - D2) > ixTieBand(min(D1, D2))) return D1 < D2;
-  if (t1.y != t2.y) return t1.y > t2.y;
-  return t1.x > t2.x;
+${IX_TIE_ORDER}// the step of a key (Inverse's dStep): ln(1 + D) / IX_TIE_D rounded; bQ holds each buffer entry's, one log per key as it enters
+float ixStep(float D) { return floor(log(1.0 + D) / IX_TIE_D + 0.5); }
+bool ixFront(float q1, vec2 t1, float q2, vec2 t2) {
+  // (the walk's buffer order, Inverse's byStep: keys in the same step are ordered by the tie rule, so a buffer cut to its first entries keeps those of that total order; ixTieOrder then puts the entries front to back)
+  if (q1 != q2) return q1 < q2;
+  return ixTieWins(t1, t2);
 }
 // ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the stop band
 // (a member within the tie band may still come in front by the tie rule) ----
@@ -571,6 +615,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
+  float q = ixStep(D);
 ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
   // candidate that cannot merge with a twin (fully covering, or no range gradient) while the admission limit is the
   // buffer's end: behind the last entry of a full buffer it is not kept (one comparison); otherwise it is inserted
@@ -579,23 +624,23 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
   // merge with a twin (partial and bound) still take. exp(H) at alpha 0.3, dpr 2: 6.0 -> 4.5 ms per pass (for B 3
   // and 5 this path measured 4-10 % slower: the scan below stays there).
   if ((cv >= 1.0 || ga >= 50.0) && ixK() + 2 >= IX_B) {
-    if (nb == IX_B && !ixFront(D, tz, bD[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
+    if (nb == IX_B && !ixFront(q, tz, bQ[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
     if (nb == IX_B) ixRest(bC[IX_B - 1]);
     highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
     int p = min(nb, IX_B - 1);
     bool done = false;
     for (int i = IX_B - 1; i > 0; i--) {
       if (done || i > p) continue;
-      if (ixFront(D, tz, bD[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-      else { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
+      if (ixFront(q, tz, bQ[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bQ[i] = bQ[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+      else { bD[i] = D; bQ[i] = q; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
     }
-    if (!done) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+    if (!done) { bD[0] = D; bQ[0] = q; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
     nb = min(nb + 1, IX_B);
     return;
   }
 ` : ''}  // position: the entries in front of the candidate (a prefix of the sorted buffer)
   int pos = 0;
-  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(D, tz, bD[i], bZ[i])) pos = i + 1;
+  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(q, tz, bQ[i], bZ[i])) pos = i + 1;
   // twin merge with the neighbour at pos - 1 (first) or pos
   if (cv < 1.0 && ga < 50.0) {
     int tw = -1;
@@ -607,14 +652,25 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
       return;
     }
   }
-  if (pos >= min(IX_B, ixK() + 2)) { ixRest(cv); return; }
+  // (past the admission limit only a candidate within the tie band above the K-th smallest kept key, which may still be
+  // among the first K by ixTieOrder, and only while the buffer has room)
+  if (pos >= min(IX_B, ixK() + 2)) {
+    float dK = 1e38;
+    for (int i = 0; i < IX_B; i++) {
+      if (i >= nb) break;
+      int below = 0;
+      for (int j = 0; j < IX_B; j++) if (j < nb && bD[j] < bD[i]) below++;
+      if (below < min(ixK(), nb)) dK = dK == 1e38 ? bD[i] : max(dK, bD[i]);
+    }
+    if (pos >= IX_B || !(D - dK <= ixTieBand(dK))) { ixRest(cv); return; }
+  }
   if (nb == IX_B) ixRest(bC[IX_B - 1]);
   highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
   for (int i = IX_B - 1; i > 0; i--) {
-    if (i > pos) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-    else if (i == pos) { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
+    if (i > pos) { bD[i] = bD[i - 1]; bQ[i] = bQ[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+    else if (i == pos) { bD[i] = D; bQ[i] = q; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
   }
-  if (pos == 0) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+  if (pos == 0) { bD[0] = D; bQ[0] = q; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
   nb = min(nb + 1, IX_B);
 }
 float invLeaf(Lf L, out bool cov) {
@@ -710,7 +766,8 @@ ${globe ? `  vec3 P = normalize(vP);
   ixEdge = 0.0;
 #endif
   invWalk(w);
-${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}  float T = 1.0;
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}  ixTieOrder();
+  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;

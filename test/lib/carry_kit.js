@@ -15,7 +15,7 @@
 // - grid(P, nx, ny, frac): an nx x ny grid of plane points over the middle frac (default 0.8) of the pane P;
 // - shown(P, z): whether z is inside the middle 90 % of the pane P, where a reference of plane z shows it;
 // - fronts(lists, b, sing): for each list of points z, the index of the front one under the steps view's sheet key of
-//   plane b (Inverse.sheetKey and Inverse.front in the page; sing: the key's points in place of plane b's), -1 for none;
+//   plane b (Inverse.sheetKey and Inverse.frontByStep in the page; sing: the key's points in place of plane b's), -1 for none;
 // - joukPath(outside, leave): the Joukowski airfoil's path H_t (tanh((1 + t) artanh z - i pi t / 2) on the disc,
 //   coth((1 + t) arcoth z) outside it) for the region outside the circle that `outside` measures: candAt(t)(w) the points
 //   z at w along H_t, each branch's inverse over k, kept where H_t gives w back (within 1e-7), each as { z, name, out }
@@ -57,7 +57,7 @@
       const k = Object.assign(__cmwSvKey(${b}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'}), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) };
       return ${JSON.stringify(lists)}.map((L) => {
         let bi = -1, bc = null;
-        L.forEach((p, i) => { const z = CX.C(p[0], p[1]), c = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!bc || Inverse.front(c, bc)) { bc = c; bi = i; } });
+        L.forEach((p, i) => { const z = CX.C(p[0], p[1]), c = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!bc || Inverse.frontByStep(c, bc)) { bc = c; bi = i; } });
         return bi;
       });
     })()`);
