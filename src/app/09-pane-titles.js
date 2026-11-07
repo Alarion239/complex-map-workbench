@@ -973,10 +973,10 @@
     if (lPhase() || (SV.on && !lLand())) {
       const land = lLand();
       if (!land) f.append(styleSeg());
-      if (S.dc === 'cauchy' && lColor()) {
+      if (S.dc === 'cauchy' && (lColor() || SV.on)) {
         const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
         // (#235: with poles inside the curve, which halves show; the words say what the picture is)
-        // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
+        // (the steps view offers the parts on every plane whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
         const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
         const offZ = SV.on && svT() !== 0;
         const partsWhy = kind === 'split' && !offZ ? '' : offZ ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');

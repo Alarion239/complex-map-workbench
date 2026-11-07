@@ -75,4 +75,26 @@ const ti = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
 ok('off z: the title of plane z keeps the Cauchy subject', /^Cauchy integral over /.test(ti.role), ti);
 const h = await ev(`(() => { __cmwLegend(); const c = document.querySelector('.legend-chip canvas'); return c ? c.height / 2 : -1; })()`);
 ok('off z: the key is one line of text', h > 0 && h <= KEY_LINE_MAX, h);
+// a plane past z: the ⋯ pop-up carries the same parts control and note, and a part chosen there is the setting the carried colour is drawn with
+const goPlane = async (i) => {
+  await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === ${i} && !__cmwSteps().moving`, max: SETTLE_MS });
+};
+await open(ns, stateOf('z+\\frac{1}{z}'));
+await goPlane(1);
+const p1 = await parts();
+info.past = p1;
+ok('past z: the parts control is in the pop-up, three choices, enabled', p1.seg && p1.buttons.length === 3 && p1.buttons.every((x) => !x.disabled), p1);
+ok('past z: the note names f₊ and f₋', /f₊/.test(p1.note) && /f₋/.test(p1.note), p1);
+await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
+await settled({ until: '!!document.querySelector(".opts-pop #cauchySeg")', max: POPUP_MS });
+await ev(`document.querySelector('.opts-pop #cauchySeg button[data-v="out"]').click(); 1`);
+await settled({ until: '!!document.querySelector(".opts-pop #cauchySeg button[data-v=\\"out\\"].on")', max: POPUP_MS });
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+const carried = await ev(`JSON.stringify(__cmwCauchyCarry() && { show: __cmwCauchyCarry().show })`);
+ok('past z: the part chosen there is the carried colour\'s setting', carried === '{"show":2}', carried);
+await open(ns2, stateOf('z^2-1'));
+await goPlane(1);
+const p2 = await parts();
+ok('past z, no pole inside: the pop-up parts are disabled with the reason', p2.seg && p2.buttons.every((x) => x.disabled && x.tip === NO_POLE), p2);
 return { pass: !fails.length, fails, info };
