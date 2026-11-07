@@ -254,7 +254,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   const loadSt = async (ns, st) => {
     await nav(`${BASE}gl-helpers.html`);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({ v3: true, v4: true, nextId: 50, focus: 0 }, st)))}); 1`);
-    await nav(`${BASE}test.html?ns=${ns}`); await settle(1500);
+    await nav(`${BASE}test.html?ns=${ns}${USER5_CLASSIC || USER5_DEFORM ? '&view=classic' : ''}`); await settled();
   };
   // (sections 1 to 4 keep their helpers in their own block: this section's own, the same files for the preflight)
   const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
