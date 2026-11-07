@@ -306,12 +306,13 @@
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
-  // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
+  // (the steps view's Inside regions) st.mask {cv, key, box, cut}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
-  // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
+  // passes' scratch unit); outside it the surface is plain (LAND_FS), or with cut not drawn; null: the colour everywhere
   let maskTex = null, maskKey = null;
   function maskUniforms(P, m) {
     u1f(P, 'uMaskOn', m ? 1 : 0);
+    u1f(P, 'uMaskCut', m && m.cut ? 1 : 0);
     if (!m || !P.loc.uMask) return;
     gl.activeTexture(gl.TEXTURE15);
     if (!maskTex) maskTex = gl.createTexture();
@@ -1301,6 +1302,9 @@
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', C.shadowA);
       u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1);
       u1f(Fp, 'uPlateA', alpha);
+      // (the shadow's cut, where the mask is over the floor's own block)
+      const fm = st.mask && st.mask.cut && st.mask.box.x0 === box.x0 && st.mask.box.x1 === box.x1 && st.mask.box.y0 === box.y0 && st.mask.box.y1 === box.y1 ? st.mask : null;
+      maskUniforms(Fp, fm);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     if (!below) floorPass(0.8);
@@ -1505,6 +1509,7 @@
         u2f(Pp, 'uPx', fw, fh);
         u1f(Pp, 'uZBias', 0);
         u2f(Pp, 'uProbe', st.probe.x ?? st.probe.re ?? st.probe[0], st.probe.y ?? st.probe.im ?? st.probe[1]);
+        u1f(Pp, 'uFlat', st.probe.flat ? 1 : 0);
         u4f(Pp, 'uBox', box.x0, box.y0, BW, BH);
         u2f(Pp, 'uAspect', ax, ay);
         u1f(Pp, 'uFloorZ', floorZ);

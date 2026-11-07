@@ -24,6 +24,7 @@ const VIEWS = {
   // already in the steps view
   'example_lane_cut_cmd.js': steps(),
   'sv_cut_curve_cmd.js': steps(),
+  'sv_cut_drag_both_cmd.js': steps(),
   'sv_cut_keeps_view_cmd.js': steps(),
   'sv_cut_curve_sphere_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
@@ -45,6 +46,8 @@ const VIEWS = {
   'steps_rim_inverse_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
   'steps_link_wait_cmd.js': steps(),
+  'steps_link_migrate_cmd.js': steps({ pin: true }),
+  'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
@@ -98,6 +101,7 @@ const VIEWS = {
   'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
+  'steps_strip_layout_cmd.js': steps(),
   'sv_curve_menu_cmd.js': steps(),
   'sv_globe_mask_cmd.js': steps(),
   'sv_globe_draw_cmd.js': steps(),
@@ -114,6 +118,8 @@ const VIEWS = {
   'sv_construct_plane_cmd.js': steps(),
   'sv_all_sheets_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
+  'steps_statekeys_cmd.js': steps(),
+  'steps_dcgrid_cmd.js': steps(),
   'toasts_515_cmd.js': steps(),
   'tour_planes_cmd.js': steps(),
 
@@ -209,7 +215,7 @@ const VIEWS = {
   'raw_tex_cmd.js': steps({ pin: true }),
   'raw_tex_classic_cmd.js': classic('the shapes\' raw-TeX scan in X → Y, Phase and Landscape, which the steps view replaces with its planes and surfaces (raw_tex_cmd)'),
   'split_cmd.js': steps({ pin: true }),
-  'split_deform_cmd.js': port('interact', 'the Split with the Deformation open and the Deformation playing 12 split sines: the steps view has no open Deformation (its glide is the thread\'s play); the ‹ › walk of a step shown alone is steps_walk_cmd'),
+  'split_deform_cmd.js': steps({ pin: true }),
   'tour_audit_cmd.js': steps({ pin: true }),
   'tour_auto_cmd.js': steps({ pin: true }),
   'tour_auto_classic_cmd.js': classic('the classic views\' tour tasks with real input: the view switch\'s doors, Phase key, X\'s pan,'
@@ -291,7 +297,8 @@ const VIEWS = {
   // to port: sound (Pietro's team)
   'seasong_cmd.js': port('sound', 'the Mountain King example: its gallery entry, its circle menu with Listen along and the first samples it prepares, in English, Russian, desktop and phone; it waits on the sound checks in the steps view'),
   'sound_cmd.js': port('sound', 'the browser side of sound: consent, the tiers and their palette entries, the settings, the cues, the pointer voice, loops and the Landscape contours; it waits on the sound checks in the steps view'),
-  'sound_v152_cmd.js': port('sound', 'Hear the function under the pointer: the marimba notes at each colour line, the winding by ear, the curves singing and palette B\'s scrub; it waits on the sound checks in the steps view'),
+  'sound_v152_cmd.js': steps({ pin: true }),
+  'sound_v152_deform_classic_cmd.js': classic('the loop singing while the Deformation plays, palette B\'s scrub with its slider and Esc while it plays: the steps view has no open Deformation'),
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
@@ -300,7 +307,7 @@ const VIEWS = {
   'line_slice_cmd.js': steps({ pin: true }),
   'mj_ranges_cmd.js': steps({ pin: true }),
   'offline_cmd.js': steps({ pin: true }),
-  'smoke_cmd.js': port('engine', 'it checks the default page, which is the classic view: it moves to the steps view when that becomes the default, and its view switch then becomes the surface and the plane'),
+  'smoke_cmd.js': steps({ pin: true }),
   'warm_bar_cmd.js': steps({ pin: true }),
 };
 
