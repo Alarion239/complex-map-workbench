@@ -954,14 +954,19 @@
     if (u != null && list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return null; }
     return { list, paths };
   }
-  // drawInverse's arguments (without the view) for one shape's inverse path p
-  const SV_CARRY_LOOK = { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false };
-  // alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
+  // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
+  // at the slider's value): how much the layers behind show through where the picture covers a point more than once.
+  // The farthest layer stays opaque, so a point covered once keeps its colour
+  const SV_OPACITY_MIN = 0.3;
+  const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
+  // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
+  // shape) keeps its own and draws every layer at it
+  const svCarryLook = (base) => ({ alpha: base >= 1 ? svOpacity() : base, alphaOwn: base >= 1 ? svOpacity() : base, lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
+  // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
   // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf) => {
-    const a = alphaOf ? alphaOf(shape) : 1;
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: alphaOf ? Object.assign({}, SV_CARRY_LOOK, { alpha: a, alphaOwn: a }) : SV_CARRY_LOOK,
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1),
       carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
   };
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
@@ -1024,7 +1029,7 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
+    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1378,7 +1383,7 @@
     if (!svMeshFalls.falls) return null;
     const L = svCarryShapes();
     if (!L || !L.length) return null;
-    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope].concat(L.map((x) => shapeKey(x))).join('|');
+    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope, svOpacity()].concat(L.map((x) => shapeKey(x))).join('|');
     return key === svMeshDone ? null : key;
   }
   // the idle job's share of those meshes: all of them at once (each built whole), only with at least half a slice's
@@ -1387,6 +1392,7 @@
     const key = svMeshNext();
     if (!key || ms < SV_POLE_BUDGET / 2) return false;
     svMeshDone = key;
+    if (svOpacity() < 0.999 && GLR.carryLayersReserve) GLR.carryLayersReserve(svOpacity());
     for (const x of svCarryShapes() || []) {
       const r = svCarryGPU(x);
       if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
@@ -1452,19 +1458,37 @@
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, behind: d.behind || 0 };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, peel: false, behind: d.behind || 0 };
     });
-    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
-    for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
-    for (let i = 0; i < n; i++) {
-      const d = lay[i], st = sts[i];
-      if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
-        if (i > 0) GLR.carryDepthEnd();
-        return false;
+    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh. Below full
+    // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
+    // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
+    // layers cannot be drawn, the front layer alone is drawn)
+    const a = svOpacity();
+    let layers = a < 0.999 && !!GLR.carryLayers;
+    for (let pass = 0; pass < 2; pass++) {
+      let ready = true;
+      for (let i = 0; i < n; i++) {
+        sts[i].peel = layers; sts[i].prep = null;
+        if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
       }
+      if (ready) break;
+      if (!layers) return false;
+      layers = false;
     }
-    if (tail) GLR.carryDepthEnd();
-    return true;
+    const drawAll = () => {
+      for (let i = 0; i < n; i++) {
+        const d = lay[i], st = sts[i];
+        if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
+          if (i > 0) GLR.carryDepthEnd();
+          return false;
+        }
+      }
+      if (tail) GLR.carryDepthEnd();
+      return true;
+    };
+    const layered = layers ? GLR.carryLayers(a, drawAll) : null;
+    return layered === null ? drawAll() : layered;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
