@@ -141,7 +141,7 @@ n++;
   const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
   const open = async (figCam) => {
     const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
-    await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
+    await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
     await reloadedFigure('Opened the figure from the link.');
   };
   const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
