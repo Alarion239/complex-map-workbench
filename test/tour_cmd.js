@@ -146,6 +146,7 @@ await key('Escape'); await settle(300);
 check('Escape with the focus in the callout ends the tour, busy or not', !(await ev('Tour.isActive()')));
 
 // 4. Try it completes and advances: the end of a chapter with a task, Edit a step
+if (SV) {
   await open('t3', null, 1440, 900, true);
   // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look
   await ev(`__cmwSet('alpha', 0.3), 1`); await waitFor(() => ev('__cmwRegions().alpha === 0.3'));
@@ -160,6 +161,7 @@ check('Escape with the focus in the callout ends the tour, busy or not', !(await
   const nx = 'Next: ' + CH[2].title, n = chOf('planes').steps.length;
   check(`end of a chapter: "${nx}" (or Next → with that name) on the strip's one row`, new RegExp(`${n} of ${n}`).test(g.count) && (g.next === nx || g.label === nx) && g.h <= 62, g);
   await snap('tour-planes-end-dark');
+}
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
 await ev(`(() => { const t = document.querySelector('#tip'), c = document.querySelector('.tour-strip').getBoundingClientRect(); t.textContent = 'A tooltip'; t.hidden = false; t.style.left = (c.left + 20) + 'px'; t.style.top = (c.top + 10) + 'px'; })()`);
@@ -173,7 +175,7 @@ await ev(`document.querySelector('#tip').hidden = true`);
 check('a tooltip over the callout is hidden, and shows again away from it', g.over === 'hidden' && g.away === 'visible', g);
 
 // 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step (the classic views' Deformation chapter; the steps view's Part of the chain is in Playing the chain)
-{
+if (SV) {
   await open('t4', at('playing/range'));
   g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
   const n = chOf('playing').steps.length, nx = 'Next: ' + CH[3].title;
