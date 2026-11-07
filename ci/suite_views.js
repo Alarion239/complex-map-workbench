@@ -27,6 +27,7 @@ const VIEWS = {
   'sv_cut_drag_both_cmd.js': steps(),
   'sv_cut_keeps_view_cmd.js': steps(),
   'sv_cut_curve_sphere_cmd.js': steps(),
+  'sv_cut_ring_dash_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
@@ -60,6 +61,7 @@ const VIEWS = {
   'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_poles_cmd.js': steps(),
   'steps_land_far_cmd.js': steps(),
+  'steps_land_cover_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
