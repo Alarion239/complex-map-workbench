@@ -50,6 +50,9 @@
   const SV_FADE_U = 0.01;
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
+  // which way the shown plane is painted: 'pull' on a coloured plane (the colour is pulled back through the map), 'push' past it
+  // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
+  const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
   // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
   // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
@@ -1686,7 +1689,7 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
-    svLandMaskC = { cv, key, box: Object.assign({}, box) };
+    svLandMaskC = { cv, key, box: Object.assign({}, box), cut: true };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -2023,7 +2026,8 @@
     }
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
-    E.wholeMap.hidden = !!al || !S.steps.length;
+    E.wholeMap.hidden = !!al || S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
+    E.strip.classList.toggle('sv-nof', E.wholeMap.hidden);   // (the phone's track keeps room for F only while F is there)
     // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
     if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
     else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
@@ -2128,7 +2132,9 @@
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
       // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
       const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
-      const want = toEnd ? E.trackW : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
+      // under a drag or a glide, the ring is kept a plane's width from either end)
+      const want = toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
@@ -2169,11 +2175,13 @@
     if (!E || !E.track.firstElementChild || SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const steps = /** @type {HTMLElement[]} */ ([...E.track.querySelectorAll('.sv-step')]);
     // (the room is the rail's with "+ Add function" folded, which svFitAdd does when the names would not fit beside its words)
-    const room = E.rail.clientWidth + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
+    // (the rail's room is what it has with no centring margin, svCentreRail's)
+    const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
     const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
+      svCentreRail(E, 0);
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
       E.railMode = SV_RAIL_EQUAL;
@@ -2196,6 +2204,31 @@
     E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
+    svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
+  }
+  // (CSS px: a centring margin smaller than this is none, and a change smaller than this leaves the margin as it is)
+  const SV_CENTRE_MIN = 0.5;
+  // The thread is centred on the pane: the rail gives up, on the side of the narrower group, what the wider group takes
+  // (▶ ‹ stay at the left edge, the right group at the right edge), so the first and last dots lie evenly about the pane's
+  // centre line. It gives up no more than leaves the thread its width (need): a tight pane shifts the thread as little as
+  // it must, and one that cannot hold it scrolls as before. Called with a fitted rail only, never during a glide
+  // (svFitRail returns first), so a resize recentres and a play never moves the rail. A phone centres in the rail (CSS).
+  function svCentreRail(E, need) {
+    const rail = E.rail, was = E.railM || 0;
+    let ml = 0, mr = 0;
+    if (need > 0 && !document.documentElement.classList.contains('ph')) {
+      const sr = E.strip.getBoundingClientRect(), rr = rail.getBoundingClientRect(), cs = getComputedStyle(E.strip);
+      const wasL = parseFloat(rail.style.marginLeft) || 0, wasR = parseFloat(rail.style.marginRight) || 0;
+      const left = rr.left - wasL - (sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth));
+      const right = (sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth)) - (rr.right + wasR);
+      const m = Math.max(0, Math.min(Math.abs(right - left), rr.width + wasL + wasR - need));
+      if (m >= SV_CENTRE_MIN) { if (right > left) ml = m; else mr = m; }
+    }
+    const next = ml + mr;
+    if (Math.abs(next - was) < SV_CENTRE_MIN && (parseFloat(rail.style.marginLeft) || 0) === ml) return;
+    rail.style.marginLeft = ml ? `${ml.toFixed(1)}px` : ''; rail.style.marginRight = mr ? `${mr.toFixed(1)}px` : '';
+    E.railM = next; E.centres = null;
+    E.strip.dataset.centre = next > 0 ? 'shift' : 'none';
   }
   function svFitAdd() {
     const E = SV.els; if (!E || !E.add || !E.track.firstElementChild) return;
