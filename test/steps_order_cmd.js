@@ -24,7 +24,8 @@ const reopen = async (nsx) => {
 };
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
-const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
+// (ready: a press waits for the prestart, so the next one is made once it is done)
+const arrived = () => settled({ max: 60000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play && s.ready.ready; })()` });
 // a glide part-way (from a plane at x = 0): the thread's place is read every 10 ms inside the page until it is past `from`, for at most ~4 s.
 // (H.settled does not fit: it answers when the page is quiet or its condition holds, checked every 50 ms and two frames apart, and a glide
 // crosses that part of its way between two of its checks, so the check would see it landed)

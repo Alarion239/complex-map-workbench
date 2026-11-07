@@ -59,11 +59,13 @@ await ev('(Array.from(document.querySelectorAll("#toastHost .toast button")).fin
 const retry = await ev(state('.sv-play'));
 info.retry = retry;
 ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
+// (a play on a short chain can end between two polls from here: the page records that it started)
+await ev('(window.__played = false, window.__playPoll = setInterval(() => { if (__cmwSteps().play !== null) { window.__played = true; clearInterval(window.__playPoll); } }, 5), 1)');
 await ev('(GLR.holdLinks(false), 1)');
-await settled({ max: 40000, only: true, until: '__cmwSteps().play !== null' });
+await settled({ max: 40000, only: true, until: 'window.__played === true' });
 const run = await ev(state('.sv-play'));
 info.run = run;
-ok('released: the glide starts', run.play === 'glide', run);
+ok('released: the glide starts', await ev('window.__played'), run);
 ok('released: the button is no longer busy', !run.busy, run);
 
 await section('narrow', 360, 780);
