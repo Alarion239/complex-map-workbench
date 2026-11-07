@@ -196,7 +196,7 @@ for (const [at, cam, cls, tag, what] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2
   const g0 = await ev('GLR.inverseGlobeScissors'); await ev(`__cmwCam("L", ${JSON.stringify(Object.assign({}, cam, { dist: cam.dist + 0.01 }))}); 1`); await wait();
   const g1 = await ev('GLR.inverseGlobeScissors');
   R[tag + '_sc'] = { passes: g1.n - g0.n, avgPx: g1.n > g0.n ? Math.round((g1.px - g0.px) / (g1.n - g0.n)) : 0, panePx: await ev(`(() => { const cv = document.getElementById('canvasL'); return cv.width * cv.height; })()`) };
-  if (at === 0) ok(`globe scissor (${what}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < 0.6 * R[tag + '_sc'].panePx, R[tag + '_sc']);
+  ok(`globe scissor (${what}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < 0.6 * R[tag + '_sc'].panePx, R[tag + '_sc']);
   ok(`globe scissor (${what}): the disc's exact image is whole`, R[tag].inN >= 200 && R[tag].inBad === 0 && R[tag].outBad === 0, R[tag]);
   await shot('p3s_' + tag);
 }
