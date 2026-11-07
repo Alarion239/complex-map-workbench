@@ -129,7 +129,7 @@ for (const p of ['article1', 'homework']) {
   }
   if (r && p === 'article1') ok('article: solid boundaries, (a) (b)', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /^\(a\) /.test(r.cap) && / \(b\) /.test(r.cap), r.cap);
 }
-await key('2'); await settle(1500);
+await ev(`__cmwSetMain('phase'); 1`); await settled(); await settle(1500);
 for (const p of ['article1', 'article2']) {
   const r = await build(`phase-strip-${p}`, PRESETS[p]);
   if (r && p === 'article1') ok('phase: zeros and poles named, level lines', /Zeros \(dots\) at \$0\$/.test(r.cap) && /Poles/.test(r.cap) && /level sets/.test(r.cap), r.cap);
