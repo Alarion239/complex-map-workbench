@@ -149,9 +149,15 @@ const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++
 // page does not use (the new page clears the keys at its load)
 const PROBE = 'cmw-test-probe-open';
 const probeOpen = async (st, how) => {
-  await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}); 1`);
+  // (the open is deferred past this call's reply: its reload would otherwise close the target while the call waits for it)
+  await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); setTimeout(() => __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}), 0); 1`);
+  // the read retries while the page reloads (the target is closed for a moment): the first read that answers is the new page's
+  let raw = null;
+  for (let i = 0; i < 60 && !raw; i++) {
+    try { raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`); } catch (e) { raw = null; }
+    if (!raw) await new Promise((r) => setTimeout(r, 500));
+  }
   await settled({ max: 30000, until: READY });
-  const raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`);
   return raw ? JSON.parse(raw) : null;
 };
 const TOASTED = (t) => `document.body.innerText.includes(${JSON.stringify(t)})`;
