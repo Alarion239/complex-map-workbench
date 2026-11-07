@@ -30,6 +30,7 @@ const CASES = [
   ['X → Y with areas (rightMode image)', { ...XY, rightMode: 'image', sel: 2 }, { on: true, x: 0, T: 3, scope: 'in', surf: 'plane', planes: [0, 1, 2, 3], sel: 2 }],
   ['X → Y without areas', { steps: STEPS, rightMode: 'image' }, { on: true, x: 0, T: 3, scope: 'all', surf: 'plane' }],
   ['Phase (rightMode color)', { ...XY, rightMode: 'color' }, { on: true, x: 0, T: 3, scope: 'all', surf: 'plane' }],
+  ['Sphere colour (rightMode sphere, sphereMode color)', { ...XY, rightMode: 'sphere', sphereMode: 'color' }, { on: true, x: 0, T: 3, surf: 'sphere' }],
   ['Landscape, plaster (rightMode 3d)', { ...XY, rightMode: '3d', material: 'plaster' }, { on: true, x: 0, T: 3, surf: 'land' }],
   ['Landscape, phase paint (rightMode 3d)', { ...XY, rightMode: '3d', material: 'phase' }, { on: true, x: 0, T: 3, surf: 'land' }],
   ['z-sphere under X → Y (leftSphere)', { ...XY, rightMode: 'image', leftSphere: true }, { on: true, x: 0, T: 3, scope: 'in', surf: 'sphere' }],
@@ -41,7 +42,7 @@ const CASES = [
 ];
 
 // the main a saved view with no rightMode names, as the app loads it (before the steps view adopts it)
-const LOADED_MAIN = { 'U-b view without main (landscape)': { main: 'land' }, 'view with main phase': { main: 'phase', side: 'P', surf: 'plane' } };
+const LOADED_MAIN = { 'U-b view without main (landscape)': { main: 'land' }, 'view with main phase': { main: 'phase', side: 'P', surf: 'plane' }, 'Sphere colour (rightMode sphere, sphereMode color)': { main: 'phase', side: 'P', surf: 'sphere' } };
 let n = 0;
 for (const [name, st, want] of CASES) {
   n++;
