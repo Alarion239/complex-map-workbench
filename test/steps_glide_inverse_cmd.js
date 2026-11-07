@@ -111,6 +111,16 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     info[`zeta x ${x}`] = { g, share };
     ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });
   }
+  // (the source window moved to where the strip's image near its pole z = 1 lies, Im -2.8 to 13.8: most of the true image there
+  // is the pole's, which the ladder's seeds do not reach; the pole member draws it)
+  const POLE_FLOOR = { 0.5: 0, 0.75: 0 };
+  await ev("__cmwSet('srcView', { cx: 0.5, cy: 5.5, s: 40 }), 1");
+  for (const x of [0.5, 0.75]) {
+    const g = await at(x, 'inverse', 600000);
+    const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
+    info[`zeta pole window x ${x}`] = { g, share };
+    ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share });
+  }
 }
 // ---- the NEWT roots pass reads no GL state back ----
 // (the partial sum of the exponential, degree 8, Inside regions, inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a
