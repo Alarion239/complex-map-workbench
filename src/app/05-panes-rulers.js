@@ -797,19 +797,20 @@
   }
   render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
-  // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's)
-  function landMaskAlpha(m, x, y, clamp) {
+  // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
+  // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
+  function landMaskAlpha(m, x, y, clamp, px) {
     if (!m) return null;
     let u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
     if (clamp) { u = Math.min(Math.max(u, 0), 1 - Number.EPSILON); v = Math.min(Math.max(v, 0), 1 - Number.EPSILON); }
     if (!(u >= 0 && u < 1 && v >= 0 && v < 1)) return null;
-    if (!m.px) m.px = m.cv.getContext('2d').getImageData(0, 0, m.cv.width, m.cv.height).data;   // (read once per mask: a pick samples it along a ray)
-    return m.px[4 * (Math.floor(v * m.cv.height) * m.cv.width + Math.floor(u * m.cv.width)) + 3] / 255;
+    const i = Math.floor(u * m.cv.width), j = Math.floor(v * m.cv.height);
+    return (px ? px[4 * (j * m.cv.width + i) + 3] : m.cv.getContext('2d').getImageData(i, j, 1, 1).data[3]) / 255;
   }
   // whether the point z is outside the region set a cut surface (mask.cut) shows: nothing is drawn over it (the block's
-  // edge, where a pick can land, takes the edge texel's alpha, as the surface does)
-  function landOffRegion(m, z) {
-    const a = m && m.cut ? landMaskAlpha(m, z.re, z.im, true) : null;
+  // edge, where a pick can land, takes the edge texel's alpha, as the surface does); px as landMaskAlpha's
+  function landOffRegion(m, z, px) {
+    const a = m && m.cut ? landMaskAlpha(m, z.re, z.im, true, px) : null;
     return a !== null && a < 0.5;
   }
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
@@ -829,8 +830,10 @@
     const at = (t) => [e[0] + t * d[0], e[1] + t * d[1], e[2] + t * d[2]];
     const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
     const top = Math.abs(info.top || 1) * 1.3, z0 = info.floorZ;
+    // (the mask's pixels, read once for the ray's samples)
+    const mpx = pk.mask && pk.mask.cut ? pk.mask.cv.getContext('2d').getImageData(0, 0, pk.mask.cv.width, pk.mask.cv.height).data : null;
     const hAt = (p) => {
-      if (landOffRegion(pk.mask, toZ(p))) return z0 - 1;
+      if (landOffRegion(pk.mask, toZ(p), mpx)) return z0 - 1;
       const w = pk.F(toZ(p));
       if (!CX.isFin(w)) return top;
       const hh = info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));
