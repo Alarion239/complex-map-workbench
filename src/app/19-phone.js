@@ -29,6 +29,7 @@
       prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
       moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
+      regionsNote,
       regionsView: () => S.view.main === 'xy' || SV.on,   // the views that hold the regions' display
       targetNote: () => (SV.on ? svTargetNote() : null),   // what the shown plane draws or shades from shapes on later planes: the Display sheet's first line
       colourPick: () => (SV.on && S.view.main === 'xy' ? colourPop().el : null),   // a plane past the colour plane: the colouring's picker for the regions' display
