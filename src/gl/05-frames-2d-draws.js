@@ -123,6 +123,11 @@
     });
   }
   function blit(ctx) {
+    // (probe) the mask pass's blit: the bound framebuffer, the viewport, and pixels read from the source rect
+    if (window.__ipMaskPass) {
+      const b = new Uint8Array(4), q = (x, y) => { gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return Array.from(b); };
+      (window.__ipLog = window.__ipLog || []).push({ path: 'blit', fb: gl.getParameter(gl.FRAMEBUFFER_BINDING) != null, vp: Array.from(gl.getParameter(gl.VIEWPORT)), cv: [canvas.width, canvas.height], fwfh: [fw, fh], px: [q((fw / 2) | 0, (fh / 2) | 0), q(10, 10), q((fw / 2) | 0, (fh / 2) | 0)], err: gl.getError() });
+    }
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(canvas, 0, canvas.height - fh, fw, fh, 0, 0, fw, fh);
