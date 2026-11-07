@@ -3,6 +3,11 @@
 // steps view's strip and head and the pane heads end up folded exactly as in an undelayed load, at 1280 and at 360.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
+const NAV_SETTLE_MS = 300;      // pause after a navigation before the page is used
+const HOLD_LATE_MS = 5000;      // how long the late load's sheet request is held
+const HOLD_CHECK_MS = 2500;     // when the held load is inspected (before the hold ends)
+const POLL_MS = 200, POLL_MAX = 300; // poll for the app up, the sheet applied and the faces loaded
+const FIT_SETTLE_MS = 1200;     // after the faces load, time for the debounced re-fit and any redraw
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const sheetState = () => ev(`(() => { const l = document.querySelector('link[rel=stylesheet][href*="fonts.googleapis"]'); return { media: l && l.media, fonts: document.fonts && document.fonts.status, hooks: typeof window.__cmwSteps }; })()`);
@@ -22,22 +27,22 @@ const open = async (w, h, mobile, hold) => {
   await holdSheet(0);
   await view(w, h, false, mobile);
   const ns = 'fl' + w + hold + (Date.now() % 1000000);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(NAV_SETTLE_MS);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await holdSheet(hold);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
   let pre = null;
-  if (hold) { await sleep(2500); pre = await sheetState(); }
+  if (hold) { await sleep(HOLD_CHECK_MS); pre = await sheetState(); }
   let s = null;
-  for (let i = 0; i < 300; i++) { await sleep(200); s = await sheetState().catch(() => null); if (s && s.hooks === 'function' && s.media === 'all' && s.fonts === 'loaded') break; }
-  await sleep(1200);
+  for (let i = 0; i < POLL_MAX; i++) { await sleep(POLL_MS); s = await sheetState().catch(() => null); if (s && s.hooks === 'function' && s.media === 'all' && s.fonts === 'loaded') break; }
+  await sleep(FIT_SETTLE_MS);
   await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
   await holdSheet(0);
   return { pre, post: s, fit: await fit() };
 };
 for (const [w, h, mobile] of [[1280, 800, false], [360, 740, true]]) {
   const base = await open(w, h, mobile, 0);
-  const late = await open(w, h, mobile, 5000);
+  const late = await open(w, h, mobile, HOLD_LATE_MS);
   ok(`${w}: the held load starts before its sheet applies (the app is up, the sheet is still print media)`, late.pre && late.pre.hooks === 'function' && late.pre.media === 'print', late.pre);
   ok(`${w}: both loads end on loaded faces`, base.post && base.post.fonts === 'loaded' && late.post && late.post.fonts === 'loaded', { base: base.post, late: late.post });
   ok(`${w}: the late sheet's fit matches the undelayed load's`, JSON.stringify(late.fit) === JSON.stringify(base.fit), { base: base.fit, late: late.fit });

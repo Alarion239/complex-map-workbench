@@ -422,11 +422,12 @@
   // document.fonts.ready can resolve before it does, so a fit measured then used the fallback faces. faceGen counts the
   // settles, for fits that skip an unchanged key.
   let faceGen = 0;
+  const FACE_SETTLE_MS = 60; // quiet time after a face load before the fits re-run (a sheet loads several faces in a burst)
   function onFontsSettled(fn) {
     if (!document.fonts) return;
     let timer = 0;
     if (document.fonts.ready) document.fonts.ready.then(() => { faceGen++; fn(); });
-    if (document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { clearTimeout(timer); timer = setTimeout(() => { faceGen++; fn(); }, 60); });
+    if (document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { clearTimeout(timer); timer = setTimeout(() => { faceGen++; fn(); }, FACE_SETTLE_MS); });
   }
   function hdrFitInit() {
     const f = $('cmdBtn'), top = f && f.closest('.top'), xl = document.querySelector('#examplesBtn .exlabel');
