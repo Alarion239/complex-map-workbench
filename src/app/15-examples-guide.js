@@ -50,7 +50,7 @@
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
     {
-      name: $t('A formula in LaTeX'), tryDone: [[{ on: 'formula-edited' }]], try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('A formula in LaTeX'), tryDone: [[{ on: 'formula-edited' }]], try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a colour plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
@@ -626,7 +626,7 @@
       segment: () => $t('Tap one end and then the other, or drag between them.'),
       line: () => $t('Tap two points, or drag through them; the line extends to infinity.'),
       ray: () => $t('Tap the start and then a point on the ray, or drag from the start.'),
-      circle: () => $t('Tap the center and then a point on the circle, or drag from the center.'),
+      circle: () => $t('Tap the centre and then a point on the circle, or drag from the centre.'),
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
       touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
@@ -688,7 +688,7 @@
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     // (#247: also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
     const LP_SEL = '.tool[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
-      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
