@@ -94,6 +94,7 @@ const VIEWS = {
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
+  'steps_glide_mask_pending_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),
