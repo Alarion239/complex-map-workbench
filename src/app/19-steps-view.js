@@ -271,7 +271,8 @@
   const svParked = () => !SV.anim && !SV.play && !(SV.drag && SV.drag.moved) && Math.abs(SV.g.x - Math.round(SV.g.x)) > 1e-6;
   // (under way: a glide, a play, a scrub or a swipe; a play is no parked view)
   const svGliding = () => !!SV.anim || !!SV.play || SV.g.moving() || !!(SV.drag && SV.drag.moved);
-  const svMoving = () => svGliding() || svParked();
+  // (a glide still waiting for the prestart counts as under way)
+  const svMoving = () => svGliding() || svParked() || !!SV.gate;
   // one plane on (d = ±1) from where the view is: from between two planes, the next one that way
   function svStep(d) {
     if (SV.anim) { svGo(SV.anim.to + d); return; }
