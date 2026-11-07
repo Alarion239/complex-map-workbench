@@ -2845,7 +2845,7 @@
     const r = svReady().parts;
     return !r.programs || !r.warm || r.programs.done < r.programs.total || r.warm.done < r.warm.total || !r.programs.total;
   }
-  // The wait shows nothing for its first SV_GATE_SHOW_MS (a ready chain just starts); then the button is a ✕ in a ring that
+  // The wait shows nothing for its first SV_GATE_SHOW_MS (a ready chain just starts); then the button is a cross (cancel) in a ring that
   // fills by svReady's done / total
   const SV_GATE_SHOW_MS = 300;
   function svGateCancel() {
@@ -2869,7 +2869,7 @@
       E.play.setAttribute('aria-label', $t('Cancel'));
       E.play.setAttribute('aria-description', $t('Preparing the glide…'));
       E.play.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
-      if (E.play.dataset.on !== 'wait') { E.play.dataset.on = 'wait'; E.play.textContent = '✕'; }
+      if (E.play.dataset.on !== 'wait') { E.play.dataset.on = 'wait'; E.play.textContent = ''; E.play.insertAdjacentHTML('beforeend', ICONS.close); }
     } else { delete E.play.dataset.wait; E.play.style.removeProperty('--wait'); E.play.removeAttribute('aria-description'); if (E.play.dataset.on === 'wait') delete E.play.dataset.on; }
   }
   function svGateTick() {
