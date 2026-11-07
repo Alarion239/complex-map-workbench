@@ -225,6 +225,21 @@ for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
   await fitCase(w, lang);
 }
 for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCase(w, lang);
+// bypassing the only step during a glide: the glide stops, the chain has no plane after the source and the plane stays drawn
+{
+  const keep = st.steps;
+  st.steps = [keep[0]];
+  await open(1280, 800, false);
+  st.steps = keep;
+  const g0 = await ev(`__cmwSteps({ go: 1 })`);
+  await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300);
+  await pick('Bypass this step');
+  await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
+  const g1 = await sv();
+  const px = await ev(`(() => { const cs = [...document.querySelectorAll('#plotL canvas')].filter((c) => c.getContext && c.width > 0); let best = null; for (const c of cs) { if (!best || c.width * c.height > best.width * best.height) best = c; } if (!best) return 0; const x = best.getContext('2d'); if (!x) return -1; const d = x.getImageData(0, 0, best.width, best.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < 720) n++; return n; })()`);
+  ok('Bypass of the only step during a glide: the glide stops, the chain is bypassed and the plane stays drawn', (g0.anim || g0.moving) && !g1.play && !g1.anim && (await types()).join() === 'mobius-' && g1.planes.join() === '0' && px !== 0, [g0.anim, g0.moving, g1, px]);
+}
+
 // ---- the phone ----
 await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);

@@ -1,7 +1,7 @@
-// v16.5 wave 1, the learn piece (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): every fix
-// of UX21, UX20, V01, UX80, UX77, UX78, UX93, UX89, UX90, UX97, UX99 (the laptop's sound checks,
-// UX70-UX74, UX87 and UX88, are ux165_learn_sound_cmd.js; its first-run line, UX21 with #250 and UX90, is
-// ux165_learn_first_run_cmd.js; standards-ok: those checks moved there unchanged), on a
+// The learn piece (notes/ux-build/w1-learn-AS-BUILT.md): the guided-tour line on the phone and the landscape phone, the
+// keys on the Shapes rows and their right-click menus, and the rest of the learn checks below (the laptop's sound
+// checks are ux165_learn_sound_cmd.js; its first-run line is ux165_learn_first_run_cmd.js; standards-ok: those checks
+// moved there unchanged), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
