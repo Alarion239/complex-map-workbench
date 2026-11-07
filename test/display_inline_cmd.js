@@ -20,7 +20,10 @@ const fresh = async (w, h, mobile, lang, main = 'phase', state = ST) => {
   if (lang) { await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` }); await sleep(2500); }
   await ev(`__cmwSetMain('${main}'); 1`); await settle(1200);
   // (a slow shared machine may still be laying the heads out: wait for both option rows, up to 5 s)
-  for (let i = 0; i < 25 && !(await ev(`!!document.querySelector('#paneL .pane-head .options') && !!document.querySelector('#paneR .pane-head .options')`)); i++) await sleep(200);
+  const heads = `!!document.querySelector('#paneL .pane-head .options') && !!document.querySelector('#paneR .pane-head .options')`;
+  for (let i = 0; i < 25 && !(await ev(heads)); i++) await sleep(200);
+  // (on a laptop a head that is still not built names the page's state, for the next time it happens: #1189; a phone's heads have no options row)
+  if (!mobile && !(await ev(heads))) ok(`${w} ${lang || 'en'} ${main}: both pane heads have their options row`, false, await ev(`({ readyState: document.readyState, fonts: document.fonts && document.fonts.status, root: document.documentElement.className, view: window.__cmwState ? JSON.stringify(__cmwState().view) : null, panes: ['paneL', 'paneR'].map((id) => { const p = document.getElementById(id), h = p && p.querySelector('.pane-head'); return { id, pane: !!p, shown: !!p && p.getClientRects().length > 0, head: !!h, options: !!(h && h.querySelector('.options')), children: h ? h.children.length : 0 }; }), size: [innerWidth, innerHeight] })`));
 };
 const pops = () => ev(`document.querySelectorAll('#popHost .pop').length`);
 // the head of pane side: its row's controls, whether anything in it is cut or overflows, and the title's state
