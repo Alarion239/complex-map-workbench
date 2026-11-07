@@ -96,11 +96,11 @@ await ev(`(() => { const o = document.querySelector('#leftFoot .opts-btn:not(.pa
 await ev('__cmwCauchyOpt("both", false)'); await settle(400);
 await open(CIRCLE, custom('z^{2}'));
 const A3 = await optsText();
-ok('A2 with no pole inside there is no choice (no control in the classic view, a disabled one in the steps view) and the old note ("F inside, 0 outside")', (!A3.segId || A3.off) && /inside, 0 outside/.test(A3.text), A3);
+ok('A2 with no pole inside the choice is there, disabled, and the old note ("F inside, 0 outside")', A3.segId && A3.off && /inside, 0 outside/.test(A3.text), A3);
 ok('A2 (and the caption data says plain)', (await ev(`Export.figCapParts().cauchy`)).kind === 'plain', null);
 await open(CIRCLE, custom('\\exp\\left(\\frac{1}{z}\\right)'));
 const A4 = await optsText();
-ok('A2 e^(1/z): the note says it is computed numerically, no choice (absent or disabled)', (!A4.segId || A4.off) && /computed numerically/.test(A4.text), A4);
+ok('A2 e^(1/z): the note says it is computed numerically, no choice (the control is there, disabled)', A4.segId && A4.off && /computed numerically/.test(A4.text), A4);
 ok('A2 (and the caption data says numeric)', (await ev(`Export.figCapParts().cauchy`)).kind === 'numeric', null);
 await open(CIRCLE, custom('\\frac{1}{z-1}'));
 const A5 = await optsText();
