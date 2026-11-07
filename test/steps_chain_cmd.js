@@ -239,7 +239,7 @@ for (const w of [1440, 1280, 1024, 780]) {
     const strip = R('#svStrip'), rail = R('#svStrip .sv-rail'), next = R('#svStrip .sv-nav:last-of-type') || R('#svStrip .sv-nav + .sv-nav');
     const nexts = [...document.querySelectorAll('#svStrip .sv-nav')].map((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; });
     const chip = R('#svStrip .sv-alone .sv-whole') || R('#svStrip .sv-whole-pin');
-    return { strip, rail, nextB: nexts[nexts.length - 1], add: R('#svStrip .sv-add'), f: R('#svStrip .sv-wholemap'), chip, pin: !!document.querySelector('#svStrip .sv-whole-pin'), scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
+    return { strip, rail, nextB: nexts[nexts.length - 1], add: R('#svStrip .sv-add'), f: R('#svStrip .sv-wholemap'), chip, pin: !!R('#svStrip .sv-whole-pin'), scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
   const inside = (b) => b && b[0] >= m.strip[0] && b[1] <= m.strip[1], clear = (b, o) => b[1] <= o[0] + 1 || b[0] >= o[1] - 1;
   ok(`${w}: Add and F are in the strip and overlap neither Next nor the rail`, inside(m.add) && inside(m.f) && clear(m.add, m.nextB) && clear(m.f, m.nextB) && clear(m.add, m.rail) && clear(m.f, m.rail), m);
   ok(`${w}: Whole chain is whole: its pill inside the rail at its start, or its pin in the strip clear of the rail`, m.scrolled === 0 && m.chip && (m.pin ? inside(m.chip) && clear(m.chip, m.rail) : m.chip[0] >= m.rail[0] && m.chip[1] <= m.rail[1]), m);

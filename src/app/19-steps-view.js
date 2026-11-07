@@ -1929,7 +1929,9 @@
     const orderWhy = h('p', { class: 'sv-playpop-why' });
     const pathsWhy = h('p', { class: 'sv-playpop-why', hidden: '' });
     const paths = svPathsBtn('btn small sv-paths', true);
+    const rowSpeed = h('label', { class: 'sv-playpop-r', hidden: '' }, h('span', {}, $t('Speed'))), rowLoop = h('label', { class: 'sv-playpop-r', hidden: '' }, h('span', {}, $t('Loop')));
     const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
+      rowSpeed, rowLoop,
       h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy,
       h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths), pathsWhy);
     pop.hidden = true;
@@ -1958,7 +1960,7 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitAdd(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
+    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitStrip(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
@@ -1966,7 +1968,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -1997,9 +1999,8 @@
     // scrolling rail, and the step's ⋯ menu carries the walk ‹ ›)
     for (const old of E.strip.querySelectorAll('.sv-whole-pin')) old.remove();
     const wholePin = () => E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk', html: '<i>F</i>' })), E.rail);
-    if (al && document.documentElement.classList.contains('ph')) {
-      wholePin();
-    } else if (al) {
+    if (al) wholePin();
+    if (al && !document.documentElement.classList.contains('ph')) {
       // (Whole chain and the walk ‹ › are one pill: the walk's arrows are the step's, not the planes')
       E.track.append(h('div', { class: 'sv-alone', role: 'group', 'aria-label': $t('Step shown alone') },
         h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')), svWalkBtn(-1, al), svWalkBtn(1, al)));
@@ -2038,11 +2039,7 @@
       if (ph) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
       else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
     }
-    // (when the pill and the step's planes do not fit the rail beside F and Add, the pill folds to its pin outside the rail, as on a phone)
-    if (al && !ph && E.track.scrollWidth > E.rail.clientWidth + 1) {
-      const grp = E.track.querySelector('.sv-alone');
-      if (grp) { grp.remove(); wholePin(); }
-    }
+    svFitStrip();
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (E.add.getAttribute('aria-disabled') !== 'true') E.add.focus({ preventScroll: true }); }
     svFitRail();
@@ -2175,7 +2172,7 @@
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
   // after the fold (the rail grows by exactly that width): no flicker at the edge.
-  // the thread's fit to the rail, by what gives way first: "+ Add function" folds to its round + (svFitAdd), then the steps stop
+  // the thread's fit to the rail, by what gives way first: "+ Add function" folds to its round + (svFitStrip), then the steps stop
   // sharing one width (each takes what its chip needs: the names stay whole), then every chip drops its name together for its
   // letters (fₖ; the chip's tooltip and its aria-label keep the name), and only then does the rail scroll. While the names fit
   // with every step as wide as the widest chip, the steps are all that width, so the planes sit evenly. Measured again only when
@@ -2187,7 +2184,7 @@
     const E = SV.els;
     if (!E || !E.track.firstElementChild || SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const steps = /** @type {HTMLElement[]} */ ([...E.track.querySelectorAll('.sv-step')]);
-    // (the room is the rail's with "+ Add function" folded, which svFitAdd does when the names would not fit beside its words)
+    // (the room is the rail's with "+ Add function" folded, which svFitStrip does when the names would not fit beside its words)
     // (the rail's room is what it has with no centring margin, svCentreRail's)
     const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
     const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
@@ -2243,17 +2240,73 @@
     E.railM = next; E.centres = null;
     E.strip.dataset.centre = next > 0 ? 'shift' : 'none';
   }
-  function svFitAdd() {
-    const E = SV.els; if (!E || !E.add || !E.track.firstElementChild) return;
+  // the strip's width gives way in this order until the thread fits, centred on the pane where it can be: "+ Add function"
+  // folds to its round +, Speed and Loop move into the Playback ⋯, the Whole chain pill folds to its pin, and last the rail
+  // scrolls. A phone has only the first (its words are hidden by CSS; the rest of its strip is the sheet's).
+  const SV_FOLD_ADD = 1, SV_FOLD_PLAY = 2, SV_FOLD_WHOLE = 3;
+  function svFitStrip() {
+    const E = SV.els; if (!E || !E.add) return;
+    if (!E.track.firstElementChild) { E.add.classList.remove('fold'); E.strip.classList.remove('sv-fold-play', 'sv-fold-whole'); svFoldPlay(false); return; }
     const add = E.add, t = add.querySelector('.sv-add-t');
     const shown = t.offsetWidth > 0;
     if (shown) E.addLabelW = add.offsetWidth - add.offsetHeight;
-    if (E.addLabelW == null) return;
     const first = E.track.firstElementChild, last = [...E.track.children].filter((c) => c !== E.add && c !== E.wholeMap).pop() || first;
-    const thread = last.offsetLeft + last.offsetWidth - first.offsetLeft;
-    const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
-    // (and while the chips are their letters: the room their names needed is not given back to the words)
-    add.classList.toggle('fold', thread > room || E.railMode === SV_RAIL_LETTERS);
+    const ph = document.documentElement.classList.contains('ph');
+    const apply = (lv) => {
+      add.classList.toggle('fold', lv >= SV_FOLD_ADD || E.railMode === SV_RAIL_LETTERS);
+      E.strip.classList.toggle('sv-fold-play', lv >= SV_FOLD_PLAY);
+      E.strip.classList.toggle('sv-fold-whole', lv >= SV_FOLD_WHOLE);
+    };
+    if (ph) {
+      if (E.addLabelW == null) return;
+      const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
+      add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
+      return;
+    }
+    // (the whole order applies to a step shown alone, whose pill and planes need the room; a chain keeps Speed and Loop on the strip,
+    // and its thread gives way by the steps' own widths, svFitRail's)
+    if (!E.strip.querySelector('.sv-whole-pin')) {
+      const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
+      apply(0);
+      if (E.addLabelW != null) add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
+      svFoldPlay(false);
+      return;
+    }
+    const top = SV_FOLD_WHOLE;
+    const cs = getComputedStyle(E.strip);
+    // (the thread's own width, with the names and with the letters alone: what its steps need, not the width the rail gives them)
+    const wasLetters = E.strip.classList.contains('sv-letters');
+    const natural = (letters) => {
+      E.strip.classList.add('sv-measure'); E.strip.classList.toggle('sv-letters', letters);
+      const w = last.offsetLeft + last.offsetWidth - first.offsetLeft;
+      E.strip.classList.remove('sv-measure'); E.strip.classList.toggle('sv-letters', wasLetters);
+      return w;
+    };
+    // (and the rail's width, and the width a thread centred on the strip has: the strip beside the wider side group)
+    const measure = (lv) => {
+      apply(lv);
+      const sr = E.strip.getBoundingClientRect(), rr = E.rail.getBoundingClientRect();
+      const wasL = parseFloat(E.rail.style.marginLeft) || 0, wasR = parseFloat(E.rail.style.marginRight) || 0;
+      const inL = sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), inR = sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+      const L = rr.left - wasL - inL, R = inR - (rr.right + wasR);
+      return { w: natural(false), wl: natural(true), rail: rr.width, centred: inR - inL - 2 * Math.max(L, R) };
+    };
+    const ms = [];
+    for (let lv = 0; lv <= top; lv++) ms.push(measure(lv));
+    // (the first level the thread centres at; else the first it fits the rail at; else every level, the rail scrolling)
+    let lv = ms.findIndex((m) => m.w <= m.centred);
+    if (lv < 0) lv = ms.findIndex((m) => m.w <= m.rail);
+    if (lv < 0) lv = ms.findIndex((m) => m.wl <= m.rail);
+    if (lv < 0) lv = top;
+    apply(lv);
+    svFoldPlay(lv >= SV_FOLD_PLAY);
+  }
+  // Speed and Loop are on the strip, or, when it has no room for them, in the Playback ⋯ beside Order and Paths
+  function svFoldPlay(on) {
+    const E = SV.els;
+    if (on === (E.speed.parentNode !== E.strip)) return;
+    if (on) { E.rowSpeed.append(E.speed); E.rowLoop.append(E.loop); } else { E.strip.insertBefore(E.speed, E.playMore); E.strip.insertBefore(E.loop, E.playMore); }
+    E.rowSpeed.hidden = E.rowLoop.hidden = !on;
   }
   // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
   // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
