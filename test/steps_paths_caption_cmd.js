@@ -10,7 +10,9 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await view(1440, 900, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=pathscap${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.__cmwFig' });
-const names = await ev(`(() => { const out = []; for (let i = 0; i < 80; i++) { try { __cmwExample(i); } catch (e) { break; } const l = document.querySelector('#examplesBtn .exlabel'); out.push(l ? l.textContent : ''); } return out; })()`);
+// (the examples menu's entries are tried by index up to this many)
+const MAX_EXAMPLES = 80;
+const names = await ev(`(() => { const out = []; for (let i = 0; i < ${MAX_EXAMPLES}; i++) { try { __cmwExample(i); } catch (e) { break; } const l = document.querySelector('#examplesBtn .exlabel'); out.push(l ? l.textContent : ''); } return out; })()`);
 await ev(`__cmwExample(${names.findIndex((n) => /^Strip to disk/.test(n))}); 1`); await settled({});
 await ev(`__cmwSteps({ go: 1, now: true, surf: 'plane' }); 1`); await settled({ max: 30000 });
 const sentence = (await ev(`__cmwSvPaths().then((r) => r && r.sentence)`)) || '';
