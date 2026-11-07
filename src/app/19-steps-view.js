@@ -265,7 +265,9 @@
     // (a press while the wait runs cancels it: on the button that shows it, that is all; elsewhere the new glide waits instead)
     const btn = i > from ? SV.els.next : SV.els.prev;
     if (SV.gate) { const same = SV.gate.btn === btn; svGateEnd(); if (same) return; }
-    if (svGateNeeded()) { svGated(btn, () => svGo(i)); return; }
+    // (the Landscape steps a plane at a time, with no frames between planes: an arrow or a plane of the strip there waits
+    // for nothing, and no wait holds back its at-rest refinement)
+    if (SV.surf !== 'land' && svGateNeeded()) { svGated(btn, () => svGo(i)); return; }
     SV.span = svSpanOf(from, i);
     SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
@@ -3032,9 +3034,9 @@
   const SV_GATE_UNKNOWN_FILL = 0.25;
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
-  // layer, or the Landscape (it steps a plane at a time, with no frames between planes): nothing to prepare
+  // layer: nothing to prepare
   function svGateNeeded() {
-    return SV.surf !== 'land' && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+    return !!(GLR.ok && GLR.progStatus) && !svReady().ready;
   }
   // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
   // when the chain is discarded (an example or a new scene replaces it)

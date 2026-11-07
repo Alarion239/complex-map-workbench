@@ -49,12 +49,19 @@ async function section(tag, w, h) {
 
 await section('wide', 1440, 900);
 
-// the Landscape steps a plane at a time with no frames between planes: a press waits for nothing, however much is unprepared
+// the Landscape steps a plane at a time with no frames between planes: an arrow waits for nothing, however much is
+// unprepared, and a press of Play still waits
 await open(1440, 900);
 await ev('(__cmwSteps({ surf: "land" }), 1)');
+await ev('(document.querySelector(".sv-next").click(), 1)');
+await ev('new Promise((r) => setTimeout(() => r(1), 600))');
+const landArrow = await ev(state('.sv-next'));
+ok('Landscape: an arrow waits for nothing', !landArrow.busy, landArrow);
 await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 3000, only: true, until: BUSY });
 const landPlay = await ev(state('.sv-play'));
-ok('Landscape: a press of Play waits for nothing', !landPlay.busy && landPlay.play !== null, landPlay);
+ok('Landscape: a press of Play still waits', landPlay.busy && landPlay.play === null, landPlay);
+await ev('(__cmwSteps({ play: false }), 1)');
 await ev('(__cmwSteps({ play: false, surf: "plane" }), 1)');
 
 // 10 s: Retry keeps the ring, Cancel ends it, a release starts the glide
