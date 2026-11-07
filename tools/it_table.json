@@ -3420,5 +3420,9 @@
  "Moved {name}.": "{name} spostata.",
  "Previous or next plane; with a shape selected, nudge it": "Il piano precedente o successivo; con una figura selezionata, la sposta",
  "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
- "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude."
+ "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude.",
+ "The Cauchy integral is drawn on z, where its curve lies: colour from z": "L'integrale di Cauchy è disegnato su z, dove sta la sua curva: colore da z",
+ "The Cauchy integral is drawn everywhere: its outside part is not cut to regions": "L'integrale di Cauchy è disegnato ovunque: la sua parte esterna non è limitata alle regioni",
+ "Cauchy: on z only": "Cauchy: solo su z",
+ "No curve selected": "Nessuna curva selezionata"
 }

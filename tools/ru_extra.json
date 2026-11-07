@@ -700,5 +700,9 @@
  "Moved {name}.": "{name} перемещена.",
  "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её",
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
- "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её."
+ "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
+ "The Cauchy integral is drawn on z, where its curve lies: colour from z": "Интеграл Коши рисуется на z, где лежит его кривая: цвет от z",
+ "The Cauchy integral is drawn everywhere: its outside part is not cut to regions": "Интеграл Коши рисуется везде: его внешняя часть не обрезается областями",
+ "Cauchy: on z only": "Коши: только на z",
+ "No curve selected": "Кривая не выбрана"
 }
