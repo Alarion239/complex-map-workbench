@@ -34,6 +34,7 @@ const expected = (type, w, dx, dy) => {
   if (type === 'log') return (w1[1] - w.im) * 180 / Math.PI;
   return argTurn([w1[0] * w1[0] - w1[1] * w1[1], 2 * w1[0] * w1[1]], [w.re * w.re - w.im * w.im, 2 * w.re * w.im]);
 };
+const TOL = 0.2;   // degrees: the cut is stored to 0.1°, and the start and the end each carry that rounding
 const wrap = (d) => ((d + 540) % 360) - 180;
 const LOG = [{ type: 'log', params: { cut: 180 }, on: true }];
 const ROOT = [{ type: 'root', params: { n: 2, cut: 180 }, on: true }];
@@ -42,7 +43,7 @@ const both = async (name, type, steps, axis, d) => {
   for (const [label, [dx, dy]] of [['one way', one], ['the other way', other]]) {
     const { turn, w } = await turnOf(steps, dx, dy);
     const want = w ? wrap(expected(type, w, dx, dy)) : null;
-    check(`${name}: a drag ${label} turns the cut as the map says`, turn !== null && want !== null && Math.abs(turn) > 5 && Math.abs(turn - want) < 0.2, { turn, want, w });
+    check(`${name}: a drag ${label} turns the cut as the map says`, turn !== null && want !== null && Math.abs(turn) > 5 && Math.abs(turn - want) < TOL, { turn, want, w });
   }
 };
 await both('log, w₁, up and down 40 px', 'log', LOG, 'y', 40);
