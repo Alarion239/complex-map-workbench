@@ -1100,18 +1100,20 @@ void main() {
     pA = texelFetch(uRf, o + A + ivec2(2, 0), 0); pB = texelFetch(uRf, o + B + ivec2(2, 0), 0); pC = texelFetch(uRf, o + C + ivec2(2, 0), 0);
   }
   if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5)) return;
+  int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
+  // (the slots after the first belong to the clip polygon: a triangle inside the block uses none, so they leave before
+  // the carried corners' fetches)
+  if (sub > 0 && ${clip ? 'max(max(abs(ta.x), abs(tb.x)), abs(tc.x)) <= 1.25 * uH' : 'true'}) return;
   if (uCarry == 1) {
     ivec2 po = ivec2(combo % uTileC, combo / uTileC) * T + 2 * c;
     vec4 ca = texelFetch(uCP, po + A, 0), cb = texelFetch(uCP, po + B, 0), cc = texelFetch(uCP, po + C, 0);
     if (ca.w < 0.5 || cb.w < 0.5 || cc.w < 0.5) return;
     if (length(ca.xy - cb.xy) > uCLim || length(cb.xy - cc.xy) > uCLim || length(cc.xy - ca.xy) > uCLim) return;
   }
-  int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
   // (a triangle inside the block, every one without linear heights: its own corners, without the clip's polygon,
   // whose arrays the GPU keeps in memory; clipping every triangle took the sheets' draw at the Max mesh to twice the
   // base's, 27 to 38 fps orbiting, r3 review speed-1)
   if (${clip ? 'max(max(abs(ta.x), abs(tb.x)), abs(tc.x)) <= 1.25 * uH' : 'true'}) {
-    if (sub > 0) return;
     vec4 tq = k == 0 ? ta : (k == 1 ? tb : tc), pq = k == 0 ? pA : (k == 1 ? pB : pC);
     emitV(vec3(pq.zw, tq.x), nrmOf(tq), pq.xy, vec3(0.0), k, c, s0, L, combo);
     return;
