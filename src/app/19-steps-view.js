@@ -1863,14 +1863,18 @@
     return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
-  // word follows), `.disabled` greys it
+  // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
   function svChoiceBtn(cur, pairs, pick, title, cls) {
     let val = cur;
     const word = h('span', { class: 'sv-choice-t' });
-    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, title, 'aria-label': title, 'aria-haspopup': 'menu',
-      onclick: () => svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }) }, word));
+    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu',
+      onclick: () => { if (!svOff(b)) svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }); } }, word, h('span', { class: 'sv-choice-i', html: ICONS.chevD, 'aria-hidden': 'true' })));
     b.choices = pairs;   // (the suites pick an item by its value through it)
-    Object.defineProperty(b, 'value', { get: () => val, set: (v) => { val = v; word.textContent = (pairs.find((q) => q[0] === v) || pairs[0])[1]; } });
+    Object.defineProperty(b, 'value', { get: () => val, set: (v) => {
+      val = v;
+      word.textContent = (pairs.find((q) => q[0] === v) || pairs[0])[1];
+      b.setAttribute('aria-label', `${title}: ${word.textContent}`);
+    } });
     b.value = cur;
     return b;
   }
@@ -1913,12 +1917,8 @@
     const tip = deriv ? $t('d/dz is not a map: its step deforms on its own, so the steps run one after another') : !ok ? $t('All at once needs two steps or more') : $t('Glide order');
     for (const sel of [E.order, E.sheetOrder]) {
       if (!sel) continue;
-      sel.disabled = !ok;
       sel.value = S.homAll && ok ? 'all' : 'steps';
-      // (a disabled button gets no pointer events, so its reason is the native title and a description)
-      sel.dataset.tip = tip;
-      sel.title = tip;
-      sel.setAttribute('aria-description', ok ? '' : tip);
+      svDisableWhy(sel, ok ? '' : tip, tip);
     }
     for (const why of [E.orderWhy, E.sheetOrderWhy]) {
       if (!why) continue;
@@ -2151,7 +2151,7 @@
       // (#437: an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
       const none = P.length < 2;
       E.slider.setAttribute('tabindex', none ? '-1' : '0'); E.slider.setAttribute('aria-disabled', String(none));
-      E.strip.querySelector('.sv-speed').disabled = none;
+      svDisableWhy(E.speed, none ? $t('Add a function to send z through it.') : '', $t('Glide speed'));
       const msg = [
         none ? $t('Add a function to send z through it.') : '',
         !none && svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : '',
@@ -3394,13 +3394,15 @@
     const on = String(S.sel === 'F');
     if (f.getAttribute('aria-pressed') !== on) f.setAttribute('aria-pressed', on);
   }
-  // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
   // a control that can't act now: disabled, with `why` as its tip and description; `tip` is its tip while it can act
   function svDisableWhy(btn, why, tip) {
     if (why) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');   // (not `disabled`: a press still reaches the long-press tip, and the keyboard still finds the reason)
     btn.setAttribute('data-tip', why || tip);
     if (why) btn.setAttribute('aria-description', why); else btn.removeAttribute('aria-description');
   }
+  // whether a control set by svDisableWhy can't act now
+  const svOff = (btn) => btn.getAttribute('aria-disabled') === 'true';
+  // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }

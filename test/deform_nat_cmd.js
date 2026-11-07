@@ -27,7 +27,7 @@ await open(base({ hom: 'linear', shapes: [{ id: 's1', kind: 'disc', c: [-0.12, 0
   steps: [{ type: 'joukowski', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 70 } }), NS + 'old');
 const p0 = await parked(0.5);
 ok('old linear save: the paths of the natural run are drawn', !!p0.src && p0.on && p0.heads > 0 && !p0.src.seq, p0);
-const old = await ev(`(() => { const p = __cmwP(); const s = document.querySelector('#svStrip .sv-order'); return { hom: 'hom' in p, homAll: p.homAll, order: s ? { dis: s.disabled, tip: s.title } : null, homSel: !!document.getElementById('homSel') }; })()`);
+const old = await ev(`(() => { const p = __cmwP(); const s = document.querySelector('#svStrip .sv-order'); return { hom: 'hom' in p, homAll: p.homAll, order: s ? { dis: s.getAttribute('aria-disabled') === 'true', tip: s.title } : null, homSel: !!document.getElementById('homSel') }; })()`);
 ok('old linear save: no straight-line option, no all at once, the order select off for one step', !old.hom && !old.homAll && !old.homSel && old.order && old.order.dis && /two steps or more/.test(old.order.tip), old);
 
 // 2. the paths: evenly spaced, smooth, split at cuts, the same points at every t and while a glide plays
