@@ -502,8 +502,12 @@
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
     const cst = { map: hv ? hv.map : S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
-    if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
-    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
+    // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
+    // curve selected, the plane is paper with its reason)
+    const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
+    if (cauchyWhy) paper(pane);
+    else if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -531,7 +535,8 @@
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
     if (pane === paneL) { updatePre('L', pane, k); drawPre(pane, 'L', k); }
-    if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
+    if (cauchyWhy) paneNote(pane, cauchyWhy);
+    else if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');
     return handles;

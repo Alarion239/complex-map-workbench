@@ -1806,6 +1806,13 @@
   // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is
   // neutral)
   function svMaskOn() { return SV.on && SV.scope === 'in'; }
+  // why the Cauchy style draws no picture on this plane, or '': it is the integral over the curve on plane z, so it is drawn
+  // there while z is the colour plane, and with no closed curve (cz, cauchyDraw's data) there is nothing to draw
+  function svCauchyWhy(cz) {
+    if (S.dc !== 'cauchy') return '';
+    if (svT() !== 0) return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+    return cz ? '' : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.');
+  }
   // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
   function svNoRegions() {
     return SV.scope === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');

@@ -241,6 +241,11 @@
       b.setAttribute('aria-label', d[1]);
       b.removeAttribute('title');
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
+      // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
+      if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
+        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
+      }
     }
     return el;
   }
@@ -1362,6 +1367,8 @@
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
     if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
+    // (the steps view's Cauchy style with no picture on this plane: the ring and the reason, no bands that are not drawn)
+    if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(svT() !== 0 ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
     // modulus strip
     st.strip = !(kind === 'color' && S.dc === 'classic');
     if (kind === 'color' && S.dc === 'classic') {

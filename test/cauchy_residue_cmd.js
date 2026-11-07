@@ -25,6 +25,8 @@ const open = async (shapes, steps) => {
   await view(1440, 900, false, false);
   await load('cr' + Date.now() + Math.floor(Math.random() * 1000), stateOf(shapes, steps));
   await settle(1200);
+  // (the steps view offers Cauchy while z is the colour plane: the curve lies on z)
+  await ev(`typeof __cmwSteps === 'function' && __cmwSteps().on ? (__cmwSteps({ T: 0 }), 1) : 0`);
   await ev(`__cmwSetMain('phase'); __cmwSelect('s1'); document.querySelector('[id="dcSeg"] [data-v="cauchy"]').click(); 1`);
   await settle(1500);
 };
