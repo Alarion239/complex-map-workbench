@@ -466,7 +466,7 @@ const Tour = (() => {
     Object.assign(svStep('basics', 'add'), { anchor: 'svAdd', also: ['svStrip'],
       body: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Click a chip\'s ⋯ to move it, bypass it or remove it.', deskTouch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Tap a chip\'s ⋯ to move it, bypass it or remove it.',
       touch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
-      try: { text: 'Click + Add function.', touch: 'Tap + Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
+      try: { text: 'Click Add function.', touch: 'Tap Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
     const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
     const reorderStep = { id: 'reorder', anchor: 'svMenu2', also: ['svStrip'], title: 'Reorder steps', before: [['svPlace', { i: 0, surf: 'plane' }]],
       body: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu.',
@@ -1990,7 +1990,7 @@ const Tour = (() => {
   }
   // Next (r3 review user-7): on a wide screen "Start", "Finish", "Next: <chapter>" or "Next", shortened to "Next →" (the
   // full label its name) when it does not fit or would cut the lead line; on a phone an arrow, its label its name. With
-  // reduced motion during a countdown, the seconds left ("Next · 3"; on a phone "3")
+  // reduced motion during a countdown, the seconds left ("Next in 3 s"; on a phone "3")
   function paintNext(ui) {
     const n = ui.next, cnt = n.dataset.count || '';
     const ph = !!ui.mode && ui.mode !== 'desk';
@@ -2001,7 +2001,7 @@ const Tour = (() => {
     const base = open ? $t('Skip') : n.dataset.base || $t('Next');
     const cap = !ph && keyHints();
     const html = ph ? (cnt ? `<span class="ts-ncount">${esc(cnt)}</span>` : ICON_RIGHT) : null;
-    const text = ph ? null : cnt ? $t('Next · {n}', { n: cnt }) : base;
+    const text = ph ? null : cnt ? $t('Next in {n} s', { n: cnt }) : base;
     const aria = ph || cnt ? base : null;
     const sig = [html, text, aria, cap, open].join('|');
     // (a laptop's Next names the key that steps forward in its tooltip)

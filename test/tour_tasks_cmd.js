@@ -108,7 +108,7 @@ check('deriv: the result line says what the step is', SV ? /Inspector shows the 
 
 // the steps view's Add function and Reorder steps (the classic add card has no such line; its chain has no reorder step)
 if (SV) {
-  await task('add', 'Click + Add function.', async () => {
+  await task('add', 'Click Add function.', async () => {
     const c = await center('#svStrip .sv-add');
     await mdrag(c[0], c[1], c[0], c[1]);
   });
