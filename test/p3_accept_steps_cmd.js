@@ -194,4 +194,26 @@ for (const [at, cam, cls, tag, what] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2
   await shot('p3s_' + tag);
 }
 
+// ---- mixed carry paths on the globe: one shape forced forward, the other kept on the exact pass. With [H, a disc] through
+// z^i at plane 1 (checker pattern), forcing the disc forward leaves H on the exact pass; the globe's regions are the exact
+// pass's and the disc's mesh together, and the frame matches the all-exact frame to within MIXED_DIFF of the pane's pixels
+// (the bound of p3_accept_cmd.js's mixed-paths case)
+const MIXED_DIFF = 0.005;
+const MIXED_DISC = { id: 's2', kind: 'disc', c: [0.5, 1.5], r: 0.4 };
+await globe('p3accm', [H, MIXED_DISC], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -0.35, yaw: -0.9, dist: 8 });
+await ev('__cmwSet("pattern", "checker"); __cmwSet("alpha", 0.85); 1'); await wait();
+R.mixedExact = await paths();
+await grab('L'); await ev('window.__p3Mx = window.__p3grab.L; 1');
+await ev('__cmwForceForward(["s2"]); 1'); await wait();
+R.mixed = await paths();
+await grab('L');
+R.mixedDiff = await ev(`(() => { const A = window.__p3Mx, B = window.__p3grab.L; let d = 0, n = 0; for (let k = 0; k < A.length; k += 4) { n++; if (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2]) > ${FILL_DIFF}) d++; } return { d, n, share: d / n }; })()`);
+const pathOfShape = (r, id) => (r.paths.find((p) => p.role === 'L' && p.viewKind === 'globe' && p.id === id) || {}).path;
+ok('mixed paths: the exact frame draws both shapes inverse', R.mixedExact.carry.path === 'inverse', R.mixedExact);
+// (a shape's status reads 'pending' on the steps globe, so H's path is read off the globe's: mixed, the exact pass and a mesh)
+ok('mixed paths: the disc reads forward and the globe carries by both paths (not all mesh)', pathOfShape(R.mixed, 's2') === 'forward' && R.mixed.carry.path === 'mixed', R.mixed);
+ok(`mixed paths: the frame is within ${100 * MIXED_DIFF} % of the all-exact frame`, R.mixedDiff.share <= MIXED_DIFF, R.mixedDiff);
+await shot('p3s_mixed');
+await ev('__cmwForceForward([]); 1'); await wait();
+
 return { pass: fails.length === 0, fails, results: R };
