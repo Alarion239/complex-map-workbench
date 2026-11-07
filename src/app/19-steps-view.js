@@ -2300,7 +2300,8 @@
     }
     // (the whole order applies to a step shown alone, whose pill and planes need the room, and to a one-step chain, whose short thread is centred; a chain keeps Speed and Loop on the strip,
     // and its thread gives way by the steps' own widths, svFitRail's)
-    const one = E.track.querySelectorAll('.sv-step').length === 1;
+    // (a chain of one step, not a step shown alone: the alone view has its own pill and walk, and keeps the first level that fits)
+    const one = nSteps() === 1;
     if (!E.strip.querySelector('.sv-whole-pin') && !one) {
       const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
       apply(0);
@@ -2327,7 +2328,7 @@
       if (!tryLevels()) { E.centreLetters = false; tryLevels(); }
     }
   }
-  // (CSS px) how far a one-step thread may lie from the strip's centre line
+  // (CSS px) how far a one-step thread may lie from the strip's centre line: under the layout suite's 4 px, which allows for rounding in its own measure
   const SV_CENTRE_TOL = 3;
   // the middle of the thread (first node to last) less the strip's centre, in CSS px
   function svThreadOff(E) {
