@@ -1750,7 +1750,13 @@
   // plane colours it. Null when a region has no inverse plan
   function svGlobeCarryInv(pane, b, u, T) {
     const h = svInvPaths(b, u, 'globe', { r: null }), carry = svCarryStyle(T);
-    return h && h.list.map((x, i) => ({ inv: svInvArg(pane, h.paths[i], x, carry), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
+    return h && h.list.map((x, i) => ({ inv: Object.assign(svInvArg(pane, h.paths[i], x, carry), { globeBox: u == null ? svGlobeBox(h.paths[i], x) : null }), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
+  }
+  // the w-box of a bounded shape's image on plane b at rest (the carried colour is drawn only where the shape's points land),
+  // which scissors its pass (gl.js globeScissorOf); null for an unbounded shape, a shape of a later plane or a box that cannot
+  // be promised
+  function svGlobeBox(p, x) {
+    return shapeStage(x) ? null : globeImageBox(p, x, false);
   }
   // the carried mesh of plane a's globe (drawSphere's st.carried): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
