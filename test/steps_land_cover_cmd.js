@@ -59,4 +59,20 @@ for (const c of CASES) {
     if (k !== 0 && c.patched) ok(`${name}, ${tag}: the logarithm's singular point has its patch`, r.patches >= 1, r);
   }
 }
+// mid-glide, Möbius then √ with All sheets: the height axis keeps several labels (they step in the frame's own scale)
+{
+  const ns = 'landcover' + Date.now();
+  await loadView('steps', ns, { shapes: [], steps: MOB, sheets: true, height: 'im' });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
+  await settled({ max: 60000 });
+  const last = (await ev('__cmwSteps().planes')).length - 1;
+  for (const u of [0.25, 0.5, 0.75]) {
+    await ev(`__cmwSteps({ x: ${last - 1 + u}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+    const ticks = await ev('__cmwLandTicks()');
+    info['mid' + u] = ticks;
+    ok(`Möbius, √, All sheets, u=${u}: the height axis has several labels`, ticks.length > 2, ticks);
+  }
+}
 return { pass: !fails.length, fails, info };
