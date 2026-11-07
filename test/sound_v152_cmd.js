@@ -7,13 +7,13 @@
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
-  // (and the app's hooks are there: under a loaded software renderer the page can take longer than the 2.2 s, and a
+  await go(`${BASE}?ns=${ns}`);
+  // (and the app's hooks are there: under a loaded software renderer the page can take longer than the load event, and a
   // hook read before it (__cmwSound, __cmwW2S) answers an exception, not a value)
-  for (let i = 0; i < 40 && !(await ev(`typeof __cmwSound === 'function' && typeof __cmwW2S === 'function' && document.readyState === 'complete'`)); i++) await sleep(250);
+  await settled({ until: `typeof __cmwSound === 'function' && typeof __cmwW2S === 'function'`, max: 10000, panes: false });
 };
 // (the engine's Sound.hear.state().counts run since load; __hearCount() reads them as __hearCount() did, since
 // its last call: up and down the red line's crossings (line k ≡ 0 mod n, the low D), notes the notes played, merged
@@ -21,7 +21,7 @@ const loadHere = async (ns, st) => {
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__hearCount = () => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; }; })();' });
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const settle = () => settled({ max: 4000 });
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
 const snd = () => ev('__cmwSound()');
 const glide = async (pts, dt = 16) => { for (const p of pts) { await move(p[0], p[1]); await sleep(dt); } };
@@ -32,18 +32,19 @@ const ns = 'snd152' + Date.now();
 const fn = (expr, s = 120) => ({ steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s } });
 const start = async (expr) => {
   await loadHere(ns, fn(expr));
-  await ev(`__cmwSetMain('phase')`); await settle(900);
-  await click(5, 300); await settle(200);
-  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); await new Promise((r) => setTimeout(r, 600)); 1`);
+  await ev(`__cmwSetMain('phase')`); await settle();
+  await click(5, 300); await settle();
+  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); 1`);
+  await settled({ until: `Sound.state().audio === 'running'`, max: 4000, panes: false });
   await ev(`__cmwSet('loop', false); 1`);
   await spy();
 };
 // a pointer loop round c (radius r, laps), the notes' count over it
 const harpLoop = async (c, r, laps = 1) => {
   const pts = await circle(c, r, laps, 64);
-  await move(pts[0][0], pts[0][1]); await settle(250);
+  await move(pts[0][0], pts[0][1]); await settle();
   const phi0 = (await snd()).phi; await ev('__hearCount()');
-  await glide(pts); await settle(250);
+  await glide(pts); await settle();
   return { dphi: +((await snd()).phi - phi0).toFixed(6), harp: await ev('__hearCount()') };
 };
 logs();
@@ -69,34 +70,34 @@ ok('notes: silent while the pointer rests', R.still.notes === 0, R.still);
 // 2. curves sing: a loop drawn with the Lasso round the pole sings W = −1 (Hear F on: no pings); round the double
 // zero and the simple zero: W = 3 (the first loop of the page plays itself first: Listen along, the function's notes
 // along it, then the note)
-await key('o'); await settle(200);
+await key('o'); await settle();
 const lasso = async (c, r) => {
   const L = await circle(c, r, 1, 64);
-  await move(L[0][0], L[0][1]); await settle(200); await made();
+  await move(L[0][0], L[0][1]); await settle(); await made();
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L[0][0], y: L[0][1], button: 'left', clickCount: 1 });
   for (const p of L.slice(1)) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(16); }
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L[L.length - 1][0], y: L[L.length - 1][1], button: 'left', clickCount: 1 });
-  await sleep(300);
+  await settle();
   const s = await snd();
   return { live: s.live, sang: s.sang, play: s.play, listenFn: s.listenFn, made: await made(), sing: await ev('Sound.singState()') };
 };
 R.l1 = await lasso([0, 0], 1.25);
 ok('loop 1 round −1 and the double zero at 1 (W = 3): plays itself (Listen along: the function\'s notes, 36 lines), then sings W = 3', /^Winding number 3/.test(R.l1.live) && R.l1.play && R.l1.listenFn && R.l1.listenFn.mode === 'notes' && R.l1.listenFn.counts && R.l1.listenFn.counts.notes >= 18 && R.l1.listenFn.counts.notes <= 36 && R.l1.sang === 3, R.l1);
-await key('Escape'); await sleep(200);
+await key('Escape'); await settle();
 R.esc = { play: (await snd()).play, sing: await ev('Sound.singState()'), on: await ev('Sound.prefs().on') };
 ok('Esc: the playback and its note stop, sound stays on', !R.esc.play && !R.esc.sing.on && R.esc.on, R.esc);
-await key('o'); await settle(200);
+await key('o'); await settle();
 R.l2 = await lasso([0, 1.5], 0.4);
 ok('loop 2 round the pole: "Winding number -1", sings W = −1 (no pings), no playback', /Winding number -1|Winding number −1/.test(R.l2.live) && R.l2.sang === -1 && R.l2.sing.on && !R.l2.made.includes('loopDone') && !R.l2.play, R.l2);
 // with Hear F off, a loop sounds palette B's pings instead
-await ev(`Sound.set({ sonify: false }); 1`); await settle(300);
-await key('o'); await settle(200);
+await ev(`Sound.set({ sonify: false }); 1`); await settle();
+await key('o'); await settle();
 R.l3 = await lasso([-1, 0], 0.4);
 ok('loop 3 with Hear F off: the pings (loopDone), no note', /Winding number 1/.test(R.l3.live) && R.l3.made.includes('loopDone') && R.l3.sang === -1, R.l3);
-await key('v'); await settle(200);
+await key('v'); await settle();
 
 // 5. off while the notes ring: silent, suspended
-await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
+await ev(`Sound.set({ sonify: true }); 1`); await settle();
 {
   const pts = await circle([0, 0], 0.3, 1, 24);
   await glide(pts, 10);
@@ -110,7 +111,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
 {
   const c = await W(0, 0);
   const x0 = c[0] + 10, y0 = c[1];
-  await move(x0, y0); await settle(300); await ev('__hearCount()');
+  await move(x0, y0); await settle(); await ev('__hearCount()');
   for (let k = 0; k < 180; k++) { const t = k / 60; await move(x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)); await sleep(16); }
   R.held = await ev('__hearCount()');
   ok('a held finger 10 px from a zero, trembling ±1.5 px: no note', R.held.notes === 0, R.held);
@@ -127,8 +128,9 @@ await ev(`Sound.set({ sonify: true }); 1`);
   await send('Emulation.setUserAgentOverride', { userAgent: ANDROID, acceptLanguage: 'en-US,en' });
   await view(390, 844, false, true);
   await loadHere(ns + 'ph', fn('z'));
-  await ev(`__cmwSetMain('phase')`); await settle(900);
-  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); await new Promise((r) => setTimeout(r, 600)); 1`);
+  await ev(`__cmwSetMain('phase')`); await settle();
+  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); 1`);
+  await settled({ until: `Sound.state().audio === 'running'`, max: 4000, panes: false });
   await ev(`__cmwSet('loop', false); 1`);
   const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
   const c0 = await W(0, 0);

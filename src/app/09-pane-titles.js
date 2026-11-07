@@ -921,8 +921,7 @@
   }
   // a control that does not apply on the shown plane: in place, with the one disabled look and its reason as the tip
   function disableCtl(el, reason) {
-    el.setAttribute('aria-disabled', 'true');
-    el.setAttribute('data-tip', reason);
+    svDisableWhy(el, reason);
     const inp = el.querySelector('input');
     if (inp) { inp.disabled = true; inp.setAttribute('aria-description', reason); }
   }
