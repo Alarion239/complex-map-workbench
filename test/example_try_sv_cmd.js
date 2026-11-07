@@ -38,6 +38,8 @@ for (const lang of ['en', 'ru']) {
   ok(`${lang}: a plane change does not close the Gamma line`, !!(await lane()), null);
   // Cayley then cube: one › is not enough, two are
   await ev(`__cmwExample(${idx.cayley})`); await settle(1200);
+  // (a › waits for the prestart: pressed once it is done, it glides at once)
+  await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
   await next(); await settle(1200);
   const afterOne = await lane();
   await next(); await settle(1500);

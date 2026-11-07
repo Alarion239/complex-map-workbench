@@ -195,7 +195,7 @@ for (const w of [1024, 1440]) {
   // (a play on a short thread ends within a few frames: the page counts the times the Play button's label changes, and
   // a key plays when the count goes up)
   await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n !== window.__idleLabel) window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); window.__idleLabel = was; })(), 1`);
-  const playsTo = async (k, code, n) => { await press(k, code); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  const playsTo = async (k, code, n) => { await settled({ max: 60000, until: '__cmwSteps().ready.ready' }); await press(k, code); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
   check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
   await settled({ max: 20000, until: `!__cmwSteps().moving` });
   check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
