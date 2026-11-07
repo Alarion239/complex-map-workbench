@@ -13,7 +13,9 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const CIRCLE = [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }];
 const stateOf = (shapes) => ({ shapes, steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy' });
 const REASON = 'The Cauchy integral is drawn on z, where its curve lies: colour from z';
-const isGrey = (c) => Math.abs(c[0] - c[1]) < 14 && Math.abs(c[1] - c[2]) < 14;
+// paper and the neutral grey have their channels within GREY_SPREAD of each other (of 255); a hue differs by far more
+const GREY_SPREAD = 14;
+const isGrey = (c) => Math.abs(c[0] - c[1]) < GREY_SPREAD && Math.abs(c[1] - c[2]) < GREY_SPREAD;
 const open = async (shapes) => {
   await view(1440, 900, false, false);
   const ns = 'czs' + Date.now();
