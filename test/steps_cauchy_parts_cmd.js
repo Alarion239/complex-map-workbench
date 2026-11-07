@@ -12,6 +12,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const CIRCLE = [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }];
 const stateOf = (expr, extra) => Object.assign({ shapes: CIRCLE, steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy' }, extra || {});
 const NO_POLE = 'No pole inside the curve: F inside, 0 outside';
+// the key off z is one line of text: its canvas is at most KEY_LINE_MAX CSS px tall (the ringed key is 72)
+const KEY_LINE_MAX = 30;
 const OFF_Z = 'The Cauchy integral is drawn on z, where its curve lies: colour from z';
 const open = async (ns, state) => {
   await view(1440, 900, false, false);
@@ -51,6 +53,14 @@ info.none = c;
 ok('no pole: the parts control is there and disabled with its reason', c.seg && c.buttons.every((x) => x.disabled && x.tip === NO_POLE && x.desc === NO_POLE), c);
 ok('no pole: the note says F inside, 0 outside', /0 outside/.test(c.note), c);
 
+await open('czn' + Date.now(), stateOf('\\exp\\left(\\frac{1}{z}\\right)'));
+const e = await parts();
+info.numeric = e;
+ok('a singularity that is not a pole: the parts are disabled with a reason that says it is numeric', e.seg && e.buttons.every((x) => x.disabled && /numerically/.test(x.tip) && !/No pole/.test(x.tip)), e);
+await open('czu' + Date.now(), stateOf('\\frac{1}{z-1}'));
+const u = await parts();
+info.undefined = u;
+ok('F not finite on the curve: the parts are disabled with a reason that says so', u.seg && u.buttons.every((x) => x.disabled && /not finite/.test(x.tip) && !/No pole/.test(x.tip)), u);
 await open(ns, stateOf('z+\\frac{1}{z}'));
 await ev(`(__cmwSteps({ T: 1 }), 1)`);
 await settled({ until: '__cmwSteps().T === 1 && !__cmwSteps().moving', max: 15000 });
@@ -62,5 +72,5 @@ ok('off z: the parts are disabled with the drawn-on-z reason', d.seg && d.button
 const ti = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
 ok('off z: the title of plane z keeps the Cauchy subject', /^Cauchy integral over /.test(ti.role), ti);
 const h = await ev(`(() => { __cmwLegend(); const c = document.querySelector('.legend-chip canvas'); return c ? c.height / 2 : -1; })()`);
-ok('off z: the key is one line of text', h > 0 && h <= 30, h);
+ok('off z: the key is one line of text', h > 0 && h <= KEY_LINE_MAX, h);
 return { pass: !fails.length, fails, info };

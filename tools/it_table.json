@@ -3421,6 +3421,8 @@
  "The Cauchy integral is drawn on z, where its curve lies: colour from z": "L'integrale di Cauchy è disegnato su z, dove sta la sua curva: colore da z",
  "The Cauchy integral is drawn everywhere: its outside part is not cut to regions": "L'integrale di Cauchy è disegnato ovunque: la sua parte esterna non è limitata alle regioni",
  "No pole inside the curve: F inside, 0 outside": "Nessun polo dentro la curva: F dentro, 0 fuori",
+ "Computed numerically: there is no f₊ and f₋ to show apart": "Calcolato numericamente: f₊ e f₋ non si possono mostrare separati",
+ "F is not finite on the curve: its Cauchy integral is not defined": "F non è finita sulla curva: il suo integrale di Cauchy non è definito",
  "Cauchy: on z only": "Cauchy: solo su z",
  "No curve selected": "Nessuna curva selezionata"
 }

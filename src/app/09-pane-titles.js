@@ -964,7 +964,7 @@
         // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
         const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
         const offZ = SV.on && svT() !== 0;
-        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : $t('No pole inside the curve: F inside, 0 outside');
+        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
         if (parts) {
           if (partsWhy) for (const b of parts.querySelectorAll('button')) { b.disabled = true; b.dataset.tip = partsWhy; b.setAttribute('aria-description', partsWhy); }
           f.append(parts);
@@ -1351,8 +1351,9 @@
     const caption = (t) => {
       st.caption = t;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
-      let x = LEG.W - 8;
-      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width; }
+      // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
+      let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
+      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width * (cauchyOff ? 0.5 : 1); }
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
