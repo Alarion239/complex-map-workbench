@@ -52,7 +52,8 @@ const CASES = [
   ['U-b view without main (landscape)', { ...XY, rightMode: undefined, view: { L: { surf: 'land', phase: true } } }, { on: true, surf: 'land' }],
   ['view with main phase', { ...XY, rightMode: undefined, view: { main: 'phase', P: { surf: 'plane', eq: false }, D: { phase: true } } }, { on: true, x: 0, scope: 'all', surf: 'plane' }],
   ['deformation range and figMorph (Deformation open)', { ...XY, homRange: { a: 2, b: 3 }, figMorph: { T: 1.5 } }, { on: true, homRange: [2, 3], morphOpen: false }],
-  ['solo R (the right pane expanded)', { ...XY, rightMode: 'image', solo: 'R' }, { on: true, x: 0, T: 3, scope: 'in', surf: 'plane' }],
+  // (solo() is 'L' while the steps view is on: it has one pane, so a saved solo R does not expand a pane)
+  ['solo R (the right pane expanded)', { ...XY, rightMode: 'image', solo: 'R' }, { on: true, x: 0, T: 3, scope: 'in', surf: 'plane', solo: 'L' }],
   ['right pane camera (rightView)', { ...XY, rightMode: 'image', rightView: { cx: 0.5, cy: -0.25, s: 120 } }, { on: true, x: 0, scope: 'in' }],
 ];
 
@@ -106,6 +107,26 @@ for (const [name, url] of FORMS) {
   info[name] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`${name}: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
   await grab(name);
+}
+
+// a link that carries the figure's camera (figCam) and its figMorph: the steps view reads both once, at the load, and its save
+// keeps neither. The camera's value and figMorph's T are not checked here: the test hooks do not expose the 3D camera, and the
+// steps view does not carry figMorph's T into its Morph transport (a parity gap, see the PR).
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+  const fig = { ...LINK_STATE, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, figMorph: { T: 1.5 } };
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
+  const got = await ev(READ);
+  info['link with figCam and figMorph'] = got;
+  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  await ev('window.dispatchEvent(new Event("pagehide")); 1');
+  await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && !('figCam' in o)); })()` });
+  const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? { figCam: 'figCam' in o, figMorph: 'figMorph' in o } : null; })()`);
+  info['figCam and figMorph, after a save'] = saved;
+  ok('figCam and figMorph are read once and not kept by the save', !!saved && !saved.figCam && !saved.figMorph, saved);
+  await grab('figCam link');
 }
 
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
