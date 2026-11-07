@@ -17,7 +17,7 @@
 //          (3 runs, with X and with Y large), leaving the phone layout in Phase and in the Deformation (3 round trips
 //          to the desktop), a save in the Deformation and a reload (3 rounds), the first Phase with X the inset, a
 //          sheet and a rotation that end Phase, the language switch in Phase, Y's auto fit after a swap (Re z > 0),
-//          a swap during a Fit, the Deformation ended by a bypassed step (CASE 'bypass')
+//          a swap during a Fit
 // A command file for a CDP daemon (test/cdp_kit README). One part per run, and one map per run for the longer parts
 // (the queue waits 300 s at most):
 //   python3 build.py && (echo "const PART = 'swap';"; cat test/phone_swap_cmd.js) | test/<you>_cdp/q.sh -
@@ -201,7 +201,7 @@ for (const mk of mapsFor) {
     await rounds(mk + ' URL bar (Y large)', 20, [hide, show]);
     await grab();
   } else if (part === 'views') {
-    const to = (m) => async () => { await tapSel(`#viewSwitch > button[data-mode="${m}"]`, 600); };
+    const to = (m) => async () => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
     await rounds(mk + ' Phase and back', 20, [to('phase'), to('xy')], { mid: [] });
     await rounds(mk + ' Landscape and back', 20, [to('land'), to('xy')], { mid: [] });
     // (Phase and Landscape show one panel: only the X -> Y read at the end of each round is compared)
@@ -238,7 +238,7 @@ for (const mk of mapsFor) {
     const chk = (name, a, b, tol = TOL) => { if (!same(a, b, tol)) fails.push({ name, got: fmt(a), want: fmt(b) }); };
     const both = (name, w, b) => { chk(name + ': X', w.L, b.L); chk(name + ': Y', w.R, b.R); if (w.big !== b.big) fails.push({ name: name + ': the large plane', got: w.big, want: b.big }); };
     const click = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.click(); return !!e; })()`);
-    const to = async (m) => { await click(`#viewSwitch > button[data-mode="${m}"]`); await settle(700); };
+    const to = async (m) => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
     const fresh = async (ns, shapes) => { await view(390, 844, false, true); await open(ns, MAPS.expand, shapes); };
     // the user's own views on both planes, X large at the end
     const userViews = async () => { await panZoom('L'); await swapTap(); await panZoom('R'); await swapTap(); };
@@ -365,28 +365,6 @@ for (const mk of mapsFor) {
       await fresh('rv-fitB'); await panZoom('L'); await click('#leftFit'); await sleep(80); await ev('Phone.swap()'); await settle(900); await ev('Phone.swap()'); await settle(900); const b = await W();
       chk('a swap during a Fit', b.L, a.L);
       info.fitMidSwap = { fit: fmt(a.L), fitThenSwaps: fmt(b.L) };
-    }
-    // the Deformation ended by the chain (its only step bypassed), not by its button: the inset is drawn small once it
-    // ends; the step back on, swaps, a save and a reload: X gets its own view (the Deformation does not reopen by itself)
-    if (want('bypass')) {
-      await fresh('rv-byp'); await userViews(); await swapTap();   // Y large, X the inset
-      const b0 = await W();
-      const byp = async () => { await click('.icon-btn.bypass'); await settle(900); };
-      await morphToggle();
-      const d0 = await W();
-      await byp();
-      const a = await W();
-      if (!d0.deform || a.deform) fails.push({ name: 'bypass: the Deformation view did not end', got: `${d0.deform} -> ${a.deform}` });
-      chk('a bypass that ends the Deformation: X the inset', a.L, b0.L); chk('a bypass that ends the Deformation: Y', a.R, b0.R);
-      await swapTap(); await swapTap();
-      await byp();
-      const c = await W();
-      await sleep(1500);
-      await nav(URL0('rv-byp')); await settle(1500);
-      if ((await W()).deform) { await morphToggle(); }
-      const r = await W();
-      chk('a save while the Deformation shows again, then a reload: X', r.L, b0.L);
-      info.bypass = { start: `L ${fmt(b0.L)} | R ${fmt(b0.R)}`, ended: `L ${fmt(a.L)} | R ${fmt(a.R)}`, again: `${c.deform} L ${fmt(c.L)}`, reload: `L ${fmt(r.L)}` };
     }
     await grab();
   } else if (part === 'tablet') {

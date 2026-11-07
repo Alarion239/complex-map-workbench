@@ -439,7 +439,7 @@ await ev(`Sound.set({ on: false }); 1`);
 const logsBefore = logs();
 {
   const AF = Object.getPrototypeOf(async function () {}).constructor;
-  const H = { ev, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, img, fs, path, DIR };
+  const H = { ev, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, settled, img, fs, path, DIR };
   const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_deform_cmd.js'), 'utf8'))(...Object.values(H));
   R.deform = D.R;
   for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'deformation: ' + f.name }));
