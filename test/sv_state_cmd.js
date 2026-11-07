@@ -73,7 +73,7 @@ st = await ev('__cmwSteps()');
 info.bad = st;
 ok('a malformed sv opens on defaults, clamped (an unknown speed: the device\'s, normal)', st.on && st.x === 3 && st.scope === 'all' && st.surf === 'plane' && st.speed === 'normal', st);
 // the speed menu writes the state and the device's setting
-await ev(`(() => { const m = document.querySelector('.sv-speed'); m.value = 'slower'; m.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`); await sleep(900);
+await choose('.sv-speed', 'slower'); await sleep(900);
 const menu = await ev(`({ dev: localStorage.getItem('cmw-sv-speed'), st: (() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)})); return o && o.sv && o.sv.speed; })() })`);
 info.menu = menu;
 ok('the speed menu writes both the state and the device', menu.dev === 'slower' && menu.st === 'slower', menu);

@@ -1213,6 +1213,16 @@ async function svInteractUnit(scene) {
 // scope ('all': Everywhere | 'in': Inside regions), planes: [a, b] the glide's two planes (default [0, 1]), info: its rows
 // are info, state: the saved page to open instead of the default one}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
 // reference without the Landscape's glide makes it NEW (refCannot)
+// Opens the steps view on a fresh page (state: the saved page to start from, else the default one) and waits for its first frame
+// and the typesetter.
+async function openSteps(state) {
+  const gns = `perfsvg${process.pid}_${++nsCounter}`;
+  const seed = state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(gns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + gns)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`) : null;
+  await B.nav(`${BASE}test.html?ns=${gns}&view=steps`);
+  if (seed) await B.removeInit(seed);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+}
 const SV_GLIDE_JANK_MS = 25;
 async function svGlideUnit(scene, o = {}) {
   const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all', [pa, pb] = o.planes || [0, 1];
@@ -1240,12 +1250,7 @@ async function svGlideUnit(scene, o = {}) {
         // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
         // limit: fewer reps, not a timeout, which aborts the whole run)
         if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
-        const gns = `perfsvg${process.pid}_${++nsCounter}`;
-        const seed = o.state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(gns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + gns)}, ${JSON.stringify(JSON.stringify(o.state))}); } catch (e) {} }`) : null;
-        await B.nav(`${BASE}test.html?ns=${gns}&view=steps`);
-        if (seed) await B.removeInit(seed);
-        await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
-        await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+        await openSteps(o.state);
         if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
@@ -1288,6 +1293,36 @@ async function svGlideUnit(scene, o = {}) {
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
     // (o.info: every row but dpr_ok is info: the unit measures a cost, it gates nothing)
     if (o.info) for (const [k, m] of Object.entries(RES.metrics)) if (k.startsWith(pre + '.') && k !== `${pre}.dpr_ok`) m.kind = 'info';
+  }
+}
+// The GL bytes the steps view's Landscape holds while it carries a glide (Surface: Landscape, All sheets): the carried grid's
+// heights, the pole patches' and far rings' textures, whatever the sheets add. The glide is held at the middle of the plane
+// run [a, b] on a page opened fresh, then __perf.mem() (the live and peak bytes of every buffer, texture and renderbuffer the
+// page allocated: the allocator's count, so a software renderer reads the same as a GPU) is read, with how many patches the
+// frame draws, and the live bytes the Landscape added to those the plane surface held. One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), and the default page's Möbius step, whose
+// poles are in the carried box. Info rows: the phones' limit is read off them, nothing gates (#1205).
+async function svLandBytesUnit() {
+  const cases = [
+    { tag: 'k2', state: SV_SHEETS_STATE },
+    { tag: 'k4', state: svRootState(4) },
+    { tag: 'k6', state: svRootState(6) },
+    { tag: 'poles', state: null },
+  ];
+  for (const c of cases) {
+    const pre = `sv.land_bytes.${c.tag}`;
+    await openSteps(c.state);
+    await settle(await pageNow());
+    const flat = await B.ev('__perf.mem()');   // (the page's own bytes on the plane surface: what the Landscape adds is the rest)
+    await B.ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 1, now: true }), 1`);
+    await settle(await pageNow());
+    await B.ev(`__cmwSteps({ x: 1.5, now: true }), 1`);
+    await settle(await pageNow());
+    const mem = await B.ev('__perf.mem()'), carry = await B.ev('(() => { const c = __cmwLandCarry(); return c ? { patches: c.patches, patchN: c.patchN, far: (c.far || []).length } : null; })()');
+    put(`${pre}.gpu_live_bytes`, 'info', 'B', [mem.live]);
+    put(`${pre}.gpu_peak_bytes`, 'info', 'B', [mem.peak]);
+    put(`${pre}.gpu_land_added_bytes`, 'info', 'B', [mem.live - flat.live]);
+    put(`${pre}.patches`, 'info', '', [carry ? carry.patches : 0]);
+    detail(`${pre}.carry`, JSON.stringify(carry));
   }
 }
 async function cardsStartupUnit() {
@@ -2083,6 +2118,9 @@ unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the sam
 const SV_SHEETS_STATE = Object.assign({}, SV_CUT_STATE, { rightMode: '3d', sheets: true, height: 'im' });
 unit('sv.glide.land_sheets', 'the steps view\'s Landscape with All sheets (Surface: Landscape, on a GPU), √z then z + 2: a warm glide there and back between w₁ and w₂ at dpr 1 and 2, the carry from z\'s plane drawing the √z step\'s two sheets (#1099); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets', surf: 'land', state: SV_SHEETS_STATE, planes: [1, 2], info: true }));
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
+// (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
+function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
+unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows (#1205)', svLandBytesUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
