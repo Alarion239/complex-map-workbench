@@ -11,6 +11,7 @@
   const SV = {
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
@@ -175,8 +176,10 @@
   const svSigNow = () => svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
   function svAdopt(force) {
     const ext = S.view.main;
-    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to)
-    if ((ext === svMain() || ext === SV.main) && !force) return;
+    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to; a Phase view on the
+    // other surface is one from outside too: a save that asked for the sphere opens on it)
+    const own = ext === 'land' || Views.xOf(S.view).surf === (SV.surf === 'sphere' ? 'sphere' : 'plane');
+    if ((ext === svMain() || ext === SV.main) && !force && own) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
@@ -1459,6 +1462,15 @@
     if (!svPicTimer) svPicTimer = setTimeout(() => { svPicTimer = 0; requestRender('L'); }, left);
     return false;
   }
+  // the steps view's left plane, drawn by one of two cores: a glide frame and a flat plane past the colour plane (push) by the
+  // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
+  // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
+  function svDrawPlane(pane, still) {
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    svCheck(); svPolesWatch();
+    if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    SV.core = 'still'; still(pane);
+  }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
@@ -1687,7 +1699,7 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
-    svLandMaskC = { cv, key, box: Object.assign({}, box) };
+    svLandMaskC = { cv, key, box: Object.assign({}, box), cut: true };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -2024,7 +2036,8 @@
     }
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
     E.add.hidden = !!al;
-    E.wholeMap.hidden = !!al || !S.steps.length;
+    E.wholeMap.hidden = !!al || S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
+    E.strip.classList.toggle('sv-nof', E.wholeMap.hidden);   // (the phone's track keeps room for F only while F is there)
     // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
     if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
     else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
@@ -2129,7 +2142,9 @@
       const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
       // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
       const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
-      const want = toEnd ? E.trackW : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
+      // under a drag or a glide, the ring is kept a plane's width from either end)
+      const want = toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
@@ -2170,11 +2185,13 @@
     if (!E || !E.track.firstElementChild || SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const steps = /** @type {HTMLElement[]} */ ([...E.track.querySelectorAll('.sv-step')]);
     // (the room is the rail's with "+ Add function" folded, which svFitAdd does when the names would not fit beside its words)
-    const room = E.rail.clientWidth + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
+    // (the rail's room is what it has with no centring margin, svCentreRail's)
+    const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
     const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
+      svCentreRail(E, 0);
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
       E.railMode = SV_RAIL_EQUAL;
@@ -2197,6 +2214,31 @@
     E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
+    svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
+  }
+  // (CSS px: a centring margin smaller than this is none, and a change smaller than this leaves the margin as it is)
+  const SV_CENTRE_MIN = 0.5;
+  // The thread is centred on the pane: the rail gives up, on the side of the narrower group, what the wider group takes
+  // (▶ ‹ stay at the left edge, the right group at the right edge), so the first and last dots lie evenly about the pane's
+  // centre line. It gives up no more than leaves the thread its width (need): a tight pane shifts the thread as little as
+  // it must, and one that cannot hold it scrolls as before. Called with a fitted rail only, never during a glide
+  // (svFitRail returns first), so a resize recentres and a play never moves the rail. A phone centres in the rail (CSS).
+  function svCentreRail(E, need) {
+    const rail = E.rail, was = E.railM || 0;
+    let ml = 0, mr = 0;
+    if (need > 0 && !document.documentElement.classList.contains('ph')) {
+      const sr = E.strip.getBoundingClientRect(), rr = rail.getBoundingClientRect(), cs = getComputedStyle(E.strip);
+      const wasL = parseFloat(rail.style.marginLeft) || 0, wasR = parseFloat(rail.style.marginRight) || 0;
+      const left = rr.left - wasL - (sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth));
+      const right = (sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth)) - (rr.right + wasR);
+      const m = Math.max(0, Math.min(Math.abs(right - left), rr.width + wasL + wasR - need));
+      if (m >= SV_CENTRE_MIN) { if (right > left) ml = m; else mr = m; }
+    }
+    const next = ml + mr;
+    if (Math.abs(next - was) < SV_CENTRE_MIN && (parseFloat(rail.style.marginLeft) || 0) === ml) return;
+    rail.style.marginLeft = ml ? `${ml.toFixed(1)}px` : ''; rail.style.marginRight = mr ? `${mr.toFixed(1)}px` : '';
+    E.railM = next; E.centres = null;
+    E.strip.dataset.centre = next > 0 ? 'shift' : 'none';
   }
   function svFitAdd() {
     const E = SV.els; if (!E || !E.add || !E.track.firstElementChild) return;

@@ -88,14 +88,16 @@
     pane.begin(TH.plane);
     if (!GLR.drawGrid || !GLR.ok) Axes.draw(pane, TH, { unitCircle: S.unit, labels: false });
   }
+  // the left plane: the steps view draws it through svDrawPlane, which keeps this function's classic drawing (drawLeft) for
+  // the planes it draws that way
   function renderLeft() {
     const pane = paneL;
-    // ((#366 prototype) between two planes of the steps view: the glide's own frame, 19)
-    // (and at rest on a plane past the colour plane, whose colour is the colour plane's carried forward)
-    // (the steps view's frames record their own paths' moving points, or none: svRenderMoving)
-    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; }
-    if (SV.on && svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
-    if (SV.on) { svCheck(); svPolesWatch(); if (!svColoured() && SV.surf === 'plane' && lFlat()) { svRenderMoving(pane); return; } }
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; svDrawPlane(pane, drawLeft); return; }
+    drawLeft(pane);
+  }
+  // the classic drawing of the left plane: a flat coloured plane, X Phase, X Landscape and X Sphere, the steps view's
+  // coloured planes and its globes and relief at rest among them
+  function drawLeft(pane) {
     pane.setView(leftView());
     // (Landscape is not on this pane now: its refinement's textures go, issue #50)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
@@ -769,7 +771,7 @@
     }
     const info = GLR.drawLandscape({
       map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
-      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode,
       colors: {
@@ -792,10 +794,27 @@
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
-    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
+    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
   render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
+  // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
+  // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
+  function landMaskAlpha(m, x, y, clamp, px) {
+    if (!m) return null;
+    let u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
+    if (clamp) { u = Math.min(Math.max(u, 0), 1 - Number.EPSILON); v = Math.min(Math.max(v, 0), 1 - Number.EPSILON); }
+    if (!(u >= 0 && u < 1 && v >= 0 && v < 1)) return null;
+    const i = Math.floor(u * m.cv.width), j = Math.floor(v * m.cv.height);
+    return (px ? px[4 * (j * m.cv.width + i) + 3] : m.cv.getContext('2d').getImageData(i, j, 1, 1).data[3]) / 255;
+  }
+  // whether the point z is outside the region set a cut surface (mask.cut) shows: nothing is drawn over it (the block's
+  // edge, where a pick can land, takes the edge texel's alpha, as the surface does); px as landMaskAlpha's
+  function landOffRegion(m, z, px) {
+    const a = m && m.cut ? landMaskAlpha(m, z.re, z.im, true, px) : null;
+    return a !== null && a < 0.5;
+  }
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -813,7 +832,10 @@
     const at = (t) => [e[0] + t * d[0], e[1] + t * d[1], e[2] + t * d[2]];
     const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
     const top = Math.abs(info.top || 1) * 1.3, z0 = info.floorZ;
+    // (the mask's pixels, read once for the ray's samples)
+    const mpx = pk.mask && pk.mask.cut ? pk.mask.cv.getContext('2d').getImageData(0, 0, pk.mask.cv.width, pk.mask.cv.height).data : null;
     const hAt = (p) => {
+      if (landOffRegion(pk.mask, toZ(p), mpx)) return z0 - 1;
       const w = pk.F(toZ(p));
       if (!CX.isFin(w)) return top;
       const hh = info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));
