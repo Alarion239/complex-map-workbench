@@ -143,7 +143,7 @@ n++;
 }
 
 // the open route's own keys and toasts (openFigure): the opened figure records how it was opened (cmw-opened), the figure it
-// replaces is kept for the undo (cmw-before-open), and a link or scene that holds no figure says so in a toast
+// the previous figure is kept under cmw-before-open for the undo, and a link or scene that holds no figure says so in a toast
 const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++) { const k = st.key(i); if (k.startsWith(t + ':') || k === t) return st.getItem(k); } return null; }; return { opened: f(sessionStorage, 'cmw-opened'), before: f(localStorage, 'cmw-before-open') }; })()`;
 // openFigure writes its keys and reloads the page: they are read at the pagehide of the old page, into a probe key that the
 // page does not use (the new page clears the keys at its load)
@@ -162,7 +162,7 @@ n++;
   const got = await probeOpen(LINK_STATE, 'link');
   info['open a link: the route and the kept figure'] = got;
   ok('a link open records cmw-opened = link', got.opened === 'link', got);
-  ok('a link open keeps the figure it replaces (cmw-before-open)', typeof got.before === 'string' && got.before.length > 0, got.before && got.before.length);
+  ok('a link open keeps the previous figure (cmw-before-open)', typeof got.before === 'string' && got.before.length > 0, got.before && got.before.length);
   const sc = await probeOpen(LINK_STATE, 'scene');
   ok('a scene open records cmw-opened = scene', sc.opened === 'scene', sc);
   await grab('open route');
