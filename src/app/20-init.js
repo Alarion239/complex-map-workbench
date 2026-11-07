@@ -194,6 +194,7 @@
     paneR = new Pane($('canvasR'), $('overlayR'));
     warmKick();
     const loaded = load();
+    let svMorphT = null;   // a link's figMorph time, for the steps view to take as its place
     setState(loaded || blankState());
     if (!Array.isArray(S.params)) setParams([]);
     attachParams();
@@ -278,7 +279,8 @@
         if ('figMorph' in S) {
           const fm = S.figMorph;
           deleteOpt('figMorph');
-          if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); } }
+          // (the steps view has no Morph transport: the time is its place along the chain, set once the view is set up)
+          if (fm && Number.isFinite(fm.T) && SV.on) { if (!S.sv) svMorphT = fm.T; } else if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); } }
         }
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
@@ -318,6 +320,7 @@
     // build/phone-swap.md)
     if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     setupStepsView();   // ((#366 prototype) ?view=steps)
+    if (svMorphT != null) { svPlaceAt(svMorphT); svMorphT = null; }
     tourWire();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)

@@ -110,8 +110,8 @@ for (const [name, url] of FORMS) {
 }
 
 // a link that carries the figure's camera (figCam) and its figMorph: the steps view reads both once, at the load, and its save
-// keeps neither. The camera's value and figMorph's T are not checked here: the test hooks do not expose the 3D camera, and the
-// steps view does not carry figMorph's T into its Morph transport (a parity gap, see the PR).
+// keeps neither. The camera's value is read through __cmwState().cam, and figMorph's T is the steps view's place x (it has no
+// Morph transport).
 n++;
 {
   const ns = 'lmig' + n + Date.now();
@@ -120,7 +120,9 @@ n++;
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
   const got = await ev(READ);
   info['link with figCam and figMorph'] = got;
-  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], k === 'x' ? 1.5 : LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  const cam = await ev('__cmwState().cam');
+  ok('figCam link: the camera is the link\'s', !!cam && [['yaw', 0.4], ['pitch', -0.3], ['d', 1.5], ['tx', 0.1], ['ty', -0.2]].every(([c, v]) => Math.abs(cam[c] - v) < 1e-9), cam);
   await ev('window.dispatchEvent(new Event("pagehide")); 1');
   await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && !('figCam' in o)); })()` });
   const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? { figCam: 'figCam' in o, figMorph: 'figMorph' in o } : null; })()`);
