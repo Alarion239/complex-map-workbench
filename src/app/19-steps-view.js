@@ -360,7 +360,7 @@
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
     let poles;
-    if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E)) || p);
+    if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E, src)) || p);
     else poles = svDrain(svPolesIn(F, src, 16, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
@@ -688,12 +688,13 @@
   }
   // a point where F is unbounded without being a pole (the logarithm at 0, a root at a pole of its Möbius step: Newton's
   // method on 1/F reflects about it or crawls): z itself when F is not finite there, else the nearest peak of |F| from z
-  // when it is past big; null otherwise
-  function* svSingularAt(F, z, big, E) {
+  // when it is past big and within box; null otherwise (a map that only grows, exp's, has its peak climbed out of the box)
+  function* svSingularAt(F, z, big, E, box) {
     let w = null;
     try { w = F(z); } catch (e) { w = null; }
     if (!w || !CX.isFin(w)) return z;
-    return yield* svPeakAt(F, z, big, E);
+    const p = yield* svPeakAt(F, z, big, E);
+    return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
   const SV_SING_BIG = 10;
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
@@ -726,7 +727,7 @@
     const out = [];
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
-      if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E);
+      if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;

@@ -286,19 +286,21 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
   }
-  // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (hs.N points a side) over the
-  // box src, each at its image under the glide's map; bound to unit 11 (uCP) for the sheets' draw. Run every frame, as
-  // the places change with the glide
-  let landCP = null;
-  function carryPlaces(st, N) {
+  // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
+  // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
+  // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
+  // i + 1
+  const landCP = [];
+  function carryPlaces(st, N, polar, slot = 0) {
     const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
     if (!P) return false;
-    if (!landCP) landCP = floatTex();
+    if (!landCP[slot]) landCP[slot] = floatTex();
     use(P, c.map);
     u1i(P, 'uN', N);
     u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP, N, N, gl.RGBA32F, gl.RGBA);
-    gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP);
+    u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP[slot], N, N, gl.RGBA32F, gl.RGBA);
+    gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return true;
   }
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
@@ -924,6 +926,40 @@
   }
   // per-cell sheet heights (LAND_SHEET_TF_VS): cache keyed like landHeights, plus the stage, window and combos
   let landS = null;
+  // the sheets' heights over the grid of M x M cells (box b, or a pole's patch about polar, CARRY_Z), each cell's four
+  // corners a texel, a tile of the texture a sheet's
+  function sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, tex) {
+    const texW = tileC * 2 * M, texH = tileR * 2 * M;
+    use(P1, sp.hom ? st.map : null);
+    u1i(P1, 'uN', M + 1);
+    u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    u2f(P1, 'uAspect', aspect[0], aspect[1]);
+    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
+    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1i(P1, 'uPass', 0);
+    gl.activeTexture(gl.TEXTURE15);
+    runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
+  }
+  // a carried pole's patch's sheets' heights (about polar, N points a side at most), in slot i of landSP; kept while its
+  // chain, sheets and polar stand. null until the heights' program has compiled
+  const landSP = [];
+  function sheetPatchHeights(st, sp, polar, N, slot, mode, H, mu, aspect) {
+    const P1 = program('landSheetTF', sp.hom ? st.map : null);
+    if (!P1 || !hasSheets(P1.ch.info)) return null;
+    const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
+    const M = Math.max(8, Math.min(N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
+    const b = st.carry.src || st.box;
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), polar.join(','), M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const o = landSP[slot] || (landSP[slot] = { tex1: floatTex() });
+    if (o.key !== key) {
+      sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, o.tex1);
+      o.key = key;
+    }
+    return { polar, N: M + 1, tex1: o.tex1, tileC, slot: slot + 1 };
+  }
   function sheetHeights(st, sp, N, mode, H, mu, aspect, rf) {
     const P1 = program('landSheetTF', sp.hom ? st.map : null);
     if (!P1 || !hasSheets(P1.ch.info)) return landS && landS.want === N && landS.K === sp.K ? landS : null;
@@ -931,23 +967,12 @@
     const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
     let M = Math.max(Math.min(N - 1, 96), Math.floor(Math.sqrt(2 * (N - 1) * (N - 1) / K)));
     M = Math.max(8, Math.min(M, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
-    const texW = tileC * 2 * M, texH = tileR * 2 * M;
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
     const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     if (landS && landS.key === key) { sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf); return landS; }
     if (!landS) landS = { tex1: floatTex() };
-    use(P1, sp.hom ? st.map : null);
-    u1i(P1, 'uN', M + 1);
-    u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    u2f(P1, 'uAspect', aspect[0], aspect[1]);
-    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
-    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
-    u1i(P1, 'uPass', 0);
-    gl.activeTexture(gl.TEXTURE15);
-    runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landS.tex1, texW, texH, gl.RGBA32F, gl.RGBA);
+    sheetCellsTF(st, sp, P1, b, null, M, tileC, tileR, mode, H, mu, aspect, landS.tex1);
     Object.assign(landS, { key, N: M + 1, want: N, K, tileC, a: sp.a, b: sp.b, W: sp.W, sheet: true, rkey: null });
     sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf);
     return landS;
@@ -1322,6 +1347,16 @@
     // not while the mesh built at rest for these heights stands, an orbit or a zoom: its walls are refined)
     const LB = Lp && !hs && rf && st.motion && !st.full && rfWarmAll && !(hd.rf && !hd.rf.partial && hd.rfFor === hd.key) ? program('landB') : null;
     // (its pass is run before the sheets' program is set up: it makes its own program current)
+    // (the carry's pole patches and far patches, each sheet at its own height: their places first, the box's grid's last,
+    // which stays on unit 11)
+    const sheetPatches = [];
+    if (st.carry && hs) {
+      const polar = (st.carry.polar || []).slice(0, CARRY_POLES), far = (st.carry.far || []).slice(0, CARRY_FAR_N.length);
+      [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, CARRY_FAR_N[k]])].forEach(([p, n], i) => {
+        const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect);
+        if (h && carryPlaces(st, h.N, p, h.slot)) sheetPatches.push(Object.assign(h, { far: i >= polar.length }));
+      });
+    }
     const carried = !!st.carry && !!hs && carryPlaces(st, hs.N);
     if (Lp) {
       use(Lp, st.map);
@@ -1361,7 +1396,30 @@
         gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, hd.lstTex);
         gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, hd.rfTex);
       }
+      // (carried: the stencil marks the pixels the box's cells and the pole patches drew, so a far patch draws only where
+      // they left a hole)
+      const patched = carried && sheetPatches.length > 0;
+      if (patched) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
       gl.drawArraysInstanced(gl.TRIANGLES, 0, !hs || clip ? 9 : 3, (hs ? hs.K : 1) * 2 * (hd.N - 1) * (hd.N - 1));
+      if (patched) {
+        // (a little behind the box's cells, so a patch shows only where they leave a hole)
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
+        u1i(Lp, 'uPatch', 1); u1i(Lp, 'uRefOn', 0); u1f(Lp, 'uCLim', st.carry.lim);
+        const drawPatch = (p) => {
+          u1i(Lp, 'uN', p.N); u4f(Lp, 'uPolar', ...p.polar);
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.tex1);
+          gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[p.slot]);
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
+        };
+        for (const p of sheetPatches) if (!p.far) drawPatch(p);
+        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        for (const p of sheetPatches) if (p.far) drawPatch(p);
+        gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
+        gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
+        info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
+      }
       const cellPx = rf ? rf.pxW * 2 * Math.max(aspect[0], aspect[1]) / (hd.N - 1) : 0;
       if (LB) {
         use(LB);
