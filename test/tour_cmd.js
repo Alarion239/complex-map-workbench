@@ -173,6 +173,7 @@ await ev(`document.querySelector('#tip').hidden = true`);
 check('a tooltip over the callout is hidden, and shows again away from it', g.over === 'hidden' && g.away === 'visible', g);
 
 // 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step (the classic views' Deformation chapter; the steps view's Part of the chain is in Playing the chain)
+{
   await open('t4', at('playing/range'));
   g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
   const n = chOf('playing').steps.length, nx = 'Next: ' + CH[3].title;
@@ -182,6 +183,7 @@ check('a tooltip over the callout is hidden, and shows again away from it', g.ov
   check('Next on Part of the chain starts Editing the chain', ((await cur()) || {}).chapter === CH[3].id, await cur());
   await startAndWait({ chapter: 'analysis' });
   g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
+}
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
 g = await ev(`(Tour.lit() || {}).body`);
 // (the steps view's step is Shapes on a later plane: a later plane's regions pulled back to z)
