@@ -253,13 +253,13 @@ const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('
 check('done: the spotlight steps aside (quiet, faded, presses reach the app)', qq.quiet && +qq.op < 0.05 && qq.hit, qq);
 } catch (e) { check("a chapter's end with a task (Phase key)" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// reduced motion: Next counts down "Next · 2", "· 1" (the seconds left of 1.5)
+// reduced motion: Next counts down "Next in 2 s", "Next in 1 s" (the seconds left of 1.5)
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 const labels = [];
 for (let i = 0; i < 14; i++) { labels.push(await ev(`document.querySelector('.ts-next') && document.querySelector('.ts-next').textContent`)); await sleep(250); }
-check('reduced motion: Next reads "Next · 2", "Next · 1"', ['Next · 2', 'Next · 1'].every((l) => labels.includes(l)), labels);
+check('reduced motion: Next reads "Next in 2 s", "Next in 1 s"', ['Next in 2 s', 'Next in 1 s'].every((l) => labels.includes(l)), labels);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 await ev('Tour.stop()'); await settle(400);
 

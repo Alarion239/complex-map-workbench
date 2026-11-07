@@ -2220,7 +2220,7 @@
     // (the room is the rail's with "+ Add function" folded, which svFitStrip does when the names would not fit beside its words)
     // (the rail's room is what it has with no centring margin, svCentreRail's)
     const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
-    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
+    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0, E.centreLetters ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
@@ -2242,7 +2242,7 @@
     const names = measure(false), letters = measure(true);
     const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
     const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
-    const mode = fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
+    const mode = E.centreLetters ? SV_RAIL_LETTERS : fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
     E.railMode = mode;
     E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
@@ -2298,9 +2298,11 @@
       add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
       return;
     }
-    // (the whole order applies to a step shown alone, whose pill and planes need the room; a chain keeps Speed and Loop on the strip,
+    // (the whole order applies to a step shown alone, whose pill and planes need the room, and to a one-step chain, whose short thread is centred; a chain keeps Speed and Loop on the strip,
     // and its thread gives way by the steps' own widths, svFitRail's)
-    if (!E.strip.querySelector('.sv-whole-pin')) {
+    // (a chain of one step, not a step shown alone: the alone view has its own pill and walk, and keeps the first level that fits)
+    const one = nSteps() === 1;
+    if (!E.strip.querySelector('.sv-whole-pin') && !one) {
       const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
       apply(0);
       if (E.addLabelW != null) add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
@@ -2309,12 +2311,31 @@
     }
     // (each level is tried as it would stand: the folds made, the steps fitted to the rail, and the rail's own overflow read; the
     // first level that does not overflow stands, else the last, the rail scrolling)
-    let lv = 0;
-    for (; lv <= SV_FOLD_WHOLE; lv++) {
-      apply(lv); svFoldPlay(lv >= SV_FOLD_PLAY);
-      E.railKey = null; svFitRail();
-      if (E.rail.scrollWidth <= E.rail.clientWidth + 1 || lv === SV_FOLD_WHOLE) break;
+    // (a one-step thread must also sit on the strip's centre line; when no level centres it with the names, the chips take their
+    // letters, svFitRail's)
+    const stands = () => E.rail.scrollWidth <= E.rail.clientWidth + 1 && (!one || Math.abs(svThreadOff(E)) <= SV_CENTRE_TOL);
+    const tryLevels = () => {
+      for (let lv = 0; lv <= SV_FOLD_WHOLE; lv++) {
+        apply(lv); svFoldPlay(lv >= SV_FOLD_PLAY);
+        E.railKey = null; svFitRail();
+        if (stands() || lv === SV_FOLD_WHOLE) return stands();
+      }
+      return false;
+    };
+    E.centreLetters = false;
+    if (!tryLevels() && one) {
+      E.centreLetters = true;
+      if (!tryLevels()) { E.centreLetters = false; tryLevels(); }
     }
+  }
+  // (CSS px) how far a one-step thread may lie from the strip's centre line: under the layout suite's 4 px, which allows for rounding in its own measure
+  const SV_CENTRE_TOL = 3;
+  // the middle of the thread (first node to last) less the strip's centre, in CSS px
+  function svThreadOff(E) {
+    const nodes = E.track.querySelectorAll('.sv-plane .sv-node');
+    if (!nodes.length) return 0;
+    const a = nodes[0].getBoundingClientRect(), b = nodes[nodes.length - 1].getBoundingClientRect(), s = E.strip.getBoundingClientRect();
+    return (a.left + a.right + b.left + b.right) / 4 - (s.left + s.right) / 2;
   }
   // Speed and Loop are on the strip, or, when it has no room for them, in the Playback ⋯ beside Order and Paths
   function svFoldPlay(on) {
