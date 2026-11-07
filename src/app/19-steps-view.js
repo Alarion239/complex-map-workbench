@@ -2974,9 +2974,9 @@
   const SV_GATE_UNKNOWN_FILL = 0.25;
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
-  // layer: nothing to prepare
+  // layer, or the Landscape (it steps a plane at a time, with no frames between planes): nothing to prepare
   function svGateNeeded() {
-    return !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+    return SV.surf !== 'land' && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
   }
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
