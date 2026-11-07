@@ -30,7 +30,7 @@
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
-        peel = null; peelOn = 0; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
+        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
@@ -370,6 +370,9 @@
   // each layer at a, the farthest opaque
   const PEEL_MAX = 8, PEEL_UNIT = 7;
   let peel = null, peelBad = false;
+  // the layers that drew something in the last frame whose occlusion queries have answered (0: none known): the next
+  // frame draws one layer more, which shows a layer that has appeared, and no more
+  let peelSeen = 0, peelQ = null;
   let peelOn = 0;   // the 1-based layer being drawn, 0 outside carryLayers
   let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
   function peelFree() {
@@ -411,11 +414,16 @@
   // reached the frame)
   function carryLayers(alpha, draw) {
     if (!ok || peelBad || peelOn) return null;
-    const n = Math.min(PEEL_MAX, invK(alpha));
+    let n = Math.min(PEEL_MAX, invK(alpha));
     if (n < 2) return null;
+    if (peelQ && peelQ.every((q) => gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE))) {
+      peelSeen = peelQ.reduce((m, q, j) => (gl.getQueryParameter(q, gl.QUERY_RESULT) ? j + 1 : m), 0);
+      peelQ.forEach((q) => gl.deleteQuery(q)); peelQ = null;
+    }
+    if (peelSeen) n = Math.max(2, Math.min(n, peelSeen + 1));
     const Q = program('carryLayers'), T = Q ? peelTarget(n) : null;
     if (!T) return null;
-    let done = true;
+    let done = true, nq = null;
     // (the layers hold alpha: the frame's write mask does not apply to them)
     gl.colorMask(true, true, true, true);
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
@@ -426,10 +434,14 @@
         gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[(j + 1) & 1]);
         gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         peelOn = j + 1;
+        const q = !peelQ || peelQ.length <= j ? gl.createQuery() : null;
+        if (q) gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
         done = draw();
+        if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); (nq || (nq = [])).push(q); }
       }
     } finally { peelOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (nq && !peelQ) peelQ = nq; else if (nq) nq.forEach((q) => gl.deleteQuery(q));
     if (!done) return false;
     layerFrames++;
     use(Q);
