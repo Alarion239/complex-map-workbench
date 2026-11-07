@@ -31,13 +31,14 @@ const open = async (scope, st) => {
 const footprints = (svg) => [...svg.matchAll(/<path d="([^"]+)"[^>]*class="floor-footprint"/g)].map((m) => m[1]);
 // z², and 1/z + z (Joukowski) on a disc that crosses its pole: a floor point is dropped only where the rendered relief covers its
 // pixel, so the outline of the region keeps (nearly) all its vertices wherever the relief does not stand in front of it
+const MIN_KEPT = 0.9; // the share of the outline's points the relief may hide
 const VERTS = 640; // (the outline's 641 sample points; the limaçon has some behind the funnel's tip)
 for (const [scope, key] of [['in', 'z2'], ['in', 'jouk'], ['in', 'jouk2'], ['all', 'z2']]) {
   await open(scope, STATES[key]);
   const f = await ev(`await (async () => { const f = await Figure.build({ for: 'article', cols: 2, capInImage: false }); return f && f.svg ? { svg: f.svg } : f; })()`, 120000);
   if (!f || !f.svg) { ok(`${scope} ${key}: a figure`, false, f); continue; }
   const fp = footprints(f.svg), verts = fp.map((d) => (d.match(/[ML]/g) || []).length);
-  if (scope === 'in') ok(`Inside ${key}: the region's outline is one grey floor line that the relief cuts only where it covers it`, fp.length === 1 && verts[0] >= 0.9 * VERTS && (key !== 'z2' || verts[0] < VERTS + 1), { verts });
+  if (scope === 'in') ok(`Inside ${key}: the region's outline is one grey floor line that the relief cuts only where it covers it`, fp.length === 1 && verts[0] >= MIN_KEPT * VERTS && (key !== 'z2' || verts[0] < VERTS + 1), { verts });
   else ok('Everywhere: no footprint', fp.length === 0, fp.length);
   R[`${scope} ${key}`] = { footprints: fp.length, verts };
 }

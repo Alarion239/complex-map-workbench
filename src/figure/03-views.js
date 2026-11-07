@@ -817,12 +817,14 @@
       // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
       if (A.svOn() && A.svMaskOn()) {
         const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
-        // a floor point is hidden where the rendered relief covers its pixel (the coverage render: the relief alone)
+        // a floor point is hidden where the rendered relief covers its pixel (the coverage render: the relief alone; its alpha is
+        // 255 on the relief and 0 elsewhere, so a pixel counts as covered above half)
+        const ALPHA_HALF = 127;
         const hidden = (p) => {
           const q = proj(p);
           if (!q || !cov) return false;
           const ii = Math.floor((q[0] - x) / k / scale + c0), jj = Math.floor((q[1] - top) / k / scale + d0);
-          return ii >= 0 && jj >= 0 && ii < r.w && jj < r.h && cov.cov[jj * r.w + ii] > 127;
+          return ii >= 0 && jj >= 0 && ii < r.w && jj < r.h && cov.cov[jj * r.w + ii] > ALPHA_HALF;
         };
         let fp = '';
         for (const s of A.shapes()) {
