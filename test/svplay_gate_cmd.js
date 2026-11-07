@@ -17,6 +17,8 @@ async function open(w, h) {
   const o = await ev('location.origin');
   await nav(`${o}/test.html?ns=${ns}&glhold&view=steps`);
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
+  // (the page's state when the hooks became available: kept for a failure's report)
+  info.hooks = await ev('({ t: Math.round(performance.now()), rs: document.readyState, fonts: document.fonts.status })');
   await ev('(__cmwSteps({ go: 0, now: true }), 1)');
   await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });
 }
@@ -76,11 +78,21 @@ info.retry = retry;
 ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
 // (a play on a short chain can end between two polls from here: the page records that it started)
 await ev('(window.__played = false, window.__playPoll = setInterval(() => { if (__cmwSteps().play !== null) { window.__played = true; clearInterval(window.__playPoll); } }, 5), 1)');
-await ev('(GLR.holdLinks(false), 1)');
+// (every change of the button and of the play from here on, with the page's state: a failure's report shows how the wait ended)
+await ev(`(window.__trail = [], (() => {
+  const b = document.querySelector(".sv-play"), snap = (why) => { const s = __cmwSteps(); window.__trail.push({ t: Math.round(performance.now()), why, busy: b.hasAttribute("aria-busy"), label: b.getAttribute("aria-label"), play: s.play, planes: s.planes.length, ready: s.ready.ready, rs: document.readyState, fonts: document.fonts.status, toast: document.querySelectorAll("#toastHost .toast").length }); };
+  snap("held"); new MutationObserver(() => snap("button")).observe(b, { attributes: true, childList: true });
+  new MutationObserver(() => snap("toasts")).observe(document.getElementById("toastHost"), { childList: true });
+  window.addEventListener("keydown", (e) => snap("key " + e.key), true);
+  document.addEventListener("click", (e) => snap("click " + (e.target.closest("button") || e.target).className), true);
+  window.__snapTrail = snap;
+})(), 1)`);
+await ev('(GLR.holdLinks(false), window.__snapTrail("released"), 1)');
 await settled({ max: 40000, only: true, until: 'window.__played === true' });
 const run = await ev(state('.sv-play'));
 info.run = run;
-ok('released: the glide starts', await ev('window.__played'), run);
+info.trail = await ev('(window.__snapTrail("end"), window.__trail)');
+ok('released: the glide starts', await ev('window.__played'), { run, trail: info.trail, hooks: info.hooks });
 ok('released: the button is no longer busy', !run.busy, run);
 
 await section('narrow', 360, 780);
