@@ -963,6 +963,13 @@
       return { px, py, a: buf[3], err: gl.getError() };
     });
   }
+  // (probe) state and the two INREGIONS points' alpha read back from the bound target now
+  function ipSnap(st) {
+    let read = null;
+    try { read = ipRead(st); } catch (e) { read = String(e); }
+    gl.getError();
+    return { state: ipState(), read };
+  }
   function drawPreimage(st) {
     if (!ok || !st || !(st.view || st.sphere)) return;
     const recs = [], pts = [], forms = [];

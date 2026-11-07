@@ -1630,6 +1630,23 @@
       wrap('drawImage', (a) => dlog('drawImage', a));
       wrap('putImageData', (a) => dlog('putImageData', a));
     }
+    if (!GLR.__ipWrapped && GLR.ipSnap) {
+      GLR.__ipWrapped = true;
+      let nCall = 0;
+      for (const name of ['begin', 'drawInverse', 'drawRegion', 'drawPreMapped', 'drawGrid', 'writeMask', 'keepInAlpha', 'blit']) {
+        const f = GLR[name];
+        if (typeof f !== 'function') continue;
+        GLR[name] = function (...a) {
+          if (!window.__ipMaskPass || nCall >= 14) return f.apply(this, a);
+          const i = nCall++, o = a[0] || {};
+          const pre = GLR.ipSnap({ view: pane.view, dpr: pane.dpr });
+          const r = f.apply(this, a);
+          const post = GLR.ipSnap({ view: pane.view, dpr: pane.dpr });
+          (window.__ipLog = window.__ipLog || []).push({ path: 'call', i, name, shape: o.shape && o.shape.id, ret: typeof r === 'object' ? (r === null ? null : 'obj') : r, pre: { rd: pre.read, st: pre.state }, post: { rd: post.read, st: post.state } });
+          return r;
+        };
+      }
+    }
     const at = c2.getContextAttributes();
     log.push({ path: 'cv', w: cv.width, h: cv.height, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, attrs: { alpha: at.alpha, willReadFrequently: at.willReadFrequently, colorSpace: at.colorSpace }, gco: c2.globalCompositeOperation, ga: c2.globalAlpha, fs: String(c2.fillStyle) });
   }
