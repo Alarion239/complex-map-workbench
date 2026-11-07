@@ -941,6 +941,23 @@
     if (![...A, ...B].every(Number.isFinite)) return null;
     return { kind, A, B, size, pts: ps };
   }
+  // (probe) the bound target and draw state for INREGIONS-PROBE. WebGL has no query for a texture's internal format,
+  // so the attachment's component type stands in for it
+  function ipState() {
+    const att = (p) => { try { return gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, p); } catch (e) { return 'err'; } };
+    return { fbo: gl.checkFramebufferStatus(gl.FRAMEBUFFER), fboBound: !!gl.getParameter(gl.FRAMEBUFFER_BINDING), ctype: att(gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE), attObj: att(gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE), extCBF: !!gl.getExtension('EXT_color_buffer_float'), extFB: !!gl.getExtension('EXT_float_blend'), blend: gl.isEnabled(gl.BLEND), blendFn: [gl.getParameter(gl.BLEND_SRC_RGB), gl.getParameter(gl.BLEND_DST_RGB)], vp: Array.from(gl.getParameter(gl.VIEWPORT)), scissor: gl.isEnabled(gl.SCISSOR_TEST), sbox: Array.from(gl.getParameter(gl.SCISSOR_BOX)), colorMask: Array.from(gl.getParameter(gl.COLOR_WRITEMASK)) };
+  }
+  // (probe) the alpha of the mask at the two INREGIONS points, read back from the bound target right after the draw
+  function ipRead(st) {
+    const v = st.view, d = st.dpr || 1, vp = gl.getParameter(gl.VIEWPORT);
+    const isF = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE) === gl.FLOAT;
+    const buf = isF ? new Float32Array(4) : new Uint8Array(4);
+    return [[1, 1], [2, 0]].map(([x, y]) => {
+      const px = Math.round(vp[0] + vp[2] / 2 + (x - v.cx) * v.s * d), py = Math.round(vp[1] + vp[3] / 2 - (y - v.cy) * v.s * d);
+      gl.readPixels(px, py, 1, 1, gl.RGBA, isF ? gl.FLOAT : gl.UNSIGNED_BYTE, buf);
+      return { px, py, a: buf[3], err: gl.getError() };
+    });
+  }
   function drawPreimage(st) {
     if (!ok || !st || !(st.view || st.sphere)) return;
     const recs = [], pts = [], forms = [];
@@ -994,6 +1011,7 @@
     if (!nt) return;
     const sph = !!st.sphere;
     const P = preProgram(forms, sph, st.map);
+    if (st.map && st.map.a === 1) (window.__ipLog = window.__ipLog || []).push({ path: "dp", nt, forms: forms.length, sph, P: !!P, view: !!st.view });
     if (!P) return;
     // records, then vertices, one texel each
     const W = nt * 6 + pts.length;     // at most 352 texels: one row
@@ -1029,8 +1047,10 @@
     u2f(P, 'uCenter', st.view.cx, st.view.cy);
     u2f(P, 'uInvScale', 1 / (st.view.s * dpr), 1 / (st.view.s * dpr));
     u4f(P, 'uVp', vpX, vpY, fw, fh);
+    const ipPre = st.map && st.map.a === 1 ? ipState(st) : null;   // (probe) plane-1 mask pass: GL state at draw time
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (ipPre) (window.__ipLog = window.__ipLog || []).push({ path: 'gl-draw', k: 1, ...ipPre, verts: 3, read: ipRead(st), glErr: gl.getError() });
     gl.bindVertexArray(null);
   }
 

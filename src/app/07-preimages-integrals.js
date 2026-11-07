@@ -73,6 +73,7 @@
       if (!by.has(st)) by.set(st, []);
       by.get(st).push(s);
     }
+    if (j === 1) (window.__ipLog = window.__ipLog || []).push({ path: "sp", j, groups: by.size, ok: !!GLR.ok, fn: typeof GLR.drawPreimage, inFrame: !!inFrame });
     if (!by.size || !GLR.ok || typeof GLR.drawPreimage !== 'function') return false;
     // (one frame for every plane's pass, one blit: a pass per plane s, never a blit per plane; its pending is the
     // caller's, since a card is cached as final only when nothing it drew is still linking)
