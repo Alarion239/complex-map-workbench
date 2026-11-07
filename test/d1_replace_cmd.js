@@ -27,11 +27,10 @@ const P = () => ev('__cmwP()');
 const types = async () => (await P()).steps.map((s) => s.type);
 const toasts = () => ev('__qa.toasts()');
 // Ctrl+K toggles, so the palette is awaited (mounted, input in place), never re-pressed
-const openPal = async () => { await key('k', 4); await settled({ until: `!!document.querySelector('#popHost .palette') && !!document.getElementById('palInput')`, only: true }); await settle(100); };
+const openPal = async () => { await key('k', 4); await settled({ until: `!!document.querySelector('#popHost .palette') && !!document.getElementById('palInput')`, only: true }); };
 const palQ = async (q) => {
   await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`);
   await settled({ until: `(() => { const i = document.getElementById('palInput'); return !!i && i.value === ${JSON.stringify(q)} && !!document.querySelector('#popHost .palette .pal-item'); })()`, only: true });
-  await settle(100);
 };
 const pal = () => ev(`(() => { const p = document.querySelector('#popHost .palette'); if (!p) return null; const w = p.querySelector('.pal-where'), at = p.querySelector('.pal-at'), head = p.querySelector('.pal-head');
   return { where: w ? (w.getAttribute('aria-label') || '').replace(/^Where it goes: |^Куда: /, '') : null, whereLabel: w ? w.getAttribute('aria-label') : null, at: at && !at.hidden ? at.textContent : null, verb: (p.querySelector('.pal-verb') || {}).textContent || '',
