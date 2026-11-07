@@ -1,8 +1,8 @@
 // The smoke suite: a short check that the page works at all, run with every browser tier of CI (ci/impact.js) so a
 // change that selects few suites still loads the app once in each language and layout. In English and Russian, on
 // the desktop (1440 px) and on a phone (390 px): the page opens with no page error and in its language; a chain of two
-// steps builds without errors and its disc is drawn on both planes; the top bar's view switch goes to Phase,
-// Landscape and back, and the app keeps drawing. A command file for a CDP daemon (test/cdp_kit README):
+// steps builds without errors and its disc is drawn on both planes; the head's surface menu goes to the Sphere,
+// the Landscape and back to the Plane, and the app keeps drawing. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/smoke_cmd.js
 // Prints {pass, fails, info}.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -34,8 +34,8 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   await logs();
   await nav(`${U}/test.html?ns=${ns}&lang=${lang}`); await settle(800);
   ok(`${tag}: the app started`, await ev(`typeof __cmwP === 'function' && typeof __cmwLayout === 'function'`), null);
-  // (English leaves the page's lang as it is; the view switch's names are in the page's language)
-  const names = await ev(`[...document.querySelectorAll('#viewSwitch button')].map((b) => b.getAttribute('aria-label')).join(' | ')`);
+  // (English leaves the page's lang as it is; the surface button's name is in the page's language)
+  const names = await ev(`document.querySelector('#svHead .sv-surf1')?.getAttribute('aria-label') || ''`);
   ok(`${tag}: the page is in its language`, lang === 'ru' ? (await ev('document.documentElement.lang')) === 'ru' && /[а-я]/i.test(names) : !/[а-я]/i.test(names) && /[a-z]/i.test(names), { lang: await ev('document.documentElement.lang'), names });
   ok(`${tag}: the window is ${w} px wide`, (await ev('innerWidth')) === w, await ev('innerWidth'));
   // the chain
@@ -48,17 +48,20 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   const lay = await ev('__cmwLayout()');
   info[tag] = { layout: lay, drawn: d0 };
   ok(`${tag}: the planes are shown`, lay.shown.length >= 1 && lay.wL + lay.wR > 0, lay);
-  // the view switch: through its buttons (a real click where it is on screen; the phone may keep it in a sheet)
-  for (const mode of ['phase', 'land', 'xy']) {
-    const c = await ev(`(() => { const b = document.querySelector('#viewSwitch button[data-mode="${mode}"]'); if (!b) return 'none'; const r = b.getBoundingClientRect(); if (!r.width || !b.offsetParent) { b.click(); return 'js'; } return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-    ok(`${tag}: the view switch has ${mode}`, c !== 'none', c);
+  // the surface: the head's one button opens a menu of the three (Plane, Sphere, Landscape); a pick changes the surface
+  for (const [i, surf] of [[1, 'sphere'], [2, 'land'], [0, 'plane']]) {
+    const c = await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'); if (!b) return 'none'; const r = b.getBoundingClientRect(); if (!r.width || !b.offsetParent) { b.click(); return 'js'; } return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+    ok(`${tag}: the head has the surface button`, c !== 'none', c);
     if (Array.isArray(c)) await click(c[0], c[1]);
+    await settled({ until: `document.querySelectorAll('.pop.menu [role=menuitemradio]').length === 3`, max: 4000 });
+    const n = await ev(`(() => { const items = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')]; if (items.length !== 3) return items.length; items[${i}].click(); return 3; })()`);
+    ok(`${tag}: the surface menu has its three`, n === 3, n);
     await settle(1200);
-    const m = await ev('__cmwLayout().main');
-    ok(`${tag}: the view switch goes to ${mode}`, m === mode, m);
+    const m = await ev('__cmwSteps().surf');
+    ok(`${tag}: the surface menu goes to ${surf}`, m === surf, m);
   }
   const d1 = await drawn();
-  ok(`${tag}: the disc is drawn after the view switch`, d1 && d1.tris > 0 && d1.segs > 0, d1);
+  ok(`${tag}: the disc is drawn after the surface changes`, d1 && d1.tris > 0 && d1.segs > 0, d1);
   const e = errs(await logs());
   ok(`${tag}: no page errors`, !e.length, e.slice(0, 5).map((x) => String(x.m).slice(0, 300)));
 }
