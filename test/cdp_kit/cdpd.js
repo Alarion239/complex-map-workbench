@@ -159,11 +159,15 @@ H.click = async (x, y, opts = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, modifiers: opts.mods || 0 }, S);
 };
 H.move = async (x, y) => send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, S);
-H.drag = async (x0, y0, x1, y1, n = 12, dt = 16) => {
+// drag(x0, y0, x1, y1, n, dt, rel): press at (x0, y0), n moves along the line to (x1, y1) dt ms apart, release. rel = { x, y, moves }
+// changes the end: the release is at (rel.x, rel.y) (default (x1, y1)), and only the first rel.moves of the n moves are sent
+// (default all), as when a busy frame drops the last moves of a gesture.
+H.drag = async (x0, y0, x1, y1, n = 12, dt = 16, rel = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }, S);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }, S);
-  for (let i = 1; i <= n; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }, S);
+  const moves = rel.moves === undefined ? n : rel.moves;
+  for (let i = 1; i <= moves; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rel.x === undefined ? x1 : rel.x, y: rel.y === undefined ? y1 : rel.y, button: 'left', clickCount: 1 }, S);
 };
 H.clickSel = async (sel) => {
   const r = await H.ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return null; e.scrollIntoView({block:'nearest'}); const b=e.getBoundingClientRect(); return [b.left+b.width/2,b.top+b.height/2];})()`);

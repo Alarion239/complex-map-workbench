@@ -35,13 +35,7 @@ for (const [name, moves] of [['the whole path', N_STEPS], ['all moves but the la
   ok(`${name}: N and the cap's centre are on screen`, !!inf && !!c0, { inf, c0 });
   if (!inf || !c0) continue;
   const x1 = inf[0] + PAST_N[0], y1 = inf[1] + PAST_N[1];
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c0[0], y: c0[1] });
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c0[0], y: c0[1], button: 'left', clickCount: 1 });
-  for (let i = 1; i <= moves; i++) {
-    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c0[0] + (x1 - c0[0]) * i / N_STEPS, y: c0[1] + (y1 - c0[1]) * i / N_STEPS, button: 'left', buttons: 1 });
-    await sleep(MOVE_GAP_MS);
-  }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 });
+  await drag(c0[0], c0[1], x1, y1, N_STEPS, MOVE_GAP_MS, { moves });
   await settle();
   const S = await ev('__cmwShapes()');
   info[name] = S.shapes.map((s) => ({ kind: s.kind, a: s.a, b: s.b, c: s.c, r: s.r }));
