@@ -7,6 +7,7 @@
 // - a point covered once is pixel-identical at 100 %, 85 % and 50 %;
 // - a saved opacity (the page state's alpha, as a share link carries it) is the one the plane draws and the slider shows;
 // - the regions' Opacity slider (the same S.alpha) follows it;
+// - on the Landscape (opaque sheets) the slider is there, disabled, with a tip saying so;
 // - the slider works from the keyboard (the arrow keys move it by one step).
 // Inside regions, so that only the shapes' images are coloured (Everywhere covers every w three times).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -75,4 +76,12 @@ ok('a saved opacity of 0.4 shows in the slider as 40 %', Math.abs(sl4.v - 0.4) <
 ok('and changes the plane\'s pixels from the default 85 % where the picture covers a point three times', !!saved4.three && !!mid.three && diff(saved4.three, mid.three) >= 3, info);
 ok('and from 100 %', !!saved4.three && diff(saved4.three, full.three) >= 3, info);
 ok('and leaves a point covered once as it was', !!saved4.one && diff(saved4.one, full.one) === 0, info);
+// the Landscape draws its sheets opaque: the slider stays, disabled, its tip saying so
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
+await settled({ max: 30000, until: `!!document.querySelector('.pane-head .opts-btn[aria-label="Display options"]')` });
+await ev(`document.querySelector('.pane-head .opts-btn[aria-label="Display options"]').click(); 1`);
+await settled({ max: 15000, until: `!!document.querySelector('#popHost #opacityRange')` });
+const land = await ev(`(() => { const r = document.querySelector('#popHost #opacityRange'); const a = document.getElementById('alphaRange'); return r && { disabled: r.disabled, aria: r.getAttribute('aria-disabled'), tip: r.closest('label').dataset.tip, regionsRowHidden: a.closest('.fader-row').hidden }; })()`);
+ok('on the Landscape the slider is disabled, with a tip that says why', !!land && land.disabled && land.aria === 'true' && /opaque/.test(land.tip), land);
+ok('and the regions\' own Opacity row is left out of the steps view', !!land && land.regionsRowHidden, land);
 return { pass: fails.length === 0, fails, info };
