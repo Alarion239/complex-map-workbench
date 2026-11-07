@@ -500,7 +500,7 @@
     // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
     const hv = typeof homView === 'function' ? homView() : null;
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
-    const cst = { map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    const cst = { map: hv ? hv.map : S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
