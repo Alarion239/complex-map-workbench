@@ -43,6 +43,14 @@ const hoverRows = async (p) => {
 const gap = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));
 const TOL = 0.05;   // a mask value, or a plane distance, counts as equal within it
 const near = (v, want) => typeof v === 'number' && Math.abs(v - want) < TOL;
+// (probe) two fresh pages, plane w1 at rest with Inside regions, without and with the candidate fix (ipfix=1)
+info.legs = [];
+for (const fix of [0, 1]) {
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=landleg${fix}${Date.now()}${fix ? '&ipfix=1' : ''}`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await at('in', 1);
+  info.legs.push({ fix, alpha: [await maskAt(1, 1), await maskAt(2, 0)], log: await ev('JSON.stringify(__ipProbe())').then(JSON.parse) });
+}
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landin${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
 // ---- at rest ----
@@ -64,7 +72,7 @@ for (const [i, pts] of planes) {
     info.rest[i].got.push([x, y, v]);
     ok(`plane ${i}, Inside regions: the mask at ${x} + ${y}i is ${want}`, near(v, want), v);
   }
-  if (i === 1) { info.probe = { probe: await ev('JSON.stringify(__ipProbe())').then(JSON.parse), alpha: [await maskAt(1, 1), await maskAt(2, 0)] }; console.log('INREGIONS-PROBE ' + JSON.stringify(info.probe)); }
+  if (i === 1) { info.probe = { legs: info.legs.map((l) => ({ fix: l.fix, alpha: l.alpha, dr: l.log.log.filter((e) => e.path === 'dr' || e.path === 'cc' || e.path === 'call').map((e) => e.path === 'call' ? { c: e.name, r: e.ret, a: e.post.rd && e.post.rd.map((x) => x.a) } : e) })), probe: await ev('JSON.stringify(__ipProbe())').then(JSON.parse), alpha: [await maskAt(1, 1), await maskAt(2, 0)] }; console.log('INREGIONS-PROBE ' + JSON.stringify(info.probe)); }
   // the surface's own pixel at each point, in both frames (Everywhere's frame was grabbed first, with its pick data
   // read here after the Inside frame: the camera and heights are the same)
   info.rest[i].px = [];

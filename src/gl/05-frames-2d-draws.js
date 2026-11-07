@@ -523,7 +523,8 @@
   // Identity maps draw without the chain, in coordinates relative to the mesh origin.
   // (st.carry: drawRegionCarry, with st.prep from GLR.carryPrep when the caller made it)
   function drawRegion(res, st) {
-    if (!ok || !res || !res.n) return;
+    const ipT = (tag, x) => { if (window.__ipMaskPass) (window.__ipLog = window.__ipLog || []).push(Object.assign({ path: 'dr', tag, n: res && res.n, fp: framePending }, x)); };
+    if (!ok || !res || !res.n) { ipT('no-res', { ok }); return; }
     if (st.carry) return drawRegionCarry(res, st, st.prep);
     const L = st.L || 4, sph = !!st.sphere;
     if (st.sync) syncDepth++;
@@ -535,7 +536,7 @@
       const name = ident ? 'region0' : (sph ? 'regionS' : 'region') + (e ? 'C' : '');
       let P = pend ? readyProg(name, st.map, 'tfRegion') : program(name, st.map);
       if (!P && !ident && !e && (e = stand(res, true, L, st.map, pend ? 'tfRegion' : name))) P = program(sph ? 'regionSC' : 'regionC');
-      if (!P) return;
+      if (!P) { ipT('no-P', { name, pend, e: !!e, ident }); return; }
       use(P, st.map);
       if (e) bindCache(P, e);
       if (sph) {
@@ -550,6 +551,7 @@
       // rebuild runs)
       scissored(st.scissors, () => gl.drawArraysInstanced(gl.TRIANGLES, 0, regionTemplate(L).count, res.n));
       gl.bindVertexArray(null);
+      ipT('drew', { name, pend, e: !!e, cnt: regionTemplate(L).count, sc: !!st.scissors });
     } finally { if (st.sync) syncDepth--; }
   }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,

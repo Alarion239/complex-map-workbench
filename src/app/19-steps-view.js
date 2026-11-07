@@ -1662,7 +1662,7 @@
         // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
         const ipA = () => [[1, 1], [2, 0]].map(([x, y]) => { const v = pane.view, d = pane.dpr || 1; return svMaskCv.getContext('2d').getImageData(Math.round(pane.pw / 2 + (x - v.cx) * v.s * d), Math.round(pane.ph / 2 - (y - v.cy) * v.s * d), 1, 1).data[3]; });
         if (k === 1) { ipHookMask(svMaskCv, pane); window.__ipMaskPass = true; }
-        withSolidRegions(() => { drawScene(mp, map, 'L', opt); const a0 = k === 1 ? ipA() : null; const r = k != null ? stagePullbacks(mp, k) : null; if (k === 1) (window.__ipLog = window.__ipLog || []).push({ path: 'cc', k, before: a0, after: ipA(), pending: r }); });
+        withSolidRegions(() => { drawScene(mp, map, 'L', opt); const a0 = k === 1 ? ipA() : null; const r = k != null ? stagePullbacks(mp, k) : null; if (k === 1) (window.__ipLog = window.__ipLog || []).push({ path: 'cc', k, before: a0, after: ipA(), pending: r, fs: GLR.frameStatus(), fix: /ipfix=1/.test(location.search) }); if (/ipfix=1/.test(location.search) && GLR.frameStatus().pending) { invWaiting.add('L'); invPendN++; } });
       } catch (e) { console.error('steps view mask', e); }
       window.__ipMaskPass = false;
       o.cc.save();
