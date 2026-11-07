@@ -944,6 +944,7 @@
   // (o.sv, the steps view's A.svPathsFig(): the shown plane is the picture at t = end, the previous plane's image of X the
   // gray outline, and the paths those of the last step)
   async function figPaths(o, P, W, T) {
+    if (o.sv && o.sv.surf === 'sphere') return figGlobePaths(o, P, W, T);
     const st = A.state(), sv = o.sv || null;
     const [tp, lp] = T;
     const m = sv ? sv.m : A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = sv ? A.svBox() : A.screenBox('R');

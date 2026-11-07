@@ -260,6 +260,8 @@ const VIEWS = {
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': steps({ pin: true }),
+  'steps_paths_sphere_cmd.js': steps({ pin: true }),
+  'steps_paths_sphere_fig_cmd.js': steps({ pin: true }),
   'morphfig_classic_cmd.js': classic('the classic view\'s deformation as one picture: pathsGen\'s selection on the Y pane, the transport and the 3 prototype cases; the steps view\'s paths figure is morphfig_cmd'),
 
   // to port: geometry
