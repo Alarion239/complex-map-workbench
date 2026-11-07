@@ -313,6 +313,7 @@ const VIEWS = {
   'mj_ranges_cmd.js': steps({ pin: true }),
   'offline_cmd.js': steps({ pin: true }),
   'smoke_cmd.js': steps({ pin: true }),
+  'zeta_logk_cmd.js': steps(),
   'warm_bar_cmd.js': steps({ pin: true }),
 };
 
