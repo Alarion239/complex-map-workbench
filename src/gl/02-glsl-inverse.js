@@ -31,6 +31,9 @@ uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
 uniform int uKsat; uniform int uKall;
+// uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
+// through, so a point covered once keeps its colour at any uAlpha
+uniform int uLastOpaque;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
@@ -714,7 +717,8 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
-    float a = uAlpha * bC[i] / U;
+    bool farthest = uLastOpaque == 1 && i == nb - 1 && ixTr >= 1.0 && !ixTailInf;
+    float a = (farthest ? 1.0 : uAlpha) * bC[i] / U;
     C += T * a * ixUnpack(bCol[i]);
     T *= 1.0 - a;
   }
@@ -725,12 +729,33 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
     for (int i = 0; i < IX_B; i++) { if (i >= nb) break; mc += ixUnpack(bCol[i]); }
     mc /= float(nb);
     C += T * (1.0 - ixTr) * mc; T *= ixTr;
-    if (ixTailInf) { C += T * mc; T = 0.0; }
+    if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}
+}
+`;
+  // the carried colour's layers (GLR.carryLayers): uL's layers 0 .. uN-1 front to back, alpha 1 where a layer covers the pixel,
+  // composited as the exact pass does: each layer at uA, the farthest opaque
+  const CARRY_LAYERS_FS = `
+uniform highp sampler2DArray uL; uniform int uN; uniform float uA;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  vec3 C = vec3(0.0);
+  float T = 1.0;
+  vec4 cur = texelFetch(uL, ivec3(p, 0), 0);
+  for (int j = 0; j < 8; j++) {
+    if (j >= uN || cur.a < 0.5) break;
+    vec4 nxt = j + 1 < uN ? texelFetch(uL, ivec3(p, j + 1), 0) : vec4(0.0);
+    float a = nxt.a < 0.5 ? 1.0 : uA;
+    C += T * a * cur.rgb;
+    T *= 1.0 - a;
+    cur = nxt;
+  }
+  o = vec4(C, 1.0 - T);
 }
 `;
   // half-resolution passes (cost guard, motion frames): the half-size target, upscaled bilinearly over the pane
