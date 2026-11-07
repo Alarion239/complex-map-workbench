@@ -24,8 +24,8 @@ for (const plane of [1, 2]) {
   ok(`${tag}: the paths are chosen, 3 to 18 of them`, sel && sel.n >= 3 && sel.n <= 18, sel);
   ok(`${tag}: path starts are the previous plane's image and ends the shown plane's, to 1e-9`, sel && sel.e0 < 1e-9 && sel.e1 < 1e-9, sel);
   ok(`${tag}: the sentence names the paths`, sel && /Curves are the paths/.test(sel.sentence || ''), sel && sel.sentence);
-  const thr = sel && sel.ims[Math.floor(sel.n / 2)];
-  const sub = sel && await ev(`await __cmwSvPaths(${thr})`, 120000);
+  const thr = sel && sel.ims && sel.ims[Math.floor(sel.n / 2)];
+  const sub = sel && sel.ims && await ev(`await __cmwSvPaths(${thr})`, 120000);
   ok(`${tag}: a keep filter drops the paths it refuses and the sentence is built from the rest`, sub && sub.n === sel.ims.filter((v) => v < thr).length && sub.n < sel.n && sub.sentence !== sel.sentence, sub && { n: sub.n, of: sel.n });
   R[tag] = sel && { n: sel.n, e0: sel.e0, e1: sel.e1 };
 }

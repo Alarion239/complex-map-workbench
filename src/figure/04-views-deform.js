@@ -559,9 +559,11 @@
     const items = [`<image x="${f2(x)}" y="${f2(y)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`];
     const proj = globeProj(r.globe, r, c, x, y, k);
     const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(key); };
-    const seen = (z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis >= 8 && proj(Hof(m)(z)); };
+    // how many of the path's 13 samples (t = 0 to m) the camera sees
+    const nVis = (z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis; };
+    const seen = (z) => nVis(z) >= 8 && proj(Hof(m)(z));
     // a path drawn from its ring to its end dot: every sampled point of it on the camera's side
-    const whole = (z) => { for (let i = 0; i <= 12; i++) if (!proj(Hof(m * i / 12)(z))) return false; return true; };
+    const whole = (z) => nVis(z) === 13;
     // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries; the
     // steps view's: the points the plane's figure would keep, those mostly on the camera's side)
     let leg = null, zs;
