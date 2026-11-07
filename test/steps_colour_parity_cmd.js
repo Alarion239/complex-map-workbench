@@ -71,7 +71,12 @@ ok('a style picked on the colour plane shows past it', b === 'phase', b);
 // a phone's Display sheet is the same panel: it names the shown plane, opens on the style row, and Outlines past the colour plane is disabled in it
 await openAt(360, 'en', true);
 await goto(2, 'push');
-await ev(`document.querySelector('.ph-dsp').click(); 1`); await settled({ floor: 600 });
+// a real touch tap opens the sheet: no tip shows over the tiles
+const bx = await ev(`(() => { const r = document.querySelector('.ph-dsp').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: bx[0], y: bx[1] }] });
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+await settled({ floor: 900 });
+ok('a touch tap on Display opens the sheet', await ev(`!!document.querySelector('.ph-sheet.open[data-k="display"]')`), null);
 const geo = await ev(`(() => { const r = document.querySelector('.ph-sheet').getBoundingClientRect(), a = document.activeElement, l = document.querySelector('.ph-vopts #outlineChk').closest('label'); return { h: Math.round(r.height), vh: innerHeight, focus: a && a.closest('#dcSeg') ? 'style' : (a && (a.id || a.className)), dim: getComputedStyle(l).opacity, tip: !!document.querySelector('.tip, #tip, [role=tooltip]:not([hidden])') && [...document.querySelectorAll('.tip, #tip, [role=tooltip]')].some((t) => t.getClientRects().length) }; })()`);
 ok('the sheet is at most 60 % of the viewport', geo.h <= 0.6 * geo.vh + 1, geo);
 ok('opening moves focus to the current style, with no tooltip', geo.focus === 'style' && !geo.tip, geo);
