@@ -17,6 +17,10 @@ const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
 // for the exterior of the disc of radius 0.6
 const REF = (c) => ({ id: 's2', kind: 'disc', c, r: 0.05 });
 const LOWER = [3, -3], UPPER = [3, 3], INSIDE = [0.3, 0.2];
+// the radius of the disc whose exterior the X Sphere scenes at plane 0 cover
+const EXT_R = 0.6;
+// the fewest pole-side samples (far from the origin of the plane) a scene must show for its north-pole check to count
+const MIN_FAR = 50;
 const ZI = { type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true };
 // the page's own idle: the glide finished, the globe's links built and its jobs done
 const wait = () => settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSteps().moving && GLR.pendingLinks === 0 && !__cmwSphere().running && !__cmwSphere().jobs.length' });
@@ -69,7 +73,7 @@ await globe('p3accsd', [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }, R
 R.cay_N = await check('L', DISC_OUT);
 // (the pole pixel itself has no w: the pick returns null at infinity; its neighbours have |w| in the thousands)
 R.cay_N_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && Math.hypot(w[0], w[1]) > 50) n++; } return n; })()`);
-ok('(f) Cayley of the lower half-plane covers the north pole', R.cay_N.inN >= 400 && R.cay_N.inBad === 0 && R.cay_N.outBad === 0 && R.cay_N_far > 50, [R.cay_N, R.cay_N_far]);
+ok('(f) Cayley of the lower half-plane covers the north pole', R.cay_N.inN >= 400 && R.cay_N.inBad === 0 && R.cay_N.outBad === 0 && R.cay_N_far > MIN_FAR, [R.cay_N, R.cay_N_far]);
 await shot('p3s_f_cayley_N');
 
 // ---- log(H) on the w-globe reaches the pole: the strip 0 < Im w < pi, filled up to the pole
@@ -97,20 +101,20 @@ ok('(f) log(H) on the w-globe: the strip filled, nothing outside', R.logH.inN >=
 await shot('p3s_f_logH');
 
 // ---- plane 0 on the Sphere surface: an unbounded region covers infinity without a hole (the exterior of a disc, and H)
-const EXT = `(w) => (Math.hypot(w[0], w[1]) > 0.6 ? 1 : -1)`;
-await globe('p3accx', [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6, complement: true }, REF(INSIDE)], [ZI], { cx: 0, cy: 0, s: 60 }, { pitch: 1.3, yaw: -1.0, dist: 3 }, 0);
+const EXT = `(w) => (Math.hypot(w[0], w[1]) > ${EXT_R} ? 1 : -1)`;
+await globe('p3accx', [{ id: 's1', kind: 'disc', c: [0, 0], r: EXT_R, complement: true }, REF(INSIDE)], [ZI], { cx: 0, cy: 0, s: 60 }, { pitch: 1.3, yaw: -1.0, dist: 3 }, 0);
 R.pathsX0 = await paths();
 // (plane 0 has no carried colour: the globe is the colour plane, its regions drawn by the plain inverse program, whose
 // status __cmwPaths does read)
 ok('X Sphere at stage 0 draws inverse', R.pathsX0.paths.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'inverse') && !R.pathsX0.paths.some((p) => p.path !== 'inverse') && !!R.pathsX0.status && !R.pathsX0.status.pending && !R.pathsX0.status.compiling && !R.pathsX0.status.error, R.pathsX0);
 R.x0 = await check('L', EXT);
-ok('X Sphere at stage 0: |z| > 0.6 covers the north pole, no hole', R.x0.inN >= 400 && R.x0.inBad === 0 && R.x0.outBad === 0, R.x0);
+ok(`X Sphere at stage 0: |z| > ${EXT_R} covers the north pole, no hole`, R.x0.inN >= 400 && R.x0.inBad === 0 && R.x0.outBad === 0, R.x0);
 await shot('p3s_x0_ext');
 // and the upper half-plane, seen around the north pole (its rim, the real axis, runs through infinity)
 await globe('p3accxh', [H, REF(LOWER)], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: 1.3, yaw: -1.0, dist: 3 }, 0);
 R.x0H = await check('L', `(w) => (w[1] > 0 ? 1 : -1)`);
 R.x0H_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && w[1] > 0 && Math.hypot(w[0], w[1]) > 20) n++; } return n; })()`);
-ok('X Sphere at stage 0: Im z > 0 exact around the north pole', R.x0H.inN >= 400 && R.x0H.inBad === 0 && R.x0H.outN >= 400 && R.x0H.outBad === 0 && R.x0H_far > 50, [R.x0H, R.x0H_far]);
+ok('X Sphere at stage 0: Im z > 0 exact around the north pole', R.x0H.inN >= 400 && R.x0H.inBad === 0 && R.x0H.outN >= 400 && R.x0H.outBad === 0 && R.x0H_far > MIN_FAR, [R.x0H, R.x0H_far]);
 await shot('p3s_x0_H');
 
 return { pass: fails.length === 0, fails, results: R };
