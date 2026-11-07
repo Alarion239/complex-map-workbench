@@ -10,6 +10,7 @@
 //   principal branch (the log's strip, √'s right half-plane), every sheet over it, so the plane at rest, one surface
 //   over the whole window, is not the bound. All sheets then have at least 90 % of the pixels the same chain has with
 //   sheets off, and the logarithm's singular point has its patch (carried.patches).
+// - at u = 0.998 the surface pixels' colours match the plane at rest within 32/255 (at most 5 % off).
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -17,6 +18,10 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const surface = () => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let n = 0, top = -1; for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) { const i = (y * cv.width + x) * 4; if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 30) { n++; if (top < 0) top = y; } } return { n, top }; })()`);
+// The canvas's pixels kept in the page (key), and the share of the surface pixels (saturation over 30 in either frame) of the
+// frame now on the canvas whose channels differ from the kept frame's by more than tol/255.
+const keep = (key) => ev(`(() => { const cv = document.getElementById('canvasL'); window.${key} = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; return 1; })()`);
+const colourOff = (key, tol) => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, r = window.${key}; const sat = (a, i) => Math.max(a[i], a[i + 1], a[i + 2]) - Math.min(a[i], a[i + 1], a[i + 2]); let n = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (sat(d, i) <= 30 || sat(r, i) <= 30) continue; n++; if (Math.max(Math.abs(d[i] - r[i]), Math.abs(d[i + 1] - r[i + 1]), Math.abs(d[i + 2] - r[i + 2])) > ${tol}) off++; } return n ? off / n : 0; })()`);
 const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
 const LOG = [{ type: 'log', params: { cut: 180, k: 0 }, on: true }];
 const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
@@ -42,12 +47,14 @@ for (const c of CASES) {
   for (const [tag, k, x] of [['u=.002', 0, 0.002], ['u=.998', last, last - 0.002]]) {
     await ev(`__cmwSteps({ go: ${k}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const rest = await surface();
+    await keep('__restPx');
     const restTicks = await ev('__cmwLandTicks()');
     await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const carry = await ev('__cmwLandCarry()');
     const got = await surface();
     const gotTicks = await ev('__cmwLandTicks()');
-    const r = { rest, got, coverage: +(got.n / rest.n).toFixed(3), carried: !!carry, patches: carry && carry.patches };
+    const off = k !== 0 ? +(await colourOff('__restPx', 32)).toFixed(3) : 0;
+    const r = { rest, got, coverage: +(got.n / rest.n).toFixed(3), carried: !!carry, patches: carry && carry.patches, off };
     info[name][tag] = r;
     ok(`${name}, ${tag}: a carried frame`, r.carried, r);
     if (k !== 0) ok(`${name}, ${tag}: the height axis has the plane's labels (as many)`, gotTicks.length === restTicks.length && restTicks.length > 1, { rest: restTicks, got: gotTicks });
@@ -56,6 +63,8 @@ for (const c of CASES) {
       ok(`${name}, ${tag}: the carried surface has >= ${c.min * 100} % of the plane's pixels`, r.coverage >= c.min, r);
       if (c.top) ok(`${name}, ${tag}: the topmost row within 3 px of the plane's`, Math.abs(got.top - rest.top) <= 3, r);
     }
+    // the landing's colour is the parked frame's: at most 5 % of the surface pixels off by more than 32/255
+    if (k !== 0 && c.rest998) ok(`${name}, ${tag}: the surface colour matches the parked frame (share off by > 32/255 <= .05)`, off <= 0.05, r);
     if (k !== 0 && c.patched) ok(`${name}, ${tag}: the logarithm's singular point has its patch`, r.patches >= 1, r);
   }
 }

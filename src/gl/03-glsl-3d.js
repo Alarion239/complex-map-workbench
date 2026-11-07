@@ -623,7 +623,7 @@ out vec4 tfOut;
 ` + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
-bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
+bool near(vec4 a, vec4 b) { return b.w > 0.5 && (uPatch > 0.5 || length(b.xy - a.xy) <= uLim) && abs(b.z - a.z) <= uStep; }
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
