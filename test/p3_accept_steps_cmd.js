@@ -132,6 +132,9 @@ const handedness = (at) => ev(`(() => {
 })()`);
 for (const at of [0, 1]) {
   await globe('p3so' + at, [{ id: 's1', kind: 'disc', c: [0.5, 0], r: 0.45 }], [ZI], { cx: 0.5, cy: 0, s: 300 }, { pitch: 0.4, yaw: 0.3, dist: 3 }, at);
+  // (the picks are the steps globe's: a pane that is not a globe would pick plane points, whose handedness is the same)
+  R['onGlobe' + at] = await ev('__cmwPaths().some((p) => p.role === "L" && p.viewKind === "globe")');
+  ok(`globe orientation at plane ${at}: the pane picked is the globe`, R['onGlobe' + at] === true, R['onGlobe' + at]);
   R['hand' + at] = await handedness(at);
   ok(`globe orientation at plane ${at}: every picked triangle keeps its handedness`, R['hand' + at][0] > 50 && R['hand' + at][1] === 0, R['hand' + at]);
 }
