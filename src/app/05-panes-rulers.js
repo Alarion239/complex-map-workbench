@@ -797,17 +797,19 @@
   }
   render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
-  // null outside its box or with no mask
-  function landMaskAlpha(m, x, y) {
+  // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's)
+  function landMaskAlpha(m, x, y, clamp) {
     if (!m) return null;
-    const u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
+    let u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
+    if (clamp) { u = Math.min(Math.max(u, 0), 1 - Number.EPSILON); v = Math.min(Math.max(v, 0), 1 - Number.EPSILON); }
     if (!(u >= 0 && u < 1 && v >= 0 && v < 1)) return null;
     if (!m.px) m.px = m.cv.getContext('2d').getImageData(0, 0, m.cv.width, m.cv.height).data;   // (read once per mask: a pick samples it along a ray)
     return m.px[4 * (Math.floor(v * m.cv.height) * m.cv.width + Math.floor(u * m.cv.width)) + 3] / 255;
   }
-  // whether the point z is outside the region set a cut surface (mask.cut) shows: nothing is drawn over it
+  // whether the point z is outside the region set a cut surface (mask.cut) shows: nothing is drawn over it (the block's
+  // edge, where a pick can land, takes the edge texel's alpha, as the surface does)
   function landOffRegion(m, z) {
-    const a = m && m.cut ? landMaskAlpha(m, z.re, z.im) : null;
+    const a = m && m.cut ? landMaskAlpha(m, z.re, z.im, true) : null;
     return a !== null && a < 0.5;
   }
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the

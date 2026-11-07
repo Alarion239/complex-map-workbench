@@ -7,7 +7,8 @@
 //   has no mask;
 // - the surface is cut, not painted plain: at the pixel of a surface point outside the set Inside regions shows the
 //   pane's ground (the pixel at the pane's corner, within 15/255), inside the set the same colour as Everywhere's, and the
-//   probe there rests on the floor (the point under the pointer is not the surface point);
+//   probe there rests on the floor (the point under the pointer is not the surface point), also where the pointer's ray
+//   meets the block's front edge;
 // - parked at u = 0.25 and 0.5 between z and w₁: more of the pane shows its ground than with Everywhere; at 0.5 a
 //   carried frame whose mask is plane z's (1 at 0, 0 at 3i).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -26,14 +27,18 @@ const maskAt = (x, y) => ev(`typeof __cmwLandMask === 'function' ? __cmwLandMask
 // the pane position (device px) of the surface point over (x, y), and the colour of tag's frame there
 const px = (tag, x, y) => ev(`(() => { const p = __cmwLandSurfacePx(${x}, ${y}), cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width; if (!p) return null; const i = Math.round(p[0] * k), j = Math.round(p[1] * k), A = window.__ss[${JSON.stringify(tag)}], n = 4 * (j * cv.width + i); return { at: [p[0], p[1]], c: [A[n], A[n + 1], A[n + 2]] }; })()`);
 const pickAt = (p) => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return __cmwSound({ pick: [r.left + ${p[0]}, r.top + ${p[1]}] }); })()`);
-// the pointer over the pane position p (CSS px): the readout's row labels
-const hoverRows = async (p) => {
-  const c = JSON.parse(await ev(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + ${p[0]}, r.top + ${p[1]}]; })())`));
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0] + 1, y: c[1] });
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0], y: c[1] });
+// the pointer over the page position (x, y): the readout's row labels
+const hoverAt = async (x, y) => {
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + 1, y });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
   await settled({ max: 20000 });
   await ev(rAF2);
   return JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#leftReadout .rk')].map((e) => e.textContent.trim()))`));
+};
+// the same over the pane position p (CSS px)
+const hoverRows = async (p) => {
+  const c = JSON.parse(await ev(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + ${p[0]}, r.top + ${p[1]}]; })())`));
+  return hoverAt(c[0], c[1]);
 };
 const gap = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));
 const TOL = 0.05;   // a mask value, or a plane distance, counts as equal within it
@@ -84,6 +89,10 @@ for (const [i, pts] of planes) {
   info.rest[i].d = await diff('in' + i, 'all' + i);
   ok(`plane ${i}: Inside regions is another picture than Everywhere (> 5 % of pixels > 32/255)`, info.rest[i].d > 0.05, info.rest[i].d);
 }
+// ---- the pointer on the floor in front of the block, where its ray meets the block's edge ----
+await at('in', 0);
+info.edge = await hoverAt(579, 560);
+ok('plane z, Inside regions: the pointer on the floor at the block\'s front edge reads z alone', !info.edge.includes('F') && !info.edge.includes('|F|') && info.edge.includes('z'), info.edge);
 // ---- between z and w₁ ----
 // the share of the pane's pixels within 15/255 of its ground (the corner pixel): the cut part shows the ground
 const GROUND_GAIN = 0.02;   // the least share of the pane the cut part gives back to the ground
