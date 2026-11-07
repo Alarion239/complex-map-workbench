@@ -1,8 +1,8 @@
 // The learn piece (notes/ux-build/w1-learn-AS-BUILT.md): the guided-tour line on the phone and the landscape phone, the
 // keys on the Shapes rows and their right-click menus, and the rest of the learn checks below (the laptop's sound
 // checks are ux165_learn_sound_cmd.js; its first-run line is ux165_learn_first_run_cmd.js; standards-ok: those checks
-// moved there unchanged, and the deformation section's checks are not here because the dock and play button they
-// drove no longer exist), on a
+// moved there unchanged; the deformation section's checks are not here, since the page has no dock or play button
+// for them to drive), on a
 // laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
 // Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
