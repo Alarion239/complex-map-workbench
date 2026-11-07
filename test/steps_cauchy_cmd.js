@@ -39,6 +39,8 @@ const legend = async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())'))
 const tile = () => ev(`(() => { const t = document.querySelector('#dcSeg [data-v="cauchy"]'); return t ? { disabled: t.disabled, tip: t.dataset.tip, desc: t.getAttribute('aria-description'), on: t.classList.contains('on') } : null; })()`);
 
 await open(CIRCLE);
+// (nothing touched T: a state that has the Cauchy style opens coloured from z)
+ok('a Cauchy state opens with T = z', (await ev('__cmwSteps().T')) === 0, await ev('__cmwSteps().T'));
 // (thread parked at the last plane first: the picture on z does not depend on where it was)
 await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
 await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
@@ -55,7 +57,16 @@ await ev(`__cmwCauchyOpt('both', true)`);
 const t0 = await tile();
 ok('T = z: the Cauchy tile is on and enabled', t0 && t0.on && !t0.disabled, t0);
 const lg0 = await legend();
-ok('T = z: the key keeps its bands', /arg and \|/.test(lg0.caption || ''), lg0);
+ok('T = z: the key names the Cauchy integral and keeps its ring', lg0.caption === 'Cauchy integral' && lg0.ring === true, lg0);
+const nm0 = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
+ok('T = z: the title is "Cauchy integral over {name}"', /^Cauchy integral over /.test(nm0.role), nm0);
+// (Inside regions would cut f₋ off: the scope control reads Everywhere, disabled with its reason)
+await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
+const sc0 = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('.sv-scope button')].map((b) => ({ on: b.classList.contains('on'), disabled: b.disabled, tip: b.dataset.tip, v: b.dataset.v })))`));
+ok('Cauchy: the scope control is disabled with its reason and reads Everywhere', sc0.length > 0 && sc0.every((b) => b.disabled && /drawn everywhere/.test(b.tip || '')) && sc0.filter((b) => b.on).every((b) => b.v === 'all'), sc0);
+const pxs = await read();
+ok('Cauchy with scope Inside: the outside is still coloured', !isGrey(pxs.outside), pxs);
+await ev(`(__cmwSteps({ scope: 'all' }), 1)`);
 
 await park(1);
 const t1 = await tile();
@@ -65,7 +76,7 @@ const px1 = await read();
 info.T1 = px1;
 ok('T at plane 1: plane z is paper (no hue)', isGrey(px1.inside) && isGrey(px1.outside), px1);
 const lg1 = await legend();
-ok('T at plane 1: the key names no bands', lg1.caption === 'Cauchy: on z only', lg1);
+ok('T at plane 1: the key is its reason alone, no ring and no bands', lg1.caption === 'Cauchy: on z only' && lg1.ring === false, lg1);
 
 await open([]);
 await park(0);
