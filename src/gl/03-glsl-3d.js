@@ -623,7 +623,7 @@ out vec4 tfOut;
 ` + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
-bool near(vec4 a, vec4 b) { return b.w > 0.5 && (uPatch > 0.5 || length(b.xy - a.xy) <= uLim) && abs(b.z - a.z) <= uStep; }
+bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -1285,8 +1285,10 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile. The carried
-  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it
-${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it (a carried
+  // sheet's vZ is a point of plane s, not of the box uBox of the plane it lands on)
+${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : sheet ? `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
+  vec2 er = uCarry == 1 ? (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)) : min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
   // where the block's top or bottom clips the surface: the same rim as the domain's edges
