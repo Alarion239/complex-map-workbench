@@ -1611,7 +1611,8 @@
       if (!mask && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        if (!bare) svOutlines(pane, map, frame, col);
+        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
+        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
