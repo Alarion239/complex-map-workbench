@@ -292,7 +292,8 @@ const VIEWS = {
   // to port: sound (Pietro's team)
   'seasong_cmd.js': port('sound', 'the Mountain King example: its gallery entry, its circle menu with Listen along and the first samples it prepares, in English, Russian, desktop and phone; it waits on the sound checks in the steps view'),
   'sound_cmd.js': port('sound', 'the browser side of sound: consent, the tiers and their palette entries, the settings, the cues, the pointer voice, loops and the Landscape contours; it waits on the sound checks in the steps view'),
-  'sound_v152_cmd.js': port('sound', 'Hear the function under the pointer: the marimba notes at each colour line, the winding by ear, the curves singing and palette B\'s scrub; it waits on the sound checks in the steps view'),
+  'sound_v152_cmd.js': steps({ pin: true }),
+  'sound_v152_deform_classic_cmd.js': classic('the loop singing while the Deformation plays, palette B\'s scrub with its slider and Esc while it plays: the steps view has no open Deformation'),
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
