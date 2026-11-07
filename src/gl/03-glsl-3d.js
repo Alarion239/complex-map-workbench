@@ -1,15 +1,16 @@
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = `
 uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
-// The height function morphed along a glide (uMorphOn 1): the height of a value w is the mix, by uHM (0..1), of the heights
-// of two height functions, each its mode, block height and scale (uHMode1, uH1, uMu1 at uHM 0; uHMode2, uH2, uMu2 at 1)
+// The height function morphed along a glide (uMorphOn 1): the height of a value w, in units of the block's height uH, is the
+// mix, by uHM (0..1), of its heights in units of each function's own block height (uHMode1, uH1, uMu1 at uHM 0; uHMode2,
+// uH2, uMu2 at 1), so a mix stays within the block as each end does
 uniform int uMorphOn; uniform int uHMode1; uniform int uHMode2; uniform float uH1; uniform float uH2; uniform float uMu1; uniform float uMu2; uniform float uHM;
 vec2 heightWm(vec2 w, int hMode, float uH, float uMu);
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
   if (uMorphOn == 1) {
     vec2 a = heightWm(w, uHMode1, uH1, uMu1), b = heightWm(w, uHMode2, uH2, uMu2);
-    return vec2(mix(a.x, b.x, uHM), a.y * b.y);
+    return vec2(uH * mix(a.x / uH1, b.x / uH2, uHM), a.y * b.y);
   }
   return heightWm(w, uHMode, uH, uMu);
 }

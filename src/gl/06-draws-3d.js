@@ -1224,7 +1224,7 @@
       return Hm * (2 / Math.PI) * Math.atan(v / mum);
     };
     // (the morphed height function: the mix the sheets are drawn at)
-    const heightOf = mo ? ((f1, f2) => (v) => (1 - mo.u) * f1(v) + mo.u * f2(v))(heightWith(mo.m1, mo.h1, mo.mu1), heightWith(mo.m2, mo.h2, mo.mu2)) : heightWith(mode, H, mu);
+    const heightOf = mo ? ((f1, f2) => (v) => H * ((1 - mo.u) * f1(v) / mo.h1 + mo.u * f2(v) / mo.h2))(heightWith(mo.m1, mo.h1, mo.mu1), heightWith(mo.m2, mo.h2, mo.mu2)) : heightWith(mode, H, mu);
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
