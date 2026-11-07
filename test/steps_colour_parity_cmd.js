@@ -72,8 +72,22 @@ ok('a style picked on the colour plane shows past it', b === 'phase', b);
 await openAt(360, 'en', true);
 await goto(2, 'push');
 await ev(`document.querySelector('.ph-dsp').click(); 1`); await settled({ floor: 600 });
+const geo = await ev(`(() => { const r = document.querySelector('.ph-sheet').getBoundingClientRect(), a = document.activeElement, l = document.querySelector('.ph-vopts #outlineChk').closest('label'); return { h: Math.round(r.height), vh: innerHeight, focus: a && a.closest('#dcSeg') ? 'style' : (a && (a.id || a.className)), dim: getComputedStyle(l).opacity, tip: !!document.querySelector('.tip, #tip, [role=tooltip]:not([hidden])') && [...document.querySelectorAll('.tip, #tip, [role=tooltip]')].some((t) => t.getClientRects().length) }; })()`);
+ok('the sheet is at most 60 % of the viewport', geo.h <= 0.6 * geo.vh + 1, geo);
+ok('opening moves focus to the current style, with no tooltip', geo.focus === 'style' && !geo.tip, geo);
+ok('the disabled Outlines is dimmed', +geo.dim <= 0.45, geo);
 const sh = await ev(`(() => { const o = document.querySelector('.ph-vopts #outlineChk'), k = [...document.querySelectorAll('.ph-vopts > *')]; return { title: (document.querySelector('.ph-sh .ph-t, .ph-sh .ttl') || {}).textContent || document.querySelector('.ph-sheet').getAttribute('aria-label'), first: k[0] && k[0].id, outDis: !!o && o.disabled && o.getAttribute('aria-description') || '' }; })()`);
 ok('the sheet names the colour panel and the shown plane', /Colour · w/.test(sh.title || ''), sh);
 ok('the sheet opens on the style row', sh.first === 'dcSeg', sh);
 ok('Outlines in the sheet is disabled with its reason past the colour plane', /colour plane/.test(sh.outDis), sh);
+await ev(`document.querySelector('.ph-sheet .ph-x').click(); 1`); await settled({ floor: 500 });
+ok('closing gives the focus back to the button that opened the sheet', await ev(`document.activeElement && document.activeElement.classList.contains('ph-dsp')`), await ev(`document.activeElement && document.activeElement.className`));
+// the style labels in the sheet wrap to two lines at most and are never cut, in each language
+for (const lang of ['ru', 'it']) {
+  await openAt(360, lang, true);
+  await goto(2, 'push');
+  await ev(`document.querySelector('.ph-dsp').click(); 1`); await settled({ floor: 600 });
+  const lb = await ev(`[...document.querySelectorAll('.ph-vopts #dcSeg button .sty-n')].map((n) => { const r = n.getBoundingClientRect(), b = n.closest('button').getBoundingClientRect(); return { t: n.textContent, lines: Math.round(r.height / 13), cut: n.scrollWidth > n.clientWidth + 1 || r.left < b.left - 0.5 || r.right > b.right + 0.5 }; })`);
+  ok(`360 ${lang}: every style label is in two lines at most and not cut`, lb.length === 6 && lb.every((x) => x.lines <= 2 && !x.cut), lb);
+}
 return { pass: fails.length === 0, fails, info };

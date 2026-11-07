@@ -23,6 +23,7 @@ const Phone = (() => {
   let anim = 0;                        // the sheet's opening or closing timer
   const homes = [];                    // [el, placeholder] of the moved elements
   const els = {};
+  let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
   const MQP = '(max-width: 767px)';
   const MQL = '(orientation: landscape) and (max-height: 500px) and (max-width: 1023px) and (pointer: coarse)';
@@ -116,7 +117,7 @@ const Phone = (() => {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
       const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
       const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
-      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => open('display', { side }) });
+      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
       plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
       els['sph' + side] = sph;
       els['both' + side] = bt;
@@ -644,6 +645,8 @@ const Phone = (() => {
     else if (k === 'edit') { const sm = els.body.edit.querySelector('.split-offer:not([hidden]) > summary'); if (sm) sm.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
+    // (the Display sheet is the colour panel: focus starts on the current style, the first control)
+    if (k === 'display') { const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -665,6 +668,7 @@ const Phone = (() => {
     // display to their home
     homeDisplay();
     els.viewOpts.replaceChildren();
+    if (k === 'display') { const o = opener && opener.isConnected ? opener : null; opener = null; if (o) o.focus({ preventScroll: true }); }
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
     rootEl.classList.remove('ph-sheet-on');
