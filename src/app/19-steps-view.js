@@ -1934,7 +1934,7 @@
       h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths), pathsWhy);
     pop.hidden = true;
     const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
-    const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
+    const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); if (e.currentTarget.getAttribute('aria-disabled') === 'true') return; svAddFn(e.currentTarget); } },
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
     const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
@@ -1942,7 +1942,7 @@
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
     // (F, the whole map, after the rail: it opens the Inspector's page of the composition, its domain and its guarantees; no ⋯, no drag,
     // no step of the chain; outside the rail, so it never lies over a plane or a chip of a long thread)
-    const wholeMap = svChipBtn('sv-wholemap', { 'aria-pressed': 'false', 'aria-label': $t('Whole map'), 'data-tip': $t('Whole map'), onclick: () => svInspect('F') }, '<i>F</i>', $t('Whole map'));
+    const wholeMap = svChipBtn('sv-wholemap', { 'aria-pressed': 'false', 'aria-label': $t('Whole map'), 'data-tip': $t('Whole map'), onclick: (e) => { if (e.currentTarget.getAttribute('aria-disabled') !== 'true') svInspect('F'); } }, '<i>F</i>', $t('Whole map'));
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), wholeMap, add, next, speed, loop, playMore, pop, bandx);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
@@ -2029,10 +2029,17 @@
     E.wholeMap.hidden = S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
     E.strip.classList.toggle('sv-nof', E.wholeMap.hidden);   // (the phone's track keeps room for F only while F is there)
     // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
-    if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
-    else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
+    // (a step shown alone keeps its planes and its Whole chain pill whole: F and Add, disabled, end what the rail scrolls)
+    if (al) {
+      const end = document.documentElement.classList.contains('ph') ? E.rail : E.track;
+      end.append(E.wholeMap, E.add);
+    } else {
+      if (E.add.parentNode !== E.strip) E.strip.insertBefore(E.add, E.next);
+      if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
+      else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
+    }
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
-    if (SV.refocus) { SV.refocus = false; if (!E.add.disabled) E.add.focus({ preventScroll: true }); }
+    if (SV.refocus) { SV.refocus = false; if (E.add.getAttribute('aria-disabled') !== 'true') E.add.focus({ preventScroll: true }); }
     svFitRail();
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
@@ -2134,7 +2141,8 @@
       const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
       // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
       // under a drag or a glide, the ring is kept a plane's width from either end)
-      const want = toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      // (a step shown alone keeps the rail at its start: the Whole chain pill and the step's planes first, F and Add after them)
+      const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
@@ -2236,7 +2244,7 @@
     const shown = t.offsetWidth > 0;
     if (shown) E.addLabelW = add.offsetWidth - add.offsetHeight;
     if (E.addLabelW == null) return;
-    const first = E.track.firstElementChild, last = E.track.lastElementChild;
+    const first = E.track.firstElementChild, last = [...E.track.children].filter((c) => c !== E.add && c !== E.wholeMap).pop() || first;
     const thread = last.offsetLeft + last.offsetWidth - first.offsetLeft;
     const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
     // (and while the chips are their letters: the room their names needed is not given back to the words)
@@ -3304,7 +3312,7 @@
   // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
   // a control that can't act now: disabled, with `why` as its tip and description; `tip` is its tip while it can act
   function svDisableWhy(btn, why, tip) {
-    btn.disabled = !!why;
+    if (why) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');   // (not `disabled`: a press still reaches the long-press tip, and the keyboard still finds the reason)
     btn.setAttribute('data-tip', why || tip);
     if (why) btn.setAttribute('aria-description', why); else btn.removeAttribute('aria-description');
   }
