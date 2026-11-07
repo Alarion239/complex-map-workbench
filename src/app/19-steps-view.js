@@ -1735,9 +1735,7 @@
   // which scissors its pass (gl.js globeScissorOf); null for an unbounded shape, a shape of a later plane or a box that cannot
   // be promised
   function svGlobeBox(p, x) {
-    if (shapeStage(x) || !shapeBounded(x)) return null;
-    if (p.plan.ops.length) return invBox(p.e, p.plan, x, false);
-    try { return Region.bboxOf(x); } catch (err) { return null; }
+    return shapeStage(x) ? null : globeImageBox(p, x, false);
   }
   // the carried mesh of plane a's globe (drawSphere's st.carried): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
