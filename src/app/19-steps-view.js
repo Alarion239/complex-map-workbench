@@ -11,6 +11,7 @@
   const SV = {
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
@@ -1458,6 +1459,15 @@
     // (a held thread draws no frame of its own: this one draws the still picture's full placement)
     if (!svPicTimer) svPicTimer = setTimeout(() => { svPicTimer = 0; requestRender('L'); }, left);
     return false;
+  }
+  // the steps view's left plane, drawn by one of two cores: a glide frame and a flat plane past the colour plane (push) by the
+  // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
+  // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
+  function svDrawPlane(pane, still) {
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    svCheck(); svPolesWatch();
+    if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    SV.core = 'still'; still(pane);
   }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
