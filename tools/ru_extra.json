@@ -703,5 +703,6 @@
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
  "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
   "How much the layers behind show through where the picture covers a point more than once.": "Насколько слои позади просвечивают там, где картина покрывает точку больше одного раза.",
-  "The Landscape draws its sheets opaque; opacity applies to the plane.": "Рельеф рисует листы непрозрачными; прозрачность действует на плоскость."
+  "The Landscape draws its sheets opaque; opacity applies to the plane.": "Рельеф рисует листы непрозрачными; прозрачность действует на плоскость.",
+ "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Фазовый портрет функции %{choice}: цвет показывает $\\arg %{choice2}$.%{homDef}"
 }

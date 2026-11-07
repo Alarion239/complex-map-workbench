@@ -3424,5 +3424,6 @@
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude.",
  "Outlines are drawn on the colour plane": "I contorni sono disegnati sul piano del colore",
  "How much the layers behind show through where the picture covers a point more than once.": "Quanto i livelli dietro si vedono dove l'immagine copre un punto più di una volta.",
- "The Landscape draws its sheets opaque; opacity applies to the plane.": "Il Paesaggio disegna i fogli opachi; l'opacità vale per il piano."
+ "The Landscape draws its sheets opaque; opacity applies to the plane.": "Il Paesaggio disegna i fogli opachi; l'opacità vale per il piano.",
+ "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Ritratto di fase di %{choice}: il colore indica $\\arg %{choice2}$.%{homDef}"
 }
