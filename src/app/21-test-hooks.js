@@ -351,12 +351,14 @@
   };
   // (#846) the last Landscape frame's Inside-regions mask at the point (x, y) of its plane: 0 to 1 (1: in the carried
   // region set), null outside its box or with no mask
-  window.__cmwLandMask = (x, y) => {
-    const m = render3D.mask;
-    if (!m) return null;
-    const u = (x - m.box.x0) / (m.box.x1 - m.box.x0), v = (m.box.y1 - y) / (m.box.y1 - m.box.y0);
-    if (!(u >= 0 && u < 1 && v >= 0 && v < 1)) return null;
-    return m.cv.getContext('2d').getImageData(Math.floor(u * m.cv.width), Math.floor(v * m.cv.height), 1, 1).data[3] / 255;
+  window.__cmwLandMask = (x, y) => landMaskAlpha(render3D.mask, x, y);
+  // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
+  window.__cmwLandSurfacePx = (x, y) => {
+    const pk = render3D.pick, b = pk && pk.box;
+    if (!pk || !pk.info) return null;
+    const w = pk.F(C(x, y)), [ax, ay] = pk.info.aspect;
+    const h = pk.info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));
+    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
