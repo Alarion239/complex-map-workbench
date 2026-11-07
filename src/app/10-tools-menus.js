@@ -29,20 +29,20 @@
     ['segment', $t('Segment'), 'S', $t('Drag from one end to the other, or click one end and then the other.')],
     ['line', $t('Line'), 'L', $t('Drag through two points, or click one and then the other; the line extends to infinity.')],
     ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray, or click the start and then a point on the ray.')],
-    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward, or click the center and then a point on the circle.')],
+    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the centre outward, or click the centre and then a point on the circle.')],
     ['arc', $t('Arc'), 'A', $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.')],   // (v16 [C24])
     ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
-    ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],
+    ['disc', $t('Disc'), 'D', $t('Drag from the centre outward.')],
     ['rect', $tx('tool', 'Rectangle'), 'B', $t('Drag between opposite corners.')],
     ['polygon', $tx('tool', 'Polygon'), 'G', $t('Click the vertices; click the first one or press Enter to close. Backspace removes the last point.')],
     ['lasso', $t('Lasso'), 'O', $t('Hold and draw a closed region.')],
     ['halfplane', $tx('tool', 'Half-plane'), 'H', $t('Drag along the boundary; the region is to the left of the arrow.')],
-    ['annulus', $t('Annulus'), 'N', $t('Drag from the center to the outer radius.')],
+    ['annulus', $t('Annulus'), 'N', $t('Drag from the centre to the outer radius.')],
     ['sector', $t('Sector'), 'K', $t('Drag from the vertex; edit the angles in the shape list.')],
     ['formula', $t('Formula'), 'T', $t('Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.')],
     // ([v16.5 UX86] one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
     ['cgrid', $t('Line grid'), '', $t('Drag a rectangle to fill with grid lines.')],
-    ['pgrid', $t('Polar grid'), '', $t('Drag from the center to set the radius.')],
+    ['pgrid', $t('Polar grid'), '', $t('Drag from the centre to set the radius.')],
   ].concat(Construct.toolRows());   // (v16: the Construct group, construct.js)
   Object.assign(ICON, Construct.ICON);
   function buildTools() {
@@ -478,7 +478,7 @@
         if (kindType(s) === 'area') items.push({ label: s.complement ? $t('Use the set itself') : $t('Use complement'), run: () => { s.complement = !s.complement; changed(); commit(); } });
         items.push({ label: $t('Duplicate'), key: modK('D'), run: () => duplicateShape(s) });
         // ([v16.5 UX95] the colours by their names, not "Preset 1"–"Preset 8")
-        items.push({ label: $t('Color'), kids: [...TH.c.map((cc, i) => ({ label: colorName(i), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom color…'), run: () => pickColor(s) }] });
+        items.push({ label: $t('Colour'), kids: [...TH.c.map((cc, i) => ({ label: colorName(i), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom colour…'), run: () => pickColor(s) }] });
         items.push({ label: $t('Bring forward'), key: modK(']'), disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
         items.push({ label: $t('Send backward'), key: modK('['), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
         items.push('sep');
@@ -721,8 +721,8 @@
       case 'segment': case 'line': case 'ray': box.append(ptField('a', $t('start <i>a</i>')), ptField('b', $t('end <i>b</i>'))); break;
       case 'halfplane': box.append(ptField('a', $t('from <i>a</i>')), ptField('b', $t('to <i>b</i>'))); break;
       case 'rect': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>'))); break;
-      case 'circle': case 'disc': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>'))); break;
-      case 'annulus': box.append(ptField('c', $t('center <i>c</i>')), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
+      case 'circle': case 'disc': box.append(ptField('c', $t('centre <i>c</i>')), numField('r', $t('radius <i>r</i>'))); break;
+      case 'annulus': box.append(ptField('c', $t('centre <i>c</i>')), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
       case 'sector': box.append(ptField('c', $t('vertex <i>c</i>')), numField('t1', '<i>θ</i>₁ (°)'), numField('t2', '<i>θ</i>₂ (°)'), numField('r', $t('radius (0 = ∞)'))); break;
       case 'arc': box.append(ptField('a', $tx('arc', 'start')), ptField('m', $tx('arc', 'through')), ptField('b', $tx('arc', 'end'))); break;
       case 'polygon': {
@@ -755,7 +755,7 @@
         if (s.c != null) box.append(ptField('c', '<i>c</i>'));
         break;
       }
-      case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
+      case 'pgrid': box.append(ptField('c', $t('centre <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
         const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
         inp.addEventListener('input', () => {
