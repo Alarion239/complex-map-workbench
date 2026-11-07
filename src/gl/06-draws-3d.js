@@ -303,7 +303,7 @@
   }
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
-  const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [256, 96], landPP = [];
+  const CARRY_POLES = 44, CARRY_POLE_N = 96, CARRY_FAR_N = [256, 96], landPP = [];
   // (the steps view's Inside regions) st.mask {cv, key, box, cut}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS), or with cut not drawn; null: the colour everywhere
