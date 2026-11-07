@@ -700,5 +700,6 @@
  "Moved {name}.": "{name} перемещена.",
  "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её",
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
- "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её."
+ "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
+ "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Фазовый портрет функции %{choice}: цвет показывает $\\arg %{choice2}$.%{homDef}"
 }
