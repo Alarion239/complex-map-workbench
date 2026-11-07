@@ -27,6 +27,7 @@ const VIEWS = {
   'sv_cut_drag_both_cmd.js': steps(),
   'sv_cut_keeps_view_cmd.js': steps(),
   'sv_cut_curve_sphere_cmd.js': steps(),
+  'sv_cut_ring_dash_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
