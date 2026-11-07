@@ -573,18 +573,31 @@ void main() {
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
 }
 `;
-  // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
-  // s), without a height: (place x, y, 0, finite). The sheets keep their heights at plane s, of the stages (s, hT]
-  // (LAND_SHEET_VS, uCarry 1 reads these places). With uPolar (CARRY_Z) the grid is a pole's patch
+  // the carried All sheets' places: the cells' corners of plane s's grid over the box uSrc (uN x uN points; or a pole's
+  // patch, uPolar, CARRY_Z), each sheet's tile laid out as the sheets' heights are (LAND_SHEET_TF_VS: a texel a corner of a
+  // cell, uTileC tiles a row), at its image on that sheet under the glide's map: the branch of the map the sheet's
+  // heights continue (chainSheetHom / chainSheetRange from the cell's centre, with local cuts opposite it), so every
+  // sheet has its own footprint on the plane, as its surface has at rest. Texel: (place x, y, 0, finite)
+  // (LAND_SHEET_VS, uCarry 1 reads these places)
   const LAND_CARRY_PLACE_TF_VS = `
-uniform int uN; uniform vec4 uSrc;
+uniform int uN; uniform vec4 uSrc; uniform int uSheetK; uniform int uTileC; uniform int uTexW; uniform int uSheetB; uniform int uSheetMap[24];
 out vec4 tfOut;
 ` + CARRY_Z + `
+vec2 sheetPlace(vec2 zc, vec2 z, int combo) {
+  if (uMode == 1 || uMode == 3) return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, combo, uSheetB);
+  if (uMode == 0) return chainSheetRange(zc, z, uA, uB, combo);
+  return mapPoint(z);
+}
 void main() {
+  int M = uN - 1, T = 2 * M;
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
-  vec2 q = mapPoint(z);
+  tfOut = vec4(0.0);
+  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+  ivec2 tile = p / T, qq = p - tile * T, cell = qq / 2, cor = qq - cell * 2;
+  int combo = tile.y * uTileC + tile.x;
+  if (combo >= uSheetK) return;
+  vec2 q = sheetPlace(carryZIn(uSrc, vec2(cell) + 0.5), carryZIn(uSrc, vec2(cell + cor)), uSheetMap[combo]);
   tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
 }
 `;
@@ -972,8 +985,10 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
-// the carried sheets (uCarry 1, the steps view's glide): the grid corners' places under the glide's map (uCP, over the grid
-// of the cells, uN x uN; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
+// the sheets drawn: 0 all, 1 the principal one (surface uPrin), 2 the others
+uniform int uSel; uniform int uPrin;
+// the carried sheets (uCarry 1, the steps view's glide): the cells' corners' places under the glide's map (uCP, laid out
+// as uT1 is; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
 // uCLim on the plane (torn across a cut or a pole of the map) is left out
 // A pole's patch (uPatch 1): the same, over the grid of the patch (CARRY_Z, uPolar), whose cells carry their own heights
 // uCP and uT1 are the patch's too
@@ -1001,7 +1016,8 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     // the vertex's place: the cell's four corners' places by bilinear weights, the tangents of the moved sheet from
     // their differences (the slopes of the height at rest, nrm, carried over) in the block over uCBox
     vec2 f = q.xy / 16.0 - vec2(c);
-    vec4 p00 = texelFetch(uCP, c, 0), p10 = texelFetch(uCP, c + ivec2(1, 0), 0), p01 = texelFetch(uCP, c + ivec2(0, 1), 0), p11 = texelFetch(uCP, c + ivec2(1, 1), 0);
+    ivec2 po = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
+    vec4 p00 = texelFetch(uCP, po, 0), p10 = texelFetch(uCP, po + ivec2(1, 0), 0), p01 = texelFetch(uCP, po + ivec2(0, 1), 0), p11 = texelFetch(uCP, po + ivec2(1, 1), 0);
     vec2 pl = mix(mix(p00.xy, p10.xy, f.x), mix(p01.xy, p11.xy, f.x), f.y);
     vec2 toW = 2.0 * uAspect / uCBox.zw;
     vPos = vec3(((pl - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, q.z);
@@ -1011,7 +1027,7 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     vec3 tx = vec3(dx, -nrm.x / nz * rest.x), ty = vec3(dy, -nrm.y / nz * rest.y);
     if (uPatch == 1) {
       // (a patch's cells are not the plane's grid: the slopes come from the cell's four corners, each at its place)
-      ivec2 o = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
+      ivec2 o = po;
       vec3 P00 = vec3(((p00.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o, 0).x);
       vec3 P10 = vec3(((p10.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 0), 0).x);
       vec3 P01 = vec3(((p01.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(0, 1), 0).x);
@@ -1052,6 +1068,7 @@ void main() {
     s0 = ivec2(sub % n2.x, sub / n2.x);
     c = lstCell(uRefE + en);
   }
+  if ((uSel == 1 && combo != uPrin) || (uSel == 2 && combo == uPrin)) return;
   ivec2 A = ivec2(0), B = tri == 0 ? ivec2(1, 0) : ivec2(1, 1), C = tri == 0 ? ivec2(1, 1) : ivec2(0, 1);
   // the corners of this triangle's (sub-)cell on its sheet: (h, valid, nx, ny), and (positions in 16ths of a cell; a
   // refined corner's, and its value, from the right half of its block). (Two branches, not selects between the two
@@ -1069,7 +1086,8 @@ void main() {
   }
   if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5)) return;
   if (uCarry == 1) {
-    vec4 ca = texelFetch(uCP, c + A, 0), cb = texelFetch(uCP, c + B, 0), cc = texelFetch(uCP, c + C, 0);
+    ivec2 po = ivec2(combo % uTileC, combo / uTileC) * T + 2 * c;
+    vec4 ca = texelFetch(uCP, po + A, 0), cb = texelFetch(uCP, po + B, 0), cc = texelFetch(uCP, po + C, 0);
     if (ca.w < 0.5 || cb.w < 0.5 || cc.w < 0.5) return;
     if (length(ca.xy - cb.xy) > uCLim || length(cb.xy - cc.xy) > uCLim || length(cc.xy - ca.xy) > uCLim) return;
   }
@@ -1164,7 +1182,7 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol; uniform int uMaskPass; uniform int uExtra; uniform highp sampler2D uPMask;' : ''}
 out vec4 o;
 ${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
@@ -1208,7 +1226,7 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {
-${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}${sheet ? '  // (a carried frame with All sheets off: uMaskPass 1 marks the places the principal sheet covers, uExtra 1 leaves them to it)\n  if (uMaskPass == 1) { o = vec4(1.0); return; }\n  if (uExtra == 1 && texture(uPMask, vPos.xy / uClipA * 0.5 + 0.5).a > 0.5) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
