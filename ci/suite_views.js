@@ -300,7 +300,7 @@ const VIEWS = {
   'line_slice_cmd.js': steps({ pin: true }),
   'mj_ranges_cmd.js': steps({ pin: true }),
   'offline_cmd.js': steps({ pin: true }),
-  'smoke_cmd.js': port('engine', 'it checks the default page, which is the classic view: it moves to the steps view when that becomes the default, and its view switch then becomes the surface and the plane'),
+  'smoke_cmd.js': steps({ pin: true }),
   'warm_bar_cmd.js': steps({ pin: true }),
 };
 
