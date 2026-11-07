@@ -2,6 +2,52 @@
   const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
+  // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
+  // with the log the zeta loops call: a vertex shader's transform feedback, read back, so each entry is what log(float(k))
+  // gives there. If that pass cannot run, the host's float32 logs stand in
+  let logKData = null;
+  // A GPU's log may differ from Math.log by a few float32 ulps; the table is kept only while every entry is within this relative distance of it
+  const LOGK_GPU_REL_TOL = 1e-5;
+  function logK() {
+    if (logKData) return logKData;
+    const n = GLChain.ZETA_LN_K_COUNT, out = new Float32Array(n);
+    out[0] = 1;
+    for (let k = 1; k < n; k++) out[k] = Math.fround(Math.log(k));
+    const e = { name: 'logK' };
+    startLink(e, '#version 300 es\nprecision highp float;\nout vec4 tfOut;\nvoid main() {\n  int i = gl_VertexID;\n  tfOut = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n', HEAD + TF_FS, true);
+    finishLink(e);
+    const p = e.p;
+    if (e.state === 'ready') {
+      const tf = gl.createTransformFeedback(), buf = gl.createBuffer(), vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING), gpu = new Float32Array(n);
+      gl.bindVertexArray(null);
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, buf);
+      gl.bufferData(gl.COPY_WRITE_BUFFER, gpu.byteLength, gl.DYNAMIC_READ);
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+      gl.useProgram(p);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buf);
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, n / 4);
+      gl.endTransformFeedback();
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+      gl.bindBuffer(gl.COPY_READ_BUFFER, buf);
+      gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, gpu);
+      gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+      gl.bindVertexArray(vao);
+      gl.deleteBuffer(buf); gl.deleteTransformFeedback(tf);
+      if (gpu.every((x, k) => k === 0 || (Number.isFinite(x) && Math.abs(x - out[k]) <= LOGK_GPU_REL_TOL * (1 + out[k])))) { gpu[0] = 1; out.set(gpu); }
+    }
+    if (p) gl.deleteProgram(p);
+    logKData = out;
+    return out;
+  }
+  // a freshly linked program's constant arrays, set once (a program's uniforms stay while it lives)
+  function programConstants(loc, p) {
+    if (loc.uLogK) { const d = logK(); gl.useProgram(p); gl.uniform4fv(loc.uLogK, d); }
+  }
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -75,6 +121,7 @@
       loc[name] = gl.getUniformLocation(p, u.name);
       if (name in SAMPLER_UNITS) gl.uniform1i(loc[name], SAMPLER_UNITS[name]);
     }
+    programConstants(loc, p);
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
