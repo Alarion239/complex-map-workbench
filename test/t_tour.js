@@ -3,6 +3,7 @@
 // first-run rules and the step order. DOM-free; the browser side is test/tour_cmd.js. Run: node test/t_tour.js
 const fs = require('fs');
 const path = require('path');
+globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
 const { Tour } = require('../src/tour.js');
 const T = Tour._t;
 let fails = 0, n = 0;

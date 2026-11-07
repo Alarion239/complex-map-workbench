@@ -72,7 +72,7 @@ for (const [w, h] of [[740, 360], [915, 412]]) {
     const g = await ev(`(() => { const hit = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => { const q = e.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2, t = document.elementFromPoint(x, y); return { sel, x: Math.round(x), y: Math.round(y), ok: !!t && (t === e || e.contains(t)) }; });
       const col = document.getElementById('secDraw').getBoundingClientRect(), sm = document.querySelector('#secDraw > .tool-more > summary'), sl = sm.querySelector('.ic-slot').getBoundingClientRect(), lb = sm.querySelector('.tm-label').getBoundingClientRect();
       return { mode: (document.querySelector('.tour-strip') || { dataset: {} }).dataset.mode, col: [Math.round(col.left), Math.round(col.top), Math.round(col.right), Math.round(col.bottom)], vw: innerWidth, vh: innerHeight, more: [Math.round(sl.bottom), Math.round(lb.top)],
-        hits: [].concat(hit('#hdrMoreBtn'), hit('#viewSwitch > button'), hit('.tour-strip .ts-x'), hit('.tour-strip .ts-next'), hit('#secDraw .tool'), hit('#secDraw > .tool-more > summary'), hit('#secDraw > .ph-undo')) }; })()`);
+        hits: [].concat(hit('#hdrMoreBtn'), hit('.tour-strip .ts-x'), hit('.tour-strip .ts-next'), hit('#secDraw .tool'), hit('#secDraw > .tool-more > summary'), hit('#secDraw > .ph-undo')) }; })()`);
     const tag = `${w}×${h}${v ? ' steps' : ''}`;
     info['col' + tag] = g;
     ok(`${tag}: the tool column runs the whole height (top to bottom of the screen)`, g.col[1] <= 1 && g.col[3] >= h - 1 && g.col[2] >= w - 1, g.col);

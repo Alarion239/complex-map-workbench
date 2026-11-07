@@ -19,7 +19,7 @@ async function run(name, steps) {
   const on = await ev('__cmwSteps().on');
   await ev(OBS);
   const err = await ev('__cmwP().errors.join("")');
-  const start = on ? '__cmwSteps({ park: 0.5 })' : 'document.getElementById("morphBtn").click()';
+  const start = on ? '__cmwSteps({ park: 0.5 })' : '__cmwMorph({ open: true })';
   const r = await ev(`(() => { const t0 = performance.now(); ${start}; return { t0, park: performance.now() - t0 }; })()`);
   const T = Date.now();
   let ready = false, paths = null;
@@ -27,7 +27,7 @@ async function run(name, steps) {
   while (Date.now() - T < 60000) { await sleep(200); paths = await ev(PATHS); if (paths && paths.ready === true) { ready = true; break; } }
   const at = await ev('performance.now()');
   const lt = (await ev('__lt')).filter(([s]) => s >= r.t0);
-  await ev(on ? '__cmwSteps({ go: 0, now: true })' : 'document.getElementById("morphBtn").click()'); await sleep(300);
+  await ev(on ? '__cmwSteps({ go: 0, now: true })' : '__cmwMorph({ open: true })'); await settled({ until: on ? '!__cmwSteps().moving' : '__cmwMorph().open === true', max: 8000 });
   const durs = lt.map(([, d]) => d);
   return { on, err, ready, kept: paths && paths.kept, park: Math.round(r.park), readyMs: Math.round(at - r.t0), tasks: lt.length,
     largest: Math.round(Math.max(0, ...durs)), blocked: Math.round(durs.reduce((a, d) => a + d, 0)) };

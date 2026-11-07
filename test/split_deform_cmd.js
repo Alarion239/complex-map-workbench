@@ -36,12 +36,11 @@ function diff(a, b) {
 await send('Emulation.setUserAgentOverride', { userAgent: DESKUA, acceptLanguage: 'en-US,en' });
 await view(1440, 900, false, false);
 
-await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }] });
+await open('fsC', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }], sel: 2 });
 {
   // the deformation open at T = 1.5
   await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
   await ev('__cmwMorph({ T: 1.5 })'); await settle(1200);
-  await clickSel('#pipeline .card[data-k="2"]'); await settle(500);
   const q0 = await planes();
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(400);
   const T = (await ev('__cmwMorph({})')).T;
@@ -57,8 +56,7 @@ await grab();
 // ---------------- 14. frame times: 12 nested sines, the deformation open ----------------
 {
   let e = 'z'; for (let i = 0; i < 12; i++) e = `\\sin(${e})`;
-  await open('fsS', { steps: [F1(e)] });
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(700);
+  await open('fsS', { steps: [F1(e)], sel: 1 });
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(1500);
   ok('12 sines: 12 steps', (await steps()).length === 12);
   await ev('__cmwMorph({ open: true, playing: true })'); await settle(1500);

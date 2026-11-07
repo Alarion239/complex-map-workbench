@@ -307,7 +307,7 @@
         clipWin = nb;
         setOpt('clipWin', clipWin);
         if (rightAuto && rImage()) fitRight(true);
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R');
       }
       save();
   };
@@ -1086,7 +1086,7 @@
         requestRender(drag.side === 'L' ? 'L' : 'R');
         return;
       }
-      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R', 'T'); return; }
+      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1481,13 +1481,13 @@
         scheduleFix();
         commit();
       }
-      requestRender('L', 'R', 'T', 'OL');
+      requestRender('L', 'R', 'OL');
       return;
     }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
       if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
-      requestRender('L', 'R', 'T');
+      requestRender('L', 'R');
     }
     if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
@@ -1566,27 +1566,12 @@
         if (s) { e.preventDefault(); if (key === 'd') duplicateShape(s); else moveShape(s.id, kk === ']' ? 1 : -1); return; }
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // (v16.5 UX97) the deformation: K plays or pauses, Shift+← and Shift+→ go to the previous or next step's tick
-      if (morph.open && key === 'k') { e.preventDefault(); togglePlay(); return; }
-      if (morph.open && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); morphTick(e.key === 'ArrowRight' ? 1 : -1); return; }
       // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
-      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
+      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
         const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
         if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }
       }
       if (e.shiftKey && key === 'm') { e.preventDefault(); soundToggle(); return; }
-      // views (merged-views.md): 1 X → Y, 2 Phase, 3 Landscape. One map for the surfaces in every view (merged-views
-      // review): Shift 1, 2 Plane, Sphere of the left or only panel (X in X → Y, the portrait in Phase), Shift 3, 4 of
-      // Y (X → Y). By e.code, so Shift 1 is not "!" and the digits work on any layout (AZERTY included); before every
-      // e.key shortcut, so a digit key that types '+' or '?' (Swiss ⇧1, Czech 1) still picks a view
-      const dg = /^(?:Digit|Numpad)([1-4])$/.exec(e.code || '');
-      if (dg && (e.shiftKey || +dg[1] <= 3)) {
-        const d = +dg[1];
-        if (e.shiftKey) { const sf = d % 2 === 1 ? 'plane' : 'sphere'; if (d <= 2) { if (!lLand()) setView('L', sf); } else if (S.view.main === 'xy') setView('R', sf); }
-        else setMain(MAINS[d - 1][0]);
-        e.preventDefault();
-        return;
-      }
       if (kk === '[') setPanels(!S.hideLeft, S.hideRight);
       if (kk === ']') setPanels(S.hideLeft, !S.hideRight);
       if (e.key === 'Backspace' && polyDraftOpen()) { e.preventDefault(); polyBack(); return; }
@@ -1595,7 +1580,6 @@
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
-      if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
       // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
       if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
       if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
