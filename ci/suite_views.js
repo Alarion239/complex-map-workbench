@@ -87,6 +87,7 @@ const VIEWS = {
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
   'steps_colour_pick_cmd.js': steps(),
+  'steps_colour_parity_cmd.js': steps(),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),

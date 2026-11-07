@@ -773,6 +773,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-empty[hidden] { display: none; }
 .sv-choice[aria-disabled="true"], .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"], .sv-thumb[aria-disabled="true"] { opacity: .4; }
 .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"] { cursor: default; }
+label.check[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
 .sv-plane.sv-skip { opacity: .4; }
 @media (pointer: coarse) { .sv-wholemap { height: 44px; width: 44px; border-radius: 22px; } .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }
 /* play along the thread: the band of the range, its clear button, the loop toggle, a touch's hold */
