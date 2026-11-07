@@ -16,6 +16,22 @@ const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.
 const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 const openAt = async (url) => { await go(url); await settled({ max: 30000, until: READY }); };
+// A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
+// settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
+// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read. Any
+// other error still fails the suite; the deadline is 30 s.
+const NAV = /navigated or closed/;
+const reloadedFigure = async (toastText) => {
+  const until = `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
+  for (let i = 0; i < 120; i++) {
+    let r = null;
+    try { r = await ev(until); } catch (e) { if (!NAV.test(String(e && e.message || e))) throw e; }
+    if (r && r.__exc && NAV.test(String(r.__exc))) r = null;
+    if (r === true) return;
+    await sleep(250);
+  }
+  throw new Error(`the figure did not open: no "${toastText}" on the reloaded page`);
+};
 const grab = async (name) => { const e = exc(await logs()); if (e.length) errs.push({ name, e: e.slice(0, 3) }); };
 // a link's payload, as the app makes it: #cmw=0.<base64url JSON> or #cmw=1.<base64url of deflate-raw JSON>
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -36,7 +52,8 @@ const CASES = [
   ['U-b view without main (landscape)', { ...XY, rightMode: undefined, view: { L: { surf: 'land', phase: true } } }, { on: true, surf: 'land' }],
   ['view with main phase', { ...XY, rightMode: undefined, view: { main: 'phase', P: { surf: 'plane', eq: false }, D: { phase: true } } }, { on: true, x: 0, scope: 'all', surf: 'plane' }],
   ['deformation range and figMorph (Deformation open)', { ...XY, homRange: { a: 2, b: 3 }, figMorph: { T: 1.5 } }, { on: true, homRange: [2, 3], morphOpen: false }],
-  ['solo R (the right pane expanded)', { ...XY, rightMode: 'image', solo: 'R' }, { on: true, x: 0, T: 3, scope: 'in', surf: 'plane' }],
+  // (solo() is 'L' while the steps view is on: it has one pane, so a saved solo R does not expand a pane)
+  ['solo R (the right pane expanded)', { ...XY, rightMode: 'image', solo: 'R' }, { on: true, x: 0, T: 3, scope: 'in', surf: 'plane', solo: 'L' }],
   ['right pane camera (rightView)', { ...XY, rightMode: 'image', rightView: { cx: 0.5, cy: -0.25, s: 120 } }, { on: true, x: 0, scope: 'in' }],
 ];
 
@@ -84,11 +101,32 @@ const FORMS = [
 for (const [name, url] of FORMS) {
   n++;
   const ns = 'lmig' + n + Date.now();
-  await openAt(url(ns));
+  await go(url(ns));
+  await reloadedFigure('Opened the figure from the link.');
   const got = await ev(READ);
   info[name] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`${name}: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
   await grab(name);
+}
+
+// a link that carries the figure's camera (figCam) and its figMorph: the steps view reads both once, at the load, and its save
+// keeps neither. The camera's value and figMorph's T are not checked here: the test hooks do not expose the 3D camera, and the
+// steps view does not carry figMorph's T into its Morph transport (a parity gap, see the PR).
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+  const fig = { ...LINK_STATE, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, figMorph: { T: 1.5 } };
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
+  const got = await ev(READ);
+  info['link with figCam and figMorph'] = got;
+  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  await ev('window.dispatchEvent(new Event("pagehide")); 1');
+  await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && !('figCam' in o)); })()` });
+  const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? { figCam: 'figCam' in o, figMorph: 'figMorph' in o } : null; })()`);
+  info['figCam and figMorph, after a save'] = saved;
+  ok('figCam and figMorph are read once and not kept by the save', !!saved && !saved.figCam && !saved.figMorph, saved);
+  await grab('figCam link');
 }
 
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
@@ -97,7 +135,7 @@ n++;
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
   await ev(`__cmwPOpen(${JSON.stringify(LINK_STATE)}, 'scene'); 1`);
-  await settled({ max: 30000, until: READY });
+  await reloadedFigure('Opened the scene.');
   const got = await ev(READ);
   info['open a classic state in the page (scene)'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`scene: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });

@@ -71,6 +71,13 @@ const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
   for (const [what, chain] of [['1 step', st.steps.slice(0, 1)], ['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
     await open(1440, 900, false, lang, chain);
+    if (what === '1 step') {
+      // (a one-step chain has no F chip: F is f₁ there)
+      const none = await ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); return { hidden: !f || f.getClientRects().length === 0, rail: document.querySelector('#svStrip .sv-rail').scrollWidth > document.querySelector('#svStrip .sv-rail').clientWidth + 1, addWords: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display !== 'none' }; })()`);
+      info[`1440 ${lang} ${what}`] = none;
+      ok(`1440 ${lang}, 1 step: no F chip, the thread does not scroll, + Add function keeps its words`, none.hidden && !none.rail && none.addWords, none);
+      continue;
+    }
     const w = await atRest();
     info[`1440 ${lang} ${what}`] = w;
     ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, on top at its centre, clear of the rail`,
