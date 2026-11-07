@@ -1,5 +1,5 @@
 // The globe suites' shared pixel check (p3_accept_cmd.js, p3_accept_steps_cmd.js): a globe pane's fill against the truth.
-// An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
+// An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, neutralFrame, handedness, FILL_DIFF, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
 // globeCheck(side, cls, step, mode, id) picks each pixel's point with the page's pick of that side (__cmwSphereW for 'R',
 // __cmwSphereWL for 'L'). A sample is fill when its frame differs from a reference frame without the fill by more than 24
 // (the sum of the channels' differences); the frames are the page's D1 (as drawn), D0 and Db. mode 'alpha' (the classic
@@ -14,15 +14,26 @@
 // transparent (alpha 0: the globe, its graticule, the boundary strokes and the shading are the same in both, so the
 // test sees the fill alone). Samples within 4 screen px of a class change (the rims, where the strokes are) and off the
 // globe are skipped; every STEP-th pixel is checked -> counts of inside / outside samples and the ones that disagree
+// a sample is fill when its frame differs from the reference by more than this (the sum of the channels' differences)
+const FILL_DIFF = 24;
 const DIFF = (P, Q) => `Math.abs(${P}[i] - ${Q}[i]) + Math.abs(${P}[i + 1] - ${Q}[i + 1]) + Math.abs(${P}[i + 2] - ${Q}[i + 2])`;
 const MODES = {
-  alpha: { off: '__cmwSet("alpha", 0)', on: '__cmwSet("alpha", 1)', fill: `(i, c) => (${DIFF('D1', 'D0')} > 24 ? 1 : 0)` },
-  scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: `(i, c) => (c > 0 && ${DIFF('D0', 'Db')} <= 24 ? -1 : ${DIFF('D1', 'Db')} > 24 ? 1 : 0)` },
+  alpha: { off: '__cmwSet("alpha", 0)', on: '__cmwSet("alpha", 1)', fill: `(i, c) => (${DIFF('D1', 'D0')} > ${FILL_DIFF} ? 1 : 0)` },
+  scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: `(i, c) => (c > 0 && ${DIFF('D0', 'Db')} <= 24 ? -1 : ${DIFF('D1', 'Db')} > ${FILL_DIFF} ? 1 : 0)` },
 };
 const fillSrc = (mode) => MODES[mode].fill;
 // the frame the toggle asked for is drawn: the page quiet, the steps view's glide done, no program linking
 const quiet = () => settled({ max: 15000, until: '!(window.__cmwSteps && __cmwSteps().moving) && GLR.pendingLinks === 0' });
 const grab = (side) => ev(`(() => { const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p3grab = window.__p3grab || {}; window.__p3grab[${JSON.stringify(side)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
+// the steps view's neutral frame of a side into the page's Db: the shape's eye in the list hidden, shown again after
+const neutralFrame = async (side, id = 's1') => {
+  const eye = JSON.stringify(`#shapeList .shape[data-id="${id}"] .eye`);
+  await ev(`document.querySelector(${eye}).click(); 1`);
+  await quiet();
+  await grab(side);
+  await ev('window.__p3Db = window.__p3grab[' + JSON.stringify(side) + ']; document.querySelector(' + eye + ').click(); 1');
+  await quiet();
+};
 const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   await grab(side);
   await ev('window.__p3D1 = window.__p3grab[' + JSON.stringify(side) + ']; ' + MODES[mode].off + '; 1');
@@ -30,15 +41,7 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   await grab(side);
   await ev('window.__p3D0 = window.__p3grab[' + JSON.stringify(side) + ']; ' + MODES[mode].on + '; 1');
   await quiet();
-  if (mode === 'scope') {
-    // (the shape's eye in the list: hidden for the neutral frame, shown again after)
-    const eye = JSON.stringify(`#shapeList .shape[data-id="${id}"] .eye`);
-    await ev(`document.querySelector(${eye}).click(); 1`);
-    await quiet();
-    await grab(side);
-    await ev('window.__p3Db = window.__p3grab[' + JSON.stringify(side) + ']; document.querySelector(' + eye + ').click(); 1');
-    await quiet();
-  }
+  if (mode === 'scope') await neutralFrame(side, id);
   return ev(`(() => {
   const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}), r = cv.getBoundingClientRect();
   const D1 = window.__p3D1, D0 = window.__p3D0, Db = window.__p3Db, GW = cv.width, dpr = cv.width / r.width;
@@ -66,8 +69,20 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   return o;
 })()`, 60000);
 };
+// the handedness of the pane's pick of a side: a screen triangle (x, y), (x + 4, y), (x, y - 4) maps to a triangle of the
+// same orientation, counted as [kept, reversed] over a grid of the pane (the plain lift would make every globe a mirror image)
+const handedness = (side) => ev(`(() => {
+  const out = [0, 0], pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'};
+  const r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect();
+  for (let y = 20; y < r.height - 20; y += 23) for (let x = 20; x < r.width - 20; x += 23) {
+    const a = pick(x, y), b = pick(x + 4, y), c = pick(x, y - 4);
+    if (!a || !b || !c) continue;
+    out[(b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]) > 0 ? 0 : 1]++;
+  }
+  return out;
+})()`);
 const EPI = Math.exp(-Math.PI);
 // the annulus e^-pi < |w| < 1 (z^i of H): inside beyond 3 px of both rims; outside: the hole cap and beyond |w| = 1
 const ANNULUS = `(w) => { const a = Math.hypot(w[0], w[1]), e = ${EPI}; return a > e && a < 1 ? 1 : -1; }`;
-  return { grab, globeCheck, fillSrc, EPI, ANNULUS };
+  return { grab, globeCheck, neutralFrame, handedness, fillSrc, FILL_DIFF, EPI, ANNULUS };
 })()
