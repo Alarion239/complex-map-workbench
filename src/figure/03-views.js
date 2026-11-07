@@ -18,6 +18,8 @@
     return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 };
   };
   const stepFor = (box, wpt) => niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), Math.max(2, Math.min(5, Math.round(wpt / 42))));
+  // X's outline in the deformation figures, and the floor footprint of an Inside region: a thin gray line (pt, colour)
+  const OUTLINE_W = 0.4, OUTLINE_GRAY = '#999999';
   // a polyline set [[x, y], ...] from Region.mapCurve's flat arrays
   const unflat = (fl) => { const o = []; for (let i = 0; i + 1 < fl.length; i += 2) o.push([fl[i], fl[i + 1]]); return o; };
   // the curves of a shape mapped by F, sampled for a panel box at wpt (0.1 pt deviation)
@@ -812,18 +814,42 @@
       // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
       if (A.svOn() && A.svMaskOn()) {
         const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
+        // a floor point is hidden where the relief stands in front of it: the height field along the ray from the eye to it,
+        // over the region's image (the surface is cut outside it), is above the ray (the last stretch of the ray, at the
+        // point's own place, is left out)
+        const mk = L.mask, hOfZ = A.svReliefAt(), RAY_STEPS = 64, RAY_END = 0.97;
+        const mpx = mk && mk.cv ? mk.cv.getContext('2d').getImageData(0, 0, mk.cv.width, mk.cv.height).data : null;
+        const onSurface = (z) => {
+          if (!mpx) return true;
+          const i = Math.floor((z.re - mk.box.x0) / (mk.box.x1 - mk.box.x0) * mk.cv.width), j = Math.floor((mk.box.y1 - z.im) / (mk.box.y1 - mk.box.y0) * mk.cv.height);
+          return i >= 0 && j >= 0 && i < mk.cv.width && j < mk.cv.height && mpx[4 * (j * mk.cv.width + i) + 3] > 127;
+        };
+        const hidden = (p) => {
+          const e = L.eye || [1, 1, 1];
+          for (let i = 1; i < RAY_STEPS * RAY_END; i++) {
+            const u = i / RAY_STEPS, x = e[0] + u * (p[0] - e[0]), y = e[1] + u * (p[1] - e[1]), zr = e[2] + u * (p[2] - e[2]);
+            if (Math.abs(x) > ax || Math.abs(y) > ay) continue;
+            const z = C(bx.x0 + (x / ax / 2 + 0.5) * (bx.x1 - bx.x0), bx.y0 + (y / ay / 2 + 0.5) * (bx.y1 - bx.y0));
+            if (!onSurface(z)) continue;
+            const v = hOfZ(z), h = Number.isFinite(v) && L.heightOf ? L.heightOf(v) : null;
+            if (h != null && h > zr) return true;
+          }
+          return false;
+        };
         let fp = '';
         for (const s of A.shapes()) {
           if (kindType(s) !== 'area') continue;
           for (const run of shapeCurves(s, F, bx, wpt, srcWin).pts) {
             let cur = [];
             const flush = () => { if (cur.length > 1) fp += 'M' + cur.map((q) => `${f2(q[0])} ${f2(q[1])}`).join('L'); cur = []; };
-            for (const p of run) { const q = inBox(p) ? proj([Xw(p[0]), Yw(p[1]), z0]) : null; if (q) cur.push(q); else flush(); }
+            for (const p of run) {
+              const w3 = inBox(p) ? [Xw(p[0]), Yw(p[1]), z0] : null, q = w3 && !hidden(w3) ? proj(w3) : null;
+              if (q) cur.push(q); else flush();
+            }
             flush();
           }
         }
-        // (the gray line of X's outline in the deformation figures: #999999, 0.4 pt)
-        if (fp) items.push(`<path d="${fp}" stroke="#999999" stroke-width="0.4" fill="none" stroke-linecap="butt" stroke-linejoin="round" class="floor-footprint"/>`);
+        if (fp) items.push(`<path d="${fp}" stroke="${OUTLINE_GRAY}" stroke-width="${OUTLINE_W}" fill="none" stroke-linecap="butt" stroke-linejoin="round" class="floor-footprint"/>`);
       }
     }
     return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };
@@ -878,7 +904,7 @@
       // (X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
       // Homework figure)
       const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
-      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
+      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: OUTLINE_W, color: OUTLINE_GRAY, cap: 'butt' });
       shapes.forEach((s, si) => {
         if (kindType(s) === 'point') return;
         const tn = tonesOf(s, o), open = P.dashOpen && kindType(s) === 'area' && Region.isOpen && Region.isOpen(s);
@@ -990,7 +1016,7 @@
     if (!art) return null;
     const Hm = Hof(m), curves = [];
     const H0f = sv || A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
-    for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
+    for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: OUTLINE_W, color: OUTLINE_GRAY, cap: 'butt' });
     let bwI = 0;
     for (const s of shapes) {
       const t = kindType(s);

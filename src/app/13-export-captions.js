@@ -345,6 +345,8 @@
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
     svMaskOn,
+    // the height value of the shown plane's relief at a point of that plane (the figure's depth test)
+    svReliefAt: () => svHeightValue(svPlanes()[Math.round(SV.g.x)]),
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
     // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
     // plane the line saying where the colour is carried from; and the plane's name for the axis title
