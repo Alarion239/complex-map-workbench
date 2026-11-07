@@ -62,7 +62,7 @@ if (hasOffer) {
   await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 2'); await quiet();
   const s4 = await sv();
   ok('f2 alone: its first new step stays shown alone', await ev(`!!document.querySelector('#svStrip .sv-whole')`) && s4.planes.length === 2, s4);
-  await clickSel('#svStrip .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
+  await clickSel('#svStrip .sv-alone .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
   const s5 = await sv();
   ok('Whole chain after it: the place is the remapped one (the page opens on the plane 2, which becomes 4)', s5.planes.length === 6 && Math.abs(s5.x - 4) < 1e-9, s5);
 } else ok('f2 alone: the Split offer is there', false, 'no offer');
