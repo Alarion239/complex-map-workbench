@@ -14,11 +14,27 @@ const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwStep
 // what the steps view must show for the classic picture (the rule of Views.svOf: X → Y with areas is Inside regions on the plane)
 const WANT = { on: true, x: 0, T: 3, scope: 'in', surf: 'plane', planes: [0, 1, 2, 3], sel: 2 };
 const openAt = async (url) => { await go(url); await settled({ max: 30000, until: READY }); };
+// A link opens in a second load: openFigure writes the state and reloads the page. So the link read waits for that load's
+// own open toast and the steps view on it, and the navigation the reload itself causes is waited through; any other error
+// still fails the test (30 s deadline). The same wait as test/steps_link_migrate_cmd.js.
+const NAV = /navigated or closed|is not defined/;
+const reloadedFigure = async (toastText) => {
+  const until = `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
+  for (let i = 0; i < 120; i++) {
+    let r = null;
+    try { r = await ev(until); } catch (e) { if (!NAV.test(String(e && e.message || e))) throw e; }
+    if (r && r.__exc && NAV.test(String(r.__exc))) r = null;
+    if (r === true) return;
+    await sleep(250);
+  }
+  throw new Error(`the figure did not open: no "${toastText}" on the reloaded page`);
+};
 
 // (a) the link: the steps view opens it from the URL alone
 {
   const ns = 'clfx' + Date.now();
-  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${LINK}`);
+  await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${LINK}`);
+  await reloadedFigure('Opened the figure from the link.');
   const got = await ev(READ);
   info.link = got;
   for (const k of Object.keys(WANT)) ok('link: ' + k, eq(got[k], WANT[k]), { k, want: WANT[k], got });
