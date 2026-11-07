@@ -559,8 +559,8 @@ const Export = (() => {
       if (!sel || !alive()) return null;
       mfFigCache.key = key; mfFigCache.sel = sel;
     }
-    if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
     // o.keep(z): only the points it accepts are named and returned (the sphere's figure draws those seen from the camera's side)
+    if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
     else if (o.keep) sel = Object.assign({}, sel, { kept: sel.kept.filter((k) => o.keep(k.sp.z)) });
     // (a steps-view source: the sentence naming the paths, for the figure's own caption to carry)
     if (o.src) {

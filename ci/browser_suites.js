@@ -101,8 +101,8 @@ const SUITES = {
   // (one language a run; its pages: the test page without MathJax and with the vendored one)
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
-  'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },
-  'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
+  'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
+  'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
   // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
   'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
