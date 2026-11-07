@@ -10,7 +10,7 @@
 //   principal branch (the log's strip, √'s right half-plane), every sheet over it, so the plane at rest, one surface
 //   over the whole window, is not the bound. All sheets then have at least 90 % of the pixels the same chain has with
 //   sheets off, and the logarithm's singular point has its patch (carried.patches).
-// - the logarithm mid-glide (u = .25, .5, .75): no hole in the surface, and the surface covers at least the smaller end's pixels less 5 %
+// - the logarithm mid-glide (u = .25, .5, .75): no hole in the surface, none at the branch point's image seen from above, and the surface covers at least the smaller end's pixels less 5 %
 // - at u = 0.998 the surface pixels' colours match the plane at rest within 32/255 (at most 5 % off).
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
@@ -85,6 +85,9 @@ const fromAbove = async (fn) => {
   await ev(`__cmwCam('L', { pitch: ${cam.pitch} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
   return r;
 };
+// The background pixels (the holes' colours) in the square of half-side r canvas px about each pole patch's image
+// (__cmwLandPolePx: pane CSS px, scaled to the canvas): the speck a patch with a hole in its middle leaves at a branch point
+const speckAtPoles = (r) => ev(`(() => { const cv = document.getElementById('canvasL'), c = cv.getContext('2d'); const pts = __cmwLandPolePx() || []; const k = cv.width / cv.clientWidth; return pts.map((p) => { if (!p) return null; const x0 = Math.round(p[0] * k) - ${r}, y0 = Math.round(p[1] * k) - ${r}, n = 2 * ${r} + 1, d = c.getImageData(x0, y0, n, n).data; let bg = 0; for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]); if (mx - mn <= 30 && mn >= 200 && mx <= 244) bg++; } return { at: [Math.round(p[0] * k), Math.round(p[1] * k)], bg }; }); })()`);
 for (const sheets of [false, true]) {
   const ns = 'landcover' + Date.now();
   await loadView('steps', ns, { shapes: ANN, steps: LOG, sheets, height: 'im' });
@@ -103,6 +106,9 @@ for (const sheets of [false, true]) {
     const name = `log of an annulus, sheets ${sheets ? 'All' : 'off'}, u=${u}`;
     ok(`${name}: no hole in the surface`, h.worst <= 12, h);
     ok(`${name}: no hole in the surface seen from above`, a.worst <= 24, a);
+    const sp = await fromAbove(() => speckAtPoles(8));
+    info[`log mid ${sheets} ${u} speck`] = sp;
+    ok(`${name}: no speck at the branch point's image seen from above (at most 2 background pixels within 8 px)`, sp.length > 0 && sp.every((q) => q && q.bg <= 2), sp);
     ok(`${name}: from above the surface covers at least the ends' pixels less 5 %`, a.n >= floor, { a, ends });
   }
 }
