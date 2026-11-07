@@ -1526,7 +1526,7 @@ async function imageRUnit(pre, scene, dpr, over = {}) {
 async function smUnit(pre, scene) {
   const o = await openApp(sceneState(scene, { rightMode: 'image', meshN: 240 }));
   detail(`${pre}.open`, o);
-  const sm = () => B.ev(`typeof __cmwSphere === 'function' ? (() => { const s = __cmwSphere(); return { built: s.stats.built, maxSlice: s.stats.maxSlice, ms: s.stats.ms, slices: s.stats.slices, partial: s.stats.partial, entries: s.entries.map((e) => [e.why, e.n, e.ms, e.settleMs, e.partial]), maxPerSlot: Math.max(0, ...Object.values(s.entries.reduce((m, e) => { m[e.slot] = (m[e.slot] || 0) + 1; return m; }, {}))) }; })() : null`);
+  const sm = () => B.ev(`typeof __cmwSphere === 'function' ? (() => { const s = __cmwSphere(); return { built: s.stats.built, maxSlice: s.stats.maxSlice, ms: s.stats.ms, slices: s.stats.slices, long: s.stats.long || [], partial: s.stats.partial, entries: s.entries.map((e) => [e.why, e.n, e.ms, e.settleMs, e.partial]), maxPerSlot: Math.max(0, ...Object.values(s.entries.reduce((m, e) => { m[e.slot] = (m[e.slot] || 0) + 1; return m; }, {}))) }; })() : null`);
   const s0 = await sm();
   detail(`${pre}.sphere_mesh`, s0);
   if (s0) {

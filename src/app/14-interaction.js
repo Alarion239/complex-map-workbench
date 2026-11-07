@@ -433,7 +433,7 @@
     }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to }; return; }
+      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
     }
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
@@ -1121,7 +1121,7 @@
       if (drag.mode === 'cut') {
         // (in a later plane the pointer is pulled back to the cut's own plane, in an earlier one mapped forward to it; where there
         // is no such point the cut holds)
-        const zc = drag.fwd ? drag.fwd(z) : drag.F ? cutPull(drag.F, z, drag.q, drag.from, drag.to) : z;
+        const zc = drag.fwd ? drag.fwd(z) : drag.F ? cutPull(drag.F, z, drag.q, drag.from, drag.to, drag.Fc) : z;
         if (!zc || !CX.isFin(zc)) return;
         if (drag.F) drag.q = zc;
         setCut(drag.step, Math.atan2(zc.im - drag.p.im, zc.re - drag.p.re) / DEG, S.snap);
@@ -1328,7 +1328,7 @@
         const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
         return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
       };
-      const fv = (dp) => land ? hRow(dp) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
+      const fv = (dp) => land ? (landOffRegion(render3D.mask, z) ? '' : hRow(dp)) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
       const forms = [
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))) + fv(4),
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + fv(4),
