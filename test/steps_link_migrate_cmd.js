@@ -144,5 +144,19 @@ n++;
   await grab('scene');
 }
 
+// a link or a scene carries the figure, not the viewer's panels: no hideLeft or hideRight whichever panels are hidden, and a
+// right plane that is still fitted to its content (auto) has no rightView
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev('__cmwSet("hideLeft", true); __cmwSet("hideRight", true); 1');
+  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: o.rightView, steps: o.steps.length }; })()');
+  info['figureState'] = fs;
+  ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
+  ok('figureState: rightView is null while the right plane is fitted (auto)', !!fs && fs.rightView === null, fs);
+  await grab('figureState');
+}
+
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);
 return { pass: fails.length === 0, fails, info, errs };
