@@ -32,7 +32,8 @@ const start = async (expr) => {
   await loadHere(ns, fn(expr));
   await ev(`__cmwSetMain('phase')`); await settle();
   await click(5, 300); await settle();
-  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); await new Promise((r) => setTimeout(r, 600)); 1`);
+  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); 1`);
+  await settled({ until: `Sound.state().audio === 'running'`, max: 4000, panes: false });
   await ev(`__cmwSet('loop', false); 1`);
   await spy();
 };
