@@ -2195,6 +2195,8 @@
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
     svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
   }
+  // (CSS px: a centring margin smaller than this is none, and a change smaller than this leaves the margin as it is)
+  const SV_CENTRE_MIN = 0.5;
   // The thread is centred on the pane: the rail gives up, on the side of the narrower group, what the wider group takes
   // (▶ ‹ stay at the left edge, the right group at the right edge), so the first and last dots lie evenly about the pane's
   // centre line. It gives up no more than leaves the thread its width (need): a tight pane shifts the thread as little as
@@ -2209,10 +2211,10 @@
       const left = rr.left - wasL - (sr.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth));
       const right = (sr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth)) - (rr.right + wasR);
       const m = Math.max(0, Math.min(Math.abs(right - left), rr.width + wasL + wasR - need));
-      if (m >= 0.5) { if (right > left) ml = m; else mr = m; }
+      if (m >= SV_CENTRE_MIN) { if (right > left) ml = m; else mr = m; }
     }
     const next = ml + mr;
-    if (Math.abs(next - was) < 0.5 && (parseFloat(rail.style.marginLeft) || 0) === ml) return;
+    if (Math.abs(next - was) < SV_CENTRE_MIN && (parseFloat(rail.style.marginLeft) || 0) === ml) return;
     rail.style.marginLeft = ml ? `${ml.toFixed(1)}px` : ''; rail.style.marginRight = mr ? `${mr.toFixed(1)}px` : '';
     E.railM = next; E.centres = null;
     E.strip.dataset.centre = next > 0 ? 'shift' : 'none';
