@@ -16,7 +16,7 @@ const loadHere = async (ns, st) => {
 const fails = [], R = {};
 // the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
 // the digit keys and the toggle button are gone
-const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
+const { morphKey, mainView, morphPlayKey, playAdv, playEnded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (side, re, im) => ev(`__cmwW2S('${side}', ${re}, ${im})`);
@@ -139,7 +139,7 @@ await ev(`__cmwSet('loop', false); 1`);
 await spy();
 {
   // (M opens and plays once: the transport bar shrinks the plane; then the pointer on 0.5 + 0.003i and Play again)
-  await morphKey(); await sleep(3000);   // standards-ok: the recording and the loop run in real time
+  await morphKey(); await playEnded();
   const p = await W('L', 0.5, 0.003);
   await move(p[0] + 3, p[1]); await sleep(40); await move(p[0], p[1]); await settle(300);
   const phi0 = (await snd()).phi;
@@ -296,8 +296,8 @@ await spy();
   await ev(`__cmwSetMain('phase')`); await settle(900);
   const q = await W('L', ...Z);
   await move(q[0] + 3, q[1]); await sleep(40); await move(q[0], q[1]); await settle(600);
-  await morphKey(); await sleep(700); await key('Escape'); await settle(100); await take();   // standards-ok: the recording and the loop run in real time
-  await sleep(1800); await morphKey(); await sleep(1000);   // standards-ok: the recording and the loop run in real time
+  await morphKey(); await playAdv(0.3); await key('Escape'); await settled(); await take();
+  await settled(); await morphKey(); await settled();
   const e1 = await take(), s1 = await snd();
   await move(q[0] + 3, q[1]); await sleep(40); await move(q[0], q[1]); await settle(600);
   await key('Escape'); await settle(100); await take();

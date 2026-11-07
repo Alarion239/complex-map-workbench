@@ -161,6 +161,8 @@ if (SV) {
   const nx = 'Next: ' + CH[2].title, n = chOf('planes').steps.length;
   check(`end of a chapter: "${nx}" (or Next → with that name) on the strip's one row`, new RegExp(`${n} of ${n}`).test(g.count) && (g.next === nx || g.label === nx) && g.h <= 62, g);
   await snap('tour-planes-end-dark');
+} else {
+  await open('t3', { chapter: 'views', step: 0 }, 1440, 900, true);
 }
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
@@ -183,9 +185,9 @@ if (SV) {
   await snap('tour-range-light');
   await nextStep();
   check('Next on Part of the chain starts Editing the chain', ((await cur()) || {}).chapter === CH[3].id, await cur());
-  await startAndWait({ chapter: 'analysis' });
-  g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 }
+await startAndWait({ chapter: 'analysis' });
+g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
 g = await ev(`(Tour.lit() || {}).body`);
 // (the steps view's step is Shapes on a later plane: a later plane's regions pulled back to z)
@@ -231,9 +233,11 @@ check('Natural domain comes next, and its copy matches the F Inspector of the zp
 await snap('tour-domain-light');
 await ev('Tour.next()'); await settle(1500);
 check('then Guarantees', (await cur()).id === 'guarantees');
-// (the chapter left by its last Next: Deformation, or in the steps view Playing the chain)
-const LEFT = chOf(SV ? 'playing' : 'deform');
-check(`chapter counted done on leaving it (at its rev ${LEFT.rev})`, (await recOf('t4')).done[LEFT.id] === LEFT.rev, await recOf('t4'));
+// (the chapter left by the last Next of the Playing the chain walk above; the classic run does not walk one)
+if (SV) {
+  const LEFT = chOf('playing');
+  check(`chapter counted done on leaving it (at its rev ${LEFT.rev})`, (await recOf('t4')).done[LEFT.id] === LEFT.rev, await recOf('t4'));
+}
 
 // 6. welcome (centred) and the end of Basics
 await open('t5', { chapter: 'basics', step: 0 }, 1440, 900, true);

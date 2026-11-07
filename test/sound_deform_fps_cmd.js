@@ -32,7 +32,7 @@ for (const [name, steps] of Object.entries(CH)) {
     for (const on of [false, true]) {
       await ev(`Sound.set({ on: true, sonify: ${on} }, { quiet: true }); 1`);
       await move(p[0] + 3, p[1]); await sleep(40); await move(p[0], p[1]); await sleep(200);
-      await morphKey(); await sleep(600);   // standards-ok: the recording and the loop run in real time
+      await morphKey(); await settled();
       const r = await ev(`await (async () => {
         const A = Calc.argStep, O = Calc.orderAt, PS = Sound.pathStep; let tr = 0, calls = 0;
         const wrap = (f) => function (...a) { const t = performance.now(); try { return f.apply(this, a); } finally { tr += performance.now() - t; calls++; } };
@@ -46,7 +46,7 @@ for (const [name, steps] of Object.entries(CH)) {
         return { fps: +(1000 * iv.length / iv.reduce((s, x) => s + x, 0)).toFixed(1), p95: q(iv, 0.95), max: q(iv, 1), workP95: q(work, 0.95), workMax: q(work, 1), soundP95: q(per, 0.95), soundMax: q(per, 1), evals: __cmwSound().fcN - fc0 };
       })()`, 60000);
       out[`${name}_${cpu}x_${on ? 'on' : 'off'}`] = r;
-      await morphKey(); await sleep(400);   // standards-ok: the recording and the loop run in real time
+      await morphKey(); await settled();
     }
   }
   await send('Emulation.setCPUThrottlingRate', { rate: 1 });

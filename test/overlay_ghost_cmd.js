@@ -13,7 +13,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1280, 800, false);
 await load('ovg' + Date.now(), {});
-for (let k = 0; k < 120 && !(await ev(`document.readyState === 'complete' && !!document.querySelector('#svStrip .sv-add')`)); k++) await sleep(250);
+await settled({ only: true, max: 30000, until: `document.readyState === 'complete' && !!document.querySelector('#svStrip .sv-add')` });
 
 // A
 info.attrs = await ev(`['overlayL', 'overlayR'].map((id) => { const c = document.getElementById(id), a = c && c.getContext('2d').getContextAttributes(); return a ? !!a.willReadFrequently : null; })`);
