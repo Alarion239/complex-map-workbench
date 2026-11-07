@@ -1,36 +1,47 @@
 // The globe suites' shared pixel check (p3_accept_cmd.js, p3_accept_steps_cmd.js): a globe pane's fill against the truth.
 // An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
-// globeCheck(side, cls, step, mode) picks each pixel's point with the page's pick of that side (__cmwSphereW for 'R',
-// __cmwSphereWL for 'L'). mode 'alpha' (the classic panes): the fill is what the frame has over the same frame with the
-// fill's alpha 0. mode 'scope' (the steps view's globe, scope Inside regions): the fill is the colour the Everywhere frame
-// shows that the Inside regions frame keeps (a sample the truth puts inside, where Everywhere is grey, is left out: there is
-// no colour to keep); a sample the truth puts outside is fill when the Inside regions frame is coloured there at all (a
-// channel spread of 60 or more: the globe's own tint spreads its channels by about 40).
-// fillSrc(mode) is the page function fillAt(i, c) (c: the truth's class of the sample, 1 inside, -1 outside) for either, over the page's D1 (the frame with the fill) and D0 (without).
+// globeCheck(side, cls, step, mode, id) picks each pixel's point with the page's pick of that side (__cmwSphereW for 'R',
+// __cmwSphereWL for 'L'). A sample is fill when its frame differs from a reference frame without the fill by more than 24
+// (the sum of the channels' differences); the frames are the page's D1 (as drawn), D0 and Db. mode 'alpha' (the classic
+// panes): the reference D0 is the same frame with the fill's alpha 0. mode 'scope' (the steps view's globe, scope Inside
+// regions, the region of shape id): D0 is the Everywhere frame, and the reference Db is the same frame with the shape hidden
+// (Inside regions with no area drawn is the neutral globe: its tint, shading and rims, no colour); a sample the truth puts
+// inside is left out where Everywhere shows nothing over Db (there is no colour to keep).
+// fillSrc(mode) is the page function fillAt(i, c) (c: the truth's class of the sample, 1 inside, -1 outside) for either.
 (() => {
 // a globe pane's fill against the truth: every pixel's point w (the pane's own pick) is classified by cls(w) (page code:
 // 1 inside, -1 outside, 0 neither); a pixel is fill where the frame differs from the same frame drawn with the fill
 // transparent (alpha 0: the globe, its graticule, the boundary strokes and the shading are the same in both, so the
 // test sees the fill alone). Samples within 4 screen px of a class change (the rims, where the strokes are) and off the
 // globe are skipped; every STEP-th pixel is checked -> counts of inside / outside samples and the ones that disagree
+const DIFF = (P, Q) => `Math.abs(${P}[i] - ${Q}[i]) + Math.abs(${P}[i + 1] - ${Q}[i + 1]) + Math.abs(${P}[i + 2] - ${Q}[i + 2])`;
 const MODES = {
-  alpha: { off: '__cmwSet("alpha", 0)', on: '__cmwSet("alpha", 1)', fill: '(i, c) => (Math.abs(D1[i] - D0[i]) + Math.abs(D1[i + 1] - D0[i + 1]) + Math.abs(D1[i + 2] - D0[i + 2]) > 24 ? 1 : 0)' },
-  scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: '(i, c) => { const sp = (P) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]); if (c < 0) return sp(D1) < 60 ? 0 : 1; return sp(D0) < 60 ? -1 : Math.abs(D1[i] - D0[i]) + Math.abs(D1[i + 1] - D0[i + 1]) + Math.abs(D1[i + 2] - D0[i + 2]) <= 24 ? 1 : 0; }' },
+  alpha: { off: '__cmwSet("alpha", 0)', on: '__cmwSet("alpha", 1)', fill: `(i, c) => (${DIFF('D1', 'D0')} > 24 ? 1 : 0)` },
+  scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: `(i, c) => (c > 0 && ${DIFF('D0', 'Db')} <= 24 ? -1 : ${DIFF('D1', 'Db')} > 24 ? 1 : 0)` },
 };
 const fillSrc = (mode) => MODES[mode].fill;
 // the frame the toggle asked for is drawn: the page quiet, the steps view's glide done, no program linking
 const quiet = () => settled({ max: 15000, until: '!(window.__cmwSteps && __cmwSteps().moving) && GLR.pendingLinks === 0' });
 const grab = (side) => ev(`(() => { const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p3grab = window.__p3grab || {}; window.__p3grab[${JSON.stringify(side)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
-const globeCheck = async (side, cls, step = 2, mode = 'alpha') => {
+const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   await grab(side);
   await ev('window.__p3D1 = window.__p3grab[' + JSON.stringify(side) + ']; ' + MODES[mode].off + '; 1');
   await quiet();
   await grab(side);
   await ev('window.__p3D0 = window.__p3grab[' + JSON.stringify(side) + ']; ' + MODES[mode].on + '; 1');
   await quiet();
+  if (mode === 'scope') {
+    // (the shape's eye in the list: hidden for the neutral frame, shown again after)
+    const eye = JSON.stringify(`#shapeList .shape[data-id="${id}"] .eye`);
+    await ev(`document.querySelector(${eye}).click(); 1`);
+    await quiet();
+    await grab(side);
+    await ev('window.__p3Db = window.__p3grab[' + JSON.stringify(side) + ']; document.querySelector(' + eye + ').click(); 1');
+    await quiet();
+  }
   return ev(`(() => {
   const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}), r = cv.getBoundingClientRect();
-  const D1 = window.__p3D1, D0 = window.__p3D0, GW = cv.width, dpr = cv.width / r.width;
+  const D1 = window.__p3D1, D0 = window.__p3D0, Db = window.__p3Db, GW = cv.width, dpr = cv.width / r.width;
   const pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'};
   const cls = ${cls}, fillAt = ${fillSrc(mode)};
   const Wd = Math.floor(r.width), Hd = Math.floor(r.height), C = new Int8Array(Wd * Hd), WW = [];

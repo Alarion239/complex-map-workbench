@@ -10,6 +10,11 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const { globeCheck, fillSrc, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'));
 const base = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
+// the neutral reference's region: with s1 hidden, Inside regions colours only this small disc (a few pixels of its image) and
+// leaves the rest of the globe neutral, the frame the fill is measured against (globe_fill_kit.js). It sits where its image
+// is outside the truth the scene checks (its colour is in both frames, so it reads as no fill there), in the lower half-plane
+// for the scenes whose truth is the image of H and in the upper one for the lower half-plane's
+const REF = (up) => ({ id: 's2', kind: 'disc', c: [3, up ? 3 : -3], r: 0.05 });
 const ZI = { type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true };
 // the page's own idle: the glide finished, the globe's links built and its jobs done
 const wait = () => settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSteps().moving && GLR.pendingLinks === 0 && !__cmwSphere().running && !__cmwSphere().jobs.length' });
@@ -31,7 +36,7 @@ const check = (side, cls, step) => globeCheck(side, cls, step, 'scope');
 // ---- z^i(H): the camera under the south pole, zoomed in on the hole cap (|w| < e^-pi is a cap of 5 degrees; closer, the
 // strokes, drawn on a shell 0.4 % above the globe, stand several px off their rims at the view's edges: parallax), then the side
 await view(1440, 900, false);
-await globe('p3accs', [H], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -1.45, yaw: -0.6, dist: 2.2 });
+await globe('p3accs', [H, REF(false)], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -1.45, yaw: -0.6, dist: 2.2 });
 R.pathsZi = await paths();
 ok('(f) z^i(H) on the w-globe draws inverse (the globe carries its regions by the exact pass; no shape is forward; nothing pending, compiling or failed)', R.pathsZi.carry.carried && R.pathsZi.carry.path === 'inverse' && R.pathsZi.paths.some((p) => p.role === 'L' && p.viewKind === 'globe') && !R.pathsZi.paths.some((p) => p.path === 'forward') && !!R.pathsZi.status && !R.pathsZi.status.pending && !R.pathsZi.status.compiling && !R.pathsZi.status.error, R.pathsZi);
 R.f_hole = await check('L', ANNULUS);
@@ -54,11 +59,11 @@ const CAY = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: t
 const DISC_IN = `(w) => (Math.hypot(w[0], w[1]) < 1 ? 1 : -1)`;
 const DISC_OUT = `(w) => (Math.hypot(w[0], w[1]) > 1 ? 1 : -1)`;
 // looking at w = 1 (the image of infinity) from outside the equator: (1, 0, 0) under the conjugate lift
-await globe('p3accsc', [H], [CAY], { cx: 0, cy: 1, s: 60 }, { pitch: 0.05, yaw: 0, dist: 3 });
+await globe('p3accsc', [H, REF(false)], [CAY], { cx: 0, cy: 1, s: 60 }, { pitch: 0.05, yaw: 0, dist: 3 });
 R.cay_w1 = await check('L', DISC_IN);
 ok('(f) Cayley(H) at w = 1: no notch (fill inside |w| < 1 up to 3 px of the rim)', R.cay_w1.inN >= 400 && R.cay_w1.inBad === 0 && R.cay_w1.outBad === 0, R.cay_w1);
 await shot('p3s_f_cayley_w1');
-await globe('p3accsd', [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }], [CAY], { cx: 0, cy: -1, s: 60 }, { pitch: 1.45, yaw: -0.6, dist: 3 });
+await globe('p3accsd', [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }, REF(true)], [CAY], { cx: 0, cy: -1, s: 60 }, { pitch: 1.45, yaw: -0.6, dist: 3 });
 R.cay_N = await check('L', DISC_OUT);
 // (the pole pixel itself has no w: the pick returns null at infinity; its neighbours have |w| in the thousands)
 R.cay_N_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && Math.hypot(w[0], w[1]) > 50) n++; } return n; })()`);
@@ -66,14 +71,14 @@ ok('(f) Cayley of the lower half-plane covers the north pole', R.cay_N.inN >= 40
 await shot('p3s_f_cayley_N');
 
 // ---- log(H) on the w-globe reaches the pole: the strip 0 < Im w < pi, filled up to the pole
-await globe('p3accsl', [H], [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], { cx: 0, cy: 1, s: 60 }, { pitch: 1.2, yaw: -1.57, dist: 3 });
+await globe('p3accsl', [H, REF(false)], [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], { cx: 0, cy: 1, s: 60 }, { pitch: 1.2, yaw: -1.57, dist: 3 });
 // (the cusp at the pole, where the strip is under a pixel wide and its pixels are partly covered, is left to logH_far)
 const STRIP = `(w) => (Math.hypot(w[0], w[1]) > 50 ? 0 : w[1] > 0 && w[1] < Math.PI ? 1 : -1)`;
 R.logH = await check('L', STRIP, 1);
 // the fill pixel nearest the pole: its |w|, and the strip's width there in pixels (pi / footprint): the fill reaches
 // the pole when it ends where the strip is about a pixel wide (a lifted mesh that stopped where the strip is still wide would fail)
 R.logH_far = await ev(`(() => {
-  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), D1 = window.__p3D1, D0 = window.__p3D0, GW = cv.width, dpr = cv.width / r.width;
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), D1 = window.__p3D1, D0 = window.__p3D0, Db = window.__p3Db, GW = cv.width, dpr = cv.width / r.width;
   const fillAt = ${fillSrc('scope')};
   let best = null;
   for (let y = 2; y < r.height - 2; y++) for (let x = 2; x < r.width - 2; x++) {
