@@ -1784,13 +1784,8 @@
     const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' };
     const info = sphereView(pane, camL, CAML, Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver()));
     let meshed = !!(info && info.carried) && !inv;
-    if (info && inv && fwd.length && GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-      // (the mesh over the exact pass's globe, kept inside the regions that take it: sphereView's mask, drawn over the frame)
-      try {
-        const mi = withSolidRegions(() => sphereView(pane, camL, CAML, Object.assign({ maskRegions: true, only: new Set(fwd), carried: mesh }, look)));
-        meshed = !!(mi && mi.carried);
-      } catch (e) { console.error('steps view globe mixed carry', e); }
-    }
+    // (the mesh over the exact pass's globe, kept inside the regions that take it)
+    if (info && inv && fwd.length) meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
     const exact = !!inv && inv.length > 0;
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;

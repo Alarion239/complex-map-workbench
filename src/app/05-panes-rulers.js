@@ -1052,6 +1052,15 @@
       if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
     }
   }
+  // the colour globe of o drawn over the pane's globe, kept inside the regions (regions drawn solid; o.only: only these): true
+  // when its colour was drawn, false while the mask's program links (the caller asks again) or on an error
+  function maskedGlobe(pane, c, base, o) {
+    if (!(GLR.keepInAlpha && GLR.keepInAlpha(true))) return false;
+    try {
+      const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign({}, o, { imageMode: false, maskRegions: true })));
+      return !!(mi && mi.carried);
+    } catch (e) { console.error('globe region mask', e); return false; }
+  }
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
@@ -1066,13 +1075,7 @@
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
-      let carried = false;
-      if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-        try {
-          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
-          carried = !!(mi && mi.carried);
-        } catch (e) { console.error('globe region mask', e); }
-      }
+      const carried = maskedGlobe(pane, c, base, Object.assign(look, { pre: null }));
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
