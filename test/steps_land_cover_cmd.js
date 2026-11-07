@@ -42,12 +42,15 @@ for (const c of CASES) {
   for (const [tag, k, x] of [['u=.002', 0, 0.002], ['u=.998', last, last - 0.002]]) {
     await ev(`__cmwSteps({ go: ${k}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const rest = await surface();
+    const restTicks = await ev('__cmwLandTicks()');
     await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const carry = await ev('__cmwLandCarry()');
     const got = await surface();
+    const gotTicks = await ev('__cmwLandTicks()');
     const r = { rest, got, coverage: +(got.n / rest.n).toFixed(3), carried: !!carry, patches: carry && carry.patches };
     info[name][tag] = r;
     ok(`${name}, ${tag}: a carried frame`, r.carried, r);
+    if (k !== 0) ok(`${name}, ${tag}: the height axis has the plane's labels (as many)`, gotTicks.length === restTicks.length && restTicks.length > 1, { rest: restTicks, got: gotTicks });
     if (c.sheets && k !== 0) ok(`${name}, ${tag}: the sheets' height morphs from the linear function to the parked plane's compressed one`, !!carry && !!carry.morph && carry.morph.a.height === 'imLin' && carry.morph.b.height === 'im' && carry.morph.u > 0.99, r);
     if (k === 0 || c.rest998) {
       ok(`${name}, ${tag}: the carried surface has >= ${c.min * 100} % of the plane's pixels`, r.coverage >= c.min, r);
