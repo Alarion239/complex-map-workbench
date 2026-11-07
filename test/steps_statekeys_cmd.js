@@ -17,7 +17,9 @@ const open = async (st, url = `?ns=${ns}&lang=en&view=steps`, hash = '') => {
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem(${JSON.stringify(lsKey)}, ${JSON.stringify(JSON.stringify(st))}); 1`);
   await nav(`http://localhost:${PORT}/test.html${url}${hash}`);
-  await until("typeof __cmwKeys === 'function' && typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 1 && !!document.querySelector('#paneL canvas')");
+  const ready = await until("typeof __cmwKeys === 'function' && typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 1 && !!document.querySelector('#paneL canvas')");
+  // a wait that ran out is a failure of its own, with what the page was still waiting for, not a read of a page without the hooks
+  if (!ready.ok) fails.push({ name: `the page is ready: ${url}${hash.slice(0, 12)}`, got: ready });
   await quiet();
   return ev('__cmwKeys()');
 };
@@ -45,6 +47,18 @@ ok('v4 missing: a shape with no colour gets index 0', k.shapeCi[1] === 0, k);
 ok('v4 missing: the flag is set', k.v4 === true, k);
 k = await open(old4({ v4: true }));
 ok('v4 present: alpha and meshN are kept', k.alpha === 0.4 && k.meshN === 480, k);
+// ---- out-of-range settings are clamped on load: alpha to 0.2..1, meshN to 80..1920
+const clamp = async (extra) => open(base(Object.assign({}, FLAGS, extra)));
+k = await clamp({ alpha: 5 });
+ok('alpha 5 is clamped to 1', k.alpha === 1, k);
+k = await clamp({ alpha: 0 });
+ok('alpha 0 is clamped to 0.2', k.alpha === 0.2, k);
+k = await clamp({ alpha: -1 });
+ok('alpha -1 is clamped to 0.2', k.alpha === 0.2, k);
+k = await clamp({ meshN: 1e6 });
+ok('meshN 1e6 is clamped to 1920', k.meshN === 1920, k);
+k = await clamp({ meshN: 3 });
+ok('meshN 3 is clamped to 80', k.meshN === 80, k);
 const tgt = [{ id: 't0', kind: 'point', p: [0, 0] }, { id: 't1', kind: 'point', p: [1, 0] }, { id: 't2', kind: 'point', p: [0, 0], label: 'origin' }];
 k = await open(base({ v3: true, v4: true, v6: true, targets: tgt }));
 info.noV5 = k;
