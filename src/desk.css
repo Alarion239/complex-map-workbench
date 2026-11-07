@@ -813,4 +813,3 @@ html.ph .cp-pop .seg { display: grid; grid-template-columns: repeat(3, 1fr); }
 .pane-head > .sv-tnote { text-overflow: clip; }
 .pane-head > .sv-tnote[hidden] { display: none; }
 html.ph .ph-tnote { font: var(--t-label); color: var(--muted); padding: 4px 0; white-space: normal; }
-.sv-track > .sv-wholemap, .sv-track > .sv-add { margin-left: 8px; }

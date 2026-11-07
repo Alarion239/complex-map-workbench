@@ -2029,13 +2029,12 @@
     E.wholeMap.hidden = S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
     E.strip.classList.toggle('sv-nof', E.wholeMap.hidden);   // (the phone's track keeps room for F only while F is there)
     // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
-    // (a step shown alone keeps its planes and its Whole chain pill whole: F and Add, disabled, end what the rail scrolls)
-    if (al) {
-      const end = document.documentElement.classList.contains('ph') ? E.rail : E.track;
-      end.append(E.wholeMap, E.add);
-    } else {
+    // (on a phone a step shown alone keeps its planes whole: F and Add, disabled, end what the rail scrolls; elsewhere they stay in the strip)
+    const ph = document.documentElement.classList.contains('ph');
+    if (al && ph) E.rail.append(E.wholeMap, E.add);
+    else {
       if (E.add.parentNode !== E.strip) E.strip.insertBefore(E.add, E.next);
-      if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
+      if (ph) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
       else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
     }
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
@@ -2141,7 +2140,7 @@
       const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
       // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
       // under a drag or a glide, the ring is kept a plane's width from either end)
-      // (a step shown alone keeps the rail at its start: the Whole chain pill and the step's planes first, F and Add after them)
+      // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
       const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
