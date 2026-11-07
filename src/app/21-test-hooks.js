@@ -407,7 +407,7 @@
   /** @type {any} */ (window).__cmwSvPaths = async () => {
     const f = svPathsFig();
     if (!f || f.i == null) return f;
-    const P = svPlanes(), box = f.surf === 'sphere' ? svSrcBox() : paneBox(paneL, leftView()), w = 600, h = w * (box.y1 - box.y0) / (box.x1 - box.x0);
+    const P = svPlanes(), box = f.surf === 'sphere' ? srcWindowBox() : paneBox(paneL, leftView()), w = 600, h = w * (box.y1 - box.y0) / (box.x1 - box.x0);
     const r = await figMorphPaths({ src: f.src, z: f.z, end: f.end, box, w, h, lang: 'en' });
     if (!r) return null;
     const F0 = rangeF(0, P[f.i - 1]), F1 = rangeF(0, P[f.i]), Fa = f.Fat(0), Fb = f.Fat(1);

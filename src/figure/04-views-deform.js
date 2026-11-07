@@ -561,7 +561,7 @@
     // steps view's: the points the plane's figure would keep, those mostly on the camera's side)
     let leg = null, zs;
     if (sv) {
-      const sb = A.svSrcBox(), bw = 150, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
+      const sb = A.screenBox('L0'), bw = 150, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
       leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang });
       if (!leg || (o.alive && !o.alive())) return null;
       zs = leg.kept.map((q) => C(q.z[0], q.z[1])).filter(seen);
