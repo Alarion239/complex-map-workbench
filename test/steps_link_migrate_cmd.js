@@ -111,8 +111,8 @@ for (const [name, url] of FORMS) {
 }
 
 // a link that carries the figure's camera (figCam) and its figMorph: the steps view reads both once, at the load, and its save
-// keeps neither. The camera's value and figMorph's T are not checked here: the test hooks do not expose the 3D camera, and the
-// steps view does not carry figMorph's T into its Morph transport (a parity gap, see the PR).
+// keeps neither. The camera's value is read through __cmwState().cam, and figMorph's T is the steps view's place x (it has no
+// Morph transport).
 n++;
 {
   const ns = 'lmig' + n + Date.now();
@@ -121,13 +121,44 @@ n++;
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
   const got = await ev(READ);
   info['link with figCam and figMorph'] = got;
-  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], k === 'x' ? 1.5 : LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  const cam = await ev('__cmwState().cam');
+  ok('figCam link: the camera is the link\'s', !!cam && [['yaw', 0.4], ['pitch', -0.3], ['d', 1.5], ['tx', 0.1], ['ty', -0.2]].every(([c, v]) => Math.abs(cam[c] - v) < 1e-9), cam);
   await ev('window.dispatchEvent(new Event("pagehide")); 1');
   await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && !('figCam' in o)); })()` });
   const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? { figCam: 'figCam' in o, figMorph: 'figMorph' in o } : null; })()`);
   info['figCam and figMorph, after a save'] = saved;
   ok('figCam and figMorph are read once and not kept by the save', !!saved && !saved.figCam && !saved.figMorph, saved);
   await grab('figCam link');
+}
+
+// figCam names its camera (`of`): a link saved while the steps view shows the z-globe carries camL and opens on camL; a figCam
+// without `of` (a classic-saved link, the Landscape's) moves cam only and leaves camL where it was
+n++;
+{
+  const GLOBE = { ...XY, rightMode: 'image', leftSphere: true };
+  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+  const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
+  const open = async (figCam) => {
+    const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
+    await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
+    await reloadedFigure('Opened the figure from the link.');
+  };
+  const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
+  await open(base);   // no `of`: the Landscape's camera
+  const land0 = await camsOf();
+  const sph = { yaw: 0.7, pitch: 0.35, d: 1.4, tx: 0.05, ty: -0.15, of: 'sphere' };
+  await open(sph);
+  const got = await camsOf();
+  const { of, ...sphCam } = sph;
+  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam), got);
+  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam) && !near(got.cam, base), got);
+  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base), land0);
+  ok('figCam without `of`: camL is untouched', !near(land0.camL, base), land0);
+  const out = await ev('__cmwFigureState().figCam');
+  info['figCam written on the globe'] = out;
+  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam), out);
+  await grab('figCam of');
 }
 
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
@@ -185,6 +216,20 @@ n++;
   await settled({ max: 5000, panes: false, until: TOASTED('This scene could not be read.') });
   ok('an unreadable scene says so (toast)', await ev(TOASTED('This scene could not be read.')), 'no toast');
   await grab('open errors');
+}
+
+// a link or a scene carries the figure, not the viewer's panels: no hideLeft or hideRight whichever panels are hidden, and a
+// right plane that is still fitted to its content (auto) has no rightView
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev('__cmwSet("hideLeft", true); __cmwSet("hideRight", true); 1');
+  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: o.rightView, steps: o.steps.length }; })()');
+  info['figureState'] = fs;
+  ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
+  ok('figureState: rightView is null while the right plane is fitted (auto)', !!fs && fs.rightView === null, fs);
+  await grab('figureState');
 }
 
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);

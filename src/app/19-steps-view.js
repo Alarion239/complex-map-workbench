@@ -216,6 +216,14 @@
     }
     return true;
   }
+  // the place x along the chain (a link's figMorph time: planes are the chain's stages), at once and without a glide
+  function svPlaceAt(x) {
+    if (!SV.on || !SV.ready) return;
+    const n = svPlanes().length - 1, p = Math.max(0, Math.min(n, x));
+    SV.anim = null; SV.g.set(p); SV.i = Math.round(p);
+    SV.at = Math.abs(p - SV.i) < 1e-6 ? SV.i : null;
+    svApply();
+  }
   // an undo put another S.sv under the view
   function svRestored() {
     if (!SV.on || !SV.ready) return;
