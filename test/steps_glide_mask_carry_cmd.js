@@ -15,7 +15,7 @@ const SAME_FRAC = 0.005;      // (steps_glide_look_cmd.js: the parked frame is t
 const VIEW_W = 1200, VIEW_H = 800;   // (the views shard's pane, as steps_glide_look_cmd.js)
 const SETTLE_MAX_MS = 60000;  // the page's start-up, an example, a rest frame and a parked frame each settle within it
 const MESH_MAX_MS = 150000;   // a SphereMesh job of the zeta regions on a software renderer
-const JOB_ASK_MS = 1500;      // the parked frame's draw asks for the SphereMesh job within it, before the job list is read
+const JOB_ASK_MS = 1500;      // a bounded wait: the parked frame's draw asks for the SphereMesh job within it, where a mask is drawn from the forward image; with the exact frame no job is asked for, so there is no event to wait on, and the job list is read once it has passed
 const PARK_EPS = 1e-3;        // how near u the thread has parked
 const CASES = [
   { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', us: [0.25, 0.5, 0.75] },
