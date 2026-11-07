@@ -822,7 +822,8 @@
             flush();
           }
         }
-        if (fp) items.push(`<path d="${fp}" stroke="#000000" stroke-opacity="0.35" stroke-width="0.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+        // (the gray line of X's outline in the deformation figures: #999999, 0.4 pt)
+        if (fp) items.push(`<path d="${fp}" stroke="#999999" stroke-width="0.4" fill="none" stroke-linecap="butt" stroke-linejoin="round" class="floor-footprint"/>`);
       }
     }
     return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };

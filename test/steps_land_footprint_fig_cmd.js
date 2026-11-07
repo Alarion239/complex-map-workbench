@@ -19,7 +19,7 @@ const open = async (scope) => {
   await ev(`(__cmwSteps({ surf: 'land', scope: '${scope}' }), __cmwSteps({ go: 1, now: true }), 1)`);
   await settled({ until: '!__cmwSteps().moving', max: 20000 });
 };
-const footprints = (svg) => [...svg.matchAll(/<path d="([^"]+)"[^>]*stroke-opacity="0\.35"/g)].map((m) => m[1]);
+const footprints = (svg) => [...svg.matchAll(/<path d="([^"]+)"[^>]*class="floor-footprint"/g)].map((m) => m[1]);
 for (const scope of ['in', 'all']) {
   await open(scope);
   const f = await ev(`await (async () => { const f = await Figure.build({ for: 'article', cols: 2, capInImage: false }); return f && f.svg ? { svg: f.svg } : f; })()`, 120000);
