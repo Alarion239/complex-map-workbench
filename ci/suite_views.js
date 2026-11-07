@@ -287,7 +287,6 @@ const VIEWS = {
 
   // to port: render
   'cauchy_residue_cmd.js': steps({ pin: true }),
-  'cauchy_residue_classic_cmd.js': classic('the classic pop-up has no Both / Inside / Outside control when the theorem leaves no choice: the steps view keeps it, disabled'),
   'deform_dirichlet_cmd.js': steps({ pin: true }),
   'land_release_cmd.js': steps({ pin: true }),
   'link_standin_cmd.js': steps({ pin: true }),
