@@ -934,7 +934,8 @@
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
   // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
-  // the first reason unless every shape takes that path
+  // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
+  // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
@@ -946,6 +947,10 @@
     let whole = null;
     const paths = list.map((x) => (!hom ? pathOf(x, stageMap(b), 'L', kind, { recs, budget: false })
       : shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, u, singAt)) : invHomPath(x, 0, b, u, singAt)));
+    const part = why.rest && !hom && !list.includes(SV_ALL);
+    if (part) {
+      for (let i = list.length - 1; i >= 0; i--) if (paths[i].path !== 'inverse') { why.rest.unshift(list[i]); list.splice(i, 1); paths.splice(i, 1); }
+    }
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return null; }
     // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
@@ -1747,10 +1752,17 @@
   // the regions' colour on the globe per pixel through the inverse pass, as drawSphere's regions draw records: between
   // two planes, step b's homotopy at u (svCarryExactHom's records); at rest on plane b past the colour plane (u null),
   // the map into b (svCarryExact's). A point of the plane shown is walked back to plane 0 and coloured as the colour
-  // plane colours it. Null when a region has no inverse plan
-  function svGlobeCarryInv(pane, b, u, T) {
-    const h = svInvPaths(b, u, 'globe', { r: null }), carry = svCarryStyle(T);
-    return h && h.list.map((x, i) => ({ inv: svInvArg(pane, h.paths[i], x, carry), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
+  // plane colours it. Null when the frame cannot take the pass; a region with no inverse plan makes it null too, unless rest
+  // is an array (at rest): those shapes are put in it and the list holds the others (possibly none)
+  function svGlobeCarryInv(pane, b, u, T, rest) {
+    const h = svInvPaths(b, u, 'globe', { r: null, rest }), carry = svCarryStyle(T);
+    return h && h.list.map((x, i) => ({ inv: Object.assign(svInvArg(pane, h.paths[i], x, carry), { globeBox: u == null ? svGlobeBox(h.paths[i], x) : null }), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
+  }
+  // the w-box of a bounded shape's image on plane b at rest (the carried colour is drawn only where the shape's points land),
+  // which scissors its pass (gl.js globeScissorOf); null for an unbounded shape, a shape of a later plane or a box that cannot
+  // be promised
+  function svGlobeBox(p, x) {
+    return shapeStage(x) ? null : globeImageBox(p, x, false);
   }
   // the carried mesh of plane a's globe (drawSphere's st.carried): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
@@ -1761,14 +1773,21 @@
     return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svCarryKey(pane, src, a) });
   }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
-  // homotopy), or by the carried mesh where a region has no inverse plan, with the plane's shapes and what the globe draws
-  // over them at rest (leftGlobeOver). Null when neither can draw: the caller draws the regions' exact images instead
+  // homotopy), by the carried mesh where a region has no inverse plan (kept inside those regions alone when others take
+  // the exact pass), with the plane's shapes and what the globe draws over them at rest (leftGlobeOver). Null when
+  // neither can draw: the caller draws the regions' exact images instead
   function svGlobeRest(pane, k) {
-    const T = svT(), inv = svGlobeCarryInv(pane, k, null, T);
-    const mesh = inv ? null : svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k });
+    const T = svT(), fwd = [], inv = svGlobeCarryInv(pane, k, null, T, fwd);
+    const mesh = !inv || fwd.length ? svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
     if (!inv && !mesh) return null;
-    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: false, stage: k, plane: !!xView().eq, role: 'L', carryRegions: inv, carried: mesh }, leftGlobeOver()));
-    if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
+    if (inv && fwd.length && !mesh) return null;
+    const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' };
+    const info = sphereView(pane, camL, CAML, Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver()));
+    let meshed = !!(info && info.carried) && !inv;
+    // (the mesh over the exact pass's globe, kept inside the regions that take it)
+    if (info && inv && fwd.length) meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
+    const exact = !!inv && inv.length > 0;
+    if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
   function svSphereMoving(pane) {

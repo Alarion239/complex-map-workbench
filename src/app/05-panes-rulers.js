@@ -1052,11 +1052,20 @@
       if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
     }
   }
+  // the colour globe of o drawn over the pane's globe, kept inside the regions (regions drawn solid; o.only: only these): true
+  // when its colour was drawn, false while the mask's program links (the caller asks again) or on an error
+  function maskedGlobe(pane, c, base, o) {
+    if (!(GLR.keepInAlpha && GLR.keepInAlpha(true))) return false;
+    try {
+      const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign({}, o, { imageMode: false, maskRegions: true })));
+      return !!(mi && mi.carried);
+    } catch (e) { console.error('globe region mask', e); return false; }
+  }
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
@@ -1066,13 +1075,7 @@
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
-      let carried = false;
-      if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-        try {
-          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
-          carried = !!(mi && mi.carried);
-        } catch (e) { console.error('globe region mask', e); }
-      }
+      const carried = maskedGlobe(pane, c, base, Object.assign(look, { pre: null }));
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
@@ -1134,7 +1137,7 @@
       }
     }
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || (o.only && !o.only.has(s))) continue;
       // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map: in the
       // steps view's glide (o.lineMap) the glide's map from its plane (svShapeMap), in another homotopy none
       const sm = o.lineMap ? svShapeMap(s, map) : hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
@@ -1161,11 +1164,7 @@
         const p = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live }) : null;
         if (p && p.path === 'inverse') {
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
-          let gbox = null;
-          if (shapeBounded(s)) {
-            if (p.plan.ops.length) gbox = invBox(p.e, p.plan, s, live);
-            else { try { gbox = Region.bboxOf(s); } catch (err) { gbox = null; } }
-          }
+          const gbox = globeImageBox(p, s, live);
           regions.push({
             inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
