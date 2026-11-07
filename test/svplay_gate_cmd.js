@@ -1,4 +1,4 @@
-// The steps view's glides wait behind the prestart (#1157 P2): with every link held (?glhold) a press of Play or an arrow
+// The steps view's glides wait behind the prestart (#1157): with every link held (?glhold) a press of Play or an arrow
 // starts no glide and marks that button busy (a ring over a faint track, after 300 ms and not before), Esc or the button
 // again cancels the wait, after 10 s a message offers Retry (which keeps the ring) and Cancel, and once the links are
 // released the pressed glide starts. Run at 1440 px and at 360 px, and under reduced motion.
@@ -69,6 +69,29 @@ ok('released: the glide starts', await ev('window.__played'), run);
 ok('released: the button is no longer busy', !run.busy, run);
 
 await section('narrow', 360, 780);
+
+// the idle jobs (pole tracks, ring, meshes) are part of the wait: with the programs linked and the warm draw made but a
+// job left, a press of Play starts nothing; when the job is done the glide starts
+{
+  const ns2 = 'svj' + Date.now();
+  await view(1440, 900, false);
+  await load(ns2, {});
+  await ev('(__cmwExample(1), 1)');
+  const o = await ev('location.origin');
+  await nav(`${o}/test.html?ns=${ns2}&view=steps`);
+  await settled({ max: 60000, only: true, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on && __cmwSteps().ready.ready' });
+  await ev('(__cmwSteps({ go: 0, now: true, holdJobs: true }), 1)');
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await ev('await new Promise((r) => setTimeout(r, 1500)), 1');
+  const held = await ev(state('.sv-play'));
+  info.jobsHeld = held;
+  ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
+  ok('a job left: the wait is under way', await ev('__cmwSteps().moving'), held);
+  await ev('(window.__played = false, window.__playPoll = setInterval(() => { if (__cmwSteps().play !== null) { window.__played = true; clearInterval(window.__playPoll); } }, 5), 1)');
+  await ev('(__cmwSteps({ holdJobs: false }), 1)');
+  await settled({ max: 20000, only: true, until: 'window.__played === true' });
+  ok('the job done: the glide starts', await ev('window.__played'), held);
+}
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));

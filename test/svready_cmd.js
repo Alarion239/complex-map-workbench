@@ -1,4 +1,4 @@
-// svReady() (#1157 P1): the steps view's gauge of what a glide of the current chain still needs. With every link held
+// svReady() (#1157): the steps view's gauge of what a glide of the current chain still needs. With every link held
 // (?glhold, GLR.holdLinks) it is not ready and its total is above 0; after the release it becomes ready, and a step
 // added takes it back to not ready until the prestart has run again. A command file for a CDP daemon:  <runner> test/svready_cmd.js
 const fails = [], info = {};
