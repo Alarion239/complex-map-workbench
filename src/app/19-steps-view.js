@@ -1996,8 +1996,9 @@
     // (a phone has no room for the pill beside the thread: Whole chain is a pinned icon, the F of the whole map, outside the
     // scrolling rail, and the step's ⋯ menu carries the walk ‹ ›)
     for (const old of E.strip.querySelectorAll('.sv-whole-pin')) old.remove();
+    const wholePin = () => E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk', html: '<i>F</i>' })), E.rail);
     if (al && document.documentElement.classList.contains('ph')) {
-      E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk', html: '<i>F</i>' })), E.rail);
+      wholePin();
     } else if (al) {
       // (Whole chain and the walk ‹ › are one pill: the walk's arrows are the step's, not the planes')
       E.track.append(h('div', { class: 'sv-alone', role: 'group', 'aria-label': $t('Step shown alone') },
@@ -2036,6 +2037,11 @@
       if (E.add.parentNode !== E.strip) E.strip.insertBefore(E.add, E.next);
       if (ph) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
       else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
+    }
+    // (when the pill and the step's planes do not fit the rail beside F and Add, the pill folds to its pin outside the rail, as on a phone)
+    if (al && !ph && E.track.scrollWidth > E.rail.clientWidth + 1) {
+      const grp = E.track.querySelector('.sv-alone');
+      if (grp) { grp.remove(); wholePin(); }
     }
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (E.add.getAttribute('aria-disabled') !== 'true') E.add.focus({ preventScroll: true }); }

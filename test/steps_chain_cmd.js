@@ -133,8 +133,6 @@ const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySele
 ok('Show alone narrows the thread to w₁ — f₂ — w₂ with a Whole chain chip', al.planes.join() === '1,2' && al.whole && al.steps === 1 && /Showing f₂ alone, from w₁ to w/.test(al.live), al);
 ok('while a step is shown alone, Add stays in place, disabled, with the reason as tip and description', al.add.shown && al.add.dis && /Show the whole chain to add a function/.test(al.add.tip) && al.add.desc === al.add.tip, al.add);
 ok('… and F stays too, disabled, with its reason', al.f.shown && al.f.dis && /Show the whole chain to see the whole map/.test(al.f.tip) && al.f.desc === al.f.tip, al.f);
-const chipFit = await ev(`(() => { const rail = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), c = document.querySelector('#svStrip .sv-alone .sv-whole').getBoundingClientRect(); return { rail: [Math.round(rail.left), Math.round(rail.right)], chip: [Math.round(c.left), Math.round(c.right)], scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
-ok('shown alone, the Whole chain chip is whole inside the rail, which is at its start (no left fade)', chipFit.scrolled === 0 && chipFit.chip[0] >= chipFit.rail[0] && chipFit.chip[1] <= chipFit.rail[1], chipFit);
 const inStrip = await ev(`(() => { const r = document.querySelector('#svStrip').getBoundingClientRect(), q = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return b.left >= r.left && b.right <= r.right && b.width > 0 && document.querySelector(s).parentNode.id === 'svStrip'; }; return { add: q('#svStrip .sv-add'), f: q('#svStrip .sv-wholemap') }; })()`);
 ok('shown alone, Add and F stay in view in the strip (laptop)', inStrip.add && inStrip.f, inStrip);
 const cpAlone = await ev(`(() => { const b = document.querySelector('.sv-cp'); return { dis: b.disabled, tip: b.getAttribute('data-tip') }; })()`);
@@ -233,6 +231,19 @@ for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
   await fitCase(w, lang);
 }
 for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCase(w, lang);
+// shown alone at the laptop widths: Add and F stay in the strip, overlapping neither Next nor the rail, and Whole chain (or its pin) is whole
+for (const w of [1440, 1280, 1024, 780]) {
+  await open(w, 800, false);
+  await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settle(300); await pick('Show alone'); await settle(600);
+  const m = await ev(`(() => { const R = (s) => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; };
+    const strip = R('#svStrip'), rail = R('#svStrip .sv-rail'), next = R('#svStrip .sv-nav:last-of-type') || R('#svStrip .sv-nav + .sv-nav');
+    const nexts = [...document.querySelectorAll('#svStrip .sv-nav')].map((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; });
+    const chip = R('#svStrip .sv-alone .sv-whole') || R('#svStrip .sv-whole-pin');
+    return { strip, rail, nextB: nexts[nexts.length - 1], add: R('#svStrip .sv-add'), f: R('#svStrip .sv-wholemap'), chip, pin: !!document.querySelector('#svStrip .sv-whole-pin'), scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
+  const inside = (b) => b && b[0] >= m.strip[0] && b[1] <= m.strip[1], clear = (b, o) => b[1] <= o[0] + 1 || b[0] >= o[1] - 1;
+  ok(`${w}: Add and F are in the strip and overlap neither Next nor the rail`, inside(m.add) && inside(m.f) && clear(m.add, m.nextB) && clear(m.f, m.nextB) && clear(m.add, m.rail) && clear(m.f, m.rail), m);
+  ok(`${w}: Whole chain is whole: its pill inside the rail at its start, or its pin in the strip clear of the rail`, m.scrolled === 0 && m.chip && (m.pin ? inside(m.chip) && clear(m.chip, m.rail) : m.chip[0] >= m.rail[0] && m.chip[1] <= m.rail[1]), m);
+}
 // ---- the phone ----
 await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
