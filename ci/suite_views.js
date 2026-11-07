@@ -93,6 +93,7 @@ const VIEWS = {
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
+  'steps_land_footprint_fig_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),

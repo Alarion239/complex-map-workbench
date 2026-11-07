@@ -344,6 +344,7 @@
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
+    svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
     // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
     // plane the line saying where the colour is carried from; and the plane's name for the axis title
@@ -417,6 +418,7 @@
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
+      get artRelief() { return artRelief; }, set artRelief(v) { artRelief = v; },
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },
