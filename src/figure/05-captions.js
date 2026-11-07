@@ -175,7 +175,7 @@
       return svTwoSentence(fi) + own;
     }
     // the steps view's paths figure: the shown plane's caption, then the sentence naming the paths
-    if (fi.svPaths) return captionFor(o, fi.svLand ? 'land' : 'xyL', Object.assign({}, body, { info: {} })) + fi.sentence;
+    if (fi.svPaths) return captionFor(o, fi.svLand ? 'land' : 'xyL', Object.assign({}, body, { info: {} })) + fi.sentence + (fi.dashed ? ' ' + $t('Dashed where the relief hides them.') : '');
     if (fi.svFilm) {
       const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
       const own = fi.ownWin ? ' ' + note : '';

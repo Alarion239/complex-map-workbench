@@ -534,6 +534,8 @@
   // the width (pt) at which the steps view's paths are picked on the sphere and the Landscape: wide enough that, of the paths
   // picked over the whole source window, several lie wholly in view
   const SV_PATHS_PICK_W = 600;
+  // on the Landscape the relief hides paths: fewer whole paths than this and the figure adds those hidden in part
+  const SV_PATHS_MIN_LAND = 3;
   // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
   // t -> H_t(z) of a few points (the point shapes, else points of the boundaries) with heads at F(z)
   // (o.sv, the steps view's A.svPathsFig() on the sphere: the shown plane's globe, the paths those of the step that leads to

@@ -773,7 +773,7 @@
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
-    let leg = null;
+    let leg = null, dashed = false;
     if (L && L.MVP && GLR.M4) {
       const proj = (p) => { const c = GLR.M4.apply(L.MVP, p); if (c[3] <= 1e-6) return null; const px = (c[0] / c[3] * 0.5 + 0.5) * L.w, py = (1 - (c[1] / c[3] * 0.5 + 0.5)) * L.h; const ii = px * r.w / L.w, jj = py * r.h / L.h; return [x + (ii - c0) * k * scale, top + (jj - d0) * k * scale]; };
       const [ax, ay] = L.aspect || [1, 1], z0 = L.floorZ, eye = L.eye || [1, 1, 1], bx = L.box;
@@ -815,17 +815,43 @@
         // a point of the path at the height of its path: the Landscape carries a point of plane s at the height of its image
         // under the height map, which the glide does not change
         const ofZ = (z) => { const v = sv.height(z); return Number.isFinite(v) ? L.heightOf(v) : null; };
-        const place = (z, hz) => (q) => (hz != null && onBox(q) ? proj([Xw(q.re), Yw(q.im), hz]) : null);
-        const whole = (z) => { const hz = ofZ(z), f = place(z, hz); for (let i = 0; i <= 12; i++) if (!f(sv.Fat(i / 12)(z))) return false; return true; };
-        leg = await A.svPathsMorph({ box: bx, w: SV_PATHS_PICK_W, h: SV_PATHS_PICK_W * (bx.y1 - bx.y0) / (bx.x1 - bx.x0), alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
+        // the relief stands in front of a world point when the height field along the ray from the eye to it is above the ray
+        const RAY_STEPS = 48;
+        const hidden = (p) => {
+          const e = L.eye || [1, 1, 1];
+          for (let i = 1; i < RAY_STEPS; i++) {
+            const u = i / RAY_STEPS, x = e[0] + u * (p[0] - e[0]), y = e[1] + u * (p[1] - e[1]), zr = e[2] + u * (p[2] - e[2]);
+            if (Math.abs(x) > ax || Math.abs(y) > ay) continue;
+            const h = L.heightOf(sv.relief(C(bx.x0 + (x / ax / 2 + 0.5) * (bx.x1 - bx.x0), bx.y0 + (y / ay / 2 + 0.5) * (bx.y1 - bx.y0))));
+            if (Number.isFinite(h) && h > zr + 1e-3 * (L.top || 1)) return true;
+          }
+          return false;
+        };
+        const place = (z, hz) => (q) => { if (hz == null || !onBox(q)) return null; const p3 = [Xw(q.re), Yw(q.im), hz]; return hidden(p3) ? null : proj(p3); };
+        // where the relief hides a path: the samples placed on the relief's height alone
+        const behind = (z, hz) => (q) => { if (hz == null || !onBox(q)) return null; const p3 = [Xw(q.re), Yw(q.im), hz]; return hidden(p3) ? proj(p3) : null; };
+        const SAMPLES = 24, seen = (z) => { const f = place(z, ofZ(z)); let n = 0; for (let i = 0; i <= SAMPLES; i++) if (f(sv.Fat(i / SAMPLES)(z))) n++; return n; };
+        const pick = (keep) => A.svPathsMorph({ box: bx, w: SV_PATHS_PICK_W, h: SV_PATHS_PICK_W * (bx.y1 - bx.y0) / (bx.x1 - bx.x0), alive: o.alive, lang: XD.lang, keep: (z) => keep(C(z.re, z.im)) });
+        // the paths wholly in view; when fewer than SV_PATHS_MIN_LAND are, those over the relief's footprint in part too, their
+        // hidden stretch dashed
+        leg = await pick((z) => seen(z) === SAMPLES + 1);
+        const onRelief = (z) => { const hz = ofZ(z); for (let i = 0; i <= SAMPLES; i++) if (hz != null && onBox(sv.Fat(i / SAMPLES)(z))) return true; return false; };
+        if (leg && leg.kept.length < SV_PATHS_MIN_LAND) leg = await pick(onRelief);
         if (!leg || (o.alive && !o.alive())) return null;
         const zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
         const its = [];
-        for (const z of zs) its.push(...pathItems([z], sv.Fat, sv.m, place(z, ofZ(z))));
+        let dash = '';
+        for (const z of zs) {
+          const hz = ofZ(z);
+          its.push(...pathItems([z], sv.Fat, sv.m, place(z, hz)));
+          if (seen(z) <= SAMPLES) for (const it of pathItems([z], sv.Fat, sv.m, behind(z, hz))) for (const r of it.runs) if (r.length > 1) dash += 'M' + r.map((p) => `${f2(p[0])} ${f2(p[1])}`).join('L');
+        }
+        dashed = dash !== '';
+        if (dash) items.push(`<path d="${dash}" fill="none" stroke="#000000" stroke-opacity="0.5" stroke-width="0.35" stroke-dasharray="1.6 1.2" stroke-linecap="butt"/>`);
         items.push(A.pathsSvg(its, { u: 1 }));
       }
     }
-    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art, svPaths: !!o.sv, svLand: !!o.sv, sentence: leg ? leg.sentenceTex || '' : '' } };
+    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art, svPaths: !!o.sv, svLand: !!o.sv, dashed, sentence: leg ? leg.sentenceTex || '' : '' } };
   }
 
   // ---------- (4) The deformation: a filmstrip of H_t, or the one-plane paths figure ----------

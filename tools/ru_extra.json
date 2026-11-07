@@ -618,6 +618,7 @@
  "The planes %{a} and %{b}, joined by %{map}.": "Плоскости %{a} и %{b}, соединённые отображением %{map}.",
  "%{a} and %{b}, joined by %{map}": "%{a} и %{b}, соединённые отображением %{map}",
  "Each plane is shown in its own window.": "Каждая плоскость показана в своём окне.",
+ "Dashed where the relief hides them.": "Штрихом показаны участки, скрытые рельефом.",
  "Each plane is shown in its own window where it fits.": "Каждая плоскость показана в своём окне, где она помещается.",
  "On": "Вкл",
  "Off": "Выкл",

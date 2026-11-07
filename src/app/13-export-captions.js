@@ -301,7 +301,7 @@
     if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
     const src = svPathsSeg(P, i - 1, i, i);
-    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]), height: svHeightValue(P[i - 1]) };
+    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]), height: svHeightValue(P[i - 1]), relief: svHeightValue(P[i]) };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,

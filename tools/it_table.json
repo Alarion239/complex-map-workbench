@@ -3378,6 +3378,7 @@
  "The planes %{a} and %{b}, joined by %{map}.": "I piani %{a} e %{b}, collegati da %{map}.",
  "%{a} and %{b}, joined by %{map}": "%{a} e %{b}, collegati da %{map}",
  "Each plane is shown in its own window.": "Ogni piano è mostrato nella sua finestra.",
+ "Dashed where the relief hides them.": "Tratteggiate dove il rilievo le nasconde.",
  "Each plane is shown in its own window where it fits.": "Ogni piano è mostrato nella sua finestra, dove ci sta.",
  "On": "Sì",
  "Off": "No",
