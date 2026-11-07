@@ -1121,7 +1121,7 @@
         u2i(P1, 'uL', g.L[0], g.L[1]); u1i(P1, 'uGE', g.E); u1i(P1, 'uTot', blocks); u1i(P1, 'uRow0', t.row);
         runTFRows(P1, RF_W * (r1 - t.row), t.rfTex, RF_W, g.y0 + t.row);
         spent += (r1 - t.row) * 256 * 24;
-        g.B = g.y0 / 2 * 512;   // (its first block)
+        g.B = g.y0 / 2 * 512;   // (its first block: a block is 2 texel rows of the refinement texture, 512 blocks to a row pair)
         if (r1 >= gr) { t.gi++; t.row = 0; } else { t.row = r1; break; }
       }
       return t.gi >= r.groups.length;

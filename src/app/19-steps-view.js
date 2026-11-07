@@ -387,6 +387,7 @@
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E, src)) || p);
     else poles = svDrain(svPolesIn(F, src, SV_SING_GRID, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    // (a branch point within 1e-6 of its size of a pole found at this t is that pole: the merge tolerance of svPolesIn)
     for (const b of svLandBranchPoints(map, src, E)) if (!poles.some((q) => CX.abs(CX.sub(b, q)) < 1e-6 * (1 + CX.abs(b)))) poles.push(b);
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
