@@ -657,6 +657,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const aDraw = look.alpha ?? 1, aOwn = look.alphaOwn ?? aDraw;
     u1i(P, 'uKsat', Math.max(1, Math.min(64, invK(aDraw))));
     u1i(P, 'uKall', Math.abs(aDraw - aOwn) < 1e-6 ? 1 : 0);
+    u1i(P, 'uLastOpaque', look.lastOpaque ? 1 : 0);
     // shape
     uploadPack();
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, invTex);

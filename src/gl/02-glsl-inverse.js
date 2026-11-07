@@ -31,6 +31,9 @@ uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
 uniform int uKsat; uniform int uKall;
+// uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
+// through, so a point covered once keeps its colour at any uAlpha
+uniform int uLastOpaque;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
@@ -714,7 +717,8 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
-    float a = uAlpha * bC[i] / U;
+    bool farthest = uLastOpaque == 1 && i == nb - 1 && ixTr >= 1.0 && !ixTailInf;
+    float a = (farthest ? 1.0 : uAlpha) * bC[i] / U;
     C += T * a * ixUnpack(bCol[i]);
     T *= 1.0 - a;
   }
@@ -725,7 +729,7 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
     for (int i = 0; i < IX_B; i++) { if (i >= nb) break; mc += ixUnpack(bCol[i]); }
     mc /= float(nb);
     C += T * (1.0 - ixTr) * mc; T *= ixTr;
-    if (ixTailInf) { C += T * mc; T = 0.0; }
+    if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
   if (!(a > 0.0)) { o = vec4(0.0); return; }

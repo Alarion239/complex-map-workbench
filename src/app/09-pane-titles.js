@@ -931,7 +931,17 @@
     const out = [];
     if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
     if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+    if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
+  }
+  // the steps view's Opacity slider: svOpacity's range in whole percents; valuetext says the percent
+  function opacityScrub(idSuffix) {
+    const say = (v) => I18N.num(Math.round(v * 100)) + ' %';
+    const val = h('span', { class: 'fval mono', id: 'opacityVal' + idSuffix }, say(svOpacity()));
+    const rng = h('input', { type: 'range', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, value: svOpacity(), 'aria-label': $t('Opacity'), 'aria-valuetext': say(svOpacity()),
+      oninput: (e) => { const v = +e.target.value; setOpt('alpha', v); val.textContent = say(v); rng.setAttribute('aria-valuetext', say(v)); paintFader(rng); paintChanged(); save(); } });
+    paintFader(rng);
+    return h('label', { class: 'fader-row compact', 'data-tip': $t('How much the layers behind show through where the picture covers a point more than once.') }, h('span', { class: 'fl' }, $t('Opacity')), rng, val);
   }
   function buildFootL(f) {
     const Fn = fnText();
