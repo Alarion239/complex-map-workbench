@@ -2780,15 +2780,11 @@
   // Starts those programs and makes their first draw, in an idle moment SV_WARM_IDLE_MS after the last input (that draw
   // builds the pipeline: a stall that must not land in an edit or a glide), tried again while a program links
   function svWarmInverse(n, t0 = performance.now()) {
-    const sig = chainSig[nSteps()];
     if (n > SV_WARM_TRIES || !GLR.ok || !GLR.inverseWarmup || nSteps() < 1) return;
-    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
-    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmInverse(n, t0); }, Math.max(wait, SV_WARM_POLL_MS)); return; }
-    svWarmIdle(() => {
-      if (chainSig[nSteps()] !== sig) return;
+    svWarmWhenIdle(svWarmInverse, n, t0, () => {
       let r = { done: 0, total: 1 };
       try { r = GLR.inverseWarmup(svInvList(), { start: true, warm: true }); } catch (e) { svInvStates = []; }
-      if (r.done < r.total) setTimeout(() => svWarmInverse(n + 1, t0), SV_WARM_RETRY_MS);
+      return r.done >= r.total;
     });
   }
   // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
@@ -2836,16 +2832,24 @@
   // unfinished one, a wait for input to stop looked at again after at least SV_WARM_POLL_MS, and the idle callback run
   // after SV_WARM_IDLE_CB_MS at the latest
   const SV_WARM_TRIES = 40, SV_WARM_RETRY_MS = 500, SV_WARM_POLL_MS = 250, SV_WARM_IDLE_CB_MS = 1000;
-  const svWarmIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: SV_WARM_IDLE_CB_MS }) : setTimeout(f, SV_WARM_POLL_MS));
+  // Runs step() in an idle moment, SV_WARM_IDLE_MS after t0 and after the last input, if the chain is still the one it was
+  // asked for; step() is true when its work is done, else again(n + 1) runs SV_WARM_RETRY_MS later. A wait for input to stop
+  // calls again(n) after at least SV_WARM_POLL_MS
+  function svWarmWhenIdle(again, n, t0, step) {
+    const sig = chainSig[nSteps()];
+    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) again(n, t0); }, Math.max(wait, SV_WARM_POLL_MS)); return; }
+    (window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: SV_WARM_IDLE_CB_MS }) : (f) => setTimeout(f, SV_WARM_POLL_MS))(() => {
+      if (chainSig[nSteps()] !== sig) return;
+      if (!step()) setTimeout(() => again(n + 1, t0), SV_WARM_RETRY_MS);
+    });
+  }
   let svWarmSig = null, svWarmAt = 0;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
     if (svWarmSig === sig || n > SV_WARM_TRIES || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
-    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
-    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, SV_WARM_POLL_MS)); return; }
-    svWarmIdle(() => {
-      if (chainSig[nSteps()] !== sig) return;
+    svWarmWhenIdle(svWarmCarry, n, t0, () => {
       const r = shapeGPU(SV_WARM, { base: 2 }), pane = paneL;
       let done = false;
       try {
@@ -2857,7 +2861,8 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), SV_WARM_RETRY_MS);
+      if (done) { svWarmSig = sig; svWarmAt = performance.now(); }
+      return done;
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----

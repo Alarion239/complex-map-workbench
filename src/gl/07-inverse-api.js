@@ -543,14 +543,20 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }
+  // the program arguments drawInverse draws the state st with: the B class of its opacity, the view kind (globe), and the
+  // variant (st.carry: the carried colour's, staged for a shape of a later plane (rec, or st.staged without a record)
+  // on the plane; else st.extra)
+  function invArgs(st, rec) {
+    const globe = st.viewKind === 'globe', look = st.look || {};
+    return { B: invB(look.alphaOwn ?? look.alpha ?? 1), globe, extra: st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra };
+  }
   // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
   // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
   // as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const { B, globe, extra } = invArgs(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id)));
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
@@ -564,8 +570,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     let done = 0;
     if (!ok || lost) return { done, total: sts.length };
     for (const st of sts) {
-      const globe = st.viewKind === 'globe', look = st.look || {};
-      const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (st.staged ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+      const { B, globe, extra } = invArgs(st, null);
       const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
       if (pr.state === 'ready') {
         if (!pr.P.warm && opt.warm) { warmDraw(pr.P, false); pr.P.warm = true; }
@@ -576,14 +581,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe';
     const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
     if (!rec || !rec.ok) return 'error';
-    const look = st.look || {};
-    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
     // globe)
-    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const args = invArgs(st, rec), { globe, extra } = args, look = st.look || {};
+    let B = args.B;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
