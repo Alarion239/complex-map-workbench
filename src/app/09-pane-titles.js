@@ -935,7 +935,7 @@
     const out = [];
     if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
     if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
-    if (SV.on) out.push(opacityScrub(idSuffix, land));
+    if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
   }
   // the steps view's Opacity slider: svOpacity's range in whole percents, valuetext and the value beside it saying the
@@ -947,7 +947,7 @@
     rng.nextElementSibling.textContent = opacityText(v);
     paintFader(rng);
   }
-  // (on the Landscape the sheets are opaque: the slider is there, disabled, and its tip says so)
+  // (on the Landscape the sheets are opaque: the slider is there, disabled, after the Landscape's own controls, and its tip says so)
   function opacityScrub(idSuffix, land) {
     const rng = h('input', { type: 'range', class: 'sv-opacity', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, 'aria-label': $t('Opacity'), oninput: (e) => setFillOpacity(+e.target.value) });
     if (land) { rng.disabled = true; rng.setAttribute('aria-disabled', 'true'); }
@@ -1001,7 +1001,8 @@
         h('label', { class: 'fader-row compact' }, h('span', { class: 'fl' }, $t('Scale')), h('input', { type: 'range', id: 'lscaleRange', min: 0.25, max: 2, step: 0.05, value: S.lscale || 1, 'aria-label': $t('Height scale'), oninput: (e) => { setOpt('lscale', +e.target.value); requestRender('L'); save(); } })),
         checkEl('unitLevelChk', S.unitLevel, $t('Unit level'), (v) => { setOpt('unitLevel', v); requestRender('L'); save(); }),
         seg('viewSeg', '', [['iso', '3/4'], ['top', $t('Top')], ['front', $t('Front')]], (v) => tweenCam(cam, { iso: { yaw: -38 * DEG, pitch: 30 * DEG }, top: { yaw: -90 * DEG, pitch: 88 * DEG }, front: { yaw: -90 * DEG, pitch: 8 * DEG } }[v]), $t('View')),
-        resetCamBtn(cam, CAM3));
+        resetCamBtn(cam, CAM3),
+        ...(SV.on ? [opacityScrub('', true)] : []));
     }
   }
   // The deformation plane has its own view (merged-views review: it shared Y's, so zooms leaked both ways): Y's split
