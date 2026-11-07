@@ -50,6 +50,9 @@
   const SV_FADE_U = 0.01;
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
+  // which way the shown plane is painted: 'pull' on a coloured plane (the colour is pulled back through the map), 'push' past it
+  // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
+  const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
   // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
   // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
@@ -214,6 +217,10 @@
   function svRestored() {
     if (!SV.on || !SV.ready) return;
     if (SV.alone) { SV.alone = 0; SV.back = null; }   // (#437: an undo leaves a step shown alone)
+    const ls = SV.lastSplit;
+    SV.lastSplit = null;
+    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did)
+    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.own = true; return; }
     if (svLoad()) { SV.sig = null; setTimeout(svApply, 0); }
   }
   function svApply() {
@@ -283,7 +290,9 @@
       // (SV.clock, a test hook's, null in the app: the glide's time advances that many ms a frame instead of by the wall
       // clock, so a suite reads its frames mid-glide however long each one takes to draw)
       const A = SV.anim, el = SV.clock ? (A.el = (A.el || 0) + SV.clock) : performance.now() - A.t0;
-      const v = Math.min(1, el / A.ms), e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      const v = Math.min(1, el / A.ms), e0 = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      // (A.e0: the ease's value when a Split remapped the glide; it goes on from there, so the place has no jump)
+      const e = A.e0 ? (e0 - A.e0) / Math.max(1e-9, 1 - A.e0) : e0;
       SV.g.set(A.from + (A.to - A.from) * e);
       dirty.L = true;
       svSync();
@@ -998,7 +1007,7 @@
     svHomMemo = { b: g.b, u: g.u, h, why };
     if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
-    if (A) { A.t0 = performance.now(); SV.g.set(A.from); requestRender('L'); return A.from; }
+    if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
@@ -2617,7 +2626,8 @@
     svKeepView();
     svShifted();
     if (SV.alone && !svAloneOk()) svLeaveAlone(false);
-    if (SV.play) svPause(false);
+    if (SV.play && !SV.motionKept) svPause(false);
+    SV.motionKept = false;
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
@@ -3003,9 +3013,13 @@
   // moved by d (a remove: the removed stage's plane goes to the one before), and a stage that is gone to the one before it
   function svEdit(from, d, n) { SV.shift = { st: svStage(), T: SV.T, alone: SV.alone, from, d, n: n == null ? S.steps.length : n, t: performance.now() }; }
   // a formula step k split into n steps (splitStep): the thread keeps its place, as the planes keep their pictures
-  // (Funcs.splitSvPlace). A glide or play under way is left to svCheck; svSplitEdit is called before the chain changes
+  // (Funcs.splitSvPlace). A glide or a play under way is remapped through the same map and goes on from the same picture
+  // (svRemapMotion); svSplitEdit is called before the chain changes. An undo of that split while one is under way remaps it
+  // back (svRestored, inv)
   function svSplitEdit(k, n) {
-    SV.split = { k, n, j: svPlanesOf(S.steps).indexOf(k) - 1, x: SV.g.x, rest: !svGliding() };
+    const j = svPlanesOf(S.steps).indexOf(k) - 1;
+    SV.split = { k, n, j, x: SV.g.x, rest: !svGliding(), moving: svGliding() };
+    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n };
     SV.own = true;   // (an edit of the chain, not another chain loaded: svChainChanged keeps the planes it shows)
   }
   function svSplitApply(sp) {
@@ -3013,10 +3027,44 @@
     SV.T = r.T; SV.alone = r.alone; SV.back = r.back;
     SV.g.max = svPlanes().length - 1;
     if (!SV.alone && sp.rest) { SV.g.set(r.x); SV.i = Math.max(0, Math.min(SV.g.max, Math.round(r.x))); }
+    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x);
+  }
+  // the undo of a split under way: the unit [j, j+n) of the n new steps is the formula's [j, j+1) again
+  function svUnsplitApply(sp) {
+    const { j, n } = sp, pl = (x) => (j < 0 || !(x >= j) ? x : x < j + n ? j + (x - j) / n : x - n + 1);
+    SV.T = SV.T < 0 || SV.T < sp.k ? SV.T : SV.T < sp.k + n ? sp.k : SV.T - n + 1;
+    SV.g.max = svPlanes().length - 1;
+    svRemapMotion(pl);
+  }
+  // a glide or a play under way after the planes changed (pl: the old place on the thread -> the new one): it goes on from the
+  // same place, to the same destination, with no jump. A glide keeps its ease's progress and its time; a play keeps the time
+  // it has left, so the picture's speed goes on; a reduced-motion play (a plane a tick) is remapped to its planes
+  function svRemapMotion(pl) {
+    const A = SV.anim, B = SV.play, x = SV.g.x, last = svPlanes().length - 1, cl = (v) => Math.max(0, Math.min(last, v));
+    SV.motionKept = true;
+    const aim = SV.g.moving() ? SV.g.target : null;
+    SV.g.set(cl(pl(x)));
+    if (aim != null) SV.g.to(cl(pl(aim)));
+    if (A) {
+      const el = SV.clock ? A.el || 0 : performance.now() - A.t0, v = Math.min(1, el / A.ms);
+      A.e0 = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      A.from = SV.g.x; A.to = cl(pl(A.to));
+    }
+    if (B) {
+      B.steps = S.steps;
+      if (B.slide) { B.start = cl(pl(B.start)); B.end = cl(pl(B.end)); } else {
+        const left = B.ms * (1 - Math.min(1, (SV.clock ? B.el || 0 : performance.now() - B.t0) / B.ms));
+        B.from = SV.g.x; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left);
+      }
+    }
+    const sp = SV.span;
+    if (sp) { const x0 = cl(pl(sp.x0)), x1 = cl(pl(sp.x1)); SV.span = x1 > x0 && svAllOk(x0, x1) ? { x0, x1 } : null; }
+    SV.i = Math.round(SV.g.x);
+    dirty.L = true;
   }
   function svShifted() {
     const sp = SV.split;
-    if (sp) { SV.split = null; svSplitApply(sp); return; }
+    if (sp) { SV.split = null; if (sp.inv) svUnsplitApply(sp); else svSplitApply(sp); return; }
     const sh = SV.shift;
     if (!sh) return;
     if (sh.n === S.steps.length && sh.d !== 0) return;   // (a palette that has not changed the count yet, or a replace)
