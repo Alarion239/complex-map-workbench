@@ -1604,6 +1604,30 @@
   //   links, or when the frame failed before o.after;
   // - o.cc (the 2D path): the picture already in the 2D context o.cc is cut to the regions (drawn opaque into a canvas
   //   the pane's size, destination-in). True
+  // (probe) the 2D context of the plane-1 mask canvas: the state at each of the first fills of the pass, the path's
+  // point count and NaN count since its beginPath, and the canvas size; logged in INREGIONS-PROBE
+  function ipHookMask(cv, pane) {
+    const c2 = cv.getContext('2d');
+    const log = (window.__ipLog = window.__ipLog || []);
+    if (!c2.__ipHooked) {
+      c2.__ipHooked = true;
+      const st = { n: 0, nan: 0, fills: 0 };
+      c2.__ipSt = st;
+      const wrap = (name, fn) => { const f = c2[name].bind(c2); c2[name] = (...a) => { fn(a); return f(...a); }; };
+      const bad = (a) => !Number.isFinite(a[0]) || !Number.isFinite(a[1]);
+      wrap('beginPath', () => { st.n = 0; st.nan = 0; });
+      wrap('moveTo', (a) => { st.n++; if (bad(a)) st.nan++; });
+      wrap('lineTo', (a) => { st.n++; if (bad(a)) st.nan++; });
+      wrap('fill', (a) => {
+        if (st.fills++ >= 4) return;
+        const tr = c2.getTransform(), d = pane.dpr || 1, v = pane.view;
+        const px = Math.round(pane.pw / 2 + (1 - v.cx) * v.s * d), py = Math.round(pane.ph / 2 - (1 - v.cy) * v.s * d);
+        log.push({ path: 'fill', i: st.fills, pts: st.n, nan: st.nan, arg: typeof a[0], gco: c2.globalCompositeOperation, ga: c2.globalAlpha, fs: String(c2.fillStyle), tr: [tr.a, tr.b, tr.c, tr.d, tr.e, tr.f], px: [px, py], at11: Array.from(c2.getImageData(px, py, 1, 1).data) });
+      });
+    }
+    const at = c2.getContextAttributes();
+    log.push({ path: 'cv', w: cv.width, h: cv.height, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, attrs: { alpha: at.alpha, willReadFrequently: at.willReadFrequently, colorSpace: at.colorSpace }, gco: c2.globalCompositeOperation, ga: c2.globalAlpha, fs: String(c2.fillStyle) });
+  }
   function svMask(pane, map, k, o) {
     // (sm: the regions' SphereMesh in the steps view's slot, SPEC 8, where the tiling would draw them from one)
     const opt = k == null ? { noGrid: true, fills: true, cache: false, sm: 'SV' }
@@ -1615,6 +1639,7 @@
       try {
         // (at rest, plane k: the cached maps, as the plane's own frame (perf A3); between planes the homotopy's, uncached)
         const ipA = () => [[1, 1], [2, 0]].map(([x, y]) => { const v = pane.view, d = pane.dpr || 1; return svMaskCv.getContext('2d').getImageData(Math.round(pane.pw / 2 + (x - v.cx) * v.s * d), Math.round(pane.ph / 2 - (y - v.cy) * v.s * d), 1, 1).data[3]; });
+        if (k === 1) ipHookMask(svMaskCv, pane);
         withSolidRegions(() => { drawScene(mp, map, 'L', opt); const a0 = k === 1 ? ipA() : null; const r = k != null ? stagePullbacks(mp, k) : null; if (k === 1) (window.__ipLog = window.__ipLog || []).push({ path: 'cc', k, before: a0, after: ipA(), pending: r }); });
       } catch (e) { console.error('steps view mask', e); }
       o.cc.save();
