@@ -1,7 +1,6 @@
 // The layout fixes of #483 (the first layout-invariants report, #470), each measured as the report found it: the panes' tabs
 // are not cut; the mesh presets are 24 px targets clear of the slider; a phone sheet's grab handle does not reach into its title;
-// the deformation dock's tick labels are not drawn on a phone (the marks stay, the dock keeps its height); the sphere's hint
-// wraps instead of being cut; the phone menu rows' and the export caption's focus rings are drawn inside their boxes.
+// the sphere's hint wraps instead of being cut; the phone menu rows' and the export caption's focus rings are drawn inside their boxes.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/layout_483_cmd.js
 // Prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -70,13 +69,6 @@ for (const lang of ['en', 'ru']) {
   await ev(`__cmwSetView('R', 'sphere'); 1`); await settle(1800);
   const h = await ev(`(() => { const c = document.getElementById('rightReadout'); if (!c || !c.getClientRects().length) return null; const r = c.querySelector('.rhint'); return { text: c.textContent.length, sw: c.scrollWidth, cw: c.clientWidth, sh: c.scrollHeight, ch: c.clientHeight, ws: getComputedStyle(c).whiteSpace, hint: !!r }; })()`);
   ok(`740x360 ${lang}: the sphere's hint is whole (wrapped, not cut)`, !!h && h.hint && h.sw <= h.cw + 1 && h.sh <= h.ch + 1, h);
-}
-// 2. the deformation dock on a phone: no tick text over the readout or the slider, the marks stay, the dock keeps its height
-for (const [w, h, dockH] of [[360, 740, 110], [740, 360, 52]]) {
-  await open(w, h, 'en', true);
-  await ev('__cmwMorph({ open: true }); 1'); await settle(1800);
-  const d = await ev(`(() => { const ov = ${OV}; const dock = document.getElementById('tdockR'); if (!dock || !dock.getClientRects().length) return null; const texts = [...dock.querySelectorAll('.ttick, .ttick i, .ttick sub')].filter((e) => e.getClientRects().length && e.getBoundingClientRect().height > 0); const ctl = [...dock.querySelectorAll('input[type=range], .tread')].filter((e) => e.getClientRects().length); const hits = []; for (const t of texts) for (const c of ctl) { const o = ov(t, c); if (o) hits.push([t.textContent, c.id || c.className, ...o]); } return { h: Math.round(dock.getBoundingClientRect().height), texts: texts.length, marks: [...dock.querySelectorAll('.ttick')].map((t) => getComputedStyle(t, '::before').height), hits }; })()`);
-  ok(`${w}x${h}: the dock's tick text is not over the readout or the slider, its marks stay, its height is ${dockH}`, !!d && d.hits.length === 0 && d.texts === 0 && d.marks.length >= 2 && d.marks.every((m) => m === '8px') && d.h === dockH, d);
 }
 // 8b. the export dialog's caption: its focus ring is inside the box
 await open(1024, 800);

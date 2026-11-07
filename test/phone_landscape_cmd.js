@@ -11,7 +11,7 @@ const ST = { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c:
 const probe = () => ev(`(() => { const r = document.documentElement, q = (id) => { const e = document.getElementById(id); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }; }; return { ph: r.classList.contains('ph'), land: r.classList.contains('ph-land'), iw: innerWidth, ih: innerHeight, L: q('paneL'), R: q('paneR') }; })()`);
 // (the phone layout is entered once the app has initialised, which a slow runner takes a while over: wait for it, then probe)
 const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(600); };
-const open = async (w, h) => { await view(w, h, false, true); await load('pl' + w + 'x' + h + '-' + Date.now(), ST); await waitPh(); };
+const open = async (w, h) => { await view(w, h, false, true); await load('pl' + w + 'x' + h + '-' + Date.now(), ST, '', 'classic'); await waitPh(); };
 
 // landscape phones, below and above 768 px: the landscape layout
 for (const [w, h] of [[740, 360], [667, 375], [736, 414], [568, 320], [812, 375]]) {
@@ -59,10 +59,10 @@ const back = await secs();
 ok('… and back to 375×812', back && back.heads === 0 && back.closed, back);
 // [#462] the right-hand tool column takes the whole height, the header and the tour's strip end where it begins, and nothing
 // in it is under anything else: every control of the header, the tour strip (the × included) and the column answers
-// elementFromPoint at its centre, and More's label sits under its dots; in the default view and in ?view=steps
+// elementFromPoint at its centre, and More's label sits under its dots; in the classic view and in ?view=steps
 for (const [w, h] of [[740, 360], [915, 412]]) {
   for (const v of ['', '&view=steps']) {
-    await view(w, h, false, true); await load('pc' + w + v.length + '-' + Date.now(), ST);
+    await view(w, h, false, true); await load('pc' + w + v.length + '-' + Date.now(), ST, '', v ? undefined : 'classic');
     if (v) { await send('Page.navigate', { url: `${U}?ns=pcs${w}-${Date.now()}${v}` }); }
     await waitPh();
     await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'basics' }); return 1; })()`); await settle(1800);
@@ -85,9 +85,9 @@ for (const [w, h] of [[740, 360], [915, 412]]) {
   }
 }
 // a laptop-sized window below 768 px with a mouse (no coarse pointer) keeps the portrait layout, and 1024 px wide is no phone
-await view(700, 360, false, false); await load('plm' + Date.now(), ST); await settle(1200);
+await view(700, 360, false, false); await load('plm' + Date.now(), ST, '', 'classic'); await settle(1200);
 const m = await probe(); ok('700×360 with a mouse: ph, no ph-land (not a phone landscape)', m.ph && !m.land, m);
-await view(1280, 800, false, false); await load('pld' + Date.now(), ST); await settle(1200);
+await view(1280, 800, false, false); await load('pld' + Date.now(), ST, '', 'classic'); await settle(1200);
 const d = await probe(); ok('1280×800: no phone layout', !d.ph && !d.land, d);
 const dq = await secs(); info.sec1280 = dq;
 ok('1280×800: the panel sections are always open, their summaries headings', dq && dq.n > 0 && dq.heads === dq.n && !dq.closed, dq);

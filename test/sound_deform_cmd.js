@@ -206,7 +206,8 @@ await ev(`__cmwSetMain('land')`); await settle(1500);
   await take();
   // the Height voice's moves as posted to the worklet ({ at, lf, dur }), to check the swap glide at the open
   await ev(`(() => { window.__hm = []; const pm = MessagePort.prototype.postMessage; if (!pm.__hm) { MessagePort.prototype.postMessage = function (d, ...r) { try { if (Array.isArray(d) && d[0] && 'lf' in d[0] && 'dur' in d[0]) __hm.push([d[0].at, d[0].dur]); } catch (e) {} return pm.call(this, d, ...r); }; MessagePort.prototype.postMessage.__hm = 1; } return 1; })()`);
-  await morphKey();
+  // (opened without waiting for the page to be quiet: the frames below are the deformation playing from t = 0)
+  await ev('__cmwMorph({ open: true }); 1');
   const fr = await frames(2600);
   await settle(300);
   const s = await snd(), got = await take();

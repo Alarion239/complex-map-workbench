@@ -86,7 +86,7 @@ for (const cs of CASES) {
     const nOf = (cls) => ((fig.svg.match(new RegExp(`class="${cls}">([\\s\\S]*?)</g>`)) || ['', ''])[1].match(/<(?:path|circle)/g) || []).length;
     const nHeads = nOf('mf-heads'), nRings = nOf('mf-rings'), nEnds = nOf('mf-ends');
     // (steps one after another: one arrowhead per step, in its middle; review path-1)
-    const mSteps = Math.max(1, Math.ceil(+(await ev(`(document.getElementById('morphRange') || {}).max`)) || 1));
+    const mSteps = Math.max(1, await ev('__cmwP().steps.filter((s) => s.on !== false).length'));
     ok(`${tag}: a ring per path, at most one arrowhead per path and step`, nRings === fig.morph.kept.length && nHeads <= mSteps * fig.morph.kept.length && nEnds <= fig.morph.kept.length && nEnds > 0, [nRings, nHeads, nEnds, fig.morph.kept.length, mSteps]);
     ok(`${tag}: the caption names the marks`, /Curves are the paths/.test(fig.cap) && /\(circle\)/.test(fig.cap), fig.cap.slice(-300));
     // the caption's maths: no inline \\frac (morph-figure.md 5), no X called grey, no TeX lost to the template literal

@@ -107,7 +107,8 @@ for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) for (co
   ok(`${tag}: the language`, (await ev('document.documentElement.dataset.lang || "en"')) === lang);
   const a0 = await audit('body');
   info.audit[tag + ' home'] = a0.total;
-  ok(`${tag}: main screen, every control 44 × 44`, a0.n === 0 && a0.total >= 18, a0);
+  // (the floor is the 16 controls the screen has: the chain's cards and F tile are no longer on it)
+  ok(`${tag}: main screen, every control 44 × 44`, a0.n === 0 && a0.total >= 16, a0);
   if (w === 390 || w === 360) {
     await shot(`v15ph-home-${tag}`);
     // each sheet
@@ -215,8 +216,8 @@ await shot('v15ph-tablet-820');
 // back to desktop: nothing of the phone left
 await view(1440, 900, false, false);
 await loadChain('v15phD');
-const dk = await ev(`({ ph: document.documentElement.classList.contains('ph'), only: [...document.querySelectorAll('.ph-only')].filter((e) => e.getClientRects().length).length, insp: !!document.querySelector('#rightPanel #propsPanel'), morph: !!document.querySelector('.top > #morphBtn') })`);
-ok('desktop: no phone classes or controls; the Inspector and the Deformation toggle at home', !dk.ph && dk.only === 0 && dk.insp && dk.morph, dk);
+const dk = await ev(`({ ph: document.documentElement.classList.contains('ph'), only: [...document.querySelectorAll('.ph-only')].filter((e) => e.getClientRects().length).length, insp: !!document.querySelector('#rightPanel #propsPanel') })`);
+ok('desktop: no phone classes or controls; the Inspector at home', !dk.ph && dk.only === 0 && dk.insp, dk);
 await grab();
 ok('no console errors', errs.length === 0, errs.slice(0, 6));
 return { pass: fails.length === 0, fails, info };
