@@ -129,8 +129,10 @@ await undo();
 ok('Undo: back on w₂ of two steps', (await sv()).i === 2 && (await sv()).planes.length === 3, await sv());
 // show alone, and back
 await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settle(300); await pick('Show alone');
-const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySelector('#svStrip .sv-whole'), steps: document.querySelectorAll('#svStrip .sv-step').length, add: !document.querySelector('#svStrip .sv-add').hidden, live: document.querySelector('#stage .sr-only[aria-live]').textContent })`);
-ok('Show alone narrows the thread to w₁ — f₂ — w₂ with a Whole chain chip', al.planes.join() === '1,2' && al.whole && al.steps === 1 && !al.add && /Showing f₂ alone, from w₁ to w/.test(al.live), al);
+const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySelector('#svStrip .sv-whole'), steps: document.querySelectorAll('#svStrip .sv-step').length, add: (() => { const b = document.querySelector('#svStrip .sv-add'); return { shown: !b.hidden, dis: b.disabled, tip: b.getAttribute('data-tip'), desc: b.getAttribute('aria-description') }; })(), f: (() => { const b = document.querySelector('#svStrip .sv-wholemap'); return { shown: !b.hidden, dis: b.disabled, tip: b.getAttribute('data-tip'), desc: b.getAttribute('aria-description') }; })(), live: document.querySelector('#stage .sr-only[aria-live]').textContent })`);
+ok('Show alone narrows the thread to w₁ — f₂ — w₂ with a Whole chain chip', al.planes.join() === '1,2' && al.whole && al.steps === 1 && /Showing f₂ alone, from w₁ to w/.test(al.live), al);
+ok('while a step is shown alone, Add stays in place, disabled, with the reason as tip and description', al.add.shown && al.add.dis && /Show the whole chain to add a function/.test(al.add.tip) && al.add.desc === al.add.tip, al.add);
+ok('… and F stays too, disabled, with its reason', al.f.shown && al.f.dis && /Show the whole chain to see the whole map/.test(al.f.tip) && al.f.desc === al.f.tip, al.f);
 const cpAlone = await ev(`(() => { const b = document.querySelector('.sv-cp'); return { dis: b.disabled, tip: b.getAttribute('data-tip') }; })()`);
 await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, cancelable: true })); 1`); await settle(300);
 ok('while a step is shown alone, Colour from here is off, says why, and C says it too (the colour plane stays)', cpAlone.dis && /coloured from its own plane/.test(cpAlone.tip || '') && (await sv()).T === 2 && /coloured from its own plane/.test(await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`)), [cpAlone, await sv()]);
@@ -138,6 +140,8 @@ ok('… and the keyboard is on Whole chain', (await where()) === 'whole', await 
 await kb('Escape'); await settle(500);
 const bk = await sv();
 ok('Esc brings the whole chain back, on w₂, the keyboard on f₂\'s chip', bk.planes.join() === '0,1,2' && bk.i === 2 && (await where()) === 'chip2', [bk, await where()]);
+const reAdd = await ev(`(() => { const a = document.querySelector('#svStrip .sv-add'), f = document.querySelector('#svStrip .sv-wholemap'); return { add: !a.disabled && a.getAttribute('data-tip') === 'Add a function  +' && !a.hasAttribute('aria-description'), f: !f.disabled && !f.hasAttribute('aria-description') }; })()`);
+ok('with the whole chain back, Add and F act again, with their own tips', reAdd.add && reAdd.f, reAdd);
 await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Show alone');
 await cl('#svStrip .sv-whole'); await settle(500);
 ok('the Whole chain chip does the same', (await sv()).planes.length === 3 && (await sv()).i === 2, await sv());

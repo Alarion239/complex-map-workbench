@@ -2023,14 +2023,16 @@
       else SV.refocus = true;   // (the + button, once it is drawn below)
     }
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
-    E.add.hidden = !!al;
-    E.wholeMap.hidden = !!al || S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
+    // (a step shown alone leaves Add and F in place, disabled, with the reason as their tip and description)
+    svDisableWhy(E.add, al ? $t('Show the whole chain to add a function') : '', $t('Add a function  +'));
+    svDisableWhy(E.wholeMap, al ? $t('Show the whole chain to see the whole map') : '', $t('Whole map'));
+    E.wholeMap.hidden = S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
     E.strip.classList.toggle('sv-nof', E.wholeMap.hidden);   // (the phone's track keeps room for F only while F is there)
     // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
     if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
     else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
-    if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
+    if (SV.refocus) { SV.refocus = false; if (!E.add.disabled) E.add.focus({ preventScroll: true }); }
     svFitRail();
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
@@ -3300,6 +3302,12 @@
     if (f.getAttribute('aria-pressed') !== on) f.setAttribute('aria-pressed', on);
   }
   // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
+  // a control that can't act now: disabled, with `why` as its tip and description; `tip` is its tip while it can act
+  function svDisableWhy(btn, why, tip) {
+    btn.disabled = !!why;
+    btn.setAttribute('data-tip', why || tip);
+    if (why) btn.setAttribute('aria-description', why); else btn.removeAttribute('aria-description');
+  }
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }
