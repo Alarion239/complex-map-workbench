@@ -1,9 +1,8 @@
 // The learn checks the steps view has (notes/ux-audit/REPORT.md; as built: notes/ux-build/w1-learn-AS-BUILT.md): UX21's
-// tour line, V01's target note on a phone, an example's fit with the tour's Sound chapter, UX80's phone message row,
-// UX89, UX78 and UX93's Russian strings, UX88 and UX72, on a phone (412 x 860, Android Chrome emulation, real touch
+// tour line, an example's fit with the tour's Sound chapter, UX89, UX78 and UX93's Russian strings, UX88 and UX72, on a phone (412 x 860, Android Chrome emulation, real touch
 // events through Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. The classic views' own
 // checks (the pane head's key, options and note, the deformation, the Shapes keys and menus) are
-// ux165_learn_classic_cmd.js; the laptop's sound checks are ux165_learn_sound_cmd.js, the first-run line is
+// ux165_learn_classic_cmd.js and the classic phone's (V01's note, UX80's message row) ux165_learn_phone_classic_cmd.js; the laptop's sound checks are ux165_learn_sound_cmd.js, the first-run line is
 // ux165_learn_first_run_cmd.js and the Undo message is ux165_learn_msg_classic_cmd.js. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
 // Prints { pass, of, fails: [[name, false, detail]], exc }.
@@ -37,18 +36,6 @@ g = await ev(`(() => { const s = document.querySelector('.tour-lane'); if (!s) r
 check('UX21 landscape phone: the line in the header (or the row under it), never over X or Y', g && ((g.mode === 'head' && g.slot === 'tourHeadSlot') || g.mode === 'row') && !g.over, g);
 await shot('ux165-ux21-phone-land');
 grab();
-
-// ---------------------------------------------------------------- V01 (phone): the target's note
-await phone(412, 860);
-await fresh('ux165c'); await settle(2200);
-// (a pulse is the class going on: a record that only rewrites the pane's classes, as a resize does, is not one)
-await ev(`(() => { const L = document.querySelector('#paneL'); window.__olds = []; new MutationObserver((ms) => { for (const m of ms) window.__olds.push(m.oldValue || ''); }).observe(L, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); return 1; })()`);
-await tapSel('.pane.ph-inset .ph-swap'); await settle(600);
-await tapSel('#secDraw [data-tool="disc"]'); await settle(300);
-await tdrag(200, 330, 250, 380); await settle(1200);
-g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#calcChip') || {}).hidden, pulse: (() => { const v = window.__olds.concat(document.querySelector('#paneL').className); let n = 0; for (let i = 0; i + 1 < v.length; i++) if (!/ph-pulse/.test(v[i]) && /ph-pulse/.test(v[i + 1])) n++; return n; })(), targets: __cmwState().targets })`);
-check('V01 phone: after a target, Y\'s chip says "Shaded in X (the inset)", no note over Y, and the inset pulsed once', g.targets === 1 && /Shaded in X \(the inset\)/.test(g.ro) && g.calc === true && g.pulse === 1, g);
-await shot('ux165-v01-phone');
 // an example's fit keeps X's bottom margin, measured on the plane (the bar is in the head now): the tour's Grieg step
 // and the next step have a finite view (it went NaN / div)
 await laptop(1440, 900);
@@ -59,15 +46,6 @@ await ev('Tour.next()'); await settle(2500);
 const ro1 = await ev(`__qa.txt('#leftReadout')`);
 check('UX20: with X\'s options in the head, an example\'s fit stays finite (the Sound chapter: "1 / div", not "NaN / div")', /^\d/.test(ro0) && /^\d/.test(ro1) && !/NaN/.test(ro0 + ro1), [ro0, ro1]);
 await ev('Tour.stop()'); await settle(400);
-await phone(412, 860);
-await fresh('ux165f'); await settle(2200);
-await ev(`document.querySelector('#clearChain').click()`); await settle(500);
-g = await ev(`(() => { const r = (e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: r(document.querySelector('#toastHost .toast')), inset: r(document.querySelector('.pane.ph-inset')), fit: r(document.querySelector('.pane:not(.ph-inset) .viewstack')), col: r(document.querySelector('.pane:not(.ph-inset) .ph-col')), chain: r(document.querySelector('.pipe-wrap')) }; })()`);
-// (#66: a phone's message takes the row over the tool row, under the chain bar, and the planes give that row up: it covers none of them)
-check('UX80 phone: the message sits in its own row under the chain bar, clear of the inset, Fit and the key column', g.t && !meet(g.t, g.inset) && !meet(g.t, g.fit) && !meet(g.t, g.col) && g.t.t >= g.chain.b - 1 && g.t.b - g.t.t >= 44, g);
-await shot('ux165-ux80-phone');
-grab();
-
 // ---------------------------------------------------------------- UX89: a tap that closes a layer does nothing else
 await phone(412, 860);
 await fresh('ux165g'); await settle(2000);
