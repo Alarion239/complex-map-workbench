@@ -118,6 +118,7 @@ const VIEWS = {
   'sv_all_sheets_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
   'steps_statekeys_cmd.js': steps(),
+  'steps_dcgrid_cmd.js': steps(),
   'toasts_515_cmd.js': steps(),
   'tour_planes_cmd.js': steps(),
 
