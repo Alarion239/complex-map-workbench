@@ -1,3 +1,4 @@
+// (Set to 100 % opacity: the front point's colour alone is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's carried colour, against the exact colour pulled back pixel by pixel. Each case is a plane w1
 // coloured from z ("colour of z, carried"), at rest or parked mid-glide, Inside regions or Everywhere: at each point w,
 // of the points z landing there (the region's, or all), the front one under the steps view's sheet key (the region
@@ -73,7 +74,7 @@ const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
 await ready();
-await ev("__cmwSet('morphPaths', false), 1");
+await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
 await ev(`__cmwExample(${EX}); 1`);
 await wait();
 {
@@ -129,7 +130,7 @@ for (const n of [2, 3]) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
-  await ev("__cmwSet('morphPaths', false), 1");
+  await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 44, 30);
   const inA = (z) => { const m = Math.hypot(z[0], z[1]); return m > 0.6 && m < 1.6; };
@@ -162,7 +163,7 @@ for (const n of [2, 3]) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
-  await ev("__cmwSet('morphPaths', false), 1");
+  await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 36, 24);
   const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]], add = (a, b) => [a[0] + b[0], a[1] + b[1]], sub = (a, b) => [a[0] - b[0], a[1] - b[1]];

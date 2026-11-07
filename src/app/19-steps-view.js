@@ -954,14 +954,19 @@
     if (u != null && list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back)))) { why.r = 'Everywhere under a Newton inverse with no seeds'; return null; }
     return { list, paths };
   }
-  // drawInverse's arguments (without the view) for one shape's inverse path p
-  const SV_CARRY_LOOK = { alpha: 1, alphaOwn: 1, pattern: 'carry', cell: 1, lines: false };
-  // alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
+  // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
+  // at the slider's value): how much the layers behind show through where the picture covers a point more than once.
+  // The farthest layer stays opaque, so a point covered once keeps its colour
+  const SV_OPACITY_MIN = 0.3;
+  const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
+  // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
+  // shape) keeps its own and draws every layer at it
+  const svCarryLook = (base) => ({ alpha: base >= 1 ? svOpacity() : base, alphaOwn: base >= 1 ? svOpacity() : base, lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
+  // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
   // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf) => {
-    const a = alphaOf ? alphaOf(shape) : 1;
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: alphaOf ? Object.assign({}, SV_CARRY_LOOK, { alpha: a, alphaOwn: a }) : SV_CARRY_LOOK,
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1),
       carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
   };
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
@@ -1024,7 +1029,7 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
+    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1378,7 +1383,7 @@
     if (!svMeshFalls.falls) return null;
     const L = svCarryShapes();
     if (!L || !L.length) return null;
-    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope].concat(L.map((x) => shapeKey(x))).join('|');
+    const w = clipWin, key = [sig, w.x0, w.x1, w.y0, w.y1, SV.scope, svOpacity()].concat(L.map((x) => shapeKey(x))).join('|');
     return key === svMeshDone ? null : key;
   }
   // the idle job's share of those meshes: all of them at once (each built whole), only with at least half a slice's
@@ -1387,6 +1392,7 @@
     const key = svMeshNext();
     if (!key || ms < SV_POLE_BUDGET / 2) return false;
     svMeshDone = key;
+    if (svOpacity() < 0.999 && GLR.carryLayersReserve) GLR.carryLayersReserve(svOpacity());
     for (const x of svCarryShapes() || []) {
       const r = svCarryGPU(x);
       if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
@@ -1452,19 +1458,37 @@
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, behind: d.behind || 0 };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, peel: false, behind: d.behind || 0 };
     });
-    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh)
-    for (let i = 0; i < n; i++) if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) return false;
-    for (let i = 0; i < n; i++) {
-      const d = lay[i], st = sts[i];
-      if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
-        if (i > 0) GLR.carryDepthEnd();
-        return false;
+    // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh. Below full
+    // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
+    // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
+    // layers cannot be drawn, the front layer alone is drawn)
+    const a = svOpacity();
+    let layers = a < 0.999 && !!GLR.carryLayers;
+    for (let pass = 0; pass < 2; pass++) {
+      let ready = true;
+      for (let i = 0; i < n; i++) {
+        sts[i].peel = layers; sts[i].prep = null;
+        if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
       }
+      if (ready) break;
+      if (!layers) return false;
+      layers = false;
     }
-    if (tail) GLR.carryDepthEnd();
-    return true;
+    const drawAll = () => {
+      for (let i = 0; i < n; i++) {
+        const d = lay[i], st = sts[i];
+        if (!(d.pre ? GLR.drawPreMapped(d.res, st) : GLR.drawRegion(d.res, st))) {
+          if (i > 0) GLR.carryDepthEnd();
+          return false;
+        }
+      }
+      if (tail) GLR.carryDepthEnd();
+      return true;
+    };
+    const layered = layers ? GLR.carryLayers(a, drawAll) : null;
+    return layered === null ? drawAll() : layered;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
@@ -1856,15 +1880,31 @@
     if (svParked()) return svPlaceText();
     const k = svStage(), T = svT(), n = svPlanes().length;
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
-    return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: SV.i + 1, n, where });
+    return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(SV.i + 1), n: I18N.num(n), where });
   }
   function svFormulaHtml() {
     const { name, role, short } = svTitleParts();
     return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
   }
-  // the glide speed's select (the shared field-styled one, selectEl) and the Loop toggle, the strip's and the playback sheet's
+  // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
+  // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
+  function svChoiceBtn(cur, pairs, pick, title, cls) {
+    let val = cur;
+    const word = h('span', { class: 'sv-choice-t' });
+    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu',
+      onclick: () => { if (!svOff(b)) svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }); } }, word, h('span', { class: 'sv-choice-i', html: ICONS.chevD, 'aria-hidden': 'true' })));
+    b.choices = pairs;   // (the suites pick an item by its value through it)
+    Object.defineProperty(b, 'value', { get: () => val, set: (v) => {
+      val = v;
+      word.textContent = (pairs.find((q) => q[0] === v) || pairs[0])[1];
+      b.setAttribute('aria-label', `${title}: ${word.textContent}`);
+    } });
+    b.value = cur;
+    return b;
+  }
+  // the glide speed's choice and the Loop toggle, the strip's and the playback sheet's
   function svSpeedSel(title) {
-    return selectEl(null, SV.speed, [['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]], svSetSpeed, title, 'sv-speed');
+    return svChoiceBtn(SV.speed, [['fast', $t('Fast')], ['normal', $t('Normal')], ['slow', $t('Slow')], ['slower', $t('Slower')]], svSetSpeed, title, 'sv-speed');
   }
   function svLoopBtn(cls, tip) {
     return h('button', { type: 'button', class: cls, 'aria-pressed': String(SV.loop), 'data-tip': tip || null, onclick: () => svSetLoop(!SV.loop) }, $t('Loop'));
@@ -1882,7 +1922,7 @@
   }
   // the order of a glide across several planes (S.homAll): plane by plane, or all at once as one homotopy of the whole range
   function svOrderSel(title) {
-    return selectEl(null, S.homAll ? 'all' : 'steps', [['steps', $t('Step by step')], ['all', $t('All at once')]], svSetOrder, title, 'sv-order');
+    return svChoiceBtn(S.homAll ? 'all' : 'steps', [['steps', $t('Step by step')], ['all', $t('All at once')]], svSetOrder, title, 'sv-order');
   }
   function svSetOrder(v) {
     const all = v === 'all';
@@ -1901,12 +1941,8 @@
     const tip = deriv ? $t('d/dz is not a map: its step deforms on its own, so the steps run one after another') : !ok ? $t('All at once needs two steps or more') : $t('Glide order');
     for (const sel of [E.order, E.sheetOrder]) {
       if (!sel) continue;
-      sel.disabled = !ok;
       sel.value = S.homAll && ok ? 'all' : 'steps';
-      // (a disabled select gets no pointer events, so its reason is the native title and a description)
-      sel.dataset.tip = tip;
-      sel.title = tip;
-      sel.setAttribute('aria-description', ok ? '' : tip);
+      svDisableWhy(sel, ok ? '' : tip, tip);
     }
     for (const why of [E.orderWhy, E.sheetOrderWhy]) {
       if (!why) continue;
@@ -2139,7 +2175,7 @@
       // (#437: an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
       const none = P.length < 2;
       E.slider.setAttribute('tabindex', none ? '-1' : '0'); E.slider.setAttribute('aria-disabled', String(none));
-      E.strip.querySelector('.sv-speed').disabled = none;
+      svDisableWhy(E.speed, none ? $t('Add a function to send z through it.') : '', $t('Glide speed'));
       const msg = [
         none ? $t('Add a function to send z through it.') : '',
         !none && svNoRegions() ? $t('Draw a region to colour it, or choose Everywhere.') : '',
@@ -2220,7 +2256,7 @@
     // (the room is the rail's with "+ Add function" folded, which svFitStrip does when the names would not fit beside its words)
     // (the rail's room is what it has with no centring margin, svCentreRail's)
     const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
-    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
+    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0, E.centreLetters ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
@@ -2242,7 +2278,7 @@
     const names = measure(false), letters = measure(true);
     const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
     const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
-    const mode = fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
+    const mode = E.centreLetters ? SV_RAIL_LETTERS : fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
     E.railMode = mode;
     E.strip.classList.toggle('sv-letters', mode === SV_RAIL_LETTERS);
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
@@ -2298,9 +2334,11 @@
       add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
       return;
     }
-    // (the whole order applies to a step shown alone, whose pill and planes need the room; a chain keeps Speed and Loop on the strip,
+    // (the whole order applies to a step shown alone, whose pill and planes need the room, and to a one-step chain, whose short thread is centred; a chain keeps Speed and Loop on the strip,
     // and its thread gives way by the steps' own widths, svFitRail's)
-    if (!E.strip.querySelector('.sv-whole-pin')) {
+    // (a chain of one step, not a step shown alone: the alone view has its own pill and walk, and keeps the first level that fits)
+    const one = nSteps() === 1;
+    if (!E.strip.querySelector('.sv-whole-pin') && !one) {
       const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
       apply(0);
       if (E.addLabelW != null) add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
@@ -2309,12 +2347,31 @@
     }
     // (each level is tried as it would stand: the folds made, the steps fitted to the rail, and the rail's own overflow read; the
     // first level that does not overflow stands, else the last, the rail scrolling)
-    let lv = 0;
-    for (; lv <= SV_FOLD_WHOLE; lv++) {
-      apply(lv); svFoldPlay(lv >= SV_FOLD_PLAY);
-      E.railKey = null; svFitRail();
-      if (E.rail.scrollWidth <= E.rail.clientWidth + 1 || lv === SV_FOLD_WHOLE) break;
+    // (a one-step thread must also sit on the strip's centre line; when no level centres it with the names, the chips take their
+    // letters, svFitRail's)
+    const stands = () => E.rail.scrollWidth <= E.rail.clientWidth + 1 && (!one || Math.abs(svThreadOff(E)) <= SV_CENTRE_TOL);
+    const tryLevels = () => {
+      for (let lv = 0; lv <= SV_FOLD_WHOLE; lv++) {
+        apply(lv); svFoldPlay(lv >= SV_FOLD_PLAY);
+        E.railKey = null; svFitRail();
+        if (stands() || lv === SV_FOLD_WHOLE) return stands();
+      }
+      return false;
+    };
+    E.centreLetters = false;
+    if (!tryLevels() && one) {
+      E.centreLetters = true;
+      if (!tryLevels()) { E.centreLetters = false; tryLevels(); }
     }
+  }
+  // (CSS px) how far a one-step thread may lie from the strip's centre line: under the layout suite's 4 px, which allows for rounding in its own measure
+  const SV_CENTRE_TOL = 3;
+  // the middle of the thread (first node to last) less the strip's centre, in CSS px
+  function svThreadOff(E) {
+    const nodes = E.track.querySelectorAll('.sv-plane .sv-node');
+    if (!nodes.length) return 0;
+    const a = nodes[0].getBoundingClientRect(), b = nodes[nodes.length - 1].getBoundingClientRect(), s = E.strip.getBoundingClientRect();
+    return (a.left + a.right + b.left + b.right) / 4 - (s.left + s.right) / 2;
   }
   // Speed and Loop are on the strip, or, when it has no room for them, in the Playback ⋯ beside Order and Paths
   function svFoldPlay(on) {
@@ -2504,10 +2561,10 @@
   // text changes only when it does
   function svReadout() {
     const P = svPlanes(), x = Math.max(0, Math.min(P.length - 1, SV.g.x)), r = Math.round(x), sp = SV.span;
-    if (sp && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6) return $t('All steps at once · {p} %', { p: Math.round(100 * (x - sp.x0) / (sp.x1 - sp.x0)) });
-    if (Math.abs(x - r) <= 1e-6) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: r + 1, n: P.length });
+    if (sp && x > sp.x0 + 1e-6 && x < sp.x1 - 1e-6) return $t('All steps at once · {p} %', { p: I18N.num(Math.round(100 * (x - sp.x0) / (sp.x1 - sp.x0))) });
+    if (Math.abs(x - r) <= 1e-6) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: I18N.num(r + 1), n: I18N.num(P.length) });
     const a = Math.floor(x), k = P[a + 1];
-    return $t('Step {k} of {m} · {f} · {p} %', { k: a + 1, m: P.length - 1, f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: Math.round(100 * (x - a)) });
+    return $t('Step {k} of {m} · {f} · {p} %', { k: I18N.num(a + 1), m: I18N.num(P.length - 1), f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: I18N.num(Math.round(100 * (x - a))) });
   }
   function svPlaceText() {
     const P = svPlanes(), x = SV.g.x;
@@ -3382,13 +3439,15 @@
     const on = String(S.sel === 'F');
     if (f.getAttribute('aria-pressed') !== on) f.setAttribute('aria-pressed', on);
   }
-  // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
   // a control that can't act now: disabled, with `why` as its tip and description; `tip` is its tip while it can act
   function svDisableWhy(btn, why, tip) {
     if (why) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');   // (not `disabled`: a press still reaches the long-press tip, and the keyboard still finds the reason)
     btn.setAttribute('data-tip', why || tip);
     if (why) btn.setAttribute('aria-description', why); else btn.removeAttribute('aria-description');
   }
+  // whether a control set by svDisableWhy can't act now
+  const svOff = (btn) => btn.getAttribute('aria-disabled') === 'true';
+  // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }
