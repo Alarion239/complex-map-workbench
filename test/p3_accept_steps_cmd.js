@@ -136,4 +136,13 @@ for (const at of [0, 1]) {
   ok(`globe orientation at plane ${at}: every picked triangle keeps its handedness`, R['hand' + at][0] > 50 && R['hand' + at][1] === 0, R['hand' + at]);
 }
 
+// ---- (n) the globe at plane 1 of [z^i, z^2]: the exact annulus on the z-globe of w1 (a step beyond the shown plane changes nothing)
+const POW2 = { type: 'pown', params: { n: 2 }, on: true };
+await globe('p3sn', [H, REF(LOWER)], [ZI, POW2], { cx: 0, cy: 1, s: 60 }, { pitch: -1.45, yaw: -0.6, dist: 2.2 });
+R.pathsN = await paths();
+ok('(n) globe at plane 1 of [z^i, z^2] draws inverse', R.pathsN.carry.carried && R.pathsN.carry.path === 'inverse' && !R.pathsN.paths.some((p) => p.path === 'forward'), R.pathsN);
+R.n_hole = await check('L', ANNULUS);
+ok('(n) globe: hole cap empty, annulus filled', R.n_hole.outN >= 400 && R.n_hole.outBad === 0 && R.n_hole.inN >= 400 && R.n_hole.inBad === 0, R.n_hole);
+await shot('p3s_n_hole');
+
 return { pass: fails.length === 0, fails, results: R };
