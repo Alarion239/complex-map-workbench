@@ -1998,7 +1998,7 @@
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
+    onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
@@ -2220,7 +2220,7 @@
     // (the room is the rail's with "+ Add function" folded, which svFitStrip does when the names would not fit beside its words)
     // (the rail's room is what it has with no centring margin, svCentreRail's)
     const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
-    const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
+    const key = [room, E.sig, document.fonts ? document.fonts.status : '', faceGen, I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
     if (key === E.railKey) return;
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
@@ -2364,7 +2364,7 @@
     const ph = document.documentElement.classList.contains('ph');
     const mc = $('modeChips');
     const key = [
-      ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', E.title.innerHTML,
+      ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', faceGen, E.title.innerHTML,
       E.cp.textContent, E.surf1.textContent, E.scopeBtn.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
     ].join('|');
     if (key === E.fitKey) return;

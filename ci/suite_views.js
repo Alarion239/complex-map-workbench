@@ -102,6 +102,7 @@ const VIEWS = {
   'steps_arrows_cmd.js': steps(),
   'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
+  'font_late_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
   'steps_strip_layout_cmd.js': steps(),
   'sv_curve_menu_cmd.js': steps(),
