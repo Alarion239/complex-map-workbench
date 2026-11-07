@@ -875,6 +875,8 @@
   const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // the map the Cauchy integral is taken of: the whole chain (the steps view's colour plane T does not change it); the classic views take the focus's
   const cauchyF = () => (SV.on ? stageF(nSteps()) : focusF());
+  // the plane the Cauchy integral's curve is taken in: z in the steps view, whichever plane the thread is parked at, else the left plane
+  const cauchyStage = () => (SV.on ? 0 : leftStage());
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)

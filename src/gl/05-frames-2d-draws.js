@@ -445,6 +445,7 @@
       u1f(Q, 'uKLim', st.lim || 1e30);
       keyUniforms(Q, k);
       u1i(Q, 'uGs', st.carry.s); u1i(Q, 'uGt', st.carry.T); dcUniforms(Q, st.carry, st.dpr || 1);
+      if (Q !== mask) carryCauchy(Q, st.carry);
       if (Q === sheet || Q === mask) u1i(Q, 'uKPass', 0);
       if (fp && Q !== P) { gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, fp.tex); u1i(Q, 'uFTW', fp.W); u1i(Q, 'uFTP', fp.P); }
     };
@@ -650,8 +651,8 @@
   // Float64Array [ax, ay, bx, by] * m: the polygon's edges, simplified to a fraction of a pixel): the edges as a texture
   // row relative to their centre, the poles and their principal parts as uniforms. -> {n edges, origin}
   let edgeTex = null, edgeKey = null, edgeO = [0, 0], edgeN = 0;
-  function cauchyEdges(c) {
-    gl.activeTexture(gl.TEXTURE4);
+  function cauchyEdges(c, unit = 4) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
     if (edgeTex && edgeKey === c.edges) { gl.bindTexture(gl.TEXTURE_2D, edgeTex); return; }
     const E = c.edges, m = Math.min(Math.floor(E.length / 4), maxTex);
     let ox = 0, oy = 0;
@@ -667,6 +668,30 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, m), 1, 0, gl.RGBA, gl.FLOAT, d);
     edgeKey = c.edges; edgeO = [ox, oy];
   }
+  // the plan's uniforms of the Cauchy shader (CAUCHY_CORE): the edge row on unit 4, the poles and their principal parts relative to edgeO, the part shown
+  function cauchyPlan(P, cp, unit) {
+    cauchyEdges(cp, unit);
+    u1i(P, 'uEdgeN', edgeN);
+    const poles = cp.plan.poles.slice(0, 16), pd = new Float32Array(64), cd = new Float32Array(128);
+    poles.forEach((q, k) => {
+      pd[4 * k] = q.z.re - edgeO[0]; pd[4 * k + 1] = q.z.im - edgeO[1]; pd[4 * k + 2] = Math.min(4, q.order); pd[4 * k + 3] = q.n;
+      for (let j = 0; j < 4 && j < q.a.length; j++) { cd[4 * k + 2 * j] = q.a[j].re; cd[4 * k + 2 * j + 1] = q.a[j].im; }
+    });
+    u1i(P, 'uPoleN', poles.length);
+    if (P.loc.uPole) gl.uniform4fv(P.loc.uPole, pd);
+    if (P.loc.uCoef) gl.uniform4fv(P.loc.uCoef, cd);
+    u2f(P, 'uShow', cp.show || 0, cp.sign || -1);
+  }
+  // the carried colour's Cauchy mode (CARRY_FS): c.cauchy = {plan, edges, show, sign, T} (T: the chain's length) draws the carried points in the
+  // Cauchy integral's colour, anything else leaves the stages' colour
+  const CARRY_EDGE_UNIT = SAMPLER_UNITS.uCEdges;
+  function carryCauchy(P, c) {
+    const cp = c && c.cauchy && c.cauchy.plan && c.cauchy.edges && c.cauchy.edges.length >= 4 ? c.cauchy : null;
+    u1i(P, 'uCT', cp ? cp.T : -1);
+    if (!cp) return;
+    cauchyPlan(P, cp, CARRY_EDGE_UNIT);
+    u2f(P, 'uEdgeO', edgeO[0], edgeO[1]);
+  }
   function drawColorPlot(st) {
     if (!ok) return;
     const cp = st.cauchy && st.cauchy.plan && st.cauchy.edges && st.cauchy.edges.length >= 4 ? st.cauchy : null;
@@ -678,17 +703,7 @@
     use(P, st.map);
     const dpr = st.dpr || 1;
     if (cp) {
-      cauchyEdges(cp);
-      u1i(P, 'uEdgeN', edgeN);
-      const poles = cp.plan.poles.slice(0, 16), pd = new Float32Array(64), cd = new Float32Array(128);
-      poles.forEach((q, k) => {
-        pd[4 * k] = q.z.re - edgeO[0]; pd[4 * k + 1] = q.z.im - edgeO[1]; pd[4 * k + 2] = Math.min(4, q.order); pd[4 * k + 3] = q.n;
-        for (let j = 0; j < 4 && j < q.a.length; j++) { cd[4 * k + 2 * j] = q.a[j].re; cd[4 * k + 2 * j + 1] = q.a[j].im; }
-      });
-      u1i(P, 'uPoleN', poles.length);
-      if (P.loc.uPole) gl.uniform4fv(P.loc.uPole, pd);
-      if (P.loc.uCoef) gl.uniform4fv(P.loc.uCoef, cd);
-      u2f(P, 'uShow', cp.show || 0, cp.sign || -1);
+      cauchyPlan(P, cp);
       u2f(P, 'uCenter', st.view.cx, st.view.cy);
       u2f(P, 'uRelC', st.view.cx - edgeO[0], st.view.cy - edgeO[1]);
     } else if (cz) {
@@ -759,6 +774,7 @@
     u1f(P, 'uLim', st.lim);
     u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
     dcUniforms(P, st, dpr);
+    if (st.s !== st.T) carryCauchy(P, st);
     // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
     const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
     keyUniforms(P, k);
