@@ -1,5 +1,5 @@
 // The top bar and the view tabs (issues #248, #249): no "Complex Map Workbench" text in the bar (the logo, a hidden h1 and
-// the page title stay); the room it gave goes to the Sound label and the search words; the bar does not overflow; the word
+// the page title stay); the room it gave goes to the search words and, together, the words of Export, Share, Theme and Sound; the bar does not overflow; the word
 // of every view tab (Plane | Sphere in the panes, X → Y | Phase | Landscape in the bar) is centred in its tile with its
 // icon as a pair (#335: the gap left of the content equals the gap right of it). 1440, 1280, 1100 and 900 px, en, ru, it. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -19,7 +19,7 @@ const probe = () => ev(`(() => {
   });
   const hr = h1.getBoundingClientRect(), cs = getComputedStyle(h1);
   return { over: top.scrollWidth > top.clientWidth + 1, h1: { w: Math.round(hr.width), h: Math.round(hr.height), clip: cs.clipPath, pos: cs.position }, title: document.title,
-    wm: !!document.querySelector('.wordmark'), mark: vis(document.querySelector('.top .mark')), sound: vis(document.querySelector('#soundBtn .slbl')), cmd: vis(document.querySelector('.top .cmd-text')),
+    wm: !!document.querySelector('.wordmark'), mark: vis(document.querySelector('.top .mark')), sound: vis(document.querySelector('#soundBtn .slbl')), words: ['#exportBtn .hw', '#shareBtn .hw', '#themeBtn .hw', '#soundBtn .slbl'].map((q) => vis(document.querySelector(q))), cmd: vis(document.querySelector('.top .cmd-text')),
     topText: [...top.querySelectorAll('*')].filter((e) => !e.closest('h1') && vis(e) && e.children.length === 0 && /Complex Map Workbench|Map Workbench/.test(e.textContent)).length, tabs };
 })()`);
 for (const lang of ['', 'ru', 'it']) {
@@ -37,7 +37,10 @@ for (const lang of ['', 'ru', 'it']) {
     ok(`${at}: the hidden h1 and the title stay`, p.h1.pos === 'absolute' && p.h1.w <= 2 && /Complex Map Workbench/.test(p.title), p);
     ok(`${at}: the bar does not overflow`, !p.over, p);
     ok(`${at}: every view tab's content (icon and word) is centred in its tile (±1 px)`, p.tabs.length >= 4 && p.tabs.every((t) => Math.abs(t.d) <= 1), p.tabs);
-    if (w >= 1100) ok(`${at}: the Sound label shows`, p.sound, p);
+    // (the four words, Export, Share, Theme and Sound, show together or not at all; where the search has words at all (below) they stay while the four show theirs, because the four fold first)
+    ok(`${at}: Export, Share, Theme and Sound show their words together or not at all`, p.words.every((x) => x === p.words[0]), p.words);
+    if (w < 1100) ok(`${at}: under 1100 px the four are icons`, !p.words.some(Boolean), p.words);
+    if (w >= 1440) ok(`${at}: the four words show at 1440`, p.words.every(Boolean), p.words);
     if (w >= 1280 && !lang || w >= 1440) ok(`${at}: the search shows its words`, p.cmd, p);
     // (#334) the Phase view has no style button in the bar either, and the bar still does not overflow
     await ev(`__cmwSetMain('phase'); 1`); await settle(500);

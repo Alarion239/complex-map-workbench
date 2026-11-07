@@ -410,14 +410,15 @@
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
     const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
+    const ex = $('examplesBtn');
+    const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
+    // (the words of Export, Share, Theme and Sound give way first, together, while the search's words are cut, Examples' own word
+    // or the field is squeezed, or the bar overflows; only then does the search lose its own)
+    if (cut() || tight()) top.classList.add('hw-off');
     if (cut()) {
       if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
       if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
     }
-    // (the words of Export, Share, Theme and Sound give way together, while Examples' own word or the field is squeezed, or the bar overflows)
-    const ex = $('examplesBtn');
-    const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    if (tight()) top.classList.add('hw-off');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
   function hdrFitInit() {
