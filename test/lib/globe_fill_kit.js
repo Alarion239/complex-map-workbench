@@ -1,7 +1,7 @@
 // The globe suites' shared pixel check (p3_accept_cmd.js, p3_accept_steps_cmd.js): a globe pane's fill against the truth.
-// An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, neutralFrame, handedness, FILL_DIFF, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
+// An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, neutralFrame, handedness, countPicks, FILL_DIFF, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
 // globeCheck(side, cls, step, mode, id) picks each pixel's point with the page's pick of that side (__cmwSphereW for 'R',
-// __cmwSphereWL for 'L'). A sample is fill when its frame differs from a reference frame without the fill by more than 24
+// __cmwSphereWL for 'L'). A sample is fill when its frame differs from a reference frame without the fill by more than FILL_DIFF
 // (the sum of the channels' differences); the frames are the page's D1 (as drawn), D0 and Db. mode 'alpha' (the classic
 // panes): the reference D0 is the same frame with the fill's alpha 0. mode 'scope' (the steps view's globe, scope Inside
 // regions, the region of shape id): D0 is the Everywhere frame, and the reference Db is the same frame with the shape hidden
@@ -19,7 +19,7 @@ const FILL_DIFF = 24;
 const DIFF = (P, Q) => `Math.abs(${P}[i] - ${Q}[i]) + Math.abs(${P}[i + 1] - ${Q}[i + 1]) + Math.abs(${P}[i + 2] - ${Q}[i + 2])`;
 const MODES = {
   alpha: { off: '__cmwSet("alpha", 0)', on: '__cmwSet("alpha", 1)', fill: `(i, c) => (${DIFF('D1', 'D0')} > ${FILL_DIFF} ? 1 : 0)` },
-  scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: `(i, c) => (c > 0 && ${DIFF('D0', 'Db')} <= 24 ? -1 : ${DIFF('D1', 'Db')} > ${FILL_DIFF} ? 1 : 0)` },
+  scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: `(i, c) => (c > 0 && ${DIFF('D0', 'Db')} <= ${FILL_DIFF} ? -1 : ${DIFF('D1', 'Db')} > ${FILL_DIFF} ? 1 : 0)` },
 };
 const fillSrc = (mode) => MODES[mode].fill;
 // the frame the toggle asked for is drawn: the page quiet, the steps view's glide done, no program linking
@@ -69,20 +69,25 @@ const globeCheck = async (side, cls, step = 2, mode = 'alpha', id = 's1') => {
   return o;
 })()`, 60000);
 };
-// the handedness of the pane's pick of a side: a screen triangle (x, y), (x + 4, y), (x, y - 4) maps to a triangle of the
+// the handedness of the pane's pick of a side: a screen triangle (x, y), (x + HAND_LEG, y), (x, y - HAND_LEG) maps to a triangle of the
 // same orientation, counted as [kept, reversed] over a grid of the pane (the plain lift would make every globe a mirror image)
+// (the grid: a pick every HAND_STEP px, HAND_MARGIN px in from the pane's edge; the triangle's legs are HAND_LEG px)
+const HAND_MARGIN = 20, HAND_STEP = 23, HAND_LEG = 4;
 const handedness = (side) => ev(`(() => {
   const out = [0, 0], pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'};
   const r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect();
-  for (let y = 20; y < r.height - 20; y += 23) for (let x = 20; x < r.width - 20; x += 23) {
-    const a = pick(x, y), b = pick(x + 4, y), c = pick(x, y - 4);
+  for (let y = ${HAND_MARGIN}; y < r.height - ${HAND_MARGIN}; y += ${HAND_STEP}) for (let x = ${HAND_MARGIN}; x < r.width - ${HAND_MARGIN}; x += ${HAND_STEP}) {
+    const a = pick(x, y), b = pick(x + ${HAND_LEG}, y), c = pick(x, y - ${HAND_LEG});
     if (!a || !b || !c) continue;
     out[(b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]) > 0 ? 0 : 1]++;
   }
   return out;
 })()`);
+// the number of pane pixels (every second one, 3 px in from the edge) whose point, by the pane's own pick, satisfies pred
+// (page code: (w) => boolean)
+const countPicks = (side, pred) => ev(`(() => { let n = 0; const pick = ${side === 'L' ? '__cmwSphereWL' : '__cmwSphereW'}, r = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}).getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = pick(x, y); if (w && (${pred})(w)) n++; } return n; })()`);
 const EPI = Math.exp(-Math.PI);
 // the annulus e^-pi < |w| < 1 (z^i of H): inside beyond 3 px of both rims; outside: the hole cap and beyond |w| = 1
 const ANNULUS = `(w) => { const a = Math.hypot(w[0], w[1]), e = ${EPI}; return a > e && a < 1 ? 1 : -1; }`;
-  return { grab, globeCheck, neutralFrame, handedness, fillSrc, FILL_DIFF, EPI, ANNULUS };
+  return { grab, globeCheck, neutralFrame, handedness, countPicks, fillSrc, FILL_DIFF, EPI, ANNULUS };
 })()

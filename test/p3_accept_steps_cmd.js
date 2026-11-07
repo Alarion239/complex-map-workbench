@@ -7,7 +7,7 @@
 // Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const { grab, globeCheck, neutralFrame, handedness, fillSrc, FILL_DIFF, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'));
+const { grab, globeCheck, neutralFrame, handedness, countPicks, fillSrc, FILL_DIFF, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'));
 // the bounds of p3_accept_cmd.js: the fewest picked triangles of a handedness count, the fewest samples a fill check needs, the
 // least IoU of the GPU fill with the CPU render and the fewest pixels both fill
 const MIN_PICKS = 50, MIN_SAMPLES = 400, MIN_IOU = 0.999, MIN_INTER = 1000;
@@ -75,7 +75,7 @@ await shot('p3s_f_cayley_w1');
 await globe('p3accsd', [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }, REF(UPPER)], [CAY], { cx: 0, cy: -1, s: 60 }, { pitch: 1.45, yaw: -0.6, dist: 3 });
 R.cay_N = await check('L', DISC_OUT);
 // (the pole pixel itself has no w: the pick returns null at infinity; its neighbours have |w| in the thousands)
-R.cay_N_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && Math.hypot(w[0], w[1]) > 50) n++; } return n; })()`);
+R.cay_N_far = await countPicks('L', `(w) => Math.hypot(w[0], w[1]) > 50`);
 ok('(f) Cayley of the lower half-plane covers the north pole', R.cay_N.inN >= MIN_SAMPLES && R.cay_N.inBad === 0 && R.cay_N.outBad === 0 && R.cay_N_far > MIN_FAR, [R.cay_N, R.cay_N_far]);
 await shot('p3s_f_cayley_N');
 
@@ -116,7 +116,7 @@ await shot('p3s_x0_ext');
 // and the upper half-plane, seen around the north pole (its rim, the real axis, runs through infinity)
 await globe('p3accxh', [H, REF(LOWER)], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: 1.3, yaw: -1.0, dist: 3 }, 0);
 R.x0H = await check('L', `(w) => (w[1] > 0 ? 1 : -1)`);
-R.x0H_far = await ev(`(() => { let n = 0; const r = document.getElementById('canvasL').getBoundingClientRect(); for (let y = 3; y < r.height - 3; y += 2) for (let x = 3; x < r.width - 3; x += 2) { const w = __cmwSphereWL(x, y); if (w && w[1] > 0 && Math.hypot(w[0], w[1]) > 20) n++; } return n; })()`);
+R.x0H_far = await countPicks('L', `(w) => w[1] > 0 && Math.hypot(w[0], w[1]) > 20`);
 ok('X Sphere at stage 0: Im z > 0 exact around the north pole', R.x0H.inN >= MIN_SAMPLES && R.x0H.inBad === 0 && R.x0H.outN >= MIN_SAMPLES && R.x0H.outBad === 0 && R.x0H_far > MIN_FAR, [R.x0H, R.x0H_far]);
 await shot('p3s_x0_H');
 
