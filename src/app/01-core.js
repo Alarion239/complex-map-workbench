@@ -397,7 +397,7 @@
   }
   let saveT = 0, storageWarned = false;
   let figureSwap = false;   // v15: a link or a scene was written for the reload that opens it (nothing else is saved)
-  // ([v16.5 check app-1, app-2] no word of the bar is cut: where it does not fit, words give way one level at a time, in this
+  // (no word of the bar is cut: where it does not fit, words give way one level at a time, in this
   // order, until it does: the words of Export, Share, Theme and Sound (together), an open example's name, the view tabs' and
   // Deformation's words, the search's full label, its short label (Russian, Italian), then its icon and shortcut alone (named
   // by its aria-label and tooltip). Measured in a frame when the header's width, the example's name or the fonts change; a
