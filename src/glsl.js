@@ -840,15 +840,17 @@ vec2 cx_digamma(vec2 z) {
 }
 `;
   // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
+  // The entries of ZETA_LIB's table of ln k (k < ZETA_LN_K_COUNT, four to a uniform row; the host fills it, logK in src/gl/04-programs-resources.js)
+  const ZETA_LN_K_COUNT = 132;
   const ZETA_LIB = `
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
-// ln k for k < 132, four to a row: the host fills it once with the GPU's own log (logK, src/gl/04-programs-resources.js), so a term
+// ln k for k < ${ZETA_LN_K_COUNT}, four to a row: the host fills it once with the GPU's own log (logK, src/gl/04-programs-resources.js), so a term
 // reads what log(float(k)) gives, not a log of its own. Entry 0 (unused by the sums) is 1 once the host has filled it; a program
 // whose host did not (a test page's) holds zeros there and takes the log itself
-uniform highp vec4 uLogK[33];
+uniform highp vec4 uLogK[${ZETA_LN_K_COUNT / 4}];
 float cx_lnk(int k, bool tab) {
-  if (tab && k < 132) return uLogK[k >> 2][k & 3];
+  if (tab && k < ${ZETA_LN_K_COUNT}) return uLogK[k >> 2][k & 3];
   return log(float(k));
 }
 const float CX_EMC[6] = float[6](0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10);
@@ -2872,7 +2874,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
+  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

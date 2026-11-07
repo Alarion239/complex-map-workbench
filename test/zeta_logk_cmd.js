@@ -5,6 +5,8 @@
 // - the frame it draws is the page's plot (a program that ran with a table of zeros would draw nothing but blank).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views-1 shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
+// (132 is the table's size written out on purpose: the test pins the contract, not GLChain.ZETA_LN_K_COUNT. The host accepts a GPU's
+// table within 1e-5 of Math.log, any GPU's; the CI renderer's is held to 1e-6 here)
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];

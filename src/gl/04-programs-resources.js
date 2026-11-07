@@ -6,18 +6,20 @@
   // with the log the zeta loops call: a vertex shader's transform feedback, read back, so each entry is what log(float(k))
   // gives there. If that pass cannot run, the host's float32 logs stand in
   let logKData = null;
+  // A GPU's log may differ from Math.log by a few float32 ulps; the table is kept only while every entry is within this relative distance of it
+  const LOGK_GPU_REL_TOL = 1e-5;
   function logK() {
     if (logKData) return logKData;
-    const out = new Float32Array(132);
+    const n = GLChain.ZETA_LN_K_COUNT, out = new Float32Array(n);
     out[0] = 1;
-    for (let k = 1; k < 132; k++) out[k] = Math.fround(Math.log(k));
+    for (let k = 1; k < n; k++) out[k] = Math.fround(Math.log(k));
     const p = gl.createProgram();
     gl.attachShader(p, shader(gl.VERTEX_SHADER, '#version 300 es\nprecision highp float;\nout vec4 v;\nvoid main() {\n  int i = gl_VertexID;\n  v = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n'));
     gl.attachShader(p, shader(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;\nout vec4 o;\nvoid main() { o = vec4(0.0); }\n'));
     gl.transformFeedbackVaryings(p, ['v'], gl.SEPARATE_ATTRIBS);
     gl.linkProgram(p);
     if (gl.getProgramParameter(p, gl.LINK_STATUS)) {
-      const tf = gl.createTransformFeedback(), buf = gl.createBuffer(), vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING), gpu = new Float32Array(132);
+      const tf = gl.createTransformFeedback(), buf = gl.createBuffer(), vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING), gpu = new Float32Array(n);
       gl.bindVertexArray(null);
       gl.bindBuffer(gl.COPY_WRITE_BUFFER, buf);
       gl.bufferData(gl.COPY_WRITE_BUFFER, gpu.byteLength, gl.DYNAMIC_READ);
@@ -27,7 +29,7 @@
       gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buf);
       gl.enable(gl.RASTERIZER_DISCARD);
       gl.beginTransformFeedback(gl.POINTS);
-      gl.drawArrays(gl.POINTS, 0, 33);
+      gl.drawArrays(gl.POINTS, 0, n / 4);
       gl.endTransformFeedback();
       gl.disable(gl.RASTERIZER_DISCARD);
       gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
@@ -37,7 +39,7 @@
       gl.bindBuffer(gl.COPY_READ_BUFFER, null);
       gl.bindVertexArray(vao);
       gl.deleteBuffer(buf); gl.deleteTransformFeedback(tf);
-      if (gpu.every((x, k) => k === 0 || (Number.isFinite(x) && Math.abs(x - out[k]) <= 1e-5 * (1 + out[k])))) { gpu[0] = 1; out.set(gpu); }
+      if (gpu.every((x, k) => k === 0 || (Number.isFinite(x) && Math.abs(x - out[k]) <= LOGK_GPU_REL_TOL * (1 + out[k])))) { gpu[0] = 1; out.set(gpu); }
     }
     gl.deleteProgram(p);
     logKData = out;
