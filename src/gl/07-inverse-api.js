@@ -562,22 +562,23 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return pr.state;
   }
   // How far the inverse programs of the states sts (drawInverse's arguments, as inverseState takes them) have come:
-  // {done, total}. A state is done when its program is ready and has made its first draw, or when nothing will come of
+  // {done, total, drawn (programs drawn by this call)}. A state is done when its program is ready and has made its first draw, or when nothing will come of
   // it (no inverse for it, a failed compile, a side draw). start: begin the compile of a program not started (it waits
   // while the chain's forward programs link, and is asked again by the next call); warm: make the first draw of a ready
-  // program (a one-pixel draw into the current target, as warmInverse does) so the frame that uses it does not stall
+  // program (a one-pixel draw into the current target, as warmInverse does) so the frame that uses it does not stall:
+  // at most opt.warm programs a call (each first draw is a stall of its own)
   function inverseWarmup(sts, opt = {}) {
-    let done = 0;
+    let done = 0, drawn = 0;
     if (!ok || lost) return { done, total: sts.length };
     for (const st of sts) {
       const { B, globe, extra } = invArgs(st, null);
       const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
       if (pr.state === 'ready') {
-        if (!pr.P.warm && opt.warm) { warmDraw(pr.P, false); pr.P.warm = true; }
+        if (!pr.P.warm && drawn < (opt.warm || 0)) { warmDraw(pr.P, false); pr.P.warm = true; drawn++; }
         if (pr.P.warm) done++;
       } else if (pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED)) done++;
     }
-    return { done, total: sts.length };
+    return { done, total: sts.length, drawn };
   }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';

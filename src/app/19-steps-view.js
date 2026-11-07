@@ -2777,14 +2777,14 @@
     }
     return (svInvStates = sts);
   }
-  // Starts those programs and makes their first draw, in an idle moment SV_WARM_IDLE_MS after the last input (that draw
-  // builds the pipeline: a stall that must not land in an edit or a glide), tried again while a program links
+  // Starts those programs and makes their first draw, one program to an idle moment (each first draw builds a pipeline: a
+  // stall that must not land in an edit or a glide, nor pile up in one block), tried again while a program links
   function svWarmInverse(n, t0 = performance.now()) {
     if (n > SV_WARM_TRIES || !GLR.ok || !GLR.inverseWarmup || nSteps() < 1) return;
     svWarmWhenIdle(svWarmInverse, n, t0, () => {
-      let r = { done: 0, total: 1 };
-      try { r = GLR.inverseWarmup(svInvList(), { start: true, warm: true }); } catch (e) { svInvStates = []; }
-      return r.done >= r.total;
+      let r = { done: 0, total: 1, drawn: 0 };
+      try { r = GLR.inverseWarmup(svInvList(), { start: true, warm: 1 }); } catch (e) { svInvStates = []; }
+      return r.done >= r.total ? true : r.drawn ? 'more' : false;
     });
   }
   // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
@@ -2833,15 +2833,20 @@
   // after SV_WARM_IDLE_CB_MS at the latest
   const SV_WARM_TRIES = 40, SV_WARM_RETRY_MS = 500, SV_WARM_POLL_MS = 250, SV_WARM_IDLE_CB_MS = 1000;
   // Runs step() in an idle moment, SV_WARM_IDLE_MS after t0 and after the last input, if the chain is still the one it was
-  // asked for; step() is true when its work is done, else again(n + 1) runs SV_WARM_RETRY_MS later. A wait for input to stop
-  // calls again(n) after at least SV_WARM_POLL_MS
+  // asked for and nothing is being dragged or typed (looked at again when the idle callback runs); step() is true when its
+  // work is done, 'more' when it made progress and has more to do, else false. Then again(n, t0) runs SV_WARM_RETRY_MS
+  // later, with n + 1 unless it made progress. A wait for input to stop calls again(n, t0) after at least SV_WARM_POLL_MS
   function svWarmWhenIdle(again, n, t0, step) {
     const sig = chainSig[nSteps()];
-    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
-    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) again(n, t0); }, Math.max(wait, SV_WARM_POLL_MS)); return; }
-    (window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: SV_WARM_IDLE_CB_MS }) : (f) => setTimeout(f, SV_WARM_POLL_MS))(() => {
+    const wait = () => Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    const waitMore = () => { setTimeout(() => { if (chainSig[nSteps()] === sig) again(n, t0); }, Math.max(wait(), SV_WARM_POLL_MS)); };
+    if (wait() > 0 || interacting()) { waitMore(); return; }
+    const idle = window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: SV_WARM_IDLE_CB_MS }) : (f) => setTimeout(f, SV_WARM_POLL_MS);
+    idle(() => {
       if (chainSig[nSteps()] !== sig) return;
-      if (!step()) setTimeout(() => again(n + 1, t0), SV_WARM_RETRY_MS);
+      if (wait() > 0 || interacting()) { waitMore(); return; }
+      const r = step();
+      if (r !== true) setTimeout(() => again(r === 'more' ? n : n + 1, t0), SV_WARM_RETRY_MS);
     });
   }
   let svWarmSig = null, svWarmAt = 0;
