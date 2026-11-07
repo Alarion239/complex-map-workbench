@@ -683,6 +683,7 @@
           const mb = medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
           // (eased, flat at both ends: the start's linear heights are unbounded where the map is, so at the end their
           // share must be negligible for the frame to be the parked one)
+          // (smootherstep: flat in slope and curvature at both ends)
           const e = carry.u * carry.u * carry.u * (carry.u * (6 * carry.u - 15) + 10);
           carryMorph = { a: { height: `${S.height}Lin`, scale: lscale * ra.boost, mu: ra.mu }, b: { height: S.height, scale: lscale, mu: mb }, u: e };
           return { mu: logLerp(ra.mu, mb, e), boost: logLerp(ra.boost, 1, e) };

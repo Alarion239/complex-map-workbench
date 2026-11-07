@@ -301,6 +301,7 @@
     u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P, 'uSheetB', sp.b); u1i(P, 'uSheetK', sp.K); u1i(P, 'uSheetW', sp.W); u1i(P, 'uTileC', tileC); u1i(P, 'uTexW', texW); u1iv(P, 'uSheetMap', sp.map);
+    // (16 bytes a texel: RGBA32F)
     runTF(P, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landCP[slot], texW, texH, gl.RGBA32F, gl.RGBA);
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return true;
@@ -977,6 +978,7 @@
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     u1i(P1, 'uPass', 0);
     gl.activeTexture(gl.TEXTURE15);
+    // (16 bytes a texel: RGBA32F)
     runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
   }
   // a carried pole's patch's sheets' heights (about polar, N points a side at most), in slot i of landSP; kept while its
@@ -1217,6 +1219,7 @@
     const heightH = (scale) => landGeom(box, scale).H;
     const mo = cm0 && st.sheets && !st.sheets.rest ? { m1: modeIdx(cm0.a.height), h1: heightH(cm0.a.scale), mu1: cm0.a.mu, m2: modeIdx(cm0.b.height), h2: heightH(cm0.b.scale), mu2: cm0.b.mu, u: clamp(cm0.u, 0, 1) } : null;
     const heightWith = (m, Hm, mum) => (v) => {
+      // (heightWm's: log |F| over 1.4, |F| kept above 1e-300 so the log is finite)
       if (m === 0) return Hm * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (m === 1) return Hm * ((4 / Math.PI) * Math.atan(v / mum) - 1);
       if (m >= 6) { const x = v / mum, a = Math.abs(x), c = 0.5 / Math.PI; return Hm * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }

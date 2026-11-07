@@ -370,7 +370,7 @@
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
     let poles;
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E, src)) || p);
-    else poles = svDrain(svPolesIn(F, src, 16, src, E, true));
+    else poles = svDrain(svPolesIn(F, src, SV_SING_GRID, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
@@ -707,7 +707,8 @@
   }
   // (SV_SING_BIG: |F| a singular point's peak must pass; SV_SING_START: the grid value a start's climb to one begins from: a
   // root's unbounded point between two grid points of a coarse grid shows there as a value of 2 to 3, not past SV_SING_BIG)
-  const SV_SING_BIG = 10, SV_SING_START = 2;
+  // (SV_SING_GRID: the grid's points a side in the search for singular points)
+  const SV_SING_BIG = 10, SV_SING_START = 2, SV_SING_GRID = 16;
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
   // sing, a start Newton's method does not settle on and where |F| is at least SV_SING_START is climbed to its singular point
   function* svPolesIn(F, box, n, lim, E, sing = false) {

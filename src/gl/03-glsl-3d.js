@@ -29,6 +29,7 @@ vec2 heightWm(vec2 w, int hMode, float uH, float uMu) {
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
   if (hMode == 6 || hMode == 7) {
+    // (the clamp keeps x finite through the atan; 1e30 is far past any height that matters)
     float x = clamp((hMode == 6 ? w.x : w.y) / mu, -1e30, 1e30), a = abs(x), c = 0.5 / PI;
     bool bad = hMode == 6 ? nanx : nany;
     return vec2(uH * sign(x) * (a <= 1.0 ? a : 1.0 + c * atan((a - 1.0) / c)), bad ? 0.0 : 1.0);
@@ -40,6 +41,8 @@ vec2 heightWm(vec2 w, int hMode, float uH, float uMu) {
   }
   bool bad = (nanx || nany) && !infv;
   float r = infv ? 3e38 : wabs(w);
+  // (mode 1: |F| over mu, finite to 1e30; mode 0: log |F| over 1.4, the scale that puts |F| = e^1.4 at half the block's height; |F| is
+  // clamped to the float range 1e-37 .. 3e38 so the log is finite)
   float v = hMode == 1 ? (4.0 / PI) * atan(min(r / mu, 1e30)) - 1.0 : (2.0 / PI) * atan(log(clamp(r, 1e-37, 3e38)) / 1.4);
   return vec2(uH * v, bad ? 0.0 : 1.0);
 }
@@ -1229,16 +1232,19 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   if (uMorphOn == 1 && uHM > 0.0 && uHM < 1.0) return w;
   int hMode = uMorphOn == 1 ? (uHM >= 1.0 ? uHMode2 : uHMode1) : uHMode;
   float hH = uMorphOn == 1 ? (uHM >= 1.0 ? uH2 : uH1) : uH, hMu = uMorphOn == 1 ? (uHM >= 1.0 ? uMu2 : uMu1) : uMu;
+  // (hc: the height in block units kept a hair inside +-1, where the tangent of the inverse would be infinite)
   float h = mix(ht.x, vPos.z, wt) / hH, mu = hMu > 0.0 ? hMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
   if (hMode >= 2) {
     // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
+    // (the tangent's argument stops 1e-3 short of a quarter turn, where it would be infinite)
     float x = hMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : hMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
     if (hMode == 2 || hMode == 4 || hMode == 6) w.x = x; else w.y = x;
     return w;
   }
   float r = wabs(w);
   if (!(r > 1e-30 && r < 1e30)) return w;
+  // (1e-37: the smallest |F| kept, so the log is finite; 1.4: the log map's scale, as heightWm's)
   float lr = hMode == 1 ? log(max(mu * tan(0.25 * PI * (hc + 1.0)), 1e-37)) : 1.4 * tan(0.5 * PI * hc);
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
