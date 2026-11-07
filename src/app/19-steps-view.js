@@ -363,7 +363,20 @@
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
-  const svLandPoleMemo = { key: '', poles: [] };
+  const svLandPoleMemo = { key: '', poles: [] }, svLandBranchMemo = { key: '', pts: [] };
+  // The singular points of the glide's landing map that are not poles (the logarithm's 0, a root's branch point), found
+  // once per carry for t = 1. Along the glide the map is still singular there: its cells stretch and fold about the
+  // point (a power's, z^(1-t), is not smooth at 0 though it is finite) so they are left out, but the pole search at t
+  // finds nothing, as |F| does not grow without bound, so these points carry the patches of the frames before t = 1.
+  function svLandBranchPoints(map, src, E) {
+    if (!(map.t < 1) || (map.mode !== 1 && map.mode !== 3)) return [];
+    const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, src.x0, src.x1, src.y0, src.y1]);
+    if (svLandBranchMemo.key === key) return svLandBranchMemo.pts;
+    const Fe = cpuMap(Object.assign({}, map, { t: 1 }));
+    const pts = Fe ? svDrain(svPolesIn(Fe, src, SV_SING_GRID, src, E, true)).filter((p) => !svDrain(svPoleAt(Fe, p, src, E))) : [];
+    Object.assign(svLandBranchMemo, { key, pts });
+    return pts;
+  }
   function svLandPatches(map, src, N, hF, hKey) {
     const F = cpuMap(map);
     if (!F) return [];
@@ -372,6 +385,7 @@
     if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E, src)) || p);
     else poles = svDrain(svPolesIn(F, src, SV_SING_GRID, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
+    for (const b of svLandBranchPoints(map, src, E)) if (!poles.some((q) => CX.abs(CX.sub(b, q)) < 1e-6 * (1 + CX.abs(b)))) poles.push(b);
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
