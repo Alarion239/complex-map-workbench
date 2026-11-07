@@ -934,14 +934,20 @@
     if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
   }
-  // the steps view's Opacity slider: svOpacity's range in whole percents; valuetext says the percent
-  function opacityScrub(idSuffix) {
-    const say = (v) => I18N.num(Math.round(v * 100)) + ' %';
-    const val = h('span', { class: 'fval mono', id: 'opacityVal' + idSuffix }, say(svOpacity()));
-    const rng = h('input', { type: 'range', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, value: svOpacity(), 'aria-label': $t('Opacity'), 'aria-valuetext': say(svOpacity()),
-      oninput: (e) => { const v = +e.target.value; setOpt('alpha', v); val.textContent = say(v); rng.setAttribute('aria-valuetext', say(v)); paintFader(rng); paintChanged(); save(); } });
+  // the steps view's Opacity slider: svOpacity's range in whole percents, valuetext and the value beside it saying the
+  // percent; setFillOpacity (S.alpha's one setter) keeps it and the regions' own slider at one value
+  const opacityText = (v) => I18N.num(Math.round(v * 100)) + ' %';
+  function syncOpacityRange(rng) {
+    const v = svOpacity();
+    rng.value = String(v); rng.setAttribute('aria-valuetext', opacityText(v));
+    rng.nextElementSibling.textContent = opacityText(v);
     paintFader(rng);
-    return h('label', { class: 'fader-row compact', 'data-tip': $t('How much the layers behind show through where the picture covers a point more than once.') }, h('span', { class: 'fl' }, $t('Opacity')), rng, val);
+  }
+  function opacityScrub(idSuffix) {
+    const rng = h('input', { type: 'range', class: 'sv-opacity', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, 'aria-label': $t('Opacity'), oninput: (e) => setFillOpacity(+e.target.value) });
+    const row = h('label', { class: 'fader-row compact', 'data-tip': $t('How much the layers behind show through where the picture covers a point more than once.') }, h('span', { class: 'fl' }, $t('Opacity')), rng, h('span', { class: 'fval mono' }));
+    syncOpacityRange(rng);
+    return row;
   }
   function buildFootL(f) {
     const Fn = fnText();

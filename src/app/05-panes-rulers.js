@@ -1325,6 +1325,16 @@
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
+  // The fill opacity, S.alpha: the one setter of the regions' Opacity slider (#alphaRange) and the steps view's colour
+  // popover (the .sv-opacity ranges, which show it in whole percents), each kept at the value
+  function setFillOpacity(v) {
+    setOpt('alpha', v);
+    const r = /** @type {HTMLInputElement} */ ($('alphaRange'));
+    r.value = String(S.alpha); paintFader(r);
+    $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
+    requestRender('L', 'R', 'T'); save();
+  }
   function setupViewControls() {
     // the view controls: the top bar's view switch (merged-views.md) and the panes' Plane | Sphere radios (U4)
     const vsw = $('viewSwitch');
@@ -1352,7 +1362,7 @@
     $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R', 'T'); drawLegend(); save(); });   // (#363: Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
     $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => setFillOpacity(+/** @type {HTMLInputElement} */ (e.target).value));
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
     $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));

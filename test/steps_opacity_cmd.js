@@ -6,6 +6,7 @@
 //   and 85 % differs from 50 %;
 // - a point covered once is pixel-identical at 100 %, 85 % and 50 %;
 // - a saved opacity (the page state's alpha, as a share link carries it) is the one the plane draws and the slider shows;
+// - the regions' Opacity slider (the same S.alpha) follows it;
 // - the slider works from the keyboard (the arrow keys move it by one step).
 // Inside regions, so that only the shapes' images are coloured (Everywhere covers every w three times).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -53,6 +54,8 @@ ok('every sampled point is on the pane', [full, mid, low].every((r) => r.three &
 ok('a point covered three times differs at 85 % from 100 %', !!full.three && !!mid.three && diff(full.three, mid.three) >= 3, info.px);
 ok('and at 50 % from 85 %', !!mid.three && !!low.three && diff(mid.three, low.three) >= 3, info.px);
 ok('a point covered once is pixel-identical at 100 %, 85 % and 50 %', !!full.one && !!mid.one && !!low.one && diff(full.one, mid.one) === 0 && diff(full.one, low.one) === 0, info.px);
+const regionsRange = await ev(`+document.getElementById('alphaRange').value`);
+ok('the regions\' own Opacity slider (#alphaRange) follows it: one setting, one value', regionsRange === 0.5, regionsRange);
 const live = await ev(`__cmwRegions().alpha`);
 await settled({ max: 10000, until: `JSON.parse(localStorage.getItem('complex-map-workbench-v1:${ns}') || '{}').alpha === 0.5` });
 const saved = await ev(`JSON.parse(localStorage.getItem('complex-map-workbench-v1:${ns}') || '{}').alpha`);
