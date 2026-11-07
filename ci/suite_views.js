@@ -205,6 +205,7 @@ const VIEWS = {
 
   // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
+  'steps_foot_note_order_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': steps({ pin: true }),
   'example_try_events_classic_cmd.js': classic('the classic cards\' Try lines: the sheet buttons, the formula field and the Add ray button on a card; example_try_events_cmd asks the same in the steps view'),

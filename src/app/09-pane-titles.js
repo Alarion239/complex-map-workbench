@@ -516,6 +516,16 @@
       style, rows);
     return { el };
   }
+  // a formula note (foot-note) describes the control before it in the strip. The strip's layout puts the notes last; in the
+  // pop-up a note stands directly under that control when it is behind ⋯ too, else at the pop-up's top, next to the
+  // control that stays in the head
+  function notesUnderControls(rest, kids) {
+    const notes = rest.filter((e) => e.classList.contains('foot-note'));
+    if (!notes.length) return rest;
+    const out = rest.filter((e) => !notes.includes(e));
+    for (const note of notes) out.splice(out.indexOf(kids[kids.indexOf(note) - 1]) + 1, 0, note);
+    return out;
+  }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
@@ -523,7 +533,7 @@
     // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
-    const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
+    const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : notesUnderControls((head && ft.order ? ft.order : ft.kids).slice(ft.n), ft.kids);
     // (the steps view's plane past the colour plane: the Regions button opens the colouring's picker, not the regions' display)
     const colour = regionsOnly && SV.on ? colourPop() : null;
     const regions = !colour && (regionsOnly || (head && stepsRegions())) ? $('regionsBox') : null;
