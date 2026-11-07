@@ -2882,7 +2882,7 @@
   }
   function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
   // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
-  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep}; it polls
+  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; it polls
   // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
   // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
   // again or Cancel cancels; nothing starts afterwards
@@ -2941,7 +2941,8 @@
     const r = svReady().parts, d = (r.programs ? r.programs.done : 0) + (r.warm ? r.warm.done : 0) + (r.jobs ? r.jobs.done : 0), t = (r.programs ? r.programs.total : 0) + (r.warm ? r.warm.total : 0) + (r.jobs ? r.jobs.total : 0);
     B.toggleAttribute('aria-busy', true);
     B.dataset.wait = g.hung ? 'hung' : 'busy';
-    B.style.setProperty('--wait', String(t ? d / t : 0.25));
+    g.fill = Math.max(g.fill || 0, t ? d / t : 0.25);
+    B.style.setProperty('--wait', String(g.fill));
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
