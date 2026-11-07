@@ -782,13 +782,12 @@ const Phone = (() => {
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
-    const pick = A.colourPick(), kids = A.footKids(side), unit = $('unitBox'), reg = pick || (A.regionsView() ? $('regionsBox') : null);
+    const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
     const tn = A.targetNote();
     els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
-    for (const old of els.regions.querySelectorAll('.cp-pop')) old.remove();
     if (reg) els.regions.append(reg);
-    els.regionsH.hidden = !reg || !!pick;   // (the picker names its own colouring)
+    els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
