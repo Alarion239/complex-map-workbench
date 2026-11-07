@@ -1,13 +1,17 @@
 // The steps view's thread bar (#1162, ux's ruling): the thread is centred on the pane and clear of the axis ruler above it.
 // At 1920, 1440, 1280 and 1024 px (laptop) and 390 and 360 px (phone), in en and ru, with a one-step chain (Logarithm), a
-// one-step chain with a long name (n-th root) and a three-step chain:
+// one-step chain with a long name (n-th root), a two-step, a three-step and a ten-step chain:
 // - the rail's elements (pills with their selected outline, dots, the ring, the band) are at least 8 CSS px (6 on a phone)
 //   below the ruler's bottom border, measured on the rendered boxes;
 // - the rail meets no other control of the bar;
 // - laptop: the thread's centre (first dot to last) lies on the pane's centre line within 4 px, or, where the groups of
 //   controls beside it do not leave the room, the thread is as near the centre as it can be: its gap to the group on the
 //   centre's side is the bar's own (at most 9.5 px, 8 plus rounding); a thread that needs the whole rail scrolls, as it did;
-// - phone: a thread that fits is centred in its rail (the thread and F as one row, within 4 px), with F whole inside it.
+// - a one-step chain has no F chip at any width (F is f₁ there), and its thread fits the rail without scrolling; the thread
+//   is centred (phone: in its rail, within 4 px);
+// - a chain of two or more steps has the F chip: on a phone, with the thread fitting, the thread and F are centred in the
+//   rail as one row with F whole inside it; with the thread overflowing, the shown dot is centred in the rail (or the rail
+//   is at its end), and F is whole or fully out of the rail's view.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -15,7 +19,7 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
 const ns = 'svs' + Date.now();
 const LOG = { type: 'log', params: {}, on: true }, ROOT = { type: 'root', params: { n: 3 }, on: true }, EXP = { type: 'exp', params: {}, on: true }, SIN = { type: 'sin', params: {}, on: true };
-const CHAINS = { log: [LOG], root: [ROOT], three: [LOG, EXP, SIN] };
+const CHAINS = { log: [LOG], root: [ROOT], two: [LOG, EXP], three: [LOG, EXP, SIN], long: [LOG, EXP, SIN, ROOT, LOG, EXP, SIN, ROOT, LOG, EXP] };
 const open = async (w, h, mobile, lang, chain) => {
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: CHAINS[chain], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
   await view(w, h, false, mobile);
@@ -37,25 +41,34 @@ const measure = () => ev(`(() => {
   const nodes = [...document.querySelectorAll('.sv-plane .sv-node')].filter(vis).map(box), first = nodes[0], last = nodes[nodes.length - 1];
   const tc = (first.l + first.r) / 2 / 2 + (last.l + last.r) / 2 / 2, pc = (body.l + body.r) / 2;
   const F = q('.sv-wholemap'), fb = F && vis(F) ? box(F) : null, track = box(q('.sv-track'));
+  const shown = nodes[Math.round(__cmwSteps().x)], dotOff = shown ? (shown.l + shown.r) / 2 - (rb.l + rb.r) / 2 : null, atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1, atStart = rail.scrollLeft <= 0;
   const unit = { l: track.l, r: Math.max(track.r, fb ? fb.r : 0) };
   const left = others.filter((o) => o.r <= rb.l + 0.5).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - 0.5).reduce((a, o) => Math.min(a, o.l), Infinity);
   return { ph, clear: top - body.b, meet, off: tc - pc, gapL: rb.l - left, gapR: right - rb.r, scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rb.r - rb.l,
-    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, fIn: fb ? fb.l >= rb.l - 0.5 && fb.r <= rb.r + 0.5 : null, centre: strip.dataset.centre || null };
+    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, fShown: !!fb, fIn: fb ? fb.l >= rb.l - 0.5 && fb.r <= rb.r + 0.5 : null, fOut: fb ? fb.l >= rb.r - 0.5 || fb.r <= rb.l + 0.5 : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
 })()`);
 const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true]];
-for (const lang of ['en', 'ru']) for (const chain of ['log', 'root', 'three']) for (const [w, h, mobile] of SIZES) {
+for (const lang of ['en', 'ru']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
   await open(w, h, mobile, lang, chain);
-  const m = await measure(), tag = `${w} ${lang} ${chain}`;
+  const m = await measure(), tag = `${w} ${lang} ${chain}`, one = CHAINS[chain].length === 1;
   info[tag] = m;
   ok(`${tag}: the rail's elements are clear of the ruler (≥ ${m.ph ? 6 : 8} px)`, m.clear >= (m.ph ? 6 : 8) - 0.01, m.clear);
   ok(`${tag}: the rail meets no other control of the bar`, m.meet.length === 0, m.meet);
+  if (one) {
+    ok(`${tag}: a one-step chain has no F chip, and its thread does not scroll`, !m.fShown && !m.scrolls, m);
+    if (m.ph) ok(`${tag}: the thread is centred in the rail`, Math.abs(m.unitOff) <= 4, m.unitOff);
+  } else if (!m.ph) ok(`${tag}: F shows with the second step`, m.fShown, m);
   if (!m.ph && !m.scrolls) {
     const near = m.off < 0 ? m.gapR : m.gapL;
     ok(`${tag}: the thread is on the pane's centre line, or as near as the bar's groups allow`, Math.abs(m.off) <= 4 || near <= 9.5, { off: Math.round(m.off), gapL: m.gapL, gapR: m.gapR });
   }
-  if (m.ph && !m.scrolls) {
+  if (m.ph && !m.scrolls && !one) {
     ok(`${tag}: the thread and F are centred in the rail`, Math.abs(m.unitOff) <= 4, m.unitOff);
-    ok(`${tag}: F is whole inside the rail`, m.fIn !== false, m);
+    ok(`${tag}: F is whole inside the rail`, m.fIn === true, m);
+  }
+  if (!one && m.scrolls) {
+    ok(`${tag}: F is whole or fully out of the rail's view`, m.fIn !== false || m.fOut === true, m);
+    ok(`${tag}: the shown dot is centred in the rail (or the rail is at an end)`, Math.abs(m.dotOff) <= 4 || m.atStart || m.atEnd, m);
   }
 }
 info.checks = 'steps view: the thread bar at 1920/1440/1280/1024 and 390/360, en and ru: clear of the ruler, meets no control, centred on the pane (laptop) or in its rail (phone)';

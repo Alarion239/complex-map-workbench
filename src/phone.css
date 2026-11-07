@@ -647,6 +647,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-rail { display: flex; justify-content: safe center; }
 /* F, the whole map, ends what the rail scrolls: a 44 px round chip after the thread, which keeps room for it on a short chain */
 :root.ph.sv .sv-track { flex: 0 0 auto; min-width: calc(100% - 52px); }
+:root.ph.sv .sv-nof .sv-track { min-width: 100%; }
+/* (no F beside it, + sits on the bar's own gaps: a one-step thread then fits the 128 px rail of a 360 px phone) */
+:root.ph.sv .sv-nof .sv-add { margin: 0; }
 :root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0 4px 0 0; }
 :root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 4px; border-radius: 22px; }
