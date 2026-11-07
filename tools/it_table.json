@@ -1032,7 +1032,7 @@
  "New: empty canvas": "Nuovo: tela vuota",
  "Next": "Avanti",
  "Next sheet": "Foglio successivo",
- "Next · {n}": "Avanti · {n}",
+ "Next in {n} s": "Avanti tra {n} s",
  "Next: {chapter}": "Avanti: {chapter}",
  "No derivative is known for {label}": "Nessuna derivata nota per {label}",
  "No derivative known for {f}": "Nessuna derivata nota per {f}",
