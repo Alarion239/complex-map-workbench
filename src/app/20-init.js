@@ -7,7 +7,11 @@
     delete o.hideLeft; delete o.hideRight;
     // (review math-10: the recipient sees the same picture: the Landscape camera, relative to its fit, and the
     // deformation at its t; read once at load, never kept in the saved state)
-    o.figCam = { yaw: cam.yaw, pitch: cam.pitch, d: cam.dist / CAM3.dist, tx: cam.tx, ty: cam.ty };
+    // (the camera of the surface the steps view shows: the z-globe's camL when it shows the sphere, else the Landscape's cam;
+    // `of` names it, and a figCam without it is the Landscape's)
+    const onGlobe = SV.on && SV.surf === 'sphere', c = onGlobe ? camL : cam, base = onGlobe ? CAML : CAM3;
+    o.figCam = { yaw: c.yaw, pitch: c.pitch, d: c.dist / base.dist, tx: c.tx, ty: c.ty };
+    if (onGlobe) o.figCam.of = 'sphere';
     o.figMorph = morph.open ? { T: morph.T } : null;
     return o;
   }
@@ -273,7 +277,7 @@
         // a link's or a scene's camera and deformation time (figureState, review math-10)
         if (S.figCam) {
           const c = S.figCam;
-          if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { cam.yaw = c.yaw; cam.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); cam.dist = c.d * CAM3.dist; cam.tx = Number.isFinite(c.tx) ? c.tx : 0; cam.ty = Number.isFinite(c.ty) ? c.ty : 0; }
+          if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { const to = c.of === 'sphere' ? camL : cam, base = c.of === 'sphere' ? CAML : CAM3; to.yaw = c.yaw; to.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); to.dist = c.d * base.dist; to.tx = Number.isFinite(c.tx) ? c.tx : 0; to.ty = Number.isFinite(c.ty) ? c.ty : 0; }
           deleteOpt('figCam');
         }
         if ('figMorph' in S) {
