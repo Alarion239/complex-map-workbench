@@ -11,6 +11,7 @@
   const SV = {
     // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
     on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
@@ -175,8 +176,10 @@
   const svSigNow = () => svPlanes().join(',') + '|' + S.steps.map((st) => st.type).join(',') + '|' + S.shapes.map((x) => x.id).join(',');
   function svAdopt(force) {
     const ext = S.view.main;
-    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to)
-    if ((ext === svMain() || ext === SV.main) && !force) return;
+    // (a view the steps view set is not one from outside, whichever plane a parked view now rounds to; a Phase view on the
+    // other surface is one from outside too: a save that asked for the sphere opens on it)
+    const own = ext === 'land' || Views.xOf(S.view).surf === (SV.surf === 'sphere' ? 'sphere' : 'plane');
+    if ((ext === svMain() || ext === SV.main) && !force && own) return;
     // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
@@ -373,8 +376,8 @@
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
     let poles;
-    if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || p);
-    else poles = svDrain(svPolesIn(F, src, 16, src, E));
+    if (svLandPoleMemo.key === key) poles = svLandPoleMemo.poles.map((p) => svDrain(svPoleAt(F, p, src, E)) || svDrain(svSingularAt(F, p, SV_SING_BIG, E, src)) || p);
+    else poles = svDrain(svPolesIn(F, src, 16, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
@@ -699,8 +702,20 @@
     }
     return v > big && v < Infinity ? z : null;
   }
-  // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim)
-  function* svPolesIn(F, box, n, lim, E) {
+  // a point where F is unbounded without being a pole (the logarithm at 0, a root at a pole of its Möbius step: Newton's
+  // method on 1/F reflects about it or crawls): z itself when F is not finite there, else the nearest peak of |F| from z
+  // when it is past big and within box; null otherwise (a map that only grows, exp's, has its peak climbed out of the box)
+  function* svSingularAt(F, z, big, E, box) {
+    let w = null;
+    try { w = F(z); } catch (e) { w = null; }
+    if (!w || !CX.isFin(w)) return z;
+    const p = yield* svPeakAt(F, z, big, E);
+    return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
+  }
+  const SV_SING_BIG = 10;
+  // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
+  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
     for (let j = 0; j <= n; j++) {
@@ -727,7 +742,8 @@
     for (const [, i, j] of ratio.slice(0, SV_POLE_TOP)) if (!starts.some(([a, b]) => a === i && b === j)) starts.push([i, j]);
     const out = [];
     for (const [i, j] of starts) {
-      const p = yield* svPoleAt(F, at(i, j), lim, E);
+      let p = yield* svPoleAt(F, at(i, j), lim, E);
+      if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
@@ -1463,6 +1479,15 @@
     if (!svPicTimer) svPicTimer = setTimeout(() => { svPicTimer = 0; requestRender('L'); }, left);
     return false;
   }
+  // the steps view's left plane, drawn by one of two cores: a glide frame and a flat plane past the colour plane (push) by the
+  // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
+  // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
+  function svDrawPlane(pane, still) {
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    svCheck(); svPolesWatch();
+    if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    SV.core = 'still'; still(pane);
+  }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
@@ -1933,12 +1958,14 @@
     const orderWhy = h('p', { class: 'sv-playpop-why' });
     const pathsWhy = h('p', { class: 'sv-playpop-why', hidden: '' });
     const paths = svPathsBtn('btn small sv-paths', true);
+    const rowSpeed = h('label', { class: 'sv-playpop-r', hidden: '' }, h('span', {}, $t('Speed'))), rowLoop = h('label', { class: 'sv-playpop-r', hidden: '' }, h('span', {}, $t('Loop')));
     const pop = h('div', { class: 'sv-playpop', role: 'dialog', tabindex: '-1', 'aria-label': $t('Playback') },
+      rowSpeed, rowLoop,
       h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Order')), order), orderWhy,
       h('label', { class: 'sv-playpop-r' }, h('span', {}, $t('Paths')), paths), pathsWhy);
     pop.hidden = true;
     const playMore = h('button', { type: 'button', class: 'icon-btn sv-playmore', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': $t('Playback'), 'data-tip': $t('Playback'), html: ICONS.more, onclick: () => svPlayPop() });
-    const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); svAddFn(e.currentTarget); } },
+    const add = h('button', { type: 'button', class: 'sv-add', 'data-tip': $t('Add a function  +'), onclick: (e) => { e.stopPropagation(); if (e.currentTarget.getAttribute('aria-disabled') === 'true') return; svAddFn(e.currentTarget); } },
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
     const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
@@ -1946,7 +1973,7 @@
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
     // (F, the whole map, after the rail: it opens the Inspector's page of the composition, its domain and its guarantees; no ⋯, no drag,
     // no step of the chain; outside the rail, so it never lies over a plane or a chip of a long thread)
-    const wholeMap = svChipBtn('sv-wholemap', { 'aria-pressed': 'false', 'aria-label': $t('Whole map'), 'data-tip': $t('Whole map'), onclick: () => svInspect('F') }, '<i>F</i>', $t('Whole map'));
+    const wholeMap = svChipBtn('sv-wholemap', { 'aria-pressed': 'false', 'aria-label': $t('Whole map'), 'data-tip': $t('Whole map'), onclick: (e) => { if (e.currentTarget.getAttribute('aria-disabled') !== 'true') svInspect('F'); } }, '<i>F</i>', $t('Whole map'));
     const strip = h('div', { class: 'sv-strip', id: 'svStrip', role: 'toolbar', 'aria-label': $t('Planes of the chain') }, play, prev, h('div', { class: 'sv-rail' }, band, thumb, track), wholeMap, add, next, speed, loop, playMore, pop, bandx);
     const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
     // (in the plane's pane right after its head, so Tab reaches it after the head's controls; CSS draws it at the foot)
@@ -1962,7 +1989,7 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitAdd(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
+    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitStrip(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
@@ -1970,7 +1997,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
+    SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
     svPlayHold();
@@ -2000,9 +2027,9 @@
     // (a phone has no room for the pill beside the thread: Whole chain is a pinned icon, the F of the whole map, outside the
     // scrolling rail, and the step's ⋯ menu carries the walk ‹ ›)
     for (const old of E.strip.querySelectorAll('.sv-whole-pin')) old.remove();
-    if (al && document.documentElement.classList.contains('ph')) {
-      E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk', html: '<i>F</i>' })), E.rail);
-    } else if (al) {
+    const wholePin = () => E.strip.insertBefore(h('button', { type: 'button', class: 'sv-whole sv-whole-pin', 'aria-label': $t('Whole chain'), 'data-tip': $t('Whole chain'), onclick: () => svLeaveAlone(true) }, h('span', { class: 'sv-fk sv-pin-i', html: SV_PIN_ICON })), E.rail);
+    if (al) wholePin();
+    if (al && !document.documentElement.classList.contains('ph')) {
       // (Whole chain and the walk ‹ › are one pill: the walk's arrows are the step's, not the planes')
       E.track.append(h('div', { class: 'sv-alone', role: 'group', 'aria-label': $t('Step shown alone') },
         h('button', { type: 'button', class: 'sv-whole', onclick: () => svLeaveAlone(true) }, $t('Whole chain')), svWalkBtn(-1, al), svWalkBtn(1, al)));
@@ -2027,14 +2054,23 @@
       else SV.refocus = true;   // (the + button, once it is drawn below)
     }
     // ("+ Add function" is the strip's own, after the rail, so it never lies over the thread's end)
-    E.add.hidden = !!al;
-    E.wholeMap.hidden = !!al || S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
+    // (a step shown alone leaves Add and F in place, disabled, with the reason as their tip and description)
+    svDisableWhy(E.add, al ? $t('Show the whole chain to add a function') : '', $t('Add a function  +'));
+    svDisableWhy(E.wholeMap, al ? $t('Show the whole chain to see the whole map') : '', $t('Whole map'));
+    E.wholeMap.hidden = S.steps.length < 2;   // (a one-step chain has no F chip: F is f₁ there, and selecting f₁ selects the whole map)
     E.strip.classList.toggle('sv-nof', E.wholeMap.hidden);   // (the phone's track keeps room for F only while F is there)
     // (on a phone F ends what the rail scrolls, after the last plane, with no room of its own in the strip; elsewhere it stands outside the rail)
-    if (document.documentElement.classList.contains('ph')) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
-    else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
+    // (on a phone a step shown alone keeps its planes whole: F and Add, disabled, end what the rail scrolls; elsewhere they stay in the strip)
+    const ph = document.documentElement.classList.contains('ph');
+    if (al && ph) E.rail.append(E.wholeMap, E.add);
+    else {
+      if (E.add.parentNode !== E.strip) E.strip.insertBefore(E.add, E.next);
+      if (ph) { if (E.wholeMap.parentNode !== E.rail) E.rail.append(E.wholeMap); }
+      else if (E.wholeMap.parentNode !== E.strip) E.strip.insertBefore(E.wholeMap, E.add);
+    }
+    svFitStrip();
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
-    if (SV.refocus) { SV.refocus = false; if (!E.add.hidden) E.add.focus({ preventScroll: true }); }
+    if (SV.refocus) { SV.refocus = false; if (E.add.getAttribute('aria-disabled') !== 'true') E.add.focus({ preventScroll: true }); }
     svFitRail();
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
@@ -2136,7 +2172,8 @@
       const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
       // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
       // under a drag or a glide, the ring is kept a plane's width from either end)
-      const want = toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+      // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
+      const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
       const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
@@ -2164,7 +2201,7 @@
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
   // after the fold (the rail grows by exactly that width): no flicker at the edge.
-  // the thread's fit to the rail, by what gives way first: "+ Add function" folds to its round + (svFitAdd), then the steps stop
+  // the thread's fit to the rail, by what gives way first: "+ Add function" folds to its round + (svFitStrip), then the steps stop
   // sharing one width (each takes what its chip needs: the names stay whole), then every chip drops its name together for its
   // letters (fₖ; the chip's tooltip and its aria-label keep the name), and only then does the rail scroll. While the names fit
   // with every step as wide as the widest chip, the steps are all that width, so the planes sit evenly. Measured again only when
@@ -2176,7 +2213,7 @@
     const E = SV.els;
     if (!E || !E.track.firstElementChild || SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const steps = /** @type {HTMLElement[]} */ ([...E.track.querySelectorAll('.sv-step')]);
-    // (the room is the rail's with "+ Add function" folded, which svFitAdd does when the names would not fit beside its words)
+    // (the room is the rail's with "+ Add function" folded, which svFitStrip does when the names would not fit beside its words)
     // (the rail's room is what it has with no centring margin, svCentreRail's)
     const room = E.rail.clientWidth + (E.railM || 0) + (!E.add.hidden && !E.add.classList.contains('fold') && E.addLabelW ? E.addLabelW : 0);
     const key = [room, E.sig, document.fonts ? document.fonts.status : '', I18N.lang, document.documentElement.classList.contains('ph') ? 1 : 0].join('|');
@@ -2232,17 +2269,55 @@
     E.railM = next; E.centres = null;
     E.strip.dataset.centre = next > 0 ? 'shift' : 'none';
   }
-  function svFitAdd() {
-    const E = SV.els; if (!E || !E.add || !E.track.firstElementChild) return;
+  // the strip's width gives way in this order until the thread fits, centred on the pane where it can be: "+ Add function"
+  // folds to its round +, Speed and Loop move into the Playback ⋯, the Whole chain pill folds to its pin, and last the rail
+  // scrolls. A phone has only the first (its words are hidden by CSS; the rest of its strip is the sheet's).
+  const SV_FOLD_ADD = 1, SV_FOLD_PLAY = 2, SV_FOLD_WHOLE = 3;
+  // the Whole chain pin: three nodes on a line (the chain), not the F of the whole map
+  const SV_PIN_ICON = '<svg viewBox="0 0 18 10" width="18" height="10" aria-hidden="true"><path d="M4 5h10" stroke="currentColor" stroke-width="1.4"/><circle cx="3" cy="5" r="2.2" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="5" r="2.2" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/><circle cx="15" cy="5" r="2.2" fill="var(--surface)" stroke="currentColor" stroke-width="1.4"/></svg>';
+  function svFitStrip() {
+    const E = SV.els; if (!E || !E.add) return;
+    if (!E.track.firstElementChild) { E.add.classList.remove('fold'); E.strip.classList.remove('sv-fold-play', 'sv-fold-whole'); svFoldPlay(false); return; }
     const add = E.add, t = add.querySelector('.sv-add-t');
     const shown = t.offsetWidth > 0;
     if (shown) E.addLabelW = add.offsetWidth - add.offsetHeight;
-    if (E.addLabelW == null) return;
-    const first = E.track.firstElementChild, last = E.track.lastElementChild;
-    const thread = last.offsetLeft + last.offsetWidth - first.offsetLeft;
-    const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
-    // (and while the chips are their letters: the room their names needed is not given back to the words)
-    add.classList.toggle('fold', thread > room || E.railMode === SV_RAIL_LETTERS);
+    const first = E.track.firstElementChild, last = [...E.track.children].filter((c) => c !== E.add && c !== E.wholeMap).pop() || first;
+    const ph = document.documentElement.classList.contains('ph');
+    const apply = (lv) => {
+      add.classList.toggle('fold', lv >= SV_FOLD_ADD || E.railMode === SV_RAIL_LETTERS);
+      E.strip.classList.toggle('sv-fold-play', lv >= SV_FOLD_PLAY);
+      E.strip.classList.toggle('sv-fold-whole', lv >= SV_FOLD_WHOLE);
+    };
+    if (ph) {
+      if (E.addLabelW == null) return;
+      const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
+      add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
+      return;
+    }
+    // (the whole order applies to a step shown alone, whose pill and planes need the room; a chain keeps Speed and Loop on the strip,
+    // and its thread gives way by the steps' own widths, svFitRail's)
+    if (!E.strip.querySelector('.sv-whole-pin')) {
+      const room = E.rail.clientWidth - (add.classList.contains('fold') ? E.addLabelW : 0);
+      apply(0);
+      if (E.addLabelW != null) add.classList.toggle('fold', last.offsetLeft + last.offsetWidth - first.offsetLeft > room || E.railMode === SV_RAIL_LETTERS);
+      svFoldPlay(false);
+      return;
+    }
+    // (each level is tried as it would stand: the folds made, the steps fitted to the rail, and the rail's own overflow read; the
+    // first level that does not overflow stands, else the last, the rail scrolling)
+    let lv = 0;
+    for (; lv <= SV_FOLD_WHOLE; lv++) {
+      apply(lv); svFoldPlay(lv >= SV_FOLD_PLAY);
+      E.railKey = null; svFitRail();
+      if (E.rail.scrollWidth <= E.rail.clientWidth + 1 || lv === SV_FOLD_WHOLE) break;
+    }
+  }
+  // Speed and Loop are on the strip, or, when it has no room for them, in the Playback ⋯ beside Order and Paths
+  function svFoldPlay(on) {
+    const E = SV.els;
+    if (on === (E.speed.parentNode !== E.strip)) return;
+    if (on) { E.rowSpeed.append(E.speed); E.rowLoop.append(E.loop); } else { E.strip.insertBefore(E.speed, E.playMore); E.strip.insertBefore(E.loop, E.playMore); }
+    E.rowSpeed.hidden = E.rowLoop.hidden = !on;
   }
   // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
   // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
@@ -3423,6 +3498,12 @@
     if (f.getAttribute('aria-pressed') !== on) f.setAttribute('aria-pressed', on);
   }
   // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
+  // a control that can't act now: disabled, with `why` as its tip and description; `tip` is its tip while it can act
+  function svDisableWhy(btn, why, tip) {
+    if (why) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');   // (not `disabled`: a press still reaches the long-press tip, and the keyboard still finds the reason)
+    btn.setAttribute('data-tip', why || tip);
+    if (why) btn.setAttribute('aria-description', why); else btn.removeAttribute('aria-description');
+  }
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }
