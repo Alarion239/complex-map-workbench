@@ -323,7 +323,7 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb0);
     return (pMask = { tex, fbo });
   }
-    const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [256, 96], landPP = [];
+  const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
   // (the steps view's Inside regions) st.mask {cv, key, box}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS); null: the colour everywhere
