@@ -17,18 +17,22 @@ const CASES = [
   { id: 'ex-jouk', example: 3 },
 ];
 const only = (process.env.MF_ONLY || '').split(',').filter(Boolean);
-await view(1440, 900);
+// (the paths the choice keeps on ex-strip, a strip with an unbounded source under exp, follow the plane's size and the
+// view the fit takes from it, within a few pixels: across window heights from 860 to 940 the screen keeps 2 to 4 paths
+// and the single-column figure 0 or 1. The window is 910 high, a height at which the counts below hold)
+const WH = 910;
+await view(1440, WH);
 for (const cs of CASES) {
   if (only.length && !only.includes(cs.id)) continue;
   const r = R[cs.id] = {};
   if (cs.example != null) {
-    await load('morphfig', { pattern: 'checker' });
+    await load('morphfig', { pattern: 'checker' }, '', 'classic');
     await ev(`__cmwExample(${cs.example})`);
     // (issue #34, D7: an example's Try line docks above the planes and takes 56 px of their height; the counts below
     // were set for the full planes, where the strip keeps its 3 hooks, so the line is closed as a user would)
     await ev(`(Tour.laneHide && Tour.laneHide('example'), 1)`);
   } else {
-    await load('morphfig', { shapes: cs.shapes, steps: cs.steps, pattern: 'checker' });
+    await load('morphfig', { shapes: cs.shapes, steps: cs.steps, pattern: 'checker' }, '', 'classic');
   }
   await settle(1500);
   r.open = await ev('__cmwMorph({ open: true })');
@@ -115,14 +119,14 @@ for (const cs of CASES) {
   r.upToCaption = upto;
   ok(`${cs.id}: Up to t states the stop once`, typeof upto === 'string' && (upto.match(/shown for/g) || []).length === 1 && (upto.match(/0\\le t\\le 0\.55/g) || []).length === 1, upto);
   // exported from the dark theme: the figure's vector inks are the light theme's (no dark-theme ink on white)
-  await view(1440, 900, true);
+  await view(1440, WH, true);
   await settle(600);
   const darkInks = await ev(`(() => { const cs = getComputedStyle(document.documentElement); return ['--ink', '--ink-2', '--faint', '--muted'].map((n) => cs.getPropertyValue(n).trim().slice(0, 7).toUpperCase()); })()`);
   const dsvg = await ev(`await (async () => { const f = await __cmwBuildFigure({ panels: ['R'], widthIn: 7, caption: true, morph: true }); return f ? f.svg.replace(/href="data:[^"]+"/g, '') : null; })()`, 60000);
   const hits = darkInks.filter((c) => c && dsvg && dsvg.toUpperCase().includes(c));
   r.darkInkHits = hits;
   ok(`${cs.id}: a dark-theme export has no dark-theme ink`, dsvg && hits.length === 0, { darkInks, hits });
-  await view(1440, 900, false);
+  await view(1440, WH, false);
   await settle(400);
   r.logs = logs().filter((l) => /EXC|error/i.test(l.t)).slice(0, 5);
   await ev('__cmwMorph({ open: false })');
