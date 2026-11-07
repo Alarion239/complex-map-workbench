@@ -65,7 +65,12 @@ const SUITES = {
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'steps_seams_cmd.js': { keepShots: true },   // (keepShots: the settled seam frame and the worst frame of the 2 s window)
+  // (keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
+  // job log shows where along the seam the jumps stand)
+  'steps_seams_cmd.js': {
+    keepShots: true,
+    logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
+  },
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
   // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
   'steps_glide_look_cmd.js': { runs: [
