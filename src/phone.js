@@ -645,8 +645,8 @@ const Phone = (() => {
     else if (k === 'edit') { const sm = els.body.edit.querySelector('.split-offer:not([hidden]) > summary'); if (sm) sm.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
-    // (the Display sheet is the colour panel: focus starts on the current style, the first control)
-    if (k === 'display') { const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
+    // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
