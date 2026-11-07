@@ -47,6 +47,7 @@ const VIEWS = {
   'steps_fill_points_cmd.js': steps(),
   'steps_link_wait_cmd.js': steps(),
   'steps_link_migrate_cmd.js': steps({ pin: true }),
+  'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
@@ -118,6 +119,8 @@ const VIEWS = {
   'sv_construct_plane_cmd.js': steps(),
   'sv_all_sheets_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
+  'steps_statekeys_cmd.js': steps(),
+  'steps_dcgrid_cmd.js': steps(),
   'toasts_515_cmd.js': steps(),
   'tour_planes_cmd.js': steps(),
 
