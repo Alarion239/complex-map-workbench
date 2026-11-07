@@ -310,9 +310,11 @@
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
   // (#247) on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
   // X's; a phone's Display sheet lends it itself
-  const unitSide = () => (S.view.main === 'xy' ? 'R' : 'L');
+  // (the steps view's Landscape surface is never a push plane: its pane holds no regions' display)
+  const pushHome = () => (SV.on ? SV.surf !== 'land' && svPaint() === 'push' : S.view.main === 'xy');
+  const unitSide = () => (pushHome() ? 'R' : 'L');
   // the regions' display (page.html's #regionsBox): the X → Y view's Regions pop-up, the steps view's ⋯ pop-up
-  const stepsRegions = () => SV.on && S.view.main !== 'xy';
+  const stepsRegions = () => SV.on && !pushHome();
   // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
   function unitHome(f) {
     const u = $('unitBox'), home = $('regionsHome');
@@ -407,7 +409,7 @@
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
-    const pat = inHead && S.view.main === 'xy' ? patternBtn(side) : null;
+    const pat = inHead && pushHome() ? patternBtn(side) : null;
     let n = kids.length;
     if (phone) n = 0;
     else {

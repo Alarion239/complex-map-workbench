@@ -30,6 +30,7 @@ const openPast = async (w, h, touch, lang = 'en') => {
 await openPast(1440, 900, false);
 const s0 = await S();
 ok('the view is on the last plane, past the colour plane z', s0.stage === 2 && s0.T === 0, { stage: s0.stage, T: s0.T });
+ok('svPaint is push past the colour plane', s0.paint === 'push', s0.paint);
 const btn = await ev(`(() => { const b = document.querySelector('.pane-head .pat-btn'); return b ? { label: b.getAttribute('aria-label') } : null; })()`);
 ok('its head has the colour button, named Colouring', btn && btn.label === 'Colouring', btn);
 await ev(`document.querySelector('.pane-head .pat-btn').click(); 1`);
@@ -45,6 +46,7 @@ ok('picking a style keeps the picker open with that style checked', after.pop &&
 await ev(`document.querySelector('.cp-pop .cp-go').click(); 1`);
 await settled({ max: 15000, until: `__cmwSteps().stage === 0 && !__cmwSteps().moving` });
 const s1 = await S();
+ok('svPaint is pull on the colour plane', s1.paint === 'pull', s1.paint);
 ok('Go to z takes the view to the colour plane and closes the picker', s1.stage === 0 && !(await ev(`!!document.querySelector('.cp-pop')`)), { stage: s1.stage });
 const own = await ev(`(() => { const o = document.querySelector('#dcSeg .on'); return o ? o.dataset.v : null; })()`);
 ok('the colour plane\'s own style row shows the style picked from the later plane', own === 'modulus', own);
