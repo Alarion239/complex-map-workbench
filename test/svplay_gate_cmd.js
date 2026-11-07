@@ -82,7 +82,8 @@ await section('narrow', 360, 780);
   await settled({ max: 60000, only: true, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on && __cmwSteps().ready.ready' });
   await ev('(__cmwSteps({ go: 0, now: true, holdJobs: true }), 1)');
   await ev('(__cmwSteps({ play: true }), 1)');
-  await ev('await new Promise((r) => setTimeout(r, 1500)), 1');
+  // (the wait's ring shows after 300 ms: the press is being held)
+  await settled({ max: 10000, only: true, until: BUSY });
   const held = await ev(state('.sv-play'));
   info.jobsHeld = held;
   ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
