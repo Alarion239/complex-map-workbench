@@ -1,34 +1,45 @@
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = `
 uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
+// The height function morphed along a glide (uMorphOn 1): the height of a value w is the mix, by uHM (0..1), of the heights
+// of two height functions, each its mode, block height and scale (uHMode1, uH1, uMu1 at uHM 0; uHMode2, uH2, uMu2 at 1)
+uniform int uMorphOn; uniform int uHMode1; uniform int uHMode2; uniform float uH1; uniform float uH2; uniform float uMu1; uniform float uMu2; uniform float uHM;
+vec2 heightWm(vec2 w, int hMode, float uH, float uMu);
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
+  if (uMorphOn == 1) {
+    vec2 a = heightWm(w, uHMode1, uH1, uMu1), b = heightWm(w, uHMode2, uH2, uMu2);
+    return vec2(mix(a.x, b.x, uHM), a.y * b.y);
+  }
+  return heightWm(w, uHMode, uH, uMu);
+}
+vec2 heightWm(vec2 w, int hMode, float uH, float uMu) {
   bool nanx = isnan(w.x) || !(w.x < 0.0 || w.x >= 0.0), nany = isnan(w.y) || !(w.y < 0.0 || w.y >= 0.0);
   bool infv = (!nanx && abs(w.x) > 3e38) || (!nany && abs(w.y) > 3e38);
   float mu = uMu > 0.0 ? uMu : 1.0;
   // linear Re / Im (modes 4, 5): the stacked sheets of a covering surface keep their true pitch (atan made plateaus).
   // The block ends at 1.25 H; the landscape's mesh (uHClip > 0) keeps heights up to uHClip H and is clipped at the
   // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block
-  if (uHMode == 4 || uHMode == 5) {
-    float x = uHMode == 4 ? w.x : w.y;
-    bool bad = uHMode == 4 ? nanx : nany;
+  if (hMode == 4 || hMode == 5) {
+    float x = hMode == 4 ? w.x : w.y;
+    bool bad = hMode == 4 ? nanx : nany;
     float lim = uHClip > 0.0 ? uHClip : 1.25;
     return vec2(uH * clamp(x / mu, -lim, lim), bad ? 0.0 : 1.0);
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
-  if (uHMode == 6 || uHMode == 7) {
-    float x = clamp((uHMode == 6 ? w.x : w.y) / mu, -1e30, 1e30), a = abs(x), c = 0.5 / PI;
-    bool bad = uHMode == 6 ? nanx : nany;
+  if (hMode == 6 || hMode == 7) {
+    float x = clamp((hMode == 6 ? w.x : w.y) / mu, -1e30, 1e30), a = abs(x), c = 0.5 / PI;
+    bool bad = hMode == 6 ? nanx : nany;
     return vec2(uH * sign(x) * (a <= 1.0 ? a : 1.0 + c * atan((a - 1.0) / c)), bad ? 0.0 : 1.0);
   }
-  if (uHMode == 2 || uHMode == 3) {
-    float x = uHMode == 2 ? w.x : w.y;
-    bool bad = uHMode == 2 ? nanx : nany;
+  if (hMode == 2 || hMode == 3) {
+    float x = hMode == 2 ? w.x : w.y;
+    bool bad = hMode == 2 ? nanx : nany;
     return vec2(uH * (2.0 / PI) * atan(clamp(x / mu, -1e30, 1e30)), bad ? 0.0 : 1.0);
   }
   bool bad = (nanx || nany) && !infv;
   float r = infv ? 3e38 : wabs(w);
-  float v = uHMode == 1 ? (4.0 / PI) * atan(min(r / mu, 1e30)) - 1.0 : (2.0 / PI) * atan(log(clamp(r, 1e-37, 3e38)) / 1.4);
+  float v = hMode == 1 ? (4.0 / PI) * atan(min(r / mu, 1e30)) - 1.0 : (2.0 / PI) * atan(log(clamp(r, 1e-37, 3e38)) / 1.4);
   return vec2(uH * v, bad ? 0.0 : 1.0);
 }
 `;
@@ -1212,17 +1223,22 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   float wt = smoothstep(1.0, 2.0, length(nf.xy) / max(abs(nf.z), 1e-4));
   vec2 ht = heightW(w);
   if (!(wt > 0.0) || ht.y < 0.5) return w;
-  float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
-  if (uHMode >= 2) {
+  // (a morphed height (uMorphOn) has no closed inverse between its two ends: F stays as it is there, and at an end the
+  // inverse is that end's height function's)
+  if (uMorphOn == 1 && uHM > 0.0 && uHM < 1.0) return w;
+  int hMode = uMorphOn == 1 ? (uHM >= 1.0 ? uHMode2 : uHMode1) : uHMode;
+  float hH = uMorphOn == 1 ? (uHM >= 1.0 ? uH2 : uH1) : uH, hMu = uMorphOn == 1 ? (uHM >= 1.0 ? uMu2 : uMu1) : uMu;
+  float h = mix(ht.x, vPos.z, wt) / hH, mu = hMu > 0.0 ? hMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
+  if (hMode >= 2) {
     // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
-    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
-    if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
+    float x = hMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : hMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
+    if (hMode == 2 || hMode == 4 || hMode == 6) w.x = x; else w.y = x;
     return w;
   }
   float r = wabs(w);
   if (!(r > 1e-30 && r < 1e30)) return w;
-  float lr = uHMode == 1 ? log(max(mu * tan(0.25 * PI * (hc + 1.0)), 1e-37)) : 1.4 * tan(0.5 * PI * hc);
+  float lr = hMode == 1 ? log(max(mu * tan(0.25 * PI * (hc + 1.0)), 1e-37)) : 1.4 * tan(0.5 * PI * hc);
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {

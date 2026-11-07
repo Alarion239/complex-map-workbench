@@ -48,6 +48,7 @@ for (const c of CASES) {
     const r = { rest, got, coverage: +(got.n / rest.n).toFixed(3), carried: !!carry, patches: carry && carry.patches };
     info[name][tag] = r;
     ok(`${name}, ${tag}: a carried frame`, r.carried, r);
+    if (c.sheets && k !== 0) ok(`${name}, ${tag}: the sheets' height morphs from the linear function to the parked plane's compressed one`, !!carry && !!carry.morph && carry.morph.a.height === 'imLin' && carry.morph.b.height === 'im' && carry.morph.u > 0.99, r);
     if (k === 0 || c.rest998) {
       ok(`${name}, ${tag}: the carried surface has >= ${c.min * 100} % of the plane's pixels`, r.coverage >= c.min, r);
       if (c.top) ok(`${name}, ${tag}: the topmost row within 3 px of the plane's`, Math.abs(got.top - rest.top) <= 3, r);

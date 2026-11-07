@@ -953,7 +953,17 @@
   let landS = null;
   // the sheets' heights over the grid of M x M cells (box b, or a pole's patch about polar, CARRY_Z), each cell's four
   // corners a texel, a tile of the texture a sheet's
-  function sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, tex) {
+  // The height function's two ends along a glide (morph {m1, h1, mu1, m2, h2, mu2, u}: modes, block heights, scales, and the
+  // weight of the second; null: the one function), as the uniforms of a program that reads heightW
+  function morphUniforms(P, mo) {
+    u1i(P, 'uMorphOn', mo ? 1 : 0);
+    if (!mo) return;
+    u1i(P, 'uHMode1', mo.m1); u1f(P, 'uH1', mo.h1); u1f(P, 'uMu1', mo.mu1);
+    u1i(P, 'uHMode2', mo.m2); u1f(P, 'uH2', mo.h2); u1f(P, 'uMu2', mo.mu2);
+    u1f(P, 'uHM', mo.u);
+  }
+  const morphKey = (mo) => (mo ? [mo.m1, mo.h1, mo.mu1, mo.m2, mo.h2, mo.mu2, mo.u].join(',') : '');
+  function sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, tex, mo) {
     const texW = tileC * 2 * M, texH = tileR * 2 * M;
     use(P1, sp.hom ? st.map : null);
     u1i(P1, 'uN', M + 1);
@@ -962,6 +972,7 @@
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    morphUniforms(P1, mo);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     u1i(P1, 'uPass', 0);
@@ -971,21 +982,21 @@
   // a carried pole's patch's sheets' heights (about polar, N points a side at most), in slot i of landSP; kept while its
   // chain, sheets and polar stand. null until the heights' program has compiled
   const landSP = [];
-  function sheetPatchHeights(st, sp, polar, N, slot, mode, H, mu, aspect) {
+  function sheetPatchHeights(st, sp, polar, N, slot, mode, H, mu, aspect, mo) {
     const P1 = program('landSheetTF', sp.hom ? st.map : null);
     if (!P1 || !hasSheets(P1.ch.info)) return null;
     const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
     const M = Math.max(8, Math.min(N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
     const b = st.carry.src || st.box;
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), polar.join(','), M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), polar.join(','), M, mode, H, mu, morphKey(mo), sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     const o = landSP[slot] || (landSP[slot] = { tex1: floatTex() });
     if (o.key !== key) {
-      sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, o.tex1);
+      sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, o.tex1, mo);
       o.key = key;
     }
     return { polar, N: M + 1, tex1: o.tex1, tileC, slot: slot + 1 };
   }
-  function sheetHeights(st, sp, N, mode, H, mu, aspect, rf) {
+  function sheetHeights(st, sp, N, mode, H, mu, aspect, rf, mo) {
     const P1 = program('landSheetTF', sp.hom ? st.map : null);
     if (!P1 || !hasSheets(P1.ch.info)) return landS && landS.want === N && landS.K === sp.K ? landS : null;
     // cells per side: about the plain landscape's cell count in all, at least 96 per side
@@ -994,10 +1005,10 @@
     M = Math.max(8, Math.min(M, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, morphKey(mo), sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     if (landS && landS.key === key) { sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf); return landS; }
     if (!landS) landS = { tex1: floatTex() };
-    sheetCellsTF(st, sp, P1, b, null, M, tileC, tileR, mode, H, mu, aspect, landS.tex1);
+    sheetCellsTF(st, sp, P1, b, null, M, tileC, tileR, mode, H, mu, aspect, landS.tex1, mo);
     Object.assign(landS, { key, N: M + 1, want: N, K, tileC, a: sp.a, b: sp.b, W: sp.W, sheet: true, rkey: null });
     sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf);
     return landS;
@@ -1199,13 +1210,21 @@
     const C = landColors(st);
     const material = MATERIALS[st.material] ?? (st.style === 'classic' ? 0 : 0);
     const lt = { sky: toLin3(C.hemiSky), ground: toLin3(C.hemiGround) };
-    const heightOf = (v) => {
-      if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
-      if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
-      if (mode >= 6) { const x = v / mu, a = Math.abs(x), c = 0.5 / Math.PI; return H * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
-      if (mode >= 4) return H * Math.max(-1.25, Math.min(1.25, v / mu));
-      return H * (2 / Math.PI) * Math.atan(v / mu);
+    // (st.carry.morph {a, b: {height, scale, mu}, u}, with All sheets carried: the sheets' height function is a's at the
+    // glide's start and b's at its end, the heights mixed per vertex by u; a and b are the parked frames' own functions)
+    const cm0 = st.carry && st.carry.morph;
+    const modeIdx = (n) => ({ log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[n] ?? 0);
+    const heightH = (scale) => landGeom(box, scale).H;
+    const mo = cm0 && st.sheets && !st.sheets.rest ? { m1: modeIdx(cm0.a.height), h1: heightH(cm0.a.scale), mu1: cm0.a.mu, m2: modeIdx(cm0.b.height), h2: heightH(cm0.b.scale), mu2: cm0.b.mu, u: clamp(cm0.u, 0, 1) } : null;
+    const heightWith = (m, Hm, mum) => (v) => {
+      if (m === 0) return Hm * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
+      if (m === 1) return Hm * ((4 / Math.PI) * Math.atan(v / mum) - 1);
+      if (m >= 6) { const x = v / mum, a = Math.abs(x), c = 0.5 / Math.PI; return Hm * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
+      if (m >= 4) return Hm * Math.max(-1.25, Math.min(1.25, v / mum));
+      return Hm * (2 / Math.PI) * Math.atan(v / mum);
     };
+    // (the morphed height function: the mix the sheets are drawn at)
+    const heightOf = mo ? ((f1, f2) => (v) => (1 - mo.u) * f1(v) + mo.u * f2(v))(heightWith(mo.m1, mo.h1, mo.mu1), heightWith(mo.m2, mo.h2, mo.mu2)) : heightWith(mode, H, mu);
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
@@ -1255,7 +1274,7 @@
     }
     const rf = st.refine === false || dbg.noRef ? null : { pxW: Math.pow(2, Math.round(4 * Math.log2(Math.max(pxS, 1))) / 4), motion: !!st.motion, full: !!st.full, minPx: dbg.minPx || 0.1, Lp: getProg('land', cur, false, st.map), Ls };
     // (carried, the sheets' cells are plane s's, over its box src, and the sheets are not refined)
-    let hs = sp ? sheetHeights(st.carry ? Object.assign({}, st, { box: st.carry.src || st.box }) : st, sp, N, mode, H, mu, aspect, st.carry ? null : rf) : null;
+    let hs = sp ? sheetHeights(st.carry ? Object.assign({}, st, { box: st.carry.src || st.box }) : st, sp, N, mode, H, mu, aspect, st.carry ? null : rf, st.carry ? mo : null) : null;
     if (!Ls) hs = null;
     // (while the sheets' programs compile, the principal branch stands in only with programs that have run before, an
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
@@ -1378,7 +1397,7 @@
     if (st.carry && hs) {
       const polar = (st.carry.polar || []).slice(0, CARRY_POLES), far = (st.carry.far || []).slice(0, CARRY_FAR_N.length);
       [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, CARRY_FAR_N[k]])].forEach(([p, n], i) => {
-        const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect);
+        const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect, mo);
         if (h && carryPlaces(st, sp, h.N - 1, h.tileC, p, h.slot)) sheetPatches.push(Object.assign(h, { far: i >= polar.length }));
       });
     }
@@ -1391,6 +1410,7 @@
       // (principal: up to 3 triangles where a real cut splits one; All sheets with linear heights: the triangle
       // clipped at the block, up to 3)
       u1i(Lp, 'uHMode', mode); u1f(Lp, 'uMu', mu);
+      morphUniforms(Lp, hs ? mo : null);
       u2f(Lp, 'uAspect', aspect[0], aspect[1]);
       const clip = !!hs && (mode === 4 || mode === 5);
       if (hs) {

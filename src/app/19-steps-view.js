@@ -696,9 +696,11 @@
     const p = yield* svPeakAt(F, z, big, E);
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
-  const SV_SING_BIG = 10;
+  // (SV_SING_BIG: |F| a singular point's peak must pass; SV_SING_START: the grid value a start's climb to one begins from: a
+  // root's unbounded point between two grid points of a coarse grid shows there as a value of 2 to 3, not past SV_SING_BIG)
+  const SV_SING_BIG = 10, SV_SING_START = 2;
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  // sing, a start Newton's method does not settle on and where |F| is at least SV_SING_START is climbed to its singular point
   function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
@@ -727,7 +729,7 @@
     const out = [];
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
-      if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
+      if (!p && sing && M[j * (n + 1) + i] >= SV_SING_START) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
