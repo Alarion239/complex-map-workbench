@@ -3032,9 +3032,9 @@
   const SV_GATE_UNKNOWN_FILL = 0.25;
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
-  // layer: nothing to prepare
+  // layer, or the Landscape (it steps a plane at a time, with no frames between planes): nothing to prepare
   function svGateNeeded() {
-    return !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+    return SV.surf !== 'land' && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
   }
   // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
   // when the chain is discarded (an example or a new scene replaces it)
