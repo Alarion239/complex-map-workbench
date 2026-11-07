@@ -243,6 +243,10 @@
     // (a press while it glides starts the next glide from where the picture is: no jump; 420 ms a plane, at most 900)
     // (the speed setting's time a plane, for at most two planes' worth when it crosses several)
     const per = SV_SPEEDS[SV.speed] || 900;
+    // (a press while the wait runs cancels it: on the button that shows it, that is all; elsewhere the new glide waits instead)
+    const btn = i > from ? SV.els.next : SV.els.prev;
+    if (SV.gate) { const same = SV.gate.btn === btn; svGateEnd(); if (same) return; }
+    if (svGateNeeded()) { svGated(btn, () => svGo(i)); return; }
     SV.span = svSpanOf(from, i);
     SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
@@ -2592,7 +2596,7 @@
       if ((lk === 'k' || lk === 'm') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
-      if (e.key === 'Escape' && (SV.play || SV.gate || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else if (SV.gate) svGateCancel(); else svClearRange(); return; }
+      if (e.key === 'Escape' && (SV.play || SV.gate || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; ← → always step the chain, the sound probe's arrows being Alt / Option +
       // arrow, except while a shape is selected, which they nudge while the focus is on a plane (14-interaction.js))
       const page = e.key === 'PageUp' || e.key === 'PageDown';
@@ -2812,9 +2816,9 @@
   }
   // ▶ and pause, the loop's state
   function svPlaySync() {
-    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown ? $t('Cancel') : on ? $t('Pause') : $t('Play');
+    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown && SV.gate.btn === E.play ? $t('Cancel') : on ? $t('Pause') : $t('Play');
     // (the pause is two bars, drawn: no glyph of the bundled faces)
-    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
+    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
     E.play.setAttribute('aria-pressed', String(on));
@@ -2832,12 +2836,13 @@
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
-  function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateCancel(); else svPlay(); }
-  // ▶ waits for svReady().ready, so a glide never runs on programs still linking or frames not yet drawn. SV.gate holds the
-  // wait: {t0, timer, hung}; it polls every SV_GATE_POLL_MS and starts the glide when ready. SV_GATE_HANG_MS is a hang guard
-  // only: past it the wait shows its "still preparing" state, and a further ▶ press starts the wait over; it never starts a
-  // glide that is not ready. Esc or a second press cancels
-  const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000;
+  function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
+  // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
+  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep}; it polls
+  // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
+  // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
+  // again or Cancel cancels; nothing starts afterwards
+  const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
   // What a glide needs before its first frame: the chain's programs linked and the carried colour's warm draw made (the idle
   // jobs of svReady, the pole tracks, the ring and the meshes, are drawn as they finish). No GPU layer: nothing to prepare
   function svGateNeeded() {
@@ -2845,38 +2850,60 @@
     const r = svReady().parts;
     return !r.programs || !r.warm || r.programs.done < r.programs.total || r.warm.done < r.warm.total || !r.programs.total;
   }
-  // The wait shows nothing for its first SV_GATE_SHOW_MS (a ready chain just starts); then the button is a cross (cancel) in a ring that
-  // fills by svReady's done / total
-  const SV_GATE_SHOW_MS = 300;
-  function svGateCancel() {
+  // start() now, or once the chain is prepared; btn is the control the wait shows on
+  function svGated(btn, start) {
+    if (SV.gate) return;
+    if (!svGateNeeded()) { start(); return; }
+    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
+    svPrestartSoon(0);
+    svGateTick();
+  }
+  // (restart: Retry keeps the ring shown, with no pause before it)
+  function svGateRetry() {
+    const g = SV.gate;
+    if (!g) return;
+    const { btn, start } = g;
+    svGateEnd();
+    svGated(btn, start);
+    if (SV.gate) { SV.gate.shown = true; svGateSync(); }
+  }
+  function svGateEnd() {
     const g = SV.gate;
     if (!g) return;
     clearTimeout(g.timer);
-    if (g.toast) { g.toast.querySelector('.toast-x') ? g.toast.querySelector('.toast-x').click() : g.toast.remove(); }
+    if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
-    svGateSync();
-    svPlaySync();
+    if (g.keep) {
+      g.btn.replaceChildren(...g.keep.kids);
+      for (const [k, v] of g.keep.attrs) { if (v == null) g.btn.removeAttribute(k); else g.btn.setAttribute(k, v); }
+    }
+    g.btn.toggleAttribute('aria-busy', false);
+    delete g.btn.dataset.wait;
+    g.btn.style.removeProperty('--wait');
+    if (g.btn === (SV.els && SV.els.play)) { delete g.btn.dataset.on; svPlaySync(); }
   }
   function svGateSync() {
-    const E = SV.els, g = SV.gate;
-    if (!E || !E.play) return;
-    const shown = !!g && g.shown;
-    E.play.toggleAttribute('aria-busy', shown);
-    if (shown) {
-      const r = svReady().parts, d = (r.programs ? r.programs.done : 0) + (r.warm ? r.warm.done : 0), t = (r.programs ? r.programs.total : 0) + (r.warm ? r.warm.total : 0);
-      E.play.dataset.wait = g.hung ? 'hung' : 'busy';
-      E.play.style.setProperty('--wait', String(t ? d / t : 0.25));
-      E.play.setAttribute('aria-label', $t('Cancel'));
-      E.play.setAttribute('aria-description', $t('Preparing the glide…'));
-      E.play.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
-      if (E.play.dataset.on !== 'wait') { E.play.dataset.on = 'wait'; E.play.textContent = ''; E.play.insertAdjacentHTML('beforeend', ICONS.close); }
-    } else { delete E.play.dataset.wait; E.play.style.removeProperty('--wait'); E.play.removeAttribute('aria-description'); if (E.play.dataset.on === 'wait') delete E.play.dataset.on; }
+    const g = SV.gate;
+    if (!g || !g.shown) return;
+    const B = g.btn;
+    if (!g.keep) {
+      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description'].map((k) => [k, B.getAttribute(k)]) };
+      B.replaceChildren();
+      B.insertAdjacentHTML('beforeend', ICONS.close);
+    }
+    const r = svReady().parts, d = (r.programs ? r.programs.done : 0) + (r.warm ? r.warm.done : 0), t = (r.programs ? r.programs.total : 0) + (r.warm ? r.warm.total : 0);
+    B.toggleAttribute('aria-busy', true);
+    B.dataset.wait = g.hung ? 'hung' : 'busy';
+    B.style.setProperty('--wait', String(t ? d / t : 0.25));
+    B.setAttribute('aria-label', $t('Cancel'));
+    B.setAttribute('aria-description', $t('Preparing the glide…'));
+    B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
   function svGateTick() {
     const g = SV.gate;
     if (!g) return;
-    if (svPlanes().length < 2) { svGateCancel(); return; }
-    if (!svGateNeeded()) { svGateCancel(); svPlayNow(); return; }
+    if (svPlanes().length < 2) { svGateEnd(); return; }
+    if (!svGateNeeded()) { svGateEnd(); g.start(); return; }
     const t = performance.now() - g.t0;
     if (!g.shown && t >= SV_GATE_SHOW_MS) {
       g.shown = true;
@@ -2884,22 +2911,15 @@
     }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
-      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateCancel(); svPlay(); }, false, { sticky: true });
-      if (g.toast) g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateCancel() }, $t('Cancel')));
+      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
+      if (g.toast) g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
     }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }
   function svPlay() {
     if (SV.play || svPlanes().length < 2) return;
-    if (SV.gate) return;
-    if (svGateNeeded()) {
-      SV.gate = { t0: performance.now(), timer: 0, hung: false, shown: false, toast: null };
-      svPrestartSoon(0);
-      svGateTick();
-      return;
-    }
-    svPlayNow();
+    svGated(SV.els.play, svPlayNow);
   }
   function svPlayNow() {
     const P = svPlanes();
