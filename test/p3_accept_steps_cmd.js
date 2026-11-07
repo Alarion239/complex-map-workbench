@@ -24,6 +24,9 @@ const LOWER = [3, -3], UPPER = [3, 3], INSIDE = [0.3, 0.2];
 const EXT_R = 0.6;
 // the fewest pole-side samples (far from the origin of the plane) a scene must show for its north-pole check to count
 const MIN_FAR = 50;
+// the margin around the boundary strokes (the line renderer's, drawn on both frames) a fill sample keeps clear of, in CSS px, and the
+// CPU render's alpha above which a pixel counts as covered
+const STROKE_MARGIN_PX = 4, COVERED_ALPHA = 0.5;
 // the |w| beyond which a point is pole-side, in the Cayley scene and at plane 0
 const CAY_POLE_R = 50, X0_POLE_R = 20;
 const ZI = { type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true };
@@ -167,8 +170,8 @@ R.g = await ev(`(() => {
   const e = Math.exp(-Math.PI);
   for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
     const wr = view.cx + (i + 0.5 - W / 2) / s, wi = view.cy - (j + 0.5 - Hh / 2) / s, a = Math.hypot(wr, wi);
-    if (Math.min(Math.abs(a - 1), Math.abs(a - e)) * s < 4 * lk.dpr) continue;   // the boundary strokes (line renderer)
-    const k = j * W + i, gp = Math.abs(D[4 * k] - Db[4 * k]) + Math.abs(D[4 * k + 1] - Db[4 * k + 1]) + Math.abs(D[4 * k + 2] - Db[4 * k + 2]) > ${FILL_DIFF}, cp = r.stats.alpha[k] > 0.5;
+    if (Math.min(Math.abs(a - 1), Math.abs(a - e)) * s < ${STROKE_MARGIN_PX} * lk.dpr) continue;   // the boundary strokes (line renderer)
+    const k = j * W + i, gp = Math.abs(D[4 * k] - Db[4 * k]) + Math.abs(D[4 * k + 1] - Db[4 * k + 1]) + Math.abs(D[4 * k + 2] - Db[4 * k + 2]) > ${FILL_DIFF}, cp = r.stats.alpha[k] > ${COVERED_ALPHA};
     n++; if (gp && cp) inter++; if (gp || cp) uni++; if (gp && !cp) gOnly++; if (cp && !gp) cOnly++;
   }
   return { iou: uni ? inter / uni : 1, n, inter, gOnly, cOnly, cpuMs: Math.round(performance.now() - t0), W, H: Hh };
