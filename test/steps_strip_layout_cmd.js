@@ -7,6 +7,7 @@
 // - laptop: the thread's centre (first dot to last) lies on the pane's centre line within 4 px, or, where the groups of
 //   controls beside it do not leave the room, the thread is as near the centre as it can be: its gap to the group on the
 //   centre's side is the bar's own (at most 9.5 px, 8 plus rounding); a thread that needs the whole rail scrolls, as it did;
+// - a one-step thread at 1024 px and wider is on the centre line within 4 px, in en, ru and it: the strip's folds make the room, not a shift of the thread;
 // - the ring (parked on z) sits on the first plane's dot, within 1 px;
 // - a one-step chain has no F chip at any width (F is f₁ there), and its thread fits the rail without scrolling; the thread
 //   is centred (phone: in its rail, within 4 px);
@@ -50,7 +51,7 @@ const measure = () => ev(`(() => {
     unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, ringOff, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
 })()`);
 const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true], [740, 360, true], [915, 412, true]];
-for (const lang of ['en', 'ru']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
+for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
   await open(w, h, mobile, lang, chain);
   const m = await measure(), tag = `${w} ${lang} ${chain}`, one = CHAINS[chain].length === 1;
   info[tag] = m;
@@ -61,6 +62,7 @@ for (const lang of ['en', 'ru']) for (const chain of ['log', 'root', 'two', 'thr
     ok(`${tag}: a one-step chain has no F chip, and its thread does not scroll`, !m.fShown && !m.scrolls, m);
     if (m.ph) ok(`${tag}: the thread is centred in the rail`, Math.abs(m.unitOff) <= 4, m.unitOff);
   } else if (!m.ph) ok(`${tag}: F shows with the second step`, m.fShown, m);
+  if (!m.ph && one && w >= 1024) ok(`${tag}: a one-step thread is on the pane's centre line (±4 px)`, Math.abs(m.off) <= 4, { off: Math.round(m.off), gapL: m.gapL, gapR: m.gapR, railW: m.railW });
   if (!m.ph && !m.scrolls) {
     const near = m.off < 0 ? m.gapR : m.gapL;
     ok(`${tag}: the thread is on the pane's centre line, or as near as the bar's groups allow`, Math.abs(m.off) <= 4 || near <= 9.5, { off: Math.round(m.off), gapL: m.gapL, gapR: m.gapR });
