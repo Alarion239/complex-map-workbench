@@ -21,9 +21,7 @@ const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() =
 const fails = [], R = {};
 // the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
 // the digit keys and the toggle button are gone
-const morphKey = () => ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()');
-const mainView = (m) => ev(`__cmwSetMain(${JSON.stringify(m)}); 1`);
-const morphPlayKey = () => ev('(() => { __cmwMorph({ togglePlay: true }); return 1; })()');
+const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
@@ -121,7 +119,7 @@ await start('z-1');
   R.deformAfter = { sing: await ev('Sound.singState()'), cv: (await snd()).cv };
   ok('deformation: the note fades 0.9 s after t stops', !R.deformAfter.sing.on && !R.deformAfter.cv.on, R.deformAfter);
   // the motion bed is off while Hear F is on; with Hear F off it follows a play (the synth's texture 2)
-  await morphKey(); await settle(300);
+  await morphKey();
 }
 
 // 5. off while the notes ring: silent, suspended
@@ -140,7 +138,7 @@ for (const hear of [false, true]) {
   if (hear) { const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); } await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`); }
   await move(5, 600); await settle(200);
   await ev(`__cmwSet('morphSecs', 4); 1`);
-  await morphKey(); await sleep(600);
+  await morphKey(); await sleep(600);   // standards-ok: the recording and the loop run in real time
   const before = { arm: (await snd()).morphArm, sing: (await ev('Sound.singState()')).on };
   await key('Escape');
   const after = [];
@@ -148,8 +146,8 @@ for (const hear of [false, true]) {
   R['esc' + (hear ? 'HearOn' : 'HearOff')] = { before, after };
   ok(`Esc while the deformation plays (Hear F ${hear ? 'on' : 'off'}): it plays on, and nothing sounds again (no motion bed, no loop note) for 0.8 s`, after.some((a) => a.playing) && after.every((a) => !a.arm && !a.sing && !a.cv) && (hear ? before.sing : before.arm), { before, after });
   // the next action lets it sound: Play again
-  if (hear) { await morphKey(); await sleep(150); await morphKey(); await sleep(700); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }
-  await morphKey(); await settle(200);
+  if (hear) { await morphKey(); await sleep(150); await morphKey(); await sleep(700); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }   // standards-ok: the recording and the loop run in real time
+  await morphKey();
 }
 // 7. (review sound-3) a finger held still 10 px from a zero on the D line (arg F = 0), trembling ±1.5 px at about
 // 9 Hz for 3 s: no note (the harp chattered there: 100+ notes in 10 s before; the notes' Schmitt band holds)

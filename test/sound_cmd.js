@@ -23,9 +23,7 @@ const loadHere = async (ns, st, extra) => {
 const fails = [], R = {};
 // the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
 // the digit keys and the toggle button are gone
-const morphKey = () => ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()');
-const mainView = (m) => ev(`__cmwSetMain(${JSON.stringify(m)}); 1`);
-const morphPlayKey = () => ev('(() => { __cmwMorph({ togglePlay: true }); return 1; })()');
+const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
@@ -91,7 +89,7 @@ await key('M', 8); await settle(300);
 R.shiftM2 = { on: await ev('Sound.prefs().on'), made: await made(true), audio: await ev('Sound.state().audio') };
 ok('Shift+M again: on with its key', R.shiftM2.on && R.shiftM2.made.join() === 'toggleOn' && R.shiftM2.audio === 'running', R.shiftM2);
 // M: the deformation plays (the swell once per play), arrives once, and loop repeats stay silent
-await morphKey(); await settle(200);
+await morphKey();
 ok('M opens the Deformation', (await ev('__cmwLayout()')).deform === true);
 let mm = [];
 for (let i = 0; i < 40 && !mm.includes('morphEnd'); i++) { await sleep(150); mm = await made(); }
@@ -99,7 +97,7 @@ await sleep(2500);
 mm = await made(true);
 R.morph = mm;
 ok('deformation: one swell and one arrival per play, none on loop repeats', count(mm, 'morphStart') === 1 && count(mm, 'morphEnd') === 1, mm);
-await morphKey(); await settle(300);
+await morphKey();
 
 // 5. the palette entries
 await key('k', 4); await settle(300);
@@ -113,8 +111,8 @@ ok('palette: Sound on/off, Hear the function on/off, Stop sound', /Sound on\/off
 await key('Escape'); await settle(200); await made(true);
 
 // 6. Interface cues from the app: a view switch, the theme, an export copied (soundCue('exportDone'))
-await mainView('xy'); await settle(500);
-await mainView('phase'); await settle(500);
+await mainView('xy');
+await mainView('phase');
 R.viewCue = await made(true);
 ok('view switch: the view key', count(R.viewCue, 'view') >= 1, R.viewCue);
 // ([v17 D5] the theme button is in Settings on a laptop: its cycle, which the palette's Switch theme uses, still cues)
@@ -258,7 +256,7 @@ await key('v'); await settle(150);
 
 // 10. The Landscape (Hear the function, SOUND-PLAN G1: the Height voice and its contour ticks are retired; the
 // Landscape's probe (pickLand) is heard as on the planes: notes at the colour lines, no voice, no contour tick)
-await mainView('land'); await settle(1500); await made(true); await hearCount();
+await mainView('land'); await made(true); await hearCount();
 {
   const r = await ev(`(() => { const b = document.getElementById('overlayL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
   for (let i = 0; i <= 60; i++) { const u = i / 60; await move(r[0] + r[2] * (0.3 + 0.4 * u), r[1] + r[3] * (0.5 + 0.12 * Math.sin(6 * u))); await sleep(20); }
@@ -267,7 +265,7 @@ await mainView('land'); await settle(1500); await made(true); await hearCount();
   R.height = { kind: s.kind, voice: s.voice, made: await made(true), hear: await hearCount() };
 }
 ok('Landscape: the probe on the relief is heard as on the planes (notes at its lines, no Height voice, no contour tick)', !R.height.voice && R.height.kind !== 'height' && !R.height.made.includes('contour') && R.height.hear.notes >= 2, R.height);
-await mainView('phase'); await settle(800);
+await mainView('phase');
 
 // 11. the engine's guards in the live context: 12 turns → 8 bells and one flourish; an Interface cue right after
 // plays; 20 zero entries at 40 ms → at most 3 pings and the dense cue

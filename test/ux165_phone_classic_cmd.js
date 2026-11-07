@@ -53,7 +53,7 @@ await fresh('undo', 412, 860, false, true);
 for (const k of ['edit', 'tools', 'display', 'more']) {
   await ev(`Phone.open('${k}')`); await settle();
   const u = await box('.ph-sheet .ph-hundo');
-  ok(`UX24 the ${k} sheet's head has Undo, 44 px, uncovered`, u && u.w >= 44 && u.h >= 44 && u.top, u);
+  ok(`the ${k} sheet's head has Undo, 44 px, uncovered`, u && u.w >= 44 && u.h >= 44 && u.top, u);
   await ev(`Phone.close(true)`); await settle();
 }
 // Undo in a head undoes: add a disc, open More tools, tap Undo there
@@ -65,7 +65,7 @@ await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); a
 const shapes1 = await ev(`__tourApi.snapshot().state.shapes.length`);
 await ev(`Phone.open('tools')`); await settle();
 await tap('.ph-sheet .ph-hundo');
-ok('UX24 Undo in the sheet head undoes', shapes1 === shapes0 + 1 && (await ev(`__tourApi.snapshot().state.shapes.length`)) === shapes0, [shapes0, shapes1]);
+ok('Undo in the sheet head undoes', shapes1 === shapes0 + 1 && (await ev(`__tourApi.snapshot().state.shapes.length`)) === shapes0, [shapes0, shapes1]);
 await ev(`Phone.close(true)`); await settle();
 await grab();
 
@@ -75,7 +75,7 @@ await fresh('tip', 412, 860, false, true);
 await key('k', 4); await settle();
 for (const c of 'sin') await key(c);
 await settle(); await key('Enter'); await settled({ floor: 1300 });   // (the window the tip's absence is read after)
-ok('UX34 phone: no tip after an add', !(await tipText()), await tipText());
+ok('phone: no tip after an add', !(await tipText()), await tipText());
 // phone: a long-press on a tool shows its tip, and it goes when the finger lifts (an open sheet, a modal layer over the
 // tool row, is closed first)
 await ev('Phone.close(true); 1');
@@ -100,26 +100,26 @@ await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 await settled({
   max: 3000, until: `!(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()`,
 });
-ok('UX34 phone: a long-press shows the tip', !!lpTip, lpTip);
-ok('UX17 phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
-ok('UX34 phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
+ok('phone: a long-press shows the tip', !!lpTip, lpTip);
+ok('phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
+ok('phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
 // laptop: hover only; no tip after an add, none after a programmatic focus
 await fresh('tipL', 1366, 768, false, false);
 await key('k', 4); await settle();
 await type('sin z'); await settle(); await key('Enter'); await move(700, 400); await settled({ floor: 1200 });   // (the window the tip's absence is read after)
-ok('UX34 laptop: no tip after an add', !(await tipText()), await tipText());
+ok('laptop: no tip after an add', !(await tipText()), await tipText());
 await ev(`document.getElementById('undoBtn').focus()`); await settled({ floor: 700 });   // (the window the tip's absence is read after)
-ok('UX34 laptop: no tip after a programmatic focus', !(await tipText()), await tipText());
+ok('laptop: no tip after a programmatic focus', !(await tipText()), await tipText());
 const dc = await center('#tools .tool[data-tool="disc"]');
 await move(dc[0], dc[1]); await settled({ until: `(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()` });
 const hv = await tipText();
-ok('UX34 laptop: hover shows the tip', !!hv && /Disc/.test(hv), hv);
-ok('UX17 laptop: the hover tip keeps its key', await ev(`(document.querySelector('#tip .tip-key') || {}).textContent === 'D'`), hv);
+ok('laptop: hover shows the tip', !!hv && /Disc/.test(hv), hv);
+ok('laptop: the hover tip keeps its key', await ev(`(document.querySelector('#tip .tip-key') || {}).textContent === 'D'`), hv);
 await move(700, 400); await settled({ until: `(() => { const t = document.getElementById('tip'); return !t || t.hidden; })()` });
-ok('UX34 laptop: the tip goes when the mouse leaves', !(await tipText()), await tipText());
+ok('laptop: the tip goes when the mouse leaves', !(await tipText()), await tipText());
 info.backDesk = await ev('history.length');
 await key('k', 4); await settle();
-ok('UX12 laptop: the palette pushes no history entry', (await ev('history.length')) === info.backDesk, await ev('history.length'));
+ok('laptop: the palette pushes no history entry', (await ev('history.length')) === info.backDesk, await ev('history.length'));
 await key('Escape'); await settle();
 await grab();
 
@@ -141,35 +141,35 @@ const layers = [
 for (const [name, openIt, isOpen, under] of layers) {
   await openIt();
   const a = await st();
-  ok(`UX12 ${name} opens`, isOpen(a), a);
+  ok(`${name} opens`, isOpen(a), a);
   await goBack();
   if (under) {
     const u = await st();
-    ok(`UX12 Back closes ${name} and leaves the ${under} sheet under it`, /test\.html/.test(u.url) && u.sheet === under && !u.pop && !u.modal, u);
+    ok(`Back closes ${name} and leaves the ${under} sheet under it`, /test\.html/.test(u.url) && u.sheet === under && !u.pop && !u.modal, u);
     await goBack();
   }
   const b = await st();
-  ok(`UX12 Back closes ${name} and stays in the app`, /test\.html/.test(b.url) && !b.sheet && !b.pop && !b.modal, b);
+  ok(`Back closes ${name} and stays in the app`, /test\.html/.test(b.url) && !b.sheet && !b.pop && !b.modal, b);
 }
 // a sheet closed in the app leaves no entry behind: the next Back leaves
 await tap('#hdrMoreBtn'); await tap('.ph-sheet .ph-x');
 await goBack();
-ok('UX12 Back from the bare app leaves it', (await ev('location.href')) === 'about:blank', await ev('location.href'));
+ok('Back from the bare app leaves it', (await ev('location.href')) === 'about:blank', await ev('location.href'));
 await grab();
 
 // ---------------- the phone function list ----------------
 await withState('pal', 412, 860, true, { shapes: [], steps: STEPS2 });
 await key('k', 4); await settle();
 const cb = await box('.pal-cancel'), chip = await box('.pal-at'), row = await box('.pal-item');
-ok('UX29 Cancel in the search row, at least 44 px', cb && cb.w >= 44 && cb.h >= 44 && cb.top, cb);
-ok('UX29 rows at least 48 px', row && row.h >= 48, row);
-ok('UX29 the insert position is a chip of at least 44 px', chip && chip.h >= 44 && chip.top, chip);
+ok('Cancel in the search row, at least 44 px', cb && cb.w >= 44 && cb.h >= 44 && cb.top, cb);
+ok('rows at least 48 px', row && row.h >= 48, row);
+ok('the insert position is a chip of at least 44 px', chip && chip.h >= 44 && chip.top, chip);
 const places = [];
 for (let i = 0; i < 3; i++) { places.push(await ev(`document.querySelector('.pal-at').textContent`)); await tap('.pal-at'); }
-ok('UX29 a tap moves the insert position along the chain', new Set(places).size === 3, places);
-ok('UX29 the search field keeps the focus after a chip tap', (await ev('document.activeElement && document.activeElement.id')) === 'palInput', await ev('document.activeElement && document.activeElement.id'));
+ok('a tap moves the insert position along the chain', new Set(places).size === 3, places);
+ok('the search field keeps the focus after a chip tap', (await ev('document.activeElement && document.activeElement.id')) === 'palInput', await ev('document.activeElement && document.activeElement.id'));
 await tap('.pal-cancel');
-ok('UX29 Cancel closes the list', !(await ev(`!!document.querySelector('#popHost .palette')`)));
+ok('Cancel closes the list', !(await ev(`!!document.querySelector('#popHost .palette')`)));
 await grab();
 
 // ---------------- a rotation keeps the open sheet and the field ----------------
@@ -180,11 +180,11 @@ await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp'
 const f0 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
 await view(915, 412, false, true); await settle();
 const s1 = await phSt(), f1 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
-ok('UX68 to landscape: the Editor stays open', s1.land && s1.kind === 'edit', s1);
-ok('UX68 to landscape: the same field has the focus', f1 === f0 && f0 >= 0, [f0, f1]);
+ok('to landscape: the Editor stays open', s1.land && s1.kind === 'edit', s1);
+ok('to landscape: the same field has the focus', f1 === f0 && f0 >= 0, [f0, f1]);
 await view(412, 915, false, true); await settle();
 const s2 = await phSt(), f2 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
-ok('UX68 back to portrait: the Editor and the field again', !s2.land && s2.kind === 'edit' && f2 === f0, [s2, f2]);
+ok('back to portrait: the Editor and the field again', !s2.land && s2.kind === 'edit' && f2 === f0, [s2, f2]);
 await grab();
 
 // ---------------- the on-screen keyboard ----------------
@@ -193,15 +193,15 @@ await fresh('kb', 360, 780, false, true);
 await tap('.ph-nums');
 await ev(`[...document.querySelectorAll('.ph-sheet button')].find((b) => /Number/.test(b.textContent) && b.getClientRects().length).click()`); await settle();
 const fk0 = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { tag: a.tagName, top: Math.round(b.top), bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
-ok('UX69 a field takes the focus with no keyboard: the sheet keeps its height (the planes stay in view)', fk0.tag === 'INPUT' && !(await phSt()).full, [fk0, await phSt()]);
+ok('a field takes the focus with no keyboard: the sheet keeps its height (the planes stay in view)', fk0.tag === 'INPUT' && !(await phSt()).full, [fk0, await phSt()]);
 await ev('Phone._kb(330)'); await settle();
 const fk = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { tag: a.tagName, top: Math.round(b.top), bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
-ok('UX69 a 330 px keyboard: the field is lifted above it (the sheet grows when scrolling cannot do it)', fk.tag === 'INPUT' && fk.bottom <= fk.ih - 330 && fk.top > 56 && (await phSt()).full, [fk, await phSt()]);
-ok('UX69 with the keyboard up the sheet body gets room at its end', (await ev(`parseFloat(getComputedStyle(document.querySelector('.ph-sb:not([hidden])')).paddingBottom)`)) >= 330);
+ok('a 330 px keyboard: the field is lifted above it (the sheet grows when scrolling cannot do it)', fk.tag === 'INPUT' && fk.bottom <= fk.ih - 330 && fk.top > 56 && (await phSt()).full, [fk, await phSt()]);
+ok('with the keyboard up the sheet body gets room at its end', (await ev(`parseFloat(getComputedStyle(document.querySelector('.ph-sb:not([hidden])')).paddingBottom)`)) >= 330);
 await ev('Phone._kb(0)'); await settle();
-ok('UX69 the sheet goes back to its height when the keyboard goes', !(await phSt()).full);
+ok('the sheet goes back to its height when the keyboard goes', !(await phSt()).full);
 await ev('Phone._kb(330)'); await settle(); await ev('document.activeElement.blur()'); await settled({ until: `!Phone._state().full` });
-ok('UX69 … or when the field is left', !(await phSt()).full);
+ok('… or when the field is left', !(await phSt()).full);
 await ev('Phone._kb(0)');
 // a formula field with the keyboard up has a strip of symbols above the keyboard; a press types at the caret and the field keeps the focus
 await ev(`Phone.open('tools')`); await settle();
@@ -210,13 +210,13 @@ await ev(`(() => { const f = document.getElementById('formulaInput'); f.focus();
 const noKb = await ev(`!!document.querySelector('.ph-keys:not([hidden])')`);
 await ev('Phone._kb(330)'); await settle();
 const ks = await ev(`(() => { const e = document.querySelector('.ph-keys'); const r = e.getBoundingClientRect(); return { shown: !e.hidden, bottom: Math.round(innerHeight - r.bottom), h: Math.round(r.height), labels: [...e.children].map((b) => b.textContent), small: [...e.children].filter((b) => { const q = b.getBoundingClientRect(); return q.width < 44 || q.height < 44; }).length, focus: document.activeElement.id }; })()`);
-ok('UX46 a formula field: no strip without the keyboard; with it, a 44 px row on the keyboard\'s edge', !noKb && ks.shown && ks.bottom === 330 && ks.h === 44 && ks.small === 0 && ks.focus === 'formulaInput', [noKb, ks]);
-ok('UX46 the strip is symbols only', ks.labels.join(' ') === 'z | < > ≤ π i Re Im arg ( )', ks.labels);
+ok('a formula field: no strip without the keyboard; with it, a 44 px row on the keyboard\'s edge', !noKb && ks.shown && ks.bottom === 330 && ks.h === 44 && ks.small === 0 && ks.focus === 'formulaInput', [noKb, ks]);
+ok('the strip is symbols only', ks.labels.join(' ') === 'z | < > ≤ π i Re Im arg ( )', ks.labels);
 await ev(`[...document.querySelectorAll('.ph-keys button')].find((b) => b.textContent === '<').click()`); await settle();
 const ty = await ev(`(() => { const f = document.getElementById('formulaInput'); return { v: f.value, c: f.selectionStart, focus: document.activeElement === f }; })()`);
-ok('UX46 a press types the symbol at the caret and the field keeps the focus', ty.v === '|z<' && ty.c === 3 && ty.focus, ty);
+ok('a press types the symbol at the caret and the field keeps the focus', ty.v === '|z<' && ty.c === 3 && ty.focus, ty);
 await ev('Phone._kb(0)'); await settle();
-ok('UX46 the strip goes with the keyboard', await ev(`document.querySelector('.ph-keys').hidden`));
+ok('the strip goes with the keyboard', await ev(`document.querySelector('.ph-keys').hidden`));
 await ev('document.activeElement.blur()');
 // the Editor (split: X and Y above it): a coefficient with a short keyboard is lifted by a scroll, the planes stay
 await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2, sel: 2 });
@@ -225,8 +225,8 @@ await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp'
 await ev('Phone._kb(260)'); await settle();
 const fe = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
 info.kbEditor = [fe, await phSt()];
-ok('UX69 the Editor: the coefficient is above a 260 px keyboard', fe.bottom <= fe.ih - 260, info.kbEditor);
-ok('UX69 the Editor: lifted by a scroll, the sheet keeps its height (X and Y stay in view)', !info.kbEditor[1].full, info.kbEditor);
+ok('the Editor: the coefficient is above a 260 px keyboard', fe.bottom <= fe.ih - 260, info.kbEditor);
+ok('the Editor: lifted by a scroll, the sheet keeps its height (X and Y stay in view)', !info.kbEditor[1].full, info.kbEditor);
 await ev('Phone._kb(0)'); await ev('document.activeElement.blur()'); await settle();
 await grab();
 
@@ -239,10 +239,10 @@ await ev('Phone.swap()'); await settle(); kv.swap = await keys(); await ev('Phon
 await ev(`__cmwSetMain('phase'); 1`); await settle(); kv.phase = await keys();
 await ev(`__cmwSetMain('land'); 1`); await settle(); kv.land = await keys();
 info.keys = kv;
-for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`UX38 ${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
-for (const v of ['swap', 'phase']) ok(`UX38 sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
+for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
+for (const v of ['swap', 'phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
 ok('D8 Both is the column\'s top key', kv.xy.both && kv.xy.both[1] < kv.xy.sphere[1] && kv.xy.both[0] === kv.xy.sphere[0], kv.xy);
-ok('UX38 the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
+ok('the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
 // Landscape on a portrait phone: the surface uses more of the plane than the bounding sphere's fit
 const lb = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
 const im = await img({ x: lb[0], y: lb[1], width: lb[2], height: lb[3] });
@@ -251,11 +251,11 @@ im.width = im.w; im.height = im.h;
 const bg = [im.data[0], im.data[1], im.data[2]];
 for (let y = Math.round(im.height * 0.2); y < im.height * 0.8; y += 2) for (let x = 0; x < im.width; x++) { const i = im.ch * (y * im.width + x); if (Math.abs(im.data[i] - bg[0]) + Math.abs(im.data[i + 1] - bg[1]) + Math.abs(im.data[i + 2] - bg[2]) > 60) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); } }
 info.landWidth = [(x1 - x0) / im.width];
-ok('UX106 the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
+ok('the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
 await ev(`__cmwSetMain('xy'); 1`); await settle();
 await view(915, 412, false, true); await settle();
 const k915 = await ev(`[...document.querySelectorAll('.ph-col')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
-ok('UX38 915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
+ok('915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
 await grab();
 
 // ---------------- the Shapes list, the ⋯ sheet, the long-press tips ----------------
@@ -263,16 +263,16 @@ await withState('rows', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: 
 await ev(`Phone.open('tools')`); await settle();
 await ev(`Phone.tab('shapes')`); await settle();
 const rows = await ev(`[...document.querySelectorAll('.ph-sheet .shape-row')].map((r) => { const b = r.getBoundingClientRect(), e = r.querySelector('.eye').getBoundingClientRect(), m = r.querySelector('.more').getBoundingClientRect(); return { h: Math.round(b.height), eyeR: Math.round(e.right), moreL: Math.round(m.left), moreR: Math.round(m.right), eh: Math.round(e.height), mh: Math.round(m.height) }; })`);
-ok('UX45 rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
-ok('UX45 the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
-ok('UX45 ⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360 - 16), rows);
+ok('rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
+ok('the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
+ok('⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360 - 16), rows);
 const tip = await ev(`(document.querySelector('.ph-sb[data-k="tools"] .ph-tip') || {}).textContent || ''`);
-ok('UX40 More tools teaches the long press', /hold a finger/i.test(tip), tip);
+ok('More tools teaches the long press', /hold a finger/i.test(tip), tip);
 await ev(`Phone.close(true)`); await settle();
 await ev(`Phone.open('edit'), 1`); await settle();
 const zh = await ev(`(document.querySelector('.ph-sheet .zp-hint') || {}).textContent || ''`);
 // (the long press is a mark's, "Drag a mark to move it; hold it for more.")
-ok('UX40 the zeros-and-poles editor teaches the long press', /hold it for more/i.test(zh), zh);
+ok('the zeros-and-poles editor teaches the long press', /hold it for more/i.test(zh), zh);
 await ev(`Phone.close(true)`); await settle();
 await ev(`Phone.open('more')`); await settle();
 const more = await ev(`({ text: document.querySelector('.ph-sheet[data-k="more"]').innerText, rows: [...document.querySelectorAll('.ph-sheet[data-k="more"] .ph-row')].map((r) => r.textContent.trim()) })`);
@@ -407,17 +407,17 @@ await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 
 for (let i = 1; i <= 5; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 + i * 10, y: 450 - i * 12, id: 1 }] }); await sleep(80); }
 await settled({ max: 4000, until: `!!Construct.debug().hover` });
 const dn = await ev(`(() => { const d = Construct.debug(); return { hover: d.hover, picks: d.draft ? d.draft.picks.length : -1, shapes: __tourApi.snapshot().state.shapes.length }; })()`);
-ok('UX50 two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
+ok('two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
 const h1 = dn.hover;
 await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] });
 await settled({
   max: 4000, until: `JSON.stringify(Construct.debug().hover) !== ${JSON.stringify(h1)}`,
 });
 const h2 = await ev('Construct.debug().hover');
-ok('UX50 sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
+ok('sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
 await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 await settled({ max: 4000, until: `__tourApi.snapshot().state.shapes.length > ${nBefore}` });
-ok('UX50 lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
+ok('lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
 await key('Escape'); await settle();
 
 // ---------------- a pinch on the app's own controls never zooms the page; the planes keep their pinch ----------------
@@ -426,19 +426,19 @@ await fresh('pinch', 412, 860, false, true);
 for (const [name, sel] of [['header', '.top'], ['chain bar', '.pipe-wrap'], ['tool row', '#secDraw']]) {
   const b = await box(sel);
   await pinch(206, b.t + b.h / 2, 60, 200);
-  ok(`UX13 pinch on the ${name}: the page stays at 1×`, (await ev('visualViewport.scale')) === 1, await ev('visualViewport.scale'));
+  ok(`pinch on the ${name}: the page stays at 1×`, (await ev('visualViewport.scale')) === 1, await ev('visualViewport.scale'));
 }
 await ev(`Phone.open('tools')`); await settle();
 const sh = await box('.ph-sheet .ph-sh');
 await pinch(120, sh.t + 30, 40, 160);
-ok('UX13 pinch on a sheet head: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
+ok('pinch on a sheet head: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
 await pinch(206, sh.t + 200, 40, 160);
-ok('UX13 pinch on a sheet body: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
+ok('pinch on a sheet body: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
 await ev(`Phone.close(true)`); await settle();
 const sc0 = await ev(`document.getElementById('leftReadout').textContent`);
 await pinch(206, 300, 60, 200);
 const sc1 = await ev(`document.getElementById('leftReadout').textContent`);
-ok('UX13 a pinch on the plane still zooms the plane', sc0 !== sc1 && (await ev('visualViewport.scale')) === 1, [sc0, sc1]);
+ok('a pinch on the plane still zooms the plane', sc0 !== sc1 && (await ev('visualViewport.scale')) === 1, [sc0, sc1]);
 await grab();
 
 ok('no exceptions or console errors', errs.length === 0, errs.slice(0, 5));

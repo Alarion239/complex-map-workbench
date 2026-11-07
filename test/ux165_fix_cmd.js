@@ -147,7 +147,7 @@ await settle(1200);
     ok(`rail-5: ${t} on the globe, before a press, says to switch to the plane`, /^Switch to the plane to pick the curve/.test(await mchip() || ''), await mchip());
   }
 }
-// user-1, user-5, regress-3: z^2 + a from the palette
+// z^2 + a from the palette
 await view(1366, 768, false, false);
 await nav(`${BASE}/test.html?ns=${NS}pal`); await settle(1500);
 await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); await key('Enter'); await settle(800);
@@ -157,7 +157,7 @@ await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); 
   const add = await rect('.prm-add'), row = await ev(`(() => { const r = [...document.querySelectorAll('.prm-row')].filter((x) => x.offsetParent).pop(); return r ? Math.round(r.getBoundingClientRect().bottom) : null; })()`);
   ok('user-5: + Number sits right under the last number', add && row != null && add[1] - row <= 8, [add, row]);
   const tr = await ev(`(() => { const t = document.querySelector('#toastHost .toast'); if (!t) return null; const r = t.getBoundingClientRect(), h = document.querySelector(${JSON.stringify(headSel)}).getBoundingClientRect(); return [r.top >= h.top - 1 && r.bottom <= h.bottom + 1 && (!document.getElementById('svStrip') || !document.getElementById('svStrip').offsetParent || r.bottom <= document.getElementById('svStrip').getBoundingClientRect().top + 1), document.getElementById('toastHost').getAttribute('data-placed')]; })()`);
-  ok('regress-3: the "Added" message sits over the plot, above the thread', tr && tr[0] && tr[1] === placed, tr); }
+  ok('the "Added" message sits over the plot, above the thread', tr && tr[0] && tr[1] === placed, tr); }
 // regress-1, regress-2: example 8 with the deformation; example 10's "Opened" toast and M
 await openEx(8); await key('m'); await settle(1200);
 await key('m'); await settle(500);

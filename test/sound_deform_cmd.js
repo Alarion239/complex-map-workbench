@@ -16,9 +16,7 @@ const loadHere = async (ns, st) => {
 const fails = [], R = {};
 // the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
 // the digit keys and the toggle button are gone
-const morphKey = () => ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()');
-const mainView = (m) => ev(`__cmwSetMain(${JSON.stringify(m)}); 1`);
-const morphPlayKey = () => ev('(() => { __cmwMorph({ togglePlay: true }); return 1; })()');
+const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (side, re, im) => ev(`__cmwW2S('${side}', ${re}, ${im})`);
@@ -128,7 +126,7 @@ const th = 170 * Math.PI / 180, Z = [1.2 * Math.cos(th), 1.2 * Math.sin(th)];
   R.loopRuns.harp = got.harp;
   ok('A2 Loop: two low Ds a play (two plays in 5.6 s), never down, never a cut at the repeat', got.harp.up >= 2 && got.harp.up <= 6 && got.harp.down === 0 && !got.made.some((x) => /^(cut|zero|pole|dense|turnMany)$/.test(x)), { harp: got.harp, made: got.made });
   ok('A2 Loop: one swell, no arrival repeated on loops', count(got.made, 'morphStart') <= 1 && count(got.made, 'morphEnd') <= 1, got.made);
-  await morphKey(); await settle(400);
+  await morphKey();
   await ev(`__cmwSet('loop', false); 1`);
 }
 
@@ -141,7 +139,7 @@ await ev(`__cmwSet('loop', false); 1`);
 await spy();
 {
   // (M opens and plays once: the transport bar shrinks the plane; then the pointer on 0.5 + 0.003i and Play again)
-  await morphKey(); await sleep(3000);
+  await morphKey(); await sleep(3000);   // standards-ok: the recording and the loop run in real time
   const p = await W('L', 0.5, 0.003);
   await move(p[0] + 3, p[1]); await sleep(40); await move(p[0], p[1]); await settle(300);
   const phi0 = (await snd()).phi;
@@ -168,7 +166,7 @@ await click(5, 300); await settle(200);
 await ev(`__cmwSet('loop', false); 1`);
 await spy();
 {
-  await morphKey(); await settle(200);
+  await morphKey();
   // let the first play finish (the plane is fitted), then put the pointer on the plane and play again
   await sleep(3500);
   const lay = await ev('__cmwLayout()');
@@ -188,7 +186,7 @@ await spy();
   // M closes the deformation: X → Y splits again; the still pointer's probe is the point now under it (X: its z; Y: no
   // tone), found again by the re-pick (review snddef-2), never the merged plane's point
   await take();
-  await morphKey(); await settle(300);
+  await morphKey();
   const sc = await snd(), under = await ev(`(() => { const e = document.elementFromPoint(${p[0]}, ${p[1]}); return e ? e.id : ''; })()`);
   const after = await take();
   R.mergedClose = { under, rest: sc.rest, sets: after.vset.length };
@@ -225,7 +223,7 @@ await ev(`__cmwSetMain('land')`); await settle(1500);
   R.land = { pick, rest: s0.rest, kind: s.kind, per: perFrame(fr, got.vset), made: got.made, harp: got.harp, ticksWant: Math.abs(k1 - k0), nFrames: fr.t.length, T0: fr.T[0], T1: fr.T[fr.T.length - 1] };
   ok('E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved', s.kind !== 'height' && R.land.per.moved > 60 && R.land.per.missed === 0 && got.harp.notes >= 1, R.land);
   ok("E Landscape: no contour tick (|H_t| is heard as the notes' loudness)", count(got.made, 'contour') === 0, R.land);
-  await morphKey(); await settle(400);
+  await morphKey();
 }
 
 // F. a zero dragged while the pointer rests elsewhere (a zeros-and-poles step, the zero moved once a frame, as a second
@@ -297,8 +295,8 @@ await spy();
   await ev(`__cmwSetMain('phase')`); await settle(900);
   const q = await W('L', ...Z);
   await move(q[0] + 3, q[1]); await sleep(40); await move(q[0], q[1]); await settle(600);
-  await morphKey(); await sleep(700); await key('Escape'); await settle(100); await take();
-  await sleep(1800); await morphKey(); await sleep(1000);
+  await morphKey(); await sleep(700); await key('Escape'); await settle(100); await take();   // standards-ok: the recording and the loop run in real time
+  await sleep(1800); await morphKey(); await sleep(1000);   // standards-ok: the recording and the loop run in real time
   const e1 = await take(), s1 = await snd();
   await move(q[0] + 3, q[1]); await sleep(40); await move(q[0], q[1]); await settle(600);
   await key('Escape'); await settle(100); await take();

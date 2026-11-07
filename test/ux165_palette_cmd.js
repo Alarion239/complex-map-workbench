@@ -36,65 +36,65 @@ const shot2 = async (name) => { shots.push(await shot('ux165-' + name)); };
 await openApp('test.html', { shapes: [DISC, LINE], steps: CHAIN });
 await palType('z^2 + a');
 let rows = await palRows(), ps = await palState();
-ok('UX16 "z^2 + a" is a normal row, no error', rows.length === 1 && rows[0].label === 'Formula, with a new number a = 1' && !ps.err && !ps.red && !ps.enterOff && ps.verb === ' to add', { rows, ps });
+ok('"z^2 + a" is a normal row, no error', rows.length === 1 && rows[0].label === 'Formula, with a new number a = 1' && !ps.err && !ps.red && !ps.enterOff && ps.verb === ' to add', { rows, ps });
 await shot2('ux16-palette-new-number');
 const h0 = (await P()).hi;
 await key('Enter'); await settled({ until: `__cmwP().hi === ${h0 + 1}`, max: 8000 });
 st = await P();
-ok('UX16 Enter adds the step and the number a = 1, as one undo step', st.steps.length === 3 && st.steps[2].type === 'custom' && st.params.map((p) => p.name + '=' + p.value).join() === 'a=1' && st.hi === h0 + 1, { steps: st.steps.map((s) => s.type), params: st.params, hi: st.hi, h0 });
+ok('Enter adds the step and the number a = 1, as one undo step', st.steps.length === 3 && st.steps[2].type === 'custom' && st.params.map((p) => p.name + '=' + p.value).join() === 'a=1' && st.hi === h0 + 1, { steps: st.steps.map((s) => s.type), params: st.params, hi: st.hi, h0 });
 const sig1 = st.sig;
 await ev(`Params.set('a', 2), 1`); await settled({ until: `__cmwP().sig !== ${JSON.stringify(sig1)}`, max: 8000 });
-ok('UX16 the step follows the number', (await P()).sig !== sig1, null);
+ok('the step follows the number', (await P()).sig !== sig1, null);
 await key('z', 4); await settled({ until: '__cmwP().steps.length === 2', max: 8000 });
 st = await P();
-ok('UX16 one Undo removes both', st.steps.length === 2 && st.params.length === 0, { steps: st.steps.length, params: st.params });
+ok('one Undo removes both', st.steps.length === 2 && st.params.length === 0, { steps: st.steps.length, params: st.params });
 // errors in grey, with the place marked, and repairs as rows
 for (const [q, first, fix] of [['sin(z', 'Close the bracket: sin(z)', 'sin'], ['sinn z', 'Did you mean sin z?', null], ['sni z', 'Did you mean sin z?', null], ['z^^2', 'Did you mean z^2?', null], ['cos z +', 'Drop the trailing +: cos z', null]]) {
   await palType(q);
   rows = await palRows(); ps = await palState();
-  ok(`UX23 "${q}": the repair row first, the message in grey with its place marked, Enter fixes`, rows[0] && rows[0].label === first && ps.err && /Not a formula yet/.test(ps.err) && ps.bad && !ps.red && rgb(ps.errColor) === hexRgb(ps.muted) && ps.verb === ' to fix', { rows: rows.map((r) => r.label), ps });
+  ok(`"${q}": the repair row first, the message in grey with its place marked, Enter fixes`, rows[0] && rows[0].label === first && ps.err && /Not a formula yet/.test(ps.err) && ps.bad && !ps.red && rgb(ps.errColor) === hexRgb(ps.muted) && ps.verb === ' to fix', { rows: rows.map((r) => r.label), ps });
   if (q === 'sin(z') {
     const ff = await ev(`({ q: getComputedStyle(document.querySelector('.pal-err .pe-q')).fontFamily, inp: getComputedStyle(document.getElementById('palInput')).fontFamily })`);
-    ok('UX23 the typed formula is shown in the palette input\'s face (the old mono face, B612 Mono, drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
+    ok('the typed formula is shown in the palette input\'s face (the old mono face, B612 Mono, drew "(" as "[")', ff.q === ff.inp && !/B612/.test(ff.q.split(',')[0]), ff);
     await shot2('ux23-palette-error');
     const n0 = (await P()).steps.length;
     await key('Enter'); await settled({ until: `__cmwP().steps.length === ${n0 + 1}`, max: 8000 });
-    ok('UX23 Enter on "Close the bracket" adds sin z', (await P()).steps.length === n0 + 1 && (await P()).steps[n0].type === fix, (await P()).steps.map((s) => s.type));
+    ok('Enter on "Close the bracket" adds sin z', (await P()).steps.length === n0 + 1 && (await P()).steps[n0].type === fix, (await P()).steps.map((s) => s.type));
   }
 }
 await palType('zero');
 rows = await palRows(); ps = await palState();
-ok('UX23/UX03 "zero": no error for a plain word that finds things; Zeros and poles is offered', !ps.err && !ps.red && rows.some((r) => r.label === 'Zeros and poles'), { rows: rows.map((r) => r.label), ps });
+ok('"zero": no error for a plain word that finds things; Zeros and poles is offered', !ps.err && !ps.red && rows.some((r) => r.label === 'Zeros and poles'), { rows: rows.map((r) => r.label), ps });
 await palType('qqqq');
 ps = await palState();
-ok('UX23 nothing to run: Enter is grey', ps.enterOff && !!ps.empty, ps);
+ok('nothing to run: Enter is grey', ps.enterOff && !!ps.empty, ps);
 // commands, tools, examples and the guide, by the words people use, with their keys
 const want = { png: ['Export figure…', /⌘E|Ctrl E/], export: ['Export figure…', /⌘E|Ctrl E/], help: ['Open the guide', /\?/], dark: ['Theme: Dark', /^$/], disc: ['Tool: Disc', /^D$/], new: ['New: empty canvas', /^$/], keys: ['Keyboard shortcuts', /\?/], replace: ['Inverse of f₁ (Exponential)', /^$/], link: ['Copy link to this figure', /^$/], scene: ['Save scene (.cmw.json)', /^$/], example: ['Examples…', /^$/], alone: ['Show f₃ alone', /^L$/], rectangle: ['Tool: Rectangle', /^B$/], cut: ['Guide: Branch cuts', /^$/] };
 for (const [q, [label, keyRe]] of Object.entries(want)) {
   await palType(q);
   rows = await palRows(); ps = await palState();
   const r = rows.find((x) => x.label === label);
-  ok(`UX03 "${q}" finds ${label} with its key`, !!r && keyRe.test(r.key) && !ps.err, { rows: rows.map((x) => x.label + ' [' + x.key + ']') });
+  ok(`"${q}" finds ${label} with its key`, !!r && keyRe.test(r.key) && !ps.err, { rows: rows.map((x) => x.label + ' [' + x.key + ']') });
 }
 await palType('empty'); rows = await palRows();
-ok('UX03 "empty" finds New: empty canvas once (the example row is the command)', rows.filter((x) => /empty canvas/i.test(x.label)).length === 1 && rows.some((x) => x.label === 'New: empty canvas'), rows.map((x) => x.label));
+ok('"empty" finds New: empty canvas once (the example row is the command)', rows.filter((x) => /empty canvas/i.test(x.label)).length === 1 && rows.some((x) => x.label === 'New: empty canvas'), rows.map((x) => x.label));
 await palType('strip'); rows = await palRows();
-ok('UX03 an example is found by its name; on it, the footer says Enter to open', rows.some((x) => /Strip to disk/.test(x.label)) && (!/Strip to disk/.test(rows[0].label) || (await palState()).verb === ' to open'), { rows: rows.map((x) => x.label), ps: await palState() });
+ok('an example is found by its name; on it, the footer says Enter to open', rows.some((x) => /Strip to disk/.test(x.label)) && (!/Strip to disk/.test(rows[0].label) || (await palState()).verb === ' to open'), { rows: rows.map((x) => x.label), ps: await palState() });
 await palType('png');
-ok('UX03 the footer says Enter to run on a command', (await palState()).verb === ' to run', await palState());
+ok('the footer says Enter to run on a command', (await palState()).verb === ' to run', await palState());
 await shot2('ux03-palette-png');
 await palType('dark'); await key('Enter'); await settled({ until: "document.documentElement.dataset.theme === 'dark'", max: 8000 });
-ok('UX03 Theme: Dark runs', (await ev(`document.documentElement.dataset.theme`)) === 'dark', await ev(`document.documentElement.dataset.theme`));
+ok('Theme: Dark runs', (await ev(`document.documentElement.dataset.theme`)) === 'dark', await ev(`document.documentElement.dataset.theme`));
 await palType('auto'); rows = await palRows();
 await ev(`[...document.querySelectorAll('.pal-item')].find((e) => e.querySelector('.pal-label').textContent === 'Theme: Auto').click()`); await settled({ until: "document.documentElement.dataset.theme !== 'dark'", max: 8000 });
 await palType('keys'); await ev(`[...document.querySelectorAll('.pal-item')].find((e) => e.querySelector('.pal-label').textContent === 'Guide: Keys').click()`); await settled({ until: "(() => { const m = document.querySelector('.modal'); return !!m && [...m.querySelectorAll('h3')].some((x) => x.textContent === 'Keys'); })()", max: 8000 });
 const gk = await ev(`(() => { const m = document.querySelector('.modal'); if (!m) return null; const hd = [...m.querySelectorAll('h3')].find((x) => x.textContent === 'Keys'); const b = hd.getBoundingClientRect(), mb = (m.querySelector('.modal-body') || m).getBoundingClientRect(); return { top: b.top, mt: mb.top, mb: mb.bottom }; })()`);
-ok('UX03 Guide: Keys opens the guide at Keys', gk && gk.top >= gk.mt - 2 && gk.top < gk.mb, gk);
+ok('Guide: Keys opens the guide at Keys', gk && gk.top >= gk.mt - 2 && gk.top < gk.mb, gk);
 await key('Escape'); await settled({ until: "!document.querySelector('.modal')", max: 8000 });
 // no row of letters; the highlighted row names its properties in words
 await palType('sin');
 rows = await palRows();
-ok('UX82 no A E R P M Pr I letters; the highlighted row shows its properties in words, the others none', rows.every((r) => r.letters === 0) && rows[0].sel && rows[0].wordsShown && /Entire/.test(rows[0].words) && rows.slice(1).every((r) => !r.wordsShown), rows.slice(0, 4));
+ok('no A E R P M Pr I letters; the highlighted row shows its properties in words, the others none', rows.every((r) => r.letters === 0) && rows[0].sel && rows[0].wordsShown && /Entire/.test(rows[0].words) && rows.slice(1).every((r) => !r.wordsShown), rows.slice(0, 4));
 await shot2('ux82-palette-words');
 await palClose();
 await grab();
