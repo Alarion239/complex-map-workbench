@@ -95,12 +95,13 @@ ok('A2 clicking Inside sets the part shown; the caption data follows', inCap && 
 await ev(`(() => { const o = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (document.querySelector('.opts-pop') && o) o.click(); return 1; })()`);
 await ev('__cmwCauchyOpt("both", false)'); await settle(400);
 await open(CIRCLE, custom('z^{2}'));
+const SV = await ev(`typeof __cmwSteps === 'function' && !!__cmwSteps().on`);
 const A3 = await optsText();
-ok('A2 with no pole inside the choice is there, disabled, and the old note ("F inside, 0 outside")', A3.segId && A3.off && /inside, 0 outside/.test(A3.text), A3);
+ok('A2 with no pole inside no choice (steps: the control is there, disabled; classic: absent) and the old note ("F inside, 0 outside")', (SV ? A3.segId && A3.off : !A3.segId) && /inside, 0 outside/.test(A3.text), A3);
 ok('A2 (and the caption data says plain)', (await ev(`Export.figCapParts().cauchy`)).kind === 'plain', null);
 await open(CIRCLE, custom('\\exp\\left(\\frac{1}{z}\\right)'));
 const A4 = await optsText();
-ok('A2 e^(1/z): the note says it is computed numerically, no choice (the control is there, disabled)', A4.segId && A4.off && /computed numerically/.test(A4.text), A4);
+ok('A2 e^(1/z): the note says it is computed numerically, no choice (steps: the control disabled; classic: absent)', (SV ? A4.segId && A4.off : !A4.segId) && /computed numerically/.test(A4.text), A4);
 ok('A2 (and the caption data says numeric)', (await ev(`Export.figCapParts().cauchy`)).kind === 'numeric', null);
 await open(CIRCLE, custom('\\frac{1}{z-1}'));
 const A5 = await optsText();
