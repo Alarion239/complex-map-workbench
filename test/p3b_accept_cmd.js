@@ -16,11 +16,19 @@ await load('p3bA' + Date.now(), { shapes: [], steps: [CAY], srcView: { cx: 0, cy
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere' }); 1`); await settle(1500);
 // look at the northern hemisphere from above, N in view
 await ev('__cmwCam("L", { pitch: 0.55, yaw: -1.0 }); 1'); await settle(800);
+// (the page's own idle condition, not a sleep: no GPU frame pending or compiling, so the layout and the camera are final)
+await settled({ max: 30000 });
 R.inf = await at('L', NaN, NaN);
 ok('N is on screen', !!R.inf, R.inf);
 
 // 1. a Disc whose rim is dragged onto N (the ∞ snap): a half-plane
 await tool('disc');
+await settled({ max: 30000 });
+// N is measured again right before the drag, the point the pointer is aimed at: the snap needs the rim within 8 px of arc of it
+const inf1 = await at('L', NaN, NaN);
+R.infMoved = inf1 && R.inf ? Math.hypot(inf1[0] - R.inf[0], inf1[1] - R.inf[1]) : null;
+ok('N stays where it was measured through the tool click and the idle wait', R.infMoved !== null && R.infMoved < 0.5, { before: R.inf, after: inf1 });
+R.inf = inf1 || R.inf;
 let c0 = await at('L', 0, 1.2);
 await drag(c0[0], c0[1], R.inf[0] + 3, R.inf[1] + 2, 12, 16); await settle();
 let S1 = await shapes();
@@ -30,6 +38,7 @@ ok('Disc on the X globe with its rim through ∞: stored as a half-plane', S1.sh
 const hp = S1.shapes[0];
 const inHP = (s, x, y) => { const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1]; return dx * (y - s.a[1]) - dy * (x - s.a[0]) > 0; };
 ok('the half-plane holds the cap centre 1.2i', hp && hp.a && inHP(hp, 0, 1.2), hp);
+if (!hp || !hp.a) return { pass: false, fails, results: R };   // (the steps after this one read the half-plane: report what was stored)
 
 // 2. a Disc centred on ∞ (the centre snaps to ∞): the complement of a disc around 0
 // (D9, #30 and #223: with a drawing tool a press on the shape just drawn moves it, and Alt draws without the ∞ snap this step needs.
