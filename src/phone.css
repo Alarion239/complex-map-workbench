@@ -573,7 +573,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph:has(.ph-ctx.in:not(.under)) { --ph-lift: 56px; }
 :root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-lift: 104px; }
 :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
-:root.ph.sv { --ph-cbelow: 60px; }
+:root.ph.sv { --ph-cbelow: 62px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
 /* (the steps view's message floats over the plot: no row is given up for it unless a sheet is open, and the controls at the plane's foot ride up above it) */
 :root.ph.sv.ph-toast-on:not(.ph-sheet-on) { --ph-ctx: 0px; --ph-lift: calc(var(--ph-toast-h, 56px) + 8px); }
