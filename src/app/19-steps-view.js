@@ -1017,6 +1017,17 @@
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
+  // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
+  // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
+  // region, those of later planes too), so no mask from the regions' images is drawn under Inside regions (that mask's
+  // meshes, SphereMesh aside, lack parts of an unbounded region's image). The paths are kept in svHomMemo for the frame's
+  // svCarryExactHom
+  function svExactGlide(b, u) {
+    if (!GLR.inverseState) return false;
+    if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
+    const h = svHomMemo.h;
+    return !!h && h.paths.every((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'ready');
+  }
   // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
   // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
   // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
@@ -1581,7 +1592,9 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
+    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
+    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    if (mask && svMask(pane, map, still ? a : undefined, {
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
@@ -1595,7 +1608,7 @@
       // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
       // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
       // the CPU path (it is in cc already), the layers go one by one, the grid first
-      if (!svMaskOn() && !frame.cc) {
+      if (!mask && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
         if (!bare) svOutlines(pane, map, frame, col);
@@ -1603,7 +1616,7 @@
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
-        if (svMaskOn()) svMask(pane, map, still ? a : undefined, { cc });
+        if (mask) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
         svOutlines(pane, map, null, col);
