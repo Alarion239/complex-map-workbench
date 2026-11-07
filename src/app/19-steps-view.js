@@ -943,7 +943,7 @@
   const svCauchyCarry = () => {
     if (S.dc !== 'cauchy') return null;
     const cz = cauchyDraw(S.srcView.s);
-    return cz && cz.plan && cz.plan.ok && cz.edges && cz.edges.length >= 4 ? Object.assign({}, cz, { T: nSteps() }) : null;
+    return GLR.cauchyUsable(cz) && cz.plan.ok ? Object.assign({}, cz, { T: nSteps() }) : null;
   };
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,

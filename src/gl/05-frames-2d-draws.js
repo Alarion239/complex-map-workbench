@@ -684,9 +684,11 @@
   }
   // the carried colour's Cauchy mode (CARRY_FS): c.cauchy = {plan, edges, show, sign, T} (T: the chain's length) draws the carried points in the
   // Cauchy integral's colour, anything else leaves the stages' colour
+  // whether the residue theorem's data (a plan and its polygon's edges) are there to draw
+  const cauchyUsable = (c) => !!(c && c.plan && c.edges && c.edges.length >= 4);
   const CARRY_EDGE_UNIT = SAMPLER_UNITS.uCEdges;
   function carryCauchy(P, c) {
-    const cp = c && c.cauchy && c.cauchy.plan && c.cauchy.edges && c.cauchy.edges.length >= 4 ? c.cauchy : null;
+    const cp = c && cauchyUsable(c.cauchy) ? c.cauchy : null;
     u1i(P, 'uCT', cp ? cp.T : -1);
     if (!cp) return;
     cauchyPlan(P, cp, CARRY_EDGE_UNIT);
@@ -694,7 +696,7 @@
   }
   function drawColorPlot(st) {
     if (!ok) return;
-    const cp = st.cauchy && st.cauchy.plan && st.cauchy.edges && st.cauchy.edges.length >= 4 ? st.cauchy : null;
+    const cp = cauchyUsable(st.cauchy) ? st.cauchy : null;
     const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
     const pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)

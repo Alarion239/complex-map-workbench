@@ -134,13 +134,15 @@ const Integrals = (() => {
   }
   // the curves the Phase view's Cauchy style may use, in the left plane: the selected shape's, the open integral
   // popover's, else every curve and bounded region boundary
+  // the cache slot of the curves taken in plane lk: the left plane's own, or the one slot of any other plane
+  const geomSlot = (lk) => (lk === leftStage() ? integ : (integ.alt = integ.alt || { gkey: '', geom: [] }));
   // (lk: the plane the curves are taken in, the left plane's by default; the other plane's geometry has a cache slot of its own)
   function integralGeom(lk = leftStage()) {
     const sel = A.S.shapes.find((s) => s.id === A.selected && s.visible !== false && kindType(s) !== 'point');
     const pop = !sel && A.intPop ? A.S.shapes.find((s) => s.id === A.intPop.id && s.visible !== false) : null;
     // coarser while a shape is being dragged (a pan changes nothing here)
     const dense = !(A.drag && (A.drag.mode === 'move' || A.drag.mode === 'handle' || A.drag.mode === 'draw'));
-    const slot = lk === leftStage() ? integ : (integ.alt = integ.alt || { gkey: '', geom: [] });
+    const slot = geomSlot(lk);
     const key = JSON.stringify([A.chainSig[lk], lk, sel ? sel.id : '', pop ? pop.id : '', dense, A.clipWin, A.S.shapes.map((s) => (s.visible === false ? '' : shapeKey(s)))]);
     if (key === slot.gkey) return slot.geom;
     const names = shapeNames();
@@ -567,7 +569,7 @@ const Integrals = (() => {
     const lk = cauchyStage(), geom = integralGeom(lk);
     const g = geom.find((x) => x.s.id === A.selected && x.closed) || geom.find((x) => x.closed);
     if (!g || g.bad) return null;
-    const key = (lk === leftStage() ? integ : integ.alt).gkey + '|' + g.s.id + '|' + A.chainSig[nSteps()] + '|' + A.S.focus;
+    const key = geomSlot(lk).gkey + '|' + g.s.id + '|' + A.chainSig[nSteps()] + '|' + A.S.focus;
     if (cauchyCache.key === key) return cauchyCache.val;
     const F = cauchyF();
     const lens = g.comps.map((c) => { let l = 0; for (let i = 2; i + 1 < c.flat.length; i += 2) l += Math.hypot(c.flat[i] - c.flat[i - 2], c.flat[i + 1] - c.flat[i - 1]); return l; });

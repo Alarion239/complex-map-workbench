@@ -146,11 +146,12 @@
   function invCarryFns() {
     return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
 uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
+` + CARRY_W + `
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   bool cz = uCT >= 0;
   if (!cz && uGs >= uGt) return dcolorD(z, dX, dY);
-  vec2 w = chainRange(z, cz ? 0 : uGs, cz ? uCT : uGt), wx = chainRange(z + dX, cz ? 0 : uGs, cz ? uCT : uGt) - w;
+  vec2 w = carryW(z), wx = carryW(z + dX) - w;
   if (cz) {
     // the Cauchy integral at z and z + dX (the winding number of z for both), its footprint down from the one across (it is analytic on each side of the curve)
     vec2 zr = z - uEdgeO, c0, c1;
@@ -962,7 +963,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)

@@ -1242,11 +1242,11 @@ void main() {
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = !id) => `
 uniform int uGs; uniform int uGt;${cz ? ' uniform int uCT; uniform vec2 uEdgeO;' : ''}
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
-${cz ? CAUCHY_CORE('sw', 'uCEdges') : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}${cz ? `  bool cz = uCT >= 0;
-  vec2 sw = chainRange(sa, cz ? 0 : uGs, cz ? uCT : uGt);
+  vec2 sw = carryW(sa);
   o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }
 `;
@@ -1359,6 +1359,10 @@ void main() {
   // under the point or a value that cancels to rounding), given the map's value sw at the point where fexpr is the name of a
   // value the caller already holds, or an expression of the point z (the plot's, evaluated only inside the curve); cauchyCol is its colour. The
   // part shown (uShow.x: 0 both, 1 inside, 2 outside) and the outside's sign (uShow.y) as the style's control sets them
+  // the carried colour's map value at z: the stages (uGs, uGt], or with the Cauchy style (uCT >= 0) the whole chain (0, uCT]; one chain call for both
+  const CARRY_W = `
+vec2 carryW(vec2 z) { bool cz = uCT >= 0; return chainRange(z, cz ? 0 : uGs, cz ? uCT : uGt); }
+`;
   const CAUCHY_CORE = (fexpr, edges = 'uEdges') => `
 uniform highp sampler2D ${edges}; uniform int uEdgeN;
 uniform int uPoleN; uniform vec4 uPole[16]; uniform vec4 uCoef[32]; uniform vec2 uShow;
