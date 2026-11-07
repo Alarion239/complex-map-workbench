@@ -28,7 +28,15 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const part = typeof PART !== 'undefined' ? PART : 'swap';
 const fails = [], info = {};
-const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// every coordinate sent to the page must be a finite number: CDP rejects anything else (NaN serialises as null) and the
+// leg ends in a protocol error. A bad one is a named failure instead, and nothing is sent.
+const sendInput = (method, params) => {
+  for (const p of [params, ...(params.touchPoints || [])]) {
+    for (const k of ['x', 'y']) if (k in p && !Number.isFinite(p[k])) { fails.push({ name: `${method}: ${k} is not a finite number`, got: String(p[k]) }); return Promise.resolve(); }
+  }
+  return send(method, params);
+};
+const settle =async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const TOL = 0.005;
 const SHAPES = [
   { id: 's1', kind: 'formula', ci: 0, visible: true, expr: '|\\Im z|<1' },
@@ -64,9 +72,9 @@ const ratio = (a, b) => +(a.u / b.u).toFixed(4);
 // by the events' times, took the tap for a press)
 const touch = async (x, y, ms = 60) => {
   const t0 = Date.now() / 1000;
-  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }], timestamp: t0 });
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }], timestamp: t0 });
   await sleep(ms);
-  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + ms / 1000 });
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + ms / 1000 });
 };
 const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const tapSel = async (sel, wait = 450) => { const c = await center(sel); if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; } await touch(c[0], c[1]); await settle(wait); return true; };
@@ -74,13 +82,15 @@ const swapTap = async () => { const st = await W(); return tapSel(st.big === 'L'
 // a one-finger pan and a wheel zoom on the large plane (the user's own change)
 const panZoom = async (side) => {
   const r = await ev(`(() => { const b = document.getElementById('${side === 'L' ? 'overlayL' : 'overlayR'}').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
+  // ev answers { __exc } when the page's expression throws (no overlay yet, or a reload in progress): name that, don't index it
+  if (!Array.isArray(r) || !r.every(Number.isFinite)) { fails.push({ name: `${side}: the plane's rect is not readable`, got: JSON.stringify(r) }); return; }
   const x = r[0] + r[2] * 0.8, y = r[1] + r[3] * 0.25;
-  await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: -240 });
+  await sendInput('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: -240 });
   await settle(400);
   const x0 = r[0] + r[2] * 0.85, y0 = r[1] + r[3] * 0.15;
-  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0, id: 2 }] });
-  for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - 6 * i, y: y0 + 4 * i, id: 2 }] }); await sleep(16); }
-  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0, id: 2 }] });
+  for (let i = 1; i <= 8; i++) { await sendInput('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - 6 * i, y: y0 + 4 * i, id: 2 }] }); await sleep(16); }
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await settle(700);
 };
 // a round: run the steps, read the window after each one; the last read must equal the start, every read must equal
