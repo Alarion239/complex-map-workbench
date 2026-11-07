@@ -259,6 +259,8 @@
   window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   // (#846) the steps view's carried landscape in the last frame: {u, s (plane a), mu, box}, or null for a surface at
   // rest; box: the last frame's block, carried or not
+  // the last Landscape frame's height-axis labels, as their screen y (CSS px)
+  window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null }; };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
