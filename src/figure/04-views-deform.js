@@ -535,6 +535,9 @@
   // t -> H_t(z) of a few points (the point shapes, else points of the boundaries) with heads at F(z)
   // (o.sv, the steps view's A.svPathsFig() on the sphere: the shown plane's globe, the paths those of the step that leads to
   // it, their starts chosen in the camera's window as on the plane, and the caption the plane's own then the paths' sentence)
+  // the width (pt) at which the steps view's paths are picked for the sphere: wide enough that, of the paths picked over the
+  // whole source window, several lie wholly on the camera's side
+  const SV_PATHS_PICK_W = 600;
   async function figGlobePaths(o, P, W, T) {
     const [tp] = T;
     const sv = o.sv || null, d = sv ? { m: sv.m } : A.defo(), m = d.m, st = A.state();
@@ -557,15 +560,16 @@
     const proj = globeProj(r.globe, r, c, x, y, k);
     const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(key); };
     const seen = (z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis >= 8 && proj(Hof(m)(z)); };
+    // a path drawn from its ring to its end dot: every sampled point of it on the camera's side
+    const whole = (z) => { for (let i = 0; i <= 12; i++) if (!proj(Hof(m * i / 12)(z))) return false; return true; };
     // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries; the
     // steps view's: the points the plane's figure would keep, those mostly on the camera's side)
     let leg = null, zs;
     if (sv) {
-      const sb = A.screenBox('L0'), bw = 150, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
-      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => seen(C(z.re, z.im)) });
+      const sb = A.screenBox('L0'), bw = SV_PATHS_PICK_W, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
+      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
       if (!leg || (o.alive && !o.alive())) return null;
-      zs = leg.kept.map((q) => C(q.z[0], q.z[1])).filter(seen);
-      if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
+      zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
     } else {
       const live = A.globePaths ? A.globePaths() : null;
       zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter(seen) : [];
