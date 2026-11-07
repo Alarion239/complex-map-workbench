@@ -113,7 +113,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   }
   // (the source window moved to where the strip's image near its pole z = 1 lies, Im -2.8 to 13.8: most of the true image there
   // is the pole's, which the ladder's seeds do not reach; the pole member draws it)
-  const POLE_FLOOR = { 0.5: 0, 0.75: 0 };
+  const POLE_FLOOR = { 0.5: 0.4, 0.75: 0.4 };
   await ev("__cmwSet('srcView', { cx: 0.5, cy: 5.5, s: 40 }), 1");
   for (const x of [0.5, 0.75]) {
     const g = await at(x, 'inverse', 600000);
