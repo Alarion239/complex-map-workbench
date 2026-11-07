@@ -87,12 +87,16 @@ const VIEWS = {
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
   'steps_colour_pick_cmd.js': steps(),
+  'steps_colour_parity_cmd.js': steps(),
+  'steps_opacity_cmd.js': steps(),
+  'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
+  'steps_paths_caption_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
@@ -240,6 +244,7 @@ const VIEWS = {
   'steps_cauchy_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
   'steps_cauchy_carry_cmd.js': steps(),
+  'steps_plane_key_cmd.js': steps(),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
@@ -263,6 +268,8 @@ const VIEWS = {
   'export_tex_cmd.js': steps({ pin: true }),
   'figure_wait_cmd.js': steps({ pin: true }),
   'morphfig_cmd.js': steps({ pin: true }),
+  'steps_paths_sphere_cmd.js': steps({ pin: true }),
+  'steps_paths_sphere_fig_cmd.js': steps({ pin: true }),
   'morphfig_classic_cmd.js': classic('the classic view\'s deformation as one picture: pathsGen\'s selection on the Y pane, the transport and the 3 prototype cases; the steps view\'s paths figure is morphfig_cmd'),
 
   // to port: geometry
@@ -316,6 +323,7 @@ const VIEWS = {
   'mj_ranges_cmd.js': steps({ pin: true }),
   'offline_cmd.js': steps({ pin: true }),
   'smoke_cmd.js': steps({ pin: true }),
+  'zeta_logk_cmd.js': steps(),
   'warm_bar_cmd.js': steps({ pin: true }),
 };
 
