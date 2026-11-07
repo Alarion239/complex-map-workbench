@@ -1,12 +1,6 @@
-// A classic-era save and link, written by the classic build of d49396c2 (the parent of the saves PR, #436, 764274d6), open
-// in the steps view on the same picture. The fixtures are text files under test/fixtures/:
-//   classic_d49396c2_save.json  the build's own save of a state with three steps, a formula area, a selected step (2), a
-//                               solo right pane and a right-pane camera (the build drops homRange and figMorph: they came
-//                               later). It was made by opening that state in the build and taking its settled save.
-//   classic_d49396c2_link.txt   the same state as a link: 1.<base64url of deflate-raw {v:1, s}>, encoded by that build's codec
-//                               (identical in d49396c2 and now: params.js encodeLink).
-// The classic build shows the picture as X → Y on the plane (view main xy, surface plane), so the steps view opens it at the
-// last plane, coloured inside the area, with the chain's planes and the selected step kept. A command file for a CDP daemon
+// A saved state and a link, each in the fixture files under test/fixtures/, open in the steps view on the same picture:
+// the chain's planes, the place, the colour plane's scope and surface, the selected step, and the right-pane camera kept
+// through a save. The fixtures and where they come from are in test/fixtures/README.md. A command file for a CDP daemon
 // (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
