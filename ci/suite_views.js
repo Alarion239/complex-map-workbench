@@ -88,12 +88,15 @@ const VIEWS = {
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
   'steps_colour_pick_cmd.js': steps(),
+  'steps_opacity_cmd.js': steps(),
+  'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
   'steps_paths_cmd.js': steps({ pin: true }),
+  'steps_paths_caption_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
@@ -238,6 +241,7 @@ const VIEWS = {
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
+  'steps_plane_key_cmd.js': steps(),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
@@ -314,6 +318,7 @@ const VIEWS = {
   'mj_ranges_cmd.js': steps({ pin: true }),
   'offline_cmd.js': steps({ pin: true }),
   'smoke_cmd.js': steps({ pin: true }),
+  'zeta_logk_cmd.js': steps(),
   'warm_bar_cmd.js': steps({ pin: true }),
 };
 
