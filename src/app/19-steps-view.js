@@ -3363,15 +3363,15 @@
     const on = String(S.sel === 'F');
     if (f.getAttribute('aria-pressed') !== on) f.setAttribute('aria-pressed', on);
   }
-  // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
-  // whether a control set by svDisableWhy can't act now
-  const svOff = (btn) => btn.getAttribute('aria-disabled') === 'true';
   // a control that can't act now: disabled, with `why` as its tip and description; `tip` is its tip while it can act
   function svDisableWhy(btn, why, tip) {
     if (why) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');   // (not `disabled`: a press still reaches the long-press tip, and the keyboard still finds the reason)
     btn.setAttribute('data-tip', why || tip);
     if (why) btn.setAttribute('aria-description', why); else btn.removeAttribute('aria-description');
   }
+  // whether a control set by svDisableWhy can't act now
+  const svOff = (btn) => btn.getAttribute('aria-disabled') === 'true';
+  // a chip of the thread: a function's letter (fk, html) and its name, a step's and F's
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }
