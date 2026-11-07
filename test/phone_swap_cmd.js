@@ -36,7 +36,7 @@ const sendInput = (method, params) => {
   }
   return send(method, params);
 };
-const settle =async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const TOL = 0.005;
 const SHAPES = [
   { id: 's1', kind: 'formula', ci: 0, visible: true, expr: '|\\Im z|<1' },
