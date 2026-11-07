@@ -52,8 +52,8 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   for (const [i, surf] of [[1, 'sphere'], [2, 'land'], [0, 'plane']]) {
     const c = await ev(`(() => { const b = document.querySelector('#svHead .sv-surf1'); if (!b) return 'none'; const r = b.getBoundingClientRect(); if (!r.width || !b.offsetParent) { b.click(); return 'js'; } return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
     ok(`${tag}: the head has the surface button`, c !== 'none', c);
-    if (Array.isArray(c)) await click(c[0], c[1]); else if (c === 'js') await settle(300);
-    await settle(400);
+    if (Array.isArray(c)) await click(c[0], c[1]);
+    await settled({ until: `document.querySelectorAll('.pop.menu [role=menuitemradio]').length === 3`, max: 4000 });
     const n = await ev(`(() => { const items = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')]; if (items.length !== 3) return items.length; items[${i}].click(); return 3; })()`);
     ok(`${tag}: the surface menu has its three`, n === 3, n);
     await settle(1200);
