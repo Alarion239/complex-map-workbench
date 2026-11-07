@@ -242,6 +242,11 @@
       b.setAttribute('aria-label', d[1]);
       b.removeAttribute('title');
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
+      // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
+      if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
+        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
+      }
     }
     return el;
   }
@@ -1327,20 +1332,25 @@
       if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
       return;
     }
+    // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
+    const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    st.ring = !cauchyOff;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
-    for (let i = 0; i < 360; i++) {
+    if (!cauchyOff) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
-    ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
-    // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
-    ctx.font = `italic 500 11px ${TH.math}`; ctx.fillStyle = TH.ink2;
-    ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
-    ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
-    ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
+    if (!cauchyOff) {
+      ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
+      // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
+      ctx.font = `italic 500 11px ${TH.math}`; ctx.fillStyle = TH.ink2;
+      ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
+      ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
+      ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
+    }
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
@@ -1380,6 +1390,8 @@
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
     if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
+    // (the steps view's Cauchy style with no picture on this plane: the reason, no bands that are not drawn)
+    if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
     // modulus strip
     st.strip = !(kind === 'color' && S.dc === 'classic');
     if (kind === 'color' && S.dc === 'classic') {
@@ -1406,6 +1418,7 @@
     }
     // (the steps view's Height key describes h(F), the same quantity on every plane)
     const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
