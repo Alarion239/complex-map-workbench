@@ -164,7 +164,7 @@
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
     // (another chain loaded with the state, an example or a link: its glide's programs are started too)
-    if (SV.sig != null && sig !== SV.sig) setTimeout(svPrestart, 300);
+    if (SV.sig != null && sig !== SV.sig) svPrestartSoon(300);
     svAdopt(SV.sig != null && sig !== SV.sig);
     SV.sig = sig;
     if (svViewFix()) setTimeout(svApply, 0);
@@ -2524,7 +2524,7 @@
     if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
     // (the programs a new colour plane needs, started when the page is idle: else they link on the first glide past it,
     // 8 s on WARP for the Mountain King; tiers on #456)
-    (window.requestIdleCallback || setTimeout)(svPrestart);
+    svPrestartSoon(0);
   }
   // the tour's own placing of the view (#442): plane i at once, the colour plane T (an index among the planes; -1 the last), the
   // scope and the surface; sends none of the events the user's own moves send
@@ -2740,7 +2740,7 @@
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
     svApply();
-    setTimeout(svPrestart, 300);
+    svPrestartSoon(300);
     // (an edit made on the thread, or an undo, is not another chain loaded: the planes it shows are kept)
     if (SV.own) { SV.own = false; SV.sig = svSigNow(); }
     svWantFocus();
@@ -2764,6 +2764,33 @@
       svWarmCarry(0);
       svPolesWatch();
     } catch (e) { /* (the first glide starts them) */ }
+  }
+  // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
+  // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
+  let svPrestartTimer = 0;
+  function svPrestartSoon(ms) {
+    clearTimeout(svPrestartTimer);
+    svPrestartTimer = setTimeout(() => {
+      svPrestartTimer = 0;
+      if (interacting()) { svPrestartSoon(250); return; }
+      (window.requestIdleCallback || setTimeout)(svPrestart);
+    }, ms);
+  }
+  // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
+  // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the carried
+  // colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
+  // while the GPU layer or the chain is not up; ready is true only when done = total > 0
+  function svReady() {
+    const parts = {};
+    if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
+    parts.programs = GLR.progStatus();
+    parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
+    let jobs = 0;
+    try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
+    parts.jobs = { done: 3 - jobs, total: 3 };
+    let done = 0, total = 0;
+    for (const k in parts) { done += parts[k].done; total += parts[k].total; }
+    return { done, total, parts, ready: total > 0 && done === total };
   }
   // The glide's carried colour drawn once on a speck (SV_WARM's mesh, at x = 1/2 of the first step) into the GL canvas,
   // which no pane shows until a frame copies it: a renderer that makes a program's machine code at its first draw
@@ -3070,7 +3097,7 @@
     svApply();
     // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
     for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
-    setTimeout(svPrestart, 1500);
+    svPrestartSoon(1500);
   }
 
   // ---- chain editing on the thread (#437) ----
