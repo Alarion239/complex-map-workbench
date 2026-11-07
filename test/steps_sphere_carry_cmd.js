@@ -1,3 +1,4 @@
+// (Saved at 100 % opacity: a point's own colour is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's glide on the Sphere surface carries the colour with the points, as the plane does: between
 // plane z and plane w1 of z^2, coloured from w1, a point z0 of plane z keeps its colour as it moves to H_u(z0). Parked
 // at u = 0.25, 0.5 and 0.75:
@@ -44,7 +45,7 @@ const sat = (p) => Math.max(...p) - Math.min(...p);
 await view(1200, 800, false, false);
 const ns = 'svsc' + Date.now();
 const st = {
-  v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
+  v3: true, v4: true, v5: true, v6: true, alpha: 1, nextId: 50, focus: 0, rightMode: 'image',
   shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }],
 };
