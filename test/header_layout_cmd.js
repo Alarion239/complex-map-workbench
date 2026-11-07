@@ -19,7 +19,7 @@ const probe = () => ev(`(() => {
   });
   const hr = h1.getBoundingClientRect(), cs = getComputedStyle(h1);
   return { over: top.scrollWidth > top.clientWidth + 1, h1: { w: Math.round(hr.width), h: Math.round(hr.height), clip: cs.clipPath, pos: cs.position }, title: document.title,
-    wm: !!document.querySelector('.wordmark'), mark: vis(document.querySelector('.top .mark')), sound: vis(document.querySelector('#soundBtn .slbl')), words: ['#exportBtn .hw', '#shareBtn .hw', '#themeBtn .hw', '#soundBtn .slbl'].map((q) => vis(document.querySelector(q))), cmd: vis(document.querySelector('.top .cmd-text')),
+    wm: !!document.querySelector('.wordmark'), mark: vis(document.querySelector('.top .mark')), sound: vis(document.querySelector('#soundBtn .slbl')), other: [...document.querySelectorAll('#viewSwitch > button > span')].some((s) => vis(document.getElementById('viewSwitch')) && !vis(s)) || vis(document.querySelector('.top .cmd-field .ct-s')) || !vis(document.querySelector('.top .cmd-text')), words: ['#exportBtn .hw', '#shareBtn .hw', '#themeBtn .hw', '#soundBtn .slbl'].map((q) => vis(document.querySelector(q))), cmd: vis(document.querySelector('.top .cmd-text')),
     topText: [...top.querySelectorAll('*')].filter((e) => !e.closest('h1') && vis(e) && e.children.length === 0 && /Complex Map Workbench|Map Workbench/.test(e.textContent)).length, tabs };
 })()`);
 for (const lang of ['', 'ru', 'it']) {
@@ -42,6 +42,12 @@ for (const lang of ['', 'ru', 'it']) {
     if (w < 1100) ok(`${at}: under 1100 px the four are icons`, !p.words.some(Boolean), p.words);
     if (w >= 1440) ok(`${at}: the four words show at 1440`, p.words.every(Boolean), p.words);
     ok(`${at}: none of the four words shows while the search is icon-only`, !(p.words.some(Boolean) && !p.cmd), p);
+    // (the four fold before any other word of the bar: the view tabs' words, the search's short label or none)
+    ok(`${at}: the four words show only while the view tabs and the search keep their full words`, !(p.words.some(Boolean) && p.other), p);
+    // (and before an open example's name: it takes room beside Examples)
+    await ev(`(() => { const x = document.querySelector('#examplesBtn .exlabel'); x.textContent = 'Zeta function'; x.classList.remove('stale'); return 1; })()`); await settle(600);
+    const px = await ev(`(() => { const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { name: vis(document.querySelector('#examplesBtn .exlabel')), words: ['#exportBtn .hw', '#shareBtn .hw', '#themeBtn .hw', '#soundBtn .slbl'].map((q) => vis(document.querySelector(q))) }; })()`);
+    ok(`${at}: with an example open, the four words show only while its name does`, !(px.words.some(Boolean) && !px.name), px);
     if (w >= 1100) ok(`${at}: the search shows its words`, p.cmd, p);
     // (#334) the Phase view has no style button in the bar either, and the bar still does not overflow
     await ev(`__cmwSetMain('phase'); 1`); await settle(500);

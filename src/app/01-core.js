@@ -412,9 +412,15 @@
     const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
     const ex = $('examplesBtn');
     const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    // (the words of Export, Share, Theme and Sound give way first, together, while the search's words are cut, Examples' own word
-    // or the field is squeezed, or the bar overflows; only then does the search lose its own)
-    if (cut() || tight()) top.classList.add('hw-off');
+    // (the words of Export, Share, Theme and Sound give way first, together, before any other word of the bar: while the search's
+    // words are cut, Examples' own word or the field is squeezed, the bar overflows, or the width has already folded another word
+    // (the search's short label, the view tabs' words, an open example's name); only then does the search lose its own)
+    const shown = (/** @type {Element | null} */ e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+    const exName = document.querySelector('#examplesBtn .exlabel'), vs = $('viewSwitch');
+    const otherFolded = () => (!!exName && !exName.classList.contains('stale') && !!(exName.textContent || '').trim() && !shown(exName))
+      || (!!vs && shown(vs) && [...vs.querySelectorAll(':scope > button > span')].some((s) => !shown(s)))
+      || shown(f.querySelector('.ct-s')) || !shown(t);
+    if (cut() || tight() || otherFolded()) top.classList.add('hw-off');
     if (cut()) {
       if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
       if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
