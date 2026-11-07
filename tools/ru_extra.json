@@ -327,6 +327,8 @@
  "One time fewer": "На раз меньше",
  "One time more": "На раз больше",
  "Whole map": "Вся карта",
+ "Show the whole chain to add a function": "Покажите всю цепочку, чтобы добавить функцию",
+ "Show the whole chain to see the whole map": "Покажите всю цепочку, чтобы увидеть всю карту",
  "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Повтор × N: этот блок слишком тяжёл, чтобы нарисовать его %{n} раз; не более N = %{max}",
  "{x} is complex: use Re {x}, Im {x} or |{x}|": "%{x} комплексное: используйте Re %{x}, Im %{x} или |%{x}|",
  "A complex number": "Комплексное число",
