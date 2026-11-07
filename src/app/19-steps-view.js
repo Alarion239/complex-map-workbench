@@ -236,6 +236,7 @@
   }
   function svApply() {
     const k = svStage();
+    svInvSurfSeen();
     svViewFix();
     leftAuto = false;
     if (k > 0) Object.assign(V.left, S.srcView);
@@ -2773,8 +2774,11 @@
   // The inverse programs a glide into each plane draws its carried colour with (step b's homotopy, drawInverse's
   // carried variant), as the states GLR.inverseWarmup takes: [] when no step has an inverse pass. Built once for the
   // chain shown (svPrestartSoon drops it)
-  let svInvStates = null;
+  // The Landscape draws no frames between planes, so it has none ([]): a program linking there would redraw its pane after
+  // the pane settled
+  let svInvStates = null, svInvLand = false;
   function svInvList() {
+    if (SV.surf === 'land') return [];
     if (svInvStates) return svInvStates;
     const sts = [];
     for (let b = 1; b <= nSteps(); b++) {
@@ -2784,6 +2788,14 @@
       h.paths.forEach((p, i) => sts.push({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true, staged: shapeStage(h.list[i]) > 0 }));
     }
     return (svInvStates = sts);
+  }
+  // Leaving the Landscape starts the warm-up the surface skipped; the list is built again for the surface shown
+  function svInvSurfSeen() {
+    const land = SV.surf === 'land';
+    if (land === svInvLand) return;
+    svInvLand = land;
+    svInvStates = null;
+    if (!land && SV.on) svWarmInverse(0);
   }
   // Starts those programs and makes their first draw, one program to an idle moment (each first draw builds a pipeline: a
   // stall that must not land in an edit or a glide, nor pile up in one block), tried again while a program links

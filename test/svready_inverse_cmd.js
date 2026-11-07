@@ -18,6 +18,14 @@ ok('the gauge counts the glide\'s inverse programs', inv && inv.total > 0, rel &
 ok('ready: every inverse program linked and drawn once', inv && inv.done === inv.total, inv);
 const warm = await ev('GLR.inverseColdState ? GLR.inverseColdState() : -1');
 ok('no inverse program waits for its first draw', warm === 0, warm);
+// the Landscape draws no frames between planes: it has no inverse programs to wait for, and leaving it warms them
+await ev('(__cmwSteps({ surf: "land" }), 1)');
+const land = await ev('__cmwSteps().ready.parts.inverse');
+ok('Landscape: the gauge has no inverse programs', land && land.total === 0, land);
+await ev('(__cmwSteps({ surf: "plane" }), 1)');
+await settled({ max: 60000, only: true, until: '__cmwSteps().ready.ready === true' });
+const back = await ev('__cmwSteps().ready.parts.inverse');
+ok('back on the plane: the inverse programs are counted and drawn once', back && back.total > 0 && back.done === back.total, back);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };
