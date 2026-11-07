@@ -418,12 +418,23 @@
     if (tight()) top.classList.add('share-icon');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
+  // Runs fn when the faces have settled and again after each later face load: the font sheet applies after first paint, and
+  // document.fonts.ready can resolve before it does, so a fit measured then used the fallback faces. faceGen counts the
+  // settles, for fits that skip an unchanged key.
+  let faceGen = 0;
+  const FACE_SETTLE_MS = 60; // quiet time after a face load before the fits re-run (a sheet loads several faces in a burst)
+  function onFontsSettled(fn) {
+    if (!document.fonts) return;
+    let timer = 0;
+    if (document.fonts.ready) document.fonts.ready.then(() => { faceGen++; fn(); });
+    if (document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { clearTimeout(timer); timer = setTimeout(() => { faceGen++; fn(); }, FACE_SETTLE_MS); });
+  }
   function hdrFitInit() {
     const f = $('cmdBtn'), top = f && f.closest('.top'), xl = document.querySelector('#examplesBtn .exlabel');
     if (!top) return;
     new ResizeObserver(hdrFitSoon).observe(top);
     if (xl) new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(hdrFitSoon);
+    onFontsSettled(hdrFitSoon);
     hdrFitSoon();
   }
   // (v16.5 UX25: the open example's name shows after Examples until the first edit; exAt is the entry it opened at)
