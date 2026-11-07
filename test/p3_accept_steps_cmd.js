@@ -145,4 +145,39 @@ R.n_hole = await check('L', ANNULUS);
 ok('(n) globe: hole cap empty, annulus filled', R.n_hole.outN >= 400 && R.n_hole.outBad === 0 && R.n_hole.inN >= 400 && R.n_hole.inBad === 0, R.n_hole);
 await shot('p3s_n_hole');
 
+// ---- (g) the plane at plane 1 of [z^i, z^2] is exact: its fill equals the CPU render of z^i(H) (IoU >= 0.999)
+await load('p3sg' + Date.now(), Object.assign({ shapes: [H, REF(LOWER)], steps: [ZI, POW2], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+await ev('__cmwHideStrokes(true); __cmwSteps({ go: 1, now: true, surf: "plane", scope: "in", T: 0 }); 1'); await wait();
+R.pathsG = await ev('__cmwPaths()');
+ok('(g) plane at plane 1 draws inverse', R.pathsG.some((p) => p.role === 'L' && p.viewKind === 'flat' && p.path === 'inverse'), R.pathsG);
+// the fill is read against the neutral frame (the shape's eye in the list: hidden for it, shown again after), as the globe's is
+const keep = (name) => ev(`(() => { const cv = document.getElementById('canvasL'), g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window[${JSON.stringify(name)}] = x.getImageData(0, 0, g.width, g.height).data; return 1; })()`);
+const eye = JSON.stringify('#shapeList .shape[data-id="s1"] .eye');
+await keep('__gD');
+await ev(`document.querySelector(${eye}).click(); 1`); await wait();
+await keep('__gDb');
+await ev(`document.querySelector(${eye}).click(); 1`); await wait();
+R.g = await ev(`(() => {
+  const lk = __cmwLook('s1', 'L');
+  const St = (type, params) => ({ type, params: Object.assign(Funcs.defaults(type), params), on: true });
+  const steps = [St('powa', { alpha: 'i', cut: 180, k: 0 }), St('pown', { n: 2 })], built = steps.map(Funcs.build);
+  const plan = Inverse.planChain(steps, built, 0, 1);
+  const s = lk.view.s * lk.dpr, W = lk.W, Hh = lk.H;
+  const view = { cx: lk.view.cx, cy: lk.view.cy, s, W, H: Hh, win: lk.win };
+  const t0 = performance.now();
+  const r = Inverse.renderCPU(plan, { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }, view, { alpha: 1, pattern: 'solid', color: lk.color, color2: lk.color2, ink: lk.edge });
+  const D = window.__gD, Db = window.__gDb;
+  let inter = 0, uni = 0, n = 0, gOnly = 0, cOnly = 0;
+  const e = Math.exp(-Math.PI);
+  for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
+    const wr = view.cx + (i + 0.5 - W / 2) / s, wi = view.cy - (j + 0.5 - Hh / 2) / s, a = Math.hypot(wr, wi);
+    if (Math.min(Math.abs(a - 1), Math.abs(a - e)) * s < 4 * lk.dpr) continue;   // the boundary strokes (line renderer)
+    const k = j * W + i, gp = Math.abs(D[4 * k] - Db[4 * k]) + Math.abs(D[4 * k + 1] - Db[4 * k + 1]) + Math.abs(D[4 * k + 2] - Db[4 * k + 2]) > 24, cp = r.stats.alpha[k] > 0.5;
+    n++; if (gp && cp) inter++; if (gp || cp) uni++; if (gp && !cp) gOnly++; if (cp && !gp) cOnly++;
+  }
+  return { iou: uni ? inter / uni : 1, n, inter, gOnly, cOnly, cpuMs: Math.round(performance.now() - t0), W, H: Hh };
+})()`);
+ok('(g) plane at plane 1 = CPU render of z^i(H), IoU >= 0.999', R.g.iou >= 0.999 && R.g.inter > 1000, R.g);
+await shot('p3s_g_plane');
+
 return { pass: fails.length === 0, fails, results: R };
