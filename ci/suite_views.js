@@ -283,6 +283,7 @@ const VIEWS = {
   'link_standin_cmd.js': steps({ pin: true }),
   'svready_cmd.js': steps({ pin: true }),
   'svplay_gate_cmd.js': steps({ pin: true }),
+  'chain_discard_cmd.js': steps({ pin: true }),
   'overlay_ghost_cmd.js': steps({ pin: true }),
   'p3_accept_cmd.js': port('render', 'the exact globes and their strokes, the spherical checker on the GPU, the globes\' figure export and the globe orientation: the steps view has its own globe suites (sv_globe_*), and these checks are not yet in the steps view'),
   'p3_review_cmd.js': steps({ pin: true }),

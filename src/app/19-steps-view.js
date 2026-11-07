@@ -2895,6 +2895,11 @@
     const r = svReady().parts;
     return !r.programs || !r.warm || !r.jobs || !r.programs.total || ['programs', 'warm', 'jobs'].some((k) => r[k].done < r[k].total);
   }
+  // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
+  // when the chain is discarded (an example or a new scene replaces it)
+  function svDiscardCaches() {
+    svPoleMemo.clear(); svPoleLast.clear(); svRingSizes.clear(); svRingMemo = null; svPolarRes.clear();
+  }
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
   // start() now, or once the chain is prepared; btn is the control the wait shows on
