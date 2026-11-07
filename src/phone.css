@@ -374,14 +374,17 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-vopts { display: flex; flex-direction: column; gap: 8px; padding: 4px; }
 :root.ph .ph-vopts > * { position: static; max-width: 100%; }
 :root.ph .ph-vopts .seg { overflow-x: auto; }
-/* the Phase style: six glyphs with their words under them, one tap each, 48 px tall; a word too long for its
-   button (Italian, Russian at 360 px) is hyphenated where the language allows, never cut */
-:root.ph .ph-vopts .seg.sty-seg { display: flex; height: auto; overflow: visible; }
-:root.ph .ph-vopts .seg.sty-seg > button { flex: 1 1 0; min-width: 44px; height: auto; min-height: 48px; padding: 4px 2px; flex-direction: column; justify-content: center; gap: 3px;
+/* the colour style: a wrapping grid of choices, each a 48 px target with its glyph and its word under it (four to a row at
+   360 px); a word too long for its tile (Italian, Russian) wraps at its words, to two lines, and is hyphenated where the
+   language allows, never cut. The chosen one is filled with the accent tint, its word in ink, its glyph on an inset tile */
+:root.ph .ph-vopts .seg.sty-seg { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 4px; height: auto; overflow: visible; background: none; border: 0; padding: 0; }
+:root.ph .ph-vopts .seg.sty-seg > button { min-width: 48px; height: auto; min-height: 48px; padding: 4px 2px; flex-direction: column; justify-content: center; gap: 3px; border: 1px solid var(--line); border-radius: var(--r-2);
   font: 500 11px/13px var(--f-ui); white-space: normal; text-align: center; -webkit-hyphens: auto; hyphens: auto; overflow-wrap: anywhere; }
+:root.ph .ph-vopts .seg.sty-seg > button.on { background: var(--accent-soft); color: var(--ink); box-shadow: none; border-color: var(--accent); }
+:root.ph .ph-vopts .seg.sty-seg .sty-g { display: flex; padding: 4px; border-radius: var(--r-2); background: var(--surface); }
 :root.ph .ph-vopts .seg.sty-seg .sty-g svg { width: 20px; height: 20px; }
 :root.ph .ph-vopts .tg-ic { display: none; }
-:root.ph .ph-vopts label.check[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+:root.ph .ph-vopts label.check[aria-disabled="true"] { opacity: 0.4; cursor: default; }
 /* More (⋯) rows */
 /* the rows fill their sheet's width: the focus ring is drawn inside them, where the sheet's edge cannot cut it */
 .ph-row:focus-visible, .ph-srow:focus-visible, .ph-style:focus-visible { outline-offset: -2px; }
