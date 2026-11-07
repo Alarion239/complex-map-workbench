@@ -46,6 +46,7 @@ const CASES = [
   ['X → Y with areas (rightMode image)', { ...XY, rightMode: 'image', sel: 2 }, { on: true, x: 0, T: 3, scope: 'in', surf: 'plane', planes: [0, 1, 2, 3], sel: 2 }],
   ['X → Y without areas', { steps: STEPS, rightMode: 'image' }, { on: true, x: 0, T: 3, scope: 'all', surf: 'plane' }],
   ['Phase (rightMode color)', { ...XY, rightMode: 'color' }, { on: true, x: 0, T: 3, scope: 'all', surf: 'plane' }],
+  ['Sphere colour (rightMode sphere, sphereMode color)', { ...XY, rightMode: 'sphere', sphereMode: 'color' }, { on: true, x: 0, T: 3, surf: 'sphere' }],
   ['Landscape, plaster (rightMode 3d)', { ...XY, rightMode: '3d', material: 'plaster' }, { on: true, x: 0, T: 3, surf: 'land' }],
   ['Landscape, phase paint (rightMode 3d)', { ...XY, rightMode: '3d', material: 'phase' }, { on: true, x: 0, T: 3, surf: 'land' }],
   ['z-sphere under X → Y (leftSphere)', { ...XY, rightMode: 'image', leftSphere: true }, { on: true, x: 0, T: 3, scope: 'in', surf: 'sphere' }],
@@ -58,7 +59,7 @@ const CASES = [
 ];
 
 // the main a saved view with no rightMode names, as the app loads it (before the steps view adopts it)
-const LOADED_MAIN = { 'U-b view without main (landscape)': { main: 'land' }, 'view with main phase': { main: 'phase', side: 'P', surf: 'plane' } };
+const LOADED_MAIN = { 'U-b view without main (landscape)': { main: 'land' }, 'view with main phase': { main: 'phase', side: 'P', surf: 'plane' }, 'Sphere colour (rightMode sphere, sphereMode color)': { main: 'phase', side: 'P', surf: 'sphere' } };
 let n = 0;
 for (const [name, st, want] of CASES) {
   n++;
@@ -110,8 +111,8 @@ for (const [name, url] of FORMS) {
 }
 
 // a link that carries the figure's camera (figCam) and its figMorph: the steps view reads both once, at the load, and its save
-// keeps neither. The camera's value and figMorph's T are not checked here: the test hooks do not expose the 3D camera, and the
-// steps view does not carry figMorph's T into its Morph transport (a parity gap, see the PR).
+// keeps neither. The camera's value is read through __cmwState().cam, and figMorph's T is the steps view's place x (it has no
+// Morph transport).
 n++;
 {
   const ns = 'lmig' + n + Date.now();
@@ -120,13 +121,44 @@ n++;
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
   const got = await ev(READ);
   info['link with figCam and figMorph'] = got;
-  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], k === 'x' ? 1.5 : LINK_WANT[k]), { k, want: LINK_WANT[k], got });
+  const cam = await ev('__cmwState().cam');
+  ok('figCam link: the camera is the link\'s', !!cam && [['yaw', 0.4], ['pitch', -0.3], ['d', 1.5], ['tx', 0.1], ['ty', -0.2]].every(([c, v]) => Math.abs(cam[c] - v) < 1e-9), cam);
   await ev('window.dispatchEvent(new Event("pagehide")); 1');
   await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && !('figCam' in o)); })()` });
   const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? { figCam: 'figCam' in o, figMorph: 'figMorph' in o } : null; })()`);
   info['figCam and figMorph, after a save'] = saved;
   ok('figCam and figMorph are read once and not kept by the save', !!saved && !saved.figCam && !saved.figMorph, saved);
   await grab('figCam link');
+}
+
+// figCam names its camera (`of`): a link saved while the steps view shows the z-globe carries camL and opens on camL; a figCam
+// without `of` (a classic-saved link, the Landscape's) moves cam only and leaves camL where it was
+n++;
+{
+  const GLOBE = { ...XY, rightMode: 'image', leftSphere: true };
+  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+  const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
+  const open = async (figCam) => {
+    const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
+    await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
+    await reloadedFigure('Opened the figure from the link.');
+  };
+  const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
+  await open(base);   // no `of`: the Landscape's camera
+  const land0 = await camsOf();
+  const sph = { yaw: 0.7, pitch: 0.35, d: 1.4, tx: 0.05, ty: -0.15, of: 'sphere' };
+  await open(sph);
+  const got = await camsOf();
+  const { of, ...sphCam } = sph;
+  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam), got);
+  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam) && !near(got.cam, base), got);
+  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base), land0);
+  ok('figCam without `of`: camL is untouched', !near(land0.camL, base), land0);
+  const out = await ev('__cmwFigureState().figCam');
+  info['figCam written on the globe'] = out;
+  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam), out);
+  await grab('figCam of');
 }
 
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
@@ -140,6 +172,64 @@ n++;
   info['open a classic state in the page (scene)'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`scene: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
   await grab('scene');
+}
+
+// the open route's own keys and toasts (openFigure): the opened figure records how it was opened (cmw-opened), the figure it
+// the previous figure is kept under cmw-before-open for the undo, and a link or scene that holds no figure says so in a toast
+const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++) { const k = st.key(i); if (k.startsWith(t + ':') || k === t) return st.getItem(k); } return null; }; return { opened: f(sessionStorage, 'cmw-opened'), before: f(localStorage, 'cmw-before-open') }; })()`;
+// openFigure writes its keys and reloads the page: they are read at the pagehide of the old page, into a probe key that the
+// page does not use (the new page clears the keys at its load)
+const PROBE = 'cmw-test-probe-open';
+const probeOpen = async (st, how) => {
+  // (the open is deferred past this call's reply: its reload would otherwise close the target while the call waits for it)
+  await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); setTimeout(() => __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}), 0); 1`);
+  // the read retries while the page reloads (the target is closed for a moment): the first read that answers is the new page's
+  let raw = null;
+  for (let i = 0; i < 60 && !raw; i++) {
+    try { raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`); } catch (e) { raw = null; }
+    if (!raw) await new Promise((r) => setTimeout(r, 500));
+  }
+  await settled({ max: 30000, until: READY });
+  return raw ? JSON.parse(raw) : null;
+};
+const TOASTED = (t) => `document.body.innerText.includes(${JSON.stringify(t)})`;
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  const got = await probeOpen(LINK_STATE, 'link');
+  info['open a link: the route and the kept figure'] = got;
+  ok('a link open records cmw-opened = link', got.opened === 'link', got);
+  ok('a link open keeps the previous figure (cmw-before-open)', typeof got.before === 'string' && got.before.length > 0, got.before && got.before.length);
+  const sc = await probeOpen(LINK_STATE, 'scene');
+  ok('a scene open records cmw-opened = scene', sc.opened === 'scene', sc);
+  await grab('open route');
+}
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev(`__cmwPOpen(null, 'link'); 1`);
+  await settled({ max: 5000, panes: false, until: TOASTED('This link does not hold a figure.') });
+  ok('an empty link says it holds no figure (toast)', await ev(TOASTED('This link does not hold a figure.')), 'no toast');
+  await ev(`__cmwPOpen(null, 'scene'); 1`);
+  await settled({ max: 5000, panes: false, until: TOASTED('This scene could not be read.') });
+  ok('an unreadable scene says so (toast)', await ev(TOASTED('This scene could not be read.')), 'no toast');
+  await grab('open errors');
+}
+
+// a link or a scene carries the figure, not the viewer's panels: no hideLeft or hideRight whichever panels are hidden, and a
+// right plane that is still fitted to its content (auto) has no rightView
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev('__cmwSet("hideLeft", true); __cmwSet("hideRight", true); 1');
+  const fs = await ev('(() => { const o = __cmwFigureState(); return { keys: Object.keys(o).filter((k) => /^hide/.test(k)), rightView: o.rightView, steps: o.steps.length }; })()');
+  info['figureState'] = fs;
+  ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
+  ok('figureState: rightView is null while the right plane is fitted (auto)', !!fs && fs.rightView === null, fs);
+  await grab('figureState');
 }
 
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);
