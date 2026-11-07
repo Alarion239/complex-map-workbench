@@ -117,4 +117,23 @@ R.x0H_far = await ev(`(() => { let n = 0; const r = document.getElementById('can
 ok('X Sphere at stage 0: Im z > 0 exact around the north pole', R.x0H.inN >= 400 && R.x0H.inBad === 0 && R.x0H.outN >= 400 && R.x0H.outBad === 0 && R.x0H_far > MIN_FAR, [R.x0H, R.x0H_far]);
 await shot('p3s_x0_H');
 
+
+// ---- the globe orientation (panels.md 9.0): a screen triangle on the w-globe maps to a w triangle of the same handedness
+// (the plain lift would make every globe a mirror image)
+const handedness = (at) => ev(`(() => {
+  const out = [0, 0];
+  const r = document.getElementById('canvasL').getBoundingClientRect();
+  for (let y = 20; y < r.height - 20; y += 23) for (let x = 20; x < r.width - 20; x += 23) {
+    const a = __cmwSphereWL(x, y), b = __cmwSphereWL(x + 4, y), c = __cmwSphereWL(x, y - 4);
+    if (!a || !b || !c) continue;
+    out[(b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]) > 0 ? 0 : 1]++;
+  }
+  return out;
+})()`);
+for (const at of [0, 1]) {
+  await globe('p3so' + at, [{ id: 's1', kind: 'disc', c: [0.5, 0], r: 0.45 }], [ZI], { cx: 0.5, cy: 0, s: 300 }, { pitch: 0.4, yaw: 0.3, dist: 3 }, at);
+  R['hand' + at] = await handedness(at);
+  ok(`globe orientation at plane ${at}: every picked triangle keeps its handedness`, R['hand' + at][0] > 50 && R['hand' + at][1] === 0, R['hand' + at]);
+}
+
 return { pass: fails.length === 0, fails, results: R };
