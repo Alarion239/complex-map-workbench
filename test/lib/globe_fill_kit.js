@@ -1,5 +1,5 @@
 // The globe suites' shared pixel check (p3_accept_cmd.js, p3_accept_steps_cmd.js): a globe pane's fill against the truth.
-// An expression for eval in a suite, which supplies ev and sleep: `const { grab, globeCheck, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
+// An expression for eval in a suite, which supplies ev and settled: `const { grab, globeCheck, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'))`.
 // globeCheck(side, cls, step, mode) picks each pixel's point with the page's pick of that side (__cmwSphereW for 'R',
 // __cmwSphereWL for 'L'). mode 'alpha' (the classic panes): the fill is what the frame has over the same frame with the
 // fill's alpha 0. mode 'scope' (the steps view's globe, scope Inside regions): the fill is the colour the Everywhere frame
@@ -18,14 +18,16 @@ const MODES = {
   scope: { off: '__cmwSteps({ scope: "all" })', on: '__cmwSteps({ scope: "in" })', fill: '(i, c) => { const sp = (P) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]); if (c < 0) return sp(D1) < 60 ? 0 : 1; return sp(D0) < 60 ? -1 : Math.abs(D1[i] - D0[i]) + Math.abs(D1[i + 1] - D0[i + 1]) + Math.abs(D1[i + 2] - D0[i + 2]) <= 24 ? 1 : 0; }' },
 };
 const fillSrc = (mode) => MODES[mode].fill;
+// the frame the toggle asked for is drawn: the page quiet, the steps view's glide done, no program linking
+const quiet = () => settled({ max: 15000, until: '!(window.__cmwSteps && __cmwSteps().moving) && GLR.pendingLinks === 0' });
 const grab = (side) => ev(`(() => { const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height; const x = g.getContext('2d'); x.drawImage(cv, 0, 0); window.__p3grab = window.__p3grab || {}; window.__p3grab[${JSON.stringify(side)}] = x.getImageData(0, 0, g.width, g.height).data; return [g.width, g.height]; })()`);
 const globeCheck = async (side, cls, step = 2, mode = 'alpha') => {
   await grab(side);
   await ev('window.__p3D1 = window.__p3grab[' + JSON.stringify(side) + ']; ' + MODES[mode].off + '; 1');
-  await sleep(700);
+  await quiet();
   await grab(side);
   await ev('window.__p3D0 = window.__p3grab[' + JSON.stringify(side) + ']; ' + MODES[mode].on + '; 1');
-  await sleep(700);
+  await quiet();
   return ev(`(() => {
   const cv = document.getElementById(${JSON.stringify(side === 'L' ? 'canvasL' : 'canvasR')}), r = cv.getBoundingClientRect();
   const D1 = window.__p3D1, D0 = window.__p3D0, GW = cv.width, dpr = cv.width / r.width;
