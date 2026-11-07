@@ -58,6 +58,17 @@ const Tour = (() => {
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'zp', params: { a: '1', zeros: '', poles: 'i, -i' } }],
     },
+    // the same maps as z² + 1 and then 1/w: the steps view shows no F chip on a one-step chain, so its F tour steps run on two steps
+    residueZp2: {
+      name: 'A residue by integration', needs: 'zp', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
+      shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'zp', params: { a: '1', zeros: '', poles: '0' } }],
+    },
+    residue2: {
+      name: 'A residue by integration', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
+      shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'custom', params: { expr: '\\frac{1}{z}', cut: 180 } }],
+    },
     residue: {
       name: 'A residue by integration', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
@@ -471,6 +482,11 @@ const Tour = (() => {
       before: [['svPlace', { i: 1, T: -1, scope: 'in', surf: 'plane' }]], lead: undefined,
       body: 'A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane\'s regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.',
       try: { text: 'On $w_1$, draw a disc, then click ‹ (or press ←).', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane $z$ shows where the disc comes from.' } });
+    // (F tour steps: the F chip comes with the second step, so these run on a two-step scene)
+    const anaSteps = chs.find((/** @type {any} */ c) => c.id === 'analysis').steps;
+    const domainStep = anaSteps.find((/** @type {any} */ st) => st.id === 'domain');
+    domainStep.before = [['scene', ['residueZp2', 'residue2']], ...domainStep.before];
+    for (const k of ['byScene', 'touchByScene', 'deskTouchByScene']) if (domainStep[k] && domainStep[k].residueZp) domainStep[k] = Object.assign({ residueZp2: domainStep[k].residueZp }, domainStep[k]);
     const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
     const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
     if (cardsAt < 0) throw new Error('the tour has no cards step to replace');
