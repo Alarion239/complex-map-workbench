@@ -2592,7 +2592,7 @@
       if ((lk === 'k' || lk === 'm') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
-      if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
+      if (e.key === 'Escape' && (SV.play || SV.gate || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else if (SV.gate) svGateCancel(); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; ← → always step the chain, the sound probe's arrows being Alt / Option +
       // arrow, except while a shape is selected, which they nudge while the focus is on a plane (14-interaction.js))
       const page = e.key === 'PageUp' || e.key === 'PageDown';
@@ -2832,8 +2832,60 @@
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
-  function svTogglePlay() { if (SV.play) svPause(true); else svPlay(); }
+  function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateCancel(); else svPlay(); }
+  // ▶ waits for svReady().ready, so a glide never runs on programs still linking or frames not yet drawn. SV.gate holds the
+  // wait: {t0, timer, hung}; it polls every SV_GATE_POLL_MS and starts the glide when ready. SV_GATE_HANG_MS is a hang guard
+  // only: past it the wait shows its "still preparing" state, and a further ▶ press starts the wait over; it never starts a
+  // glide that is not ready. Esc or a second press cancels
+  const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000;
+  // What a glide needs before its first frame: the chain's programs linked and the carried colour's warm draw made (the idle
+  // jobs of svReady, the pole tracks, the ring and the meshes, are drawn as they finish). No GPU layer: nothing to prepare
+  function svGateNeeded() {
+    if (!GLR.ok || !GLR.progStatus) return false;
+    const r = svReady().parts;
+    return !r.programs || !r.warm || r.programs.done < r.programs.total || r.warm.done < r.warm.total || !r.programs.total;
+  }
+  function svGateCancel() {
+    if (!SV.gate) return;
+    clearTimeout(SV.gate.timer);
+    SV.gate = null;
+    svGateSync();
+  }
+  function svGateSync() {
+    const E = SV.els, g = SV.gate;
+    if (!E || !E.play) return;
+    E.play.toggleAttribute('aria-busy', !!g);
+    if (g) {
+      const r = svReady();
+      E.play.dataset.wait = g.hung ? 'hung' : 'busy';
+      E.play.style.setProperty('--wait', r.total ? String(r.done / r.total) : '0');
+    } else { delete E.play.dataset.wait; E.play.style.removeProperty('--wait'); }
+  }
+  function svGateTick() {
+    const g = SV.gate;
+    if (!g) return;
+    if (svPlanes().length < 2) { svGateCancel(); return; }
+    if (!svGateNeeded()) { svGateCancel(); svPlayNow(); return; }
+    if (!g.hung && performance.now() - g.t0 > SV_GATE_HANG_MS) {
+      g.hung = true;
+      if (SV.els.live) SV.els.live.textContent = $t('Still preparing. Press Play to try again.');
+    }
+    svGateSync();
+    g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
+  }
   function svPlay() {
+    if (SV.play || svPlanes().length < 2) return;
+    if (SV.gate) { if (SV.gate.hung) svGateCancel(); else return; }
+    if (svGateNeeded()) {
+      SV.gate = { t0: performance.now(), timer: 0, hung: false };
+      svPrestartSoon(0);
+      if (SV.els.live) SV.els.live.textContent = $t('Preparing…');
+      svGateTick();
+      return;
+    }
+    svPlayNow();
+  }
+  function svPlayNow() {
     const P = svPlanes();
     if (P.length < 2 || SV.play) return;
     const R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;
