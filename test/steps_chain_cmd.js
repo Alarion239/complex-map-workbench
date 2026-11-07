@@ -35,6 +35,8 @@ const kb = (k, mods = {}) => ev(`document.activeElement.dispatchEvent(new Keyboa
 const cl = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); e.click(); return true; })()`);
 const menu = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => b.querySelector('.mi-label').textContent)`);
 const pick = async (label) => { const r = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`); await settle(350); return r; };
+// (a menu a long press raised is deaf to a click for a moment: the pick is tried again until the state it makes is there)
+const pickUntil = async (label, cond) => { for (let i = 0; i < 20 && !(await ev(cond)); i++) { await pick(label); await settled({ until: cond, only: true, max: 400 }); } await settled({ until: cond }); };
 const undo = async () => { await ev(`document.getElementById('undoBtn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.getElementById('undoBtn').click(); 1`); await settle(400); await ev(`document.querySelectorAll('#toastHost .toast').forEach((x) => x.remove()); 1`); await settle(250); };   // (the Undid message takes the rail while it shows: the next step starts after it)
 const say = () => ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`);
 // (the live region is cleared and set again 30 ms later, so that the same words are read twice: on a loaded machine one read can land
@@ -234,7 +236,7 @@ for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCa
 // shown alone at the laptop widths: Add and F stay in the strip, overlapping neither Next nor the rail, and Whole chain (or its pin) is whole
 for (const w of [1440, 1280, 1024, 780]) {
   await open(w, 800, false);
-  await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settle(300); await pick('Show alone'); await settle(600);
+  await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settled({ until: "!!document.querySelector('#popHost .menu .mi')", only: true }); await pickUntil('Show alone', "!!document.querySelector('#svStrip .sv-alone, #svStrip .sv-whole-pin')");
   const m = await ev(`(() => { const R = (s) => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; };
     const strip = R('#svStrip'), rail = R('#svStrip .sv-rail'), next = R('#svStrip .sv-nav:last-of-type') || R('#svStrip .sv-nav + .sv-nav');
     const nexts = [...document.querySelectorAll('#svStrip .sv-nav')].map((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; });
@@ -282,7 +284,7 @@ ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok 
 // shown alone on a 360 px phone: the step's own planes stay in view, and a long press on the disabled Add gives its reason
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
   window.__lp = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp('pointerdown'); return 1; })()`);
-await sleep(700); await ev(`__lp('pointerup'); 1`); await settle(400); await pick('Show alone'); await settle(600);
+await settled({ until: "!!document.querySelector('#popHost .menu .mi')", only: true }); await ev(`__lp('pointerup'); 1`); await settled({}); await pickUntil('Show alone', "!!document.querySelector('#svStrip .sv-alone, #svStrip .sv-whole-pin')");
 const alone360 = await ev(`(() => { const rr = document.querySelector('#svStrip .sv-rail').getBoundingClientRect();
   const planes = [...document.querySelectorAll('#svStrip .sv-rail .sv-plane, #svStrip .sv-rail .sv-step')].map((e) => e.getBoundingClientRect());
   return { rail: [Math.round(rr.left), Math.round(rr.right)], fadeR: document.querySelector('#svStrip .sv-rail').classList.contains('fade-r'), planes: planes.map((b) => [Math.round(b.left), Math.round(b.right)]) }; })()`);
@@ -290,7 +292,7 @@ ok('360 px, a step shown alone: the rail keeps its 126 px and its planes are in 
 ok('360 px, a step shown alone: the rail fades at its end, where F and Add are scrolled to', alone360.fadeR, alone360);
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-add'), r = c.getBoundingClientRect();
   window.__lp2 = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp2('pointerdown'); return 1; })()`);
-await sleep(700);
+await settled({ until: "(() => { const t = document.getElementById('tip'); return !!t && !t.hidden && t.getClientRects().length > 0; })()", only: true, max: 3000 });
 const lpTip = await ev(`(() => { const t = document.getElementById('tip'); return t && !t.hidden && t.getClientRects().length ? t.textContent : ''; })()`);
 await ev(`__lp2('pointerup'); 1`);
 ok('360 px: a long press on the disabled Add shows why', /Show the whole chain to add a function/.test(lpTip), lpTip);
