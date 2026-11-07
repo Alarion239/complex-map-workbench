@@ -1624,6 +1624,11 @@
         const px = Math.round(pane.pw / 2 + (1 - v.cx) * v.s * d), py = Math.round(pane.ph / 2 - (1 - v.cy) * v.s * d);
         log.push({ path: 'fill', i: st.fills, pts: st.n, nan: st.nan, arg: typeof a[0], gco: c2.globalCompositeOperation, ga: c2.globalAlpha, fs: String(c2.fillStyle), tr: [tr.a, tr.b, tr.c, tr.d, tr.e, tr.f], px: [px, py], at11: Array.from(c2.getImageData(px, py, 1, 1).data) });
       });
+      let nDi = 0;
+      const dlog = (name, a) => { if (nDi++ >= 4) return; const s = a[0] || {}; const isCv = typeof s.getContext === 'function';
+        log.push({ path: name, i: nDi, src: s.constructor && s.constructor.name, w: s.width, h: s.height, gl: isCv && !!(s.getContext('webgl2') || s.getContext('webgl')), gco: c2.globalCompositeOperation, ga: c2.globalAlpha, n: a.length }); };
+      wrap('drawImage', (a) => dlog('drawImage', a));
+      wrap('putImageData', (a) => dlog('putImageData', a));
     }
     const at = c2.getContextAttributes();
     log.push({ path: 'cv', w: cv.width, h: cv.height, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, attrs: { alpha: at.alpha, willReadFrequently: at.willReadFrequently, colorSpace: at.colorSpace }, gco: c2.globalCompositeOperation, ga: c2.globalAlpha, fs: String(c2.fillStyle) });
