@@ -9,6 +9,11 @@ const BUSY = '!!document.querySelector(".sv-play[aria-busy]")';
 const state = (sel) => `(() => { const b = document.querySelector("${sel}"); return { busy: b.hasAttribute("aria-busy"), label: b.getAttribute("aria-label"), fill: b.style.getPropertyValue("--wait"), play: __cmwSteps().play, anim: !!__cmwSteps().anim, ring: getComputedStyle(b, "::after").backgroundImage.includes("conic-gradient"), spin: getComputedStyle(b, "::after").animationName }; })()`;
 const esc = () => ev('(document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })), 1)');
 const ns = 'svg' + Date.now();
+// window.__played turns true when a play starts. The Play button changes in the same task that starts it, so a mutation
+// observer sees the start even when the first frames of a cold page run so long that a short play ends before a timer
+// could poll it
+const WATCH_PLAY = `(window.__played = false, new MutationObserver((_, o) => { if (__cmwSteps().play !== null) { window.__played = true; o.disconnect(); } }).observe(document.querySelector(".sv-play"), { attributes: true, childList: true, subtree: true }))`;
+
 
 async function open(w, h) {
   await view(w, h, false);
@@ -17,8 +22,6 @@ async function open(w, h) {
   const o = await ev('location.origin');
   await nav(`${o}/test.html?ns=${ns}&glhold&view=steps`);
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
-  // (the page's state when the hooks became available: kept for a failure's report)
-  info.hooks = await ev('({ t: Math.round(performance.now()), rs: document.readyState, fonts: document.fonts.status })');
   await ev('(__cmwSteps({ go: 0, now: true }), 1)');
   await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });
 }
@@ -76,23 +79,12 @@ await ev('(Array.from(document.querySelectorAll("#toastHost .toast button")).fin
 const retry = await ev(state('.sv-play'));
 info.retry = retry;
 ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
-// (a play on a short chain can end between two polls from here: the page records that it started)
-await ev('(window.__played = false, window.__playPoll = setInterval(() => { if (__cmwSteps().play !== null) { window.__played = true; clearInterval(window.__playPoll); } }, 5), 1)');
-// (every change of the button and of the play from here on, with the page's state: a failure's report shows how the wait ended)
-await ev(`(window.__trail = [], (() => {
-  const b = document.querySelector(".sv-play"), snap = (why) => { const s = __cmwSteps(); window.__trail.push({ t: Math.round(performance.now()), why, busy: b.hasAttribute("aria-busy"), label: b.getAttribute("aria-label"), play: s.play, planes: s.planes.length, ready: s.ready.ready, rs: document.readyState, fonts: document.fonts.status, toast: document.querySelectorAll("#toastHost .toast").length }); };
-  snap("held"); new MutationObserver(() => snap("button")).observe(b, { attributes: true, childList: true });
-  new MutationObserver(() => snap("toasts")).observe(document.getElementById("toastHost"), { childList: true });
-  window.addEventListener("keydown", (e) => snap("key " + e.key), true);
-  document.addEventListener("click", (e) => snap("click " + (e.target.closest("button") || e.target).className), true);
-  window.__snapTrail = snap;
-})(), 1)`);
-await ev('(GLR.holdLinks(false), window.__snapTrail("released"), 1)');
+await ev(`(${WATCH_PLAY}, 1)`);
+await ev('(GLR.holdLinks(false), 1)');
 await settled({ max: 40000, only: true, until: 'window.__played === true' });
 const run = await ev(state('.sv-play'));
 info.run = run;
-info.trail = await ev('(window.__snapTrail("end"), window.__trail)');
-ok('released: the glide starts', await ev('window.__played'), { run, trail: info.trail, hooks: info.hooks });
+ok('released: the glide starts', await ev('window.__played'), run);
 ok('released: the button is no longer busy', !run.busy, run);
 
 await section('narrow', 360, 780);
@@ -115,7 +107,7 @@ await section('narrow', 360, 780);
   info.jobsHeld = held;
   ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
   ok('a job left: the wait is under way', await ev('__cmwSteps().moving'), held);
-  await ev('(window.__played = false, window.__playPoll = setInterval(() => { if (__cmwSteps().play !== null) { window.__played = true; clearInterval(window.__playPoll); } }, 5), 1)');
+  await ev(`(${WATCH_PLAY}, 1)`);
   await ev('(__cmwSteps({ holdJobs: false }), 1)');
   await settled({ max: 20000, only: true, until: 'window.__played === true' });
   ok('the job done: the glide starts', await ev('window.__played'), held);
