@@ -176,6 +176,9 @@ await shot('p3s_g_plane');
 // ---- the globe scissor of bounded shapes: a disc's exact image is not clipped. z^i of |z - (0.3+0.8i)| < 0.3 on the w-globe
 // (w is in the image iff -ln|w| lies in (-pi, pi] and z = e^{Arg w} e^{-i ln|w|} is in the disc); at plane 0 the disc itself.
 // The pass is scissored to its image's w-box (GLR.inverseGlobeScissors counts the scissored passes and their device px).
+// (the bounds of p3_accept_cmd.js: the fewest inside samples, and the scissored pass's share of the pane at most; the redraw
+// is a camera nudge of SC_NUDGE in the distance)
+const MIN_INSIDE = 200, SC_SHARE = 0.6, SC_NUDGE = 0.01;
 const DISC = { id: 's1', kind: 'disc', c: [0.3, 0.8], r: 0.3 };
 const DZI = `(w) => { const a = Math.hypot(w[0], w[1]), L = -Math.log(a); if (!(L > -Math.PI && L <= Math.PI)) return -1; const m = Math.exp(Math.atan2(w[1], w[0])), zx = m * Math.cos(-Math.log(a)), zy = m * Math.sin(-Math.log(a)); return Math.hypot(zx - 0.3, zy - 0.8) < 0.3 ? 1 : -1; }`;
 const DISC_AT_0 = `(w) => (Math.hypot(w[0] - 0.3, w[1] - 0.8) < 0.3 ? 1 : -1)`;
@@ -183,11 +186,11 @@ for (const [at, cam, cls, tag, what] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2
   await globe('p3sc' + at, [DISC, REF(LOWER)], [ZI], { cx: 0.3, cy: 0.8, s: 200 }, cam, at);
   R[tag] = await check('L', cls);
   // the scissor of a pass at this camera: a real one, smaller than the pane (a nudged camera redraws the pane)
-  const g0 = await ev('GLR.inverseGlobeScissors'); await ev(`__cmwCam("L", ${JSON.stringify(Object.assign({}, cam, { dist: cam.dist + 0.01 }))}); 1`); await wait();
+  const g0 = await ev('GLR.inverseGlobeScissors'); await ev(`__cmwCam("L", ${JSON.stringify(Object.assign({}, cam, { dist: cam.dist + SC_NUDGE }))}); 1`); await wait();
   const g1 = await ev('GLR.inverseGlobeScissors');
   R[tag + '_sc'] = { passes: g1.n - g0.n, avgPx: g1.n > g0.n ? Math.round((g1.px - g0.px) / (g1.n - g0.n)) : 0, panePx: await ev(`(() => { const cv = document.getElementById('canvasL'); return cv.width * cv.height; })()`) };
-  if (at === 0) ok(`globe scissor (${what}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < 0.6 * R[tag + '_sc'].panePx, R[tag + '_sc']);
-  ok(`globe scissor (${what}): the disc's exact image is whole`, R[tag].inN >= 200 && R[tag].inBad === 0 && R[tag].outBad === 0, R[tag]);
+  if (at === 0) ok(`globe scissor (${what}) in use, smaller than the pane`, R[tag + '_sc'].passes > 0 && R[tag + '_sc'].avgPx < SC_SHARE * R[tag + '_sc'].panePx, R[tag + '_sc']);
+  ok(`globe scissor (${what}): the disc's exact image is whole`, R[tag].inN >= MIN_INSIDE && R[tag].inBad === 0 && R[tag].outBad === 0, R[tag]);
   await shot('p3s_' + tag);
 }
 
