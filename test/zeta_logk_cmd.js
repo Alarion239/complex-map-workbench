@@ -31,8 +31,10 @@ if (Array.isArray(t) && t.length === 132) {
   }
   ok('every entry k = 1 .. 131 is ln k to 1e-6 and increasing', bad.length === 0, bad.slice(0, 5));
 }
-const px = await ev(`(() => { const c = document.getElementById('canvasL'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; const seen = new Set(); for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]); return seen.size; })()`);
-ok('the zeta plot draws more than a flat colour', px > 50, px);
+// (every 97th pixel is sampled: a prime stride, so the samples do not line up with the plot's rows or checker cells; a drawn plot has far more than 50 distinct colours there, a flat fill one)
+const SAMPLE_STRIDE = 97, MIN_DISTINCT_COLOURS = 50;
+const px = await ev(`(() => { const c = document.getElementById('canvasL'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; const seen = new Set(); for (let i = 0; i < d.length; i += 4 * ${SAMPLE_STRIDE}) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]); return seen.size; })()`);
+ok('the zeta plot draws more than a flat colour', px > MIN_DISTINCT_COLOURS, px);
 info.colours = px;
 // (the table's own GPU pass compiles with the page's header: a shader that failed to compile is logged, and the host's logs would stand in unseen)
 const shaderErrors = (await logs()).filter((x) => /shader \w+ ERROR/.test(x.m || ''));

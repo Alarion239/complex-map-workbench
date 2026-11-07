@@ -839,9 +839,9 @@ vec2 cx_digamma(vec2 z) {
   return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
 }
 `;
-  // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
   // The entries of ZETA_LIB's table of ln k (k < ZETA_LN_K_COUNT, four to a uniform row; the host fills it, logK in src/gl/04-programs-resources.js)
   const ZETA_LN_K_COUNT = 132;
+  // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
   const ZETA_LIB = `
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
