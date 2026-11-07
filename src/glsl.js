@@ -2211,13 +2211,24 @@ bool ${P}_polish(inout vec2 u, vec2 w, float t) {
   }
   return ok;
 }
+bool ${P}_settle(inout vec2 u, vec2 w, float t) { return ${P}_polish(u, w, t) && ${P}_hit(u, w, t); }
+bool ${P}_land(inout vec2 u, vec2 w, float t) {
+  bool ok = true;
+  for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
+    if (!ok) break;
+    vec2 p = u;
+    ok = ${P}_step(u, w, t);
+    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
+  }
+  return ok && ${P}_settle(u, w, t);
+}
 bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
   bool ok = true;
   for (int k = 1; k <= ${Inverse.NEWT_K}; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
   ug = ok ? u : vec2(${IX_NR_NONE});
   if (ok) ok = ${P}_step(u, w, t);
-  return ok && ${P}_polish(u, w, t) && ${P}_hit(u, w, t);
+  return ok && ${P}_settle(u, w, t);
 }
 bool ${P}_walk0(vec2 w, float t, out vec2 u) {
   vec2 ug;
@@ -2272,7 +2283,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v;
     bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
-    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    okv = okv && ${P}_settle(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
   }
@@ -2389,7 +2400,7 @@ ${fetch('uNrPrev')}
   }
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
-    bool ok = i < de && ixFin(v) && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    bool ok = i < de && ixFin(v) && ${P}_settle(v, w, t);
     for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
@@ -2509,14 +2520,7 @@ bool ${P}_pole2(vec2 w, float t, bool k0, vec2 u, out vec2 v) {
   v = vec2(0.0);
   if (!(dot(d, d) > 0.0)) return false;
   v = pa.xy + t * cdiv(pa.zw, d);
-  bool okv = true;
-  for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
-    if (!okv) break;
-    vec2 p = v;
-    okv = ${P}_step(v, w, t);
-    if (okv && cx_abs(v - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(v))) break;
-  }
-  okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+  bool okv = ${P}_land(v, w, t);
   return okv && !(k0 && cx_abs(v - u) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(u)));
 }
 ` : ''}vec2 ${P}_r[${NB}];
@@ -2536,14 +2540,7 @@ void ${P}_roots(vec2 w, float t) {
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
   for (int i = 0; i < ${NL}; i++) {
     vec2 v = lo + vec2(0.0, span * lad[i]);
-    bool okv = true;
-    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
-      if (!okv) break;
-      vec2 p = v;
-      okv = ${P}_step(v, w, t);
-      if (okv && cx_abs(v - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(v))) break;
-    }
-    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    bool okv = ${P}_land(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
   }
