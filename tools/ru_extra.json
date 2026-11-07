@@ -688,7 +688,6 @@
  "Where {x} lands in the targets of {p} is shaded here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено.",
  "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено; кривые, которые она переводит в них, нарисованы здесь же.",
  "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
- "Scope": "Охват",
  "landscape": "рельеф",
  "Previous step alone": "Предыдущий шаг отдельно",
  "Next step alone": "Следующий шаг отдельно",
