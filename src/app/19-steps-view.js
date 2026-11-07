@@ -62,9 +62,6 @@
   // the height map of plane k (a map spec of plane k) and its CPU twin
   const svHeightMap = (k) => ({ mode: 0, a: k, b: svHT(k) });
   const svHeightF = (k) => { const t = svHT(k); return k === t ? (z) => z : rangeF(k, t); };
-  // the value the Landscape's height reads at a point of plane k (the height mode's: Re, Im or |.| of the height map's image),
-  // NaN where it is not finite
-  const svHeightValue = (k) => { const F = svHeightF(k); return (z) => { const w = F(z); return !CX.isFin(w) ? NaN : S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w); }; };
   // plane k's Landscape is plain: k is before the colour plane T with a d/dz step between them, so its 2D picture has no
   // colour (shapes only). Every plane past T is coloured from T, through the z points it shares with T when a d/dz step
   // lies between them

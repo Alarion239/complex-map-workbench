@@ -814,25 +814,15 @@
       // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
       if (A.svOn() && A.svMaskOn()) {
         const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
-        // a floor point is hidden where the relief stands in front of it: the height field along the ray from the eye to it,
-        // over the region's image (the surface is cut outside it), is above the ray (the last stretch of the ray, at the
-        // point's own place, is left out)
-        const mk = L.mask, hOfZ = A.svReliefAt(), RAY_STEPS = 64, RAY_END = 0.97;
-        const mpx = mk && mk.cv ? mk.cv.getContext('2d').getImageData(0, 0, mk.cv.width, mk.cv.height).data : null;
-        const onSurface = (z) => {
-          if (!mpx) return true;
-          const i = Math.floor((z.re - mk.box.x0) / (mk.box.x1 - mk.box.x0) * mk.cv.width), j = Math.floor((mk.box.y1 - z.im) / (mk.box.y1 - mk.box.y0) * mk.cv.height);
-          return i >= 0 && j >= 0 && i < mk.cv.width && j < mk.cv.height && mpx[4 * (j * mk.cv.width + i) + 3] > 127;
-        };
+        // a floor point is hidden where the relief (the shown plane's, over the region's image: the app's own height field) stands
+        // in front of it: the ray from the eye to it runs below the field (the last stretch of the ray, at the point's own place,
+        // is left out)
+        const field = A.svReliefField(L), RAY_STEPS = 64, RAY_END = 0.97;
         const hidden = (p) => {
           const e = L.eye || [1, 1, 1];
           for (let i = 1; i < RAY_STEPS * RAY_END; i++) {
-            const u = i / RAY_STEPS, x = e[0] + u * (p[0] - e[0]), y = e[1] + u * (p[1] - e[1]), zr = e[2] + u * (p[2] - e[2]);
-            if (Math.abs(x) > ax || Math.abs(y) > ay) continue;
-            const z = C(bx.x0 + (x / ax / 2 + 0.5) * (bx.x1 - bx.x0), bx.y0 + (y / ay / 2 + 0.5) * (bx.y1 - bx.y0));
-            if (!onSurface(z)) continue;
-            const v = hOfZ(z), h = Number.isFinite(v) && L.heightOf ? L.heightOf(v) : null;
-            if (h != null && h > zr) return true;
+            const u = i / RAY_STEPS, r = [e[0] + u * (p[0] - e[0]), e[1] + u * (p[1] - e[1]), e[2] + u * (p[2] - e[2])];
+            if (Math.abs(r[0]) <= ax && Math.abs(r[1]) <= ay && r[2] < field.hAt(r)) return true;
           }
           return false;
         };
