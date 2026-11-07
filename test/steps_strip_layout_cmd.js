@@ -29,6 +29,7 @@ const open = async (w, h, mobile, lang, chain) => {
   await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps`);
   await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail') && !!document.querySelector('#svStrip .sv-fchip')" });
 };
+const EPS = 0.5;   // (CSS px: boxes within this of touching do not overlap)
 const measure = () => ev(`(() => {
   const q = (s) => document.querySelector(s), box = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
   const vis = (e) => e.getClientRects().length > 0 && e.getBoundingClientRect().width > 0;
@@ -37,15 +38,15 @@ const measure = () => ev(`(() => {
   const els = [...rail.querySelectorAll('.sv-fwrap, .sv-fchip, .sv-node, .sv-thumb, .sv-band:not([hidden])')].filter(vis);
   const top = Math.min(...els.map((e) => { const s = getComputedStyle(e), o = e.matches(':focus-visible') || e.getAttribute('aria-pressed') === 'true' || e.classList.contains('on') ? 2 : 0; return e.getBoundingClientRect().top - o; }));
   const others = [...strip.children].filter((e) => e !== rail && vis(e) && !e.matches('.sv-bandx, .sv-playpop')).map((e) => ({ c: e.className.split(' ')[0], ...box(e) }));
-  const meet = others.filter((o) => o.l < rb.r - 0.5 && o.r > rb.l + 0.5 && o.t < rb.b - 0.5 && o.b > rb.t + 0.5).map((o) => o.c);
+  const meet = others.filter((o) => o.l < rb.r - ${EPS} && o.r > rb.l + ${EPS} && o.t < rb.b - ${EPS} && o.b > rb.t + ${EPS}).map((o) => o.c);
   const nodes = [...document.querySelectorAll('.sv-plane .sv-node')].filter(vis).map(box), first = nodes[0], last = nodes[nodes.length - 1];
   const tc = (first.l + first.r) / 2 / 2 + (last.l + last.r) / 2 / 2, pc = (body.l + body.r) / 2;
   const F = q('.sv-wholemap'), fb = F && vis(F) ? box(F) : null, track = box(q('.sv-track'));
   const shown = nodes[Math.round(__cmwSteps().x)], dotOff = shown ? (shown.l + shown.r) / 2 - (rb.l + rb.r) / 2 : null, atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1, atStart = rail.scrollLeft <= 0;
   const unit = { l: track.l, r: Math.max(track.r, fb ? fb.r : 0) };
-  const left = others.filter((o) => o.r <= rb.l + 0.5).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - 0.5).reduce((a, o) => Math.min(a, o.l), Infinity);
+  const left = others.filter((o) => o.r <= rb.l + ${EPS}).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - ${EPS}).reduce((a, o) => Math.min(a, o.l), Infinity);
   return { ph, clear: top - body.b, meet, off: tc - pc, gapL: rb.l - left, gapR: right - rb.r, scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rb.r - rb.l,
-    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, fShown: !!fb, fIn: fb ? fb.l >= rb.l - 0.5 && fb.r <= rb.r + 0.5 : null, fOut: fb ? fb.l >= rb.r - 0.5 || fb.r <= rb.l + 0.5 : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
+    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
 })()`);
 const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true]];
 for (const lang of ['en', 'ru']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
