@@ -10,6 +10,7 @@
 //   principal branch (the log's strip, √'s right half-plane), every sheet over it, so the plane at rest, one surface
 //   over the whole window, is not the bound. All sheets then have at least 90 % of the pixels the same chain has with
 //   sheets off, and the logarithm's singular point has its patch (carried.patches).
+// - the logarithm mid-glide (u = .25, .5, .75): no hole in the surface, and the surface covers at least the smaller end's pixels less 5 %
 // - at u = 0.998 the surface pixels' colours match the plane at rest within 32/255 (at most 5 % off).
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
@@ -22,6 +23,9 @@ const surface = () => ev(`(() => { const cv = document.getElementById('canvasL')
 // frame now on the canvas whose channels differ from the kept frame's by more than tol/255.
 const keep = (key) => ev(`(() => { const cv = document.getElementById('canvasL'); window.${key} = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; return 1; })()`);
 const colourOff = (key, tol) => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, r = window.${key}; const sat = (a, i) => Math.max(a[i], a[i + 1], a[i + 2]) - Math.min(a[i], a[i + 1], a[i + 2]); let n = 0, off = 0; for (let i = 0; i < d.length; i += 4) { if (sat(d, i) <= 30 || sat(r, i) <= 30) continue; n++; if (Math.max(Math.abs(d[i] - r[i]), Math.abs(d[i + 1] - r[i + 1]), Math.abs(d[i + 2] - r[i + 2])) > ${tol}) off++; } return n ? off / n : 0; })()`);
+// The background pixels (saturation <= 30) a flood fill from the frame's border cannot reach through background: the
+// surface's holes. Returns the size of the largest such group, and the surface pixel count.
+const holes = () => ev(`(() => { const cv = document.getElementById('canvasL'); const W = cv.width, H = cv.height; const d = cv.getContext('2d').getImageData(0, 0, W, H).data; const bg = new Uint8Array(W * H); let n = 0; for (let i = 0; i < W * H; i++) { const k = i * 4; if (Math.max(d[k], d[k + 1], d[k + 2]) - Math.min(d[k], d[k + 1], d[k + 2]) <= 30) bg[i] = 1; else n++; } const seen = new Uint8Array(W * H); const stack = []; const push = (i) => { if (bg[i] && !seen[i]) { seen[i] = 1; stack.push(i); } }; for (let x = 0; x < W; x++) { push(x); push((H - 1) * W + x); } for (let y = 0; y < H; y++) { push(y * W); push(y * W + W - 1); } while (stack.length) { const i = stack.pop(), x = i % W; if (x > 0) push(i - 1); if (x < W - 1) push(i + 1); if (i >= W) push(i - W); if (i < W * (H - 1)) push(i + W); } let worst = 0; for (let i = 0; i < W * H; i++) { if (!bg[i] || seen[i]) continue; let size = 0; seen[i] = 1; stack.push(i); while (stack.length) { const j = stack.pop(); size++; const x = j % W; for (const q of [x > 0 ? j - 1 : -1, x < W - 1 ? j + 1 : -1, j >= W ? j - W : -1, j < W * (H - 1) ? j + W : -1]) if (q >= 0 && bg[q] && !seen[q]) { seen[q] = 1; stack.push(q); } } if (size > worst) worst = size; } return { n, worst }; })()`);
 const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
 const LOG = [{ type: 'log', params: { cut: 180, k: 0 }, on: true }];
 const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
@@ -66,6 +70,27 @@ for (const c of CASES) {
     // the landing's colour is the parked frame's: at most 5 % of the surface pixels off by more than 32/255
     if (k !== 0 && c.rest998) ok(`${name}, ${tag}: the surface colour matches the parked frame (share off by > 32/255 <= .05)`, off <= 0.05, r);
     if (k !== 0 && c.patched) ok(`${name}, ${tag}: the logarithm's singular point has its patch`, r.patches >= 1, r);
+  }
+}
+// mid-glide, the logarithm of an annulus (sheets off, All sheets): no hole in the surface (the largest group of background
+// pixels the border cannot reach is at most 12 px, the antialiasing's), and at least the smaller end's surface pixels less 5 %
+for (const sheets of [false, true]) {
+  const ns = 'landcover' + Date.now();
+  await loadView('steps', ns, { shapes: ANN, steps: LOG, sheets, height: 'im' });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
+  await settled({ max: 60000 });
+  const last = (await ev('__cmwSteps().planes')).length - 1;
+  const ends = [];
+  for (const u of [0.002, 0.998]) { await ev(`__cmwSteps({ x: ${last - 1 + u}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); const e = await holes(); ends.push(e.n); info[`log end ${sheets} ${u}`] = e; }
+  const floor = Math.min(...ends) - 0.05 * Math.max(...ends);
+  for (const u of [0.25, 0.5, 0.75]) {
+    await ev(`__cmwSteps({ x: ${last - 1 + u}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+    const h = await holes();
+    info[`log mid ${sheets} ${u}`] = h;
+    ok(`log of an annulus, sheets ${sheets ? 'All' : 'off'}, u=${u}: no hole in the surface`, h.worst <= 12, h);
+    ok(`log of an annulus, sheets ${sheets ? 'All' : 'off'}, u=${u}: the surface covers at least the ends' pixels less 5 %`, h.n >= floor, { h, ends });
   }
 }
 // mid-glide, Möbius then √ with All sheets: the height axis keeps several labels (they step in the frame's own scale)
