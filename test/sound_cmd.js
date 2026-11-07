@@ -112,8 +112,8 @@ await key('1'); await settle(500);
 await key('2'); await settle(500);
 R.viewCue = await made(true);
 ok('view switch: the view key', count(R.viewCue, 'view') >= 1, R.viewCue);
-// ([v17 D5] the theme button is in Settings on a laptop: its cycle, which the palette's Switch theme uses, still cues)
-for (let i = 0; i < 3; i++) { await ev(`document.getElementById('themeBtn').click(), 1`); await settle(i < 2 ? 200 : 300); }
+// (the header's Theme button opens its menu: a pick of each theme still cues)
+for (const want of ['Light', 'Dark', 'Auto']) { await ev(`document.getElementById('themeBtn').click(), 1`); await settled({ until: "!!document.querySelector('#popHost .menu .mi')", only: true }); await ev(`[...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(want)}).click(), 1`); await settle(want === 'Auto' ? 300 : 200); }
 R.themeCue = await made(true);
 ok('theme: a toggle key', R.themeCue.some((x) => x === 'toggleOn' || x === 'toggleOff'), R.themeCue);
 await clickSel('#exportBtn'); await settle(400);

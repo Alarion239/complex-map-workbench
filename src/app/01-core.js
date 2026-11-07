@@ -21,6 +21,8 @@
     undo: svgI('<path d="M5.5 3.5l-3 3 3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H6"/>'),
     redo: svgI('<path d="M10.5 3.5l3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7H10"/>'),
     theme: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M8 2.25a5.75 5.75 0 0 1 0 11.5z" fill="currentColor" stroke="none"/>'),
+    themeLight: svgI('<circle cx="8" cy="8" r="2.75"/><path d="M8 1.5v1.75M8 12.75v1.75M1.5 8h1.75M12.75 8h1.75M3.4 3.4l1.25 1.25M11.35 11.35l1.25 1.25M3.4 12.6l1.25-1.25M11.35 4.65l1.25-1.25"/>'),
+    themeDark: svgI('<path d="M13 9.4A5.5 5.5 0 0 1 6.6 3 5.5 5.5 0 1 0 13 9.4z"/>'),
     bypass: svgI('<path d="M1.5 11h3.5M11 11h3.5M5 11C5 5 11 5 11 11"/><rect x="6.5" y="9.5" width="3" height="3"/>'),
     play: svgI('<path d="M5 3.5v9l7.5-4.5z"/>', true),
     pause: svgI('<rect x="4.5" y="3.5" width="2.25" height="9"/><rect x="9.25" y="3.5" width="2.25" height="9"/>', true),
@@ -404,7 +406,7 @@
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'share-icon');
+    top.classList.remove('cmd-short', 'cmd-cut', 'hw-off');
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
     const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
@@ -412,10 +414,10 @@
       if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
       if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
     }
-    // ([v17 D5] Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
+    // (the words of Export, Share, Theme and Sound give way together, while Examples' own word or the field is squeezed, or the bar overflows)
     const ex = $('examplesBtn');
     const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    if (tight()) top.classList.add('share-icon');
+    if (tight()) top.classList.add('hw-off');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
   function hdrFitInit() {

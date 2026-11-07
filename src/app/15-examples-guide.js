@@ -221,6 +221,7 @@
     if (b) {
       b.setAttribute('data-tip', $t('Theme: {name}', { name })); b.setAttribute('aria-label', $t('Theme: {name}', { name })); b.removeAttribute('title');
       const tl = b.querySelector('.tlabel'); if (tl) tl.textContent = name; // the markup already reads "Theme: "
+      const ic = b.querySelector('.ic-slot'); if (ic) ic.innerHTML = ICONS[{ auto: 'theme', light: 'themeLight', dark: 'themeDark' }[t]] || '';   // (the icon shows the state: half disc Auto, sun Light, moon Dark)
     }
   }
   // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.js): the
