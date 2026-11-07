@@ -24,6 +24,8 @@ const LOWER = [3, -3], UPPER = [3, 3], INSIDE = [0.3, 0.2];
 const EXT_R = 0.6;
 // the fewest pole-side samples (far from the origin of the plane) a scene must show for its north-pole check to count
 const MIN_FAR = 50;
+// the |w| beyond which a point is pole-side, in the Cayley scene and at plane 0
+const CAY_POLE_R = 50, X0_POLE_R = 20;
 const ZI = { type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true };
 // the page's own idle: the glide finished, the globe's links built and its jobs done
 const wait = () => settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSteps().moving && GLR.pendingLinks === 0 && !__cmwSphere().running && !__cmwSphere().jobs.length' });
@@ -56,10 +58,11 @@ await ev('__cmwCam("L", { pitch: -0.35, yaw: -0.9, dist: 8 }); 1'); await wait()
 R.f_side = await check('L', ANNULUS);
 ok('(f) annulus from the side: fill / outside clean', R.f_side.inN >= MIN_SAMPLES && R.f_side.inBad === 0 && R.f_side.outBad === 0, R.f_side);
 await shot('p3s_f_side');
-// the signal tells the paths apart: with the shape forced forward the globe's regions are the meshes, and the shape reads forward
-await ev('__cmwForceForward(["s1"]); 1'); await wait();
+// the signal tells the paths apart: with every shape forced forward the globe's regions are the meshes, and the shapes read forward
+// (one forced and one not is the mixed case below)
+await ev('__cmwForceForward(["s1", "s2"]); 1'); await wait();
 R.forced = await paths();
-ok('(f) control: forced forward, the globe carries by the meshes and the shape reads forward', R.forced.carry.path === 'mesh' && R.forced.paths.some((p) => p.path === 'forward'), R.forced);
+ok('(f) control: forced forward, the globe carries by the meshes and the shapes read forward', R.forced.carry.path === 'mesh' && R.forced.paths.some((p) => p.role === 'L' && p.path === 'forward'), R.forced);
 await ev('__cmwForceForward([]); 1'); await wait();
 
 // ---- the Cayley images: (z - i)/(z + i) of H is |w| < 1 (w = 1 the image of infinity: no notch); of the lower
@@ -75,7 +78,7 @@ await shot('p3s_f_cayley_w1');
 await globe('p3accsd', [{ id: 's1', kind: 'halfplane', a: [1, 0], b: [0, 0] }, REF(UPPER)], [CAY], { cx: 0, cy: -1, s: 60 }, { pitch: 1.45, yaw: -0.6, dist: 3 });
 R.cay_N = await check('L', DISC_OUT);
 // (the pole pixel itself has no w: the pick returns null at infinity; its neighbours have |w| in the thousands)
-R.cay_N_far = await countPicks('L', `(w) => Math.hypot(w[0], w[1]) > 50`);
+R.cay_N_far = await countPicks('L', `(w) => Math.hypot(w[0], w[1]) > ${CAY_POLE_R}`);
 ok('(f) Cayley of the lower half-plane covers the north pole', R.cay_N.inN >= MIN_SAMPLES && R.cay_N.inBad === 0 && R.cay_N.outBad === 0 && R.cay_N_far > MIN_FAR, [R.cay_N, R.cay_N_far]);
 await shot('p3s_f_cayley_N');
 
@@ -116,7 +119,7 @@ await shot('p3s_x0_ext');
 // and the upper half-plane, seen around the north pole (its rim, the real axis, runs through infinity)
 await globe('p3accxh', [H, REF(LOWER)], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: 1.3, yaw: -1.0, dist: 3 }, 0);
 R.x0H = await check('L', `(w) => (w[1] > 0 ? 1 : -1)`);
-R.x0H_far = await countPicks('L', `(w) => w[1] > 0 && Math.hypot(w[0], w[1]) > 20`);
+R.x0H_far = await countPicks('L', `(w) => w[1] > 0 && Math.hypot(w[0], w[1]) > ${X0_POLE_R}`);
 ok('X Sphere at stage 0: Im z > 0 exact around the north pole', R.x0H.inN >= MIN_SAMPLES && R.x0H.inBad === 0 && R.x0H.outN >= MIN_SAMPLES && R.x0H.outBad === 0 && R.x0H_far > MIN_FAR, [R.x0H, R.x0H_far]);
 await shot('p3s_x0_H');
 

@@ -1056,7 +1056,7 @@
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
@@ -1134,7 +1134,7 @@
       }
     }
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || (o.only && !o.only.has(s))) continue;
       // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map: in the
       // steps view's glide (o.lineMap) the glide's map from its plane (svShapeMap), in another homotopy none
       const sm = o.lineMap ? svShapeMap(s, map) : hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
