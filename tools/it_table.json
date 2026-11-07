@@ -3377,6 +3377,7 @@
  "Shown plane": "Piano mostrato",
  "The planes along %{chain}.": "I piani lungo %{chain}.",
  "The planes %{a} and %{b}, joined by %{map}.": "I piani %{a} e %{b}, collegati da %{map}.",
+ "The planes after this step changed with the order.": "I piani dopo questo passo sono cambiati con l'ordine.",
  "%{a} and %{b}, joined by %{map}": "%{a} e %{b}, collegati da %{map}",
  "Each plane is shown in its own window.": "Ogni piano è mostrato nella sua finestra.",
  "Each plane is shown in its own window where it fits.": "Ogni piano è mostrato nella sua finestra, dove ci sta.",
