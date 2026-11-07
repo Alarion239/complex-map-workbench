@@ -26,6 +26,15 @@ const maskAt = (x, y) => ev(`typeof __cmwLandMask === 'function' ? __cmwLandMask
 // the pane position (device px) of the surface point over (x, y), and the colour of tag's frame there
 const px = (tag, x, y) => ev(`(() => { const p = __cmwLandSurfacePx(${x}, ${y}), cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width; if (!p) return null; const i = Math.round(p[0] * k), j = Math.round(p[1] * k), A = window.__ss[${JSON.stringify(tag)}], n = 4 * (j * cv.width + i); return { at: [p[0], p[1]], c: [A[n], A[n + 1], A[n + 2]] }; })()`);
 const pickAt = (p) => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return __cmwSound({ pick: [r.left + ${p[0]}, r.top + ${p[1]}] }); })()`);
+// the pointer over the pane position p (CSS px): the readout's row labels
+const hoverRows = async (p) => {
+  const c = JSON.parse(await ev(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + ${p[0]}, r.top + ${p[1]}]; })())`));
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0] + 1, y: c[1] });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0], y: c[1] });
+  await settled({ max: 20000 });
+  await ev(rAF2);
+  return JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#leftReadout .rk')].map((e) => e.textContent.trim()))`));
+};
 const gap = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));
 const TOL = 0.05;   // a mask value, or a plane distance, counts as equal within it
 const near = (v, want) => typeof v === 'number' && Math.abs(v - want) < TOL;
@@ -59,6 +68,10 @@ for (const [i, pts] of planes) {
     info.rest[i].px.push([x, y, a, b]);
     if (!a || !b) { ok(`plane ${i}: the surface pixel at ${x} + ${y}i is on the pane`, false, [a, b]); continue; }
     if (i === 0) {
+      // (the readout under the pointer at the surface point: F and |F| where the surface is, z alone where it is cut)
+      const labels = await hoverRows(b.at);
+      info.rest[i].labels = (info.rest[i].labels || []).concat([[x, y, labels]]);
+      ok(`plane ${i}, Inside regions: the readout at ${x} + ${y}i ${want ? 'reads F and |F|' : 'reads z alone (no F, no |F|)'}`, labels.includes('F') === !!want && labels.includes('|F|') === !!want, labels);
       // (the probe under the pointer at the surface point: that point inside the set, the floor behind it outside)
       const z = await pickAt(b.at);
       info.rest[i].pick = (info.rest[i].pick || []).concat([[x, y, z]]);
