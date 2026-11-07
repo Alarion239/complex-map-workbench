@@ -121,5 +121,43 @@ n++;
   await grab('scene');
 }
 
+// the open route's own keys and toasts (openFigure): the opened figure records how it was opened (cmw-opened), the figure it
+// replaces is kept for the undo (cmw-before-open), and a link or scene that holds no figure says so in a toast
+const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++) { const k = st.key(i); if (k.startsWith(t + ':') || k === t) return st.getItem(k); } return null; }; return { opened: f(sessionStorage, 'cmw-opened'), before: f(localStorage, 'cmw-before-open') }; })()`;
+// openFigure writes its keys and reloads the page: they are read at the pagehide of the old page, into a probe key that the
+// page does not use (the new page clears the keys at its load)
+const PROBE = 'cmw-test-probe-open';
+const probeOpen = async (st, how) => {
+  await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}); 1`);
+  await settled({ max: 30000, until: READY });
+  const raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`);
+  return raw ? JSON.parse(raw) : null;
+};
+const TOASTED = (t) => `document.body.innerText.includes(${JSON.stringify(t)})`;
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  const got = await probeOpen(LINK_STATE, 'link');
+  info['open a link: the route and the kept figure'] = got;
+  ok('a link open records cmw-opened = link', got.opened === 'link', got);
+  ok('a link open keeps the figure it replaces (cmw-before-open)', typeof got.before === 'string' && got.before.length > 0, got.before && got.before.length);
+  const sc = await probeOpen(LINK_STATE, 'scene');
+  ok('a scene open records cmw-opened = scene', sc.opened === 'scene', sc);
+  await grab('open route');
+}
+n++;
+{
+  const ns = 'lmig' + n + Date.now();
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev(`__cmwPOpen(null, 'link'); 1`);
+  await settled({ max: 5000, panes: false, until: TOASTED('This link does not hold a figure.') });
+  ok('an empty link says it holds no figure (toast)', await ev(TOASTED('This link does not hold a figure.')), 'no toast');
+  await ev(`__cmwPOpen(null, 'scene'); 1`);
+  await settled({ max: 5000, panes: false, until: TOASTED('This scene could not be read.') });
+  ok('an unreadable scene says so (toast)', await ev(TOASTED('This scene could not be read.')), 'no toast');
+  await grab('open errors');
+}
+
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);
 return { pass: fails.length === 0, fails, info, errs };
