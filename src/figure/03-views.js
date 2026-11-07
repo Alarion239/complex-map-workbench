@@ -809,6 +809,21 @@
       edge(tks(bx.x0, bx.x1), (t) => [Xw(t), sy * ay, z0], [0, sy], `\\operatorname{Re} ${v}`);
       edge(tks(bx.y0, bx.y1), (t) => [sx * ax, Yw(t), z0], [sx, 0], `\\operatorname{Im} ${v}`);
       if (tk) items.push(`<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>`);
+      // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
+      if (A.svOn() && A.svMaskOn()) {
+        const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
+        let fp = '';
+        for (const s of A.shapes()) {
+          if (kindType(s) !== 'area') continue;
+          for (const run of shapeCurves(s, F, bx, wpt, srcWin).pts) {
+            let cur = [];
+            const flush = () => { if (cur.length > 1) fp += 'M' + cur.map((q) => `${f2(q[0])} ${f2(q[1])}`).join('L'); cur = []; };
+            for (const p of run) { const q = inBox(p) ? proj([Xw(p[0]), Yw(p[1]), z0]) : null; if (q) cur.push(q); else flush(); }
+            flush();
+          }
+        }
+        if (fp) items.push(`<path d="${fp}" stroke="#000000" stroke-opacity="0.35" stroke-width="0.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+      }
     }
     return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };
   }
