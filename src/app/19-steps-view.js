@@ -2758,13 +2758,46 @@
       // once: svWarmCarry)
       if (GLR.prestartCarry) GLR.prestartCarry();
       svWarmCarry(0);
+      svWarmInverse(0);
       svPolesWatch();
     } catch (e) { /* (the first glide starts them) */ }
+  }
+  // The inverse programs a glide into each plane draws its carried colour with (step b's homotopy, drawInverse's
+  // carried variant), as the states GLR.inverseWarmup takes: [] when no step has an inverse pass. Built once for the
+  // chain shown (svPrestartSoon drops it)
+  let svInvStates = null;
+  function svInvList() {
+    if (svInvStates) return svInvStates;
+    const sts = [];
+    for (let b = 1; b <= nSteps(); b++) {
+      if (derivIn(0, b) || isDeriv(b)) continue;
+      const h = svInvPaths(b, 0.5, 'flat', { r: null });
+      if (!h) continue;
+      h.paths.forEach((p, i) => sts.push({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true, staged: shapeStage(h.list[i]) > 0 }));
+    }
+    return (svInvStates = sts);
+  }
+  // Starts those programs and makes their first draw, in an idle moment SV_WARM_IDLE_MS after the last input (that draw
+  // builds the pipeline: a stall that must not land in an edit or a glide), tried again while a program links, at most
+  // 40 times
+  function svWarmInverse(n, t0 = performance.now()) {
+    const sig = chainSig[nSteps()];
+    if (n > 40 || !GLR.ok || !GLR.inverseWarmup || nSteps() < 1) return;
+    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmInverse(n, t0); }, Math.max(wait, 250)); return; }
+    const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 250));
+    idle(() => {
+      if (chainSig[nSteps()] !== sig) return;
+      let r = { done: 0, total: 1 };
+      try { r = GLR.inverseWarmup(svInvList(), { start: true, warm: true }); } catch (e) { svInvStates = []; }
+      if (r.done < r.total) setTimeout(() => svWarmInverse(n + 1, t0), 500);
+    });
   }
   // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
   // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
   let svPrestartTimer = 0;
   function svPrestartSoon(ms) {
+    svInvStates = null;
     clearTimeout(svPrestartTimer);
     svPrestartTimer = setTimeout(() => {
       svPrestartTimer = 0;
@@ -2773,8 +2806,8 @@
     }, ms);
   }
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
-  // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the carried
-  // colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
+  // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the
+  // glide's inverse programs linked and drawn once (inverse), the carried colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
   // while the GPU layer or the chain is not up; ready is true only when done = total > 0
   // (test hook: the idle jobs count as unfinished while set)
   let svJobsHold = false;
@@ -2783,6 +2816,7 @@
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus();
+    try { parts.inverse = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : { done: 0, total: 0 }; } catch (e) { svInvStates = []; parts.inverse = { done: 0, total: 0 }; }
     parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }

@@ -227,6 +227,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the inverse program for the current chain, B and view kind with the current formula bundle. start: begin its
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile).
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
+  const INV_NOT_STARTED = 'not started';
   function invProgram(B, globe, start, extra, invOv) {
     // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
     // standing for the step: its own program, the chain's forward data beside it)
@@ -240,7 +241,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
-      if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : 'not started' };
+      if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : INV_NOT_STARTED };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv) return { state: 'pending', reason: 'forward programs first' };
       e = { id, name: globe ? 'invS' : 'inv', key: id, chk: cur.key, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
       progs.set(id, e);
@@ -554,6 +555,25 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
+  // How far the inverse programs of the states sts (drawInverse's arguments, as inverseState takes them) have come:
+  // {done, total}. A state is done when its program is ready and has made its first draw, or when nothing will come of
+  // it (no inverse for it, a failed compile, a side draw). start: begin the compile of a program not started (it waits
+  // while the chain's forward programs link, and is asked again by the next call); warm: make the first draw of a ready
+  // program (a one-pixel draw into the current target, as warmInverse does) so the frame that uses it does not stall
+  function inverseWarmup(sts, opt = {}) {
+    let done = 0;
+    if (!ok || lost) return { done, total: sts.length };
+    for (const st of sts) {
+      const globe = st.viewKind === 'globe', look = st.look || {};
+      const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry && !globe ? (st.staged ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+      const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
+      if (pr.state === 'ready') {
+        if (!pr.P.warm && opt.warm) { warmDraw(pr.P, false); pr.P.warm = true; }
+        if (pr.P.warm) done++;
+      } else if (pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED)) done++;
+    }
+    return { done, total: sts.length };
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe';
@@ -747,6 +767,20 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
+  // one pixel of the inverse program e into the current target (full resolution, or half: the half target), alpha 0
+  function warmDraw(e, half) {
+    if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
+    gl.useProgram(e.p);
+    resetState();
+    gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, 1, 1);
+    // a globe program draws the globe's vertex layout (the pipeline includes it): one triangle, uMVP still 0, so
+    // nothing is rasterised
+    if (e.name === 'invS') { const g = sphere(); gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
+    else { gl.bindVertexArray(empty()); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+    gl.bindVertexArray(null);
+    gl.disable(gl.SCISSOR_TEST);
+    if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
+  }
   // draws the ready inverse programs that were never drawn into one pixel of the current target (their first draw
   // builds the Metal pipeline: a 75-200 ms stall of the GPU process), at a quiet moment chosen by the app, so the
   // frame that switches to them does not stall -> the number of programs warmed for full resolution (a frame drawn with
@@ -759,23 +793,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!ok || lost) return 0;
     flushHalf();
     let nFull = 0;
-    const one = (e, half) => {
-      if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
-      gl.useProgram(e.p);
-      resetState();
-      gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, 1, 1);
-      // a globe program draws the globe's vertex layout (the pipeline includes it): one triangle, uMVP still 0, so
-      // nothing is rasterised
-      if (e.name === 'invS') { const g = sphere(); gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
-      else { gl.bindVertexArray(empty()); gl.drawArrays(gl.TRIANGLES, 0, 3); }
-      gl.bindVertexArray(null);
-      gl.disable(gl.SCISSOR_TEST);
-      if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
-    };
     for (const e of progs.values()) {
       if (!invWarmable(e) || !e.p) continue;
-      if (!e.warm) { one(e, false); e.warm = true; nFull++; }
-      if (half && e.warmHalfWanted && !e.warmHalf && warmUpsample()) { one(e, true); e.warmHalf = true; e.warmHalfWanted = false; }
+      if (!e.warm) { warmDraw(e, false); e.warm = true; nFull++; }
+      if (half && e.warmHalfWanted && !e.warmHalf && warmUpsample()) { warmDraw(e, true); e.warmHalf = true; e.warmHalfWanted = false; }
     }
     return nFull;
   }
@@ -953,7 +974,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, inverseWarmup, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
