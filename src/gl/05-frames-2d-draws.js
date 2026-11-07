@@ -671,7 +671,9 @@
     if (!ok) return;
     const cp = st.cauchy && st.cauchy.plan && st.cauchy.edges && st.cauchy.edges.length >= 4 ? st.cauchy : null;
     const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
-    const P = program(cp ? 'cauchyF' : cz ? 'cauchy' : 'color', st.map);
+    const pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
+    // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
+    const P = program(pname, st.map, st.exact);
     if (!P) return;
     use(P, st.map);
     const dpr = st.dpr || 1;

@@ -50,5 +50,8 @@ check('Phase on the sphere', old({ rightMode: 'sphere', sphereMode: 'color' }, f
 check('Landscape: the relief', old({ rightMode: '3d' }, true), { at: 0, T: -1, scope: 'all', surf: 'land' });
 check('a U-b view (no main) with the landscape', old({ view: { L: { surf: 'land', phase: true } } }, false).surf, 'land');
 check('no view at all: X → Y', old({}, false).surf, 'plane');
+// a Phase view with no steps is coloured everywhere (the chain is empty, so there are no regions to colour it in)
+check('Phase with no steps: coloured everywhere, on the sphere', Views.svOf(Views.migrate({ view: { main: 'phase', P: { surf: 'sphere', eq: false }, D: { phase: true } } }).view, false, true), { at: 0, T: -1, scope: 'all', surf: 'sphere' });
+check('X → Y with no steps: Inside regions', Views.svOf(Views.migrate({ rightMode: 'image' }).view, false, true).scope, 'in');
 console.log(fails ? `${fails} of ${n} failed` : `all ${n} passed`);
 process.exit(fails ? 1 : 0);
