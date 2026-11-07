@@ -99,6 +99,7 @@ const VIEWS = {
   'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'steps_width_cmd.js': steps(),
+  'steps_strip_layout_cmd.js': steps(),
   'sv_curve_menu_cmd.js': steps(),
   'sv_globe_mask_cmd.js': steps(),
   'sv_globe_draw_cmd.js': steps(),
