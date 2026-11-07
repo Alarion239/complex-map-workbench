@@ -15,7 +15,7 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.on, x: s.x, T: s.T, scope: s.scope, surf: s.surf, planes: s.planes, sel: s.sel, homRange: s.homRange, range: s.range, solo: s.solo, main: s.main, view: c.view, morphOpen: c.morph.open }; })()`;
 const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
-const openAt = async (url) => { await go(url); await settled({ max: 30000, until: READY }); await sleep(300); };
+const openAt = async (url) => { await go(url); await settled({ max: 30000, until: READY }); };
 const grab = async (name) => { const e = exc(await logs()); if (e.length) errs.push({ name, e: e.slice(0, 3) }); };
 // a link's payload, as the app makes it: #cmw=0.<base64url JSON> or #cmw=1.<base64url of deflate-raw JSON>
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -62,8 +62,11 @@ for (const [name, st, want] of CASES) {
   // the state the steps view writes back keeps the classic-era fields it has no place for: the right pane's camera (rightView),
   // the expanded pane (solo), the deformation range (homRange) and the step selected (sel)
   if (name.startsWith('right pane')) {
-    await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
-    const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify('complex-map-workbench-v1:' + ns)})); return o ? o.rightView : null; })()`);
+    // (the save is written on pagehide: poll for the saved right-pane camera, not a fixed wait)
+    const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+    await ev('window.dispatchEvent(new Event("pagehide")); 1');
+    await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && o.rightView); })()` });
+    const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? o.rightView : null; })()`);
     info['right pane camera, after a save'] = saved;
     ok('rightView survives the steps view and a save', eq(saved, { cx: 0.5, cy: -0.25, s: 120 }), saved);
   }
@@ -94,7 +97,7 @@ n++;
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
   await ev(`__cmwPOpen(${JSON.stringify(LINK_STATE)}, 'scene'); 1`);
-  await settled({ max: 30000, until: READY }); await sleep(300);
+  await settled({ max: 30000, until: READY });
   const got = await ev(READ);
   info['open a classic state in the page (scene)'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`scene: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
