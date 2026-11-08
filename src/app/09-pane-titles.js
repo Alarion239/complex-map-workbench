@@ -516,6 +516,7 @@
     const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
     // (the steps view's Opacity slider is the one for S.alpha there: the regions' own row is left out)
     if (regions) /** @type {HTMLElement} */ ($('alphaRange').closest('.fader-row')).hidden = SV.on;
+    if (regions) regionsNote();
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
     const regionsHead = regions && !regionsOnly && rest.length
       ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];

@@ -183,7 +183,7 @@
       axis: hx('--axis', '#2E3D47'), label: hx('--axis-label', hx('--label', '#4A606C')), rulerTick: hx('--ruler-tick', '#3E4C56'),
       cut: hx('--cut', '#CC3311'), pole: hx('--pole', '#A0153E'), zero: hx('--zero', '#121A20'), probe: hx('--probe', '#121A20'), halo: hx('--halo', plane), fov: hx('--fov', '#2E3D47'),
       dcLine: hx('--dc-line', '#FFFFFF'), dcCasing: hx('--dc-casing', '#0B1114'),
-      landTop: hx('--land-top', '#F5F8F9'), landBottom: hx('--land-bottom', '#DCE4E7'), landFloor: hx('--land-floor', '#FAFCFC'), landBox: hx('--land-box', '#B3BEC4'),
+      landTop: hx('--land-top', '#F5F8F9'), landBottom: hx('--land-bottom', '#DCE4E7'), landFloor: hx('--land-floor', '#FAFCFC'), landBox: hx('--land-box', '#B3BEC4'), landFootprint: hx('--land-footprint', '#6B7E87'),
       landMod: hx('--land-mod-line', '#18232A'), landArg: hx('--land-arg-line', '#FFFFFF'), plaster: hx('--plaster', '#ECEEEC'), landShadow: hx('--land-shadow', '#2E3D47'),
       hemiSky: hx('--hemi-sky', '#E6EEF4'), hemiGround: hx('--hemi-ground', '#8C9296'),
       stretchShrink: hx('--stretch-shrink', '#2E69B2'), stretchGrow: hx('--stretch-grow', '#D79628'), stretchMid: hx('--stretch-mid', '#E9F0F2'),

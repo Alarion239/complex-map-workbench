@@ -350,13 +350,23 @@
   // (#846) the last Landscape frame's Inside-regions mask at the point (x, y) of its plane: 0 to 1 (1: in the carried
   // region set), null outside its box or with no mask
   window.__cmwLandMask = (x, y) => landMaskAlpha(render3D.mask, x, y);
+  // a Landscape frame's pane position (CSS px) of the place (x, y) of its box at height h: pk {box, info, w, h}
+  const landWorldPx = (pk, x, y, h) => {
+    const b = pk.box, [ax, ay] = pk.info.aspect;
+    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
+  };
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
   window.__cmwLandSurfacePx = (x, y) => {
-    const pk = render3D.pick, b = pk && pk.box;
+    const pk = render3D.pick;
     if (!pk || !pk.info) return null;
-    const w = pk.F(C(x, y)), [ax, ay] = pk.info.aspect;
-    const h = pk.info.heightOf(landValue(w));
-    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
+    const w = pk.F(C(x, y));
+    return landWorldPx(pk, x, y, pk.info.heightOf(landValue(w)));
+  };
+  // the last Landscape frame's pane position (CSS px) of the floor point under the place (x, y) of its box (the plane the
+  // frame draws, carried or at rest), null when no frame is drawn
+  window.__cmwLandFloorPx = (x, y) => {
+    const f = render3D.floor;
+    return f ? landWorldPx(f, x, y, f.info.floorZ) : null;
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)

@@ -57,6 +57,7 @@ const VIEWS = {
   'sv_land_sin_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
+  'steps_land_footprint_cmd.js': steps(),
   'steps_inregions_pending_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
@@ -94,6 +95,7 @@ const VIEWS = {
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
+  'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
@@ -189,6 +191,7 @@ const VIEWS = {
 
   // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
+  'steps_foot_note_order_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': steps({ pin: true }),
   'example_try_repeat_cmd.js': steps({ pin: true }),
