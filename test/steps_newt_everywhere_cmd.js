@@ -52,7 +52,7 @@ const at = async (x, max = FRAME_MS) => {
 // page: at or below it a thread is the plane at rest, with no glide frame, so END_MIN is the product's own first moving u): then the end is
 // END_MIN and the check reports the displacement it leaves. END_LOOSE is the control: a first moving u that far from 1 leaves more than DISP_PX. Answers
 // { end, disp: the largest displacement in CSS px at END_MIN's u }
-const END_MAX = 1e-4, END_MIN_RESTS = 2, END_LOOSE = 2e-6, DISP_PX = 0.1;
+const END_MAX = 1e-4, END_MIN_RESTS = 2, END_LOOSE = 2e-6, DISP_PX = 0.1, FORMER_REST_U = 5e-7;   // (FORMER_REST_U: a rest band the page does not have; its first moving u, END_MIN_RESTS x it, is the control that END_MIN must come from the page's band)
 let END_MIN = 0;   // (END_MIN_RESTS x the page's SV_REST_U, set by endFor)
 const endFor = async (u0) => {
   const rest = await ev('({ u: __cmwSteps().restU, min: __cmwSteps().restUMin })');
@@ -104,6 +104,8 @@ for (const c of CASES) {
   ok(`${c.ex}: the front member at u = ${poly.end} moves a point less than ${DISP_PX} CSS px (END_MIN = ${END_MIN} leaves ${poly.disp})`, poly.end > END_MIN || poly.disp <= DISP_PX, poly);
   ok(`${c.ex}: the page's SV_REST_U (${poly.restU}) stays above its float32 floor (${poly.restUMin}), where 1 - t is exact`, poly.restU > poly.restUMin, poly);
   ok(`${c.ex}: the control: a first moving u of ${END_LOOSE} leaves ${poly.loose} CSS px, over ${DISP_PX}`, poly.loose > DISP_PX, poly);
+  const former = +(poly.perU * END_MIN_RESTS * FORMER_REST_U).toFixed(3);
+  ok(`${c.ex}: the control: the former rest band ${FORMER_REST_U} (first moving u ${END_MIN_RESTS * FORMER_REST_U}) leaves ${former} CSS px, over ${DISP_PX}, and the page's band ${poly.restU} is below it`, former > DISP_PX && poly.restU < FORMER_REST_U, { former, restU: poly.restU });
   for (const [u, ref] of [[poly.end, 'P0'], [1 - poly.end, 'P1']]) {
     const g = await at(u);
     const still = await grab('G' + u);
