@@ -40,7 +40,7 @@ const touch = async (type, x, y) => send('Input.dispatchTouchEvent', { type, tou
 for (const [lang, w, vw] of [['en', 360, 'classic'], ['ru', 360, 'classic'], ['it', 360, 'classic'], ['it', 360, 'steps'], ['en', 390, 'classic'], ['ru', 390, 'classic'], ['it', 390, 'classic'], ['en', 740, 'classic'], ['it', 740, 'classic']]) {
   const tag = `${lang} ${w} ${vw}`;
   await view(w, w === 740 ? 360 : 780, false, true);   // (740 × 360 is the landscape side panel)
-  await openSheet(`http://localhost:${PORT}/test.html?ns=peh${lang}${w}${vw[0]}${Date.now() % 100000}${lang === 'en' ? '' : '&lang=' + lang}${vw === 'steps' ? '&view=steps' : ''}`, 'edit');
+  await openSheet(`http://localhost:${PORT}/test.html?ns=peh${lang}${w}${vw[0]}${Date.now() % 100000}${lang === 'en' ? '' : '&lang=' + lang}&view=${vw}`, 'edit');
   for (const at of [0, 169, 'end']) {
     const g = await geo(at);
     const k = `${tag} scrolled ${at}`;
@@ -75,7 +75,7 @@ const planeH = `Math.round(document.getElementById('paneL').getBoundingClientRec
 for (const [w, h] of [[390, 844], [360, 780], [360, 640], [360, 568]]) {
   const tag = `${w} x ${h}`;
   await view(w, h, false, true);
-  await openSheet(`http://localhost:${PORT}/test.html?ns=pehp${w}${h}${Date.now() % 100000}`, 'tools');
+  await openSheet(`http://localhost:${PORT}/test.html?ns=pehp${w}${h}${Date.now() % 100000}&view=classic`, 'tools');
   // the planes' height, a frame at a time, until no animation is running for three frames
   await ev(`(window.__s = [], window.__sample = () => new Promise((res) => { let quiet = 0; const t0 = performance.now(); const tick = () => { window.__s.push(${planeH}); quiet = document.getAnimations().some((a) => a.playState === 'running') ? 0 : quiet + 1; if (quiet >= 3 || performance.now() - t0 > 4000) res(1); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); }), 1)`);
   const tools = await ev(planeH);

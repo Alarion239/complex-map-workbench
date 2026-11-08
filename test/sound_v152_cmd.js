@@ -3,7 +3,7 @@
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
 // a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1); off
 // silences the notes; a held finger and a phone's long press near a zero. The parts that run on the classic Deformation (the loop
-// singing while t runs, palette B's scrub, Esc while it plays) are in sound_v152_deform_classic_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
+// singing while t runs, Esc while it plays) are in sound_v152_deform_classic_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
