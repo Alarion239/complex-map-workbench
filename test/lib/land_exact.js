@@ -46,6 +46,7 @@
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
   const TIE_D = 2 ** -14;   // the depth keys' tie band, Inverse.front's: two members whose keys differ by less are ordered by their z
+  const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
@@ -72,8 +73,8 @@
     const order = (p, q) => (tie(p.D, q.D) ? (p.z[1] !== q.z[1] ? q.z[1] - p.z[1] : q.z[0] - p.z[0]) : p.D - q.D);
     return e.map((ms) => {
       const own = ms.filter((m) => m.sheet === 0), use = (own.length ? own : ms).slice().sort(order), o = [];
-      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h });
-      for (const m of ms) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h });
+      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h, sheet: m.sheet });
+      for (const m of ms) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h, sheet: m.sheet });
       return o;
     });
   };
@@ -131,16 +132,18 @@
     ok(`the coverage check fails a frame with a hole of ${HOLE_N} places`, coverDiff(hole, covered).off > CELL_TOL, coverDiff(hole, covered));
     ok('the coverage check fails a wall filled across the cut', coverDiff(wall, covered).off > CELL_TOL, coverDiff(wall, covered));
   }
-  // sheets off at one place: the frame has one layer, at the front member's height; on the real axis (the cut) the front member of
-  // either side is accepted
-  const frontSame = (have, wantAll, onCut) => have.length === 1 && (onCut ? wantAll : wantAll.slice(0, 1)).some((x) => Math.abs(have[0] - x.h) <= HEIGHT_TOL);
+  // A member is its preimage z (the drawn height and colour are the enumerator's only on the frame's own sheet, sheet 0; on a side
+  // sheet they follow that sheet's branch). The frame's z is float: Z_TOL of 1 + |z|.
+  const sameZ = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= Z_TOL * (1 + Math.hypot(b[0], b[1]));
+  // sheets off at one place: the frame has one layer, the front member's; on the real axis (the cut) the front member of either side is accepted
+  const frontSame = (have, wantAll, onCut) => have.length === 1 && (onCut ? wantAll : wantAll.slice(0, 1)).some((x) => sameZ(have[0].z, x.z));
   {
-    const two = [{ h: 0.3 }, { h: -0.3 }];
-    ok('the front check accepts the front member', frontSame([0.3], two, false), null);
-    ok('the front check fails the other member off the real axis', !frontSame([-0.3], two, false), null);
-    ok('the front check accepts the other side of the cut on the real axis', frontSame([-0.3], two, true), null);
-    ok('the front check fails a height of no member, on the real axis too', !frontSame([0.9], two, true), null);
-    ok('the front check fails two layers', !frontSame([0.3, 0.3], two, false), null);
+    const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
+    ok('the front check accepts the front member', frontSame([L([1, 0])], two, false), null);
+    ok('the front check fails the other member off the real axis', !frontSame([L([-1, 0])], two, false), null);
+    ok('the front check accepts the other side of the cut on the real axis', frontSame([L([-1, 0])], two, true), null);
+    ok('the front check fails a preimage of no member, on the real axis too', !frontSame([L([3, 3])], two, true), null);
+    ok('the front check fails two layers', !frontSame([L([1, 0]), L([1, 0])], two, false), null);
   }
   // the colour of a member: the angle between two values of F, or null where either is near 0
   const phaseGap = (a, b) => {
@@ -193,29 +196,31 @@
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
-      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0; const at = [], atPh = [];
+      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = got[i] || [];
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const onCut = Math.abs(p[1]) < CUT_OFF * (box.y1 - box.y0) / 2;   // (a place on the real axis: either side of the cut is the front member)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
-        const hs = (a) => a.map((x) => x.h).sort((x, y) => x - y), wh = hs(want), hh = hs(haveAll);
-        const same = sheets ? wh.length === hh.length && wh.every((h, k) => Math.abs(h - hh[k]) <= HEIGHT_TOL)
-          : frontSame(hh, wantAll, onCut);
-        if (!same) { bad++; if (at.length < 4) at.push({ p, want: wh, have: hh }); return; }
-        // (the member's colour: the layers sorted by height pair up with the reference's members)
-        const wo = want.slice().sort((x, y) => x.h - y.h), ho = haveAll.slice().sort((x, y) => x.h - y.h);
-        wo.forEach((m, k) => {
-          if (!ho[k].f) { noF++; return; }
-          const gap = phaseGap(ho[k].f, m.f);
+        const same = sheets ? want.length === haveAll.length && want.every((m) => haveAll.some((l) => sameZ(l.z, m.z))) && haveAll.every((l) => want.some((m) => sameZ(l.z, m.z)))
+          : frontSame(haveAll, wantAll, onCut);
+        if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
+        // (the frame's own sheet: the height and the colour of the members that are on it)
+        want.forEach((m) => {
+          const l = haveAll.find((x) => sameZ(x.z, m.z));
+          if (!l || m.sheet !== 0 || onCut) return;   // (on the real axis the member's side is either)
+          if (Math.abs(l.h - m.h) > HEIGHT_TOL) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
+          if (!l.f) { noF++; return; }
+          const gap = phaseGap(l.f, m.f);
           if (gap === null) return;
           phN++;
-          if (gap > PHASE_TOL) { badPh++; if (atPh.length < 4) atPh.push({ p, have: ho[k].f, want: m.f }); }
+          if (gap > PHASE_TOL) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
         });
       });
-      r[u].geometry = { n, bad, at, phN, badPh, noF };
-      ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place (${n} places)`, n > 0 && bad === 0, { n, bad, at });
+      r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
+      ok(`${t}: the drawn height of the members on the frame's own sheet within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
