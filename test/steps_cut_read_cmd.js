@@ -20,16 +20,18 @@ const TOL = 6, FRAC = 0.002, CONTROL_FACTOR = 10, CONTROL_MIN_FRAC = CONTROL_FAC
 // is left out; WHITE a channel above which a pixel is paper, left out when both frames have paper there; MIN_PIXELS the least
 // count compared; the cut's image sampled RAY_SAMPLES points a ray, LOG_SAMPLES points a sheet of the logarithm's)
 const GLIDE_U = 0.5, WRONG_U = 0.75, CUT_PX = 10, WHITE = 250, MIN_PIXELS = 5000, RAY_SAMPLES = 4000, LOG_SAMPLES = 20000;
-// (the frame is drawn when two reads of the left pane SETTLE_GAP_MS apart agree, at most SETTLE_TRIES reads; READ_SHIFT_PX
-// the induced fault's shift of the read, in pixels along x)
-const SETTLE_TRIES = 150, SETTLE_GAP_MS = 200, READ_SHIFT_PX = 3;
+// (READ_SHIFT_PX: the induced fault's shift of the read, in pixels along x)
+const READ_SHIFT_PX = 3;
 const CUTS = [
   { example: 'Square root and its sheets', points: `(() => { const P = []; for (const a of [135, 225]) for (let q = 0; q < ${RAY_SAMPLES}; q++) { const t = a * Math.PI / 180, r = 8 * q / ${RAY_SAMPLES}; P.push([r * Math.cos(t), r * Math.sin(t)]); } return P; })()` },
   { example: 'Logarithm of an annulus', points: `(() => { const P = [], s = 0.5; for (const g of [1, -1]) for (let q = 0; q < ${LOG_SAMPLES}; q++) { const r = Math.exp(-12 + 24 * q / ${LOG_SAMPLES}), ph = g * Math.PI * s; P.push([(Math.pow(r, s) * Math.cos(ph) - 1) / s + s, Math.pow(r, s) * Math.sin(ph) / s]); } return P; })()` },
 ];
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-// (the frame drawn: two reads of the left pane apart agree, programs linked)
-const drawn = async () => { for (let n = 0; n < SETTLE_TRIES; n++) { await settled({ max: 20000 }); const same = await ev(`(() => { const cv = document.getElementById('canvasL'), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let h = 0; for (let i = 0; i < d.length; i += 4) h = (h * 31 + d[i] + 7 * d[i + 1] + 13 * d[i + 2]) | 0; const same = window.__cutH === h; window.__cutH = h; return same; })()`); if (same) return true; await sleep(SETTLE_GAP_MS); } return false; };
+// (the example names: test/lib/carry_kit.js; the frames kept once still: grab, test/lib/held_frames.js)
+const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const names = exampleNames();
+// (the frame kept once the programs are linked and it is still)
+const keep = async (what, tag) => { await settled({ max: 20000 }); return ok(what, await grab(tag), null); };
 // the exact frame at exactU, then the mesh frame at meshU, compared: {n, max, over, paths}. fault: the induced fault is in the
 // page's shaders from the start
 const measure = async (c, ex, { exactU = GLIDE_U, meshU = GLIDE_U, fault = false } = {}) => {
@@ -38,14 +40,13 @@ const measure = async (c, ex, { exactU = GLIDE_U, meshU = GLIDE_U, fault = false
   if (fault) await ev(`(() => { const P = WebGL2RenderingContext.prototype, f = P.shaderSource; P.shaderSource = function (s, src) { return f.call(this, s, src.replace('vec2 sa = vP;', 'vec2 sa = vP + ${READ_SHIFT_PX}.0 * dFdx(vP);')); }; return 1; })()`);
   await ev(`__cmwExample(${ex}); 1`); await settled({ max: 20000 });
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); __cmwSteps({ scope: 'all', surf: 'plane', park: ${exactU} }); 1`);
-  ok(`${c.example}: the exact frame is drawn`, await drawn(), null);
+  await keep(`${c.example}: the exact frame is drawn`, 'exact');
   const exact = await ev('__cmwSteps().glide.path');
-  await ev(`(() => { const cv = document.getElementById('canvasL'); window.__exactFrame = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height); return 1; })()`);
   await ev(`__cmwSteps({ mesh: true, park: ${meshU} }); 1`);
-  ok(`${c.example}: the mesh frame is drawn`, await drawn(), null);
+  await keep(`${c.example}: the mesh frame is drawn`, 'mesh');
   const mesh = await ev('__cmwSteps().glide.path');
   const r = await ev(`(() => {
-    const cv = document.getElementById('canvasL'), rc = cv.getBoundingClientRect(), k = cv.width / rc.width, W = cv.width, H = cv.height, M = cv.getContext('2d').getImageData(0, 0, W, H).data, E = window.__exactFrame.data;
+    const cv = document.getElementById('canvasL'), rc = cv.getBoundingClientRect(), k = cv.width / rc.width, W = cv.width, H = cv.height, M = window.__heldPx.mesh, E = window.__heldPx.exact;
     const mask = new Uint8Array(W * H);
     for (const [re, im] of ${c.points}) { const p = __cmwW2S('L', re, im), x = Math.round((p[0] - rc.left) * k), y = Math.round((p[1] - rc.top) * k);
       for (let dy = -${CUT_PX}; dy <= ${CUT_PX}; dy++) for (let dx = -${CUT_PX}; dx <= ${CUT_PX}; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) mask[Y * W + X] = 1; } }
