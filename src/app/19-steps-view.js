@@ -409,26 +409,20 @@
     }
     return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS), hole: S.sheets ? svLandHoles(p.plan, F, built[b - 1] && built[b - 1].vals && ['root', 'powa', 'log'].includes(built[b - 1].def && built[b - 1].def.id) ? built[b - 1].vals.cut : null) : [] };
   }
-  // The branch points of the glide's inverse as places of the shown plane ([x, y, ray] each, at most LAND_HOLES): the
-  // z-plane's branch points over the camera's window, carried by the glide's map F. A layer draws a polar patch about
-  // each, where the box's cell holding the point would span a whole turn of the helicoid. ray: the direction (radians) of
-  // the image of the step's cut (cutDeg, degrees; null for none) leaving the point, the side of which a layer's
-  // continuation must not cross
-  const LAND_HOLES = 4, LAND_RAY_PROBE = 1e-3;
+  // The branch points of the glide's inverse ([x, y, cut] each, at most LAND_HOLES): the z-plane's branch points over the
+  // camera's window, x, y their place on the shown plane (the glide's map F). A layer draws a polar patch about each,
+  // where the box's cell holding the point would span a whole turn of the helicoid. cut: [re, im, angle] of the step's cut
+  // (cutDeg, degrees; null for none) leaving the point in the z-plane, whose image under a layer's own map is the curve a
+  // continuation of that layer must not cross
+  const LAND_HOLES = 4;
   function svLandHoles(plan, F, cutDeg) {
     if (!F) return [];
     let sing;
     try { sing = Inverse.singular(plan, clipWin, ['branch'], LAND_HOLES); } catch (e) { return []; }
-    const out = [], R = LAND_RAY_PROBE * Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
+    const out = [];
     for (const e of sing) {
       const w = F(e.z);
-      if (!w || !Number.isFinite(w.re) || !Number.isFinite(w.im)) continue;
-      let ray = null;
-      if (cutDeg != null) {
-        const th = cutDeg * Math.PI / 180, v = F(C(e.z.re + R * Math.cos(th), e.z.im + R * Math.sin(th)));
-        if (v && Number.isFinite(v.re) && Number.isFinite(v.im)) ray = Math.atan2(v.im - w.im, v.re - w.re);
-      }
-      out.push([w.re, w.im, ray]);
+      if (w && Number.isFinite(w.re) && Number.isFinite(w.im)) out.push([w.re, w.im, cutDeg == null ? null : [e.z.re, e.z.im, cutDeg * Math.PI / 180]]);
     }
     return out;
   }

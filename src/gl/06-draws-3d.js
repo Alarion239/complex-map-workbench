@@ -286,7 +286,7 @@
   // The All sheets' layers past the first (member k >= 1 of the glide's inverse, drawn with the first's programs): each its
   // own places, preimages, normals and edges, kept between frames; layer 0 is landC
   const landLs = [];
-  const LAND_HOLES_MAX = 4, LAND_HOLE_CELLS = 8, LAND_POLAR_N = 65;   // polar patches about a layer's branch points: at most, the patch's reach in cells, its grid
+  const LAND_CUT_NEAR = 1e-3, LAND_CUT_FAR = 2, LAND_HOLES_MAX = 4, LAND_HOLE_CELLS = 8, LAND_POLAR_N = 65;   // polar patches about a layer's branch points: at most, the patch's reach in cells, its grid
   let landHoles = [];   // the last carried frame's patches [x, y, r0, r1]
   const LAND_MEMBERS_MAX = 8;   // the walk's largest B
   let landActive = [];   // the layers the last carried frame drew: landC, then landLs's that are exact
@@ -362,10 +362,16 @@
           use(Pn, c.map);
           if (datas[0]) gl.uniform4fv(Pn.loc.uChain, datas[0]);
           stages(Pn); own(Pn); u1f(Pn, 'uCode', code(0)); u1f(Pn, 'uContCode', CARRY_CONT_CODE);
-          // (the step's cut leaving each branch point: a continuation is not taken across it)
-          const rays = new Float32Array(16);
-          (c.exact.hole || []).slice(0, LAND_HOLES_MAX).forEach(([x, y, ray], i) => { if (ray != null && !carryProbe.noRay) rays.set([x, y, ray, 1], 4 * i); });
-          gl.uniform4fv(Pn.loc.uCutRay, rays);
+          // (the step's cut leaving each branch point of the z-plane: a continuation is not taken across its image under the
+          // layer's own map)
+          const cuts = new Float32Array(12);
+          let nc = 0;
+          for (const [, , cut] of (c.exact.hole || []).slice(0, LAND_HOLES_MAX)) {
+            if (!cut || carryProbe.noRay) continue;
+            cuts.set(cut, 3 * nc++);
+          }
+          gl.uniform3fv(Pn.loc.uCutZ, cuts); u1i(Pn, 'uCutN', nc);
+          u2f(Pn, 'uCutRad', LAND_CUT_NEAR * (b.x1 - b.x0), LAND_CUT_FAR * (b.x1 - b.x0));
           gl.activeTexture(gl.TEXTURE15);
           runTF(Pn, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }

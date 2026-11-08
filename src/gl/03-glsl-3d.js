@@ -829,19 +829,27 @@ ${L ? `  // (the continuation from the own end does not give the other end's hei
   const LAND_CARRY_CONT_VS = `
 uniform int uN; uniform int uGs; uniform int uGt; uniform float uCode; uniform float uContCode;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ;
-// the step's cut leaving a branch point of the shown plane, each (x, y, angle, 1), (0, 0, 0, 0) for none
-uniform vec4 uCutRay[4];
+// the step's cut leaving each of uCutN branch points of the z-plane: (re, im, angle); uCutRad: the radii of its probe points
+uniform vec3 uCutZ[4]; uniform int uCutN; uniform vec2 uCutRad;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + CARRY_HEIGHT_ANCHORED + `
-// whether the segment a -> b crosses a ray of uCutRay (the continuation anchor is on the other side of the step's cut)
+// whether the segment a -> b crosses the image under the layer's map of one of the cuts (the continuation anchor is on the
+// other side of the step's cut): the image is a polyline through 12 points of the cut, from uCutRad.x out to uCutRad.y
 bool crossesCut(vec2 a, vec2 b) {
-  for (int i = 0; i < 4; i++) {
-    if (uCutRay[i].w < 0.5) continue;
-    vec2 o = uCutRay[i].xy, d = vec2(cos(uCutRay[i].z), sin(uCutRay[i].z)), e = b - a, ao = a - o;
-    float ed = e.x * d.y - e.y * d.x;
-    if (abs(ed) < 1e-30) continue;
-    float mu = (d.x * ao.y - d.y * ao.x) / ed, lam = (ao.x * e.y - ao.y * e.x) / -ed;
-    if (mu >= 0.0 && mu <= 1.0 && lam >= 0.0) return true;
+  vec2 e = b - a;
+  for (int h = 0; h < 4; h++) {
+    if (h >= uCutN) break;
+    vec2 dir = vec2(cos(uCutZ[h].z), sin(uCutZ[h].z)), o = mapPoint(uCutZ[h].xy + uCutRad.x * dir);
+    for (int i = 1; i < 12; i++) {
+      float r = uCutRad.x * pow(uCutRad.y / uCutRad.x, float(i) / 11.0);
+      vec2 q = mapPoint(uCutZ[h].xy + r * dir), d = q - o, ao = a - o;
+      float ed = e.x * d.y - e.y * d.x;
+      if (abs(ed) >= 1e-30) {
+        float mu = (d.x * ao.y - d.y * ao.x) / ed, lam = (ao.x * e.y - ao.y * e.x) / -ed;
+        if (mu >= 0.0 && mu <= 1.0 && lam >= 0.0 && lam <= 1.0) return true;
+      }
+      o = q;
+    }
   }
   return false;
 }
