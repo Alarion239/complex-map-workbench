@@ -4,7 +4,7 @@
 //   and outside for Both, only inside for Inside and only outside for Outside, whichever plane the thread was parked at before;
 //   with T at another plane the Cauchy tile is disabled with its reason, and a plane z that keeps the style is paper with the same
 //   sentence as its note, the key naming no bands;
-//   past the colour plane (T = z, the thread at plane 1) the key's line names the integral and the plane it is carried from;
+//   past the colour plane (T = z, the thread at plane 1) the key's line names the integral and the plane it is carried from, in at most four lines;
 //   with no closed curve at all plane z is paper and the key says so.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PNG = process.mainModule.require(path.join(DIR, 'png.js'));
@@ -17,11 +17,11 @@ const REASON = 'The Cauchy integral is drawn on z, where its curve lies: colour 
 // paper and the neutral grey have their channels within GREY_SPREAD of each other (of 255); a hue differs by far more
 const GREY_SPREAD = 14;
 const isGrey = (c) => Math.abs(c[0] - c[1]) < GREY_SPREAD && Math.abs(c[1] - c[2]) < GREY_SPREAD;
-const open = async (shapes) => {
+const open = async (shapes, lang = 'en') => {
   await view(1440, 900, false, false);
   const ns = 'czs' + Date.now();
   await load(ns, stateOf(shapes));
-  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=${lang}`);
   await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0', max: 30000 });
   if (shapes.length) await ev(`__cmwSelect('s1'); 1`);
   await settled({ until: '!__cmwSteps().moving', max: 15000 });
@@ -70,12 +70,6 @@ ok('Cauchy: the scope control is disabled with its reason and reads Everywhere',
 const pxs = await read();
 ok('Cauchy with scope Inside: the outside is still coloured', !isGrey(pxs.outside), pxs);
 await ev(`(__cmwSteps({ scope: 'all' }), 1)`);
-// (past the colour plane the hue ring's line names the integral whose colour is carried, not only the plane)
-await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
-await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
-const lgc = await legend();
-ok('T = z, thread at plane 1: the key names the Cauchy integral and the plane its colour is carried from', lgc.kind === 'color' && /^Cauchy integral over .+, carried from z$/.test(lgc.caption || ''), lgc);
-
 await park(1);
 const t1 = await tile();
 ok('T at plane 1: the Cauchy tile stays, disabled, with its reason as tip and description', t1 && t1.disabled && t1.tip === REASON && t1.desc === REASON, t1);
@@ -93,4 +87,15 @@ info.none = px2;
 ok('no closed curve: plane z is paper', isGrey(px2.inside) && isGrey(px2.outside), px2);
 const lg2 = await legend();
 ok('no closed curve: the key says so, no bands', lg2.caption === 'No curve selected', lg2);
+// past the colour plane the hue ring's line names the integral and the plane its colour is carried from, whole in the key's
+// room (KEY_LINES lines of the chip beside the wheel), in each language
+const KEY_LINES = 4;
+for (const [lang, re] of [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из z$/], ['it', /^integrale di Cauchy trasportato da z$/]]) {
+  await open(CIRCLE, lang);
+  await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
+  await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
+  const lgc = await legend();
+  ok(`T = z, thread at plane 1, ${lang}: the key names the Cauchy integral and the plane its colour is carried from`, lgc.kind === 'color' && re.test(lgc.caption || ''), lgc);
+  ok(`T = z, thread at plane 1, ${lang}: the line fits the key (at most ${KEY_LINES} lines)`, lgc.lines >= 1 && lgc.lines <= KEY_LINES, lgc);
+}
 return { pass: !fails.length, fails, info };

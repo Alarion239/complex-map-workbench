@@ -1382,13 +1382,13 @@
       const KEY_PAD = 8;     // room kept at the legend's right edge
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
-      const maxW = LEG.W - KEY_PAD - KEY_X, cp = svT() === 0 && S.dc === 'cauchy' ? cauchyPlot() : null,
-        words = (cp ? $tx('key line', 'Cauchy integral over {name}, carried from {p}', { name: cp.name, p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
+      const maxW = LEG.W - KEY_PAD - KEY_X,
+        words = (svT() === 0 && S.dc === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
-      st.caption = words.join(' ');
+      st.caption = words.join(' '); st.lines = lines.length;
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
