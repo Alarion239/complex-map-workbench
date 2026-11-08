@@ -126,7 +126,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
-   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, so the chip stops clipping) */
+   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
 
