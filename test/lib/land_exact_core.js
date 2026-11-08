@@ -222,15 +222,19 @@
       return mkVert(w, e);
     }
     // the cell's (a) test: corners carry the same members; E at the midpoints and the centre; returns { E, ratioOk, why } or null when not (a)
-    function* judgeA(vs, pr) {
+    function* judgeA(vs, pr, cell) {
       // pr: pairings of the four edges 0-1, 0-2, 1-3, 2-3 (member of the first place -> member of the second)
       const n = vs[0].all.length;
-      const edges = [[0, 1], [0, 2], [1, 3], [2, 3]];
       let E = 0, ratio = true, worst = null;
       // the centre and the four edge midpoints, from the exact enumeration, each member paired with the corners' by continuation
-      const spots = [[0, 1, mid2(vs[0].w, vs[1].w)], [0, 2, mid2(vs[0].w, vs[2].w)], [1, 3, mid2(vs[1].w, vs[3].w)], [2, 3, mid2(vs[2].w, vs[3].w)], [1, 2, mid2(vs[1].w, vs[2].w)]];
-      for (const [a, b, w] of spots) {
-        const mv = yield* exactAt(w);
+      // (lattice places while the cell is halvable: they are the children's vertices and are kept)
+      const [ci, cj, cs] = cell, hf = cs / 2, whole = Number.isInteger(hf);
+      const at = (di, dj) => [ci + di * cs, cj + dj * cs];
+      const mids = [[0, 1, at(0.5, 0)], [0, 2, at(0, 0.5)], [1, 3, at(1, 0.5)], [2, 3, at(0.5, 1)], [1, 2, at(0.5, 0.5)]];
+      if (whole) yield* lookup(mids.map((m) => m[2]));
+      const spots = mids.map(([a, b, ij]) => [a, b, whole ? vert(ij[0], ij[1]).w : wAt(ij[0], ij[1]), whole ? ij : null]);
+      for (const [a, b, w, ij] of spots) {
+        const mv = ij ? vert(ij[0], ij[1]) : yield* exactAt(w);
         const pa = pairingTo(vs[a], mv), pb = pairingTo(vs[b], mv);
         if (pa.suspect || pb.suspect) return { suspect: true, why: 'midpoint continuation' };
         // each member of the corner a pairs with its member at the midpoint, and the corner b's member of the same chain must be the same one
@@ -327,7 +331,7 @@
         continue;
       }
       if (!vs[0].all.some((m) => m.drawn)) { cells.empty++; continue; }
-      const jd = yield* judgeA(vs, cp);
+      const jd = yield* judgeA(vs, cp, [i, j, s]);
       if (jd.suspect || jd.mismatch) why('judge: ' + jd.why);
       if (jd.suspect) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.branch.push({ i, j, s, vs, why: jd.why }); continue; }
       if (jd.mismatch) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.boundary.push({ i, j, s, vs }); continue; }
