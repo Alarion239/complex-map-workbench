@@ -269,7 +269,7 @@
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
   // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
   // height, world units, within which an enumerated member is the one it draws)
-  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02;
+  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02, LAND_ENUM_SAME_Z = 1e-5, LAND_ENUM_NEAR = 2;
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
@@ -410,15 +410,15 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
-  // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f, sheet }]; f and sheet are
+  // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f, sheet, matches }]; matches is 1 plus how many other members, of another z, fit the layer's z and height and lie within LAND_ENUM_NEAR times the nearest one's distance (the nearest is taken; more than 1 is ambiguous); f and sheet are
   // those of the enumerator's member (__cmwLandEnum) at the vertex's own place that has its z and its height (null: none has)
   window.__cmwLandFrameVerts = (pts) => {
     const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null;
     return g ? g.map((ls) => ls.map((l) => {
       const ms = l.z ? (window.__cmwLandEnum([l.w]) || [[]])[0] : [], at = (m) => Math.hypot(m.z[0] - l.z[0], m.z[1] - l.z[1]) <= LAND_ENUM_Z_TOL * (Math.hypot(l.z[0], l.z[1]) + 1);
       const dz = (q) => Math.hypot(q.z[0] - l.z[0], q.z[1] - l.z[1]);
-      const m = ms.filter((q) => at(q) && Math.abs(q.h - l.h) <= LAND_ENUM_H_TOL).sort((a, b) => dz(a) - dz(b))[0];
-      return Object.assign({}, l, { f: m ? m.f : null, sheet: m ? m.sheet : null });
+      const cand = ms.filter((q) => at(q) && Math.abs(q.h - l.h) <= LAND_ENUM_H_TOL).sort((a, b) => dz(a) - dz(b)), m = cand[0];
+      return Object.assign({}, l, { f: m ? m.f : null, sheet: m ? m.sheet : null, matches: m ? 1 + cand.filter((q) => q !== m && Math.hypot(q.z[0] - m.z[0], q.z[1] - m.z[1]) > LAND_ENUM_SAME_Z && dz(q) <= LAND_ENUM_NEAR * dz(m)).length : 0 });
     })) : g;
   };
   // the shown plane's map at a point z of plane 0 ([re, im] -> [re, im]), from the inverse inputs the last carried frame drew
