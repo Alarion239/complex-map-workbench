@@ -472,7 +472,7 @@
   // inverts (Inverse.fwdOps), so H(z) is the w the frame draws z at. lam, the member's continued log coordinate (as __cmwLandEnum gives it), makes
   // H the one the frame draws: the plan's first op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
   // is on, and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
-  // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H over HOM_DZ in z (the plan's ops carry no
+  // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H in z over HOM_DZ, or a thousandth of |z| where that is less (the plan's ops carry no
   // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]
   const HOM_DZ = 1e-6;
   window.__cmwLandHom = (z, lam) => {
@@ -490,9 +490,11 @@
     // (d lam = dz / z at the continued log)
     const lamAt = (p) => (lc ? CX.add(lc, CX.div(CX.sub(p, zc), zc)) : null);
     return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => {
-      const pa = C(z[0] + HOM_DZ, z[1]), pb = C(z[0] - HOM_DZ, z[1]);
+      // (the step is HOM_DZ, or a thousandth of |z| where z is smaller: a step larger than z samples another place)
+      const dz = Math.min(HOM_DZ, 1e-3 * Math.hypot(z[0], z[1])) || HOM_DZ;
+      const pa = C(z[0] + dz, z[1]), pb = C(z[0] - dz, z[1]);
       const w = at(sh, zc, lc), a = at(sh, pa, lamAt(pa)), b = at(sh, pb, lamAt(pb));
-      return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * HOM_DZ), (a.im - b.im) / (2 * HOM_DZ)] : null, exactD: false };
+      return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * dz), (a.im - b.im) / (2 * dz)] : null, exactD: false };
     });
   };
   // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of
