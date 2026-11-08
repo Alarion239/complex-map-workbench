@@ -108,7 +108,7 @@ if (SV) {
 
 // the steps view's Add function and Reorder steps
 if (SV) {
-  await task('add', 'Click + Add function.', async () => {
+  await task('add', 'Click Add function.', async () => {
     const c = await center('#svStrip .sv-add');
     await mdrag(c[0], c[1], c[0], c[1]);
   });

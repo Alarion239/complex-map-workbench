@@ -500,10 +500,14 @@
     // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
     const hv = typeof homView === 'function' ? homView() : null;
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
-    const cst = { map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    const cst = { map: hv ? hv.map : S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
-    if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
-    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
+    // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
+    // curve selected, the plane is paper with its reason)
+    const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
+    if (cauchyWhy) paper(pane);
+    else if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -531,7 +535,8 @@
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
     if (pane === paneL) { updatePre('L', pane, k); drawPre(pane, 'L', k); }
-    if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
+    if (cauchyWhy) paneNote(pane, cauchyWhy);
+    else if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');
     return handles;
@@ -1347,6 +1352,16 @@
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
+  // The fill opacity, S.alpha: the one setter of the regions' Opacity slider (#alphaRange) and the steps view's colour
+  // popover (the .sv-opacity ranges, which show it in whole percents), each kept at the value
+  function setFillOpacity(v) {
+    setOpt('alpha', v);
+    const r = /** @type {HTMLInputElement} */ ($('alphaRange'));
+    r.value = String(S.alpha); paintFader(r);
+    $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
+    requestRender('L', 'R'); save();
+  }
   function setupViewControls() {
     // the panes' Plane | Sphere radios (U4)
     for (const side of ['L', 'R']) {
@@ -1365,7 +1380,7 @@
     $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
     $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R'); save(); });
+    $('alphaRange').addEventListener('input', (e) => setFillOpacity(+/** @type {HTMLInputElement} */ (e.target).value));
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
     $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));

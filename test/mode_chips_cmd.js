@@ -26,7 +26,7 @@ for (const w of [1440, 1024]) {
 // The slowest speed makes the glide long enough to sample from here (about 4.5 s a plane).
 await key('e');
 await settled({ max: 8000, until: `!!document.querySelector('.tool[data-tool="circle3"][aria-pressed="true"]')` });
-await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'slower'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+await choose('#svStrip .sv-speed', 'slower');
 const i0 = await ev('__cmwSteps().i');
 // (sampled in the page, once a frame, from the glide's start to its rest: a round trip per sample is too slow for it)
 await ev(`(() => { const rec = window.__glide941 = { chips: [], on: true };

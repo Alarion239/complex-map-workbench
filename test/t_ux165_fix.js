@@ -78,7 +78,7 @@ ok(/run: \(\) => go\(\) \}\], drop: 'title'/.test(APP) && /Tour\.laneHide\('exam
 ok(/let wOnce;/.test(APP) && /const w = wOnce !== undefined \? wOnce : focusF\(\)\(z\);/.test(APP), 'regress-6: F(z) of the probe evaluated once per move');
 ok(/if \(k === undoKey\) return;/.test(fnBody(APP, 'updateUndo')) && /if \(key === targetNoteKey\) return;/.test(fnBody(APP, 'targetNote')), 'regress-7: updateUndo and targetNote return at once when nothing changed');
 ok(/b\.x1 > 0 && b\.y1 > 0 && b\.x0 < r\.width && b\.y0 < r\.height/.test(fnBody(APP, 'mfNogo')), 'regress-8: no-go rectangles only over the plane');
-ok(/performance\.now\(\) - navKeyAt > 300 \|\| !el\.matches\(':focus-visible'\)/.test(APP) && /el !== kbdTip/.test(APP), 'regress-9: a Tab focus shows the tip, a focus the app moves does not');
+ok(/performance\.now\(\) - navKeyAt > NAV_KEY_MS \|\| !el\.matches\(':focus-visible'\)/.test(APP) && /el !== kbdTip/.test(APP), 'regress-9: a Tab focus shows the tip, a focus the app moves does not');
 ok(/const namesA = shapeNames\(A\.shapes \|\| \[\]\), namesB = shapeNames\(B\.shapes \|\| \[\]\);/.test(fnBody(APP, 'histWhat')), 'regress-10: an undo step names its shape from its own snapshot (z₆)');
 
 // ---- the Russian of this round

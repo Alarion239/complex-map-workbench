@@ -637,7 +637,11 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   ok('preview 60 fps Loop (vp-1, vp-8): 721 frames kept at the shown size (743 px, not 344), compressed', b.total === 721 && b.pw >= Math.min(1920, b.cssW) - 2 && b.pw >= 700 && b.raw === false, b);
   ok('preview 60 fps Loop: plays at 60 fps while it fills (48 to 66 a second), no task of 50 ms, frames on time', rb >= 48 && rb <= 66 && !pb.lt.some((d) => d >= 50) && pb.p95 < 25 && pb.max < 50, { rb, pb });
   await ev(`(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); return 1; })()`);
-  await sleep(300); const h0 = await ev('__cmwFig.previewStats().renders'); await sleep(900); const h1 = await ev('__cmwFig.previewStats().renders');
+  // (a frame already in flight when the page is hidden lands after the hide: h0 is read once two reads 150 ms apart agree, so
+  // it is the count the hidden page stays at; a page that keeps drawing never agrees and the check below fails on it)
+  await sleep(300); let h0 = await ev('__cmwFig.previewStats().renders');
+  for (let i = 0; i < 10; i++) { await sleep(150); const r = await ev('__cmwFig.previewStats().renders'); if (r === h0) break; h0 = r; }
+  await sleep(900); const h1 = await ev('__cmwFig.previewStats().renders');
   await ev(`(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); return 1; })()`);
   await sleep(900); const h2 = await ev('__cmwFig.previewStats().renders');
   R.pv2.hidden = { h0, h1, h2 };

@@ -273,6 +273,7 @@ html:not(.ph) .ph-only { display: none !important; }
   font: 500 11px/13px var(--f-ui); white-space: normal; text-align: center; -webkit-hyphens: auto; hyphens: auto; overflow-wrap: anywhere; }
 :root.ph .ph-vopts .seg.sty-seg .sty-g svg { width: 20px; height: 20px; }
 :root.ph .ph-vopts .tg-ic { display: none; }
+:root.ph .ph-vopts label.check[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 /* More (⋯) rows */
 /* the rows fill their sheet's width: the focus ring is drawn inside them, where the sheet's edge cannot cut it */
 .ph-row:focus-visible, .ph-srow:focus-visible, .ph-style:focus-visible { outline-offset: -2px; }

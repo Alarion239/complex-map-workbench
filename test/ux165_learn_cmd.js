@@ -1,10 +1,10 @@
-// The learn piece (notes/ux-build/w1-learn-AS-BUILT.md): the guided-tour line on the phone and the landscape phone, the
-// keys on the Shapes rows and their right-click menus, and the rest of the learn checks below (the laptop's sound
-// checks are ux165_learn_sound_cmd.js; its first-run line is ux165_learn_first_run_cmd.js; standards-ok: those checks
-// moved there unchanged; the deformation section's checks are not here, since the page has no dock or play button
-// for them to drive), on a
-// laptop (1366 x 768), a phone (412 x 860, Android Chrome emulation, real touch events through
-// Input.dispatchTouchEvent) and a landscape phone (915 x 412) where it matters. A command file for a CDP daemon
+// The learn checks the steps view has: the tour line on a phone and a landscape phone, an example's fit with the tour's
+// Sound chapter, a tap that closes a layer doing nothing else, the Russian strings (tour, tool row, tiles), and the
+// sound settings' keyboard help and the Shapes editor's Listen along on a phone (412 x 860, Android Chrome emulation,
+// real touch events through Input.dispatchTouchEvent). The classic views' own checks (the pane head's key, options and note,
+// the deformation, the Shapes keys and menus) are ux165_learn_classic_cmd.js and the classic phone's (the target note, the
+// message row) ux165_learn_phone_classic_cmd.js; the laptop's sound checks are ux165_learn_sound_cmd.js, the first-run line
+// is ux165_learn_first_run_cmd.js and the Undo message is ux165_learn_msg_classic_cmd.js. A command file for a CDP daemon
 // (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/ux165_learn_cmd.js
 // Prints { pass, of, fails: [[name, false, detail]], exc }.
 const { U, R, check, settle, exc, grab, UA0, laptop, fresh, ready, firstVisit } = await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ux165_kit.js'), 'utf8'));
@@ -23,6 +23,7 @@ let g = null;
 // phone portrait: the row under the header, 44 px buttons, real taps
 await phone(412, 860);
 await firstVisit();
+check('the page under test is the steps view (the suite is pinned to it)', await ev(`typeof __cmwSteps === 'function' && __cmwSteps().on === true`));
 g = await ev(`(() => { const s = document.querySelector('.tour-lane'); if (!s) return null; const b = s.getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(), p = document.querySelector('.panes').getBoundingClientRect(); return { mode: s.dataset.mode, top: b.top, hdr: h.bottom, bot: b.bottom, panes: p.top, w: b.width, minB: Math.min(...[...s.querySelectorAll('button')].map((x) => x.getBoundingClientRect().height)), scroll: document.documentElement.scrollHeight <= innerHeight }; })()`);
 check('UX21 phone: the line is the row under the header, the planes start under it, 44 px buttons, no page scroll', g && g.mode === 'port' && Math.abs(g.top - g.hdr) <= 1 && g.panes >= g.bot - 0.5 && g.w >= 410 && g.minB >= 44 && g.scroll, g);
 await shot('ux165-ux21-phone');
@@ -37,73 +38,6 @@ g = await ev(`(() => { const s = document.querySelector('.tour-lane'); if (!s) r
 check('UX21 landscape phone: the line in the header (or the row under it), never over X or Y', g && ((g.mode === 'head' && g.slot === 'tourHeadSlot') || g.mode === 'row') && !g.over, g);
 await shot('ux165-ux21-phone-land');
 grab();
-
-// ---------------------------------------------------------------- UX20: keys and options in the pane head
-await laptop();
-await fresh('ux165a'); await settle(1800);
-g = await ev(`(() => { const L = document.querySelector('#rightLegend'), F = document.querySelector('#rightFoot'), plot = document.querySelector('#plotR'); return { legHead: L.parentNode.classList.contains('pane-head'), footHead: F.parentNode.classList.contains('pane-head'), inPlot: [...plot.querySelectorAll(':scope > .legend-chip:not(.calc-chip):not([hidden]), :scope > .options')].filter((e) => e.getClientRects().length).length, sum: (L.querySelector('.lg-sum') || {}).textContent, onlyBtn: [...F.children].every((c) => { const r = c.getBoundingClientRect(), hd = c.closest('.pane-head'), h = hd && hd.getBoundingClientRect(); return !!h && r.top >= h.top - 1 && r.bottom <= h.bottom + 1; }) }; })()`);
-// (#247: the head's controls are inline, compact, every one inside the head)
-check('UX20 laptop X → Y: the pattern key and the options are in Y\'s pane head, nothing of theirs on the plot', g.legHead && g.footHead && g.inPlot === 0 && /^cell /.test(g.sum || '') && g.onlyBtn, g);
-let lb = await box('#rightLegend');
-await move(lb.l + 8, lb.t + 8); await settle(500);
-g = await ev(`(() => { const c = document.querySelector('#rightLegend > canvas'); const b = c.getBoundingClientRect(), h = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { shown: getComputedStyle(c).display !== 'none', under: b.top >= h.bottom - 1 }; })()`);
-check('UX20: the key unfolds under the head only while pointed at (invited)', g.shown && g.under, g);
-await shot('ux165-ux20-key-hover');
-await move(300, 300); await settle(300);
-check('UX20: and folds again', await ev(`getComputedStyle(document.querySelector('#rightLegend > canvas')).display === 'none'`));
-// (#247: View outline and Phase key are toggles in Y's head, or behind its ⋯ when the head has no room, or, when the head
-// holds no toggle at all, in the pattern button's pop-up above the patterns (one button); never over the plot)
-const inlineKey = await ev(`(() => { const k = document.getElementById('wKeyChkR'), l = k && k.closest('label'); return !!(l && l.getClientRects().length && l.closest('#paneR .pane-head')); })()`);
-if (!inlineKey) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await settle(400); }
-g = await ev(`(() => { const k = document.getElementById('wKeyChkR'), f = document.getElementById('fovChk'), l = k && k.closest('label'), p = document.querySelector('.opts-pop'), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); if (!l) return null; const b = (p || l).getBoundingClientRect(); return { phaseKey: l.getClientRects().length > 0, fov: !!f, inHead: !!l.closest('.pane-head'), under: !p || b.top >= hd.bottom - 1, titles: p ? p.querySelectorAll('.opts-h').length : 0 }; })()`);
-check('UX20/#247: View outline and Phase key in Y\'s head, or in its ⋯ pop-up under it, with no title', g && g.phaseKey && g.fov && (g.inHead || g.under) && g.titles === 0, g);
-await key('Escape'); await settle(200);
-for (const v of ['phase', 'land']) {
-  await ev(`__cmwSetMain('${v}')`); await settle(2200);
-  g = await ev(`(() => { const F = document.querySelector('#leftFoot'), plot = document.querySelector('#plotL'); return { head: F.parentNode.classList.contains('pane-head'), bars: [...plot.querySelectorAll(':scope > .options, :scope > .legend-chip:not([hidden]):not(.calc-chip)')].filter((e) => e.getClientRects().length).length, leg: document.querySelector('#leftLegend').parentNode.classList.contains('pane-head') }; })()`);
-  // (#365: Phase's colour key lies on the plot, top right, always shown; the Landscape's height key is the head's chip)
-  if (v === 'phase') check('UX20/#365 laptop phase: its option bar is in X\'s pane head, the key is the one thing on the plot', g.head && !g.leg && g.bars === 1, g);
-  else check(`UX20 laptop ${v}: its option bar and key are in X's pane head, none over the plot`, g.head && g.leg && g.bars === 0, g);
-  await shot('ux165-ux20-' + v);
-}
-await ev(`__cmwSetMain('xy')`); await settle(800);
-// phone landscape: the key stays a folded glyph on the plane (its head is not shown)
-await phone(915, 412);
-await fresh('ux165b'); await settle(2000);
-g = await ev(`(() => { const L = document.querySelector('#rightLegend'); return { inPlot: L.parentNode.id === 'plotR', folded: L.classList.contains('collapsed') }; })()`);
-check('UX20 landscape phone: Y\'s pattern key is the folded glyph, not the box over Y', g.inPlot && g.folded, g);
-check('UX20 phone: the glyph carries none of the head\'s words', await ev(`!document.querySelector('#leftLegend .lg-sum, #rightLegend .lg-sum')`));
-grab();
-
-// ---------------------------------------------------------------- V01 (phone): the target's note
-await phone(412, 860);
-await fresh('ux165c'); await settle(2200);
-// (a pulse is the class going on: a record that only rewrites the pane's classes, as a resize does, is not one)
-await ev(`(() => { const L = document.querySelector('#paneL'); window.__olds = []; new MutationObserver((ms) => { for (const m of ms) window.__olds.push(m.oldValue || ''); }).observe(L, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); return 1; })()`);
-await tapSel('.pane.ph-inset .ph-swap'); await settle(600);
-await tapSel('#secDraw [data-tool="disc"]'); await settle(300);
-await tdrag(200, 330, 250, 380); await settle(1200);
-g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#calcChip') || {}).hidden, pulse: (() => { const v = window.__olds.concat(document.querySelector('#paneL').className); let n = 0; for (let i = 0; i + 1 < v.length; i++) if (!/ph-pulse/.test(v[i]) && /ph-pulse/.test(v[i + 1])) n++; return n; })(), targets: __cmwState().targets })`);
-check('V01 phone: after a target, Y\'s chip says "Shaded in X (the inset)", no note over Y, and the inset pulsed once', g.targets === 1 && /Shaded in X \(the inset\)/.test(g.ro) && g.calc === true && g.pulse === 1, g);
-await shot('ux165-v01-phone');
-// laptop: the note is in Y's pane head
-await laptop();
-await fresh('ux165d'); await settle(1800);
-await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(200);
-const pr = await box('#plotR');
-await drag(pr.l + pr.w * 0.5, pr.t + pr.h * 0.45, pr.l + pr.w * 0.55, pr.t + pr.h * 0.5); await settle(1200);
-// (v16.5 UX20/V01 and the wave 1 merge, W1-MERGE.md 8: the note "gives way before the title itself would" (fitTitle,
-// class nofit). With plane's worded Plane | Sphere (UX37), the "Y · " tag (UX27) and the key chip in Y's head, a
-// 1366 px head may have no room for it: then it must be hidden by that rule only, i.e. Y's title would not fit beside
-// it (measured as fitTitle measures, with the note and the title's classes put back at once), and never cut)
-g = await ev(`(() => { const n = document.querySelector('#paneR .pane-head #rightNote'), t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'); const o = { note: n && n.textContent, shown: !!n && getComputedStyle(n).display !== 'none', cut: !!n && n.scrollWidth > n.clientWidth + 1, tip: n && n.dataset.tip, roleCut: getComputedStyle(pr).display !== 'none' && pr.scrollWidth > pr.clientWidth + 1, tiny: document.querySelector('#paneR').classList.contains('tiny'), calc: document.querySelector('#calcChip').hidden, targets: __cmwState().targets, nofit: !!n && n.classList.contains('nofit') };
-  if (n && o.nofit) { const grow = t.nextElementSibling, pt = t.querySelector('.ptitle'), tabs = document.getElementById('rightTabs'), cls = t.className; n.classList.remove('nofit'); t.classList.remove('terse', 'short', 'notag'); const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0); o.withNote = { ptw: pt ? pt.scrollWidth : 0, room, noteW: n.getBoundingClientRect().width }; t.className = cls; n.classList.add('nofit'); o.gaveWay = !!pt && o.withNote.ptw > room; }
-  return o; })()`);
-check('UX20 laptop: the target\'s note is in Y\'s pane head ("Preimage in X"), whole (or, without room beside the title, given way to it: W1-MERGE.md 8), not over the plane; the title keeps its place', g.targets === 1 && g.note === 'Preimage in X' && (g.shown || g.gaveWay === true) && !g.cut && !g.roleCut && !g.tiny && g.calc === true, g);
-check('UX20 laptop: the note\'s tooltip is plain words', /^Where F lands in the targets of Y/.test(g.tip || ''), g.tip);
-await shot('ux165-v01-laptop');
-grab();
-
 // an example's fit keeps X's bottom margin, measured on the plane (the bar is in the head now): the tour's Grieg step
 // and the next step have a finite view (it went NaN / div)
 await laptop(1440, 900);
@@ -114,29 +48,6 @@ await ev('Tour.next()'); await settle(2500);
 const ro1 = await ev(`__qa.txt('#leftReadout')`);
 check('UX20: with X\'s options in the head, an example\'s fit stays finite (the Sound chapter: "1 / div", not "NaN / div")', /^\d/.test(ro0) && /^\d/.test(ro1) && !/NaN/.test(ro0 + ro1), [ro0, ro1]);
 await ev('Tour.stop()'); await settle(400);
-await laptop();
-
-// ---------------------------------------------------------------- UX80, UX20: the empty chain's Add function in Y's head
-// (the chain cleared by the palette's Clear chain)
-const clearChain = async () => { await key('k', 4); await settled({ until: "!!document.getElementById('palInput')", max: 8000 }); await type('Clear chain'); await settled({ until: "document.getElementById('palInput').value === 'Clear chain'", max: 8000 }); await key('Enter'); await settled({ until: '__cmwP().steps.length === 0', max: 8000 }); };
-await laptop();
-await fresh('ux165e'); await settle(1800);
-await clearChain();
-g = await ev(`(() => { const e = document.querySelector('#emptyRight'), b = e.querySelector('.btn'); return { head: e.parentNode.classList.contains('pane-head'), shown: !e.hidden && !!b && b.getClientRects().length > 0, tip: b && b.dataset.tip, tiny: document.querySelector('#paneR').classList.contains('tiny') }; })()`);
-check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not over the picture', g.head && g.shown && /Add a function to map the region/.test(g.tip || '') && !g.tiny, g);
-// (the title is fitted with the button in place: its role is whole, short or gone, never cut by an ellipsis: "imag…")
-g = await ev(`(() => { const t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'), pt = t.querySelector('.ptitle'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none'; return { cls: t.className, prCut: vis(pr) && pr.scrollWidth > pr.clientWidth + 1, ptCut: vis(pt) && pt.scrollWidth > pt.clientWidth + 1 }; })()`);
-check('UX20 laptop: with "Add function" in Y\'s head the title and its role are not cut', !g.prCut && !g.ptCut, g);
-
-await phone(412, 860);
-await fresh('ux165f'); await settle(2200);
-await clearChain();
-g = await ev(`(() => { const r = (e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: r(document.querySelector('#toastHost .toast')), inset: r(document.querySelector('.pane.ph-inset')), fit: r(document.querySelector('.pane:not(.ph-inset) .viewstack')), col: r(document.querySelector('.pane:not(.ph-inset) .ph-col')), chain: r(document.querySelector('.pipe-wrap')) }; })()`);
-// (#66: a phone's message takes the row over the tool row, under the chain bar, and the planes give that row up: it covers none of them)
-check('UX80 phone: the message sits in its own row under the chain bar, clear of the inset, Fit and the key column', g.t && !meet(g.t, g.inset) && !meet(g.t, g.fit) && !meet(g.t, g.col) && g.t.t >= g.chain.b - 1 && g.t.b - g.t.t >= 44, g);
-await shot('ux165-ux80-phone');
-grab();
-
 // ---------------------------------------------------------------- UX89: a tap that closes a layer does nothing else
 await phone(412, 860);
 await fresh('ux165g'); await settle(2000);
@@ -185,31 +96,6 @@ await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="
 g = await box('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-along"]');
 check('UX72 phone: the selected curve\'s editor in the Shapes sheet has Listen along, 44 px high', g && g.h >= 44, g);
 await shot('ux165-ux72-editor-phone');
-grab();
-
-// ---------------------------------------------------------------- UX97 keys on shapes, UX99 right-click menus
-await laptop();
-await fresh('ux165k'); await settle(1800);
-await ev(`__cmwSelect('s2')`); await settle(200);
-const n0 = await ev(`__cmwShapes().shapes.length`);
-await ev(`document.body.focus()`);
-await key('d', 4); await settle(300);
-g = await ev(`({ n: __cmwShapes().shapes.length, sel: __cmwShapes().selected })`);
-check('UX97: ⌘D duplicates the selected shape and selects the copy', g.n === n0 + 1 && g.sel !== 's2', Object.assign({ n0 }, g));
-const sid = g.sel;
-const before = await ev(`JSON.stringify(__cmwShapes().shapes.find((s) => s.id === ${JSON.stringify(sid)}))`);
-await key('ArrowRight'); await settle(200);
-const after = await ev(`JSON.stringify(__cmwShapes().shapes.find((s) => s.id === ${JSON.stringify(sid)}))`);
-check('UX97: an arrow moves the selected shape', before !== after, { before, after });
-await key('[', 4); await settle(200);
-g = await ev(`__cmwShapes().shapes.map((s) => s.id)`);
-check('UX97: ⌘[ sends it backward', g.indexOf(sid) === g.length - 2, g);
-await rclick(...mid(await box('#shapeList .shape[data-id="s2"] .shape-name')));
-g = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu'); if (!p) return null; const b = p.getBoundingClientRect(); return { x: b.left, y: b.top, keys: [...p.querySelectorAll('.mi')].filter((m) => /Duplicate|Bring forward|Send backward/.test(m.textContent)).map((m) => m.querySelector('.mi-key').textContent) }; })()`);
-const at1 = mid(await box('#shapeList .shape[data-id="s2"] .shape-name'));
-check('UX99: a right click on a Shapes row opens its ⋯ menu at the pointer', g && Math.abs(g.x - at1[0]) < 4 && (Math.abs(g.y - at1[1]) < 4 || g.y < at1[1]), Object.assign({ at1 }, g));
-check('UX97: the menu shows the keys (⌘D, ⌘], ⌘[)', g && g.keys.length === 3 && g.keys.every((k) => /[⌘C]/.test(k)), g && g.keys);
-await key('Escape'); await settle(200);
 grab();
 
 await laptop(1440, 900, false);
