@@ -22,7 +22,7 @@
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
     anim: null,      // the glide to a plane: {from, to, t0, ms}, eased in and out over a fixed time (no spring tail)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
-    footT: -1,       // the colour plane the style row was last built for
+    footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
@@ -2161,8 +2161,10 @@
     if (!SV.on || !SV.els) return;
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
-    // (the Cauchy parts in the style row read the colour plane: the row is built again when it moves)
-    if (SV.footT !== T) { SV.footT = T; if (S.dc === 'cauchy') buildRightFoot(); }
+    // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
+    // built again when either changes)
+    const footKey = S.dc === 'cauchy' ? T + '|' + (cauchyKind() || {}).kind : T;
+    if (SV.footT !== footKey) { SV.footT = footKey; if (S.dc === 'cauchy') buildRightFoot(); }
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
     const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,
