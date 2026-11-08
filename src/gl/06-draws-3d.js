@@ -271,7 +271,21 @@
   // The All sheets' layers past the first (member k >= 1 of the glide's inverse, drawn with the first's programs): each its
   // own places, preimages, normals and edges, kept between frames; layer 0 is landC
   const landLs = [];
+  const LAND_MEMBERS_MAX = 8;   // the walk's largest B
   let landActive = [];   // the layers the last carried frame drew: landC, then landLs's that are exact
+  // the inverse inputs of layer lay { member }: the glide's own, walked for its member-th member at each vertex (the step's
+  // sheets merged as for the front member)
+  const layerExact = (ex, lay) => Object.assign({}, ex, { member: lay.member, layered: true });
+    const LAND_COUNT_N = 24;   // the grid of the member count's pass
+  const landCount = { tex: null, zTex: null };
+  // the most members the glide's inverse has at a vertex of a coarse grid over the box (at least 1)
+  function landMembers(st) {
+    if (!landCount.tex) { landCount.tex = floatTex(); landCount.zTex = floatTex(); }
+    const c = st.carry, h0 = c.hT == null ? c.T : c.hT;
+    const q = Object.assign({}, layerExact(c.exact, { member: -1 }), { N: LAND_COUNT_N, box: st.box, hMode: 0, H: 1, mu: 1, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: landCount.tex, zTex: landCount.zTex });
+    landInverse(q);
+    return clamp(Math.round(q.counted || 1), 1, LAND_MEMBERS_MAX);
+  }
   function landLayer(k, N) {
     let L = landLs[k - 1];
     if (L && L.N !== N) { for (const t of [L.tex1, L.tex2, L.zTex, ...(L.edges || [])]) if (t) gl.deleteTexture(t); L = landLs[k - 1] = null; }
@@ -279,29 +293,31 @@
   }
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC; member:
   // the All sheets' layer, which is landLayer(member))
-  function carryHeights(st, N, mode, H, mu, aspect, polar, o, member = 0) {
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o, lay = null) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!polar && (!landC || landC.N !== N)) {
       if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
       landC = { N, tex1: floatTex(), tex2: floatTex() };
     }
-    const out = polar ? o : member ? landLayer(member, N) : landC;
+    const out = polar ? o : lay && lay.k ? landLayer(lay.k, N) : landC;
+    // (All sheets: the layer is one step sheet's one member; the sheets are not merged)
+    const ex = lay ? layerExact(c.exact, lay) : c.exact;
     if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     // c.exact (the glide's inverse inputs, GLR.landInverse): the places and preimages are the shown plane's grid walked
     // backwards through the glide's map, not plane s's grid carried forward; a pass that cannot draw leaves this
     // frame to the carried grid
     let exact = false;
-    if (c.exact && !polar) {
+    if (ex && !polar) {
       if (!out.zTex) out.zTex = floatTex();
       const h0 = c.hT == null ? c.T : c.hT;
-      const r = landInverse(Object.assign({}, c.exact, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, member, layered: !!c.exact.layered }));
+      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex }));
       exact = r === 'drawn';
       c.exactState = r;
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
       // have compiled; until then the cells are drawn whole
       out.cuts = 0; out.datas = null;
-      const sheets = exact ? [{ shift: null }].concat(c.exact.more || []) : [];
+      const sheets = exact ? [{ shift: null }].concat(ex.more || []) : [];
       const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
       if (P3 && (Pf || sheets.length === 1)) {
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
@@ -346,7 +362,7 @@
       }
     }
     if (!polar) out.exact = exact;
-    if (member && !exact) return out;
+    if (lay && lay.k && !exact) return out;
     if (!exact) {
     use(P1, c.map);
     u1i(P1, 'uN', N);
@@ -1338,13 +1354,16 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
     // its own first would stall the GPU process once for them and once more for the sheets')
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
-    // (All sheets: the members past the first, each a layer of its own; those a pass cannot draw are left out)
-    const nLayers = layered && hd && landC && landC.exact ? Math.max(1, st.carry.exact.members || 1) : 1;
+    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, layered ? { k: 0, member: 0 } : null) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (All sheets: every member of the glide's inverse is a layer of its own, the first being landC; a layer a pass cannot
+    // draw is left out)
     landActive = [landC];
-    for (let k = 1; k < nLayers; k++) {
-      const L = carryHeights(st, N, mode, H, mu, aspect, null, null, k);
-      if (L.exact) landActive.push(L);
+    if (layered && hd && landC && landC.exact) {
+      const M = landMembers(st);
+      for (let k = 1; k < M; k++) {
+        const L = carryHeights(st, N, mode, H, mu, aspect, null, null, { k, member: k });
+        if (L.exact) landActive.push(L);
+      }
     }
     // (the glide's inverse pass: 'drawn', 'pending' or 'error' when st.carry.exact asked for it)
     info.exact = st.carry && st.carry.exact ? st.carry.exactState || null : null;
@@ -1474,6 +1493,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
+      info.layers = landActive.length;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)

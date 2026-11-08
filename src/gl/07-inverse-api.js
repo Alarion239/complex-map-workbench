@@ -774,6 +774,7 @@ void main() {
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
+  if (uMember < 0) { o = vec4(float(nb), 0.0, 0.0, 1.0); return; }
   if (uMember >= nb) return;
   vec2 z = bZ[uMember], hv = carryHeight(z);
   if (hv.y > 0.5 && !(abs(hv.x) > 3e38)) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, 0.0, 1.0); }
@@ -793,7 +794,7 @@ void main() {
     // the sheets in order: a vertex takes the first sheet whose walk finds a member there
     const sheets = [st].concat((st.more || []).filter((m) => m && m.plan && m.prep && m.prep.ok));
     // (st.layered, All sheets: every member is wanted, so the walk keeps up to the largest B, which a low alpha asks for)
-    const member = st.member || 0;
+    const member = st.member ?? 0;
     const look = { alpha: st.layered ? LAND_MEMBER_ALPHA : 1, alphaOwn: st.layered ? LAND_MEMBER_ALPHA : 1, lastOpaque: true, pattern: 'carry', cell: 1, lines: false };
     const progs = [];
     for (const sh of sheets) {
@@ -860,6 +861,15 @@ void main() {
       gl.bindVertexArray(empty());
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.bindVertexArray(null);
+    }
+    // (st.member -1: the pass writes each vertex's member count, and the largest is st.counted)
+    if (st.member < 0) {
+      const px = new Float32Array(N * N * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, st.tex, 0);
+      gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
+      st.counted = 0;
+      for (let i = 0; i < px.length; i += 4) st.counted = Math.max(st.counted, px[i]);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(vpX, vpY, fw, fh);
