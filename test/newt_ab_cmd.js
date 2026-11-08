@@ -2,8 +2,9 @@
 // and on a branch build and compares what it records). Scenes: the glide of the zeta step (a pole), a plain NEWT step
 // (the series), a seeded one (the inverse Joukowski map) and a polynomial one, each at several places of its thread
 // (and parked on plane 1), once per fresh page load. Every draw into a framebuffer is read back as it is drawn (the
-// canvas as bytes, every float target as float32) and hashed over its raw bits; the record of a scene is the last
-// hash of each target (the NEWT roots pass's targets, the carried colour targets, the canvas).
+// float target as float32; a one-row target, a table upload, is left out) and hashed over its raw bits; the record of a
+// scene is the last hash of each target (the NEWT roots pass's targets, the carried colour targets) and the hash of the
+// left canvas's pixels once the scene has settled.
 // Without CMW_NEWT_AB_OUT it checks that a scene's record is the same on two loads and that its targets are not blank;
 // with it, it also writes the records there, as JSON.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
@@ -32,7 +33,7 @@ const HOOK = `(() => {
   const capture = () => {
     const vp = gl.getParameter(gl.VIEWPORT), fb = gl.getParameter(gl.FRAMEBUFFER_BINDING), w = vp[2], h = vp[3];
     if (!(w > 0 && h > 0)) return;
-    if (!fb) { grab('canvas', w, h, false); return; }
+    if (!fb || h < 2) return;
     const rb = gl.getParameter(gl.READ_BUFFER);
     for (let i = 0; i < 8; i++) {
       if (gl.getParameter(gl.DRAW_BUFFER0 + i) === gl.NONE) continue;
@@ -63,7 +64,7 @@ const record = async (sc, x) => {
   await ev(`__cmwSteps({ ${x === Math.floor(x) ? 'park' : 'x'}: ${x} }), 1`);
   await settled({ max: 90000, until: `__cmwSteps().x === ${x} || (__cmwSteps().glide && Math.abs(${Math.floor(x)} + __cmwSteps().glide.u - ${x}) < 1e-9)` });
   await sleep(2500);
-  const r = await ev('JSON.stringify(window.__ab.rec)');
+  const r = await ev(`(() => { const cv = document.querySelector('#canvasL'), c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } window.__ab.rec['canvasL|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; return JSON.stringify(window.__ab.rec); })()`);
   return typeof r === 'string' ? JSON.parse(r) : r;
 };
 const records = {};
