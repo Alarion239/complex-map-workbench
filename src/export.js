@@ -559,7 +559,9 @@ const Export = (() => {
       if (!sel || !alive()) return null;
       mfFigCache.key = key; mfFigCache.sel = sel;
     }
+    // o.keep(z): only the points it accepts are named and returned (the sphere's figure draws those seen from the camera's side)
     if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
+    else if (o.keep) sel = Object.assign({}, sel, { kept: sel.kept.filter((k) => o.keep(k.sp.z)) });
     // (a steps-view source: the sentence naming the paths, for the figure's own caption to carry)
     if (o.src) {
       let sent;
@@ -774,12 +776,12 @@ const Export = (() => {
         if (fv) { const k = wpx / effW(side); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
         if (o.T != null) { morph.T = o.T; morph.playing = false; }
         // (o.look 'light': the screen's look in the light theme, for a video; else the art layer on white paper)
-        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artCam = true; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
+        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
         A.TH = Object.assign({}, light); inkCache.clear();
         if (A.artMode) { A.TH.plane = '#ffffff'; A.TH.planeRGB = GLR.hexRGB('#ffffff'); }
         cv = renderOff(side, wpx, hpx, dpr);
       } finally {
-        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artCam = false; A.artSkip = null; A.artNoLab = false;
+        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artCam = false; A.artRelief = false; A.artSkip = null; A.artNoLab = false;
         Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
         morph.T = keep.T; morph.playing = keep.playing;
         A.TH = thKeep; inkCache.clear();
@@ -788,6 +790,8 @@ const Export = (() => {
       const land = A.artLand, globe = A.artGlobe;
       if (GLR.gpuDone) await GLR.gpuDone();
       if (!alive()) return null;
+      // (o.reliefOnly: the alpha plane alone, 255 where the relief covers the pixel)
+      if (o.reliefOnly) { const q = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, cov = new Uint8Array(cv.width * cv.height); for (let i = 0; i < cov.length; i++) cov[i] = q[4 * i + 3]; return { w: cv.width, h: cv.height, cov, land }; }
       // (a video frame: the canvas itself, no readback)
       if (o.raw) return { w: cv.width, h: cv.height, cv, land, globe };
       const id = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, n = cv.width * cv.height, rgb = new Uint8Array(n * 3);

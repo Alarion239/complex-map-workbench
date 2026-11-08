@@ -533,13 +533,19 @@
   }
   // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
   // t -> H_t(z) of a few points (the point shapes, else points of the boundaries) with heads at F(z)
+  // (o.sv, the steps view's A.svPathsFig() on the sphere: the shown plane's globe, the paths those of the step that leads to
+  // it, their starts chosen in the camera's window as on the plane, and the caption the plane's own then the paths' sentence)
+  // the width (pt) at which the steps view's paths are picked for the sphere: wide enough that, of the paths picked over the
+  // whole source window, several lie wholly on the camera's side
+  const SV_PATHS_PICK_W = 600;
   async function figGlobePaths(o, P, W, T) {
     const [tp] = T;
-    const d = A.defo(), m = d.m, st = A.state();
-    const asp = Math.min(A.paneAspect('R'), 1), wpt = W * 1.2, hpt = wpt * asp;
+    const sv = o.sv || null, d = sv ? { m: sv.m } : A.defo(), m = d.m, st = A.state();
+    const asp = sv ? 1 : Math.min(A.paneAspect('R'), 1), wpt = W * 1.2, hpt = wpt * asp;
     const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
     const openS = P.dashOpen ? shapes.filter((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s) && globeCurves(s, srcWin).length) : [];
-    const r = await A.art('R', { wpt, hpt, dpi: 300, ink: printInkFor(o, st.alpha), T: m, alive: o.alive, skipLines: openS.map((s) => s.id) });
+    const artArgs = { wpt, hpt, dpi: 300, ink: printInkFor(o, st.alpha), alive: o.alive, skipLines: openS.map((s) => s.id) };
+    const r = await (sv ? A.svArt(sv.i, artArgs) : A.art('R', Object.assign({ T: m }, artArgs)));
     if (!r) return null;
     let c = (await inkBoundsA(r)) || [0, r.w - 1, 0, r.h - 1];
     const pad = Math.round(0.04 * (c[1] - c[0]));
@@ -552,11 +558,25 @@
     const a = await XD.art(cropRGB(r, c), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: iw });
     const items = [`<image x="${f2(x)}" y="${f2(y)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`];
     const proj = globeProj(r.globe, r, c, x, y, k);
-    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, A.homF(t)); return Hs.get(key); };
-    // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries)
-    const live = A.globePaths ? A.globePaths() : null;
-    let zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter((z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis >= 8 && proj(Hof(m)(z)); }) : [];
-    if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
+    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(key); };
+    // how many of the path's 13 samples (t = 0 to m) the camera sees
+    const nVis = (z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis; };
+    const seen = (z) => nVis(z) >= 8 && proj(Hof(m)(z));
+    // a path drawn from its ring to its end dot: every sampled point of it on the camera's side
+    const whole = (z) => nVis(z) === 13;
+    // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries; the
+    // steps view's: the points the plane's figure would keep, those mostly on the camera's side)
+    let leg = null, zs;
+    if (sv) {
+      const sb = A.screenBox('L0'), bw = SV_PATHS_PICK_W, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
+      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
+      if (!leg || (o.alive && !o.alive())) return null;
+      zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
+    } else {
+      const live = A.globePaths ? A.globePaths() : null;
+      zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter(seen) : [];
+      if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
+    }
     const pxPt = 300 / 96 * k;
     let g = '';
     // (export review r3, editor-9) an open set's boundary, dashed (Homework); editor-3: a point shape whose path is not
@@ -581,5 +601,6 @@
     }
     g += A.pathsSvg(pathItems(zs, Hof, m, proj, true), { u: 1 });
     items.push(g, globeLabels(r.globe, r, c, x, y, k, tp - 1));
+    if (sv) return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, svPaths: true, svGlobe: true, m, kept: zs.length, sentence: leg.sentenceTex || '' } };
     return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, globePaths: true, m, kept: zs.length, pts: zs.map((z) => ({ z })), hidden, marks, open: openS.length > 0 } };
   }

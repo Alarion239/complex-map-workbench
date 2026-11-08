@@ -624,6 +624,8 @@
   function setupTooltips() {
     const tip = $('tip');
     if (!tip) return;
+    // (a focus counts as keyboard navigation when a Tab or arrow key came this many ms before it)
+    const NAV_KEY_MS = 300;
     let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
     // (v16.5 UX17) the tool descriptions that say click, in touch words (the others drag, hold or pick)
     const TOUCH_DESC = {
@@ -683,7 +685,7 @@
     document.addEventListener('focusin', (e) => {
       const tg = /** @type {HTMLElement} */ (e.target);
       const el = tg && tg.closest ? tg.closest('[data-tip],[title]') : null;
-      if (!el || performance.now() - navKeyAt > 300 || !el.matches(':focus-visible')) return;
+      if (!el || performance.now() - navKeyAt > NAV_KEY_MS || !el.matches(':focus-visible') || el.closest('.ph-sheet')) return;   // (a phone's sheet has no hover tips: its choices carry their words)
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();
       cur = el; kbdTip = el;
