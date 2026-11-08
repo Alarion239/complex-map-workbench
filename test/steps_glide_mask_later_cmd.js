@@ -14,6 +14,7 @@ const VIEW_W = 1200, VIEW_H = 800;   // (the views shard's pane, as steps_glide_
 const SETTLE_MAX_MS = 60000;  // the page's start-up, an example, a rest frame and a parked frame each settle within it
 const MESH_MAX_MS = 150000;   // a SphereMesh job of the zeta regions on a software renderer
 const JOB_ASK_MS = 1500;      // a bounded wait: the parked frame's draw asks for the SphereMesh job within it, where a mask is drawn from the forward image; with the exact frame no job is asked for, so there is no event to wait on, and the job list is read once it has passed
+const CONTROL_FRAC = 0.05;    // the frames of two different u differ on more than this share of their pixels: the comparison tells frames apart
 const PARK_EPS = 1e-3;        // how near u the thread has parked
 const ST = {
   pattern: 'phase', outline: true, lines: true, unit: false, alpha: 1, v3: true, v4: true, v5: true, nextId: 50,
@@ -58,6 +59,11 @@ for (const c of CASES) {
       ok(`${c.tag}: the frame held at u = ${u} has the parked frame's pixels (at most ${SAME_FRAC * 100} % of them more than 32/255 apart)`, !!diff && diff.frac <= SAME_FRAC, r[u]);
       await rest(0);
     }
+    // negative control: the held frame of the first u against the parked frame of the last u are different pictures, and the comparison sees it
+    const first = c.us[0], last = c.us[c.us.length - 1];
+    const apart = r[first] && r[last] && r[first].still && r[last].settledP ? await compare('H' + first, 'P' + last) : null;
+    r.control = apart;
+    ok(`${c.tag}: negative control: the frame held at u = ${first} is not the parked frame at u = ${last} (more than ${CONTROL_FRAC * 100} % of the pixels apart)`, !!apart && apart.frac > CONTROL_FRAC, apart);
   } catch (e) { ok(`${c.tag}: the case runs to its end`, false, String(e && e.message || e).slice(0, 300)); }
 }
 return { pass: fails.length === 0, fails, info };
