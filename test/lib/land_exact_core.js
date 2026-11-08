@@ -142,7 +142,8 @@
         lam = lam ? cadd(lam, relLog(z, z2)) : null;   // (the continued log coordinate moves with z)
         z = z2;
       }
-      newtWhy = 'residuals ' + hist.join(' ');
+      const r0 = Hof(m, z, lam), dl = 1e-7 * (1 + cabs(z)), zp = cadd(z, [dl, 0]), rp = Hof(m, zp, lam ? cadd(lam, relLog(z, zp)) : null);
+      newtWhy = 'residuals ' + hist.join(' ') + '; sheet ' + m.sheet + ' z ' + z[0].toExponential(3) + ',' + z[1].toExponential(3) + ' lam ' + (lam ? lam[0].toFixed(4) + ',' + lam[1].toFixed(4) : 'null') + ' dH ' + (r0 ? r0.dH[0].toExponential(3) + ',' + r0.dH[1].toExponential(3) : '-') + ' fwd ' + (r0 && rp ? ((rp.H[0] - r0.H[0]) / dl).toExponential(3) + ',' + ((rp.H[1] - r0.H[1]) / dl).toExponential(3) : '-');
       return null;
     }
     const relLog = (z, z2) => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; };
