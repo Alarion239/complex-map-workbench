@@ -2280,7 +2280,18 @@
       // under a drag or a glide, the ring is kept a plane's width from either end)
       // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
       const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
-      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
+      // (on a phone a newly selected step, or one whose chain was rebuilt, has its chip and ⋯ brought whole into the rail, as little as
+      // it takes; the rail then stays there until the ring moves, which is when it follows the ring again)
+      let aim = want;
+      if (document.documentElement.classList.contains('ph') && !SV.alone) {
+        const k = S.sel, key = `${k}|${E.sig}`, stepEl = typeof k === 'number' ? E.track.querySelector(`.sv-step[data-k="${k}"]`) : null;
+        if (key !== E.selKey) {
+          E.selKey = key; E.hold = null;
+          if (stepEl) { const a = stepEl.offsetLeft; aim = Math.min(Math.max(want, a + stepEl.offsetWidth - E.railW), a); E.hold = { tx, aim }; }
+        } else if (E.hold && E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim;
+        else E.hold = null;
+      }
+      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
     } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }

@@ -661,6 +661,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-nof .sv-track { min-width: 100%; }
 /* (no F beside it, + sits on the bar's own gaps: a one-step thread then fits the 128 px rail of a 360 px phone) */
 :root.ph.sv .sv-nof .sv-add { margin: 0; }
+/* the rail clips a ring that grows outside its control, and the controls at the rail's ends touch the clip: the ring sits inside the box there */
+:root.ph.sv .sv-rail :is(.sv-more, .sv-wholemap, .sv-fchip, .sv-plane):focus-visible { outline-offset: -2px; }
 :root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0; }
 :root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0; border-radius: 22px; }
