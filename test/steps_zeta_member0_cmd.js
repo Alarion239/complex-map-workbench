@@ -16,8 +16,8 @@ const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry
 const names = exampleNames();
 const GLSL = fs.readFileSync(path.join(DIR, '../../src/glsl.js'), 'utf8');
 const NEWT_DEDUPE = Number(/NEWT_DEDUPE = '([^']+)'/.exec(GLSL)[1]);
-// (the waits' limits, from a lavapipe run: the pole tracks ready in 2.3 s, a frame with the probe program's compile in 21.5 s;
-// the limits are 26 and 14 times those, for a shared runner)
+// (the waits' limits, from a lavapipe run: the page loads in 0.14 s, the pole tracks ready in 2.3 s, a frame with the probe program's compile in 21.5 s;
+// the limits are 60 s for the page (the other steps suites' wait), and 26 and 14 times the others, for a shared runner)
 const U_NEAR = 0.002, U_FAR = 0.5, READY_MS = 60000, FRAME_MS = 300000, PAGE_MS = 60000;
 // (fractions of the pane from its left and bottom: points inside the critical strip's picture)
 const PTS = [[0.45, 0.3], [0.5, 0.5], [0.55, 0.7], [0.48, 0.85], [0.52, 0.15], [0.5, 0.35], [0.47, 0.6]];
