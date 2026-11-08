@@ -756,15 +756,25 @@ const Phone = (() => {
   }
   // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
   // that style's settings, the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
-  const OPACITY_GROUP = 4;
+  // each group: its label and the rows it holds, in the order they show; a row goes to the first group that has a predicate for it,
+  // and rows no group names go to the last (the overlays)
+  const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);
   function displayGroups(kids) {
-    const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg, #landPaint') ? 1 : k.matches('#heightSeg') || k.querySelector('#lscaleRange') ? 3 : k.querySelector('.sv-opacity') ? 4 : k.matches('.scrub, .field, .fader-row') ? 2 : 5);
-    const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Height'), $t('Opacity'), $t('Overlays')];
-    return names.map((name, g) => [name, g, kids.filter((k) => of(k) === g)]).filter(([, , ks]) => ks.length)
-      .map(([name, g, ks]) => {
-        const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, name);
+    const groups = [
+      { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
+      { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
+      { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
+      { name: $t('Height'), rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
+      { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
+      { name: $t('Overlays'), rows: [] },
+    ];
+    const slot = (k) => { for (let g = 0; g < groups.length; g++) { const i = groups[g].rows.findIndex((m) => m(k)); if (i >= 0) return [g, i]; } return [groups.length - 1, 0]; };
+    const placed = kids.map((k) => [k, ...slot(k)]);
+    return groups.map((grp, g) => [grp, g, placed.filter((p) => p[1] === g).sort((x, y) => x[2] - y[2]).map((p) => p[0])]).filter(([, , ks]) => ks.length)
+      .map(([grp, g, ks]) => {
+        const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
         // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
-        if (g === OPACITY_GROUP) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
+        if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
         return h('section', { class: 'ph-grp' }, head, ...ks);
       });
   }
