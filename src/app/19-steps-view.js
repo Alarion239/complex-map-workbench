@@ -424,13 +424,12 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
   };
-  // the size of a cell of the far patches at distance d from the box src's centre: the outer ring's (LAND_FAR_RING_N points
-  // a side, in angle and log radius; GLR's CARRY_FAR_N), or the inner ring's within LAND_FAR_NEAR times the inscribed circle
-  const LAND_FAR_RING_N = [256, 96];
+  // the size of a cell of the far patches at distance d from the box src's centre: the ring's own (GLR.CARRY_FAR_N points
+  // a side, in angle and log radius): the inner ring's within LAND_FAR_NEAR times the inscribed circle, else the outer's
   const svFarCell = (src, d) => {
     const w = src.x1 - src.x0, h = src.y1 - src.y0, r = Math.min(w, h) / 2, n = d < LAND_FAR_NEAR * r ? 0 : 1;
     const r0 = n ? LAND_FAR_NEAR * r : r, r1 = n ? LAND_FAR_REACH * Math.max(w, h) : LAND_FAR_LAP * LAND_FAR_NEAR * r;
-    return d * Math.max(2 * Math.PI, Math.log(r1 / r0)) / (LAND_FAR_RING_N[n] - 1);
+    return d * Math.max(2 * Math.PI, Math.log(r1 / r0)) / (GLR.CARRY_FAR_N[n] - 1);
   };
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
   // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
