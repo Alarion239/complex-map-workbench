@@ -330,7 +330,7 @@
     if (ex && (!polar || (lay && ex.layered))) {
       if (!out.zTex) out.zTex = floatTex();
       const h0 = c.hT == null ? c.T : c.hT;
-      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, polar }));
+      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, mix, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, polar }));
       exact = r === 'drawn';
       c.exactState = r;
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
@@ -348,7 +348,7 @@
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
-        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0); };
+        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); mixU(P); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', clipOf(mode)); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, out.zTex);
         if (Pf && !carryProbe.noFix) for (const tol of lyr ? CARRY_SHEET_TOLS.slice(0, 1) : CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
@@ -413,7 +413,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);  u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); mixU(P1); u1f(P1, 'uHClip', clipOf(mode));
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -1099,7 +1099,7 @@
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
-    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1f(P1, 'uHClip', clipOf(mode));
     u1i(P1, 'uPass', 0);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
@@ -1197,7 +1197,7 @@
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1f(P1, 'uHClip', clipOf(mode));
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
     u1i(P1, 'uLat', move ? 0 : 1);
     // (the textures are made before the heights are bound: floatTex binds its new texture on the active unit, and the
@@ -1328,7 +1328,11 @@
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
     const { aspect, H, floorZ, Mx } = landGeom(box, st.scale);
     const modeName = st.heightMode || 'log';
-    const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[modeName] ?? 0;
+    const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7, reMix: 8, imMix: 9 }[modeName] ?? 0;
+    // (modes 8, 9: st.mix = {mu2, beta, endLin}: the second end's scale, the weight of its height, which ends are linear)
+    const mix = st.mix || { mu2: 0, beta: 0, endLin: 0 };
+    const clipOf = (m) => (m === 4 || m === 5 || m >= 8 ? 1e4 : 0);
+    const mixU = (P) => { u1f(P, 'uMu2', mix.mu2 > 0 ? mix.mu2 : st.mu > 0 ? st.mu : 1); u1f(P, 'uMix', mix.beta); u1i(P, 'uEndLin', mix.endLin); };
     const mu = st.mu > 0 ? st.mu : 1;
     const N = clamp(Math.round(st.cells || 256), 32, 512);
     const dpr = st.dpr || Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
@@ -1338,6 +1342,7 @@
     const heightOf = (v) => {
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
+      if (mode >= 8) { const g = (x, m, lin) => (lin ? Math.max(-1.25, Math.min(1.25, x / m)) : (2 / Math.PI) * Math.atan(x / m)); return H * ((1 - mix.beta) * g(v, mu, mix.endLin & 1) + mix.beta * g(v, mix.mu2 > 0 ? mix.mu2 : mu, mix.endLin & 2)); }
       if (mode >= 6) { const x = v / mu, a = Math.abs(x), c = 0.5 / Math.PI; return H * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
       if (mode >= 4) return H * Math.max(-1.25, Math.min(1.25, v / mu));
       return H * (2 / Math.PI) * Math.atan(v / mu);
@@ -1446,7 +1451,7 @@
       u1i(P, 'uN', hd.N);
       u4f(P, 'uBox', box.x0, box.y0, BW, BH);
       u2f(P, 'uAspect', aspect[0], aspect[1]);
-      u1f(P, 'uH', H); if (st.carry) u1f(P, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+      u1f(P, 'uH', H); if (st.carry) { u1f(P, 'uHClip', clipOf(mode)); mixU(P); }
       u1f(P, 'uFloorZ', floorZ);
       u1i(P, 'uMaterial', material);
       u3(P, 'uPlaster', C.plaster);

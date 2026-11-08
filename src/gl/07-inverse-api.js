@@ -854,7 +854,8 @@ void main() {
       u1i(P, 'uLN', N); u1i(P, 'uMember', member);
       u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
       u4f(P, 'uLPolar', ...(st.polar || [0, 0, 0, 0]));
-      u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', st.hMode === 4 || st.hMode === 5 ? 1e4 : 0);
+      u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', st.hMode === 4 || st.hMode === 5 || st.hMode >= 8 ? 1e4 : 0);
+      u1f(P, 'uMu2', st.mix && st.mix.mu2 > 0 ? st.mix.mu2 : st.mu); u1f(P, 'uMix', st.mix ? st.mix.beta : 0); u1i(P, 'uEndLin', st.mix ? st.mix.endLin : 0);
       u4f(P, 'uVp', 0, 0, N, N);
       u2f(P, 'uCenter', 0, 0); u2f(P, 'uCenterLo', 0, 0); u2f(P, 'uInvScale', 1, 1);
       u1i(P, 'uUsePrev', i > 0 ? 1 : 0); u1i(P, 'uPrevA', 12); u1i(P, 'uPrevZ', 13);

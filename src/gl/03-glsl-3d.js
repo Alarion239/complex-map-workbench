@@ -1,6 +1,10 @@
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = `
 uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
+// modes 8, 9 (a glide between two planes whose height functions differ, Re / Im): (1 - uMix) g_a + uMix g_b, g_a with the
+// scale uMu and g_b with uMu2; bit 0 of uEndLin: g_a is linear (else (2/pi) atan), bit 1: g_b is
+uniform float uMu2; uniform float uMix; uniform int uEndLin;
+float endH(float x, float mu, bool lin, float lim) { return lin ? clamp(x / mu, -lim, lim) : (2.0 / PI) * atan(clamp(x / mu, -1e30, 1e30)); }
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
   bool nanx = isnan(w.x) || !(w.x < 0.0 || w.x >= 0.0), nany = isnan(w.y) || !(w.y < 0.0 || w.y >= 0.0);
@@ -14,6 +18,12 @@ vec2 heightW(vec2 w) {
     bool bad = uHMode == 4 ? nanx : nany;
     float lim = uHClip > 0.0 ? uHClip : 1.25;
     return vec2(uH * clamp(x / mu, -lim, lim), bad ? 0.0 : 1.0);
+  }
+  if (uHMode == 8 || uHMode == 9) {
+    float x = uHMode == 8 ? w.x : w.y;
+    bool bad = uHMode == 8 ? nanx : nany;
+    float lim = uHClip > 0.0 ? uHClip : 1.25, mu2 = uMu2 > 0.0 ? uMu2 : mu;
+    return vec2(uH * ((1.0 - uMix) * endH(x, mu, (uEndLin & 1) != 0, lim) + uMix * endH(x, mu2, (uEndLin & 2) != 0, lim)), bad ? 0.0 : 1.0);
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
   if (uHMode == 6 || uHMode == 7) {
@@ -258,7 +268,7 @@ void main() {
     // (a step that vanishes at the crossing is no discontinuity of the height: Re of a root across its cut)
     jump = jump && abs(hHi - hLo) > tol;
   } else {
-    float big = 1e3 * max(uMu, 1e-30);
+    float big = 1e3 * max(max(uMu, uMu2), 1e-30);
     jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
   }
   // (w 2: the edge crosses a cut twice, or two cuts: its triangles are left out, LAND_VS)
@@ -475,7 +485,7 @@ vec4 edgeJump(ivec2 p, ivec2 q) {
     // (a step that vanishes at the crossing is no discontinuity of the height: Re of a root across its cut)
     jump = jump && abs(hHi - hLo) > tol;
   } else {
-    float big = 1e3 * max(uMu, 1e-30);
+    float big = 1e3 * max(max(uMu, uMu2), 1e-30);
     jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
   }
   // (w 2: the edge crosses a cut twice, or two cuts: the far end is on the near end's branch, the midpoint is not; its
@@ -820,7 +830,7 @@ ${L ? `  // (the continuation from the own end does not give the other end's hei
     // (a continuous rise shrinks under bisection, by 8 over three halvings where it is smooth: stop early)
     if (it == 2) { d3 = abs(hHi - hLo); if (d3 < 0.2 * d0) { jump = false; break; } }
   }
-  float big = 1e3 * max(uMu, 1e-30);
+  float big = 1e3 * max(max(uMu, uMu2), 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
   if (jump) tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0);
 }
@@ -1430,6 +1440,18 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   vec2 ht = heightW(w);
   if (!(wt > 0.0) || ht.y < 0.5) return w;
   float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
+  if (uHMode >= 8) {
+    // the mix of two end heights is strictly increasing in the value: bisect x = mu sinh(s)
+    float mu2 = uMu2 > 0.0 ? uMu2 : mu, lo = -30.0, hi = 30.0;
+    for (int it = 0; it < 28; it++) {
+      float m = 0.5 * (lo + hi), x = mu * 0.5 * (exp(m) - exp(-m));
+      float g = (1.0 - uMix) * endH(x, mu, (uEndLin & 1) != 0, 1e30) + uMix * endH(x, mu2, (uEndLin & 2) != 0, 1e30);
+      if (g < h) lo = m; else hi = m;
+    }
+    float m = 0.5 * (lo + hi), x = mu * 0.5 * (exp(m) - exp(-m));
+    if (uHMode == 8) w.x = x; else w.y = x;
+    return w;
+  }
   if (uHMode >= 2) {
     // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;

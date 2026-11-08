@@ -35,6 +35,9 @@
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
+  const CONT_STEP = 0.02;   // (the continuity probe's two frames: u - CONT_STEP / 2 and u + CONT_STEP / 2)
+  const CONT_AT = [0.25, GLIDE_MID, 0.75];
+  const CONT_LIPSCHITZ = 8;   // (the largest change of a layer's height at a place, in block heights, per unit of u)
   const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
   // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
   // frame there matches the parked plane within SAME_FRAC; END_U is the ends of a polynomial's glide)
@@ -434,6 +437,32 @@
         } else if (u === GLIDE_MID && sc && ref) {
           ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, rel(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
         }
+      }
+      // the height function moves continuously from plane z's to the next plane's: the layers' heights at a place change by at most
+      // CONT_LIPSCHITZ block heights per unit u; a height function that switches at the middle jumps (control)
+      if (sheets && c.cutProbe && u === 1 - END_U) {
+        const H = (await ev('__cmwLandScale()')).lscale || 1;
+        const layerH = async (x) => { await setU(x); return JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(LAYER_PLACES)}))`)).map((a) => (a || []).map((l) => l.h)); };
+        const jump = async (x) => {
+          const a = await layerH(x - CONT_STEP / 2), b = await layerH(x + CONT_STEP / 2);
+          let worst = 0;
+          a.forEach((la, i) => la.forEach((h) => { const d = Math.min(...(b[i] || [Infinity]).map((g) => Math.abs(g - h))); if (Number.isFinite(d)) worst = Math.max(worst, d); }));
+          return worst / CONT_STEP / H;
+        };
+        const worst = {};
+        for (const x of CONT_AT) worst[x] = await jump(x);
+        ok(`${t}: the layers' heights change at most ${CONT_LIPSCHITZ} block heights per unit u at ${CONT_AT.join(', ')} (${JSON.stringify(worst)})`, CONT_AT.every((x) => worst[x] <= CONT_LIPSCHITZ), worst);
+        await ev(`__svCarryProbe = __svCarryProbeSettings.mixSwitch; 1`); await settled({ max: LOAD_MAX_MS });
+        const sw = await jump(GLIDE_MID);
+        await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS });
+        ok(`${t}: a height function that switches at the middle jumps at it (control; ${sw} block heights per unit u)`, sw > CONT_LIPSCHITZ, { sw });
+        await setU(u);
+        // the weight frozen at plane z's height leaves the next plane's frame unmatched (control)
+        await ev(`__svCarryProbe = __svCarryProbeSettings.mixBeta0; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        await grab('b0');
+        const d1b = (await compare('b0', 'P1')).frac;
+        await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        ok(`${t}: the weight frozen at plane z's height fails the next plane's parked frame (control; ${d1b} of pixels over ${DIFF_TOL})`, d1b > SAME_FRAC, { d1b });
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
