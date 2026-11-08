@@ -45,6 +45,9 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  // The grid is shifted a quarter cell in y from the cell centres: the middle row would lie on the real axis, the cut of the roots and the
+  // logarithm, where the side of the cut a place falls on is decided by the sign of a rounding error in float32 and in float64.
+  const Y_SHIFT = 0.75;
   const TIE_D = 2 ** -14;   // the depth keys' tie band, Inverse.front's: two members whose keys differ by less are ordered by their z
   const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member
@@ -67,14 +70,15 @@
   window.__lxEnum = (pts) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
-    // (the front member first: the enumerator's members of the frame's own sheet (all of them when it has none there) in Inverse.front's
-    // order: the smaller depth key D, keys within the tie band equal, then the larger Im z, then the larger Re z)
+    // (the front member first: over the members in the hook's order (the frame's own sheet, then the sheets beside it) the smallest depth
+    // key D; a key within the tie band of the best is a tie, and the earlier member wins. The same z repeats on sheets that differ by
+    // a multiple of n, so a z listed again is dropped.)
     const tie = (a, b) => Math.abs(a - b) <= ${TIE_D} * (1 + Math.min(a, b));
-    const order = (p, q) => (tie(p.D, q.D) ? (p.z[1] !== q.z[1] ? q.z[1] - p.z[1] : q.z[0] - p.z[0]) : p.D - q.D);
     return e.map((ms) => {
-      const own = ms.filter((m) => m.sheet === 0), use = (own.length ? own : ms).slice().sort(order), o = [];
+      let best = null;
+      for (const m of ms) if (!best || (m.D < best.D && !tie(m.D, best.D))) best = m;
+      const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
       for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
-      for (const m of ms) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
       return o;
     });
   };
@@ -100,11 +104,11 @@
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
     return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p }; })()`);
   }
-  // the places a frame is probed at: PROBES x PROBES cell centres of the box, and a pair either side of the real axis (the
+  // the places a frame is probed at: a PROBES x PROBES grid of the box (cell centres in x, Y_SHIFT in y), and a pair either side of the real axis (the
   // cut of the square root, the cube root and the logarithm) at each of CUT_X
   const probes = (b) => {
     const o = [], w = b.x1 - b.x0, h = b.y1 - b.y0;
-    for (let i = 0; i < PROBES; i++) for (let j = 0; j < PROBES; j++) o.push([b.x0 + (i + 0.5) * w / PROBES, b.y0 + (j + 0.5) * h / PROBES]);
+    for (let i = 0; i < PROBES; i++) for (let j = 0; j < PROBES; j++) o.push([b.x0 + (i + 0.5) * w / PROBES, b.y0 + (j + Y_SHIFT) * h / PROBES]);
     for (const xf of CUT_X) for (const s of [1, -1]) o.push([b.x0 + xf * w, s * CUT_OFF * h]);
     return o;
   };
@@ -134,15 +138,14 @@
   }
   // A member is its preimage z; its drawn height and colour are then compared. The frame's z is float: Z_TOL of 1 + |z|.
   const sameZ = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= Z_TOL * (1 + Math.hypot(b[0], b[1]));
-  // sheets off at one place: the frame has one layer, the front member's; on the real axis (the cut) the front member of either side is accepted
-  const frontSame = (have, wantAll, onCut) => have.length === 1 && (onCut ? wantAll : wantAll.slice(0, 1)).some((x) => sameZ(have[0].z, x.z));
+  // sheets off at one place: the frame has one layer, the front member's
+  const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
   {
     const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
-    ok('the front check accepts the front member', frontSame([L([1, 0])], two, false), null);
-    ok('the front check fails the other member off the real axis', !frontSame([L([-1, 0])], two, false), null);
-    ok('the front check accepts the other side of the cut on the real axis', frontSame([L([-1, 0])], two, true), null);
-    ok('the front check fails a preimage of no member, on the real axis too', !frontSame([L([3, 3])], two, true), null);
-    ok('the front check fails two layers', !frontSame([L([1, 0]), L([1, 0])], two, false), null);
+    ok('the front check accepts the front member', frontSame([L([1, 0])], two), null);
+    ok('the front check fails the other member', !frontSame([L([-1, 0])], two), null);
+    ok('the front check fails a preimage of no member', !frontSame([L([3, 3])], two), null);
+    ok('the front check fails two layers', !frontSame([L([1, 0]), L([1, 0])], two), null);
   }
   // the colour of a member: the angle between two values of F, or null where either is near 0
   const phaseGap = (a, b) => {
@@ -213,11 +216,10 @@
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = got[i] || [];
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
-        const onCut = Math.abs(p[1]) < CUT_OFF * (box.y1 - box.y0) / 2;   // (a place on the real axis: either side of the cut is the front member)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
         const same = sheets ? want.length === haveAll.length && want.every((m) => haveAll.some((l) => sameZ(l.z, m.z))) && haveAll.every((l) => want.some((m) => sameZ(l.z, m.z)))
-          : frontSame(haveAll, wantAll, onCut);
+          : frontSame(haveAll, wantAll);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
         // (every member the layers match by z, on a side sheet or on the real axis too: the drawn height and the colour)
         want.forEach((m) => {
