@@ -29,7 +29,7 @@ const probe = () => ev(`(() => {
   const ph = document.documentElement.classList.contains('ph'), pane = document.getElementById('paneL').getBoundingClientRect();
   const props = document.getElementById('propsPanel'), pr = props && props.getClientRects().length ? props.getBoundingClientRect() : null;
   const col = Math.min(document.documentElement.clientWidth, pr && pr.left > pane.left ? pr.left : Infinity);
-  const sel = ph ? ['#svStrip .sv-next', '#svStrip .sv-prev', '#paneL .ph-sph', '#paneL .ph-dsp'] : ['#svStrip .sv-next', '#svStrip .sv-prev', '#svStrip .sv-speed', '#paneL .viewstack button', '#leftLegend'];
+  const sel = ph ? ['#svStrip .sv-next', '#svStrip .sv-prev', '#leftSph', '#paneL .ph-dsp'] : ['#svStrip .sv-next', '#svStrip .sv-prev', '#svStrip .sv-speed', '#paneL .viewstack button', '#leftLegend'];
   const hit = {};
   for (const q of sel) {
     const el = document.querySelector(q);
