@@ -744,7 +744,7 @@
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
-  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); }
+  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
   // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
   const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
   function buildFoot(side) {

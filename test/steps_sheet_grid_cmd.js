@@ -140,4 +140,19 @@ const after = await controls();
 ok('the sheet lists the same controls, in the same order, either side of the colour plane', before.list.length > 0 && JSON.stringify(before.list) === JSON.stringify(after.list), { before: before.list, after: after.list });
 const cur = await ev(`(() => { const l = document.querySelector('.ph-sheet label.check[aria-disabled="true"]'); return l && { cursor: getComputedStyle(l).cursor, opacity: getComputedStyle(l).opacity }; })()`);
 ok('a toggle that does not apply keeps the default cursor, dimmed', !!cur && cur.cursor === 'default' && +cur.opacity < DIMMED_BELOW, cur);
+// a style chosen in the open sheet refills it: the settings that style has (n for Tiles, the grid step for Grid) replace the old style's
+const styleControls = () => ev(`(() => ({ n: !!document.querySelector('.ph-sheet #secSel'), step: !!document.querySelector('.ph-sheet #dcGridSel'),
+  checked: (document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]') || {}).dataset && document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]').dataset.v }))()`);
+const pickStyle = async (v) => { await ev(`document.querySelector('.ph-sheet .sty-seg [data-v="${v}"]').click(); 1`); await settled({ floor: SETTLE_FLOOR }); };
+await open(PHONE, 'en', false);
+const tiles = await styleControls();
+ok('the sheet opens on Tiles with n and no grid step', tiles.checked === 'enhanced' && tiles.n && !tiles.step, tiles);
+await pickStyle('grid');
+const gridSt = await styleControls();
+ok('choosing Grid in the open sheet replaces n by the grid step', gridSt.checked === 'grid' && !gridSt.n && gridSt.step, gridSt);
+const kept = await ev(`document.activeElement && document.activeElement.closest('.sty-seg') && document.activeElement.dataset.v`);
+ok('the chosen style keeps the focus after the sheet is refilled', kept === 'grid', kept);
+await pickStyle('enhanced');
+const backTiles = await styleControls();
+ok('choosing Tiles again brings n back and takes the grid step away', backTiles.checked === 'enhanced' && backTiles.n && !backTiles.step, backTiles);
 return { pass: fails.length === 0, fails, info };
