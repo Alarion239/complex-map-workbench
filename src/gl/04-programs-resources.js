@@ -216,6 +216,7 @@
     // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryEdge: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS, fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },

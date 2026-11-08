@@ -258,6 +258,7 @@
   // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
   const carryStep = (mode, H, exact) => (mode >= 2 && !exact ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
+  const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
@@ -278,6 +279,23 @@
       const r = landInverse(Object.assign({}, c.exact, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: landC.zTex }));
       exact = r === 'drawn';
       c.exactState = r;
+      // the glide's real cuts (LAND_CARRY_EDGE_VS), once its program has compiled; until then the cells are drawn whole
+      const P3 = exact ? program('landCarryEdge', c.map) : null;
+      landC.cuts = 0;
+      if (P3) {
+        if (!landC.edges) landC.edges = [floatTex(), floatTex(), floatTex()];
+        use(P3, c.map);
+        u1i(P3, 'uN', N); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uH', H); u1f(P3, 'uMu', mu);
+        u1i(P3, 'uHMode', mode); u1i(P3, 'uGs', 0); u1i(P3, 'uGt', h0); u1i(P3, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P3, 'uHu', c.u || 0);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
+        gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex);
+        for (let d = 0; d < 3; d++) {
+          u1i(P3, 'uDir', d);
+          gl.activeTexture(gl.TEXTURE15);
+          runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+        }
+        landC.cuts = 1;
+      }
     }
     if (!polar) landC.exact = exact;
     if (!exact) {
@@ -1355,7 +1373,10 @@
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
+      const cutDraw = !!(landC && landC.exact && landC.cuts);
+      u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);
       if (landC && landC.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex); }
+      if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
       keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
@@ -1366,11 +1387,11 @@
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
       gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-      gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+      gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N);
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', 3); u1i(Pc, 'uCuts', 0);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));

@@ -634,27 +634,108 @@ uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; unif
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
+// uCuts 1 (the exact glide, whose cuts LAND_CARRY_EDGE_VS found into uE0, uE1, uE2): a triangle is drawn as LAND_VS draws
+// it, 9 vertices each (uPer 9); else 3
+uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
+uniform int uCuts; uniform int uPer;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
+// the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
+vec4 edgeOf(ivec2 a, ivec2 b) {
+  if (uCuts <= 0) return vec4(0.5, 0.0, 0.0, 0.0);
+  ivec2 d = b - a;
+  bool rev = d.x < 0 || d.y < 0;
+  ivec2 o = rev ? b : a, ad = abs(d);
+  vec4 e = ad.y == 0 ? texelFetch(uE0, o, 0) : (ad.x == 0 ? texelFetch(uE1, o, 0) : texelFetch(uE2, o, 0));
+  return rev ? vec4(1.0 - e.x, e.z, e.y, e.w) : e;
+}
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
   int M = uN - 1;
-  int tri = gl_VertexID / 3, k = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
+  int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, sub = loc / 3, k = loc - 3 * sub, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
-  ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
-  vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = uZOn == 1 ? texelFetch(uZ, V, 0).xy : carryZ(vec2(V));
-  vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
+  // (rotate, winding kept: one jump on AB, or two on AB and AC with BC whole; three, or an edge crossed twice: left out)
+  vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
+  bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
+  int J = int(j01) + int(j12) + int(j20);
+  if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
+  ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
+  // this vertex: a corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
+  ivec2 src = A; int x = 0;
+  if (J == 0) { if (sub > 0) return; src = k == 0 ? A : (k == 1 ? B : C); }
+  else if (J == 1) {
+    if (sub > 1) return;
+    if (sub == 0) { src = A; x = k == 1 ? 1 : 0; if (k == 2) src = C; vEdge = vec3(1.0, 0.0, 0.0); }
+    else { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; vEdge = vec3(0.0, 1.0, 0.0); }
+  } else {
+    if (sub == 0) { src = A; x = k; vEdge = vec3(1.0, 0.0, 0.0); }
+    else if (sub == 1) { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; }
+    else { src = k == 0 ? B : C; x = k == 0 ? 1 : (k == 2 ? 2 : 0); vEdge = vec3(0.0, 1.0, 0.0); }
+  }
+  vec4 t = texelFetch(uT1, src, 0), nv = texelFetch(uT2, src, 0);
+  vec2 xy = t.xy, z = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
+  float h = t.z;
+  if (x > 0) {
+    ivec2 E = x == 1 ? B : C;
+    vec4 e = edgeOf(A, E);
+    xy = mix(texelFetch(uT1, A, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
+    z = mix(texelFetch(uZ, A, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+    h = src == A ? e.y : e.z;
+  }
+  vZ = z;
+  vPos = vec3(((xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
+}
+`;
+  // The exact glide's cuts: one texel per grid edge (+x, +y, diagonal; uDir) of the glide's grid (uT1: place, height,
+  // finite; uZ: the preimage of each place), as LAND_EDGE_VS finds a principal surface's: (t, height at the edge's
+  // a end of the cut, at its b end, jump). The edge's preimages are joined by a chord and the height there bisected
+  // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. An
+  // edge whose end heights are not the chain's at its preimages (the vertex is on another sheet's member) has none
+  const LAND_CARRY_EDGE_VS = `
+uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt;
+uniform highp sampler2D uT1; uniform highp sampler2D uZ;
+out vec4 tfOut;
+` + CARRY_HEIGHT + `
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  tfOut = vec4(0.5, 0.0, 0.0, 0.0);
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
+  if (q.x >= uN || q.y >= uN) return;
+  vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
+  if (!(a.w > 0.5 && b.w > 0.5)) return;
+  float tol = 2e-3 * uH, d0 = abs(b.z - a.z);
+  if (!(d0 > tol)) return;
+  vec2 z0 = texelFetch(uZ, p, 0).xy, z1 = texelFetch(uZ, q, 0).xy;
+  vec2 ha = carryHeight(z0), hb = carryHeight(z1);
+  if (!(ha.y > 0.5 && hb.y > 0.5) || abs(ha.x - a.z) > tol || abs(hb.x - b.z) > tol) return;
+  vec2 wLo = chainRange(z0, uGs, uGt), wHi = chainRange(z1, uGs, uGt);
+  float lo = 0.0, hi = 1.0, hLo = a.z, hHi = b.z, d3 = d0;
+  bool jump = true, fin = true;
+  for (int it = 0; it < uSteps - 1; it++) {
+    float m = 0.5 * (lo + hi);
+    vec2 zm = mix(z0, z1, m);
+    vec2 hp = carryHeight(zm), wp = chainRange(zm, uGs, uGt);
+    if (!(hp.y > 0.5)) { fin = false; break; }
+    if (abs(hp.x - hLo) >= abs(hHi - hp.x)) { hi = m; hHi = hp.x; wHi = wp; } else { lo = m; hLo = hp.x; wLo = wp; }
+    // (a continuous rise shrinks under bisection, by 8 over three halvings where it is smooth: stop early)
+    if (it == 2) { d3 = abs(hHi - hLo); if (d3 < 0.2 * d0) { jump = false; break; } }
+  }
+  float big = 1e3 * max(uMu, 1e-30);
+  jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
+  if (jump) tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0);
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
