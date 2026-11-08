@@ -328,6 +328,8 @@
   // undo history of {s: shapes, steps and nextId as JSON, focus}. The focus of the current entry follows
   // the live focus at the start of every user input (noteFocus), so undo returns to the step focused before the action.
   let hist = [], hi = -1;
+  // the chains Undo left that Redo can still return to: freed once an edit drops the redo entries
+  const redoChains = new Set();
   let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
   // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
@@ -338,6 +340,7 @@
   function commit() {
     const e = snap();
     if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; hist[hi].sv = e.sv; return; }
+    if (hist.length > hi + 1) { if (GLR.ok) for (const k of redoChains) GLR.freeChain(k); redoChains.clear(); }
     hist = hist.slice(0, hi + 1);
     hist.push(e);
     if (hist.length > 200) hist.shift();

@@ -116,9 +116,9 @@
       const w = Construct.undoPick();
       if (w != null) { toast(w ? $t('Undid the pick: {x}', { x: w }) : $t('Undid the last pick')); updateUndo(); return; }
       if (polyBack()) return;
-      if (hi > 0) { hi--; restore(hist[hi]); }
+      if (hi > 0) { if (GLR.ok) redoChains.add(GLR.chainKey); hi--; restore(hist[hi]); }
     });
-    $('redoBtn').addEventListener('click', () => { if (hi < hist.length - 1) { hi++; restore(hist[hi]); } });
+    $('redoBtn').addEventListener('click', () => { if (hi < hist.length - 1) { hi++; restore(hist[hi]); redoChains.delete(GLR.chainKey); } });
     $('helpBtn').addEventListener('click', (e) => Tour.openHelpMenu(e.currentTarget));
     sndInit();
     $('exportBtn').addEventListener('click', (e) => openExportMenu(e.currentTarget));

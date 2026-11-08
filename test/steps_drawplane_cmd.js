@@ -18,7 +18,9 @@ await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!docume
 // (the colour plane is z, plane 0)
 await ev(`document.querySelector('.sv-cp').click(); 1`);
 await settled({});
-const toPlane = async (i) => { await ev(`document.querySelector('#svStrip .sv-plane[data-i="${i}"]').click(); 1`); await quiet(); await settled({ floor: 400 }); return ctl(); };
+// (a press waits for the prestart and its idle jobs: the suite presses once the chain is prepared)
+const calm = () => settled({ max: 120000, only: true, until: '__cmwSteps().ready.ready' });
+const toPlane = async (i) => { await calm(); await ev(`document.querySelector('#svStrip .sv-plane[data-i="${i}"]').click(); 1`); await quiet(); await settled({ floor: 400 }); return ctl(); };
 // (a picture: the plane's pixels are not all one colour)
 const picture = async () => { const r = await planePixels('', '(r, g, b) => Math.max(r, g, b) - Math.min(r, g, b) > 40 || r < 235'); return r.__exc ? r : r.n > 50; };
 let s = await toPlane(0);
@@ -32,6 +34,7 @@ s = await ctl();
 ok('the globe of a plane past the colour plane is drawn by the classic core', s.paint === 'push' && s.core === 'still', { paint: s.paint, core: s.core, surf: s.surf });
 await ctl({ surf: 'plane' }); await quiet(); await settled({ floor: 400 });
 await ctl({ go: 0 }); await quiet();
+await calm();
 await ctl({ go: 1 });
 let mid = null;
 for (let i = 0; i < 40 && !(mid && mid.core === 'carry' && mid.moving); i++) { await new Promise((r) => setTimeout(r, 25)); mid = await ctl(); }

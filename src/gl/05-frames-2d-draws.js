@@ -149,6 +149,7 @@
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
       if (hist.length > PROG_KEEP) hist.length = PROG_KEEP;
     }
+    if (discardPending && !sideMode) dropOtherChains();
     cur.info = info;
     const n = Math.max(4, info.slots * 4);
     if (!cur.data || cur.data.length !== n) cur.data = new Float32Array(n); else cur.data.fill(0);

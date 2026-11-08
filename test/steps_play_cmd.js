@@ -30,7 +30,9 @@ const hash = async (name) => { await settle(400); await shot(name, await plot())
 const press = (k) => ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '${k}', bubbles: true, cancelable: true })); 1`);
 
 
-const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
+// (a press of ▶ or an arrow waits for the prestart and its idle jobs: the suite presses once the chain is prepared)
+const calm = () => settled({ max: 120000, only: true, until: '__cmwSteps().ready.ready' });
+const ctl = async (o) => { if (o && o.play === true) await calm(); return ev(`__cmwSteps(${JSON.stringify(o)})`); };
 const kdown = (k, mods = {}) => ev(`(document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: '${k}', bubbles: true, cancelable: true }, ${JSON.stringify(mods)}))); 1`);
 const until = async (f, ms = 15000) => { const t0 = Date.now(); for (;;) { const s = await S(); if (f(s)) return { s, ms: Date.now() - t0 }; if (Date.now() - t0 > ms) return { s, ms: Date.now() - t0, timeout: true }; await sleep(25); } };
 const nodes = () => ev(`[...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`);
@@ -71,6 +73,7 @@ ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await choose('.sv-speed', 'fast');
+await calm();
 const tClick = Date.now();
 // (the glide is 0.9 s of frame time and the button's label follows on a frame: from the press, every frame is looked at
 // until the glide runs and the button says Pause, at most 5 s, so a page whose frames are slow is read while it plays)
@@ -91,6 +94,7 @@ const e1 = await until((s) => !s.play); e1.ms = Date.now() - tClick;   // (from 
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
+await calm();
 await ev(`document.querySelector('.sv-play').click(); 1`);
 const p2 = await S();
 ok('▶ at the end starts over', p2.play === 'glide' && p2.x < 1, p2);

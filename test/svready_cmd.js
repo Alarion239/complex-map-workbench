@@ -30,6 +30,26 @@ await settled({ max: 40000, only: true, until: '__cmwSteps().ready.ready === tru
 const again = await ev('__cmwSteps().ready');
 info.again = again;
 ok('the prestart ran again: ready', again && again.ready === true, again);
+// a static program the prestart starts counts in the gauge (here a Landscape pass, not asked for before). Programs start in the
+// background only with KHR_parallel_shader_compile, which this renderer has not: a stand-in for it reports each link
+// done 500 ms after its first poll
+await send('Page.enable', {});
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+  const seen = new WeakMap();
+  const ge = WebGL2RenderingContext.prototype.getExtension;
+  WebGL2RenderingContext.prototype.getExtension = function (n) { return n === 'KHR_parallel_shader_compile' ? { COMPLETION_STATUS_KHR: 0x91B1 } : ge.call(this, n); };
+  const gp = WebGL2RenderingContext.prototype.getProgramParameter;
+  WebGL2RenderingContext.prototype.getProgramParameter = function (p, n) {
+    if (n === 0x91B1) { if (!seen.has(p)) seen.set(p, performance.now()); return performance.now() - seen.get(p) > 500; }
+    return gp.call(this, p, n);
+  };
+})();` });
+await nav(`${base}/test.html?ns=${ns}&view=steps`);
+await settled({ max: 30000, only: true, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on && __cmwSteps().ready.ready === true' });
+const st0 = await ev('GLR.progStatus().total');
+await ev('(GLR.prestart(["landLv"]), 1)');
+const st1 = await ev('GLR.progStatus().total');
+ok('a static program started by the prestart counts in the programs', st1 === st0 + 1, { st0, st1 });
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };

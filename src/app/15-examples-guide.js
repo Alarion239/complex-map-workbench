@@ -1054,7 +1054,13 @@
   function exFitTo(...args) { return EXM.exFitTo(...args); }
   function exOk(...args) { return EXM.exOk(...args); }
   function firstExample(...args) { return EXM.firstExample(...args); }
-  function loadExample(...args) { return EXM.loadExample(...args); }
+  // (the chain of the scene it replaces is discarded: its programs, cached evaluations and caches are freed)
+  function loadExample(...args) {
+    redoChains.clear();
+    if (GLR.ok) GLR.discardChains();
+    svDiscardCaches();
+    return EXM.loadExample(...args);
+  }
   function retryExampleThumbs(...args) { return EXM.retryExampleThumbs(...args); }
   function openGallery(...args) { return EXM.openGallery(...args); }
   function openGuide(...args) { return EXM.openGuide(...args); }
