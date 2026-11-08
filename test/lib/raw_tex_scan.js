@@ -45,7 +45,8 @@
       const t0 = Date.now();
       try { r = await ev(SCAN); } catch (e) { fails.push(`${LANG} ${page} ${ctx}: the scan threw: ${e.message}`); return; }
       if (r.n < MIN_STRINGS) fails.push(`${LANG} ${page} ${ctx}: the scan read only ${r.n} strings (at least ${MIN_STRINGS} expected)`);
-      if (page === 'test-mj.html' && !r.mj) fails.push(`${LANG} ${page} ${ctx}: MathJax typeset nothing (no mjx-container): the page tested what it shows before MathJax`);
+      // (example 0 is the empty canvas: its page has no formula to typeset, so it has no mjx-container; every other picture has one)
+      if (page === 'test-mj.html' && !r.mj && !/^example 0 \(/.test(ctx)) fails.push(`${LANG} ${page} ${ctx}: MathJax typeset nothing (no mjx-container): the page tested what it shows before MathJax`);
       info.minStrings = Math.min(info.minStrings ?? Infinity, r.n);
       info.scanMs = (info.scanMs || 0) + Date.now() - t0;
       for (const f of r.out) { const key = `${page}|${f.where}|${f.s}`; if (seen.has(key)) continue; seen.add(key); fails.push(`${LANG} ${page} ${ctx}: raw TeX (${f.k}) in ${f.where}: "${f.s}"`); }
