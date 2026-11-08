@@ -140,4 +140,18 @@ const after = await controls();
 ok('the sheet lists the same controls, in the same order, either side of the colour plane', before.list.length > 0 && JSON.stringify(before.list) === JSON.stringify(after.list), { before: before.list, after: after.list });
 const cur = await ev(`(() => { const l = document.querySelector('.ph-sheet label.check[aria-disabled="true"]'); return l && { cursor: getComputedStyle(l).cursor, opacity: getComputedStyle(l).opacity }; })()`);
 ok('a toggle that does not apply keeps the default cursor, dimmed', !!cur && cur.cursor === 'default' && +cur.opacity < DIMMED_BELOW, cur);
+// the Landscape surface on a landscape phone: the "Opacity" group holds the opacity slider and nothing else, and the Scale
+// slider sits under "Style settings" with its own label
+const LAND_PHONE_W = 844, LAND_PHONE_H = 390;   // (px: a phone on its side)
+await view(LAND_PHONE_W, LAND_PHONE_H, false, true);
+await loadView('steps', ns + 'land', st, { lang: 'en' });
+await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
+await settled({ max: 60000 });
+await ev(`document.querySelector('.ph-dsp').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+const groupOf = (head) => `(() => { const g = [...document.querySelectorAll('.ph-sheet .ph-grp')].find((e) => e.querySelector('h3') && e.querySelector('h3').textContent === ${JSON.stringify(head)}); return g ? [...g.querySelectorAll('input[type="range"]')].map((i) => i.id) : null; })()`;
+const opac = await ev(groupOf('Opacity')), settings = await ev(groupOf('Style settings'));
+ok('on the Landscape surface the Opacity group holds only the opacity slider', !!opac && opac.length === 1 && /^opacityRange/.test(opac[0]), opac);
+ok('on the Landscape surface the Scale slider is under Style settings', !!settings && settings.includes('lscaleRange'), settings);
 return { pass: fails.length === 0, fails, info };
