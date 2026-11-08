@@ -9,6 +9,7 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [];
+const SCENE_UP_MS = 8000;   // (the longest a freshly loaded scene may take to lay its pane heads out)
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const ST = { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'phase' } };
@@ -19,8 +20,12 @@ const fresh = async (w, h, mobile, lang, main = 'phase', state = ST) => {
   await load(ns, state);
   if (lang) { await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` }); await sleep(2500); }
   await ev(`__cmwSetMain('${main}'); 1`); await settle(1200);
-  // (a slow shared machine may still be laying the heads out: wait for both option rows, up to 5 s)
-  for (let i = 0; i < 25 && !(await ev(`!!document.querySelector('#paneL .pane-head .options') && !!document.querySelector('#paneR .pane-head .options')`)); i++) await sleep(200);
+  // the scene is up when the view is the one asked for and, on a laptop, both heads hold their options row (the X → Y view's
+  // heads also their Regions button; a phone has no row, its options are in the Display sheet); a part that never arrives is a failure named for that part, not a null read later
+  const cond = `(() => ({ main: __cmwState().view && __cmwState().view.main, rows: ['L', 'R'].map((s) => !!document.querySelector('#pane' + s + ' .pane-head .options')), regions: ['L', 'R'].map((s) => !!document.querySelector('#pane' + s + ' .pane-head .options .pat-btn')) }))()`;
+  const sceneOk = `(() => { const c = ${cond}; return c.main === '${main}' && (${mobile} || (c.rows.every(Boolean) && ('${main}' !== 'xy' || c.regions.every(Boolean)))); })()`;
+  const r = await settled({ until: sceneOk, only: true, max: SCENE_UP_MS });
+  if (!r || !r.ok) { const got = await ev(cond); fails.push(`${w} ${lang || 'en'} ${main}: the scene did not come up within ${SCENE_UP_MS} ms (want view ${main}${mobile ? '' : `, an options row in both heads${main === 'xy' ? ' and a Regions button in each' : ''}`}): ${JSON.stringify(got)}`); }
 };
 const pops = () => ev(`document.querySelectorAll('#popHost .pop').length`);
 // the head of pane side: its row's controls, whether anything in it is cut or overflows, and the title's state
