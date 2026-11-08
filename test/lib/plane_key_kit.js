@@ -4,12 +4,15 @@
 // `const K = eval(fs.readFileSync(...))` (the suite's own view, go, ev, settled and sleep are used; call view() first).
 ({
   PLANE: ['z', 'w₁', 'w₂'],
-  // opens example 1 in the steps view; -> the number of planes
-  open: async (ns, port) => {
-    await go(`http://localhost:${port}/test.html?view=steps&ns=${ns}${Date.now() % 1e7}`);
+  START_WAIT: 120000,   // how long the page may take to start up, ms
+  START_POLL: 500,      // how often the start-up wait looks, ms
+  // opens example 1 in the steps view (in `lang` when given); -> the number of planes
+  open: async function (ns, port, lang) {
+    this.lang = lang || 'en';
+    await go(`http://localhost:${port}/test.html?view=steps&ns=${ns}${Date.now() % 1e7}${lang ? '&lang=' + lang : ''}`);
     await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps', max: 30000 });
     // (a slow runner is still starting up when that wait ends: wait for the hooks the suites call, as long as it takes)
-    for (let t0 = Date.now(); Date.now() - t0 < 120000 && !(await ev('typeof __cmwSteps === "function" && typeof __cmwLegend === "function" && typeof __cmwExample === "function"').catch(() => false)); ) await sleep(500);
+    for (let t0 = Date.now(); Date.now() - t0 < this.START_WAIT && !(await ev('typeof __cmwSteps === "function" && typeof __cmwLegend === "function" && typeof __cmwExample === "function"').catch(() => false)); ) await sleep(this.START_POLL);
     await ev(`(__cmwExample(1), 1)`);
     await settled({ until: '__cmwSteps().planes.length > 1', max: 15000 });
     await ev(`(__cmwSteps({ surf: 'plane' }), 1)`);
@@ -25,8 +28,12 @@
   },
   // what the key shows on the surface (plane, sphere, land) with T at plane T and the thread at plane i: on a plane up to T the
   // style's key, past T the hue ring with the plane its colour is carried from, on the Landscape the height key
+  // (in another language than English only the kind is checked: the captions are translated)
   expectKey: function (ok, name, surf, T, i, lg) {
-    if (surf === 'land') ok(`${name}: the height key`, lg.kind === '3d' && lg.caption === 'height log |F|', lg);
+    if (this.lang && this.lang !== 'en') {
+      const kind = surf === 'land' ? '3d' : surf === 'sphere' && i <= T ? 'sphere' : 'color';
+      ok(`${name}: the key's kind`, lg.kind === kind && !!lg.caption, lg);
+    } else if (surf === 'land') ok(`${name}: the height key`, lg.kind === '3d' && lg.caption === 'height log |F|', lg);
     else if (i > T) ok(`${name}: the hue ring, colour carried from ${this.PLANE[T]}`, lg.kind === 'color' && lg.caption === `colour carried from ${this.PLANE[T]}`, lg);
     else ok(`${name}: the style's key, no carried line`, lg.kind === (surf === 'sphere' ? 'sphere' : 'color') && /^arg and \|/.test(lg.caption || ''), lg);
   },
