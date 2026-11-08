@@ -106,6 +106,8 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 :root.ph #leftSolo, :root.ph #rightSolo { display: none !important; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); gap: 8px; }
+:root.ph .viewstack, :root.ph .viewstack .vgroup { pointer-events: none; }   /* (only the keys take a tap: the gaps between them and the box around them leave the plane's own controls their touches) */
+:root.ph .viewstack button { pointer-events: auto; }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
