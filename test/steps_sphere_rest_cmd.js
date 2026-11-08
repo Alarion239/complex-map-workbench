@@ -19,7 +19,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return c
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  // ready.ready also comes for a place parked between two planes, which counts as moving
+  until: "window.__cmwSteps && __cmwSteps().ready.ready && !(window.__cmwSphere && __cmwSphere().running)",
 });
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (the share of the kept frame's pixels whose largest and smallest channel are more than SAT_MIN apart)

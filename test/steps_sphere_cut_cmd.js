@@ -12,7 +12,8 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const ISOLATED = 60, SPREAD = 40, MAX_ISOLATED = 10;
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  // ready.ready also comes for a place parked between two planes, which counts as moving
+  until: "window.__cmwSteps && __cmwSteps().ready.ready && !(window.__cmwSphere && __cmwSphere().running)",
 });
 const isolated = () => ev(`(() => {
   const c = document.getElementById('canvasL'), s = document.createElement('canvas');
