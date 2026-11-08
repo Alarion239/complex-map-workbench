@@ -608,7 +608,7 @@
           const gA = layerG(A.v, k, la.combo, A.h);
           if (gA === null) continue;
           // the state of the member at the sample S: { present, g }
-          const state = (S) => { const j = carry(A, S)[k]; if (j === undefined || j < 0) return { present: false }; const gg = layerG(S.v, j, la.combo, S.h); return gg === null ? { present: false } : { present: true, g: gg }; };
+          const state = (S) => { const cm = carry(A, S), j = cm ? cm[k] : -1; if (j === undefined || j < 0) return { present: false }; const gg = layerG(S.v, j, la.combo, S.h); return gg === null ? { present: false } : { present: true, g: gg }; };
           const sB = state(B);
           if (gA === 0) return true;
           if (sB.present && Math.sign(sB.g) === Math.sign(gA) && sB.g !== 0) continue;
