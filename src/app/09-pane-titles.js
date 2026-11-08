@@ -952,8 +952,8 @@
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
   // the steps view on a plane other than the colour plane: the colour wheel, with the plane its colour is carried from (the
-  // Landscape keeps its height key)
-  const svCarriedKey = () => SV.on && !!svCarriedFrom() && (!lPhase() || !lLand());
+  // Landscape keeps its height key whatever its colouring)
+  const svCarriedKey = () => SV.on && !!svCarriedFrom() && !lLand();
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
