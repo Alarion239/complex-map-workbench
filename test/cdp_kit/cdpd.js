@@ -45,6 +45,11 @@ const loadWait = [];
 // machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
 const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
 function vendorAnswer(p, sid) {
+  // (H.holdSheet: the Google Fonts stylesheet request, vendored or not, goes on after HOLD.ms)
+  if (HOLD.ms && /^https:\/\/fonts\.googleapis\.com\//.test(p.request.url)) { setTimeout(() => answerNow(p, sid), HOLD.ms); return; }
+  answerNow(p, sid);
+}
+function answerNow(p, sid) {
   let a;
   // (a vendored file that is not LOCK.json's: the request fails and the suite's log says why, never a silent stand-in)
   try { a = VENDOR && VENDOR.answer(p.request.url); } catch (e) { LOG.push({ t: 'EXC', m: `CMW_VENDOR: ${e.message}` }); console.error(e.message); send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }, sid).catch(() => {}); return; }
@@ -52,8 +57,18 @@ function vendorAnswer(p, sid) {
   send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, body: a.body.toString('base64'),
     responseHeaders: [{ name: 'content-type', value: a.type }, { name: 'access-control-allow-origin', value: '*' }, { name: 'cache-control', value: 'no-store' }] }, sid).catch(() => {});
 }
+// H.holdSheet(ms): the Google Fonts stylesheet request waits ms before it goes on (0 stops holding), for a page whose
+// faces arrive after first paint
+const HOLD = { ms: 0 };
 let S = null;
 const H = {};
+H.holdSheet = async (ms) => {
+  HOLD.ms = ms;
+  const patterns = (VENDOR ? VENDOR.PATTERNS : []).concat(['https://fonts.googleapis.com/*']);
+  await send('Fetch.enable', { patterns: patterns.map((urlPattern) => ({ urlPattern })) }, S);
+  // (a sheet from the browser's cache never reaches the hold)
+  await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
+};
 H.send = (m, p) => send(m, p, S);
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
@@ -159,11 +174,15 @@ H.click = async (x, y, opts = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, modifiers: opts.mods || 0 }, S);
 };
 H.move = async (x, y) => send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, S);
-H.drag = async (x0, y0, x1, y1, n = 12, dt = 16) => {
+// drag(x0, y0, x1, y1, n, dt, rel): press at (x0, y0), n moves along the line to (x1, y1) dt ms apart, release. rel = { x, y, moves }
+// changes the end: the release is at (rel.x, rel.y) (default (x1, y1)), and only the first rel.moves of the n moves are sent
+// (default all), as when a busy frame drops the last moves of a gesture.
+H.drag = async (x0, y0, x1, y1, n = 12, dt = 16, rel = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }, S);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }, S);
-  for (let i = 1; i <= n; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }, S);
+  const moves = rel.moves === undefined ? n : rel.moves;
+  for (let i = 1; i <= moves; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rel.x === undefined ? x1 : rel.x, y: rel.y === undefined ? y1 : rel.y, button: 'left', clickCount: 1 }, S);
 };
 H.clickSel = async (sel) => {
   const r = await H.ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return null; e.scrollIntoView({block:'nearest'}); const b=e.getBoundingClientRect(); return [b.left+b.width/2,b.top+b.height/2];})()`);

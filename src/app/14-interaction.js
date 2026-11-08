@@ -1075,7 +1075,7 @@
     const [x, y] = evXY(pane, e);
     if (drag && drag.mode !== 'probe') { // a touch probe (long press) moves like a hover
       if (drag.x != null && !drag.far && Math.hypot(x - drag.x, y - drag.y) > 4) drag.far = true;   // (a pan, not a click)
-      if (drag.mode === 'gdraw' || drag.mode === 'ghandle' || drag.mode === 'gmove') { globeMove(pane, drag.side, e, x, y); return; }
+      if (drag.mode === 'gdraw' || drag.mode === 'ghandle' || drag.mode === 'gmove') { drag.gx = x; drag.gy = y; globeMove(pane, drag.side, e, x, y); return; }
       if (drag.mode === 'orbit') {
         const c = drag.cam || cam3();
         const dyaw = -(x - drag.lx) * 0.35 * DEG, dpitch = (y - drag.ly) * 0.35 * DEG;
@@ -1324,7 +1324,7 @@
       // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
       const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
       const hRow = (dp) => {
-        const fin = CX.isFin(hF), hv = !fin ? NaN : S.height === 're' ? hF.re : S.height === 'im' ? hF.im : CX.abs(hF);
+        const fin = CX.isFin(hF), hv = !fin ? NaN : landValue(hF);
         const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
         return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
       };
@@ -1464,7 +1464,13 @@
     // (v16.4) the user's pan or orbit, once it moved: the tour's view tasks (notes/tour/INTEGRATION.md 9)
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
-    if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
+    if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') {
+      // a release at a place the last move did not reach (moves can be merged or dropped while a frame is busy) is the gesture's end
+      const [x, y] = evXY(pane, e), lx = d.gx != null ? d.gx : d.x, ly = d.gx != null ? d.gy : d.y;
+      if (lx != null && Math.hypot(x - lx, y - ly) > 0.5) { drag = d; try { globeMove(pane, d.side || side, e, x, y); } finally { drag = null; } }
+      globeUp(pane, d.side || side, d);
+      return;
+    }
     if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
