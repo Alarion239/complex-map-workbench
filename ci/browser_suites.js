@@ -205,7 +205,7 @@ const SOFTWARE = {
 };
 
 const KNOWN = {
-  // (the same walk on the zeta example's frame: at u = 0.5 the GPU has no member 0 at one of the suite's pixels, w = 0.0875 + 25.3125 i, where the float64 one finds one; #1396)
+  // the float32 grid walk of member 0 on the zeta example's frame gives none at one of the suite's pixels at u = 0.5, w = 0.0875 + 25.3125 i, where the float64 walk finds one (#1396)
   'steps_zeta_member0_cmd.js': [{ re: /zeta at u = 0\.5: the GPU's member 0 is present/, why: 'the float32 walk of member 0 does not reach the float64 one at one of the suite\'s pixels (#1396)' }],
 };
 
