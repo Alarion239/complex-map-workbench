@@ -904,7 +904,7 @@ async function svFirstGlideUnit() {
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
 }
-// [#1157] the steps view's prestart re-runs after every chain edit, in idle time: a step is added and the pane is
+// the steps view's prestart re-runs after every chain edit, in idle time: a step is added and the pane is
 // dragged (n moves, 16 ms apart) while svReady() still counts work to do; then a power step is added and its n typed
 // (digits 80 ms apart) in the same state. Each window's frames are judged by the same frame_ms rule as every other
 // frame p95 (the reference and the tolerance are the unit's, none is new or loosened); the longest of them and the work

@@ -1324,7 +1324,7 @@
       // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
       const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
       const hRow = (dp) => {
-        const fin = CX.isFin(hF), hv = !fin ? NaN : S.height === 're' ? hF.re : S.height === 'im' ? hF.im : CX.abs(hF);
+        const fin = CX.isFin(hF), hv = !fin ? NaN : landValue(hF);
         const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
         return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
       };
