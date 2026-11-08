@@ -91,15 +91,18 @@ await section('narrow', 360, 780);
 
 // the 10 s message at 360 px, in English and Russian: the words on a row of their own and Retry, Cancel and the close
 // button together on the row below (the toast two rows tall, not three), inside the viewport
-const GATE_TOAST_PAD = 12, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44;
+// (the toast's most: its padding (6 + 6), the words on two lines of 18 px (Italian at 360 px), one row of 44 px buttons; the
+// measured heights are 74-76 px. HANG_WAIT_MS: the hang guard's 10 s and the poll's slack; ROW_EDGE_PX: a layout rounds a
+// rect's edge to a pixel, so the buttons' top may sit that far above the words' bottom)
+const GATE_TOAST_PAD = 12, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44, GATE_HANG_WAIT_MS = 14000, ROW_EDGE_PX = 1;
 for (const lang of ['en', 'ru']) {
   await open(360, 780, lang);
   await ev('(__cmwSteps({ play: true }), 1)');
-  await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+  await settled({ max: GATE_HANG_WAIT_MS, only: true, until: '!!document.querySelector("#toastHost .toast")' });
   const gt = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), w = t.querySelector('span').getBoundingClientRect(); const tops = [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), wordsBottom: Math.round(w.bottom), tops: [...new Set(tops)], vw: innerWidth, vh: innerHeight }; })()`);
   info['gateToast_' + lang] = gt;
   ok(`narrow ${lang}: the 10 s message keeps its buttons on one row`, gt.tops.length === 1, gt);
-  ok(`narrow ${lang}: the buttons are below the words`, gt.tops[0] >= gt.wordsBottom - 1, gt);
+  ok(`narrow ${lang}: the buttons are below the words`, gt.tops[0] >= gt.wordsBottom - ROW_EDGE_PX, gt);
   ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
 }
 
