@@ -22,9 +22,12 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'").replace(/\\u2019/g, '’'));
+const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const names = exampleNames();
 const { grab, sameAway, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_COMPARED = 1000, END_U = [0.002, 0.998];   // (steps_glide_look_cmd.js:54-55)
+const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_COMPARED = 1000;   // (steps_glide_look_cmd.js:54-55)
+// waits (ms) for a page to be ready, for the glide's frame at the slowest, and for the prestart's warm draw; the reference's sampling step (px); the displacement grid's points per side
+const READY_MS = 60000, FRAME_MS = 600000, WARM_MS = 120000, REF_STEP = 10, DISP_GRID = 41;
 const CASES = [
   { ex: 'Zeros of the zeta function' },
   { ex: 'Poles of the Gamma function' },
@@ -35,22 +38,22 @@ const CASES = [
   { ex: 'The Douady–Hubbard map' },
   { ex: 'Böttcher coordinates of a Julia set' },
 ];
-const ready = () => settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
+const ready = () => settled({ max: READY_MS, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // the frame at thread place x, once a frame there was drawn, and its record
-const at = async (x, max = 600000) => {
+const at = async (x, max = FRAME_MS) => {
   await ev(`__cmwSteps({ x: ${x} }), 1`);
   await settled({ max, until: `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(g.u - ${x}) < 1e-9; })()` });
   return ev('(() => { const g = __cmwSteps().glide; return g ? { b: g.b, u: g.u, path: g.path, reason: g.reason } : null; })()');
 };
 // The end u of a polynomial step under Everywhere. H_u(z) - z = u (f(z) - z), so a point moves u |f(z) - z| along the glide, and
 // the window holds points where that is large (a polynomial of high degree): the frame at u is plane 0's within half a CSS
-// pixel only where u max |f(z) - z| <= HALF_PX, u over the window (the left pane's view, 41 x 41 points), from the glide's
+// pixel only where u max |f(z) - z| <= HALF_PX, u over the window (the left pane's view, DISP_GRID x DISP_GRID points), from the glide's
 // H at the frame held now (at u0). The end is that u, at most END_MAX; at least END_MIN, below which 1 - end is not a
 // float32 the page's t can take: then the end is END_MIN and the check reports the displacement it leaves. Answers
 // { end, disp: the largest displacement in CSS px at END_MIN's u }
 const END_MAX = 1e-4, END_MIN = 1e-6, HALF_PX = 0.5;
 const endFor = (u0) => ev(`(() => {
-  const g = __cmwSteps().glide, H = g.H, v = g.view, n = 41, hw = g.w / 2 / v.s, hh = g.h / 2 / v.s;
+  const g = __cmwSteps().glide, H = g.H, v = g.view, n = ${DISP_GRID}, hw = g.w / 2 / v.s, hh = g.h / 2 / v.s;
   let D = 0;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
     const z = { re: v.cx - hw + 2 * hw * i / (n - 1), im: v.cy - hh + 2 * hh * j / (n - 1) }, w = H(z);
@@ -63,7 +66,7 @@ const endFor = (u0) => ev(`(() => {
 })()`);
 const park = async (k) => {
   await ev(`__cmwSteps({ park: ${k} }), 1`);
-  await settled({ max: 60000, until: `__cmwSteps().x === ${k}` });
+  await settled({ max: READY_MS, until: `__cmwSteps().x === ${k}` });
 };
 
 await view(1440, 900, false, false);
@@ -75,7 +78,7 @@ for (const c of CASES) {
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
   await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
-  await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
+  await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
   await park(0); const s0 = await grab('P0');
   await park(1); const s1 = await grab('P1');
   ok(`${c.ex}: the parked frames are still`, s0 && s1, { s0, s1 });
@@ -103,7 +106,7 @@ for (const c of CASES) {
   {
     const g = await at(0.5);
     const still = await grab('G0.5');
-    const r = await refOf('P0', 'G0.5', LOOK_TOL, 10);
+    const r = await refOf('P0', 'G0.5', LOOK_TOL, REF_STEP);
     rec['u 0.5'] = { g, still, r };
     ok(`${c.ex} at u = 0.5: drawn by the inverse pass (Everywhere)`, !!g && g.path === 'inverse' && g.b === 1, g);
     ok(`${c.ex} at u = 0.5, sheets off: the exact picture's front member (at least ${MIN_COMPARED} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && !!r.ref && r.ref.n >= MIN_COMPARED && r.ref.over <= SAME_FRAC, { r, still });
