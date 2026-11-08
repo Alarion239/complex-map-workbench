@@ -91,7 +91,10 @@ ok('no closed curve: the key says so, no bands', lg2.caption === 'No curve selec
 // room (KEY_LINES lines of the chip beside the wheel), in each language
 const KEY_LINES = 4;
 const READOUT_GAP = 8, NARROW_KEY = 136;
-for (const [lang, re] of [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из z$/], ['it', /^integrale di Cauchy trasportato da z$/]]) {
+const OLD_KEY_ROOM = 50;   // the room right of the wheel in the 136 px legend
+const FILLER_WORDS = 400;  // enough words to fill the readout's room
+const LANGS = [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из z$/], ['it', /^integrale di Cauchy trasportato da z$/]];
+for (const [lang, re] of LANGS) {
   await open(CIRCLE, lang);
   await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
   await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
@@ -99,15 +102,21 @@ for (const [lang, re] of [['en', /^Cauchy integral carried from z$/], ['ru', /^�
   ok(`T = z, thread at plane 1, ${lang}: the key names the Cauchy integral and the plane its colour is carried from`, lgc.kind === 'color' && re.test(lgc.caption || ''), lgc);
   ok(`T = z, thread at plane 1, ${lang}: the line fits the key (at most ${KEY_LINES} lines)`, lgc.lines >= 1 && lgc.lines <= KEY_LINES, lgc);
   ok(`T = z, thread at plane 1, ${lang}: the widest word fits the key's room`, lgc.widest > 0 && lgc.widest <= lgc.room, lgc);
+  // controls: the other languages' lines do not match; the caption is wrapped from its layout (fewer lines than words); the
+  // widest ru and it word is wider than the room the 136 px legend left, so the room check would fail there
+  ok(`T = z, thread at plane 1, ${lang}: control: the caption matches no other language's line`, LANGS.filter(([l, r]) => l !== lang && r.test(lgc.caption || '')).length === 0, lgc);
+  ok(`T = z, thread at plane 1, ${lang}: control: the caption is wrapped (fewer lines than words)`, lgc.lines < (lgc.caption || '').split(' ').length, lgc);
+  if (lang !== 'en') ok(`T = z, thread at plane 1, ${lang}: control: the widest word is wider than the ${OLD_KEY_ROOM} px the 136 px legend left`, lgc.widest > OLD_KEY_ROOM, lgc);
   // the readout, made long enough to fill its room, keeps READOUT_GAP clear of the key; with the reserve of a narrower key it
   // would not (the control)
   const gaps = JSON.parse(await ev(`(() => {
     const pl = document.querySelector('.plot:has(> .legend-chip:not([hidden]))'), r = pl.querySelector(':scope > .chip.readout'), k = pl.querySelector(':scope > .legend-chip');
-    r.textContent = 'x '.repeat(400);
+    r.textContent = 'x '.repeat(${FILLER_WORDS});
     const gap = () => Math.round(k.getBoundingClientRect().left - r.getBoundingClientRect().right), own = gap();
+    const keep = pl.style.getPropertyValue('--lg-w');
     pl.style.setProperty('--lg-w', '${NARROW_KEY}px');
     const narrow = gap();
-    pl.style.removeProperty('--lg-w');
+    pl.style.setProperty('--lg-w', keep);
     return JSON.stringify({ own, narrow });
   })()`));
   ok(`T = z, thread at plane 1, ${lang}: the readout ends at least ${READOUT_GAP} px short of the key`, gaps.own >= READOUT_GAP, gaps);
