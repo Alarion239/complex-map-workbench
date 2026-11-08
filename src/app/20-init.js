@@ -281,7 +281,7 @@
           const fm = S.figMorph;
           deleteOpt('figMorph');
           // (the steps view has no Morph transport: the time is its place along the chain, set once the view is set up)
-          if (fm && Number.isFinite(fm.T) && SV.on) { if (!S.sv) svMorphT = fm.T; } else if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); } }
+          if (fm && Number.isFinite(fm.T) && SV.on) { if (!S.sv) svMorphT = fm.T; } else if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); } }
         }
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }

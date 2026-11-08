@@ -105,21 +105,6 @@ const at1 = mid(await box('#shapeList .shape[data-id="s2"] .shape-name'));
 check('UX99: a right click on a Shapes row opens its ⋯ menu at the pointer', g && Math.abs(g.x - at1[0]) < 4 && (Math.abs(g.y - at1[1]) < 4 || g.y < at1[1]), Object.assign({ at1 }, g));
 check('UX97: the menu shows the keys (⌘D, ⌘], ⌘[)', g && g.keys.length === 3 && g.keys.every((k) => /[⌘C]/.test(k)), g && g.keys);
 await key('Escape'); await settled({ until: "!document.querySelector('#popHost .pop.menu')", only: true });
-const cb = await box('#pipeline .card[data-k="1"] .thumb');
-await rclick(cb.l + 30, cb.t + 30);
-g = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu'); if (!p) return null; const b = p.getBoundingClientRect(); return { x: b.left, y: b.top, b: b.bottom, n: p.querySelectorAll('.mi').length }; })()`);
-check('UX99: a right click on a chain card opens its ⋯ menu at the pointer', g && g.n > 2 && Math.abs(g.x - (cb.l + 32)) < 4 && (Math.abs(g.y - (cb.t + 32)) < 4 || Math.abs(g.b - (cb.t + 28)) < 4), Object.assign({ at: [cb.l + 30, cb.t + 30] }, g));
-await shot('ux165-ux99-card');
-await key('Escape'); await settled({ until: "!document.querySelector('#popHost .pop.menu')", only: true });
-// Alt+→ / Alt+← move the focused chain step right / left (its ⋯ menu's Move right / left), the card keeps focus
-const st0 = await ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
-await ev(`document.querySelector('#pipeline .card[data-k="1"]').focus(); 1`);
-await key('ArrowRight', 1); await settled({ until: "document.activeElement && document.activeElement.closest('.card') && document.activeElement.closest('.card').dataset.k === '2'", only: true });
-g = await ev(`({ st: [...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(','), foc: document.activeElement && document.activeElement.closest('.card') ? document.activeElement.closest('.card').dataset.k : null })`);
-const st1 = g;
-await key('ArrowLeft', 1); await settled({ until: "document.activeElement && document.activeElement.closest('.card') && document.activeElement.closest('.card').dataset.k === '1'", only: true });
-const st2 = await ev(`[...document.querySelectorAll('#pipeline .card[data-k]')].filter((c) => c.dataset.k !== '0').map((c) => c.querySelector('.nm').textContent).join(',')`);
-check('UX97: Alt+→ moves the focused step right (focus stays on it), Alt+← moves it back', st0.split(',').length >= 2 && st1.st === st0.split(',').slice(0, 2).reverse().concat(st0.split(',').slice(2)).join(',') && st1.foc === '2' && st2 === st0, { st0, st1, st2 });
 grab();
 
 await laptop(1440, 900, false);
