@@ -633,6 +633,7 @@
     // block is made taller by how far the surfaces stack (the spread of the values over all of them against the
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
+    let scaleBox = null;   // (the box the height scale was sampled over: tests)
     render3D.linear = false;
     // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
     // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
@@ -671,7 +672,7 @@
         for (const a of [vals, sv, sv0]) a.sort((x, y) => x - y);
         // linear heights over all sheets: the scale is (nearly) the largest value, so the surfaces fill the block
         const s0 = sv0.length ? q(sv0, 0.95) - q(sv0, 0.05) : 0, s1 = sv.length ? q(sv, 0.95) - q(sv, 0.05) : 0;
-        r = { mu: vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu0, boost: lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1 };
+        r = { mu: vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu0, boost: lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1, bx: { x0: bx.x0, x1: bx.x1, y0: bx.y0, y1: bx.y1 } };
         if (cache.size > 16) cache.delete(cache.keys().next().value);
         cache.set(ck, r);
         return r;
@@ -681,9 +682,10 @@
       const ofPlane = (k, v) => scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v));
       const c = carry ? (() => {
         const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
-        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
+        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u), bx: rb.bx };
       })() : scaleOf(fm, box);
       mu = c.mu;
+      scaleBox = c.bx;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
       // follows H_t: the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
@@ -803,7 +805,7 @@
     render3D.exactIn = carry && carry.exact ? { exact: carry.exact, F: svHeightF(0) } : null;   // (the inverse inputs the last carried frame drew from, and plane 0's map, as z is a point of plane 0: tests)
     render3D.carried = info && info.carried ? { path: info.exact === 'drawn' ? 'inverse' : 'mesh', exact: info.exact || null, u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, layers: info.layers || 1, landHoles: info.landHoles || 0, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
-    render3D.scale = { fmKey: mapKeyOf(fm), siK: si ? si.K : 0, mu, boost: lscale / (S.lscale || 1), lscale };   // (the height scale and the block's boost the frame was fitted with: tests)
+    render3D.scale = { fmKey: mapKeyOf(fm), siK: si ? si.K : 0, mu, boost: lscale / (S.lscale || 1), lscale, bx: scaleBox };   // (the height scale and the block's boost the frame was fitted with: tests)
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
