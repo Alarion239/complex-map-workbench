@@ -423,6 +423,16 @@
     // principle on a circle about it; the enumerator's members inside the disc, at a place on each side of H(c) inside the
     // circle's image, must be d of them
     function* certifyBranches(lv) {
+      yield* certifyPass(lv);
+      // (a leaf met before the certificate of the cell beside it was issued is covered by it where it lies within its reach)
+      for (const c of lv.branch) {
+        if (c.certified) continue;
+        const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2), diag = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
+        const known = certs.find((q) => dist2(q.w, ctr) <= q.rImage + diag);
+        if (known) c.certified = known;
+      }
+    }
+    function* certifyPass(lv) {
       for (const c of lv.branch) {
         const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2), diag = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
         const known = certs.find((q) => dist2(q.w, ctr) <= q.rImage + diag);
