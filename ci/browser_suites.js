@@ -58,13 +58,13 @@ const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 
 const SUITES = {
   // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
   // suite run too)
-  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   // (keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
   // job log shows where along the seam the jumps stand)
   'steps_seams_cmd.js': {
