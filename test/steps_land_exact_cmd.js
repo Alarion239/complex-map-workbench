@@ -22,13 +22,21 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const VIEW_W = 1440, VIEW_H = 900;
-const LOAD_MAX_MS = 60000, FRAME_MS = 1500;   // the wait for a frame to be drawn once settled
+const LOAD_MAX_MS = 60000;
+// (settled() answers once the programs are linked; the frame itself is drawn a few animation frames later, and lavapipe draws a
+// Landscape frame in under a second, so FRAME_MS leaves room for the slowest: there is no frame counter on a Landscape frame to wait on)
+const FRAME_MS = 1500;
 const GLIDE_U = [0.002, 0.5, 0.998];
 const NEWTON_END = 1e-4;   // a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes
-const DIFF_TOL = 32, SAME_FRAC = 0.01;        // (steps_sm_standin_cmd.js's DIFF_TOL; a shaded surface moves a little in the glide's first 0.2 %)
+// (#859's look suite: DIFF_TOL is test/lib/held_frames.js's, SAME_FRAC steps_glide_look_cmd.js:54)
+const DIFF_TOL = 32, SAME_FRAC = 0.005;
 const COVER_TOL = 0.05;                       // the share of the parked planes' surface pixels a frame may lack
 const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
 const PROBES = 5, SEED_N = 12, NEWTON_STEPS = 40, ROOT_TOL = 1e-9, SAT_MIN = 30;
+// the reference's numerics: FD_STEP the finite-difference step of H's Jacobian, DET_MIN a Jacobian determinant below which Newton's
+// step is not taken, RESIDUAL_MAX the largest |H(z) - w| of a member, SAME_ROOT the distance under which two roots are one
+const FD_STEP = 1e-6, DET_MIN = 1e-14, RESIDUAL_MAX = 1e-6, SAME_ROOT = 1e-5;
+const DENSE_N = 48, NEAR_N = 12;   // the completeness sample: DENSE_N x DENSE_N points of plane 0's box; the NEAR_N whose image is nearest w are polished too
 const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
 const CASES = [
   { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
@@ -49,24 +57,29 @@ window.__lxRoots = (pts) => {
   const g = __cmwSvGlobe(0, 0), H = g.H, pk = window.__lxPick, b = pk.box, C = (re, im) => ({ re, im });
   const seeds = [];
   for (let i = 0; i < ${SEED_N}; i++) for (let j = 0; j < ${SEED_N}; j++) seeds.push(C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${SEED_N}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${SEED_N}));
+  const dense = [];
+  for (let i = 0; i < ${DENSE_N}; i++) for (let j = 0; j < ${DENSE_N}; j++) { const z = C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${DENSE_N}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${DENSE_N}), f = H(z); if (f && Number.isFinite(f.re) && Number.isFinite(f.im)) dense.push({ z, f }); }
+  const newton = (s, re, im) => {
+    let z = s;
+    for (let k = 0; k < ${NEWTON_STEPS}; k++) {
+      const h = ${FD_STEP}, f = H(z), fr = H(C(z.re + h, z.im)), fi = H(C(z.re, z.im + h));
+      if (!f || !fr || !fi || ![f.re, f.im, fr.re, fr.im, fi.re, fi.im].every(Number.isFinite)) return null;
+      const a = (fr.re - f.re) / h, c = (fr.im - f.im) / h, bb = (fi.re - f.re) / h, d = (fi.im - f.im) / h, det = a * d - bb * c;
+      if (!(Math.abs(det) > ${DET_MIN})) return null;
+      const er = f.re - re, ei = f.im - im, dr = (d * er - bb * ei) / det, di = (-c * er + a * ei) / det;
+      z = C(z.re - dr, z.im - di);
+      if (Math.hypot(dr, di) < ${ROOT_TOL}) break;
+    }
+    const f = H(z);
+    return f && Math.hypot(f.re - re, f.im - im) <= ${RESIDUAL_MAX} ? z : null;   // (the residual of each member)
+  };
   return pts.map(([re, im]) => {
     const roots = [];
-    for (const s of seeds) {
-      let z = s;
-      for (let k = 0; k < ${NEWTON_STEPS}; k++) {
-        const h = 1e-6, f = H(z), fr = H(C(z.re + h, z.im)), fi = H(C(z.re, z.im + h));
-        if (!f || !fr || !fi || ![f.re, f.im, fr.re, fr.im, fi.re, fi.im].every(Number.isFinite)) { z = null; break; }
-        const a = (fr.re - f.re) / h, c = (fr.im - f.im) / h, bb = (fi.re - f.re) / h, d = (fi.im - f.im) / h, det = a * d - bb * c;
-        if (!(Math.abs(det) > 1e-14)) { z = null; break; }
-        const er = f.re - re, ei = f.im - im, dr = (d * er - bb * ei) / det, di = (-c * er + a * ei) / det;
-        z = C(z.re - dr, z.im - di);
-        if (Math.hypot(dr, di) < ${ROOT_TOL}) break;
-      }
-      if (!z) continue;
-      const f = H(z);
-      if (!f || Math.hypot(f.re - re, f.im - im) > 1e-6) continue;
-      if (roots.some((r) => Math.hypot(r.re - z.re, r.im - z.im) < 1e-5)) continue;
-      roots.push(z);
+    // (the grid's seeds, and the dense sample's points whose image is nearest w: no member is left that the forward map of a plane 0 sample lands beside)
+    const near = dense.slice().sort((p, q) => Math.hypot(p.f.re - re, p.f.im - im) - Math.hypot(q.f.re - re, q.f.im - im)).slice(0, ${NEAR_N}).map((p) => p.z);
+    for (const s of seeds.concat(near)) {
+      const z = newton(s, re, im);
+      if (z && !roots.some((r) => Math.hypot(r.re - z.re, r.im - z.im) < ${SAME_ROOT})) roots.push(z);
     }
     return roots.map((z) => ({ z: [z.re, z.im], h: pk.height(pk.F(z)) }));
   });
