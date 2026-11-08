@@ -15,12 +15,12 @@ const ns = 'svg' + Date.now();
 const WATCH_PLAY = `(window.__played = false, new MutationObserver((_, o) => { if (__cmwSteps().play !== null) { window.__played = true; o.disconnect(); } }).observe(document.querySelector(".sv-play"), { attributes: true, childList: true, subtree: true }))`;
 
 
-async function open(w, h) {
+async function open(w, h, lang = '') {
   await view(w, h, false);
   await load(ns, {});
   await ev('(__cmwExample(1), 1)');
   const o = await ev('location.origin');
-  await nav(`${o}/test.html?ns=${ns}&glhold&view=steps`);
+  await nav(`${o}/test.html?ns=${ns}&glhold&view=steps${lang ? '&lang=' + lang : ''}`);
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
   await ev('(__cmwSteps({ go: 0, now: true }), 1)');
   await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });
@@ -88,6 +88,20 @@ ok('released: the glide starts', await ev('window.__played'), run);
 ok('released: the button is no longer busy', !run.busy, run);
 
 await section('narrow', 360, 780);
+
+// the 10 s message at 360 px, in English and Russian: the words on a row of their own and Retry, Cancel and the close
+// button together on the row below (the toast two rows tall, not three), inside the viewport
+const GATE_TOAST_PAD = 12, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44;
+for (const lang of ['en', 'ru']) {
+  await open(360, 780, lang);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+  const gt = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), w = t.querySelector('span').getBoundingClientRect(); const tops = [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), wordsBottom: Math.round(w.bottom), tops: [...new Set(tops)], vw: innerWidth, vh: innerHeight }; })()`);
+  info['gateToast_' + lang] = gt;
+  ok(`narrow ${lang}: the 10 s message keeps its buttons on one row`, gt.tops.length === 1, gt);
+  ok(`narrow ${lang}: the buttons are below the words`, gt.tops[0] >= gt.wordsBottom - 1, gt);
+  ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
+}
 
 // the idle jobs (pole tracks, ring, meshes) are part of the wait: with the programs linked and the warm draw made but a
 // job left, a press of Play starts nothing; when the job is done the glide starts

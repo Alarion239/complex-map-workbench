@@ -3154,7 +3154,7 @@
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
       g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
-      if (g.toast) g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
+      if (g.toast) { g.toast.classList.add('toast-gate'); g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel'))); }
     }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
