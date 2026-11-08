@@ -603,7 +603,7 @@
         }
         const hs = c.vs.flatMap((v) => v.all.flatMap((m) => m.layers.map((l) => l.h)));
         const lo = Math.min(...hs), hi = Math.max(...hs), pad = o.RAY_PAD * (hi - lo) + 1e-6;
-        const sh = o.seam ? o.seam * c.s * cellW : 0;   // (the control moves the seam: the rays test the cell one cell over)
+        const sh = o.seam ? o.seam * FINE * cellW : 0;   // (the control moves the seam one cell of the lattice: the rays test the place one cell over)
         const w0 = wAt(c.i, c.j), w1 = wAt(c.i + c.s, c.j + c.s), mg = (w1[0] - w0[0]) * o.RAY_BOX;
         const bx = [w0[0] + sh - mg, w0[1] - mg, w1[0] + sh + mg, w1[1] + mg], cen = mid2([bx[0], bx[1]], [bx[2], bx[3]]);
         for (const key of cand) {
