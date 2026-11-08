@@ -76,7 +76,8 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
     ok(`${tag}: the buttons are at least 44 px tall`, m.btnH.every((x) => x >= TARGET_PX), m.btnH);
   }
   if (w === PHONE_390[0] && lang === 'en') ok(`${tag}: the message stays one row (control)`, m.rows === 'one', m.rows);
-  ok(`${tag}: the sheet's controls do not move when the message shows`, JSON.stringify(ysBefore) === JSON.stringify(await ysNow()), { before: ysBefore, now: await ysNow() });
+  // (portrait took this check above, before its list was scrolled to the end)
+  if (w > h) ok(`${tag}: the sheet's controls do not move when the message shows`, JSON.stringify(ysBefore) === JSON.stringify(await ysNow()), { before: ysBefore, now: await ysNow() });
   if (w === PHONE_360[0] && h === PHONE_360[1] && lang === 'en') ok(`${tag}: the message stays one line (control)`, m.lines === 1, { lines: m.lines });
 }
 return { pass: fails.length === 0, fails, info };
