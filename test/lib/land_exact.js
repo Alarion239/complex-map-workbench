@@ -45,10 +45,10 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  // The grid is shifted a quarter cell in y from the cell centres: the middle row would lie on the real axis, the cut of the roots and the
-  // logarithm, where the side of the cut a place falls on is decided by the sign of a rounding error in float32 and in float64.
-  const Y_SHIFT = 0.75;
-  const TIE_D = 2 ** -14;   // the depth keys' tie band, Inverse.front's: two members whose keys differ by less are ordered by their z
+  // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
+  // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
+  // of the box's extent above and below the axis, so both sides have the same density.
+  const ROWS_SIDE = 3;
   const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
@@ -70,14 +70,10 @@
   window.__lxEnum = (pts) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
-    // (the front member first: over the members in the hook's order (the frame's own sheet, then the sheets beside it) the smallest depth
-    // key D; a key within the tie band of the best is a tie, and the earlier member wins. The same z repeats on sheets that differ by
-    // a multiple of n, so a z listed again is dropped.)
-    const tie = (a, b) => Math.abs(a - b) <= ${TIE_D} * (1 + Math.min(a, b));
+    // (the front member first: the hook marks it, front: true, one per place. The same z repeats on sheets that differ by a multiple
+    // of n, so a z listed again is dropped.)
     return e.map((ms) => {
-      let best = null;
-      for (const m of ms) if (!best || (m.D < best.D && !tie(m.D, best.D))) best = m;
-      const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
+      const best = ms.find((m) => m.front), use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
       for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
       return o;
     });
@@ -104,11 +100,11 @@
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
     return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p }; })()`);
   }
-  // the places a frame is probed at: a PROBES x PROBES grid of the box (cell centres in x, Y_SHIFT in y), and a pair either side of the real axis (the
+  // the places a frame is probed at: PROBES columns at cell centres and ROWS_SIDE rows on each side of the real axis, and a pair either side of the real axis (the
   // cut of the square root, the cube root and the logarithm) at each of CUT_X
   const probes = (b) => {
     const o = [], w = b.x1 - b.x0, h = b.y1 - b.y0;
-    for (let i = 0; i < PROBES; i++) for (let j = 0; j < PROBES; j++) o.push([b.x0 + (i + 0.5) * w / PROBES, b.y0 + (j + Y_SHIFT) * h / PROBES]);
+    for (let i = 0; i < PROBES; i++) for (const s of [1, -1]) for (let k = 0; k < ROWS_SIDE; k++) o.push([b.x0 + (i + 0.5) * w / PROBES, (k + 0.5) / ROWS_SIDE * (s > 0 ? b.y1 : b.y0)]);
     for (const xf of CUT_X) for (const s of [1, -1]) o.push([b.x0 + xf * w, s * CUT_OFF * h]);
     return o;
   };
