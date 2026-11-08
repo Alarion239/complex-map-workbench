@@ -6,8 +6,8 @@
 //   with paths drawn: 3 to 18 of them, no jump, no kink, smooth, separated, the same points at every t, and a glide over the
 //   chain one run of its steps;
 // - a phone-width pane keeps a few separated paths.
-// The Paths toggle and the order select have their own suites (steps_paths_cmd, steps_order_cmd); the classic
-// Deformation dock's version of all this is deform_nat_classic_cmd. A command file for a CDP daemon (test/cdp_kit
+// The Paths toggle and the order select have their own suites (steps_paths_cmd, steps_order_cmd).
+// A command file for a CDP daemon (test/cdp_kit
 // README); prints { pass, fails, paths }.
 const fails = [], errs = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
