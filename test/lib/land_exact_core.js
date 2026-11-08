@@ -41,6 +41,7 @@
     CURV_SLACK: 1,          // ... within this much either way
     CURV_FLOOR: 0.05,       // full-resolution pixels: a second difference below this is rounding
     CONT_STEP_MIN: 1e-12,   // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
+    CUT_JUMP: 1e-3,         // a step floor where H's linear prediction is off by more than this (relative to 1 + |H|) is a cut of H, not a branch point
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
@@ -181,7 +182,7 @@
     }
     // all members of `from` carried from place wA to place wB in lockstep: { ok, z[], lam[] } or { ok: false, why }
     function track(from, wA, wB) {
-      let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0, last = '';
+      let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0, last = '', kf = -1, pf = null;
       const dw = csub(wB, wA);
       while (t < 1) {
         const tn = Math.min(1, t + dt), w = [wA[0] + dw[0] * tn, wA[1] + dw[1] * tn];
@@ -206,7 +207,17 @@
           next.push(nw.z); nl.push(nw.lam);
         }
         if (good) { zs = next; lams = nl; t = tn; dt = Math.min(dt * 2, 1 - t || 1); steps++; }
-        else { dt /= 2; if (dt < o.CONT_STEP_MIN) return { ok: false, why: 'step floor at t=' + t.toExponential(2) + ': ' + last, steps }; }
+        else {
+          dt /= 2;
+          if (dt < o.CONT_STEP_MIN) {
+            // a step floor where H itself jumps (a cut of the map: the member crosses it) is not a branch point: the member leaves or enters
+            if (kf >= 0 && pf) {
+              const r0 = Hof(from[kf], zs[kf], lams[kf]), r1 = Hof(from[kf], pf, lams[kf] ? cadd(lams[kf], relLog(zs[kf], pf)) : null);
+              if (r0 && r1 && cabs(csub(csub(r1.H, r0.H), cmul(r0.dH, csub(pf, zs[kf])))) > o.CUT_JUMP * (1 + cabs(r0.H))) return { ok: false, cut: true, why: 'H jumps at t=' + t.toExponential(2), steps };
+            }
+            return { ok: false, why: 'step floor at t=' + t.toExponential(2) + ': ' + last, steps };
+          }
+        }
         if (steps > 4000) return { ok: false, why: 'steps' };
       }
       return { ok: true, z: zs, lam: lams, steps };
@@ -225,7 +236,8 @@
         res = { map, back: vb.all.map((_, j) => map.indexOf(j)), suspect: false };
       } else {
         const tr = track(va.all, va.w, vb.w);
-        if (!tr.ok) res = { map: null, back: null, suspect: true, why: tr.why };
+        if (!tr.ok && tr.cut) res = { map: va.all.map(() => -1), back: vb.all.map(() => -1), suspect: false, cut: true };
+        else if (!tr.ok) res = { map: null, back: null, suspect: true, why: tr.why };
         else {
           const map = tr.z.map((z, i) => matchIn(vb, va.all[i], z));
           const used = new Set(map.filter((j) => j >= 0));
@@ -323,6 +335,7 @@
       }
       if (!va.all.length || !vb.all.length) return { map: va.all.map(() => -1), suspect: false };
       const tr = track(va.all, va.w, vb.w);
+      if (!tr.ok && tr.cut) return { map: va.all.map(() => -1), suspect: false, cut: true };
       if (!tr.ok) return { map: null, suspect: true, why: tr.why };
       return { map: tr.z.map((z, i) => matchIn(vb, va.all[i], z)), suspect: false };
     }
