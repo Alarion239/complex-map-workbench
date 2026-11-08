@@ -24,8 +24,8 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const TOL = 0.25;
 // (the lattice of the height map's poles, z = ±kπi for odd k, the pole patches of the glide map's poles of PATCH_CELLS cells' reach at
-// most, the carried grid's coarsest side MIN_CELLS, and the patch reach as a share of the spacing, LAND_HEIGHT_PATCH_SPAN)
-const LATTICE_K = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], PATCH_CELLS = 8, MIN_CELLS = 256, SPAN = 0.6;
+// most, the carried grid's coarsest side MIN_CELLS, the patch reach as a share of the spacing, LAND_HEIGHT_PATCH_SPAN, the cells a far ring is read over at least, MIN_CELLS_READ (ten times as many mid-glide), the margin a patch's reach must clear to count as the lattice's, MARGIN, and the most vertices a side a pole patch takes, PATCH_N_MAX: each of its up to 44 patches is a pass of its own)
+const LATTICE_K = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], PATCH_CELLS = 8, MIN_CELLS = 256, SPAN = 0.6, PATCH_N_MAX = 64, MIN_CELLS_READ = 1000, MARGIN = 1.01;
 await view(1440, 900, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landfar${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
@@ -37,7 +37,7 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await hold(u);
   const tag = `held at u = ${u}`;
   const c = info[u] = {
-    carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar, src }) => ({ u, s, polar, src }))(__cmwLandCarry() || {}))')),
+    carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar, src, patchN }) => ({ u, s, polar, src, patchN }))(__cmwLandCarry() || {}))')),
     err: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000)),
     whole: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000)),
     poles: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000)),
@@ -49,9 +49,9 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   // cells are not in the block, so the checks that read them are the glide's)
   const end = u < 0.01 || u > 0.99;
   ok(`${tag}: a carried frame from plane z`, c.carried.s === 0 && Math.abs(c.carried.u - u) < 0.004, c.carried);
-  ok(`${tag}: the far patch's inner ring has cells, none off by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err[0].cells > (end ? 1000 : 10000) && c.err[0].bad === 0, c.err && c.err[0]);
+  ok(`${tag}: the far patch's inner ring has cells, none off by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err[0].cells > (end ? MIN_CELLS_READ : 10 * MIN_CELLS_READ) && c.err[0].bad === 0, c.err && c.err[0]);
   // (at u = 0.002 the map is nearly the identity, which keeps the outer ring out of the block: no cell to read)
-  ok(`${tag}: the far patch's outer ring has ${u < 0.01 ? 'no cell off' : 'cells, none off'} by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err.length > 1 && (u < 0.01 || c.err[1].cells > 1000) && c.err[1].bad === 0, c.err && c.err[1]);
+  ok(`${tag}: the far patch's outer ring has ${u < 0.01 ? 'no cell off' : 'cells, none off'} by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err.length > 1 && (u < 0.01 || c.err[1].cells > MIN_CELLS_READ) && c.err[1].bad === 0, c.err && c.err[1]);
   if (!end) {
     ok(`${tag}: a pole patch about 3πi and -3πi`, at(3 * Math.PI) && at(-3 * Math.PI), c.carried);
     ok(`${tag}: counting the pole patches' discs too, cells are off by more than ${TOL}`, !!c.whole && c.whole[0].bad > 0, c.whole && c.whole[0]);
@@ -60,9 +60,10 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
     // neighbour, so a pixel is shaded about once; the patches of the glide map's poles, of eight cells, are not counted)
     const P = c.carried.polar || [], cellMax = (c.carried.src.x1 - c.carried.src.x0) / (MIN_CELLS - 1);
     const sp = (p) => Math.min(...P.filter((q) => q !== p).map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])));
-    const lat = P.filter((p) => p[3] > PATCH_CELLS * cellMax * 1.01);
+    const lat = P.filter((p) => p[3] > PATCH_CELLS * cellMax * MARGIN);
     ok(`${tag}: a patch for each pole of the height map's lattice (3πi to 27πi, both signs), none dropped`, LATTICE_K.every((k) => at(k * Math.PI) && at(-k * Math.PI)) && lat.length >= 2 * LATTICE_K.length, { n: P.length, lat: lat.length });
     ok(`${tag}: no patch of the lattice reaches past ${SPAN} of its spacing to the next (the discs' summed area is bounded)`, lat.length > 0 && lat.every((p) => p[3] <= SPAN * sp(p) + 1e-9), lat.map((p) => [p[1], p[3], sp(p)]));
+    ok(`${tag}: a pole patch takes at most ${PATCH_N_MAX} vertices a side (each of the lattice's patches is a pass of its own)`, c.carried.patchN > 0 && c.carried.patchN <= PATCH_N_MAX, c.carried.patchN);
     ok(`${tag}: inside each pole patch, at its own resolution, no cell off by more than ${TOL}`, !!c.poles && c.poles.length >= 6 && c.poles.every((q) => q.cells > 100 && q.bad === 0), c.poles);
   }
   ok(`${tag}: the carried frame covers its block`, !!c.covered && c.covered.bare === 0, c.covered);

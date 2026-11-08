@@ -389,7 +389,7 @@
   // does not move with the glide, so the candidates (the LAND_HEIGHT_CANDIDATES nearest) are searched once per plane s
   // and box (hKey names hF); F, which does, picks among them each frame
   // (LAND_HEIGHT_PATCH_SPAN, a patch's reach as a share of the spacing sp to the nearest other pole: the half that is the pole's own
-  // side of the way to the neighbour, plus a tenth, about eight of the patch's cells (2 r / 95 at r = 0.6 sp), the overlap with
+  // side of the way to the neighbour, plus a tenth, about five of the patch's cells (2 r / 63 at r = 0.6 sp), the overlap with
   // the neighbour's patch that keeps the seam between them from showing a gap; a wider reach only shades the same pixels again)
   const LAND_HEIGHT_POLES = 40, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, LAND_HEIGHT_PATCH_SPAN = 0.5 + 0.1, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach, F, box) {
