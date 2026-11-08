@@ -1012,7 +1012,9 @@
     ctx.globalAlpha = 0.85; ctx.strokeStyle = TH.landBox; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(r0[0], r0[1]); ctx.lineTo(r1[0], r1[1]); ctx.stroke();
     ctx.globalAlpha = 1;
-    const hOf = info.heightOf || ((v) => v);
+    // (the probes' control: the labels placed at the frame's height scaled by rulerScale, a scale error the own-height test must see)
+    const hOf0 = info.heightOf || ((v) => v), rulerScale = (GLR.carryProbes && GLR.carryProbes().rulerScale) || 1;
+    const hOf = (v) => hOf0(v) * rulerScale;
     const fmt = (v) => minus(CX.fmtNum(v, 3));
     let vals;                                     // [value, label], in order of priority
     if (S.height === 'log' || !S.height) vals = [1, 10, 0.1, 100, 0.01].map((m) => [m, fmt(m)]);

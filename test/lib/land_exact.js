@@ -475,13 +475,21 @@
       // the height ruler's labels: at every u each label sits at the frame's OWN height of its value; at the ends the same labels as the parked
       // plane's, each within TICK_PX of its screen y (rasterization only; the end frames' real scale gap is not absorbed: it is checked by the own height)
       {
-        const marks = await ev('__cmwLandTickMarks()');
-        const own = await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`).then(JSON.parse);
         const relErr = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
-        const bad = marks.filter((m, i) => !(own[i] != null && relErr(m.hz, own[i]) <= TICK_H_TOL));
-        ok(`${t}: the height ruler's ${marks.length} labels sit at the frame's own height of their value`, marks.length > 0 && !bad.length, { marks, own });
-        const nz = marks.map((m, i) => i).filter((i) => own[i]), off = nz.filter((i) => relErr(marks[i].hz, own[i] * (1 + TICK_SCALE_ERR)) > TICK_H_TOL);   // (a label at height 0 has no scale)
-        ok(`${t}: a ${TICK_SCALE_ERR} scale error in the frame's own height is not matched (control; ${off.length} of ${nz.length} labels off)`, nz.length > 0 && off.length === nz.length, { marks, own });
+        const ownTicks = async () => {
+          const marks = await ev('__cmwLandTickMarks()');
+          const own = JSON.parse(await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`));
+          const nz = marks.map((m, i) => i).filter((i) => own[i]);   // (a label at height 0 has no scale)
+          return { marks, own, nz, bad: nz.filter((i) => !(relErr(marks[i].hz, own[i]) <= TICK_H_TOL)) };
+        };
+        const o = await ownTicks();
+        ok(`${t}: the height ruler's ${o.marks.length} labels sit at the frame's own height of their value`, o.marks.length > 0 && !o.bad.length, o);
+        if (lastU && u === 1 - END_U) {
+          await ev(`__svCarryProbe = { rulerScale: ${1 + TICK_SCALE_ERR} }; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const e = await ownTicks();
+          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: a ${TICK_SCALE_ERR} scale error in the labels' heights fails the own-height check (control; ${e.bad.length} of ${e.nz.length} labels off)`, e.nz.length > 0 && e.bad.length === e.nz.length, e);
+        }
       }
       if (first || lastU) {
         const ref = (first ? p0 : p1).ticks, got = await ev('__cmwLandTicks()');
