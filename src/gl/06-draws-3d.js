@@ -362,6 +362,10 @@
           use(Pn, c.map);
           if (datas[0]) gl.uniform4fv(Pn.loc.uChain, datas[0]);
           stages(Pn); own(Pn); u1f(Pn, 'uCode', code(0)); u1f(Pn, 'uContCode', CARRY_CONT_CODE);
+          // (the step's cut leaving each branch point: a continuation is not taken across it)
+          const rays = new Float32Array(16);
+          (c.exact.hole || []).slice(0, LAND_HOLES_MAX).forEach(([x, y, ray], i) => { if (ray != null && !carryProbe.noRay) rays.set([x, y, ray, 1], 4 * i); });
+          gl.uniform4fv(Pn.loc.uCutRay, rays);
           gl.activeTexture(gl.TEXTURE15);
           runTF(Pn, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }
@@ -425,14 +429,14 @@
     const N = landC.N, fbo = gl.createFramebuffer();
     const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null, combo: L.combo || [] }));
+    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null, pe: L.exact && L.edges ? L.edges.map(read) : null, combo: L.combo || [] }));
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return pts.map(([x, y]) => {
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i), out = [];
-      layers.forEach(({ px, pz, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
+      layers.forEach(({ px, pz, pe, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
       return out;
     });
   }
@@ -1404,8 +1408,8 @@
       // (a polar patch of every layer about each branch point of the glide's inverse in view, where the box's cell holding
       // the point spans a whole turn of the helicoid: the box's triangles about it are left out)
       const bx = st.box, cell = (bx.x1 - bx.x0) / (N - 1), r1 = cell * LAND_HOLE_CELLS, ext = r1;
-      landHoles = (st.carry.exact.hole || []).filter(([x, y]) => x > bx.x0 - ext && x < bx.x1 + ext && y > bx.y0 - ext && y < bx.y1 + ext).slice(0, LAND_HOLES_MAX)
-        .map(([x, y]) => [x, y, cell * 1e-4, r1]);
+      landHoles = (st.carry.exact.hole || []).filter(([x, y]) => x > bx.x0 - ext && x < bx.x1 + ext && y > bx.y0 - ext && y < bx.y1 + ext).slice(0, LAND_HOLES_MAX);
+      landHoles = landHoles.map(([x, y]) => [x, y, cell * 1e-4, r1]);
       for (const L of landActive) L.pp = landHoles.map((pl, i) => carryHeights(st, LAND_POLAR_N, mode, H, mu, aspect, pl, (L.pp && L.pp[i]) || {}, Object.assign({ k: 0 }, L.spec)));
     }
     // (the glide's inverse pass: 'drawn', 'pending' or 'error' when st.carry.exact asked for it)

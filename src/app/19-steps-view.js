@@ -407,18 +407,29 @@
         fwd = fwd.flatMap((c) => dks.map((dk) => (dk ? c.concat([{ vals: bb.vals, dk, k: e.k }]) : c)));
       }
     }
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS), hole: S.sheets ? svLandHoles(p.plan, F) : [] };
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS), hole: S.sheets ? svLandHoles(p.plan, F, built[b - 1] && built[b - 1].vals && ['root', 'powa', 'log'].includes(built[b - 1].def && built[b - 1].def.id) ? built[b - 1].vals.cut : null) : [] };
   }
-  // The branch points of the glide's inverse as places of the shown plane ([x, y] each, at most LAND_HOLES): the z-plane's
-  // branch points over the camera's window, carried by the glide's map F. A layer draws a polar patch about each, where the
-  // box's cell holding the point would span a whole turn of the helicoid.
-  const LAND_HOLES = 4;
-  function svLandHoles(plan, F) {
+  // The branch points of the glide's inverse as places of the shown plane ([x, y, ray] each, at most LAND_HOLES): the
+  // z-plane's branch points over the camera's window, carried by the glide's map F. A layer draws a polar patch about
+  // each, where the box's cell holding the point would span a whole turn of the helicoid. ray: the direction (radians) of
+  // the image of the step's cut (cutDeg, degrees; null for none) leaving the point, the side of which a layer's
+  // continuation must not cross
+  const LAND_HOLES = 4, LAND_RAY_PROBE = 1e-3;
+  function svLandHoles(plan, F, cutDeg) {
     if (!F) return [];
     let sing;
     try { sing = Inverse.singular(plan, clipWin, ['branch'], LAND_HOLES); } catch (e) { return []; }
-    const out = [];
-    for (const e of sing) { const w = F(e.z); if (w && Number.isFinite(w.re) && Number.isFinite(w.im)) out.push([w.re, w.im]); }
+    const out = [], R = LAND_RAY_PROBE * Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
+    for (const e of sing) {
+      const w = F(e.z);
+      if (!w || !Number.isFinite(w.re) || !Number.isFinite(w.im)) continue;
+      let ray = null;
+      if (cutDeg != null) {
+        const th = cutDeg * Math.PI / 180, v = F(C(e.z.re + R * Math.cos(th), e.z.im + R * Math.sin(th)));
+        if (v && Number.isFinite(v.re) && Number.isFinite(v.im)) ray = Math.atan2(v.im - w.im, v.re - w.re);
+      }
+      out.push([w.re, w.im, ray]);
+    }
     return out;
   }
   const SV_LAND_SHEETS = 4, SV_LAND_LAYERS = 24;   // (the sheets' limit, SHEET_MAX)

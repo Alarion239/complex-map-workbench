@@ -769,9 +769,10 @@ uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D
 out vec4 tfOut;
 ` + CARRY_HEIGHT + (L ? CARRY_HEIGHT_ANCHORED + `
 // (layered: heights and places of a point of the edge, continued from the edge's own end eZc)
-vec2 eZc;
-vec2 edgeH(vec2 z) { return carryHeightA(eZc, z); }
-vec2 edgeW(vec2 z) { return carryWA(eZc, z, uGt); }
+// (an edge between two own vertices: the layer's own cut may run between them, so its heights are the fixed cut's)
+vec2 eZc; bool eFixed;
+vec2 edgeH(vec2 z) { return eFixed ? carryHeight(z) : carryHeightA(eZc, z); }
+vec2 edgeW(vec2 z) { return eFixed ? chainRange(z, uGs, uGt) : carryWA(eZc, z, uGt); }
 ` : `
 vec2 edgeH(vec2 z) { return carryHeight(z); }
 vec2 edgeW(vec2 z) { return chainRange(z, uGs, uGt); }
@@ -798,7 +799,7 @@ void main() {
   vec2 z0 = texelFetch(uZ, p, 0).xy, z1 = texelFetch(uZ, q, 0).xy;
 ${L ? `  bool ownA = a.w < uCode + 0.1, ownB = b.w < uCode + 0.1;
   if (!ownA && !ownB) return;
-  eZc = ownA ? z0 : z1;` : ''}
+  eZc = ownA ? z0 : z1; eFixed = ownA && ownB;` : ''}
   vec2 ha = edgeH(z0), hb = edgeH(z1);
   if (!(ha.y > 0.5 && hb.y > 0.5) || abs(ha.x - a.z) > tol || abs(hb.x - b.z) > tol) return;
   vec2 wLo = edgeW(z0), wHi = edgeW(z1);
@@ -825,8 +826,22 @@ ${L ? `  bool ownA = a.w < uCode + 0.1, ownB = b.w < uCode + 0.1;
   const LAND_CARRY_CONT_VS = `
 uniform int uN; uniform int uGs; uniform int uGt; uniform float uCode; uniform float uContCode;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ;
+// the step's cut leaving a branch point of the shown plane, each (x, y, angle, 1), (0, 0, 0, 0) for none
+uniform vec4 uCutRay[4];
 out vec4 tfOut;
 ` + CARRY_HEIGHT + CARRY_HEIGHT_ANCHORED + `
+// whether the segment a -> b crosses a ray of uCutRay (the continuation anchor is on the other side of the step's cut)
+bool crossesCut(vec2 a, vec2 b) {
+  for (int i = 0; i < 4; i++) {
+    if (uCutRay[i].w < 0.5) continue;
+    vec2 o = uCutRay[i].xy, d = vec2(cos(uCutRay[i].z), sin(uCutRay[i].z)), e = b - a, ao = a - o;
+    float ed = e.x * d.y - e.y * d.x;
+    if (abs(ed) < 1e-30) continue;
+    float mu = (d.x * ao.y - d.y * ao.x) / ed, lam = (ao.x * e.y - ao.y * e.x) / -ed;
+    if (mu >= 0.0 && mu <= 1.0 && lam >= 0.0) return true;
+  }
+  return false;
+}
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -840,7 +855,7 @@ void main() {
     ivec2 q = p + ivec2(j % 3 - 1, j / 3 - 1);
     if (j == 4 || q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
     vec4 tq = texelFetch(uT1, q, 0);
-    if (tq.w > 5.0 && tq.w < uCode + 0.1) { za = texelFetch(uZ, q, 0).xy; found = true; break; }
+    if (tq.w > 5.0 && tq.w < uCode + 0.1 && !crossesCut(tq.xy, t.xy)) { za = texelFetch(uZ, q, 0).xy; found = true; break; }
   }
   if (!found) return;
   cxs0_out = false;
