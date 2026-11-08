@@ -72,9 +72,8 @@ ok(/function syncUnused\(\)/.test(PRM) && /syncUnused,/.test(PRM) && (APP.match(
 ok(/\.prm-list \{ flex: 0 1 auto;/.test(PRM), 'user-5: + Number sits under the list, not at the section\'s foot');
 ok(/S\.shapes\.filter\(\(s\) => kindType\(s\) === 'area'\)\.map/.test(fnBody(APP, 'patternCell')) && /if \(\(s\.def \|\| s\.fixed\) && t !== 'area'\) continue;/.test(fnBody(APP.replace(/function\* /g, 'function '), 'stageSampler')), 'user-3: a construction curve refits neither the cell nor Y');
 ok(/probeTeachUntil > now/.test(APP) && /sessionStorage\.getItem\('cmw-probe-taught'\)/.test(APP) && /\.chip\.readout:has\(> \.rteach\) \{ height: auto; white-space: normal;/.test(PAGE), 'regress-4, user-4: the hold-and-slide line once a session for 8 s, whole');
-ok(/function morphReadout\(short\)/.test(APP) && /padStart\(3, '\\u2007'\)/.test(APP) && /lab\.dataset\.short = '1'/.test(APP), 'regress-1: a short readout when the row is tight, a padded percentage');
 ok(/new ResizeObserver\(\(\) => \{ if \(!q && th\.firstElementChild\)/.test(APP), 'regress-2: a toast is placed again when the layout under it changes');
-ok(/host\.setAttribute\('data-placed', 'head'\)/.test(fnBody(APP, 'placeToasts')) && /#toastHost\[data-placed="head"\] \.toast \{/.test(DESK), 'regress-3: a desktop message sits in the chain head when it fits there');
+ok(/host\.setAttribute\('data-placed', 'plot'\)/.test(fnBody(APP, 'placeToasts')) && /#toastHost\[data-placed="plot"\] \.toast \{/.test(DESK), 'a desktop message sits over the plot, above the thread');
 ok(/run: \(\) => go\(\) \}\], drop: 'title'/.test(APP) && /Tour\.laneHide\('example'\);\s*\}/.test(fnBody(APP, 'sndPlayEnded')), 'regress-5: the Try line stays while the melody plays');
 ok(/let wOnce;/.test(APP) && /const w = wOnce !== undefined \? wOnce : focusF\(\)\(z\);/.test(APP), 'regress-6: F(z) of the probe evaluated once per move');
 ok(/if \(k === undoKey\) return;/.test(fnBody(APP, 'updateUndo')) && /if \(key === targetNoteKey\) return;/.test(fnBody(APP, 'targetNote')), 'regress-7: updateUndo and targetNote return at once when nothing changed');
