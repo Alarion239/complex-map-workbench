@@ -150,17 +150,17 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
   if (W === 1460) okl('Landscape, All sheets: the scope is a menu button and the Height key is unfolded again, the bar fitting beside it', fold.sm && !fold.keyFolded && title.hh < 48, fold);
   okl('the fold order: the Height key is a glyph while the scope is a menu button, unless the bar fits beside the unfolded key (one row)', !fold.sm || fold.keyFolded || fold.glyph || title.hh < 48, fold);
   okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si), fold);
-  okl('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
-    fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Scope: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
+  okl('the folded scope is one menu button, haspopup=menu, named "Where colour shows: Everywhere", its words "Everywhere"',
+    fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Where colour shows: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
   if (lang === 'en' && fold.sm) {
     await ev(`document.querySelector('.sv-scope-menu').click(); 1`);
     await until(`!!document.querySelector('.pop.menu [role=menuitemradio]')`);
     const sm = await ev(`(() => { const m = document.querySelector('.pop.menu'); return m && { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
-    okl('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Scope' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
+    okl('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Where colour shows' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
     await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Inside/.test(b.textContent)).click(); 1`);
     await until(`__cmwSteps().scope === 'in' && /Inside/.test(document.querySelector('.sv-scope-menu').textContent)`);
     const after = await ev(`(() => { const m = document.querySelector('.sv-scope-menu'); return { scope: __cmwSteps().scope, name: m.getAttribute('aria-label'), text: m.textContent.trim() }; })()`);
-    okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Scope: Inside regions' && after.text === 'Inside', after);
+    okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Where colour shows: Inside regions' && after.text === 'Inside', after);
   }
 }
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);

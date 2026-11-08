@@ -1307,7 +1307,8 @@
       maskUniforms(Fp, fm);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
-    if (!below) floorPass(0.8);
+    // (st.reliefOnly: the figure's coverage render, the relief alone on a transparent frame)
+    if (!below && !st.reliefOnly) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
@@ -1457,7 +1458,7 @@
       }
       lvTailMark();
     }
-    if (below) {
+    if (below && !st.reliefOnly) {
       gl.enable(gl.BLEND);
       gl.depthMask(false);
       floorPass(0.22);
@@ -1473,7 +1474,7 @@
     const boxM = [];
     for (let i = 0; i < 4; i++) boxM.push(segM([cs[i][0], cs[i][1], floorZ], [cs[(i + 1) % 4][0], cs[(i + 1) % 4][1], floorZ], 0.5 * dpr));
     gl.depthMask(false);
-    drawMarks(MVP, boxM, C.box, below ? 0.4 : 0.8, { zBias: 0.0002 });
+    if (!st.reliefOnly) drawMarks(MVP, boxM, C.box, below ? 0.4 : 0.8, { zBias: 0.0002 });
     info.backCorner = [cs[far][0], cs[far][1]];
     // source outlines printed on the floor plate: clipped to the plate, fading with its outer rim, and hidden
     // wherever the surface covers them (plain depth test: never drawn through the relief)
