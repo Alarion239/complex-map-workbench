@@ -385,8 +385,9 @@
   };
   // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
   // [{ z, f, h, member, sheet, D }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
-  // front to back; f is the value of the shown plane's map at z, h its drawn height, D the member's depth key. Null when the
-  // frame was not drawn by the inverse path
+  // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn
+  // ones for the frame's own sheet (sheet 0); a member on a sheet beside it has its value on that sheet's branch of the step, so
+  // its z and D are the reference there, not f and h. Null when the frame was not drawn by the inverse path
   window.__cmwLandEnum = (pts) => {
     const inp = render3D.exactIn, hOf = render3D.frameHeight, bx = render3D.box;
     if (!inp || !hOf || !bx) return null;

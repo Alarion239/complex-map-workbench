@@ -795,7 +795,7 @@
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.exactIn = carry && carry.exact ? { exact: carry.exact, F: svHeightF(carry.s) } : null;   // (the inverse inputs the last carried frame drew from: tests)
+    render3D.exactIn = carry && carry.exact ? { exact: carry.exact, F: svHeightF(0) } : null;   // (the inverse inputs the last carried frame drew from, and plane 0's map, as z is a point of plane 0: tests)
     render3D.carried = info && info.carried ? { path: info.exact === 'drawn' ? 'inverse' : 'mesh', exact: info.exact || null, u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
