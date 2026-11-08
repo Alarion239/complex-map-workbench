@@ -328,7 +328,7 @@ await section('L67', async () => {
   await laptop();
   await load(NS + 'j', { shapes: [], steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } });
   await settle(800);
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(300);
+  await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settled({ until: "!!document.querySelector('#propsPanel .insp-step[data-k=\"1\"]')", max: 8000 });
   info.l67 = await ev(`(() => { const c = document.querySelector('#propsPanel .sheet-ctl'); if (!c) return null; const p = c.parentElement; return { t: p.textContent.replace(/\\s+/g, ' ').trim(), order: [...p.children].map((e) => e.classList.contains('sh-prev') ? '‹' : e.tagName === 'INPUT' ? 'k' : e.classList.contains('sheet-ctl') ? 'ctl' : '?').join(' '), btns: [...p.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') || b.textContent) }; })()`);
   ok('UX67 the step editor has ‹ k of 2 › · Show all sheets', info.l67 && info.l67.order === '‹ k ctl' && /^‹ ?of 2 ?›/.test(info.l67.t) && /Show all sheets/.test(info.l67.t), info.l67);
   const kNow = () => ev(`document.querySelector('#propsPanel .sheet-ctl').parentElement.querySelector('input').value`);
@@ -459,7 +459,7 @@ await section('L86', async () => {
   // UX86: the Phase style
   await key('2'); await settle(900);
   // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
-  // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
+  // a real click opens it when the style control is not inline, and it is closed after)
   const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
   // (#247: the row shows "Grid"; the style's name, its accessible name and tooltip, stays "Pulled-back grid")
