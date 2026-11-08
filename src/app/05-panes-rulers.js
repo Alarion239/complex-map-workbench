@@ -767,13 +767,18 @@
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
-    const omap0 = stageMap(leftStage());
+    const omap0 = carry && carry.zmap ? carry.zmap : stageMap(leftStage());
+    // (the steps view's Inside regions: a region's outline is thin and grey, on the floor under its surface's edge)
+    const footprint = mask && mask.cut && !(carry && carry.plain) ? new Set(visibleAreas()) : null;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
-      const omap = shapeMap(s, omap0);
+      const omap = SV.on ? svShapeMap(s, omap0) : shapeMap(s, omap0);
       if (!omap) continue;
       const r = shapeGPU(s);
-      if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
+      if (!r.lineRes) continue;
+      const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
+      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
+        : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const info = GLR.drawLandscape({
       map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
@@ -797,13 +802,14 @@
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
+    render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -1068,11 +1074,20 @@
       if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
     }
   }
+  // the colour globe of o drawn over the pane's globe, kept inside the regions (regions drawn solid; o.only: only these): true
+  // when its colour was drawn, false while the mask's program links (the caller asks again) or on an error
+  function maskedGlobe(pane, c, base, o) {
+    if (!(GLR.keepInAlpha && GLR.keepInAlpha(true))) return false;
+    try {
+      const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign({}, o, { imageMode: false, maskRegions: true })));
+      return !!(mi && mi.carried);
+    } catch (e) { console.error('globe region mask', e); return false; }
+  }
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
@@ -1082,13 +1097,7 @@
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
-      let carried = false;
-      if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-        try {
-          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
-          carried = !!(mi && mi.carried);
-        } catch (e) { console.error('globe region mask', e); }
-      }
+      const carried = maskedGlobe(pane, c, base, Object.assign(look, { pre: null }));
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
@@ -1150,7 +1159,7 @@
       }
     }
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || (o.only && !o.only.has(s))) continue;
       // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map: in the
       // steps view's glide (o.lineMap) the glide's map from its plane (svShapeMap), in another homotopy none
       const sm = o.lineMap ? svShapeMap(s, map) : hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
@@ -1177,11 +1186,7 @@
         const p = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live }) : null;
         if (p && p.path === 'inverse') {
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
-          let gbox = null;
-          if (shapeBounded(s)) {
-            if (p.plan.ops.length) gbox = invBox(p.e, p.plan, s, live);
-            else { try { gbox = Region.bboxOf(s); } catch (err) { gbox = null; } }
-          }
+          const gbox = globeImageBox(p, s, live);
           regions.push({
             inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },

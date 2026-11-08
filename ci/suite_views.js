@@ -57,6 +57,7 @@ const VIEWS = {
   'sv_land_sin_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
+  'steps_land_footprint_cmd.js': steps(),
   'steps_inregions_pending_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
@@ -69,6 +70,7 @@ const VIEWS = {
   'steps_glide_linkhold_cmd.js': steps(),
   'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
+  'steps_glide_mask_carry_cmd.js': steps(),
   'steps_glide_look_cmd.js': steps({ pin: true }),
   'steps_glide_black_cmd.js': steps({ pin: true }),
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
@@ -94,6 +96,7 @@ const VIEWS = {
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
+  'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
@@ -210,6 +213,7 @@ const VIEWS = {
 
   // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
+  'steps_foot_note_order_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': steps({ pin: true }),
   'example_try_events_classic_cmd.js': classic('the classic cards\' Try lines: the sheet buttons, the formula field and the Add ray button on a card; example_try_events_cmd asks the same in the steps view'),
@@ -247,7 +251,8 @@ const VIEWS = {
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'steps_cauchy_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
-  'steps_plane_key_cmd.js': steps(),
+  'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)
+  'steps_phone_key_cmd.js': steps({ pin: true }),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
@@ -307,6 +312,7 @@ const VIEWS = {
   'p3_review_cmd.js': steps({ pin: true }),
   'p3_review_classic_cmd.js': classic('a region\'s own pattern drawn exactly, the two-globe exports and their main-thread checks are the classic views\': the steps view colours regions by the carried phase and has one pane'),
   'p3b_accept_cmd.js': steps({ pin: true }),
+  'globe_release_cmd.js': steps({ pin: true }),
   'p3bfix_cmd.js': steps({ pin: true }),
   'p5_accept_cmd.js': steps({ pin: true }),
   'regions_phase_cmd.js': steps({ pin: true }),
