@@ -93,13 +93,14 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
 // at every width. Where the thread plus F would overflow the rail by less than F's width (the band), F gets a lead margin that puts it
 // fully out of view at rest; scrolled to the end F is whole and the blank before it is under BLANK_MAX; outside the band the margin is 0
 const SWEEP_FROM = 568, SWEEP_TO = 932, SWEEP_STEP = 4;
+const OVERFLOW_MIN = 1;   // (px: a rail overflowing by no more than this does not scroll)
 const BLANK_MAX = 48;   // (px: the blank track before F at the rail's end)
 const SETTLE_FLOOR = 150;   // (ms: the least a view change is given to settle)
 const GLIDE_SAMPLES = 12, GLIDE_SAMPLE_MS = 40;   // (the margin is read this many times, this far apart, while a glide runs)
 const lead = () => ev(`(() => {
   const rail = document.querySelector('#svStrip .sv-rail'), F = document.querySelector('.sv-wholemap'), fw = F.getBoundingClientRect().width;
   const margin = parseFloat(getComputedStyle(F).marginLeft) || 0, over = rail.scrollWidth - rail.clientWidth - margin;
-  return { margin, over, fw, inBand: over > 1 && over < fw };
+  return { margin, over, fw, inBand: over > ${OVERFLOW_MIN} && over < fw };
 })()`);
 const atEnd = () => ev(`(() => {
   const rail = document.querySelector('#svStrip .sv-rail'), F = document.querySelector('.sv-wholemap');
@@ -118,7 +119,7 @@ for (const chain of ['two', 'three', 'four']) {
     await ev("document.querySelector('#svStrip .sv-rail').scrollLeft = 0; 1");
     await still();
     const m = await measure(), l = await lead();
-    if (!(m.fIn !== false || m.fOut === true)) bad.push({ w, fIn: m.fIn, fOut: m.fOut, railW: m.railW });
+    if (!(m.fShown && (m.fIn !== false || m.fOut === true))) bad.push({ w, fIn: m.fIn, fOut: m.fOut, railW: m.railW });
     if ((l.margin > 0) !== l.inBand) badMargin.push({ w, ...l });
     if (l.inBand) {
       if (inBand === null) inBand = w;
@@ -143,7 +144,7 @@ for (const chain of ['two', 'three', 'four']) {
         await ev("document.querySelector('.sv-next').click(); 1");
         await still({ floor: SETTLE_FLOOR });
         const m = await measure();
-        if (!(m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, plane: i + 1, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+        if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, plane: i + 1, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
       }
     }
     // a jump to each plane (no glide) parks the same way
@@ -154,7 +155,7 @@ for (const chain of ['two', 'three', 'four']) {
         await ev(`__cmwSteps({ go: ${i}, now: true }); 1`);
         await still({ floor: SETTLE_FLOOR });
         const m = await measure();
-        if (!(m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+        if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
       }
     }
     // the same on a page opened at a width in the band, with no resize before it
@@ -164,7 +165,7 @@ for (const chain of ['two', 'three', 'four']) {
       await ev(`__cmwSteps({ go: ${i}, now: true }); 1`);
       await still({ floor: SETTLE_FLOOR });
       const m = await measure();
-      if (!(m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w: mid, opened: true, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+      if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w: mid, opened: true, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
     }
     ok(`${chain}: in the band, parked on each plane the plane and its pill are whole and F is whole or fully out of view`, badPark.length === 0, badPark);
     await view(inBand, 360, false, true);
