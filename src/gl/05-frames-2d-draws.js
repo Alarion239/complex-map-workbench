@@ -463,13 +463,15 @@
   // the chain's cut kinds (a deformation map's carried colour draws a fill for a path cut the sheets continue, clipped
   // at a cut marked clip)
   const carryKinds = () => (cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : []);
+  // (the carried colour's regionK and regionKC for a chain with no cut are regionKN and regionKCN: the pixel-centre read)
+  const noCutProg = (name, cuts) => (cuts ? name : name + 'N');
   // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   // (peel: the variants of carryLayers, which write the sheet key per fragment)
   function carryNames(peel) {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
-    const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKCN'];
+    const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : [noCutProg('regionKC', false)];
     return peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
@@ -502,7 +504,7 @@
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     if (e) { e.carry = true; carryTmpT = performance.now(); }
-    let P = e ? program(N(cuts ? 'regionKC' : 'regionKCN'), st.map) : null;
+    let P = e ? program(N(noCutProg('regionKC', cuts)), st.map) : null;
     // (the fill's places from its point pass, fillPoints: the chain once per point of a torn sub-triangle. The fill never
     // evaluates them itself, so its frames are the point pass's whatever the compiler does with either program; while
     // the pass cannot run (fillPts or the fill still linking) the sheet program stands in, below)
@@ -529,7 +531,7 @@
       if (P && masked && !(mask = maskOf(N('regionKS'), full, cache ? linked : program))) P = full = null;
       if (P) e = null;
     }
-    if (!P) { e = null; P = (cache || cuts ? linked : program)(N(cuts ? 'regionK' : 'regionKN'), st.map); }
+    if (!P) { e = null; P = (cache || cuts ? linked : program)(N(noCutProg('regionK', cuts)), st.map); }
     return P ? { L, e, P, fill, fp, full, clip, mask } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)
