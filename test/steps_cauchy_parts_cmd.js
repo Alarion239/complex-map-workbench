@@ -86,13 +86,17 @@ const p1 = await parts();
 info.past = p1;
 ok('past z: the parts control is in the pop-up, three choices, enabled', p1.seg && p1.buttons.length === 3 && p1.buttons.every((x) => !x.disabled), p1);
 ok('past z: the note names f₊ and f₋', /f₊/.test(p1.note) && /f₋/.test(p1.note), p1);
+// negative control: the carried colour starts on Both, so the choice below is a change and not the setting already there
+const SHOW_BOTH = 0, SHOW_OUT = 2;
+const before = await ev(`JSON.stringify(__cmwCauchyCarry() && { show: __cmwCauchyCarry().show })`);
+ok('past z: negative control: the carried colour starts on Both', before === JSON.stringify({ show: SHOW_BOTH }), before);
 await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
 await settled({ until: '!!document.querySelector(".opts-pop #cauchySeg")', max: POPUP_MS });
 await ev(`document.querySelector('.opts-pop #cauchySeg button[data-v="out"]').click(); 1`);
 await settled({ until: '!!document.querySelector(".opts-pop #cauchySeg button[data-v=\\"out\\"].on")', max: POPUP_MS });
 await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
 const carried = await ev(`JSON.stringify(__cmwCauchyCarry() && { show: __cmwCauchyCarry().show })`);
-ok('past z: the part chosen there is the carried colour\'s setting', carried === '{"show":2}', carried);
+ok('past z: the part chosen there is the carried colour\'s setting', carried === JSON.stringify({ show: SHOW_OUT }), carried);
 await open(ns2, stateOf('z^2-1'));
 await goPlane(1);
 const p2 = await parts();
