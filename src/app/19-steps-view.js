@@ -490,7 +490,11 @@
     const P = svPlanes(), x = SV.g.x, n = P.length - 1;
     let lo, hi;
     if (SV.play && !SV.play.slide) { lo = Math.floor(Math.min(SV.play.from, SV.play.to) + 1e-9); hi = Math.ceil(Math.max(SV.play.from, SV.play.to) - 1e-9); }
-    else if (SV.anim) { lo = Math.floor(Math.min(SV.anim.from, SV.anim.to) + 1e-9); hi = Math.ceil(Math.max(SV.anim.from, SV.anim.to) - 1e-9); }
+    else if (SV.anim) {
+      // (All at once, the run is the span's: a Split under way moves the animation's start to where the glide is, not the run's)
+      const sp = SV.span;
+      if (sp && svAllOk(sp.x0, sp.x1)) { lo = sp.x0; hi = sp.x1; } else { lo = Math.floor(Math.min(SV.anim.from, SV.anim.to) + 1e-9); hi = Math.ceil(Math.max(SV.anim.from, SV.anim.to) - 1e-9); }
+    }
     else { lo = Math.floor(x + 1e-9); hi = lo + 1; }
     lo = Math.max(0, lo); hi = Math.min(n, hi);
     if (!(hi > lo) || (x - lo < 1e-6 && !SV.anim && !SV.play) || derivIn(P[lo], P[hi])) return null;
@@ -3316,7 +3320,7 @@
       }
     }
     if (sp) SV.span = span;
-    SV.i = Math.round(SV.g.x);
+    SV.i = cl(pl(SV.i));
     dirty.L = true;
   }
   function svShifted() {

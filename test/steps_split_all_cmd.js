@@ -6,7 +6,7 @@
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (named bounds: the time to reach a state, the channel difference that counts as a differing pixel, and the progress and area bounds)
 const SETTLE_MS = 20000, LOAD_MS = 40000, GLIDE_MS = 120000, END_MS = 240000;
-const FREEZE_CLOCK_MS = 0.0001, GLIDE_CLOCK_MS = 40, FREEZE_X = 1.2, END_EPS = 1e-6, PLANE_EPS = 1e-9;
+const FREEZE_CLOCK_MS = 1e-9, GLIDE_CLOCK_MS = 40, FREEZE_X = 1.2, END_EPS = 1e-6, PLANE_EPS = 1e-9;
 const CH_TOL = 8, U_EPS = 1e-4, PX_EQUAL_MAX = 0, CTRL_MIN_FRAC = 0.05;
 const fails = [], info = {};
 let pass = 0;
@@ -25,10 +25,12 @@ const open = async (extra = {}) => {
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane') && __cmwSteps().planes.length > 1", 40000);
 };
-const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage, win: q.win, i: q.i }; })()');
+const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage, win: q.win, i: q.i, names: q.names, label: q.label, src: q.paths && q.paths.src && { Tend: q.paths.src.Tend, seq: q.paths.src.seq, startId: q.paths.src.startId } }; })()');
 const hide = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
 // (below the colour key, whose text names the colour plane's function: it changes with the Split)
 const pane = async () => { await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); await ev('__cmwSteps({ bare: false })'); return i; };
+// (the same region with the points and the paths' trails on)
+const paneOver = async () => { await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); return i; };
 const diff = (a, b, x0 = 0, x1 = a.w) => { if (a.w !== b.w || a.h !== b.h) return -1; let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (((j / a.ch) % a.w) >= x0 && ((j / a.ch) % a.w) < x1 && (Math.abs(a.data[j] - b.data[j]) > CH_TOL || Math.abs(a.data[j + 1] - b.data[j + 1]) > CH_TOL || Math.abs(a.data[j + 2] - b.data[j + 2]) > CH_TOL)) n++; return n; };
 const where = (a, b) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1, mx = 0; for (let j = 0; j < a.data.length; j += a.ch) { const d = Math.max(Math.abs(a.data[j] - b.data[j]), Math.abs(a.data[j + 1] - b.data[j + 1]), Math.abs(a.data[j + 2] - b.data[j + 2])); if (d > CH_TOL) { const p = j / a.ch, x = p % a.w, y = Math.floor(p / a.w); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); mx = Math.max(mx, d); } } return [x0, y0, x1, y1, mx]; };
 const splitNow = async () => { await clickSel('#svStrip .sv-step[data-k="2"] .sv-fchip'); await until("!!document.querySelector('#propsPanel .split-offer .so-btn')"); await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 6'); };
@@ -39,17 +41,23 @@ await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps(
 info.q1 = await ev('(() => { const q = __cmwSteps(); return { span: q.span, x: q.x, all: q.all, anim: q.anim && { from: q.anim.from, to: q.anim.to, ms: q.anim.ms } }; })()');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const x0 = (await sv()).x;
-const g0 = await pane(), p0 = await sv();
+const g0 = await pane(), o0 = await paneOver(), p0 = await sv();
 // (no Split: a glide moves the picture, never the view, so the window mid-glide is the one at rest on plane 0)
 ok('the window mid-glide is the camera at rest, with no Split', JSON.stringify(p0.win) === JSON.stringify(restWin) && p0.x > FREEZE_X, [restWin, p0.win, p0.x]);
 await splitNow();
-const g1 = await pane(), p1 = await sv();
+const g1 = await pane(), o1 = await paneOver(), p1 = await sv();
 info.x = [x0, p0.x, p1.x]; info.win = [p0.win, p1.win]; info.idx = [p0.i, p1.i]; info.px = diff(g0, g1); info.where = where(g0, g1); info.area = g0.w * g0.h;
 info.span = await ev('__cmwSteps().span');
 ok('the span is remapped to [0, 5] and carries the split steps as a group', !!info.span && info.span.x0 === 0 && info.span.x1 === 5 && !!info.span.grp && info.span.grp.n === 3, info.span);
 ok('the glide keeps its progress u (x 0..3 → 0..5)', Math.abs(p1.x / 5 - x0 / 3) < U_EPS, [x0, p1.x]);
 ok('the frame after the Split equals the frame before (the exact plot at the same u)', info.px >= 0 && info.px <= PX_EQUAL_MAX, [info.px, info.where]);
 ok('the left pane shows the same window across the Split (the ruler follows the plot)', JSON.stringify(p0.win) === JSON.stringify(p1.win), info.win);
+// (the whole screen, not the bare plot: the points and the trails, the plane the thread is on, the head and the key)
+info.overPx = diff(o0, o1);
+ok('the pane with its points and trails is unchanged by the Split', info.overPx >= 0 && info.overPx <= PX_EQUAL_MAX, [info.overPx, where(o0, o1)]);
+ok('the trails are the same one homotopy over the span (Tend 1, from the first plane)', JSON.stringify(p0.src) === JSON.stringify(p1.src) && !!p1.src && p1.src.seq === false && p1.src.Tend === 1 && p1.src.startId === true, [p0.src, p1.src]);
+ok('the plane the thread is on is unchanged', p0.i === p1.i, [p0.i, p1.i]);
+ok('the head and the key name the same maps', JSON.stringify(p0.names) === JSON.stringify(p1.names), [p0.names, p1.names]);
 // the glide goes on to its plane, then the next glide uses the sub-steps: no group
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
 await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS); await quiet();
