@@ -116,10 +116,10 @@ const Phone = (() => {
     for (const side of ['L', 'R']) {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
       const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
-      const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
       const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
-      plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
-      els['sph' + side] = sph;
+      // Display heads the plane's own key stack (Zoom in, Zoom out, Fit view, Sphere); Both is the only key of the column apart from it
+      plot.querySelector('.viewstack').prepend(h('div', { class: 'vgroup ph-only' }, dsp));
+      plot.append(h('div', { class: 'ph-col ph-only' }, bt));
       els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
         h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));
@@ -253,28 +253,11 @@ const Phone = (() => {
     for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
     for (const side of ['L', 'R']) $(side === 'L' ? 'paneL' : 'paneR').classList.toggle('ph-inset', !mg && !split && side !== b);
     for (const side of ['L', 'R']) {
-      const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
-      const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
-      sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
-      const svS = side === 'L' && A.svOnSphere ? A.svOnSphere() : null;
-      const onS = svS != null ? svS : !!(sb && sb.classList.contains('on'));
-      sph.setAttribute('aria-pressed', String(onS));
-      sph.setAttribute('aria-label', onS ? $t('Plane') : $t('Sphere'));
       const other = side === 'L' ? 'Y' : 'X';
       els['swap' + side].setAttribute('aria-label', $t('Show {x} large', { x: side === 'L' ? 'X' : 'Y' }));
       els['swap' + side].title = '';
       void other;
     }
-  }
-  function toggleSphere(side) {
-    // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it)
-    if (A.svSphere && A.svSphere() != null) { setTimeout(syncPanes, 0); return; }
-    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-    if (!tabs) return;
-    const sb = tabs.querySelector('button[data-mode="sphere"]'), pb = tabs.querySelector('button[data-mode="plane"]');
-    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
-    if (t) t.click();
-    setTimeout(syncPanes, 0);
   }
   // The inset swaps with the large plane, and each plane keeps its own view (build/phone-swap.md). A plane's
   // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,

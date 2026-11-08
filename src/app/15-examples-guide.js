@@ -554,6 +554,12 @@
     btn.title = off ? why : tip;
     note.textContent = off ? why : '';
   }
+  // A press on a key the surface cannot use: true, and on a phone (no hover tooltip) the reason shows as the message
+  function stackKeyDeclined(btn) {
+    if (btn.getAttribute('aria-disabled') !== 'true') return false;
+    if (document.documentElement.classList.contains('ph')) toast(btn.title);
+    return true;
+  }
   function syncStackKeys() {
     for (const side of ['left', 'right']) {
       const L = side === 'left', sph = $(side + 'Sph');
@@ -567,7 +573,7 @@
   }
   // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
   function stackSphere(side) {
-    if ($(side === 'L' ? 'leftSph' : 'rightSph').getAttribute('aria-disabled') === 'true') return;
+    if (stackKeyDeclined($(side === 'L' ? 'leftSph' : 'rightSph'))) return;
     if (svSphereKey() != null) return;
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');

@@ -97,16 +97,15 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
 :root.ph .chip.readout > .rln { grid-column: 2; }
-/* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
+/* the plane's keys: one column at the bottom right (Display, Zoom in, Zoom out, Fit view, Sphere); Both, where two planes show, sits at the top right */
 .ph-col { display: none; }
 :root.ph .pane:not(.ph-inset) .ph-col { position: absolute; z-index: 13; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 8px; }
-:root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(64px + var(--ph-lift)); }
 .ph-key { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--overlay); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-1); }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
 .ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-:root.ph .viewstack > .vgroup:first-child, :root.ph #leftSolo, :root.ph #rightSolo, :root.ph #leftSph, :root.ph #rightSph { display: none !important; }
-:root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
+:root.ph #leftSolo, :root.ph #rightSolo { display: none !important; }
+:root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); gap: 8px; }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
@@ -154,7 +153,6 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-nums > .ph-na { font: italic 600 15px/1 var(--f-math); }
 .ph-nums > .ph-nn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/13px var(--f-ui); color: var(--muted); }
 .ph-nums > .ph-nn i { font: italic 500 12px/13px var(--f-math); color: var(--ink-2); }
-:root.ph.view-land .ph-sph { display: none; }
 
 /* ---------- the tool row: Undo · Select · Point · Disc · Polygon · More ---------- */
 :root.ph #secDraw {
@@ -430,11 +428,9 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
    lacks leaves its slot empty, so the others never move); keys and legends of the picture stay at the top right.
    (Both sits on top of this column.) */
-:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: calc(60px + var(--ph-lift)); right: 8px; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
-/* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
-:root.ph.view-land .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
-:root.ph.view-land .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
+/* (a plane without rulers, the sphere and the Landscape, reaches the ruler's 14 px further down; the column keeps its place on screen) */
+:root.ph .pane.no-rulers:not(.ph-inset) .viewstack, :root.ph.view-land .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
