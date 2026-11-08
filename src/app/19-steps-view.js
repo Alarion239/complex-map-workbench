@@ -963,7 +963,7 @@
     // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
     // when its step's own exact ops seed walks back from t = 1 (InvOps.opNewt's back); without them it finds two, so
     // that frame keeps the carried mesh)
-    if (u != null && list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && (o.p.back || o.p.anchor))))) { why.r = 'Everywhere under a Newton inverse with no seeds and no window anchor'; return null; }
+    if (u != null && list.includes(SV_ALL) && paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && (o.p.back || o.p.deg))))) { why.r = 'Everywhere under a Newton inverse with neither seeds nor every root'; return null; }
     return { list, paths };
   }
   // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
@@ -973,12 +973,16 @@
   const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
   // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
   // shape) keeps its own and draws every layer at it
-  const svCarryLook = (base) => ({ alpha: base >= 1 ? svOpacity() : base, alphaOwn: base >= 1 ? svOpacity() : base, lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
+  // (the whole plane's carried colour with the sheets off is the front member's alone, as the parked planes are: the members
+  // behind it, the far preimages of a polynomial for one, do not show; a shape's own layers, and every layer with All sheets,
+  // show through at the slider's opacity)
+  const svCarryAlpha = (base, shape) => (base >= 1 ? (shape === SV_ALL && !S.sheets ? 1 : svOpacity()) : base);
+  const svCarryLook = (base, shape) => ({ alpha: svCarryAlpha(base, shape), alphaOwn: svCarryAlpha(base, shape), lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
   // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
   // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf) => {
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1),
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape),
       carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
   };
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
@@ -1041,7 +1045,7 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
+    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i]), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;

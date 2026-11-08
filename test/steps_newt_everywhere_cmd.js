@@ -1,16 +1,21 @@
-// A steps-view glide through a step with no exact inverse (a Newton-inverted homotopy with no seeds of its own), at the
-// default Everywhere scope, is drawn by the inverse pass: its Newton ladder sits on the source window's image. The gallery
-// examples whose first glide (plane 0 to plane 1) is such a step: the zeros of the zeta function, the poles of the Gamma
-// function, the partial sums of the exponential, a natural boundary, zeta as a Dirichlet series, the Mandelbrot set, the
-// Douady-Hubbard map and the Böttcher coordinates of a Julia set. Each is held at u = END_U[0], 0.5 and END_U[1]:
-// - path: the glide's record says 'inverse' (its reason is reported otherwise);
-// - ends: u = END_U[0] is plane 0's parked frame and u = END_U[1] plane 1's, pixel by pixel away from the colour lines
+// A steps-view glide through a Newton-inverted homotopy at the default Everywhere scope. The guard (svInvPaths) lets the
+// inverse pass draw it when the step's NEWT op has seeds or finds every root (a polynomial of exact degree 2 to
+// NEWT_POLY_MAX, Aberth's method); the other gallery examples whose first glide is such a step keep the carried mesh
+// (#1321: their inverse frames are blank or miss members). The cases: the partial sums of the exponential (degree 8) takes
+// the inverse path; the zeros of the zeta function, the poles of the Gamma function, a natural boundary, zeta as a Dirichlet
+// series, the Mandelbrot set, the Douady-Hubbard map and the Böttcher coordinates of a Julia set stay on the mesh.
+// The partial sums, sheets off (the front member alone is drawn, as a parked plane is), at u = endFor's first end, 0.5 and
+// its last end:
+// - path: the glide's record says 'inverse';
+// - ends: the first is plane 0's parked frame and the last plane 1's, pixel by pixel away from the colour lines
 //   (held_frames.js's sameAway: at least MIN_SAME pixels, at most SAME_FRAC of them more than LOOK_TOL apart, as
-//   steps_glide_look_cmd.js:54-55). The polynomial steps run their path faster than the glide's u, so their ends are
-//   endFor's: the u at which the window's largest displacement is half a pixel;
+//   steps_glide_look_cmd.js:54-55). The step's path moves a point by u |p(z) - z|: the ends are endFor's, the u at which
+//   the window's largest displacement is half a pixel;
 // - members: at u = 0.5 the frame is the exact picture, held_frames.js's refOf (plane 0's parked frame pulled through
 //   H_u's inverse by Newton's method from a seed grid, away from the colour lines), at least MIN_COMPARED pixels, at most
-//   SAME_FRAC of them more than LOOK_TOL apart: a frame that misses a member of H_u over a pixel disagrees with it there.
+//   SAME_FRAC of them more than LOOK_TOL apart: a frame that misses a member of H_u over a pixel disagrees with it there;
+// - control: with All sheets the members behind the front one show through at the layers' opacity, so the first end is
+//   not plane 0's frame (a frame that never drew them would pass the ends above).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -26,9 +31,9 @@ const CASES = [
   { ex: 'Partial sums of the exponential', poly: true },
   { ex: 'A natural boundary' },
   { ex: 'Zeta as a Dirichlet series' },
-  { ex: 'The Mandelbrot set', poly: true },
-  { ex: 'The Douady–Hubbard map', poly: true },
-  { ex: 'Böttcher coordinates of a Julia set', poly: true },
+  { ex: 'The Mandelbrot set' },
+  { ex: 'The Douady–Hubbard map' },
+  { ex: 'Böttcher coordinates of a Julia set' },
 ];
 const ready = () => settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // the frame at thread place x, once a frame there was drawn, and its record
@@ -69,26 +74,31 @@ for (const c of CASES) {
   await go(`${BASE}/test.html?ns=ne${Date.now()}&lang=en&view=steps`);
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
-  await ev("__cmwSteps({ bare: true, scope: 'all' }), 1");
+  await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
   await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
   await park(0); const s0 = await grab('P0');
   await park(1); const s1 = await grab('P1');
   ok(`${c.ex}: the parked frames are still`, s0 && s1, { s0, s1 });
   const rec = {};
-  let poly = null;
-  if (c.poly) {
-    await at(0.5);
-    poly = await endFor(0.5);
-    rec.poly = poly;
-    ok(`${c.ex}: the frame at u = ${poly.end} moves a point less than ${HALF_PX} CSS px (END_MIN = ${END_MIN} leaves ${poly.disp})`, poly.end > END_MIN || poly.disp <= HALF_PX, poly);
+  if (!c.poly) {
+    // (a step whose members the guard cannot certify, #1321: neither seeds nor every root (Aberth); the carried mesh draws it)
+    const g = await at(0.5);
+    rec['u 0.5'] = { g };
+    ok(`${c.ex} at u = 0.5: still the carried mesh (its inverse frame misses members, #1321)`, !!g && g.path === 'mesh' && g.b === 1, g);
+    info[c.ex] = rec;
+    continue;
   }
-  for (const [u, ref] of [[poly ? poly.end : END_U[0], 'P0'], [poly ? 1 - poly.end : END_U[1], 'P1']]) {
+  await at(0.5);
+  const poly = await endFor(0.5);
+  rec.poly = poly;
+  ok(`${c.ex}: the front member at u = ${poly.end} moves a point less than ${HALF_PX} CSS px (END_MIN = ${END_MIN} leaves ${poly.disp})`, poly.end > END_MIN || poly.disp <= HALF_PX, poly);
+  for (const [u, ref] of [[poly.end, 'P0'], [1 - poly.end, 'P1']]) {
     const g = await at(u);
     const still = await grab('G' + u);
     const r = await sameAway('G' + u, ref, LOOK_TOL, null);
     rec[`u ${u}`] = { g, still, r };
     ok(`${c.ex} at u = ${u}: drawn by the inverse pass (Everywhere)`, !!g && g.path === 'inverse' && g.b === 1, g);
-    ok(`${c.ex} at u = ${u}: the parked plane's frame (away from the colour lines: at least ${MIN_SAME} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && r.n >= MIN_SAME && r.over <= SAME_FRAC, { r, still });
+    ok(`${c.ex} at u = ${u}, sheets off: the parked plane's frame (away from the colour lines: at least ${MIN_SAME} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && r.n >= MIN_SAME && r.over <= SAME_FRAC, { r, still });
   }
   {
     const g = await at(0.5);
@@ -96,7 +106,17 @@ for (const c of CASES) {
     const r = await refOf('P0', 'G0.5', LOOK_TOL, 10);
     rec['u 0.5'] = { g, still, r };
     ok(`${c.ex} at u = 0.5: drawn by the inverse pass (Everywhere)`, !!g && g.path === 'inverse' && g.b === 1, g);
-    ok(`${c.ex} at u = 0.5: the exact picture's members (at least ${MIN_COMPARED} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && !!r.ref && r.ref.n >= MIN_COMPARED && r.ref.over <= SAME_FRAC, { r, still });
+    ok(`${c.ex} at u = 0.5, sheets off: the exact picture's front member (at least ${MIN_COMPARED} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && !!r.ref && r.ref.n >= MIN_COMPARED && r.ref.over <= SAME_FRAC, { r, still });
+  }
+  // the control: with All sheets the members behind the front one show through, so the frame at the first end is not plane 0's
+  // (the check above would pass a frame that never draws them)
+  await ev("__cmwSet('sheets', true), 1");
+  {
+    const g = await at(poly.end);
+    const still = await grab('GS');
+    const r = await sameAway('GS', 'P0', LOOK_TOL, null);
+    rec['all sheets'] = { g, still, r };
+    ok(`${c.ex} at u = ${poly.end}, All sheets: differs from the parked plane (control: over ${SAME_FRAC * 100} %)`, still && !!r && r.over > SAME_FRAC, { r, still });
   }
   info[c.ex] = rec;
 }
