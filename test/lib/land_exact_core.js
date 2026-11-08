@@ -45,6 +45,7 @@
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-10,        // |H(z) - w| of a converged correction, relative to 1 + |w|
+    SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
     DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
     NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
     MATCH_TOL: 1e-5,        // a carried member equals an enumerated one within this of 1 + |z|
@@ -86,7 +87,7 @@
     const o = Object.assign({ nx: 40, ny: 34, depth: 0 }, K, opts);
     const { box, W2, H2 } = frame;
     const px = new Uint8Array(W2 * H2);
-    const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0, why: {} };
+    const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0, apex: 0, why: {} };
     const why = (k) => { cells.why[k] = (cells.why[k] || 0) + 1; };
     const certs = [], failures = [];
     let singList = null;   // the plan's declared singular points, read once
@@ -635,6 +636,14 @@
       };
       const smp = [];
       for (let k = 0; k <= o.RAY_SAMPLES; k++) { const s = at(tA + (tB - tA) * k / o.RAY_SAMPLES); if (s) smp.push(s); }
+      // a sample at a declared singular point of the plan (a branch point, where the members' surfaces meet): a drawn member is there
+      // and the pixel is covered; no identity is needed or defined (the members all coincide)
+      if (frame.sing) {
+        if (singList === null) singList = frame.sing() || [];
+        for (const sm of smp) for (const q of singList) {
+          if (q.w && dist2(sm.v.w, q.w) <= o.SING_PX * wPx && sm.v.all.some((m) => m.drawn)) { cells.apex++; return true; }
+        }
+      }
       const layerG = (v, j, combo, h) => { const m = v.all[j]; if (!m || !m.drawn) return null; const l = m.layers.find((x) => x.combo === combo); return l ? h - l.h : null; };
       // where member k of sample A is at the sample S: its index there (carried by continuation), or -1
       const carry = (A, S) => {
