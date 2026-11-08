@@ -556,20 +556,27 @@ vec2 carryZIn(vec4 src, vec2 ij) {
   const CARRY_Z = CARRY_ZIN + `
 vec2 carryZ(vec2 ij) { return carryZIn(uSrc, ij); }
 `;
+  // the carried height of the point z of plane uGs: heightW of the stages (uGs, uGt], blended over uHu into that of (uGs, uGt2];
+  // where only one of the two is finite, the nearer end's (needs uGs, uGt and chainRange)
+  const CARRY_HEIGHT = `
+uniform int uGt2; uniform float uHu;
+vec2 carryHeight(vec2 z) {
+  vec2 hv = heightW(chainRange(z, uGs, uGt));
+  if (uGt2 == uGt) return hv;
+  vec2 h2 = heightW(chainRange(z, uGs, uGt2));
+  bool both = hv.y > 0.5 && h2.y > 0.5;
+  return uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
+}
+`;
   const LAND_CARRY_TF_VS = `
-uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform int uGt2; uniform float uHu;
+uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
-` + CARRY_Z + `
+` + CARRY_Z + CARRY_HEIGHT + `
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
-  vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
-  if (uGt2 != uGt) {
-    vec2 h2 = heightW(chainRange(z, uGs, uGt2));
-    bool both = hv.y > 0.5 && h2.y > 0.5;
-    hv = uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
-  }
+  vec2 q = mapPoint(z), hv = carryHeight(z);
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
 }
 `;

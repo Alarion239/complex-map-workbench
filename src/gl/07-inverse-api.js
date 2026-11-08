@@ -757,9 +757,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // INV_LAND: the inverse program's variant that reads one front member per grid vertex instead of shading a pixel. Pixel
   // (i, j) of an N x N target is the shown plane's point w of vertex (i, j) over the box uLBox; the walk finds the front
   // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, 0, 1), with the height of the stages (uGs, uGt] at z (blended over
-  // uLHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite.
+  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite.
   const INV_LAND_MAIN = `
-uniform vec4 uLBox; uniform int uLN; uniform int uGt2; uniform float uLHu;
+uniform vec4 uLBox; uniform int uLN;
 layout(location = 1) out vec4 oZ;
 void main() {
   vec2 g = floor(gl_FragCoord.xy);
@@ -770,17 +770,11 @@ void main() {
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
   if (nb < 1) return;
-  vec2 z = bZ[0];
-  vec2 hv = heightW(chainRange(z, uGs, uGt));
-  if (uGt2 != uGt) {
-    vec2 h2 = heightW(chainRange(z, uGs, uGt2));
-    bool both = hv.y > 0.5 && h2.y > 0.5;
-    hv = uLHu >= 1.0 ? h2 : uLHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uLHu), 1.0) : uLHu < 0.5 ? hv : h2;
-  }
+  vec2 z = bZ[0], hv = carryHeight(z);
   if (hv.y > 0.5 && !(abs(hv.x) > 3e38)) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, 0.0, 1.0); }
 }
 `;
-  const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + INV_LAND_MAIN };
+  const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
   let landSet = null;
   // GLR.landInverse(st) -> 'drawn' | 'pending' | 'error'; it writes st.tex (the places) and st.zTex (the preimages), N x N RGBA32F textures. st: drawInverse's map, plan, prep, inv,
   // shape, plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
@@ -817,7 +811,7 @@ void main() {
     const c = st.heights;
     bindInverse(P, Object.assign({}, st, { look }), d, rec, look, INV_LAND);
     u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
-    u1f(P, 'uLHu', c.hu || 0);
+    u1f(P, 'uHu', c.hu || 0);
     u1i(P, 'uLN', N);
     u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
     u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', 0);
