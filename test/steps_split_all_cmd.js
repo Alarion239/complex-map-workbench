@@ -28,7 +28,7 @@ const open = async (extra = {}) => {
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane') && __cmwSteps().planes.length > 1", 40000);
 };
-const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage }; })()');
+const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage, win: q.win, i: q.i }; })()');
 const hide = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
 // (below the colour key, whose text names the colour plane's function: it changes with the Split)
 const pane = async () => { await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); await ev('__cmwSteps({ bare: false })'); return i; };
@@ -44,7 +44,7 @@ const x0 = (await sv()).x;
 const g0 = await pane(), p0 = await sv();
 await splitNow();
 const g1 = await pane(), p1 = await sv();
-info.x = [x0, p0.x, p1.x]; info.px = diff(g0, g1, EDGE_BAND_PX); info.edgePx = diff(g0, g1, 0, EDGE_BAND_PX); info.where = where(g0, g1); info.area = g0.w * g0.h;
+info.x = [x0, p0.x, p1.x]; info.win = [p0.win, p1.win]; info.idx = [p0.i, p1.i]; info.px = diff(g0, g1, EDGE_BAND_PX); info.edgePx = diff(g0, g1, 0, EDGE_BAND_PX); info.where = where(g0, g1); info.area = g0.w * g0.h;
 info.span = await ev('__cmwSteps().span');
 ok('the span is remapped to [0, 5] and carries the split steps as a group', !!info.span && info.span.x0 === 0 && info.span.x1 === 5 && !!info.span.grp && info.span.grp.n === 3, info.span);
 ok('the glide keeps its progress u (x 0..3 → 0..5)', Math.abs(p1.x / 5 - x0 / 3) < U_EPS, [x0, p1.x]);
