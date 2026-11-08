@@ -13,7 +13,8 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // the steps view's state as the test hooks read it: the place (x, T), the colour plane's scope and surface, the chain's planes,
 // the selected step, the deformation range and whether the deformation is open
 const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.on, x: s.x, T: s.T, scope: s.scope, surf: s.surf, planes: s.planes, sel: s.sel, homRange: s.homRange, range: s.range, solo: s.solo, main: s.main, view: c.view, morphOpen: c.morph.open }; })()`;
-const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
+// the page is ready for a read when it has the steps hook and the steps view is on (the read does not need the glide to have ended)
+const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on";
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 const READY_MS = 30000, READY_POLL_MS = 4000, RELOAD_POLL_MS = 250;   // (ms: the longest a page may take to be ready; one wait inside it; the pause after a call a reload cut off)
 // The page is ready when READY holds. A reload that destroys the page during a wait ends that wait at once, with the page's error or
@@ -26,9 +27,9 @@ const untilReady = async (what) => {
     try { r = await settled({ max: READY_POLL_MS, until: READY }); } catch (e) { r = { ok: false, error: String(e).slice(0, 120) }; await sleep(RELOAD_POLL_MS); }
   } while (!(r && r.ok) && Date.now() - t0 < READY_MS);
   if (!(r && r.ok)) {
-    // (which part of READY is missing: the hook, the steps view being on, or the page still moving)
-    const parts = await ev(`typeof __cmwSteps !== 'function' ? { hook: false } : { hook: true, on: __cmwSteps().on, moving: __cmwSteps().moving, href: location.href.slice(0, 60) }`).catch((e) => ({ error: String(e).slice(0, 80) }));
-    fails.push({ name: `${what}: the page was not ready within ${READY_MS} ms (steps view on and at rest)`, got: { wait: r, parts } });
+    // (which part of READY is missing: the hook, or the steps view being on)
+    const parts = await ev(`typeof __cmwSteps !== 'function' ? { hook: false, readyState: document.readyState } : { hook: true, on: __cmwSteps().on, href: location.href.slice(0, 60) }`).catch((e) => ({ error: String(e).slice(0, 80) }));
+    fails.push({ name: `${what}: the page was not ready within ${READY_MS} ms (the steps hook defined and the steps view on)`, got: { wait: r, parts } });
   }
 };
 const openAt = async (url) => { await go(url); await untilReady(`open ${url.replace(/^.*?\/test\.html/, 'test.html').slice(0, 80)}`); };
