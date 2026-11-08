@@ -467,9 +467,9 @@
             const drop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { dropOne: true })`);
             ok(`${t}: the control: one member removed breaks the count`, !!drop && drop.some((r) => !r.ok), { drop });
             const lipR = await ev(`__cmwLandWind(null, { onLip: true })`);
-            // (a place on a lip is a root on the contour: the count must report it, as on the contour or as an unresolved step, and never as a count)
-            const noCut = !!lipR && lipR.every((r) => r.status === 'noCut'), loud = !!lipR && lipR.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
-            ok(`${t}: the control: a place on a cut lip is not counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipR && loud && (noCut || lipR.some((r) => r.status === 'onContour' || r.status === 'unresolved')), { lipR: lipR && lipR.slice(0, 3) });
+            // (a place on sheet 0's lip is a root on its contour: that sheet reports 'onContour' and never a count; a plan with no cut reports 'noCut')
+            const noCut = !!lipR && lipR.every((r) => r.status === 'noCut'), exact = !!lipR && lipR[0].status === 'onContour';
+            ok(`${t}: the control: a place on a cut lip is reported as on the contour, never counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipR && (noCut || exact), { lipR: lipR && lipR.slice(0, 3) });
             const near = await ev(`__cmwLandWind(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
             ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!near && near.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near });
             const nop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);

@@ -499,10 +499,10 @@
   // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in
   // the continued log coordinate when the plan's first op is a log or a power, else in z), plus the plan's poles inside R, against the members
   // __cmwLandEnum finds there. [{ sheet, N, P, members, ok, status }]; status 'ok', 'onContour' (w is on the boundary, the count is undefined),
-  // 'unresolved' (the winding's step fell below the minimum) or 'cutInR' (a later multivalued op's cut crosses R). opts: noPoles omits P,
+  // 'unresolved' (the winding's step fell below the minimum) 'cutInR' (a multivalued op follows the first one), 'prefix not injective' (an op before the first multivalued op is not a Moebius or affine map), 'unsupported contour' (the prefix's pole is in the box with a cut crossing the boundary) or 'pole order' (a counted pole's measured order is not an integer within WIND_ORDER_TOL). opts: noPoles omits P,
   // dropOne removes a member, hMin replaces WIND_H_MIN, onLip puts w on sheet 0's cut lip, nearContour puts w within WIND_NEAR of sheet 0's
   // boundary
-  const WIND_ARG = Math.PI / 4, WIND_EPS_R = 1e-6, WIND_D_ON = 1e-9, WIND_H_MIN = 1e-12, WIND_CLOSE = 1e-6, WIND_PERIM = 4096, WIND_NEAR = 1e-4, WIND_SEG0 = 64, WIND_POLE_R = 1e-7, WIND_POLE_BIG = 1e3;
+  const WIND_ARG = Math.PI / 4, WIND_EPS_R = 1e-6, WIND_D_ON = 1e-9, WIND_H_MIN = 1e-12, WIND_CLOSE = 1e-6, WIND_PERIM = 4096, WIND_NEAR = 1e-4, WIND_SEG0 = 64, WIND_POLE_R = 1e-7, WIND_POLE_BIG = 1e3, WIND_ORDER_TOL = 0.05, WIND_ON_BAD = 1e-6, WIND_ARG_NOISE = 1e-8;
   window.__cmwLandWind = (wIn, opts = {}) => {
     const inp = render3D.exactIn, bx = render3D.box;
     if (!inp || !bx) return null;
@@ -529,18 +529,19 @@
     // the winding of G - w along a piece t -> {z, lam}, t in [0, 1]: the sum of the wrapped arg steps, each at most WIND_ARG with its midpoint between
     // the ends'; { sum, on, bad }
     const windPiece = (sh, w, f, len) => {
-      let sum = 0, on = false;
-      const g = (t) => { const v = CX.sub(gAt(sh, f(t)), w); if (!CX.isFin(v)) throw new Error('nonfinite'); if (CX.abs(v) < WIND_D_ON * (1 + CX.abs(w))) on = true; return v; };
+      let sum = 0, on = false, minD = Infinity;
+      const g = (t) => { const v = CX.sub(gAt(sh, f(t)), w); if (!CX.isFin(v)) throw new Error('nonfinite'); const d = CX.abs(v) / (1 + CX.abs(w)); if (d < minD) minD = d; if (d < WIND_D_ON) on = true; return v; };
       const stack = [];
       for (let i = WIND_SEG0; i > 0; i--) stack.push([(i - 1) / WIND_SEG0, i / WIND_SEG0]);
       while (stack.length) {
         const [t0, t1] = stack.pop(), a = g(t0), b = g(t1), d = argd(a, b), tm = (t0 + t1) / 2, m = g(tm), d1 = argd(a, m), d2 = argd(m, b);
-        const ok = Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
+        const flat = Math.abs(d) < WIND_ARG_NOISE && Math.abs(d1) < WIND_ARG_NOISE && Math.abs(d2) < WIND_ARG_NOISE;   // (the evaluation's own rounding, not a turn of the argument)
+        const ok = flat || Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
         if (ok) { sum += d; continue; }
-        if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true };
+        if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true, minD };
         stack.push([tm, t1], [t0, tm]);
       }
-      return { sum, on, bad: false };
+      return { sum, on, bad: false, minD };
     };
     const lamOf = (sh, z) => { const m = mOf(sh), o = sh.plan.ops[m]; return CX.log(Inverse.fwdOps({ ops: sh.plan.ops.slice(0, m) }, z), o.p.theta, o.p.k); };
     // the prefix as one Moebius matrix [a, b, c, d], or null when an op of it is not a Moebius or affine map
@@ -618,7 +619,7 @@
           let total = 0;
           for (const comp of pieces) {
             let sum = 0;
-            for (const [f, len] of comp) { const r = windPiece(sh, w, f, len || 1); if (r.on) status = 'onContour'; if (r.bad) status = status === 'ok' ? 'unresolved' : status; sum += r.sum; }
+            for (const [f, len] of comp) { const r = windPiece(sh, w, f, len || 1); if (r.on || (r.bad && r.minD < WIND_ON_BAD)) status = 'onContour'; if (r.bad) status = status === 'ok' ? 'unresolved' : status; sum += r.sum; }
             const n = sum / TAU2;
             if (Math.abs(n - Math.round(n)) > WIND_CLOSE) status = status === 'ok' ? 'unresolved' : status;
             total += Math.round(n);
@@ -634,9 +635,9 @@
             for (const q of Inverse.singular(sh.plan, bx, ['pole'], 16)) {
               if (!(q.z.re >= bx.x0 && q.z.re <= bx.x1 && q.z.im >= bx.y0 && q.z.im <= bx.y1)) continue;
               const a = at(q.z, WIND_POLE_R), b = at(q.z, 10 * WIND_POLE_R), order = Math.log(a / b) / Math.log(10);
-              if (a > WIND_POLE_BIG && order > 0.5) P += Math.round(order);
+              if (a > WIND_POLE_BIG && order > 0.5) { P += Math.round(order); if (Math.abs(order - Math.round(order)) > WIND_ORDER_TOL && status === 'ok') status = 'pole order'; }
             }
-          } catch (e) { P = 0; }
+          } catch (e) { P = 0; if (status === 'ok') status = 'error: ' + e.message; }
         }
         const mem = ((ens && ens[0]) || []).filter((m) => m.sheet === k && m.z[0] >= bx.x0 && m.z[0] <= bx.x1 && m.z[1] >= bx.y0 && m.z[1] <= bx.y1 && (!multi || !m.lam || (m.lam[1] > o.p.lo && m.lam[1] <= o.p.hi))).length - (opts.dropOne && k === 0 ? 1 : 0);
         out.push({ sheet: k, N, P, members: mem, ok: status === 'ok' && N + P === mem, status });
