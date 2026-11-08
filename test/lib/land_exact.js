@@ -37,8 +37,6 @@
   // the share of the parked plane's surface pixels a frame at an end may lack: it is the parked plane's within SAME_FRAC of its pixels,
   // so a surface pixel it lacks is one of those
   const COVER_TOL = SAME_FRAC;
-  // the near end whose frame has member seams (Newton), where the seam control runs
-  const SEAM_U = 0.002;
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
@@ -48,7 +46,12 @@
   // cells: their corners within jump pixels, a larger jump is a cut's wall), at most cap places
   // looked up; the masks agree within slack half-resolution pixels (the frame's edge pixels and the projected points' rounding), and
   // at most RASTER_TOL of the reference's pixels are unmatched either way
-  const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1, drawn: 0.5 }, RASTER_TOL = SAME_FRAC;
+  const MASK_ON = 0.5;   // the Inside-regions mask (window.__cmwLandMask, 0 to 1, null with none) at which a place counts as drawn: half
+  const REF = { nx: 40, ny: 34, depth: 5, depthMax: 8, calm: 2, step: 0.75, jump: 3, cap: 600000, slack: 1, batch: 500 }
+  const RASTER_TOL = SAME_FRAC;
+  const STEP_MAX = 400;   // at most this many raster steps a frame (STEP_MS each): more is a reference that never finishes, and fails
+  const SHALLOW = { depth: 1, depthMax: 2 }, LEVELS_CTL = 2;   // the controls' settings: a lattice too coarse to be converged, and too few levels to judge every cell
+  const STEP_MS = 15000;   // a raster step's time in the page: a CDP call stays well under its limit
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -58,18 +61,15 @@
   // of the box's extent above and below the axis, so both sides have the same density.
   const ROWS_SIDE = 3;
   const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
-  const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member
+  const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
     { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN },
-    // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
-    // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
-    { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
-    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true },
+    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [] },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil' },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
-    { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential', seamControl: true },
+    { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
   ];
   // the page's helpers: the surface pixels of the left pane, and the CPU reference's members at places w: the enumerator's preimages
   // (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame inverts) without the repeats of one z, each
@@ -82,10 +82,12 @@
   // pane at its drawn height (window.__cmwLandProject); the half-resolution pixels those points land on are the surface the exact map
   // draws. A cell of the lattice is refined where its corners are not all covered or all uncovered, and where it is not a facet (the
   // projection of its centre is more than step half-resolution pixels from the corners' mean, or the corners' members do not pair up),
-  // down to depth halvings; a facet is filled as two triangles; cap bounds the places looked up and drawn is the mask value from which a place is drawn as relief; a mask that reaches cap, or that has cells left after depth halvings, is reported incomplete. The frame's own mask is the relief
+  // down to depth halvings; a facet is filled as two triangles; cap bounds the places looked up, and a mask that reaches it is reported incomplete. The frame's own mask is the relief
   // alone on a transparent frame (window.__cmwLandRelief), cut into the same pixels (a pixel is covered when half of its canvas
   // pixels are). Answers { n (reference pixels), extra, missing, off, places (looked up), capped, w, h } or null with no inverse path.
-  window.__lxRaster = (sheets, g) => {
+  // the corners' projected members pair when every corner has the same members, by id (sheet, member and combo: [x, y, id] each), in the same order
+  window.__lxPaired = (P) => P.every((q) => q.length === P[0].length && q.every((m, k) => m[2] === P[0][k][2]));
+  function* lxRaster(sheets, g) {
     const L = window.__cmwLandRelief && window.__cmwLandRelief.land, cv = document.getElementById('canvasL');
     if (!L || !window.__cmwLandRelief.cov) return null;
     const b = L.box, dpr = cv.width / cv.getBoundingClientRect().width, W2 = Math.ceil(cv.width / 2), H2 = Math.ceil(cv.height / 2);
@@ -93,21 +95,30 @@
     const xy = (i, j) => [b.x0 + i * (b.x1 - b.x0) / NX, b.y0 + j * (b.y1 - b.y0) / NY];
     const key = (i, j) => i * (NY + 1) + j;
     let capped = false;
+    const levels = g.levels || g.depth + 1;   // each level halves the cells: depth + 1 levels judge every cell down to one lattice step
     // the places' members projected, in half-resolution pixels: [] where the place has none, null where unknown (not looked up yet)
-    const look = (list) => {
+    function* look(list) {
       const need = list.filter(([i, j]) => !cache.has(key(i, j)));
       if (!need.length) return true;
       if (cache.size + need.length > g.cap) { capped = true; return false; }
-      const e = __cmwLandEnum(need.map(([i, j]) => xy(i, j)));
-      if (!e) return false;
-      need.forEach(([i, j], k) => {
-        // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
-        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < g.drawn ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
-        for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2]); }
-        cache.set(key(i, j), pts);
-      });
+      for (let at = 0; at < need.length; at += g.batch) {
+        const part = need.slice(at, at + g.batch), e = __cmwLandEnum(part.map(([i, j]) => xy(i, j)));
+        if (!e) return false;
+        part.forEach(([i, j], k) => {
+          // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
+          const mk = __cmwLandMask(...xy(i, j));
+          let ms = mk !== null && mk < ${MASK_ON} ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h));
+          // (All sheets: a member a layer per forward combo, as the frame draws it)
+          if (sheets && typeof __cmwLandRefSheets === 'function') ms = window.__lxExpand(ms, __cmwLandRefSheets);
+          // (a point is its projection and its member's id: a facet pairs the same member at every corner)
+          const pts = [];
+          for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2, m.sheet + ':' + m.member + ':' + (m.combo || '')]); }
+          cache.set(key(i, j), pts);
+        });
+        yield;
+      }
       return true;
-    };
+    }
     const mark = new Uint8Array(W2 * H2);
     const put = (q) => { const x = Math.floor(q[0]), y = Math.floor(q[1]); if (x >= 0 && y >= 0 && x < W2 && y < H2) mark[y * W2 + x] = 1; };
     // the pixels a triangle of projected places covers (a pixel whose centre is inside it, or within half a pixel of its edge)
@@ -126,12 +137,12 @@
     // projection of its centre is within g.step half-resolution pixels of the corners' mean: the facet's two triangles are filled
     let work = [];
     for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) work.push([i * S, j * S, S]);
-    for (let round = 0; work.length && round <= g.depth; round++) {
+    for (let level = 0; work.length && level < levels; level++) {
       const corners = (c) => [[c[0], c[1]], [c[0] + c[2], c[1]], [c[0], c[1] + c[2]], [c[0] + c[2], c[1] + c[2]]];
       const centre = (c) => [c[0] + c[2] / 2, c[1] + c[2] / 2];
-      if (!look(work.flatMap(corners))) { capped = true; break; }
+      if (!(yield* look(work.flatMap(corners)))) { capped = true; break; }
       const maybe = work.filter((c) => c[2] > 1 && corners(c).every(([i, j]) => cache.get(key(i, j)).length > 0));
-      if (!look(maybe.map(centre).filter(([i, j]) => Number.isInteger(i) && Number.isInteger(j)))) { capped = true; break; }
+      if (!(yield* look(maybe.map(centre).filter(([i, j]) => Number.isInteger(i) && Number.isInteger(j))))) { capped = true; break; }
       const next = [];
       for (const c of work) {
         const P = corners(c).map(([i, j]) => cache.get(key(i, j))), covered = P.filter((q) => q.length).length;
@@ -140,7 +151,7 @@
         const n = P[0].length;
         const far = (k) => Math.max(...[1, 2, 3].map((q) => Math.hypot(P[q][k][0] - P[0][k][0], P[q][k][1] - P[0][k][1])));
         // (the finest cells are facets only where their corners are within g.jump half-resolution pixels: a larger jump is a cut's wall, never filled)
-        const facet = covered === 4 && P.every((q) => q.length === n) && (c[2] === 1 ? P[0].every((_, k) => far(k) <= g.jump) : M && M.length === n && P[0].every((_, k) => {
+        const facet = covered === 4 && window.__lxPaired(P) && (c[2] === 1 ? P[0].every((_, k) => far(k) <= g.jump) : M && M.length === n && P[0].every((_, k) => {
           const mx = (P[0][k][0] + P[1][k][0] + P[2][k][0] + P[3][k][0]) / 4, my = (P[0][k][1] + P[1][k][1] + P[2][k][1] + P[3][k][1]) / 4;
           return Math.hypot(M[k][0] - mx, M[k][1] - my) <= g.step;
         }));
@@ -151,7 +162,7 @@
       }
       work = next;
     }
-    if (work.length) capped = true;   // the halvings are spent with cells still to refine
+    if (work.length) capped = true;   // (cells still to judge when the levels ran out: the reference is incomplete)
     const cov = window.__cmwLandRelief.cov, w = window.__cmwLandRelief.w, frame = new Uint8Array(W2 * H2);
     for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
       let n = 0, t = 0;
@@ -160,8 +171,21 @@
     }
     window.__lxMasks = { ref: mark, frame, W2, H2 };
     const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = cache.size; return res;
+  }
+  // the raster in steps of at most ms milliseconds a call (a CDP call that runs too long fails): start, then step until done
+  window.__lxRasterStart = (sheets, g) => { window.__lxRun = lxRaster(sheets, g); return 1; };
+  window.__lxRasterStep = (ms) => {
+    const t0 = performance.now();
+    for (;;) {
+      const r = window.__lxRun.next();
+      if (r.done) { window.__lxRun = null; return { done: true, res: r.value }; }
+      if (performance.now() - t0 > ms) return { done: false };
+    }
   };
   // the pixels of a mask a pixel of the other is not within slack pixels of, each way, as a share of the first's pixels
+  // how far the masks of the run before (window.__lxPrev) and of the last run are from each other: the share of reference pixels of either
+  // with none of the other within slack; 0 means one more level of the lattice changed no checked pixel
+  window.__lxConv = (slack) => window.__lxCompare(window.__lxPrev.ref, window.__lxMasks.ref, window.__lxMasks.W2, window.__lxMasks.H2, slack, false).off;
   window.__lxCompare = (ref, frame, W2, H2, slack, capped) => {
     const grow = (m) => { const o = new Uint8Array(m.length); for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) if (m[y * W2 + x]) for (let dy = -slack; dy <= slack; dy++) for (let dx = -slack; dx <= slack; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W2 && Y < H2) o[Y * W2 + X] = 1; } return o; };
     const gr = grow(ref), gf = grow(frame);
@@ -170,7 +194,13 @@
     return { n, extra, missing, off: n ? (extra + missing) / n : 1, capped: !!capped, w: W2, h: H2 };
   };
   window.__lxPick = null;
-  window.__lxEnum = (pts) => {
+  // the members expanded by the forward combos refsOf(z) gives ([{ combo, z, f, h }] per z): a member with more than one combo is that many
+  // layers, the others stay as they are
+  window.__lxExpand = (o, refsOf) => o.flatMap((m) => {
+    const rs = refsOf(m.z).filter((r) => r.f && r.h !== null);
+    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, combo: r.combo })) : [m];
+  });
+  window.__lxEnum = (pts, sheets) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
     // (the front member first: the hook marks it, front: true, one per place; a place with members and none marked is counted in
@@ -181,8 +211,10 @@
       const best = ms.find((m) => m.front);
       if (ms.length && !best) window.__lxNoFront++;
       const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
-      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet, D: m.D });
-      return o;
+      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z} && Math.abs(x.h - m.h) <= ${HEIGHT_TOL})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
+      // (All sheets: a member of a chain with a multivalued step past plane 0 is drawn once per forward combo of the colour map's distinct
+      // sheets, the parked frame's own: window.__cmwLandRefSheets(z), each { combo, z, f, h }; a chain without one has the member alone)
+      return sheets && typeof __cmwLandRefSheets === 'function' ? window.__lxExpand(o, __cmwLandRefSheets) : o;
     });
   };
   1`;
@@ -194,7 +226,7 @@
       await ev(`__cmwExample(${names.indexOf(c.example)}); 1`); await settled({ max: LOAD_MAX_MS });
       await ev(`__cmwSet('alpha', 1), __cmwSet('height', 'im'), __cmwSet('sheets', ${sheets}), 1`);
     } else {
-      await loadView('steps', ns, Object.assign({ shapes: c.shapes, steps: c.steps, sheets, height: 'im' }, c.srcView ? { srcView: c.srcView } : {}));
+      await loadView('steps', ns, { shapes: c.shapes, steps: c.steps, sheets, height: 'im' });
       await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
       await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
     }
@@ -202,6 +234,24 @@
     await ev(HELP);
   }
   // the plane at index k parked and its frame kept as tag; its height reading kept for the references
+  // the exact image reference at the current u: the lattice refined from ref.depth to at most ref.depthMax until ref.calm consecutive levels
+  // change no checked pixel (a feature thinner than a cell shows first at a deeper level). conv is the last pair's distance, firstConv the
+  // first pair's, calm the unchanged levels in a row; a result not calm for ref.calm levels is not converged
+  async function refine(sheets, ref) {
+    let rk = null, conv = null, firstConv = null, calm = 0, depth = ref.depth;
+    for (; depth <= ref.depthMax; depth++) {
+      if (depth > ref.depth) await ev('window.__lxPrev = window.__lxMasks');
+      await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(Object.assign({}, ref, { depth }))})`);
+      let st = { done: false };
+      for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+      rk = st.done ? st.res : null;
+      if (!rk) break;
+      if (depth > ref.depth) { conv = await ev(`__lxConv(${ref.slack})`); if (firstConv === null) firstConv = conv; calm = conv === 0 ? calm + 1 : 0; if (calm >= ref.calm) break; }
+    }
+    depth = Math.min(depth, ref.depthMax);
+    if (rk) Object.assign(rk, { depth, conv, firstConv, calm });
+    return { rk, conv, firstConv, calm, depth };
+  }
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
@@ -243,6 +293,18 @@
   const sameZ = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= Z_TOL * (1 + Math.hypot(b[0], b[1]));
   // sheets off at one place: the frame has one layer, the front member's
   const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
+  // All sheets at one place: the layers and the members pair one to one, a layer with a member at its z and (the forward combos of one z are
+  // told apart by height) its drawn height within HEIGHT_TOL
+  const sameLayers = (have, want) => {
+    if (have.length !== want.length) return false;
+    const used = new Set();
+    return want.every((m) => {
+      const k = have.findIndex((l, i) => !used.has(i) && sameZ(l.z, m.z) && Math.abs(l.h - m.h) <= HEIGHT_TOL);
+      if (k < 0) return false;
+      used.add(k);
+      return true;
+    });
+  };
   {
     const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
     ok('the front check accepts the front member', frontSame([L([1, 0])], two), null);
@@ -269,10 +331,6 @@
     ok('the layer check fails a colour off by twice the tolerance', layerGap({ h: 0.3, f: [Math.cos(a), Math.sin(a)] }, m).ph, null);
     ok('the layer check counts a layer without F', layerGap({ h: 0.3 }, m).noF, null);
   }
-  // a layer's match with the enumerator's members is ambiguous when more than one member fits its z and height: the check fails rather than pick one
-  const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
-  ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
-  ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
 
   // the raster's controls, on synthetic masks through the page's comparison: equal masks, one a pixel off (inside slack) pass; a hole of
   // CTL_HOLE_R, a wall of CTL_WALL_W pixels and a mask CTL_SHIFT pixels off fail
@@ -290,6 +348,21 @@
         shift: cmp(mk(disc(cx + c.shift, cy, c.r)))
       };
     })()`);
+    // the combos: a member with two forward combos expands to two layers (the other stays one), the layer check holds both, and a frame
+    // drawing one combo of the two fails it
+    const ex = await ev(`window.__lxExpand([{ z: [1, 0], f: [1, 0], h: 0.1, sheet: 0 }, { z: [2, 0], f: [1, 1], h: 0.2, sheet: 0 }], (z) => (z[0] === 1 ? [{ combo: [0], z, f: [1, 0], h: 0.1 }, { combo: [1], z, f: [-1, 0], h: -0.1 }] : [{ combo: [0], z, f: [1, 1], h: 0.2 }]))`);
+    ok('the combos expand a member with two to two layers and leave the other one', Array.isArray(ex) && ex.length === 3 && ex.filter((m) => m.z[0] === 1).length === 2, ex);
+    if (Array.isArray(ex)) {
+      const L = (m) => ({ z: m.z, h: m.h });
+      ok('the layer check passes a frame with both combos', sameLayers(ex.map(L), ex), null);
+      ok('the layer check fails a frame drawing one of the two combos', !sameLayers(ex.slice(1).map(L), ex), null);
+      ok('the layer check fails a frame drawing one combo twice (the combos share z, not height)', !sameLayers([ex[0], ex[0], ex[2]].map(L), ex), null);
+    }
+    // the facets: corners with the same member ids pair (the cell is a facet candidate), corners with different ids, or a different count, do not
+    const pr = await ev(`(() => { const c = (id) => [0, 0, id], P = (...ids) => ids.map((l) => l.map(c)); return { same: __lxPaired(P(['0:0:'], ['0:0:'], ['0:0:'], ['0:0:'])), other: __lxPaired(P(['0:0:'], ['0:0:'], ['0:1:'], ['0:0:'])), count: __lxPaired(P(['0:0:'], ['0:0:', '0:1:'], ['0:0:'], ['0:0:'])) }; })()`);
+    ok('the facet pairing holds corners with the same member ids', pr.same === true, pr);
+    ok('the facet pairing fails corners with different member ids', pr.other === false, pr);
+    ok('the facet pairing fails corners with different member counts', pr.count === false, pr);
     ok('the raster check passes equal masks', o.same === 0, o);
     ok(`the raster check passes a mask a pixel off (slack ${REF.slack})`, o.one <= RASTER_TOL, o);
     ok(`the raster check fails a hole of radius ${CTL.holeR}`, o.hole > RASTER_TOL, o);
@@ -336,7 +409,7 @@
       // (the place the frame draws a probe at is its nearest grid vertex: the reference is read there, where a cut or a steep height would make the probe's own offset a false failure)
       const at1 = (g, q) => q.map((p, i) => (g && g[i] && g[i][0] && g[i][0].w) || p);
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
-      const ref = await ev(`__lxEnum(${JSON.stringify(vpts)})`);
+      const ref = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
       const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
       ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
@@ -345,22 +418,21 @@
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
       ok(`${t}: the hook marks the front member (front: true) at every place that has members; ${noFront} places without (the front member is the page's, never ordered here)`, noFront === 0, { noFront });
-      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [], atNoF = [];
+      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = got[i] || [];
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
-        const same = sheets ? want.length === haveAll.length && want.every((m) => haveAll.some((l) => sameZ(l.z, m.z))) && haveAll.every((l) => want.some((m) => sameZ(l.z, m.z)))
-          : frontSame(haveAll, wantAll);
+        const same = sheets ? sameLayers(haveAll, want) : frontSame(haveAll, wantAll);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
         // (every member the layers match by z, on a side sheet or on the real axis too: the drawn height and the colour)
         want.forEach((m) => {
-          const l = haveAll.find((x) => sameZ(x.z, m.z));
+          const l = haveAll.filter((x) => sameZ(x.z, m.z)).sort((p, q) => Math.abs(p.h - m.h) - Math.abs(q.h - m.h))[0];   // (the layer at its z nearest in height: sheets of a step share z)
           if (!l) return;
           const g = layerGap(l, m);
           if (g.h) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
-          if (g.noF) { noF++; if (atNoF.length < 4) atNoF.push({ p, zHave: l.z, zWant: m.z }); return; }
+          if (g.noF) { noF++; return; }
           if (g.phN) phN++;
           if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
         });
@@ -368,57 +440,29 @@
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh, atNoF });
-      const amb = ambiguous(got.flat().concat(cgot.flat()));
-      ok(`${t}: no layer's z and height fit more than one member (the hook's z match is not ambiguous; ${amb} layers)`, amb === 0, { amb });
-      // the off-centre case tells the rules apart: at some probe place the member of smallest depth key over the sheets lies on another
-      // sheet than the frame's own front member, so a front-by-D rule picks a different member there (and fails the front check above)
-      if (c.offCentre && !sheets && first) {
-        // (the hook's own members, a z repeated on another sheet kept: a log's sheets share their preimage and differ in the depth key)
-        const raw = await ev(`__cmwLandEnum(${JSON.stringify(vpts)})`);
-        let differ = 0;
-        (raw || []).forEach((ms) => {
-          if (ms.length < 2) return;
-          const byD = ms.reduce((a, m) => (m.D < a.D ? m : a), ms[0]);
-          if (byD.sheet !== ms[0].sheet) differ++;
-        });
-        r[u].differ = differ;
-        ok(`${t}: a front-by-depth-key rule picks another sheet than the frame's own at some probe place`, differ > 0, { differ });
-      }
+      ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
-      const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
+      const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
       // the exact image reference: the frame's relief against the raster of the reference's members, at this u
       const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
-      const rk = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
+      // (the lattice is refined, REF.depth up to REF.depthMax, until REF.calm consecutive levels change no checked pixel (a feature thinner than a
+      // cell shows first at a deeper level): conv is the last pair's distance, firstConv the first pair's, calm the unchanged levels in a row; the
+      // frame is judged against the finest. A reference not converged at depthMax fails)
+      const { rk, conv, firstConv, calm, depth } = await refine(sheets, REF);
       r[u].raster = rk;
       ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
+      ok(`${t}: the reference is converged: ${REF.calm} levels in a row change no pixel within ${REF.slack} (depth ${rk ? rk.depth : '?'} of at most ${REF.depthMax}; last pair off ${conv}, first pair ${firstConv})`, !!rk && calm >= REF.calm, { depth: rk && rk.depth, conv, firstConv, calm });
+      if (/Roots as preimages/.test(t) && u === 0.002) {
+        // controls: a reference refined only over the SHALLOW levels is not converged (its pair still moves checked pixels), and
+        // a raster given too few levels is reported capped, so the relief check fails
+        const sh = await refine(sheets, Object.assign({}, REF, SHALLOW));
+        ok(`${t}: the control: the shallow reference (depth ${SHALLOW.depth} to ${SHALLOW.depthMax}) is not converged (calm ${sh.calm} of ${REF.calm}, first pair off ${sh.firstConv})`, sh.firstConv > 0 && sh.calm < REF.calm, sh);
+        const cp = await refine(sheets, Object.assign({}, REF, { depthMax: REF.depth, levels: LEVELS_CTL }));
+        ok(`${t}: the control: a raster with ${LEVELS_CTL} levels is reported capped`, !!cp.rk && cp.rk.capped === true, { rk: cp.rk });
+      }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
-    }
-    // the member seams: with the edge pass's seam test off (the page's carry probe noSeam) the same frame at the near end draws wall facets across
-    // the seams between members and its relief is off the exact map's by more than the bound: the case tells the two apart
-    if (c.seamControl && !sheets) {
-      await setU(SEAM_U);
-      await ev(`__svCarryProbe = __svCarryProbeSettings.noSeam; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-      await grab('seamoff');
-      await ev('window.__cmwLandRelief ? __cmwLandRelief() : null');
-      const off = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
-      await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS });
-      r.seamControl = off;
-      ok(`${name}: u=${SEAM_U}: with the seam test off the relief is off the exact map's by more than ${RASTER_TOL * 100} % (${off ? off.extra : '?'} extra): the case tells the two apart`, !!off && !off.capped && off.off > RASTER_TOL, off);
-    }
-    // the glide's sheet pass (the image test that gives each vertex its step sheet's height) is what keeps the frame near the next plane's
-    // parked one at the far end: with it off (the page's carry probe noFix) the same frame differs from the parked plane by more than the tolerance
-    if (c.fixControl && !sheets) {
-      await setU(1 - END_U);
-      const on = await grab('fixon'), dOn = (await compare('fixon', 'P1')).frac;
-      await ev(`__svCarryProbe = __svCarryProbeSettings.noFix; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-      const off = await grab('fixoff'), dOff = (await compare('fixoff', 'P1')).frac;
-      await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS });
-      r.fixControl = { dOn, dOff };
-      ok(`${name}: u=${1 - END_U}: with the sheet pass the frame is the next plane's parked frame (at most ${SAME_FRAC * 100} %)`, on && dOn <= SAME_FRAC, r.fixControl);
-      ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
     }
   }
   return { pass: !fails.length, fails, info };
