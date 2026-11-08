@@ -136,12 +136,16 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared');
   ok('the zeta and the squared examples are found', ex >= 0 && sq >= 0, names.length);
   const SHARE = `(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`;
-  // (the example, the view's settings and the scrub to x in one page call: no idle moment makes tracks in between)
+  // (the example, then every pole track dropped and the scrub to x in one page call: no idle moment makes tracks in
+  // between, as right after load)
   const load = async (example, x) => {
     await go(`${BASE}/test.html?ns=gh${Date.now()}&lang=en&view=steps`);
     await ready();
     await ev(HELP);
-    await ev(`__cmwExample(${example}), __cmwSteps({ bare: true, scope: 'in', x: ${x} }), 1`);
+    await ev(`__cmwExample(${example}), 1`);
+    await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
+    await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
+    await ev(`__cmwSteps({ dropTracks: true, x: ${x} }), 1`);
   };
   // the first frame after the scrub to x: the page's canvas then, its share, and the thread's record
   const first = async (x, scrubbed) => {

@@ -840,6 +840,8 @@
     }
     return r;
   }
+  // every glide's pole tracks forgotten, as right after load (a test hook's)
+  function svDropTracks() { svPoleMemo.clear(); svPoleLast.clear(); svPolesWatch(); }
   // P's tracks made for at most ms; once whole, they are plane b's last whole tracks (svPoleLast)
   function svPoleMake(P, ms, kind) {
     if (P.k > SV_POLE_K) return;
