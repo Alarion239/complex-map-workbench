@@ -51,7 +51,7 @@ const plain = await read();
 ok('Plain: D.phase is true and the choice is Plain', plain.phase === true && plain.checked === 'phase' && plain.coloured > 0, plain);
 // the cold-load cases: a saved state whose view is the Landscape with Plaster keeps it; one whose view has no D entry, or has D.phase
 // true, opens coloured, with no error
-const loadView = async (tag, viewState) => {
+const loadSavedView = async (tag, viewState) => {
   const k = ns + tag;
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(Object.assign({}, st, { view: viewState })))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=en&view=steps`);
@@ -60,11 +60,11 @@ const loadView = async (tag, viewState) => {
   await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
   return read();
 };
-const savedPlaster = await loadView('plaster', { main: 'land', D: { phase: false } });
+const savedPlaster = await loadSavedView('plaster', { main: 'land', D: { phase: false } });
 ok('a saved Landscape with Plaster opens on Plaster, grey', savedPlaster.phase === false && savedPlaster.coloured <= tiles.coloured * PLASTER_SHARE, savedPlaster);
-const savedTiles = await loadView('tiles', { main: 'land', D: { phase: true } });
+const savedTiles = await loadSavedView('tiles', { main: 'land', D: { phase: true } });
 ok('a saved Landscape with phase colours opens coloured', savedTiles.phase === true && savedTiles.coloured >= tiles.coloured * REPAINT_SHARE, savedTiles);
-const savedNoD = await loadView('nod', { main: 'land' });
+const savedNoD = await loadSavedView('nod', { main: 'land' });
 ok('a saved view with no D entry opens the Landscape coloured, with phase on', savedNoD.phase === true && savedNoD.coloured >= tiles.coloured * REPAINT_SHARE, savedNoD);
 info.coloured = { tiles: tiles.coloured, plaster: plaster.coloured, back: back.coloured, plain: plain.coloured };
 return { pass: !fails.length, fails, info };
