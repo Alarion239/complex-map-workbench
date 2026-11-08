@@ -165,6 +165,12 @@
     return { n, extra, missing, off: n ? (extra + missing) / n : 1, capped: !!capped, w: W2, h: H2 };
   };
   window.__lxPick = null;
+  // the members expanded by the forward combos refsOf(z) gives ([{ combo, z, f, h }] per z): a member with more than one combo is that many
+  // layers, the others stay as they are
+  window.__lxExpand = (o, refsOf) => o.flatMap((m) => {
+    const rs = refsOf(m.z).filter((r) => r.f && r.h !== null);
+    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, combo: r.combo })) : [m];
+  });
   window.__lxEnum = (pts, sheets) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
@@ -179,11 +185,7 @@
       for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z} && Math.abs(x.h - m.h) <= ${HEIGHT_TOL})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
       // (All sheets: a member of a chain with a multivalued step past plane 0 is drawn once per forward combo of the colour map's distinct
       // sheets, the parked frame's own: window.__cmwLandRefSheets(z), each { combo, z, f, h }; a chain without one has the member alone)
-      if (!sheets || typeof __cmwLandRefSheets !== 'function') return o;
-      return o.flatMap((m) => {
-        const rs = __cmwLandRefSheets(m.z).filter((r) => r.f && r.h !== null);
-        return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, combo: r.combo })) : [m];
-      });
+      return sheets && typeof __cmwLandRefSheets === 'function' ? window.__lxExpand(o, __cmwLandRefSheets) : o;
     });
   };
   1`;
@@ -244,6 +246,8 @@
   const sameZ = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= Z_TOL * (1 + Math.hypot(b[0], b[1]));
   // sheets off at one place: the frame has one layer, the front member's
   const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
+  // All sheets at one place: as many layers as members (a member with forward combos is one layer a combo), each at a member's z and each member at a layer's
+  const sameLayers = (have, want) => want.length === have.length && want.every((m) => have.some((l) => sameZ(l.z, m.z))) && have.every((l) => want.some((m) => sameZ(l.z, m.z)));
   {
     const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
     ok('the front check accepts the front member', frontSame([L([1, 0])], two), null);
@@ -287,6 +291,15 @@
         shift: cmp(mk(disc(cx + c.shift, cy, c.r)))
       };
     })()`);
+    // the combos: a member with two forward combos expands to two layers (the other stays one), the layer check holds both, and a frame
+    // drawing one combo of the two fails it
+    const ex = await ev(`window.__lxExpand([{ z: [1, 0], f: [1, 0], h: 0.1, sheet: 0 }, { z: [2, 0], f: [1, 1], h: 0.2, sheet: 0 }], (z) => (z[0] === 1 ? [{ combo: [0], z, f: [1, 0], h: 0.1 }, { combo: [1], z, f: [-1, 0], h: -0.1 }] : [{ combo: [0], z, f: [1, 1], h: 0.2 }]))`);
+    ok('the combos expand a member with two to two layers and leave the other one', Array.isArray(ex) && ex.length === 3 && ex.filter((m) => m.z[0] === 1).length === 2, ex);
+    if (Array.isArray(ex)) {
+      const L = (m) => ({ z: m.z });
+      ok('the layer check passes a frame with both combos', sameLayers(ex.map(L), ex), null);
+      ok('the layer check fails a frame drawing one of the two combos', !sameLayers(ex.slice(1).map(L), ex), null);
+    }
     ok('the raster check passes equal masks', o.same === 0, o);
     ok(`the raster check passes a mask a pixel off (slack ${REF.slack})`, o.one <= RASTER_TOL, o);
     ok(`the raster check fails a hole of radius ${CTL.holeR}`, o.hole > RASTER_TOL, o);
@@ -348,8 +361,7 @@
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
-        const same = sheets ? want.length === haveAll.length && want.every((m) => haveAll.some((l) => sameZ(l.z, m.z))) && haveAll.every((l) => want.some((m) => sameZ(l.z, m.z)))
-          : frontSame(haveAll, wantAll);
+        const same = sheets ? sameLayers(haveAll, want) : frontSame(haveAll, wantAll);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
         // (every member the layers match by z, on a side sheet or on the real axis too: the drawn height and the colour)
         want.forEach((m) => {
@@ -370,11 +382,14 @@
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
-      // the exact image reference: the frame's relief against the raster of the reference's members, at this u
-      const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
-      const rk = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
-      r[u].raster = rk;
-      ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
+      // (sheets off only: with All sheets the members are layers that pair per branch, not per index, and the lookups of every sheet's members are too many for a CDP call)
+      if (!sheets) {
+        // the exact image reference: the frame's relief against the raster of the reference's members, at this u
+        const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+        const rk = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
+        r[u].raster = rk;
+        ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
+      }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
   }
