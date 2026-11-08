@@ -757,17 +757,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // ---- the Landscape's exact heights (drawLandscape's inverse path) ----
   // INV_LAND: the inverse program's variant that reads one front member per grid vertex instead of shading a pixel. Pixel
   // (i, j) of an N x N target is the shown plane's point w of vertex (i, j) over the box uLBox; the walk finds the front
-  // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, 0, 1), with the height of the stages (uGs, uGt] at z (blended over
+  // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, its depth key, 1), with the height of the stages (uGs, uGt] at z (blended over
   // uHu into that of (uGs, uGt2] when uGt2 differs; the member is the uMember-th of the walk's, the front one at 0), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
   const INV_LAND_MAIN = `
 uniform vec4 uLBox; uniform int uLN; uniform int uMember; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
 layout(location = 1) out vec4 oZ;
 void main() {
   vec2 g = floor(gl_FragCoord.xy);
-  if (uUsePrev) {
-    vec4 pa = texelFetch(uPrevA, ivec2(g), 0);
-    if (pa.w > 0.5) { o = pa; oZ = texelFetch(uPrevZ, ivec2(g), 0); return; }
-  }
+  vec4 pa = vec4(0.0), pz = vec4(0.0);
+  if (uUsePrev) { pa = texelFetch(uPrevA, ivec2(g), 0); pz = texelFetch(uPrevZ, ivec2(g), 0); }
+  bool had = pa.w > 0.5;
   vec2 w = uLBox.xy + g / float(uLN - 1) * uLBox.zw;
   ixDwX = vec2(uLBox.z / float(uLN - 1), 0.0); ixDwY = vec2(0.0, uLBox.w / float(uLN - 1));
   ixPix = ixDwX.x;
@@ -775,9 +774,14 @@ void main() {
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
   if (uMember < 0) { o = vec4(float(nb), 0.0, 0.0, 1.0); return; }
-  if (uMember >= nb) return;
-  vec2 z = bZ[uMember], hv = carryHeight(z);
-  if (hv.y > 0.5 && !(abs(hv.x) > 3e38)) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, 0.0, 1.0); }
+  if (uMember < nb) {
+    vec2 z = bZ[uMember]; vec2 hv = carryHeight(z);
+    // a member found on an earlier sheet is kept: the sheets are taken in order, the frame's own first, and the depth keys
+    // of different sheets are never compared (they differ at first order for a box off the branch point)
+    bool take = !had;
+    if (hv.y > 0.5 && !(abs(hv.x) > 3e38) && take) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, bD[uMember], 1.0); return; }
+  }
+  if (had) { o = pa; oZ = pz; }
 }
 `;
   const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
@@ -791,7 +795,7 @@ void main() {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok || !rtOK) return 'error';
     const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
     if (!rec || !rec.ok) return 'error';
-    // the sheets in order: a vertex takes the first sheet whose walk finds a member there
+    // the sheets in order, the frame's own first: a vertex takes the first sheet's front member that covers it
     const sheets = [st].concat((st.more || []).filter((m) => m && m.plan && m.prep && m.prep.ok));
     // (st.layered, All sheets: every member is wanted, so the walk keeps up to the largest B, which a low alpha asks for)
     const member = st.member ?? 0;

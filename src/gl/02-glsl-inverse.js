@@ -14,8 +14,8 @@
 #endif
 const float IX_LN2 = 0.6931471805599453;
 const float IX_BIG = 1e9;
-// (the sheet key's tie band, Inverse.front's TIE_D: 2^-14 octave and the same part of D; 2^-14 = 0.00006103515625)
-const float IX_TIE_D = 0.00006103515625;
+// (the sheet key's tie band: Inverse.TIE_D octaves and the same part of D, the one definition Inverse.front and Inverse.tieBand use)
+const float IX_TIE_D = ${Inverse.TIE_D};
 float ixTieBand(float D) { return IX_TIE_D * (1.0 + D); }
 // (the early stops' margin: the tie band and 2^-8 octave more for the error of the lower bounds: Inverse's stopBand)
 const float IX_STOP_D = 0.00390625;

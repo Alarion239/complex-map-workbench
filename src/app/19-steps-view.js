@@ -367,12 +367,12 @@
   // at rest. False when the Landscape is not on the pane
   // The inverse inputs of a glide frame's exact Landscape (GLR.landInverse): the front point z of plane 0 over each vertex of
   // the shown plane's grid, from step b's homotopy at u inverted by its own ops (invHomPath). Null unless that path draws:
-  // a d/dz step, a chain with no inverse plan, a Newton inverse with no seeds
+  // a d/dz step, a chain with no inverse plan, a Newton inverse that is neither an exact-degree polynomial (all its roots) nor seeded
   function svLandExact(b, u) {
     if (!GLR.landInverse || !GLR.packShapes || derivIn(0, b)) return null;
     packRecs([SV_ALL], true);
     const p = invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
-    if (p.path !== 'inverse' || p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back))) return null;
+    if (p.path !== 'inverse' || p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && (o.p.back || o.p.deg)))) return null;
     // A log or root step has a sheet per branch: the sheets beside the step's own follow, nearest first, and a vertex
     // takes the first that has a member there
     const more = [];

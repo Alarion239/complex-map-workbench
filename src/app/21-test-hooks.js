@@ -267,7 +267,9 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
-  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8;   // (the enumerator's pixel size as a fraction of the box; its buffer)
+  // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
+  // height, world units, within which an enumerated member is the one it draws)
+  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02;
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
@@ -377,20 +379,25 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
-  // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f }], f the value of the
-  // shown plane's map at z
+  // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f, sheet }]; f and sheet are
+  // those of the enumerator's member (__cmwLandEnum) at the vertex's own place that has its z and its height (null: none has)
   window.__cmwLandFrameVerts = (pts) => {
-    const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null, F = render3D.exactIn && render3D.exactIn.F;
-    return g && F ? g.map((ls) => ls.map((l) => { const f = l.z ? F(C(l.z[0], l.z[1])) : null; return Object.assign({}, l, { f: f && CX.isFin(f) ? [f.re, f.im] : null }); })) : g;
+    const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null;
+    return g ? g.map((ls) => ls.map((l) => {
+      const ms = l.z ? (window.__cmwLandEnum([l.w]) || [[]])[0] : [], at = (m) => Math.hypot(m.z[0] - l.z[0], m.z[1] - l.z[1]) <= LAND_ENUM_Z_TOL * (Math.hypot(l.z[0], l.z[1]) + 1);
+      const dz = (q) => Math.hypot(q.z[0] - l.z[0], q.z[1] - l.z[1]);
+      const m = ms.filter((q) => at(q) && Math.abs(q.h - l.h) <= LAND_ENUM_H_TOL).sort((a, b) => dz(a) - dz(b))[0];
+      return Object.assign({}, l, { f: m ? m.f : null, sheet: m ? m.sheet : null });
+    })) : g;
   };
   // the shown plane's map at a point z of plane 0 ([re, im] -> [re, im]), from the inverse inputs the last carried frame drew
   // from; null when there are none
   window.__cmwLandForward = (z) => { const F = render3D.exactIn && render3D.exactIn.F, f = F ? F(C(z[0], z[1])) : null; return f && CX.isFin(f) ? [f.re, f.im] : null; };
   // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
-  // [{ z, f, h, member, sheet, D }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
+  // [{ z, f, h, member, sheet, D, front? }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
   // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn
   // ones for the frame's own sheet (sheet 0); a member on a sheet beside it has its value on that sheet's branch of the step, so
-  // its z and D are the reference there, not f and h. Null when the frame was not drawn by the inverse path
+  // its z and D are the reference there, not f and h. front: true marks the one member the frame draws with sheets off. Null when the frame was not drawn by the inverse path
   window.__cmwLandEnum = (pts) => {
     const inp = render3D.exactIn, hOf = render3D.frameHeight, bx = render3D.box;
     if (!inp || !hOf || !bx) return null;
@@ -401,16 +408,32 @@
       sheets.forEach((sh, sheet) => {
         let r = null;
         try { r = Inverse.enumerate(sh.plan, sh.prep, C(x, y), pix, { K: LAND_ENUM_B, B: LAND_ENUM_B, all: true, leaves: false }); } catch (e) { r = null; }
+        // (a sheet beside the frame's own: the chain with that step's branch moved by the sheet's shift, a turn of the argument per
+        // shift for a root, 2 pi i per shift added for a log)
+        const at = sh.shift && sh.shift.vals ? built.findIndex((bb) => bb.vals === sh.shift.vals) : -1, id = at >= 0 ? built[at].def.id : null;
+        const ang = TAU * (sh.shift ? sh.shift.dk : 0), turn = id === 'root' ? C(Math.cos(ang / built[at].vals.n), Math.sin(ang / built[at].vals.n)) : null;
+        const Fs = at < 0 ? F : (z) => {
+          for (let i = 1; i <= svHT(0); i++) {
+            const f = stepFn(i);
+            if (!f) continue;
+            z = f(z);
+            if (i - 1 === at) z = turn ? CX.mul(z, turn) : id === 'log' ? CX.add(z, C(0, ang)) : z;
+          }
+          return z;
+        };
         if (r) r.entries.forEach((e, member) => {
-          const f = F(e.z);
+          const f = Fs(e.z);
           out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D });
         });
       });
+      // the member the frame draws with sheets off: the first sheet's front member (the sheets are taken in order, the frame's own
+      // first; the depth keys of different sheets are never compared, they only order the members within one sheet)
+      if (out.length) out[0].front = true;
       return out;
     });
   };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
-  /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
+  /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());
