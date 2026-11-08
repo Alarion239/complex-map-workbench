@@ -250,8 +250,8 @@ const NON_ANALYTIC = { type: 'custom', params: { expr: 'z+0.2*conj(z)', cut: 180
 for (const [x, T, lines] of [[0.5, 1, true], [0.95, 0, false], [0.95, 1, true], [0.5, 0, false]]) {
   await load('p3accg' + Date.now(), Object.assign({ shapes: [H], steps: [NON_ANALYTIC], srcView: { cx: 0, cy: 1, s: 60 } }, base));
   await ev(`__cmwHideStrokes(true); __cmwSteps({ go: 0, now: true, surf: "sphere", scope: "in", T: ${T} }); __cmwSteps({ x: ${x} }); 1`);
-  await wait();
-  await ev('await new Promise((r) => setTimeout(r, 1500)), 1');
+  // (settled on the held place: the last frame is the glide's, drawn by the carried mesh)
+  await settled({ max: 60000, until: `(() => { const g = __cmwSvGlobe(0.5, 0.5); return __cmwSvFixed() && !__cmwSteps().moving && GLR.pendingLinks === 0 && g.path === 'mesh' && Math.abs(g.u - ${x}) < 1e-9 && GLR.carriedGlobeGraticule !== null; })()` });
   const held = R['held_' + x + '_' + T] = { x: await ev('__cmwSteps().x'), path: await ev('__cmwSvGlobe(0.5, 0.5).path'), lines: await ev('GLR.carriedGlobeGraticule') };
   ok(`held frame (x ${x}, colour plane ${T}): the carried mesh ${lines ? 'draws' : 'leaves out'} the graticule over its colour`, held.x === x && held.path === 'mesh' && held.lines === lines, held);
 }
