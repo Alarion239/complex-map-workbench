@@ -51,7 +51,7 @@
   --cut: #CC3311; --pole: #A0153E; --zero: #121A20; --probe: #121A20; --halo: #FCFDFD; --fov: #2E3D47;
   --dc-line: #FFFFFF; --dc-casing: #0B1114;
   /* landscape and sphere */
-  --land-top: #F5F8F9; --land-bottom: #DCE4E7; --land-floor: #FAFCFC; --land-box: #B3BEC4;
+  --land-top: #F5F8F9; --land-bottom: #DCE4E7; --land-floor: #FAFCFC; --land-box: #B3BEC4; --land-footprint: #6B7E87;
   --land-mod-line: #18232A; --land-arg-line: #FFFFFF; --plaster: #ECEEEC; --land-shadow: #2E3D47;
   --hemi-sky: #E6EEF4; --hemi-ground: #8C9296;
   /* shape inks (theme-independent base) and theme-dependent edge/alt shades */
@@ -91,6 +91,8 @@
   --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px; --s-9: 32px;
   --r-1: 2px; --r-2: 3px; --r-3: 4px; --r-4: 6px;
   --h-xs: 20px; --h-sm: 24px; --h-md: 28px; --h-lg: 32px; --h-xl: 44px;
+  /* the steps view's strip: the margin below its buttons that clears the rail's dots and ring */
+  --rail-clear: 14px;
   /* motion */
   --t-fast: 80ms; --t-med: 160ms; --t-slow: 240ms; --t-view: 220ms; --t-hom: 480ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1); --ease-std: cubic-bezier(0.3, 0, 0.2, 1); --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
@@ -107,7 +109,7 @@
     --axis: #94A8B3; --axis-label: #8197A3; --ruler-tick: #B4C1C9;
     --cut: #FF6B3D; --pole: #FF5A85; --zero: #E3EAEE; --probe: #E3EAEE; --halo: #0D1317; --fov: #94A8B3;
     --dc-line: #FFFFFF; --dc-casing: #05090B;
-    --land-top: #1A252C; --land-bottom: #0A1013; --land-floor: #10181D; --land-box: #36474F;
+    --land-top: #1A252C; --land-bottom: #0A1013; --land-floor: #10181D; --land-box: #36474F; --land-footprint: #6B818C;
     --land-mod-line: #05090B; --land-arg-line: #FFFFFF; --plaster: #C9CFD2; --land-shadow: #000000;
     --hemi-sky: #9FB2C0; --hemi-ground: #3A3F44;
     --c1-edge: #79A7FA; --c2-edge: #FBBD78; --c3-edge: #74C5C1; --c4-edge: #EA8EC9;
@@ -130,7 +132,7 @@
   --axis: #94A8B3; --axis-label: #8197A3; --ruler-tick: #B4C1C9;
   --cut: #FF6B3D; --pole: #FF5A85; --zero: #E3EAEE; --probe: #E3EAEE; --halo: #0D1317; --fov: #94A8B3;
   --dc-line: #FFFFFF; --dc-casing: #05090B;
-  --land-top: #1A252C; --land-bottom: #0A1013; --land-floor: #10181D; --land-box: #36474F;
+  --land-top: #1A252C; --land-bottom: #0A1013; --land-floor: #10181D; --land-box: #36474F; --land-footprint: #6B818C;
   --land-mod-line: #05090B; --land-arg-line: #FFFFFF; --plaster: #C9CFD2; --land-shadow: #000000;
   --hemi-sky: #9FB2C0; --hemi-ground: #3A3F44;
   --c1-edge: #79A7FA; --c2-edge: #FBBD78; --c3-edge: #74C5C1; --c4-edge: #EA8EC9;
@@ -2206,13 +2208,13 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="shapes" id="shapeList"></div>
         </div>
       </details>
-      <!-- the regions' display: their fill (the phase of z), grid lines and their step, chevrons and
+      <!-- the regions' display: their fill (the phase of the colour plane, named by its note), grid lines and their step, chevrons and
            opacity belong to the X → Y view and live in its Regions ▾ (the phone's Display sheet); the unit circle in every
            view's. Lent from here -->
       <div id="regionsHome" hidden>
         <div id="unitBox" class="field-col"><label class="check"><input type="checkbox" id="unitChk" checked><span>Unit circle</span></label></div>
         <div id="regionsBox" class="field-col">
-          <div class="lbl">Regions are coloured by the phase of z, carried by the map</div>
+          <div class="lbl"></div>
           <label class="check"><input type="checkbox" id="linesChk"><span>Grid lines on regions</span></label>
           <label class="fader-row"><span class="fl">Grid step</span><input type="range" id="patScale" min="-2" max="2" step="1" aria-label="Grid step"><span class="fval mono" id="patScaleVal"></span></label>
           <label class="check"><input type="checkbox" id="chevChk"><span>Orientation chevrons</span></label>
