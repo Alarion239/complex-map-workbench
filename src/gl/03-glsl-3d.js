@@ -1405,7 +1405,8 @@ void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
   // globe that takes no drawing (Morph open, solo, a focused stage), which panels.md 9.5 keeps. The real
   // great circle and |z| = 1 are drawn in all three.
   // The graticule's coverages at the sphere point n (unit): net (the tier of uNet), re (the real great circle) and eq
-  // (|z| = 1), each 0..1, and phaseLines' mix of them over a colour (the globe's phase portrait). Needs TIERS and UTIL.
+  // (|z| = 1), each 0..1, and phaseLines' mix of them over a colour (the globe's phase portrait, and the steps view's
+  // carried colour, which share it). Needs TIERS and UTIL.
   const SPHERE_LINES = `
 uniform int uNet;
 void sphereLines(vec3 n, out float net, out float re, out float eq) {

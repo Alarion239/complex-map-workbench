@@ -1282,15 +1282,19 @@ void main() {
   gl_Position = ok ? uMVP * vec4(q * ${GLOBE_SHELL}, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
-  // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE): the side away from the camera left out, so the sheet
-  // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour (at the lifted point) lit
-  // as the globe's exact colour pass lights it, with no graticule over it
+  // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE, TIERS and SPHERE_LINES): the side away from the camera left out, so the sheet
+  // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour under the globe's graticule
+  // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule (st.graticule) is 0 where the frame is past the colour plane, which draws no graticule over its colour
   const CARRY_GLOBE_FS = (id) => {
     let t = CARRY_FS(id);
     for (const [a, b] of [
-      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye;\n'],
+      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye; uniform float uGraticule;\n'],
       ['void main() {\n', 'void main() {\n  vec3 vv = normalize(uEye - vPos);\n  if (dot(vNor, vv) < 0.0) discard;\n'],
-      [`  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`, `  o = vec4(toSrgb(shade(toLin(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'})), normalize(vNor), vv, 1.0)), 1.0);`],
+      [`  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`, `  vec3 nn = normalize(vNor);
+  float net, re, eq;
+  sphereLines(nn, net, re, eq);
+  net *= uGraticule; re *= uGraticule; eq *= uGraticule;
+  o = vec4(toSrgb(shade(toLin(phaseLines(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), net, re, eq)), nn, vv, 1.0)), 1.0);`],
     ]) {
       if (!t.includes(a)) throw new Error('CARRY_GLOBE_FS: ' + a.slice(0, 40));
       t = t.split(a).join(b);

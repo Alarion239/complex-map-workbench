@@ -1666,7 +1666,7 @@
     // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
     // the globe's depth again, which the passes below are tested against
     const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
-    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr }, st.carried), sph));
+    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, st.carried), sph));
     if (carried) {
       gl.colorMask(false, false, false, false);
       use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
