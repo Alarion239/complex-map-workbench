@@ -11,6 +11,9 @@ const rect = (sel) => ev(`(() => { const e = document.querySelector(${JSON.strin
 const mchip = () => ev(`(() => { const e = [...document.querySelectorAll('.cm-chip')].find((x) => x.offsetParent); return e ? e.textContent.trim() : null; })()`);
 const tool = async (id) => { const r = await ev(`(() => { const b = [...document.querySelectorAll('[data-tool="${id}"]')].find((e) => e.offsetParent); if (!b) return 0; b.click(); return 1; })()`); await settle(300); return r; };
 const SWITCH = /Switch to the plane to pick the curve/;
+const LISTEN_NOTE = /Listening along/, LISTEN_WAIT_MS = 30000, POLL_MS = 250;
+// Listen prepares its samples first (the chip says "Preparing to listen along"), so the note is polled for, not assumed after a fixed wait.
+const waitListenNote = async () => { const t0 = Date.now(); let txt = ''; while (Date.now() - t0 < LISTEN_WAIT_MS) { txt = await ev(`document.body.innerText`); if (LISTEN_NOTE.test(txt)) return txt; await settle(POLL_MS); } return txt; };
 await view(1366, 768, false, false);
 
 // Orthogonal: the plane's chip, then the globe's
@@ -33,8 +36,9 @@ const p0 = await rect('#plotL');
 const lb = await ev(`(() => { const b = document.querySelector('.tour-lane .btn.primary'); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
 ok('the sound example offers Listen, and the plane is on screen', !!lb && !!p0, [lb, p0]);
 if (lb) {
-  await click(lb[0], lb[1]); await settle(1200);
-  ok('Listen has started: the Listening-along note shows', /Listening along/.test(await ev(`document.body.innerText`)), null);
+  await click(lb[0], lb[1]);
+  const body = await waitListenNote();
+  ok('Listen has started: the Listening-along note shows', LISTEN_NOTE.test(body), (/Preparing[^\n]*|Listening[^\n]*/.exec(body) || [null])[0]);
   ok('the planes do not move when Listen starts the melody', JSON.stringify(await rect('#plotL')) === JSON.stringify(p0), [p0, await rect('#plotL')]);
 }
 info.checks = 'steps view: Orthogonal hint on the globe, Listen keeps the planes';
