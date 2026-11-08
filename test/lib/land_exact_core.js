@@ -150,29 +150,32 @@
     };
     // all members of `from` carried from place wA to place wB in lockstep: { ok, z[], lam[] } or { ok: false, why }
     function track(from, wA, wB) {
-      let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0;
+      let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0, last = '';
       const dw = csub(wB, wA);
       while (t < 1) {
         const tn = Math.min(1, t + dt), w = [wA[0] + dw[0] * tn, wA[1] + dw[1] * tn];
-        const pre = [], ok = [];
+        const pre = [];
         for (let k = 0; k < from.length; k++) {
           const r = Hof(from[k], zs[k], lams[k]);
           if (!r) { pre.push(null); continue; }
           pre.push(cadd(zs[k], cdiv(cscale(dw, tn - t), r.dH)));
         }
         let good = pre.every((p) => p);
+        if (!good) last = 'H or H\' not finite';
         const next = [], nl = [];
         if (good) for (let k = 0; k < from.length && good; k++) {
           const near = Math.min(Infinity, ...pre.map((q, i) => (i !== k && from[i].sheet === from[k].sheet ? dist2(pre[k], q) : Infinity)));
           const step = dist2(pre[k], zs[k]);
-          if (step >= o.CONT_NEAR * near && step > 0) { good = false; break; }
+          if (step >= o.CONT_NEAR * near && step > 0) { good = false; last = 'step ' + step.toExponential(2) + ' vs near ' + near.toExponential(2); break; }
           const lam0 = lams[k] ? cadd(lams[k], relLog(zs[k], pre[k])) : null;
           const nw = newton(from[k], pre[k], lam0, w);
-          if (!nw || nw.ratio > o.CONT_RATIO || dist2(nw.z, pre[k]) >= o.CONT_NEAR * Math.max(near, step * 4)) { good = false; break; }
+          if (!nw) { good = false; last = 'newton did not converge'; break; }
+          if (nw.ratio > o.CONT_RATIO) { good = false; last = 'newton ratio ' + nw.ratio.toExponential(2); break; }
+          if (dist2(nw.z, pre[k]) >= o.CONT_NEAR * Math.max(near, step * 4)) { good = false; last = 'correction ' + dist2(nw.z, pre[k]).toExponential(2); break; }
           next.push(nw.z); nl.push(nw.lam);
         }
         if (good) { zs = next; lams = nl; t = tn; dt = Math.min(dt * 2, 1 - t || 1); steps++; }
-        else { dt /= 2; if (dt < o.CONT_STEP_MIN) return { ok: false, why: 'step floor at t=' + t.toExponential(2), steps }; }
+        else { dt /= 2; if (dt < o.CONT_STEP_MIN) return { ok: false, why: 'step floor at t=' + t.toExponential(2) + ': ' + last, steps }; }
         if (steps > 4000) return { ok: false, why: 'steps' };
       }
       return { ok: true, z: zs, lam: lams, steps };
