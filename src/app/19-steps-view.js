@@ -380,7 +380,7 @@
     if (p.plan.ops.some((o) => (o.kind === 'ROOTPOW' || o.kind === 'LOG') && o.p && Number.isFinite(o.p.k))) {
       for (let j = 1; j <= SV_LAND_SHEETS; j++) for (const dk of [j, -j]) {
         const q = invHomPath(SV_ALL, 0, b, u, null, dk);
-        if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk } });
+        if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk, k: b } });
       }
     }
     return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1 };

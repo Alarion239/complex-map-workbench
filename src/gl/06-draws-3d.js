@@ -265,6 +265,21 @@
     v.k = (k0 || 0) + shift.dk;
     try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
   }
+  // The sheet combo of a glide's sheet (sheet.dk more than the step's own, the step of stage sheet.k): the mixed-radix number
+  // chainSheetRange reads, lowest digit first, one digit for each multivalued step in chain order. A bounded step (n sheets) reads
+  // its digit as the sheet, an unbounded one (a window of 2 W + 1) as the digit less W, so the digit is W + dk there and
+  // dk mod n here, and W where the step keeps its own sheet
+  function carrySheetCombo(shift, W) {
+    const info = cur.info;
+    if (!info || !info.sheets || !Array.isArray(info.sheets.steps)) return 0;
+    let combo = 0, radix = 1;
+    for (const s of info.sheets.steps.filter((x) => x && x.k >= 1).sort((p, q) => p.k - q.k)) {
+      const off = shift && shift.k === s.k ? shift.dk : 0, n = s.n > 0 ? s.n : 2 * W + 1;
+      combo += (s.n > 0 ? ((off % s.n) + s.n) % s.n : W + off) * radix;
+      radix *= n;
+    }
+    return combo;
+  }
   const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
@@ -333,6 +348,8 @@
         }
         landC.cuts = 1;
         landC.datas = Pf ? datas : null;
+        landC.sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
+        landC.combos = sheets.map((sh) => carrySheetCombo(sh.shift, landC.sheetW));
       }
     }
     if (!polar) landC.exact = exact;
@@ -1413,7 +1430,7 @@
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
-      u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0); u1i(Pc, 'uSheetW', 0);
+      u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0); u1i(Pc, 'uSheetW', landC && landC.sheetW || 0); u1i(Pc, 'uSheetCombo', 0);
       const cutDraw = !!(landC && landC.exact && landC.cuts);
       u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);
       if (landC && landC.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex); }
@@ -1433,7 +1450,7 @@
       const datas = cutDraw ? landC.datas : null;
       u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
       for (let i = 0; i < (datas ? datas.length : 1); i++) {
-        if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
+        if (datas) u1i(Pc, 'uSheetCombo', landC.combos[i]);
         u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
         gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
       }
