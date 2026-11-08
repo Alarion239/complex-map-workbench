@@ -314,7 +314,9 @@ await sleep(1500);
 await settle();
 const stC = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
 const nGpu = await drawnBytes();
-R.contextLoss = { preBytes: stC.preBytes, before: stM.preBytes, entriesOnGpu: nGpu, entries: stC.entries.length };
+// (the per-entry facts that decide a mesh's size: why it was built, its node count n, whether the build stopped partial and the budget that stopped it)
+const smEntry = (e) => ({ slot: e.slot, why: e.why, gpu: e.gpu, n: e.n, partial: e.partial, budgetWhy: e.budgetWhy, nodes: e.nodes, work: e.work });
+R.contextLoss = { preBytes: stC.preBytes, before: stM.preBytes, entriesOnGpu: nGpu, entries: stC.entries.length, entriesBefore: stM.entries.map(smEntry), entriesAfter: stC.entries.map(smEntry) };
 ok('context loss: the pre-mapped bytes count only the meshes uploaded after the restore', stC.preBytes <= stM.preBytes + 1 && (nGpu > 0 ? stC.preBytes > 0 : stC.preBytes === 0), R.contextLoss);
 // ---- at rest with four unbounded regions (four meshes, mask and carried colour sharing each): no mesh is rebuilt
 // over 2 s, so none evicts another under the budgets ----
