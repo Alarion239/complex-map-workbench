@@ -629,7 +629,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctx.under { visibility: hidden; }
 
 /* ---------- the steps view on a phone: the plane, a row of its controls over it, the strip above the tools ---------- */
-:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
+:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: var(--s-4); padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
 :root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1, :root.ph.sv .sv-scope-menu { min-height: 44px; }
@@ -638,12 +638,12 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-head .seg > button { padding: 0 6px; }
+:root.ph.sv .sv-head .seg > button { padding: 0 var(--s-2); }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
-:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
+:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-4); border-radius: 22px; }
 :root.ph.sv .sv-more { display: none; }
 :root.ph.sv .sv-rail { display: flex; justify-content: safe center; }
 /* F, the whole map, ends what the rail scrolls: a 44 px round chip with its 4 px margin after the thread, which keeps exactly that room on a short chain */
@@ -656,7 +656,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2); border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
-:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 6px; }
+:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 var(--s-2); }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-playmore, :root.ph.sv #svStrip .sv-playpop, :root.ph.sv #svStrip .sv-loop { display: none; }
 /* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge clears the range) */
@@ -670,7 +670,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .sv-surf1 .sv-surf-i svg { width: 16px; height: 16px; display: block; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
-:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 var(--s-2); }
 /* still short (w₁'s name is wider than z's at 360 px): tighter gaps and scope buttons, the targets still 40 px tall */
 :root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
 :root.ph.sv .sv-head.sv-c4 .seg > button { padding: 0 5px; }
