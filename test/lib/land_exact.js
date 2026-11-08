@@ -47,7 +47,9 @@
   // looked up; the masks agree within slack half-resolution pixels (the frame's edge pixels and the projected points' rounding), and
   // at most RASTER_TOL of the reference's pixels are unmatched either way
   const MASK_ON = 0.5;   // the Inside-regions mask (window.__cmwLandMask, 0 to 1, null with none) at which a place counts as drawn: half
-  const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1 }, RASTER_TOL = SAME_FRAC;
+  const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1, batch: 500 }
+  const RASTER_TOL = SAME_FRAC;
+  const STEP_MS = 15000;   // a raster step's time in the page: a CDP call stays well under its limit
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -81,7 +83,7 @@
   // down to depth halvings; a facet is filled as two triangles; cap bounds the places looked up, and a mask that reaches it is reported incomplete. The frame's own mask is the relief
   // alone on a transparent frame (window.__cmwLandRelief), cut into the same pixels (a pixel is covered when half of its canvas
   // pixels are). Answers { n (reference pixels), extra, missing, off, places (looked up), capped, w, h } or null with no inverse path.
-  window.__lxRaster = (sheets, g) => {
+  function* lxRaster(sheets, g) {
     const L = window.__cmwLandRelief && window.__cmwLandRelief.land, cv = document.getElementById('canvasL');
     if (!L || !window.__cmwLandRelief.cov) return null;
     const b = L.box, dpr = cv.width / cv.getBoundingClientRect().width, W2 = Math.ceil(cv.width / 2), H2 = Math.ceil(cv.height / 2);
@@ -90,20 +92,28 @@
     const key = (i, j) => i * (NY + 1) + j;
     let capped = false;
     // the places' members projected, in half-resolution pixels: [] where the place has none, null where unknown (not looked up yet)
-    const look = (list) => {
+    function* look(list) {
       const need = list.filter(([i, j]) => !cache.has(key(i, j)));
       if (!need.length) return true;
       if (cache.size + need.length > g.cap) { capped = true; return false; }
-      const e = __cmwLandEnum(need.map(([i, j]) => xy(i, j)));
-      if (!e) return false;
-      need.forEach(([i, j], k) => {
-        // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
-        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < ${MASK_ON} ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
-        for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2]); }
-        cache.set(key(i, j), pts);
-      });
+      for (let at = 0; at < need.length; at += g.batch) {
+        const part = need.slice(at, at + g.batch), e = __cmwLandEnum(part.map(([i, j]) => xy(i, j)));
+        if (!e) return false;
+        part.forEach(([i, j], k) => {
+          // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
+          const mk = __cmwLandMask(...xy(i, j));
+          let ms = mk !== null && mk < ${MASK_ON} ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h));
+          // (All sheets: a member a layer per forward combo, as the frame draws it)
+          if (sheets && typeof __cmwLandRefSheets === 'function') ms = window.__lxExpand(ms, __cmwLandRefSheets);
+          // (a point is its projection and its member's id: a facet pairs the same member at every corner)
+          const pts = [];
+          for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2, m.sheet + ':' + m.member + ':' + (m.combo || '')]); }
+          cache.set(key(i, j), pts);
+        });
+        yield;
+      }
       return true;
-    };
+    }
     const mark = new Uint8Array(W2 * H2);
     const put = (q) => { const x = Math.floor(q[0]), y = Math.floor(q[1]); if (x >= 0 && y >= 0 && x < W2 && y < H2) mark[y * W2 + x] = 1; };
     // the pixels a triangle of projected places covers (a pixel whose centre is inside it, or within half a pixel of its edge)
@@ -125,9 +135,9 @@
     for (let guard = 0; work.length && guard < 64; guard++) {
       const corners = (c) => [[c[0], c[1]], [c[0] + c[2], c[1]], [c[0], c[1] + c[2]], [c[0] + c[2], c[1] + c[2]]];
       const centre = (c) => [c[0] + c[2] / 2, c[1] + c[2] / 2];
-      if (!look(work.flatMap(corners))) { capped = true; break; }
+      if (!(yield* look(work.flatMap(corners)))) { capped = true; break; }
       const maybe = work.filter((c) => c[2] > 1 && corners(c).every(([i, j]) => cache.get(key(i, j)).length > 0));
-      if (!look(maybe.map(centre).filter(([i, j]) => Number.isInteger(i) && Number.isInteger(j)))) { capped = true; break; }
+      if (!(yield* look(maybe.map(centre).filter(([i, j]) => Number.isInteger(i) && Number.isInteger(j))))) { capped = true; break; }
       const next = [];
       for (const c of work) {
         const P = corners(c).map(([i, j]) => cache.get(key(i, j))), covered = P.filter((q) => q.length).length;
@@ -136,7 +146,7 @@
         const n = P[0].length;
         const far = (k) => Math.max(...[1, 2, 3].map((q) => Math.hypot(P[q][k][0] - P[0][k][0], P[q][k][1] - P[0][k][1])));
         // (the finest cells are facets only where their corners are within g.jump half-resolution pixels: a larger jump is a cut's wall, never filled)
-        const facet = covered === 4 && P.every((q) => q.length === n) && (c[2] === 1 ? P[0].every((_, k) => far(k) <= g.jump) : M && M.length === n && P[0].every((_, k) => {
+        const facet = covered === 4 && P.every((q) => q.length === n && q.every((m, k) => m[2] === P[0][k][2])) && (c[2] === 1 ? P[0].every((_, k) => far(k) <= g.jump) : M && M.length === n && P[0].every((_, k) => {
           const mx = (P[0][k][0] + P[1][k][0] + P[2][k][0] + P[3][k][0]) / 4, my = (P[0][k][1] + P[1][k][1] + P[2][k][1] + P[3][k][1]) / 4;
           return Math.hypot(M[k][0] - mx, M[k][1] - my) <= g.step;
         }));
@@ -155,6 +165,16 @@
     }
     window.__lxMasks = { ref: mark, frame, W2, H2 };
     const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = cache.size; return res;
+  }
+  // the raster in steps of at most ms milliseconds a call (a CDP call that runs too long fails): start, then step until done
+  window.__lxRasterStart = (sheets, g) => { window.__lxRun = lxRaster(sheets, g); return 1; };
+  window.__lxRasterStep = (ms) => {
+    const t0 = performance.now();
+    for (;;) {
+      const r = window.__lxRun.next();
+      if (r.done) { window.__lxRun = null; return { done: true, res: r.value }; }
+      if (performance.now() - t0 > ms) return { done: false };
+    }
   };
   // the pixels of a mask a pixel of the other is not within slack pixels of, each way, as a share of the first's pixels
   window.__lxCompare = (ref, frame, W2, H2, slack, capped) => {
@@ -169,7 +189,7 @@
   // layers, the others stay as they are
   window.__lxExpand = (o, refsOf) => o.flatMap((m) => {
     const rs = refsOf(m.z).filter((r) => r.f && r.h !== null);
-    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, combo: r.combo })) : [m];
+    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, combo: r.combo })) : [m];
   });
   window.__lxEnum = (pts, sheets) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
@@ -246,8 +266,18 @@
   const sameZ = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= Z_TOL * (1 + Math.hypot(b[0], b[1]));
   // sheets off at one place: the frame has one layer, the front member's
   const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
-  // All sheets at one place: as many layers as members (a member with forward combos is one layer a combo), each at a member's z and each member at a layer's
-  const sameLayers = (have, want) => want.length === have.length && want.every((m) => have.some((l) => sameZ(l.z, m.z))) && have.every((l) => want.some((m) => sameZ(l.z, m.z)));
+  // All sheets at one place: the layers and the members pair one to one, a layer with a member at its z and (the forward combos of one z are
+  // told apart by height) its drawn height within HEIGHT_TOL
+  const sameLayers = (have, want) => {
+    if (have.length !== want.length) return false;
+    const used = new Set();
+    return want.every((m) => {
+      const k = have.findIndex((l, i) => !used.has(i) && sameZ(l.z, m.z) && Math.abs(l.h - m.h) <= HEIGHT_TOL);
+      if (k < 0) return false;
+      used.add(k);
+      return true;
+    });
+  };
   {
     const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
     ok('the front check accepts the front member', frontSame([L([1, 0])], two), null);
@@ -296,9 +326,10 @@
     const ex = await ev(`window.__lxExpand([{ z: [1, 0], f: [1, 0], h: 0.1, sheet: 0 }, { z: [2, 0], f: [1, 1], h: 0.2, sheet: 0 }], (z) => (z[0] === 1 ? [{ combo: [0], z, f: [1, 0], h: 0.1 }, { combo: [1], z, f: [-1, 0], h: -0.1 }] : [{ combo: [0], z, f: [1, 1], h: 0.2 }]))`);
     ok('the combos expand a member with two to two layers and leave the other one', Array.isArray(ex) && ex.length === 3 && ex.filter((m) => m.z[0] === 1).length === 2, ex);
     if (Array.isArray(ex)) {
-      const L = (m) => ({ z: m.z });
+      const L = (m) => ({ z: m.z, h: m.h });
       ok('the layer check passes a frame with both combos', sameLayers(ex.map(L), ex), null);
       ok('the layer check fails a frame drawing one of the two combos', !sameLayers(ex.slice(1).map(L), ex), null);
+      ok('the layer check fails a frame drawing one combo twice (the combos share z, not height)', !sameLayers([ex[0], ex[0], ex[2]].map(L), ex), null);
     }
     ok('the raster check passes equal masks', o.same === 0, o);
     ok(`the raster check passes a mask a pixel off (slack ${REF.slack})`, o.one <= RASTER_TOL, o);
@@ -382,14 +413,14 @@
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
-      // (sheets off only: with All sheets the members are layers that pair per branch, not per index, and the lookups of every sheet's members are too many for a CDP call)
-      if (!sheets) {
-        // the exact image reference: the frame's relief against the raster of the reference's members, at this u
-        const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
-        const rk = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
-        r[u].raster = rk;
-        ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
-      }
+      // the exact image reference: the frame's relief against the raster of the reference's members, at this u
+      const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+      await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(REF)})`);
+      let st = { done: false };
+      while (!st.done) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+      const rk = st.res;
+      r[u].raster = rk;
+      ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
   }
