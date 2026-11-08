@@ -755,7 +755,8 @@ const Phone = (() => {
     els.style.setAttribute('aria-disabled', String(st.land));
   }
   // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
-  // that style's settings, the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
+  // that style's settings, the Landscape's height (Height, Scale, View), the opacity, then the overlays (outlines and the unit
+  // circle); a group with no control shows no label
   // each group: its label and the rows it holds, in the order they show; a row goes to the first group that has a predicate for it,
   // and rows no group names go to the last (the overlays)
   const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);

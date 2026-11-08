@@ -158,5 +158,5 @@ const HEIGHT_GROUP = ['heightSeg', 'lscaleRange', 'viewSeg'];   // (the ids, in 
 ok('on the Landscape surface the Height group holds the Height choice, the Scale slider and the View choice, in that order', JSON.stringify(heightIds) === JSON.stringify(HEIGHT_GROUP), heightIds);
 ok('on the Landscape surface the Colouring choice is under Colour style', !!styleIds && styleIds.includes('landPaint'), styleIds);
 const overlays = await ev(idsIn('Overlays'));
-ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !overlays || !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
+ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !!overlays && !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
 return { pass: fails.length === 0, fails, info };
