@@ -50,6 +50,7 @@
   const REF = { nx: 40, ny: 34, depth: 5, depthMax: 8, calm: 2, step: 0.75, jump: 3, cap: 600000, slack: 1, batch: 500 }
   const RASTER_TOL = SAME_FRAC;
   const STEP_MAX = 400;   // at most this many raster steps a frame (STEP_MS each): more is a reference that never finishes, and fails
+  const SHALLOW = { depth: 1, depthMax: 2 }, LEVELS_CTL = 2;   // the controls' settings: a lattice too coarse to be converged, and too few levels to judge every cell
   const STEP_MS = 15000;   // a raster step's time in the page: a CDP call stays well under its limit
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
@@ -94,6 +95,7 @@
     const xy = (i, j) => [b.x0 + i * (b.x1 - b.x0) / NX, b.y0 + j * (b.y1 - b.y0) / NY];
     const key = (i, j) => i * (NY + 1) + j;
     let capped = false;
+    const levels = g.levels || g.depth + 1;   // each level halves the cells: depth + 1 levels judge every cell down to one lattice step
     // the places' members projected, in half-resolution pixels: [] where the place has none, null where unknown (not looked up yet)
     function* look(list) {
       const need = list.filter(([i, j]) => !cache.has(key(i, j)));
@@ -135,7 +137,7 @@
     // projection of its centre is within g.step half-resolution pixels of the corners' mean: the facet's two triangles are filled
     let work = [];
     for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) work.push([i * S, j * S, S]);
-    for (let guard = 0; work.length && guard < 64; guard++) {
+    for (let level = 0; work.length && level < levels; level++) {
       const corners = (c) => [[c[0], c[1]], [c[0] + c[2], c[1]], [c[0], c[1] + c[2]], [c[0] + c[2], c[1] + c[2]]];
       const centre = (c) => [c[0] + c[2] / 2, c[1] + c[2] / 2];
       if (!(yield* look(work.flatMap(corners)))) { capped = true; break; }
@@ -160,6 +162,7 @@
       }
       work = next;
     }
+    if (work.length) capped = true;   // (cells still to judge when the levels ran out: the reference is incomplete)
     const cov = window.__cmwLandRelief.cov, w = window.__cmwLandRelief.w, frame = new Uint8Array(W2 * H2);
     for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
       let n = 0, t = 0;
@@ -231,6 +234,24 @@
     await ev(HELP);
   }
   // the plane at index k parked and its frame kept as tag; its height reading kept for the references
+  // the exact image reference at the current u: the lattice refined from ref.depth to at most ref.depthMax until ref.calm consecutive levels
+  // change no checked pixel (a feature thinner than a cell shows first at a deeper level). conv is the last pair's distance, firstConv the
+  // first pair's, calm the unchanged levels in a row; a result not calm for ref.calm levels is not converged
+  async function refine(sheets, ref) {
+    let rk = null, conv = null, firstConv = null, calm = 0, depth = ref.depth;
+    for (; depth <= ref.depthMax; depth++) {
+      if (depth > ref.depth) await ev('window.__lxPrev = window.__lxMasks');
+      await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(Object.assign({}, ref, { depth }))})`);
+      let st = { done: false };
+      for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+      rk = st.done ? st.res : null;
+      if (!rk) break;
+      if (depth > ref.depth) { conv = await ev(`__lxConv(${ref.slack})`); if (firstConv === null) firstConv = conv; calm = conv === 0 ? calm + 1 : 0; if (calm >= ref.calm) break; }
+    }
+    depth = Math.min(depth, ref.depthMax);
+    if (rk) Object.assign(rk, { depth, conv, firstConv, calm });
+    return { rk, conv, firstConv, calm, depth };
+  }
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
@@ -429,21 +450,18 @@
       // (the lattice is refined, REF.depth up to REF.depthMax, until REF.calm consecutive levels change no checked pixel (a feature thinner than a
       // cell shows first at a deeper level): conv is the last pair's distance, firstConv the first pair's, calm the unchanged levels in a row; the
       // frame is judged against the finest. A reference not converged at depthMax fails)
-      let rk = null, conv = null, firstConv = null, calm = 0, depth = REF.depth;
-      for (; depth <= REF.depthMax; depth++) {
-        if (depth > REF.depth) await ev('window.__lxPrev = window.__lxMasks');
-        await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(Object.assign({}, REF, { depth }))})`);
-        let st = { done: false };
-        for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
-        rk = st.done ? st.res : null;
-        if (!rk) break;
-        if (depth > REF.depth) { conv = await ev(`__lxConv(${REF.slack})`); if (firstConv === null) firstConv = conv; calm = conv === 0 ? calm + 1 : 0; if (calm >= REF.calm) break; }
-      }
-      if (rk) Object.assign(rk, { depth: Math.min(depth, REF.depthMax), conv, firstConv, calm });
+      const { rk, conv, firstConv, calm, depth } = await refine(sheets, REF);
       r[u].raster = rk;
       ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
       ok(`${t}: the reference is converged: ${REF.calm} levels in a row change no pixel within ${REF.slack} (depth ${rk ? rk.depth : '?'} of at most ${REF.depthMax}; last pair off ${conv}, first pair ${firstConv})`, !!rk && calm >= REF.calm, { depth: rk && rk.depth, conv, firstConv, calm });
-      if (/Roots as preimages/.test(t) && u === 0.002) ok(`${t}: the control: the shallow lattice (depth ${REF.depth}) is not converged here, its next level moves checked pixels (off ${firstConv})`, firstConv > 0, { firstConv });
+      if (/Roots as preimages/.test(t) && u === 0.002) {
+        // controls: a reference refined only over the SHALLOW levels is not converged (its pair still moves checked pixels), and
+        // a raster given too few levels is reported capped, so the relief check fails
+        const sh = await refine(sheets, Object.assign({}, REF, SHALLOW));
+        ok(`${t}: the control: the shallow reference (depth ${SHALLOW.depth} to ${SHALLOW.depthMax}) is not converged (calm ${sh.calm} of ${REF.calm}, first pair off ${sh.firstConv})`, sh.firstConv > 0 && sh.calm < REF.calm, sh);
+        const cp = await refine(sheets, Object.assign({}, REF, { depthMax: REF.depth, levels: LEVELS_CTL }));
+        ok(`${t}: the control: a raster with ${LEVELS_CTL} levels is reported capped`, !!cp.rk && cp.rk.capped === true, { rk: cp.rk });
+      }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
   }
