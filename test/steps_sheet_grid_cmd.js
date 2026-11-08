@@ -155,4 +155,20 @@ ok('the chosen style keeps the focus after the sheet is refilled', kept === 'gri
 await pickStyle('enhanced');
 const backTiles = await styleControls();
 ok('choosing Tiles again brings n back and takes the grid step away', backTiles.checked === 'enhanced' && backTiles.n && !backTiles.step, backTiles);
+// a control of the sheet that rebuilds the strips (the Landscape's Colouring, a segmented choice that is not the style row) keeps the
+// focus in the sheet, on the same choice, after the refill
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
+await settled({ max: 60000 });
+const focusAfter = async (sel) => {
+  await ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); b.focus(); b.click(); return 1; })()`);
+  await settled({ floor: SETTLE_FLOOR });
+  return ev(`(() => { const a = document.activeElement; return { tag: a && a.tagName, inSheet: !!(a && a.closest('.ph-sheet')), group: a && a.closest('[role="radiogroup"]') && a.closest('[role="radiogroup"]').id, v: a && a.dataset && a.dataset.v, checked: a && a.getAttribute('aria-checked') }; })()`);
+};
+await ev(`document.querySelector('.ph-dsp').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+const plaster = await focusAfter('.ph-sheet #landPaint [data-v="plaster"]');
+ok('pressing Plaster in the Landscape colouring keeps the focus on that segmented control\'s checked choice, inside the sheet', plaster.inSheet && plaster.group === 'landPaint' && plaster.checked === 'true', plaster);
+ok('after any refill the focus is not on the page body', plaster.tag !== 'BODY', plaster);
+const tilesAgain = await focusAfter('.ph-sheet #landPaint [data-v="tiles"]');
+ok('pressing Tiles in the Landscape colouring keeps the focus on it inside the sheet', tilesAgain.inSheet && tilesAgain.group === 'landPaint' && tilesAgain.v === 'tiles' && tilesAgain.checked === 'true', tilesAgain);
 return { pass: fails.length === 0, fails, info };
