@@ -518,9 +518,11 @@
       return C(bx.x0, bx.y1 - (s - 2 * W - Hh));
     };
     const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
+    // (the index of a plan's first multivalued op, or -1: the ops before it are the prefix P, the lifted coordinate is log P(z))
+    const mOf = (sh) => sh.plan.ops.findIndex((o) => o.kind === 'LOG' || o.kind === 'ROOTPOW');
     const gAt = (sh, pt) => {
-      const o = sh.plan.ops[0], u = pt.lam && first(o, pt.lam);
-      const w = u ? Inverse.fwdOps({ ops: sh.plan.ops.slice(1) }, u) : Inverse.fwdOps(sh.plan, pt.z);
+      const ops = sh.plan.ops, m = mOf(sh), u = pt.lam && m >= 0 && first(ops[m], pt.lam);
+      const w = u ? Inverse.fwdOps({ ops: ops.slice(m + 1) }, u) : Inverse.fwdOps(sh.plan, pt.z);
       return w;
     };
     const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
@@ -540,17 +542,37 @@
       }
       return { sum, on, bad: false };
     };
-    const lamOf = (sh, z) => { const o = sh.plan.ops[0]; return CX.log(z, o.p.theta, o.p.k); };
+    const lamOf = (sh, z) => { const m = mOf(sh), o = sh.plan.ops[m]; return CX.log(Inverse.fwdOps({ ops: sh.plan.ops.slice(0, m) }, z), o.p.theta, o.p.k); };
+    // the prefix as one Moebius matrix [a, b, c, d], or null when an op of it is not a Moebius or affine map
+    const prefixMat = (sh, m) => {
+      let M = [CX.ONE, CX.ZERO, CX.ZERO, CX.ONE];
+      for (const o of sh.plan.ops.slice(0, m)) {
+        const A = o.kind === 'MOB' ? o.p.m : o.kind === 'AFF' ? [o.p.a, o.p.b, CX.ZERO, CX.ONE] : null;
+        if (!A) return null;
+        M = [CX.add(CX.mul(A[0], M[0]), CX.mul(A[1], M[2])), CX.add(CX.mul(A[0], M[1]), CX.mul(A[1], M[3])), CX.add(CX.mul(A[2], M[0]), CX.mul(A[3], M[2])), CX.add(CX.mul(A[2], M[1]), CX.mul(A[3], M[3]))];
+      }
+      return M;
+    };
     return (() => {
       const probe = wIn && !opts.onLip && !opts.nearContour ? C(wIn[0], wIn[1]) : null;
       const ens = window.__cmwLandEnum([wIn || [0, 0]]), out = [];
       sheets.forEach((sh, k) => {
-        const o = sh.plan.ops[0], multi = o && (o.kind === 'LOG' || o.kind === 'ROOTPOW');
+        const mi = mOf(sh), o = sh.plan.ops[mi], multi = mi >= 0;
         let w = probe, status = 'ok', N = 0;
         try {
+          // (the prefix's preimages of 0 and of infinity: branch points of the lift, each with an eps-end when inside the box)
+          const M = multi ? prefixMat(sh, mi) : null;
+          if (multi && !M) throw new Error('prefix not injective');
+          const inBox = (z) => z && CX.isFin(z) && z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1;
+          const z0 = multi ? (CX.abs(M[0]) < 1e-14 ? null : CX.neg(CX.div(M[1], M[0]))) : null, zInf = multi ? (CX.abs(M[2]) < 1e-14 ? null : CX.neg(CX.div(M[3], M[2]))) : null;
+          const zeroIn0 = multi && inBox(z0), infIn = multi && inBox(zInf);
           // (where the sheet's cut ray leaves the origin: Im lam = hi, the cut lips are Im lam = lo and hi)
           const lo = multi ? o.p.lo : 0, hi = multi ? o.p.hi : 0;
-          const zeroIn = bx.x0 < 0 && 0 < bx.x1 && bx.y0 < 0 && 0 < bx.y1;
+          const zeroIn = zeroIn0;
+          if (sh.plan.ops.slice(mi + 1).some((x) => x.kind === 'LOG' || x.kind === 'ROOTPOW')) throw new Error('cutInR');
+          // (the prefix's image of the perimeter: its smallest and largest modulus size the eps-ends)
+          let rMin = Infinity, rMax = 0;
+          if (multi) for (let i = 0; i < 1024; i++) { const r = CX.abs(Inverse.fwdOps({ ops: sh.plan.ops.slice(0, mi) }, perim(Lp * i / 1024))); rMin = Math.min(rMin, r); rMax = Math.max(rMax, r); }
           // (the perimeter's crossings of the ray, by the jump of the windowed arg between neighbours)
           const cross = [];
           if (multi) {
@@ -568,10 +590,18 @@
           const lip = (r0, r1, im) => (t) => { const lr = r0 + (r1 - r0) * t, z = C(Math.exp(lr) * Math.cos(im), Math.exp(lr) * Math.sin(im)); return { z, lam: C(lr, im) }; };
           const arc = (s0, s1) => (t) => { const z = perim(s0 + (s1 - s0) * t); return { z, lam: multi ? lamOf(sh, z) : null }; };
           const pieces = [];   // [[piece fns...] per component]
+          const endArc = (re, im0, im1) => (t) => ({ z: C(0, 0), lam: C(re, im0 + (im1 - im0) * t) });
           if (!multi) pieces.push([[arc(0, Lp), Lp]]);
+          else if (infIn && !(zeroIn && !cross.length)) throw new Error('unsupported contour: the pole of the prefix inside the box with a cut crossing');
+          else if (infIn) {
+            // (0 and infinity both in the prefix's image of the box, the cut not crossing its boundary: the strip between the eps-ends, lip to lip,
+            // with the image of the boundary as its hole)
+            const le = Math.log(WIND_EPS_R * rMin), lb = Math.log(rMax / WIND_EPS_R);
+            pieces.push([[arc(0, Lp), Lp]], [[lip(le, lb, lo), lb - le], [endArc(lb, lo, hi), hi - lo], [lip(lb, le, hi), lb - le], [endArc(le, hi, lo), hi - lo]]);
+          }
           else if (!cross.length) pieces.push([[arc(0, Lp), Lp]]);
           else if (zeroIn) {
-            const c0 = cross[0], rc = CX.abs(perim(c0.s)), eps = WIND_EPS_R * Math.hypot(W, Hh), lr = Math.log(rc), le = Math.log(eps);
+            const c0 = cross[0], rc = CX.abs(Inverse.fwdOps({ ops: sh.plan.ops.slice(0, mi) }, perim(c0.s))), eps = mi === 0 ? WIND_EPS_R * Math.hypot(W, Hh) : WIND_EPS_R * rMin, lr = Math.log(rc), le = Math.log(eps);
             pieces.push([[(t) => { const z = perim(c0.s + Lp * t); const l = lamOf(sh, z); return { z, lam: l.im <= lo + 1e-9 && t > 1 - 1e-9 ? C(l.re, hi) : l }; }, Lp], [lip(lr, le, hi), lr - le], [(t) => { const im = hi + (lo - hi) * t; return { z: C(eps * Math.cos(im), eps * Math.sin(im)), lam: C(le, im) }; }, hi - lo], [lip(le, lr, lo), lr - le]]);
           } else {
             // (0 outside the box and the ray through it: each piece of the boundary between two crossings with the lip back along the ray)
