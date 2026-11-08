@@ -1,8 +1,7 @@
 // Phase's colour key is always on the plot, top right (#365): no hover, no click to keep it open, no toggle. On a laptop
 // (en, ru and it at 1440 px, ru at 1100 px): in Phase and Phase's sphere the key's canvas is shown at once, inside the
 // plot's top right corner and clear of the readout, the empty chip and the notes; a click on it leaves it open; in
-// Landscape the height key is the head's chip again and, back in Phase, the key is on the plot. (X → Y is the classic
-// view's, in phase_key_classic_cmd.js.)
+// Landscape the height key is the head's chip again and, back in Phase, the key is on the plot.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/phase_key_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = { rows: [] };
@@ -32,6 +31,5 @@ for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) 
       ok(`${tag}: Landscape: the chip is named for the height key, not the colour key`, r.aria.length > 2 && r.aria !== phaseAria && (lang || !/Colour/.test(r.aria)) && (lang || /^Height key/.test(r.aria)), { aria: r.aria, phaseAria });
     }
   }
-  // (the classic X → Y view, where X's key is hidden, is in phase_key_classic_cmd.js)
 }
 return { pass: fails.length === 0, fails, info: { n: info.rows.length, sample: info.rows.slice(0, 4) } };

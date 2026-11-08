@@ -150,7 +150,7 @@
   // Inspector on screen, the default ray 1/3 or level 1.1 is added)
   function dhFocusAdd(k, kind) {
     selected = null; zpSel = null;
-    setSel(k); syncSel(); buildShapeList(); requestRender('P');
+    setSel(k); buildShapeList(); requestRender('P');
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = /** @type {HTMLInputElement | null} */ (document.getElementById(`dh${k}_${kind}`));
       if (el && el.getClientRects().length) { el.focus(); el.select(); } else dhAddShape(k, kind, kind === 'dhray' ? '1/3' : '1.1');
@@ -404,7 +404,7 @@
     if (dt) setTargets([]);
     if (ds) shapesChanged(true);
     if (dt) targetsChanged(true);
-    buildPipeline(); commit();
+    chainRebuilt(); commit();
     undoToast(ds && dt ? $t('Shapes and targets cleared.') : ds ? $t('Shapes cleared.') : $t('Targets cleared.'));
   }
   function buildShapeList() {
@@ -584,6 +584,44 @@
       const eye = r.row && r.row.querySelector('.eye');
       if (eye) eye.disabled = !!s.undef;
     }
+  }
+  // dragging horizontally on a label changes a numeric field
+  function scrubbable(label, input, step, isInt) {
+    label.classList.add('scrub');
+    label.title = (label.title ? label.title + ' · ' : '') + $t('drag to change');
+    label.style.touchAction = 'pan-y'; // a sideways touch scrubs instead of scrolling the chain
+    label.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      const x0 = e.clientX, v0 = Number(input.value) || 0;
+      let moved = 0;
+      try { label.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+      const move = (ev) => {
+        const dx = ev.clientX - x0;
+        moved = Math.max(moved, Math.abs(dx));
+        let v = v0 + Math.round(dx / (ev.shiftKey ? 12 : 4)) * step;
+        if (isInt) v = Math.round(v);
+        if (input.min !== '' && v < +input.min) v = +input.min;
+        if (String(v) !== input.value) { input.value = +v.toFixed(6); input.dispatchEvent(new Event('input')); }
+      };
+      // an ended, cancelled or lost pointer all finish the scrub once: what it applied is committed
+      const ends = ['pointerup', 'pointercancel', 'lostpointercapture'];
+      const up = () => {
+        label.removeEventListener('pointermove', move);
+        for (const t of ends) label.removeEventListener(t, up);
+        // after a real scrub, the click that follows would activate the label and focus the field, where ⌘Z is
+        // the field's own (empty) undo: swallow that one click, so the app's undo takes back the scrub
+        if (moved > 2) {
+          const swallow = (ce) => { ce.preventDefault(); ce.stopPropagation(); };
+          label.addEventListener('click', swallow, { capture: true, once: true });
+          setTimeout(() => label.removeEventListener('click', swallow, { capture: true }), 0);
+          if (document.activeElement === input) input.blur();
+        }
+        input.dispatchEvent(new Event('change'));
+      };
+      label.addEventListener('pointermove', move);
+      for (const t of ends) label.addEventListener(t, up);
+    });
   }
   function shapeEditor(s) {
     const box = h('div', { class: 'shape-edit' });
