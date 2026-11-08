@@ -1,8 +1,6 @@
 // The layout fixes of #483 (the first layout-invariants report, #470), each measured as the report found it: the panes' tabs
-// are not cut; the mesh presets are 24 px targets clear of the slider; the chain's connector label clears the + under it; the
-// deformation bracket's ends are 24 px wide and not over the labels; a phone sheet's grab handle does not reach into its title;
-// the deformation dock's tick labels are not drawn on a phone (the marks stay, the dock keeps its height); the sphere's hint
-// wraps instead of being cut; the phone menu rows' and the export caption's focus rings are drawn inside their boxes.
+// are not cut; the mesh presets are 24 px targets clear of the slider; a phone sheet's grab handle does not reach into its title;
+// the sphere's hint wraps instead of being cut; the phone menu rows' and the export caption's focus rings are drawn inside their boxes.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/layout_483_cmd.js
 // Prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -33,17 +31,6 @@ for (const lang of ['en', 'ru']) {
   await ev(`(document.getElementById('settingsBtn') || [...document.querySelectorAll('button')].find((x) => /Settings|Настройки/i.test(x.getAttribute('aria-label') || x.textContent))).click(); 1`); await settle(600);
   const m = await ev(`(() => { const rg = document.getElementById('meshRange'); if (!rg || !rg.getClientRects().length) return null; const R = rg.getBoundingClientRect(); const bs = [...document.querySelectorAll('#meshPresets button')].map((b) => { const r = b.getBoundingClientRect(); return { w: +r.width.toFixed(1), h: +r.height.toFixed(1), top: +r.top.toFixed(1) }; }); return { rangeH: +R.height.toFixed(1), rangeBottom: +R.bottom.toFixed(1), bs }; })()`);
   ok(`${lang}: the mesh slider and its presets are 24 px targets, the presets below the slider`, !!m && m.bs.length === 5 && m.rangeH >= 23.9 && m.bs.every((b) => b.w >= 23.9 && b.h >= 23.9 && b.top >= m.rangeBottom - 0.5), m);
-}
-// 6 and 4. the chain at 1440 and 1024: the connector's label clears the +; with the deformation open, the bracket's ends are
-// 24 px wide at least and above the labels (not over them)
-for (const w of [1440, 1280, 1024]) {
-  await open(w, 800);
-  const c = await ev(`(() => { const ov = ${OV}; const pl = document.getElementById('pipeline'); const hits = []; for (const a of pl.querySelectorAll('button.conn-add')) for (const e of pl.querySelectorAll('.conn-var i, .conn-var sub')) { if (!e.getClientRects().length) continue; const o = ov(a, e); if (o) hits.push([e.textContent, ...o]); } return hits; })()`);
-  ok(`${w}: the connector labels clear the + under them`, c.length === 0, c);
-  await ev('__cmwMorph({ open: true }); 1'); await settle(1200);
-  const br = await ev(`(() => { const ov = ${OV}; const pl = document.getElementById('pipeline'); const ends = [...document.querySelectorAll('.br-end')]; const hits = []; for (const e of ends) for (const t of pl.querySelectorAll('.conn-var i, .conn-var sub')) { if (!t.getClientRects().length) continue; const o = ov(e, t); if (o) hits.push([e.className.replace('br-end ', ''), t.textContent, ...o]); } return { n: ends.length, w: ends.map((e) => +e.getBoundingClientRect().width.toFixed(1)), hits }; })()`);
-  ok(`${w}: the bracket's ends are 24 px wide at least and not over the labels`, br.n === 2 && br.w.every((x) => x >= 23.9) && br.hits.length === 0, br);
-  info[`bracket ${w}`] = br.w;
 }
 // 3b. the Editor's head is its 18 px bar, so its title row drags the sheet where nothing in it can be pressed: a press on an empty part of
 // the Inspector's .ihead and a drag up opens the sheet to its full height (and a drag that starts on the title button does not)
@@ -82,13 +69,6 @@ for (const lang of ['en', 'ru']) {
   await ev(`__cmwSetView('R', 'sphere'); 1`); await settle(1800);
   const h = await ev(`(() => { const c = document.getElementById('rightReadout'); if (!c || !c.getClientRects().length) return null; const r = c.querySelector('.rhint'); return { text: c.textContent.length, sw: c.scrollWidth, cw: c.clientWidth, sh: c.scrollHeight, ch: c.clientHeight, ws: getComputedStyle(c).whiteSpace, hint: !!r }; })()`);
   ok(`740x360 ${lang}: the sphere's hint is whole (wrapped, not cut)`, !!h && h.hint && h.sw <= h.cw + 1 && h.sh <= h.ch + 1, h);
-}
-// 2. the deformation dock on a phone: no tick text over the readout or the slider, the marks stay, the dock keeps its height
-for (const [w, h, dockH] of [[360, 740, 110], [740, 360, 52]]) {
-  await open(w, h, 'en', true);
-  await ev('__cmwMorph({ open: true }); 1'); await settle(1800);
-  const d = await ev(`(() => { const ov = ${OV}; const dock = document.getElementById('tdockR'); if (!dock || !dock.getClientRects().length) return null; const texts = [...dock.querySelectorAll('.ttick, .ttick i, .ttick sub')].filter((e) => e.getClientRects().length && e.getBoundingClientRect().height > 0); const ctl = [...dock.querySelectorAll('input[type=range], .tread')].filter((e) => e.getClientRects().length); const hits = []; for (const t of texts) for (const c of ctl) { const o = ov(t, c); if (o) hits.push([t.textContent, c.id || c.className, ...o]); } return { h: Math.round(dock.getBoundingClientRect().height), texts: texts.length, marks: [...dock.querySelectorAll('.ttick')].map((t) => getComputedStyle(t, '::before').height), hits }; })()`);
-  ok(`${w}x${h}: the dock's tick text is not over the readout or the slider, its marks stay, its height is ${dockH}`, !!d && d.hits.length === 0 && d.texts === 0 && d.marks.length >= 2 && d.marks.every((m) => m === '8px') && d.h === dockH, d);
 }
 // 8b. the export dialog's caption: its focus ring is inside the box
 await open(1024, 800);

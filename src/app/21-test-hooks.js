@@ -25,7 +25,7 @@
       return;
     }
     if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
-    S[k] = v; if (k === 'meshN') { dropAllGPU(); } if (k === 'exactImages') scheduleFix(); requestRender('L', 'R', 'T');
+    S[k] = v; if (k === 'meshN') { dropAllGPU(); } if (k === 'exactImages') scheduleFix(); requestRender('L', 'R');
   };
   // U-b: the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
@@ -75,7 +75,7 @@
   };
   // shape ids that draw forward whatever their eligibility (mixed-path tests); [] clears
   window.__cmwHideStrokes = (on) => { hideStrokes = !!on; requestRender('L', 'R'); return hideStrokes; };
-  window.__cmwForceForward = (ids) => { forceFwd.clear(); for (const id of ids || []) forceFwd.add(id); scheduleFix(); requestRender('L', 'R', 'T'); return [...forceFwd]; };
+  window.__cmwForceForward = (ids) => { forceFwd.clear(); for (const id of ids || []) forceFwd.add(id); scheduleFix(); requestRender('L', 'R'); return [...forceFwd]; };
   // the plane point w under a Sphere-view pixel (CSS px of the right pane), null off the globe
   window.__cmwSphereW = (x, y) => { const w = pickSphere(paneR, camS, x, y); return w ? [w.re, w.im] : null; };
   // the level predictLevel would give the right pane's passes (13.14's estimate; no longer a floor) and its estimate
@@ -123,17 +123,14 @@
   };
   // (-> whether example i is now the current one: false past the last example)
   window.__cmwExample = (i) => { loadExample(i); return currentExample === i; };
-  // v15 (test/v15_desktop_cmd.js): the cards' kind and pictures (each card's view, size and whether it is final), the
-  // selection, the temporary Inspector; __cmwCardsNow() draws the cards at once (no wait for a quiet moment)
-  window.__cmwCards = () => ({ kind: cardKind(), sel: selOf(), focus: S.focus, temp: tempInsp, cards: [...thumbs].map(([k, p]) => { const c = p.canvas.closest('.card'); return { k, sig: p.sig || null, view: Object.assign({}, p.view), w: p.w, h: p.h, dpr: p.dpr, stale: !!(c && c.classList.contains('stale')), t: kindOfT(k) }; }), main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
-  const kindOfT = (k) => (cardKind() === 'def' ? cardT(k) : null);
+  // the selection, the step shown alone, the temporary Inspector and X's view
+  window.__cmwCards = () => ({ sel: selOf(), focus: S.focus, temp: tempInsp, main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
   // (#235: what the Cauchy style draws from, and a switch to draw the quadrature where the formula holds)
   /** @type {any} */ (window).__cmwCauchy = () => { const cp = cauchyPlot(); return cp ? { name: cp.name, formula: !!(cp.plan && cp.plan.ok), fast: !!(cp.plan && cp.plan.fast), why: cp.plan && !cp.plan.ok ? cp.plan.why : null, poles: cp.plan && cp.plan.ok ? cp.plan.poles.map((q) => ({ z: [q.z.re, q.z.im], order: q.order, n: q.n })) : [] } : null; };
   /** @type {any} */ (window).__cmwCauchyQuad = (v) => { INT.setCauchyQuad(v); requestRender('L'); };
   // (the Cauchy style's draw time: n frames of the left pane, each read back so the GPU has finished; ms per frame)
   /** @type {any} */ (window).__cmwCauchyBench = (n) => { const g = GLR.gl, px = new Uint8Array(4), t0 = performance.now(); for (let i = 0; i < n; i++) { renderColor(paneL); g.readPixels(0, 0, 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); } return (performance.now() - t0) / n; };
   /** @type {any} */ (window).__cmwCauchyOpt = (show, plus) => { setOpt('cauchyShow', show); setOpt('cauchyPlus', !!plus); requestRender('L'); save(); };
-  window.__cmwCardsNow = () => { lastInputT = 0; clearTimeout(thumbT); renderThumbs(); return true; };
   // P3 (SPEC 10.6, 12.4 (h)): the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
   // panel drawn off-screen at print size (a PNG data URL)
   window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L', 'R'], widthIn: 7, caption: false }, opt || {}));
@@ -151,8 +148,8 @@
     } finally { morph.T = T0; }
     return F ? pts.map((q) => { const w = F(C(q[0], q[1])); return CX.isFin(w) ? [w.re, w.im] : null; }) : null;
   };
-  window.__cmwRange = () => ({ stored: S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null, ok: homRangeOk(), stops: HR.stops(S), start: rangeStart('text'), parts: rangeParts(), cards: [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card[data-k]'))].map((c) => [+c.dataset.k, cardT(+c.dataset.k)]) });
-  window.__cmwMorph = (o) => { if (o && 'range' in o) setHomRange(o.range, { preview: !!o.preview }); if (o && o.open != null) { if (o.open) openTransport(); else closeTransport(); } if (o && o.T != null) { morph.T = o.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } if (o && o.playing != null) { morph.playing = !!o.playing; setPlayIcon(); requestRender('R'); } return { open: morph.open, T: morph.T, playing: morph.playing, on: morphOn() }; };
+  window.__cmwRange = () => ({ stored: S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null, ok: homRangeOk(), stops: HR.stops(S), start: rangeStart('text'), parts: rangeParts() });
+  window.__cmwMorph = (o) => { if (o && o.togglePlay) togglePlay(); if (o && 'range' in o) setHomRange(o.range, { preview: !!o.preview }); if (o && o.open != null) { if (o.open) openTransport(); else closeTransport(); } if (o && o.T != null) { morph.T = o.T; morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } if (o && o.playing != null) { morph.playing = !!o.playing; requestRender('R'); } return { open: morph.open, T: morph.T, playing: morph.playing, on: morphOn() }; };
   // (#246) the step glide: press ‹ (d -1) or › (+1) as the phone's chain row does; read where it is
   /** @type {any} */ (window).__cmwGlide = (d) => { if (d) glideStep(d); return { open: morph.open, T: trans.glide ? glide.x : morph.T, x: glide.x, v: glide.v, target: glide.target, moving: glide.moving(), since: glide.since, max: morphLen(), playing: morph.playing, peek: trans.glide, at: trans.at, stage: rightStage(), yHtml: yHtml() }; };
   window.__cmwMorphSel = async (o) => { if (!morphOn()) return null; const t0 = performance.now(); const sel = await morphSelScreenNow(paneR, !!(o && o.force)); const wall = performance.now() - t0; if (!sel) return null; const end = S.focus > 0 ? S.focus : nSteps(); const base = S.focus > 0 ? S.focus - 1 : 0; return { ms: sel.ms, wall, budget: sel.budget, n: sel.kept.length, nCands: sel.nCands, kept: sel.kept.map((k) => { const w = stageF(end)(k.sp.z), w0 = stageF(base)(k.sp.z), a = k.s[0].w, b = k.s[k.s.length - 1].w; return { z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], path: k.l, F: [w.re, w.im], W0: [w0.re, w0.im], Ws: [a.re, a.im], We: [b.re, b.im], meet: !!k.meet }; }), log: sel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) }; };
@@ -353,13 +350,23 @@
   // (#846) the last Landscape frame's Inside-regions mask at the point (x, y) of its plane: 0 to 1 (1: in the carried
   // region set), null outside its box or with no mask
   window.__cmwLandMask = (x, y) => landMaskAlpha(render3D.mask, x, y);
+  // a Landscape frame's pane position (CSS px) of the place (x, y) of its box at height h: pk {box, info, w, h}
+  const landWorldPx = (pk, x, y, h) => {
+    const b = pk.box, [ax, ay] = pk.info.aspect;
+    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
+  };
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
   window.__cmwLandSurfacePx = (x, y) => {
-    const pk = render3D.pick, b = pk && pk.box;
+    const pk = render3D.pick;
     if (!pk || !pk.info) return null;
-    const w = pk.F(C(x, y)), [ax, ay] = pk.info.aspect;
-    const h = pk.info.heightOf(landValue(w));
-    return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
+    const w = pk.F(C(x, y));
+    return landWorldPx(pk, x, y, pk.info.heightOf(landValue(w)));
+  };
+  // the last Landscape frame's pane position (CSS px) of the floor point under the place (x, y) of its box (the plane the
+  // frame draws, carried or at rest), null when no frame is drawn
+  window.__cmwLandFloorPx = (x, y) => {
+    const f = render3D.floor;
+    return f ? landWorldPx(f, x, y, f.info.floorZ) : null;
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
