@@ -75,7 +75,13 @@ for (const sc of SCENES) {
   for (const x of sc.xs) {
     const key = `${sc.name}@${x}`;
     if (ONLY && !ONLY.test(key)) continue;
-    const a = await record(sc, x), b = await record(sc, x);
+    let a = await record(sc, x), b = await record(sc, x);
+    // (a load that disagrees with both of two others is the odd one out: the frame count of a software renderer's run varies)
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      const c = await record(sc, x);
+      if (JSON.stringify(c) === JSON.stringify(a)) b = c;
+      else if (JSON.stringify(c) === JSON.stringify(b)) a = b;
+    }
     records[key] = a;
     if (RAW) {
       fs.mkdirSync(RAW, { recursive: true });

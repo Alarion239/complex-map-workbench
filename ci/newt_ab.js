@@ -73,7 +73,7 @@ const diff = (a, b) => {
 let code = 0;
 try {
   const A = record('base', tree('base', BASE, true));
-  const B = record('head', tree('head', null, false));
+  const B = record('head', tree('head', null, true));
   const C = argv.includes('--no-control') ? null : record('control', tree('control', null, false, (s) => s.split(CAP).join(CAP_CONTROL)));
   const ab = diff(A.rec, B.rec), ac = C ? diff(A.rec, C.rec) : null;
   console.log(`A/B: ${ab.n} targets compared, ${ab.d.length} differ${ab.d.length ? ': ' + ab.d.slice(0, 20).join('; ') : ''}`);
