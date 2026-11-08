@@ -828,7 +828,7 @@
     render3D.frameHeight = info ? info.heightOf : undefined;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.scale = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.scale = undefined; render3D.mix = undefined; render3D.exactIn = undefined; render3D.frameHeight = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read

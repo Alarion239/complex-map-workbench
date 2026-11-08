@@ -385,7 +385,7 @@
   // (one byte a pixel, w x h; 255 where the relief covers the pixel), and the frame then drawn again as before. -> { w, h, n: covered pixels },
   // or null with no Landscape frame
   window.__cmwLandRelief = () => {
-    const cv = document.getElementById('canvasL');
+    const cv = /** @type {any} */ (document.getElementById('canvasL'));
     if (!cv) return null;
     const keep = { artMode, artRelief };
     try {
