@@ -555,55 +555,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
-  function drawInverse(st) {
-    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe';
-    const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
-    if (!rec || !rec.ok) return 'error';
-    const look = st.look || {};
-    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
-    // globe)
-    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
-    let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
-    // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
-    // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
-    // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
-    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider), else
-    // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
-    const defer = st.motion || st.coldOk === false;
-    if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
-      const alt = st.inv ? null : invAltProgram(B, globe, extra, true);
-      if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
-      else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
-    }
-    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
-    if (pr.state !== 'ready') return 'error';
-    const P = pr.P, inv = st.inv || cur.info.inverse;
-    P.warm = true;
-    const d = passData(inv, st.plan, st.prep);
-    if (!d.ok) return 'error';
-    const map = st.map || {};
-    // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
-    // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
-    let half = !!st.half && !globe;
-    if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
-    // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
-    const pre = !!st.halfPre && preActive;
-    if (st.halfPre && (!pre || !half)) return 'nohalf';
-    if (globe || !half) flushHalf();
-    const hw = half ? Math.max(1, Math.ceil(fw / 2)) : fw, hh = half ? Math.max(1, Math.ceil(fh / 2)) : fh;
-    gl.useProgram(P.p);
-    if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
-    else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
-    if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
-    u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
-    // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
-    if (P.loc.uNrRead) {
-      const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;
-      u1i(P, 'uNrRead', R ? 1 : 0);
-      if (R) nrBind(nrSets[R.set], R.n);
-    }
+  // the uniforms of one inverse pass: the plan data d (passData), the shape rec, the look and the program extra
+  function bindInverse(P, st, d, rec, look, extra) {
     if (P.loc.uIxRef) gl.uniform2fv(P.loc.uIxRef, d.ref);
     if (P.loc.uIxN) gl.uniform1iv(P.loc.uIxN, d.N);
     if (P.loc.uIxRK) gl.uniform1iv(P.loc.uIxRK, d.RK);
@@ -679,6 +632,57 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       bindLut(P);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
+  }
+  function drawInverse(st) {
+    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
+    const globe = st.viewKind === 'globe';
+    const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
+    if (!rec || !rec.ok) return 'error';
+    const look = st.look || {};
+    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
+    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
+    // globe)
+    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
+    // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
+    // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
+    // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
+    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider), else
+    // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
+    const defer = st.motion || st.coldOk === false;
+    if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
+      const alt = st.inv ? null : invAltProgram(B, globe, extra, true);
+      if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
+      else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
+    }
+    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
+    if (pr.state !== 'ready') return 'error';
+    const P = pr.P, inv = st.inv || cur.info.inverse;
+    P.warm = true;
+    const d = passData(inv, st.plan, st.prep);
+    if (!d.ok) return 'error';
+    const map = st.map || {};
+    // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
+    // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
+    let half = !!st.half && !globe;
+    if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
+    // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
+    const pre = !!st.halfPre && preActive;
+    if (st.halfPre && (!pre || !half)) return 'nohalf';
+    if (globe || !half) flushHalf();
+    const hw = half ? Math.max(1, Math.ceil(fw / 2)) : fw, hh = half ? Math.max(1, Math.ceil(fh / 2)) : fh;
+    gl.useProgram(P.p);
+    if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
+    else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
+    if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
+    u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
+    // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
+    if (P.loc.uNrRead) {
+      const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;
+      u1i(P, 'uNrRead', R ? 1 : 0);
+      if (R) nrBind(nrSets[R.set], R.n);
+    }
+    bindInverse(P, st, d, rec, look, extra);
     if (globe) {
       // (the scissor of the image's w-box on the sphere, globeScissorOf: device px of the pane, intersected with the
       // pane's own scissor)
