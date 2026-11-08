@@ -8,9 +8,6 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const SETTLE_MS = 20000, LOAD_MS = 40000, GLIDE_MS = 120000, END_MS = 240000;
 const FREEZE_CLOCK_MS = 0.0001, GLIDE_CLOCK_MS = 40, FREEZE_X = 1.2, END_EPS = 1e-6, PLANE_EPS = 1e-9;
 const CH_TOL = 8, U_EPS = 1e-4, PX_EQUAL_MAX = 0, CTRL_MIN_FRAC = 0.05;
-// (the left edge of the pane, where the plot's values are largest: measured across the Split, every differing pixel (0.17 % of
-// the pane) lies in the first EDGE_BAND_PX columns, 9 % of that band; the rest of the pane is equal)
-const EDGE_BAND_PX = 16, EDGE_BAND_MAX_FRAC = 0.2;
 const fails = [], info = {};
 let pass = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got }); };
@@ -36,20 +33,23 @@ const diff = (a, b, x0 = 0, x1 = a.w) => { if (a.w !== b.w || a.h !== b.h) retur
 const where = (a, b) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1, mx = 0; for (let j = 0; j < a.data.length; j += a.ch) { const d = Math.max(Math.abs(a.data[j] - b.data[j]), Math.abs(a.data[j + 1] - b.data[j + 1]), Math.abs(a.data[j + 2] - b.data[j + 2])); if (d > CH_TOL) { const p = j / a.ch, x = p % a.w, y = Math.floor(p / a.w); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); mx = Math.max(mx, d); } } return [x0, y0, x1, y1, mx]; };
 const splitNow = async () => { await clickSel('#svStrip .sv-step[data-k="2"] .sv-fchip'); await until("!!document.querySelector('#propsPanel .split-offer .so-btn')"); await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 6'); };
 await open();
+const restWin = (await sv()).win;
 info.q0 = await ev('(() => { const q = __cmwSteps(); return { homAll: q.homAll, span: q.span, x: q.x, planes: q.planes, anim: q.anim }; })()');
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
 info.q1 = await ev('(() => { const q = __cmwSteps(); return { span: q.span, x: q.x, all: q.all, anim: q.anim && { from: q.anim.from, to: q.anim.to, ms: q.anim.ms } }; })()');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const x0 = (await sv()).x;
 const g0 = await pane(), p0 = await sv();
+// (no Split: a glide moves the picture, never the view, so the window mid-glide is the one at rest on plane 0)
+ok('the window mid-glide is the camera at rest, with no Split', JSON.stringify(p0.win) === JSON.stringify(restWin) && p0.x > FREEZE_X, [restWin, p0.win, p0.x]);
 await splitNow();
 const g1 = await pane(), p1 = await sv();
-info.x = [x0, p0.x, p1.x]; info.win = [p0.win, p1.win]; info.idx = [p0.i, p1.i]; info.px = diff(g0, g1, EDGE_BAND_PX); info.edgePx = diff(g0, g1, 0, EDGE_BAND_PX); info.where = where(g0, g1); info.area = g0.w * g0.h;
+info.x = [x0, p0.x, p1.x]; info.win = [p0.win, p1.win]; info.idx = [p0.i, p1.i]; info.px = diff(g0, g1); info.where = where(g0, g1); info.area = g0.w * g0.h;
 info.span = await ev('__cmwSteps().span');
 ok('the span is remapped to [0, 5] and carries the split steps as a group', !!info.span && info.span.x0 === 0 && info.span.x1 === 5 && !!info.span.grp && info.span.grp.n === 3, info.span);
 ok('the glide keeps its progress u (x 0..3 → 0..5)', Math.abs(p1.x / 5 - x0 / 3) < U_EPS, [x0, p1.x]);
-ok('the frame after the Split equals the frame before outside the left edge band (the exact plot at the same u)', info.px >= 0 && info.px <= PX_EQUAL_MAX, [info.px, info.where]);
-ok('the left edge band stays within its measured residual', info.edgePx >= 0 && info.edgePx <= EDGE_BAND_MAX_FRAC * EDGE_BAND_PX * g0.h, [info.edgePx, g0.h]);
+ok('the frame after the Split equals the frame before (the exact plot at the same u)', info.px >= 0 && info.px <= PX_EQUAL_MAX, [info.px, info.where]);
+ok('the left pane shows the same window across the Split (the ruler follows the plot)', JSON.stringify(p0.win) === JSON.stringify(p1.win), info.win);
 // the glide goes on to its plane, then the next glide uses the sub-steps: no group
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
 await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS); await quiet();
