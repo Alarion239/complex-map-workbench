@@ -29,9 +29,16 @@ const measureMore = () => ev(`(() => {
   const clip = (r) => ({ left: Math.max(r.left, sb.left), right: Math.min(r.right, sb.right), top: Math.max(r.top, sb.top), bottom: Math.min(r.bottom, sb.bottom) });
   const under = [...sheet.querySelectorAll('button, input, select, [role="button"]')].filter(vis).filter((e) => { const c = clip(e.getBoundingClientRect()); return c.bottom > c.top + 1 && c.right > c.left + 1 && inter(c, tb); }).map((e) => e.id || e.className.split(' ')[0] || e.tagName);
   const btns = [...t.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, at = document.elementFromPoint(x, y); return { t: b.textContent.trim() || b.className, hit: !!at && (at === b || b.contains(at)) }; });
-  return { sheet: [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), head: hb && [hb.top, hb.bottom].map(Math.round), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), under, open: sheet.classList.contains('open'),
+  const txt = t.querySelector(':scope > span'), cut = txt ? txt.scrollWidth - txt.clientWidth : null;
+  const rg = document.createRange(); if (txt) rg.selectNodeContents(txt);
+  const lines = txt ? new Set([...rg.getClientRects()].map((r) => Math.round(r.top))).size : null;
+  return { sheet: [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), head: hb && [hb.top, hb.bottom].map(Math.round), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), under, open: sheet.classList.contains('open'), cut, lines,
     win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, btns };
 })()`);
+// the toast's words wrap at a phone's width rather than being cut (#1329, ux's ruling): the text span may overflow by at most one
+// pixel, and its text is at most two lines (lines = distinct line tops of its text); English, which fits on one line at 360 px,
+// keeps the one-line control
+const CUT_MAX = 1, TOAST_MAX_LINES = 2, PHONE_360 = [360, 640];
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   await fresh(w, h, lang);
@@ -47,5 +54,10 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   ok(`${tag}: the toast covers none of its controls`, m.under.length === 0, { under: m.under, sheet: m.sheet, toast: m.toast });
   ok(`${tag}: the toast is inside the window`, m.win, { toast: m.toast });
   ok(`${tag}: its buttons can be pressed`, m.btns.length >= 1 && m.btns.every((b) => b.hit), m.btns);
+  if (w === PHONE_360[0] && h === PHONE_360[1] && lang !== 'en') {
+    ok(`${tag}: the message's words are not cut`, m.cut !== null && m.cut <= CUT_MAX, { cut: m.cut });
+    ok(`${tag}: the message is at most two lines of text`, m.lines !== null && m.lines <= TOAST_MAX_LINES, { lines: m.lines });
+  }
+  if (w === PHONE_360[0] && h === PHONE_360[1] && lang === 'en') ok(`${tag}: the message stays one line (control)`, m.lines === 1, { lines: m.lines });
 }
 return { pass: fails.length === 0, fails, info };
