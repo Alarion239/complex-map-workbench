@@ -667,7 +667,6 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     P.warm = true;
     const d = passData(inv, st.plan, st.prep);
     if (!d.ok) return 'error';
-    const map = st.map || {};
     // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
     // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
     let half = !!st.half && !globe;
