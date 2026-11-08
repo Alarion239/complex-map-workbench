@@ -169,6 +169,10 @@
     ok('the layer check fails a colour off by twice the tolerance', layerGap({ h: 0.3, f: [Math.cos(a), Math.sin(a)] }, m).ph, null);
     ok('the layer check counts a layer without F', layerGap({ h: 0.3 }, m).noF, null);
   }
+  // a layer's match with the enumerator's members is ambiguous when more than one member fits its z and height: the check fails rather than pick one
+  const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
+  ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
+  ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   await view(VIEW_W, VIEW_H, false, false);
   for (const c of CASES) for (const sheets of MODES) {
@@ -241,6 +245,8 @@
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh, atNoF });
+      const amb = ambiguous(got.flat().concat(cgot.flat()));
+      ok(`${t}: no layer's z and height fit more than one member (the hook's z match is not ambiguous; ${amb} layers)`, amb === 0, { amb });
       // the off-centre case tells the rules apart: at some probe place the member of smallest depth key over the sheets lies on another
       // sheet than the frame's own front member, so a front-by-D rule picks a different member there (and fails the front check above)
       if (c.offCentre && !sheets && first) {
