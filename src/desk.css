@@ -665,7 +665,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-title .sv-role { font: 400 13px/1 var(--f-ui); color: var(--muted); }
 .sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-/* (the strip's top 10 px and bottom 6 px padding stay as they are: they set the rail's clearance from the ruler (at least 8 px, 6 on a phone) and sit it on the 34 px chips; the 6 px between a plane's name and its node keeps the thread's ring clear of the name; none is part of the control-to-control rhythm) */
+/* (the strip's top 10 px and bottom 6 px padding stay as they are: they set the rail's clearance from the ruler (at least 8 px, 6 on a phone) and sit it on the 34 px chips; the 6 px between a plane's name and its node keeps the thread's ring clear of the name, and the 6 px between a function chip's letter and its name keeps the subscript off the name; none is part of the control-to-control rhythm) */
 .sv-strip { position: relative; display: flex; align-items: stretch; gap: var(--s-4); flex: 0 0 auto; min-width: 0; height: 68px; margin-top: var(--s-4); padding: 10px var(--s-4) 6px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
 .sv-nav:disabled { opacity: .4; cursor: default; }
@@ -689,7 +689,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-strip.sv-measure .sv-step { flex: 0 0 auto; }
 .sv-strip.sv-letters .sv-fchip .sv-fn { display: none; }
 .sv-strip.sv-letters .sv-fwrap .sv-fchip { min-width: 24px; justify-content: center; padding: 0 2px 0 var(--s-4); }
-.sv-fchip, .sv-wholemap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-5); font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
+.sv-fchip, .sv-wholemap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--s-5); font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
 .sv-fchip:hover, .sv-wholemap:hover { border-color: var(--accent); }
 /* the whole-map chip is the round F alone (its words are its label and tip), after the rail: in view and pressable at rest however
    long the thread, and never over a plane or a chip */
