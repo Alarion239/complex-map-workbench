@@ -117,11 +117,13 @@
   window.__lxRasterStart = (sheets, g) => { window.__lxRun = lxRaster(sheets, g); return 1; };
   window.__lxRasterStep = (ms) => {
     const t0 = performance.now();
-    for (;;) {
-      const r = window.__lxRun.next();
-      if (r.done) { window.__lxRun = null; return { done: true, res: r.value }; }
-      if (performance.now() - t0 > ms) return { done: false };
-    }
+    try {
+      for (;;) {
+        const r = window.__lxRun.next();
+        if (r.done) { window.__lxRun = null; return { done: true, res: r.value }; }
+        if (performance.now() - t0 > ms) return { done: false };
+      }
+    } catch (e) { window.__lxRun = null; return { done: true, error: String(e && e.stack || e) }; }
   };
   // the pixels of a mask a pixel of the other is not within slack pixels of, each way, as a share of the first's pixels
   window.__lxCompare = (ref, frame, W2, H2, slack, capped) => {
@@ -195,6 +197,7 @@
     await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(ref)})`);
     let st = { done: false };
     for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+    if (st.error) throw new Error('the reference threw: ' + st.error);
     return st.done ? st.res : null;
   }
   async function park(k, tag) {
