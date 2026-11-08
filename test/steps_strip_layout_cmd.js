@@ -9,8 +9,9 @@
 //   centre's side is the bar's own (at most 9.5 px, 8 plus rounding); a thread that needs the whole rail scrolls, as it did;
 // - a one-step thread at 1024 px and wider is on the centre line within 4 px, in en, ru and it: the strip's folds make the room, not a shift of the thread;
 // - the ring (parked on z) sits on the first plane's dot, within 1 px;
-// - a one-step chain has no F chip at any width (F is f₁ there), and its thread fits the rail without scrolling; the thread
-//   is centred (phone: in its rail, within 4 px);
+// - a one-step chain has no F chip at any width (F is f₁ there); on a laptop its thread fits the rail without scrolling; on a
+//   phone it scrolls like any chain (each step's pill carries a 44 px chip and a 44 px ⋯), and at rest the shown plane and
+//   its pill are whole in the rail, the next plane shows its edge, and no two targets overlap;
 // - a chain of two or more steps has the F chip: on a phone, with the thread fitting, the thread and F are centred in the
 //   rail as one row with F whole inside it; with the thread overflowing, the shown dot is centred in the rail (or the rail
 //   is at its end), and F is whole or fully out of the rail's view.
@@ -45,10 +46,14 @@ const measure = () => ev(`(() => {
   const tc = (first.l + first.r) / 2 / 2 + (last.l + last.r) / 2 / 2, pc = (body.l + body.r) / 2;
   const F = q('.sv-wholemap'), fb = F && vis(F) ? box(F) : null, track = box(q('.sv-track'));
   const ring = box(q('.sv-thumb')), ringOff = (ring.l + ring.r) / 2 - (nodes[0].l + nodes[0].r) / 2, shown = nodes[Math.round(__cmwSteps().x)], dotOff = shown ? (shown.l + shown.r) / 2 - (rb.l + rb.r) / 2 : null, atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1, atStart = rail.scrollLeft <= 0;
+  const planes = [...rail.querySelectorAll('.sv-plane')].filter(vis).map(box), wraps = [...rail.querySelectorAll('.sv-fwrap')].filter(vis).map(box), xi = Math.round(__cmwSteps().x);
+  const curPlane = planes[xi] || null, curPill = wraps[Math.min(xi, wraps.length - 1)] || null, farPlane = planes[xi + 1] || null, whole = (b) => !!b && b.l >= rb.l - ${EPS} && b.r <= rb.r + ${EPS};
+  const farEdge = farPlane ? Math.min(farPlane.r, rb.r) - Math.max(farPlane.l, rb.l) : null, fadeR = rail.classList.contains('fade-r');
+  const hits = [...rail.querySelectorAll('.sv-fchip, .sv-more')].filter(vis).map(box), overlap = hits.some((a, i) => hits.some((b, k) => k > i && a.l < b.r - ${EPS} && b.l < a.r - ${EPS} && a.t < b.b - ${EPS} && b.t < a.b - ${EPS}));
   const unit = { l: track.l, r: Math.max(track.r, fb ? fb.r : 0) };
   const left = others.filter((o) => o.r <= rb.l + ${EPS}).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - ${EPS}).reduce((a, o) => Math.min(a, o.l), Infinity);
   return { ph, clear: top - body.b, meet, off: tc - pc, gapL: rb.l - left, gapR: right - rb.r, scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rb.r - rb.l,
-    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, ringOff, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null };
+    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, ringOff, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null, planeIn: whole(curPlane), pillIn: whole(curPill), farEdge, fadeR, overlap, scrollX: rail.scrollLeft };
 })()`);
 const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true], [740, 360, true], [915, 412, true]];
 for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
@@ -58,9 +63,14 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
   ok(`${tag}: the rail's elements are clear of the ruler (≥ ${m.ph ? 6 : 8} px)`, m.clear >= (m.ph ? 6 : 8) - 0.01, m.clear);
   ok(`${tag}: the ring is on the first plane's dot (parked on z)`, Math.abs(m.ringOff) <= 1, m.ringOff);
   ok(`${tag}: the rail meets no other control of the bar`, m.meet.length === 0, m.meet);
+  if (m.ph) ok(`${tag}: no two chips or ⋯ overlap`, !m.overlap, m);
   if (one) {
-    ok(`${tag}: a one-step chain has no F chip, and its thread does not scroll`, !m.fShown && !m.scrolls, m);
-    if (m.ph) ok(`${tag}: the thread is centred in the rail`, Math.abs(m.unitOff) <= 4, m.unitOff);
+    ok(`${tag}: a one-step chain has no F chip`, !m.fShown, m);
+    if (!m.ph) ok(`${tag}: a one-step thread does not scroll`, !m.scrolls, m);
+    else {
+      ok(`${tag}: at rest the shown plane and its pill are whole in the rail`, m.planeIn && m.pillIn, m);
+      ok(`${tag}: a thread that overflows shows the next plane's edge (> 0 px) under the fade, and the rail scrolls to it`, !m.scrolls || (m.fadeR && m.farEdge > 0), m);
+    }
   } else if (!m.ph) ok(`${tag}: F shows with the second step`, m.fShown, m);
   if (!m.ph && one && w >= 1024) ok(`${tag}: a one-step thread is on the pane's centre line (±4 px)`, Math.abs(m.off) <= 4, { off: Math.round(m.off), gapL: m.gapL, gapR: m.gapR, railW: m.railW });
   if (!m.ph && !m.scrolls) {
@@ -72,7 +82,7 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
     ok(`${tag}: F is whole inside the rail`, m.fIn === true, m);
   }
   if (!one && m.scrolls) {
-    ok(`${tag}: F is whole or fully out of the rail's view`, m.fIn !== false || m.fOut === true, m);
+    ok(`${tag}: F is whole or fully out of the rail's view, or the rail is at its start with the shown plane whole and F a scroll away under the fade`, m.fIn !== false || m.fOut === true || (m.atStart && m.planeIn && m.fadeR), m);
     ok(`${tag}: the shown dot is centred in the rail (or the rail is at an end)`, Math.abs(m.dotOff) <= 4 || m.atStart || m.atEnd, m);
   }
 }
