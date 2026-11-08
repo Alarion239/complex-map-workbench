@@ -13,7 +13,7 @@
 // - the image: u = 0.002 is plane z's parked frame and u = 0.998 the next plane's, at most SAME_FRAC of the pixels more
 //   than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js);
 // - the coverage: the frame has at least the surface pixels (saturation over 30, the measure of steps_land_cover_cmd.js's
-//   surface(), counted here on the kit's kept pixels) of the parked planes less COVER_TOL, the smaller of the two at u = 0.5.
+//   surface(), counted here on the kit's kept pixels) of the parked planes less COVER_TOL (the smaller of the two, less MID_COVER_TOL, at u = 0.5).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -26,7 +26,9 @@ const LOAD_MAX_MS = 60000;
 const GLIDE_U = [0.002, 0.5, 0.998];
 const NEWTON_END = 1e-4;   // a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes
 const { grab, compare, DIFF_TOL, SAME_FRAC } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));   // (#859's look suite's constants)
-const COVER_TOL = 0.05;                       // the share of the parked planes' surface pixels a frame may lack
+// the share of the parked planes' surface pixels a frame may lack: at the ends the frame is the parked plane's within SAME_FRAC of
+// its pixels, so a surface pixel it lacks is one of those; half-way there is no parked plane to bound it, MID_COVER_TOL is a margin
+const COVER_TOL = SAME_FRAC, MID_COVER_TOL = 0.05;
 const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
 const PROBES = 5, SEED_N = 12, NEWTON_STEPS = 40, ROOT_TOL = 1e-9, SAT_MIN = 30;
 // the reference's numerics: FD_STEP the finite-difference step of H's Jacobian, DET_MIN a Jacobian determinant below which Newton's
@@ -124,7 +126,8 @@ for (const c of CASES) for (const sheets of [false, true]) {
     if (lastU) ok(`${t}: the next plane's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d1 <= SAME_FRAC, cov);
     // the coverage
     const base = first ? p0.cover : lastU ? p1.cover : Math.min(p0.cover, p1.cover);
-    ok(`${t}: at least the parked planes' surface pixels less ${COVER_TOL * 100} %`, cov.n >= (1 - COVER_TOL) * base, { n: cov.n, base });
+    const tol = first || lastU ? COVER_TOL : MID_COVER_TOL;
+    ok(`${t}: at least the parked planes' surface pixels less ${tol * 100} %`, cov.n >= (1 - tol) * base, { n: cov.n, base });
     // the geometry
     const pts = await ev(`(() => { const b = __cmwLandCarry(true) || __lxPick.box; const o = []; for (let i = 0; i < ${PROBES}; i++) for (let j = 0; j < ${PROBES}; j++) o.push([b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${PROBES}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${PROBES}]); return o; })()`);
     const ref = await ev(`__lxRoots(${JSON.stringify(pts)})`);
