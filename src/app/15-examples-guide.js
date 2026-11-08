@@ -981,6 +981,17 @@
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
+  // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
+  // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
+  function fitToastRows(t) {
+    if (!t.isConnected) return;
+    const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
+    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap';
+    t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
+    sp.style.whiteSpace = ''; t.style.flexWrap = '';
+  }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -993,6 +1004,8 @@
     if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
     t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
+    // (a phone's message picks its rows on the next frame: its caller may still add a button, as undoToast's Show alone)
+    if (rt.contains('ph')) requestAnimationFrame(() => fitToastRows(t));
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };

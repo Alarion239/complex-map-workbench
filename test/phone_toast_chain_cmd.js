@@ -34,20 +34,23 @@ const measureMore = () => ev(`(() => {
   const tops = txt ? [...rg.getClientRects()].map((r) => r.top).sort((a, b) => a - b) : [];
   const lines = txt ? tops.reduce((n, y, i) => n + (i > 0 && y - tops[i - 1] > ${TOAST_LINE_H / 2} ? 1 : 0), tops.length ? 1 : 0) : null;
   return { sheet: [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), head: hb && [hb.top, hb.bottom].map(Math.round), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), under, open: sheet.classList.contains('open'), cut, lines,
-    win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, btns };
+    win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, btns,
+    rows: t.dataset.rows, btnH: [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().height)),
+    btnIn: [...t.querySelectorAll('button')].every((b) => { const r = b.getBoundingClientRect(); return r.left >= tb.left - 0.5 && r.right <= tb.right + 0.5 && r.top >= tb.top - 0.5 && r.bottom <= tb.bottom + 0.5; }) };
 })()`);
 // the toast's words wrap at a phone's width rather than being cut (#1329, ux's ruling): the text span may overflow by at most one
 // pixel, and its text is at most two lines (lines = its text's line boxes, 18 px apart); English, which fits on one line at 360 px,
 // keeps the one-line control
-const CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, PHONE_360 = [360, 640];
+const CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   await fresh(w, h, lang);
   ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   await ev(`document.getElementById('hdrMoreBtn').click(); 1`);
   await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="more"].open')` });
-  let m = null;
-  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await madeWay('more'); m = await measureMore(); } }
+  let m = null, ysBefore = null;
+  const ysNow = () => ev(`[...(document.querySelector('.ph-sheet[data-k="more"]') || document.body).querySelectorAll('button')].filter((b) => b.getClientRects().length > 0).map((b) => Math.round(b.getBoundingClientRect().top))`);
+  for (let i = 0; i < 3 && !m; i++) { ysBefore = await ysNow(); await ev(`__cmwAddStep('exp')`); if (await shown()) { await madeWay('more'); m = await measureMore(); } }
   info[tag] = m;
   ok(`${tag}: it is open and a toast shows`, !!m && m.open, m);
   if (!m) continue;
@@ -55,10 +58,15 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   ok(`${tag}: the toast covers none of its controls`, m.under.length === 0, { under: m.under, sheet: m.sheet, toast: m.toast });
   ok(`${tag}: the toast is inside the window`, m.win, { toast: m.toast });
   ok(`${tag}: its buttons can be pressed`, m.btns.length >= 1 && m.btns.every((b) => b.hit), m.btns);
+  ok(`${tag}: its buttons are inside the toast`, m.btnIn, null);
   if (w === PHONE_360[0] && h === PHONE_360[1] && lang !== 'en') {
     ok(`${tag}: the message's words are not cut`, m.cut !== null && m.cut <= CUT_MAX, { cut: m.cut });
     ok(`${tag}: the message is at most two lines of text`, m.lines !== null && m.lines <= TOAST_MAX_LINES, { lines: m.lines });
+    ok(`${tag}: the words take two rows (they do not fit beside the buttons)`, m.rows === 'two', m.rows);
+    ok(`${tag}: the buttons are at least 44 px tall`, m.btnH.every((x) => x >= TARGET_PX), m.btnH);
   }
+  if (w === PHONE_390[0] && lang === 'en') ok(`${tag}: the message stays one row (control)`, m.rows === 'one', m.rows);
+  ok(`${tag}: the sheet's controls do not move when the message shows`, JSON.stringify(ysBefore) === JSON.stringify(await ysNow()), { before: ysBefore, now: await ysNow() });
   if (w === PHONE_360[0] && h === PHONE_360[1] && lang === 'en') ok(`${tag}: the message stays one line (control)`, m.lines === 1, { lines: m.lines });
 }
 return { pass: fails.length === 0, fails, info };
