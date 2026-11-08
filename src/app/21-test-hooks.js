@@ -269,7 +269,7 @@
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
   // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
   // height, world units, within which an enumerated member is the one it draws)
-  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1e-3, LAND_ENUM_H_TOL = 0.02;
+  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1e-2, LAND_ENUM_H_TOL = 0.02;
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
@@ -422,11 +422,9 @@
           out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D });
         });
       });
-      // the member the frame draws with sheets off: the front by depth key over the sheets' walks, a later member replacing the best
-      // only when in front of it by more than the tie band, so a tie goes to the earlier sheet (the rule of INV_LAND_MAIN's sheet passes)
-      let best = null;
-      for (const m of out) if (!best || best.D - m.D > Inverse.tieBand(Math.min(best.D, m.D))) best = m;
-      if (best) best.front = true;
+      // the member the frame draws with sheets off: the first sheet's front member (the sheets are taken in order, the frame's own
+      // first; the depth keys of different sheets are never compared, they only order the members within one sheet)
+      if (out.length) out[0].front = true;
       return out;
     });
   };

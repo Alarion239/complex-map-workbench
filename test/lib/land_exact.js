@@ -48,13 +48,15 @@
   // The grid is shifted a quarter cell in y from the cell centres: the middle row would lie on the real axis, the cut of the roots and the
   // logarithm, where the side of the cut a place falls on is decided by the sign of a rounding error in float32 and in float64.
   const Y_SHIFT = 0.75;
-  const TIE_D = 2 ** -14;   // the depth keys' tie band, Inverse.front's: two members whose keys differ by less are ordered by their z
   const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
     { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN },
+    // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
+    // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
+    { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
     { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [] },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil' },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
@@ -70,15 +72,12 @@
   window.__lxEnum = (pts) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
-    // (the front member first: over the members in the hook's order (the frame's own sheet, then the sheets beside it) the smallest depth
-    // key D; a key within the tie band of the best is a tie, and the earlier member wins. The same z repeats on sheets that differ by
-    // a multiple of n, so a z listed again is dropped.)
-    const tie = (a, b) => Math.abs(a - b) <= ${TIE_D} * (1 + Math.min(a, b));
+    // (the front member first: the hook's front flag, then the others in the hook's order. The same z repeats on sheets that differ
+    // by a multiple of n, so a z listed again is dropped.)
     return e.map((ms) => {
-      let best = null;
-      for (const m of ms) if (!best || (m.D < best.D && !tie(m.D, best.D))) best = m;
+      const best = ms.find((m) => m.front) || null;
       const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
-      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
+      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet, D: m.D });
       return o;
     });
   };
@@ -91,7 +90,7 @@
       await ev(`__cmwExample(${names.indexOf(c.example)}); 1`); await settled({ max: LOAD_MAX_MS });
       await ev(`__cmwSet('alpha', 1), __cmwSet('height', 'im'), __cmwSet('sheets', ${sheets}), 1`);
     } else {
-      await loadView('steps', ns, { shapes: c.shapes, steps: c.steps, sheets, height: 'im' });
+      await loadView('steps', ns, Object.assign({ shapes: c.shapes, steps: c.steps, sheets, height: 'im' }, c.srcView ? { srcView: c.srcView } : {}));
       await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
       await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
     }
@@ -212,7 +211,7 @@
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
-      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
+      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [], atNoF = [];
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = got[i] || [];
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
@@ -227,7 +226,7 @@
           if (!l) return;
           const g = layerGap(l, m);
           if (g.h) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
-          if (g.noF) { noF++; return; }
+          if (g.noF) { noF++; if (atNoF.length < 4) atNoF.push({ p, zHave: l.z, zWant: m.z }); return; }
           if (g.phN) phN++;
           if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
         });
@@ -235,7 +234,21 @@
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
+      ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh, atNoF });
+      // the off-centre case tells the rules apart: at some probe place the member of smallest depth key over the sheets lies on another
+      // sheet than the frame's own front member, so a front-by-D rule picks a different member there (and fails the front check above)
+      if (c.offCentre && !sheets && first) {
+        // (the hook's own members, a z repeated on another sheet kept: a log's sheets share their preimage and differ in the depth key)
+        const raw = await ev(`__cmwLandEnum(${JSON.stringify(vpts)})`);
+        let differ = 0;
+        (raw || []).forEach((ms) => {
+          if (ms.length < 2) return;
+          const byD = ms.reduce((a, m) => (m.D < a.D ? m : a), ms[0]);
+          if (byD.sheet !== ms[0].sheet) differ++;
+        });
+        r[u].differ = differ;
+        ok(`${t}: a front-by-depth-key rule picks another sheet than the frame's own at some probe place`, differ > 0, { differ });
+      }
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
