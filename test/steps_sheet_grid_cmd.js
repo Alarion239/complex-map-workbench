@@ -11,6 +11,7 @@ const MIN_TILE = 48, MAX_SHEET_SHARE = 0.6, DIMMED_BELOW = 0.5;   // (px, the sh
 const GROUP_GAP = 12, ROW_GAP = 8, GROUPS = 5;   // (px between groups, px between a group's rows, the groups the sheet has)
 const MIN_TARGET = 44, MIN_FONT = 13, SCOPE_SEGMENTS = 2, FULL_WIDTH_SLACK = 12;   // (px; the segments; px a full-width control may stop short of its group)
 const NUM_CHOICES = 4;   // (the sectors n offers 8, 12, 16 and 24)
+const SLIDER_LINE = 44;   // (px: the slider's touch line)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
@@ -54,6 +55,12 @@ const numChoice = () => ev(`(() => {
   const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), sheet = document.querySelector('.ph-sheet').getBoundingClientRect();
   return { tag: b.tagName, popup: b.getAttribute('aria-haspopup'), h: r.height, rowFree: row.right - r.right, inside: r.right <= sheet.right && r.left >= sheet.left, name: b.getAttribute('aria-label') };
 })()`);
+const slider = () => ev(`(() => {
+  const row = document.querySelector('.ph-sheet .fader-row'); if (!row) return null;
+  const rng = row.querySelector('input[type="range"]'), v = row.querySelector('.fval'), lab = row.querySelector('.fl'), r = (e) => e.getBoundingClientRect(), pr = r(row.parentElement);
+  return { rowFree: pr.width - r(row).width, rngW: r(rng).width, rowW: r(row).width, rngH: r(rng).height, valRight: r(row).right - r(v).right, valLeftOfLabel: r(v).left < r(lab).right,
+    tab: getComputedStyle(v).fontVariantNumeric, text: v.textContent, vt: rng.getAttribute('aria-valuetext') };
+})()`);
 const groups = () => ev(`(() => {
   const gs = [...document.querySelectorAll('.ph-sheet .ph-vopts > .ph-grp')], r = (e) => e.getBoundingClientRect();
   return { n: gs.length, labelled: gs.every((g) => g.firstElementChild.matches('h3.ph-gl') && g.firstElementChild.textContent.trim()),
@@ -74,6 +81,9 @@ for (const lang of ['en', 'ru', 'it']) {
   const sc = await scope();
   info[lang + 'Scope'] = sc;
   ok(`${lang} 360: the scope is a full-width switch of two segments, 44 px tall, text at least 13 px, none cut`, !!sc && sc.n === SCOPE_SEGMENTS && sc.fullWidth <= FULL_WIDTH_SLACK && sc.minH >= MIN_TARGET && sc.minW >= MIN_TARGET && sc.font >= MIN_FONT && sc.cut === 0, sc);
+  const sl = await slider();
+  info[lang + 'Slider'] = sl;
+  ok(`${lang} 360: the opacity slider is full width on a 44 px line, its value at the right in tabular figures, said as its aria-valuetext`, !!sl && sl.rowFree <= FULL_WIDTH_SLACK && sl.rowW - sl.rngW <= FULL_WIDTH_SLACK && sl.rngH >= SLIDER_LINE && sl.valRight <= FULL_WIDTH_SLACK && !sl.valLeftOfLabel && /tabular-nums/.test(sl.tab) && sl.text === sl.vt && /%/.test(sl.text), sl);
   const nc = await numChoice();
   info[lang + 'N'] = nc;
   ok(`${lang} 360: n is a menu button, 44 px tall, across its row, inside the sheet`, !!nc && nc.tag === 'BUTTON' && nc.popup === 'menu' && nc.h >= MIN_TARGET && nc.rowFree <= FULL_WIDTH_SLACK && nc.inside, nc);
