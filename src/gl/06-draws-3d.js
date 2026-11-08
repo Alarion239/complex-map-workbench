@@ -1503,10 +1503,14 @@
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
       const contDraw = !!(landC && landC.cont);
-      const Pc = program(contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
+      // (the layered draw of linear heights runs the layers past the block and clips them there exactly: LAND_CLIP; clipOff is a probe's control)
+      const clipC = contDraw && clipOf(mode) > 0 && !carryProbe.clipOff;
+      const fan = clipC ? 3 : 1;
+      const Pc = program(clipC ? 'landCarryLC' : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
+      u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
@@ -1527,7 +1531,7 @@
       // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
       const drawCarryGrid = (G, n) => {
         const cutDraw = !!(G.exact && G.cuts);
-        u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+        u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.tex2);
         if (G.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, G.zTex); }
@@ -1539,7 +1543,7 @@
         for (let i = 0; i < (datas ? datas.length : 1); i++) {
           if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
           u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
-          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (n - 1) * (n - 1));
+          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
         }
         if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
       };
@@ -1552,7 +1556,7 @@
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
         if (contDraw) u1i(Pc, 'uOwn', L.own);
-        u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+        u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
@@ -1570,10 +1574,10 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', 3); u1i(Pc, 'uCuts', 0);
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', 3 * fan); u1i(Pc, 'uCuts', 0);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * fan * (p.N - 1) * (p.N - 1));
       };
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
       for (const p of pp) drawPatch(p);

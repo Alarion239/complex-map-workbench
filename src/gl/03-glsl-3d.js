@@ -652,13 +652,58 @@ void main() {
   tfOut = vec4(n, uPatch > 0.5 ? 1.0 : landAO(p, c.z));
 }
 `;
+  // The block's clip, shared by the sheets' mesh (LAND_SHEET_VS) and the layered glide's (LAND_CARRY_VS): a convex polygon of up
+  // to 5 corners, Q (x, y: the grid's or the plane's position, which orders an edge's ends; z: the height), with a payload A
+  // mixed along an edge like the position, a normal Nn and a flag Fl (0 a corner, +1 / -1 on the top / bottom of the block),
+  // cut at |h| = BLOCK_K H. The crossing of an edge with a corner far beyond the block, both ends on its side (a pole), is
+  // interpolated in 1 / h, exact to first order at a simple pole, where linear interpolation hugs the near corner. The clipped
+  // edges are marked by clipBoxE (the rim). Returns the number of corners left
+  const LAND_CLIP = `
+const float BLOCK_K = 1.25;
+uniform int uClipLinear;   // (a test control: 1 takes every crossing linearly)
+const float CLIP_FAR = 2.0;   // (corners farther than this many block edges beyond the block use the 1 / h crossing)
+int blockClip(float Hb, int n, inout vec3 Q[5], inout vec4 A[5], inout vec3 Nn[5], inout float Fl[5]) {
+  for (int pass = 0; pass < 2; pass++) {
+    float s = pass == 0 ? 1.0 : -1.0;
+    vec3 R[5]; vec4 RA[5]; vec3 RN[5]; float RF[5];
+    for (int i = 0; i < 5; i++) { R[i] = vec3(0.0); RA[i] = vec4(0.0); RN[i] = vec3(0.0, 0.0, 1.0); RF[i] = 0.0; }
+    int m = 0;
+    for (int i = 0; i < 5; i++) {
+      if (i >= n) break;
+      int j = i + 1 == n ? 0 : i + 1;
+      bool inI = s * Q[i].z <= Hb, inJ = s * Q[j].z <= Hb;
+      if (inI) { R[m] = Q[i]; RA[m] = A[i]; RN[m] = Nn[i]; RF[m] = Fl[i]; m++; }
+      if (inI != inJ) {
+        // (from the lower end in grid order, so the two triangles of an edge find the same point)
+        bool fw = Q[i].x < Q[j].x || (Q[i].x == Q[j].x && Q[i].y < Q[j].y);
+        vec3 a = fw ? Q[i] : Q[j], b = fw ? Q[j] : Q[i];
+        vec4 aa = fw ? A[i] : A[j], ab = fw ? A[j] : A[i];
+        vec3 na = fw ? Nn[i] : Nn[j], nb = fw ? Nn[j] : Nn[i];
+        float t = uClipLinear == 0 && s * a.z > 0.0 && s * b.z > 0.0 && max(abs(a.z), abs(b.z)) > CLIP_FAR * Hb
+          ? (1.0 / (s * Hb) - 1.0 / a.z) / (1.0 / b.z - 1.0 / a.z) : (s * Hb - a.z) / (b.z - a.z);
+        t = clamp(t, 0.0, 1.0);
+        R[m] = vec3(mix(a.xy, b.xy, t), s * Hb); RA[m] = mix(aa, ab, t); RN[m] = normalize(mix(na, nb, t) + vec3(0.0, 0.0, 1e-6)); RF[m] = s; m++;
+      }
+    }
+    for (int i = 0; i < 5; i++) { Q[i] = R[i]; A[i] = RA[i]; Nn[i] = RN[i]; Fl[i] = RF[i]; }
+    n = m;
+  }
+  return n;
+}
+// the rim flags of the fan's triangle (0, i1, i2): a polygon edge whose two ends lie on the same plane of the block
+vec3 clipBoxE(int i1, int i2, int n, float Fl[5]) {
+  return vec3(Fl[i1] != 0.0 && Fl[i1] == Fl[i2] ? 1.0 : 0.0,
+              i2 == n - 1 && Fl[i2] != 0.0 && Fl[i2] == Fl[0] ? 1.0 : 0.0,
+              i1 == 1 && Fl[0] != 0.0 && Fl[0] == Fl[i1] ? 1.0 : 0.0);
+}
+`;
   // its draw: two triangles a cell (gl_VertexID), each corner at its moved place in the block over uBox; a triangle
   // with a corner not finite, an edge over uLim on the plane (torn across a cut or a pole of the glide's map) or a
   // height step over uStep (a cut of G, which the edge passes split at rest) is left out. uStep is 0.3 H for the
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form)
-  const LAND_CARRY_VS = (L = false) => `
+  const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep;
@@ -689,7 +734,8 @@ void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
   int M = uN - 1;
-  int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, sub = loc / 3, k = loc - 3 * sub, cell = tri / 2, hf = tri - 2 * cell;
+  int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
+${clip ? '  // (clip: each sub-triangle is a fan of up to 3 triangles of the block-clipped polygon, 9 vertices)\n  int sub = loc / 9, fan = (loc - 9 * sub) / 3, k = loc - 9 * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
@@ -717,31 +763,52 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
-  // this vertex: a corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
-  ivec2 src = A; int x = 0;
-  if (J == 0) { if (sub > 0) return; src = k == 0 ? A : (k == 1 ? B : C); }
-  else if (J == 1) {
-    if (sub > 1) return;
-    if (sub == 0) { src = A; x = k == 1 ? 1 : 0; if (k == 2) src = C; vEdge = vec3(1.0, 0.0, 0.0); }
-    else { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; vEdge = vec3(0.0, 1.0, 0.0); }
-  } else {
-    if (sub == 0) { src = A; x = k; vEdge = vec3(1.0, 0.0, 0.0); }
-    else if (sub == 1) { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; }
-    else { src = k == 0 ? B : C; x = k == 0 ? 1 : (k == 2 ? 2 : 0); vEdge = vec3(0.0, 1.0, 0.0); }
+  // a corner of sub-triangle sub (kk 0, 1, 2): a grid corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
+  ivec2 srcs[3]; int xs[3]; vec3 vEd = vec3(0.0);
+  for (int kk = 0; kk < 3; kk++) {
+    ivec2 src = A; int x = 0;
+    if (J == 0) { if (sub > 0) return; src = kk == 0 ? A : (kk == 1 ? B : C); }
+    else if (J == 1) {
+      if (sub > 1) return;
+      if (sub == 0) { src = A; x = kk == 1 ? 1 : 0; if (kk == 2) src = C; vEd = vec3(1.0, 0.0, 0.0); }
+      else { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; vEd = vec3(0.0, 1.0, 0.0); }
+    } else {
+      if (sub == 0) { src = A; x = kk; vEd = vec3(1.0, 0.0, 0.0); }
+      else if (sub == 1) { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; }
+      else { src = kk == 0 ? B : C; x = kk == 0 ? 1 : (kk == 2 ? 2 : 0); vEd = vec3(0.0, 1.0, 0.0); }
+    }
+    srcs[kk] = src; xs[kk] = x;
   }
-  vec4 t = texelFetch(uT1, src, 0), nv = texelFetch(uT2, src, 0);
-  vec2 xy = t.xy, z = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
-  float h = t.z;
-  if (x > 0) {
-    ivec2 E = x == 1 ? B : C;
-    vec4 e = edgeOf(A, E);
-    xy = mix(texelFetch(uT1, A, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
-    z = mix(texelFetch(uZ, A, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
-    h = src == A ? e.y : e.z;
+  vEdge = vEd;
+  // the corner's place xy, preimage z, height h and normal data nv
+  vec2 cxy[3], cz[3]; float ch[3]; vec4 cnv[3];
+  for (int kk = 0; kk < 3; kk++) {
+    if (!${clip ? 'true' : 'kk == k'}) continue;
+    ivec2 src = srcs[kk]; int x = xs[kk];
+    vec4 t = texelFetch(uT1, src, 0);
+    cnv[kk] = texelFetch(uT2, src, 0);
+    cxy[kk] = t.xy; cz[kk] = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
+    ch[kk] = t.z;
+    if (x > 0) {
+      ivec2 E = x == 1 ? B : C;
+      vec4 e = edgeOf(A, E);
+      cxy[kk] = mix(texelFetch(uT1, A, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
+      cz[kk] = mix(texelFetch(uZ, A, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+      ch[kk] = src == A ? e.y : e.z;
+    }
   }
-  vZ = z;
-  vPos = vec3(((xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h);
-  vNor = nv.xyz; vAO = nv.w;
+${clip ? `  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
+  for (int i = 0; i < 5; i++) { Q[i] = vec3(0.0); QA[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
+  for (int i = 0; i < 3; i++) { Q[i] = vec3(cxy[i], ch[i]); QA[i] = vec4(cz[i], cnv[i].w, 0.0); Nn[i] = cnv[i].xyz; }
+  int n = blockClip(BLOCK_K * uH, 3, Q, QA, Nn, Fl);
+  if (fan + 2 >= n) return;
+  int i1 = fan + 1, i2 = fan + 2, vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
+  vBoxE = clipBoxE(i1, i2, n, Fl);
+  vZ = QA[vi].xy;
+  vPos = vec3(((Q[vi].xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, Q[vi].z);
+  vNor = Nn[vi]; vAO = QA[vi].z;` : `  vZ = cz[k];
+  vPos = vec3(((cxy[k] - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, ch[k]);
+  vNor = cnv[k].xyz; vAO = cnv[k].w;`}
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
@@ -1209,7 +1276,7 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
   // (clip: the variant for linear heights, whose triangles are clipped at the block, landSheetC; its polygon's arrays
   // in the same program cost every vertex of every other mode too: the GPU sizes a program's registers by its largest
   // path, and the sheets' draw at the Max mesh takes twice the base's, 27 to 38 fps orbiting)
-  const LAND_SHEET_VS = (clip) => REFINE + `
+  const LAND_SHEET_VS = (clip) => REFINE + (clip ? LAND_CLIP : "") + `
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
@@ -1326,48 +1393,17 @@ void main() {
   }
 ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal, plane flag (0 a corner, +1 / -1 on the top /
   // bottom of the block)
-  vec3 Q[5]; vec3 Nn[5]; float Fl[5];
-  for (int i = 0; i < 5; i++) { Q[i] = vec3(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
+  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
+  for (int i = 0; i < 5; i++) { Q[i] = vec3(0.0); QA[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
   Q[0] = vec3(pA.zw, ta.x); Q[1] = vec3(pB.zw, tb.x); Q[2] = vec3(pC.zw, tc.x);
   vec2 Wv[3]; Wv[0] = pA.xy; Wv[1] = pB.xy; Wv[2] = pC.xy;
   Nn[0] = nrmOf(ta); Nn[1] = nrmOf(tb); Nn[2] = nrmOf(tc);
   int n = 3;
-  if (uClip == 1) {
-    float Hb = 1.25 * uH;
-    for (int pass = 0; pass < 2; pass++) {
-      float s = pass == 0 ? 1.0 : -1.0;
-      vec3 R[5]; vec3 RN[5]; float RF[5];
-      for (int i = 0; i < 5; i++) { R[i] = vec3(0.0); RN[i] = vec3(0.0, 0.0, 1.0); RF[i] = 0.0; }
-      int m = 0;
-      for (int i = 0; i < 5; i++) {
-        if (i >= n) break;
-        int j = i + 1 == n ? 0 : i + 1;
-        bool inI = s * Q[i].z <= Hb, inJ = s * Q[j].z <= Hb;
-        if (inI) { R[m] = Q[i]; RN[m] = Nn[i]; RF[m] = Fl[i]; m++; }
-        if (inI != inJ) {
-          // (from the lower end in grid order, so the two triangles of an edge find the same point)
-          bool fw = Q[i].x < Q[j].x || (Q[i].x == Q[j].x && Q[i].y < Q[j].y);
-          vec3 a = fw ? Q[i] : Q[j], b = fw ? Q[j] : Q[i];
-          vec3 na = fw ? Nn[i] : Nn[j], nb = fw ? Nn[j] : Nn[i];
-          // (a corner far beyond the block, both on its side, as at a pole: the crossing interpolated in 1 / h, exact
-          // to first order at a simple pole, where linear interpolation hugs the near corner; review math-4)
-          float t = s * a.z > 0.0 && s * b.z > 0.0 && max(abs(a.z), abs(b.z)) > 2.0 * Hb
-            ? (1.0 / (s * Hb) - 1.0 / a.z) / (1.0 / b.z - 1.0 / a.z) : (s * Hb - a.z) / (b.z - a.z);
-          t = clamp(t, 0.0, 1.0);
-          R[m] = vec3(mix(a.xy, b.xy, t), s * Hb); RN[m] = normalize(mix(na, nb, t) + vec3(0.0, 0.0, 1e-6)); RF[m] = s; m++;
-        }
-      }
-      for (int i = 0; i < 5; i++) { Q[i] = R[i]; Nn[i] = RN[i]; Fl[i] = RF[i]; }
-      n = m;
-    }
-  }
+  if (uClip == 1) n = blockClip(BLOCK_K * uH, n, Q, QA, Nn, Fl);
   if (sub + 2 >= n) return;
   int i1 = sub + 1, i2 = sub + 2;
   int vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
-  // box rims: a polygon edge whose two ends lie on the same plane of the block
-  vec3 boxE = vec3(Fl[i1] != 0.0 && Fl[i1] == Fl[i2] ? 1.0 : 0.0,
-                   i2 == n - 1 && Fl[i2] != 0.0 && Fl[i2] == Fl[0] ? 1.0 : 0.0,
-                   i1 == 1 && Fl[0] != 0.0 && Fl[0] == Fl[i1] ? 1.0 : 0.0);
+  vec3 boxE = clipBoxE(i1, i2, n, Fl);
   emitV(Q[vi], Nn[vi], vi < 3 ? Wv[vi] : vec2(0.0), boxE, k, c, s0, L, combo);
 ` : ''}}
 `;
@@ -1406,7 +1442,7 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck. A layered draw (layered: a layer
   // is one member, the layers are depth-tested against each other) keeps the rasterised depth, which the key would push behind
   // the floor under the lowest layer
-  const LAND_FS = (sheet, plain, lite, carry = false, layered = false) => `
+  const LAND_FS = (sheet, plain, lite, carry = false, layered = false, clipped = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
@@ -1465,7 +1501,7 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {
-${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' + (layered ? '  // (the block ends at 1.25 H: the layer is cut there, as the sheets of the rest frame are, where a pole runs on past it)\n  if (abs(vPos.z) > 1.25 * uH) discard;\n' : '') : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' + (layered && !clipped ? '  // (the block ends at 1.25 H: the layer is cut there, as the sheets of the rest frame are, where a pole runs on past it)\n  if (abs(vPos.z) > 1.25 * uH) discard;\n' : '') : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
