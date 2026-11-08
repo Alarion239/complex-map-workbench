@@ -638,6 +638,8 @@ uniform highp sampler2D uZ; uniform int uZOn;
 // it, 9 vertices each (uPer 9); else 3
 uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
 uniform int uCuts; uniform int uPer;
+// uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
+uniform float uDrawCode; uniform float uDrawCode0;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
@@ -661,6 +663,10 @@ void main() {
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
+  if (uDrawCode > 0.0) {
+    float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
+    if (abs(cc - uDrawCode) > 0.5) return;
+  }
   // (rotate, winding kept: one jump on AB, or two on AB and AC with BC whole; three, or an edge crossed twice: left out)
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
   bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
@@ -697,14 +703,36 @@ void main() {
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
 `;
+  // The exact glide's sheets: a vertex found by the inverse walk keeps the preimage z, but its step sheet is the one whose
+  // glide, applied to z, lands on the vertex's place (a walk accepts a member a little past its sheet's range, where the
+  // forward chain's principal branch is one sheet over). With the chain data of one sheet (uCode, written to the
+  // texel's w, 10 or more; the places of vertices not yet placed have w 1), a vertex not yet placed whose glide image
+  // is its place (to uTol of its size) takes that sheet's height
+  const LAND_CARRY_FIX_VS = `
+uniform int uN; uniform int uGs; uniform int uGt; uniform float uCode; uniform float uTol;
+uniform highp sampler2D uT1; uniform highp sampler2D uZ;
+out vec4 tfOut;
+` + CARRY_HEIGHT + `
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  vec4 t = texelFetch(uT1, p, 0);
+  tfOut = t;
+  if (t.w < 0.5 || t.w > 5.0) return;
+  vec2 z = texelFetch(uZ, p, 0).xy, q = mapPoint(z), h = carryHeight(z);
+  if (h.y > 0.5 && cfin(q) && length(q - t.xy) <= uTol * (1.0 + length(t.xy))) tfOut = vec4(t.xy, h.x, uCode);
+}
+`;
   // The exact glide's cuts: one texel per grid edge (+x, +y, diagonal; uDir) of the glide's grid (uT1: place, height,
   // finite; uZ: the preimage of each place), as LAND_EDGE_VS finds a principal surface's: (t, height at the edge's
   // a end of the cut, at its b end, jump). The edge's preimages are joined by a chord and the height there bisected
-  // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. An
-  // edge whose end heights are not the chain's at its preimages (the vertex is on another sheet's member) has none
+  // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
+  // the edges whose two vertices are on the sheet uCode (texel w, LAND_CARRY_FIX_VS) are looked at, with that
+  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
   const LAND_CARRY_EDGE_VS = `
-uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt;
-uniform highp sampler2D uT1; uniform highp sampler2D uZ;
+uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev;
+uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + `
 void main() {
@@ -712,10 +740,18 @@ void main() {
   gl_PointSize = 1.0;
   tfOut = vec4(0.5, 0.0, 0.0, 0.0);
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  // (uUsePrev: the edges an earlier sheet's pass found, in uE0, are kept)
+  if (uUsePrev == 1) { vec4 e = texelFetch(uE0, p, 0); if (e.w > 0.5) { tfOut = e; return; } }
   ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
   if (q.x >= uN || q.y >= uN) return;
   vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
-  if (!(a.w > 0.5 && b.w > 0.5)) return;
+  // (uCode -1: an edge between two sheets, whose vertices' heights step: the sheets' domains meet at a cut, which
+  // lies between the two places; mid-way)
+  if (uCode < 0.0) {
+    if (a.w > 5.0 && b.w > 5.0 && abs(a.w - b.w) > 0.5 && abs(b.z - a.z) > 0.02 * uH) tfOut = vec4(0.5, a.z, b.z, 1.0);
+    return;
+  }
+  if (abs(a.w - uCode) > 0.5 || abs(b.w - uCode) > 0.5) return;
   float tol = 2e-3 * uH, d0 = abs(b.z - a.z);
   if (!(d0 > tol)) return;
   vec2 z0 = texelFetch(uZ, p, 0).xy, z1 = texelFetch(uZ, q, 0).xy;

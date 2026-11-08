@@ -258,6 +258,15 @@
   // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
   const carryStep = (mode, H, exact) => (mode >= 2 && !exact ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
+  // the step sheets' chain data: the chain's, with the step's sheet k moved by shift.dk (null: the chain's own)
+  function sheetChainData(shift) {
+    if (!shift || !shift.vals || !cur.info) return null;
+    const v = shift.vals, k0 = v.k;
+    v.k = (k0 || 0) + shift.dk;
+    try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
+  }
+  const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
+  const CARRY_SHEET_TOL = 1e-3;   // the glide's image of a vertex's preimage is its place to this fraction of the place's size
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
@@ -279,22 +288,51 @@
       const r = landInverse(Object.assign({}, c.exact, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: landC.zTex }));
       exact = r === 'drawn';
       c.exactState = r;
-      // the glide's real cuts (LAND_CARRY_EDGE_VS), once its program has compiled; until then the cells are drawn whole
-      const P3 = exact ? program('landCarryEdge', c.map) : null;
-      landC.cuts = 0;
-      if (P3) {
+      // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
+      // have compiled; until then the cells are drawn whole
+      landC.cuts = 0; landC.datas = null;
+      const sheets = exact ? [{ shift: null }].concat(c.exact.more || []) : [];
+      const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
+      if (P3 && (Pf || sheets.length === 1)) {
         if (!landC.edges) landC.edges = [floatTex(), floatTex(), floatTex()];
-        use(P3, c.map);
-        u1i(P3, 'uN', N); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uH', H); u1f(P3, 'uMu', mu);
-        u1i(P3, 'uHMode', mode); u1i(P3, 'uGs', 0); u1i(P3, 'uGt', h0); u1i(P3, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P3, 'uHu', c.u || 0);
+        const datas = sheets.map((sh) => sheetChainData(sh.shift));
+        const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
+        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex);
-        for (let d = 0; d < 3; d++) {
-          u1i(P3, 'uDir', d);
+        if (Pf) for (let i = 0; i < sheets.length; i++) {
+          use(Pf, Object.assign({}, c.map, { base: 0 }));
+          if (datas[i]) gl.uniform4fv(Pf.loc.uChain, datas[i]);
+          stages(Pf); u1f(Pf, 'uCode', code(i)); u1f(Pf, 'uTol', CARRY_SHEET_TOL);
           gl.activeTexture(gl.TEXTURE15);
-          runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+          runTF(Pf, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
+        }
+        for (let i = 0; i < sheets.length; i++) {
+          use(P3, c.map);
+          if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
+          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i));
+          for (let d = 0; d < 3; d++) {
+            u1i(P3, 'uDir', d);
+            gl.activeTexture(gl.TEXTURE15);
+            // (a later sheet's pass keeps the edges the earlier passes found: an edge is on one sheet only)
+            u1i(P3, 'uUsePrev', i > 0 ? 1 : 0);
+            gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]);
+            gl.activeTexture(gl.TEXTURE15);
+            runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+          }
+        }
+        // (the edges between two sheets, last: the earlier passes' edges stay)
+        if (Pf) {
+          use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
+          for (let d = 0; d < 3; d++) {
+            u1i(P3, 'uDir', d);
+            gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]);
+            gl.activeTexture(gl.TEXTURE15);
+            runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+          }
         }
         landC.cuts = 1;
+        landC.datas = Pf ? datas : null;
       }
     }
     if (!polar) landC.exact = exact;
@@ -1387,7 +1425,16 @@
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
       gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-      gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
+      // (the glide's sheets, one draw each with that sheet's chain data: its colour is of the sheet's branch)
+      const datas = cutDraw ? landC.datas : null;
+      u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
+      for (let i = 0; i < (datas ? datas.length : 1); i++) {
+        if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
+        u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
+        gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
+      }
+      if (datas) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
+      u1f(Pc, 'uDrawCode', 0);
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
