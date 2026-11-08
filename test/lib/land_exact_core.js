@@ -125,20 +125,24 @@
     const vert = (i, j) => verts.get(i * (NYF + 1) + j);
     // ---- identity: continuation of every member of a place along the segment to another place
     const Hof = (m, z, lam) => { const r = frame.hom(z, lam)[m.sheet]; return r && fin(r.H) && fin(r.dH) ? r : null; };
+    let newtWhy = '';   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
       let d1 = null, d2 = null;
+      const hist = [];
       for (let it = 0; it < o.NEWT_ITER; it++) {
         const r = Hof(m, z, lam);
-        if (!r) return null;
+        if (!r) { newtWhy = 'H or dH not finite at iteration ' + it + ' (z ' + z[0].toExponential(2) + ',' + z[1].toExponential(2) + ')'; return null; }
         const res = csub(r.H, w);
+        hist.push(cabs(res).toExponential(1));
         if (cabs(res) <= o.NEWT_TOL * (1 + cabs(w))) return { z, lam, ratio: d1 === null || d1 <= o.NEWT_FLOOR * (1 + cabs(z)) || d2 === null ? 0 : d2 / d1 };
-        if (cabs(r.dH) < 1e-300) return null;
+        if (cabs(r.dH) < 1e-300) { newtWhy = 'dH is 0'; return null; }
         const dz = cdiv(res, r.dH);
         if (it === 0) d1 = cabs(dz); else if (it === 1) d2 = cabs(dz);
         const z2 = csub(z, dz);
         lam = lam ? cadd(lam, relLog(z, z2)) : null;   // (the continued log coordinate moves with z)
         z = z2;
       }
+      newtWhy = 'residuals ' + hist.join(' ');
       return null;
     }
     const relLog = (z, z2) => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; };
@@ -170,7 +174,7 @@
           if (step >= o.CONT_NEAR * near && step > 0) { good = false; last = 'step ' + step.toExponential(2) + ' vs near ' + near.toExponential(2); break; }
           const lam0 = lams[k] ? cadd(lams[k], relLog(zs[k], pre[k])) : null;
           const nw = newton(from[k], pre[k], lam0, w);
-          if (!nw) { good = false; last = 'newton did not converge'; break; }
+          if (!nw) { good = false; last = 'newton did not converge: ' + newtWhy; break; }
           if (nw.ratio > o.CONT_RATIO) { good = false; last = 'newton ratio ' + nw.ratio.toExponential(2); break; }
           if (dist2(nw.z, pre[k]) >= o.CONT_NEAR * Math.max(near, step * 4)) { good = false; last = 'correction ' + dist2(nw.z, pre[k]).toExponential(2); break; }
           next.push(nw.z); nl.push(nw.lam);
