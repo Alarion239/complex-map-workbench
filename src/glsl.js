@@ -2237,7 +2237,8 @@ bool ${P}_land(inout vec2 u, vec2 w, float t) {
 bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
   bool ok = true;
-  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
+  int kmax = ${Inverse.NEWT_K} + int(floor(t));
+  for (int k = 1; k <= kmax; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
   ug = ok ? u : vec2(${IX_NR_NONE});
   if (ok) ok = ${P}_step(u, w, t);
   return ok && ${P}_settle(u, w, t);
