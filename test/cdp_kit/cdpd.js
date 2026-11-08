@@ -219,24 +219,27 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-const LOAD_START_MS = 60000;   // how long H.load waits for the app to build its chain
-H.load = async (ns, st, extra) => {
+// how long H.load waits for the page to build its steps chain
+const LOAD_START_MS = 60000;
+H.load = async (ns, st, extra, viewName) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await H.go('http://localhost:8793/test.html?ns=' + ns);
+  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
+  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
   H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
   await H.reseed();
-  // the page may still be starting after its load event (software GL, a busy machine): its chain is built once the app has
-  // started, so the answer waits for the first card when the saved chain has a step, and a page that never gets there fails
-  // here, with what it answered, rather than leaving the suite to read elements that are not there yet
-  const want = Array.isArray(o.steps) && o.steps.length ? 1 : 0;
-  const w = await H.settled({ only: true, max: LOAD_START_MS, until: `__qa.cards().length >= ${want}` });
-  const r = await H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
-  if (!w.ok) throw new Error(`H.load: the page did not build its chain (${want} card wanted) within ${LOAD_START_MS} ms after loading (${ns}): ${JSON.stringify(r)}`);
+  // the page may still be starting after its load event (software GL, a busy machine): the steps chain is built once the
+  // plane list holds the origin plane and one plane per active step, so the answer waits for it when the saved state has
+  // steps, and a page that never gets there fails here, with what it answered, rather than leaving the suite to read a
+  // chain that is not there yet
+  const want = Array.isArray(o.steps) && o.steps.length ? 1 + o.steps.filter((q) => q.on !== false).length : 0;
+  const w = await H.settled({ only: true, max: LOAD_START_MS, until: `(() => { const s = __cmwSteps(); return s.on && s.planes.length >= ${want}; })()` });
+  const r = await H.ev(`({lamps: __qa.lamps(), planes: __cmwSteps().planes.length})`);
+  if (!w.ok) throw new Error(`H.load: the page did not build its steps chain (${want} planes wanted) within ${LOAD_START_MS} ms after loading (${ns}): ${JSON.stringify(r)}`);
   return r;
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
@@ -251,9 +254,9 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js); with CMW_VIEW=steps, the steps
-  // view (#620: a ported suite, ci/suite_views.js steps({ pin: true }))
-  const pin = (process.env.CMW_VIEW === 'steps' ? "window.__cmwPinView = 'steps';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
+  // (#443) the steps view pinned unless a page's URL asks for ?view=classic (pin_view.js); with CMW_VIEW=classic, the
+  // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
+  const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
   const done = new Set();

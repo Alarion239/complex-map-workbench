@@ -25,7 +25,6 @@ const Inspector = (() => {
   const FAMILY = { exp: 'exp', log: 'log', mobius: 'mobius', blaschke: 'mobius', recip: 'mobius', zp: 'zp', mul: 'linear', add: 'linear', affine: 'linear',
     pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', dh: 'special', bottcher: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
   const typeIcon = (type) => ICON[FAMILY[type] || (/^a?(sin|cos|tan|sinh|cosh|tanh|sec|csc|cot)h?$/.test(type) ? 'trig' : 'custom')];
-  const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
   const s16 = (inner, fill) => `<svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   // (Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
@@ -321,8 +320,7 @@ const Inspector = (() => {
     }
     // after a split, the keyboard goes to the first new step: its card in the classic view, its chip on the steps view's
     // thread (the button and its Inspector are rebuilt: the element is looked up again while the chain is drawn)
-    // The focus has to survive the redraw that follows a split. The classic card is drawn once, but on the steps view's
-    // thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
+    // The focus has to survive the redraw that follows a split. On the steps view's thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
     // frames) after the click; what takes it back there is not known (nothing calls blur(), the chip is not replaced). So
     // the focus is put on the chip again each frame until it has stayed FOCUS_STAYS frames; FOCUS_TRIES frames (10 s at
     // 60 Hz) bounds the wait. (A user who moves the focus elsewhere in that time has it taken back.)
@@ -330,7 +328,7 @@ const Inspector = (() => {
     function focusCard(k) {
       let n = 0, held = 0;
       const go = () => {
-        const c = /** @type {HTMLElement | null} */ (document.querySelector(A.svOn && A.svOn() ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`));
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`));
         if (c && c.isConnected) {
           if (document.activeElement !== c) { c.focus({ preventScroll: true }); held = 0; } else held++;
         }
@@ -712,9 +710,9 @@ const Inspector = (() => {
     // the chain is rebuilt (undo, a step added or removed, a number renamed): the editor is built again at the next
     // render, except under a field being typed in (it waits for the field to be left, as above)
     function invalidate() { cur.stale = true; }
-    return { render, refreshParams, invalidate, typeIcon, regionIcon, STRONG };
+    return { render, refreshParams, invalidate, STRONG };
   }
-  return { create, typeIcon, regionIcon, STRONG };
+  return { create, STRONG };
 })();
 import { Construct } from './construct.js';
 import { Params } from './params.js';

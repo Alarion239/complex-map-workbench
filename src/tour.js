@@ -200,10 +200,6 @@ const Tour = (() => {
     {
       id: 'views', title: 'Views', time: '1 min', rev: 2, scene: 'rational',
       steps: [
-        { id: 'switch', anchor: 'viewSwitch', also: ['panes'], title: 'Three views', before: [['deform', false], ['view', 'xy']],
-          body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
-          touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.', deskTouch: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel.', phoneFine: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen. Keys {1} {2} {3}.',
-          try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
           body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.',
@@ -408,10 +404,10 @@ const Tour = (() => {
       ],
     },
   ];
-  // the steps view's chapter, "Planes". Only under ?view=steps (a property of the page, fixed at its load): there
+  // the steps view's chapter, "Planes". Not under ?view=classic (a property of the page, fixed at its load): there
   // it takes the place of Basics' X and Y steps (x, y, preimages, chain) and of the whole Deformation chapter. Each step puts the
   // view where its task needs it (svPlace) and is done by one of the events the steps view sends
-  const SV_ON = (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })();
+  const SV_ON = (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })();
   const PLANES = {
     id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
     steps: [

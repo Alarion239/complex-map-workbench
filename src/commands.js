@@ -8,13 +8,13 @@ const Commands = (() => {
   let A = null;
   let palState = null;
   let C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape,
-    addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan,
+    addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan,
     defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
-    integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
+    integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample,
     morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
     replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
     setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
-    stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox;
+    stageF, sub, toast, toggleAlone, tourEmit, viewBox;
   const FN_INFO = {
     mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
     add: [$t('Translation; conformal on ℂ'), $t('translate shift move')],
@@ -220,7 +220,6 @@ const Commands = (() => {
         [A.S.view.main === 'phase' ? $t('Phase: Sphere') : $t('X: Sphere'), () => { if (lLand()) setMain('xy'); setView('L', 'sphere'); }, lLand() ? '' : '⇧2', VIEW_ALIAS.lsphere],
         [$t('Y: Plane'), () => { setMain('xy'); setView('R', 'plane'); }, A.S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
         [$t('Y: Sphere'), () => { setMain('xy'); setView('R', 'sphere'); }, A.S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
-        [morph.open ? $t('Deformation off') : $t('Deformation on (play the homotopy)'), () => toggleTransport(), 'M', $t('morph deformation homotopy animate animation merge')],
         [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
         [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
         // (the bracket for the selected step, else the last; SPEC 6.5)
@@ -249,7 +248,7 @@ const Commands = (() => {
       const acts = [
         [$t('Undo'), () => $('undoBtn').click(), '⌘Z'],
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
-        [$t('Clear chain'), () => $('clearChain').click(), ''],
+        [$t('Clear chain'), () => clearChain(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
         // (names are kept when others are deleted: these make them tidy again)
         [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
@@ -723,7 +722,7 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();
