@@ -51,7 +51,10 @@ for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['
   ok(`${at}: the Edit sheet's step name is level with its chip`, lv && Math.abs(lv.text - lv.chip) <= 3, lv);
   await ev('Phone.close(true)'); await settle(300);
   // the Numbers sheet: its title once, its Tip in view
-  await ev(`Phone.open('edit', { params: true })`); await settle(800);
+  await ev(`Phone.open('edit', { params: true })`);
+  // (the read below needs the sheet's visible scroll body and its title in the page: wait for those, not for a time)
+  const numbersUp = await settled({ until: `(() => { const sh = document.querySelector('.ph-sheet'); return !!sh && !!sh.querySelector('.ph-sb:not([hidden])') && !!sh.querySelector('.ph-st') && !!sh.querySelector('.ph-tip'); })()`, max: 8000 });
+  ok(`${at}: the Numbers sheet is up`, numbersUp && numbersUp.ok, numbersUp);
   const n = await evr(`(() => { const sh = document.querySelector('.ph-sheet'), sb = sh.querySelector('.ph-sb:not([hidden])').getBoundingClientRect(), tip = sh.querySelector('.ph-tip'), tb = tip && tip.getBoundingClientRect(); const heads = [...sh.querySelectorAll('h2')].filter((e) => e.getClientRects().length).map((e) => e.textContent.trim()); return { title: sh.querySelector('.ph-st').textContent, heads, tipIn: !!tb && tb.top >= sb.top && tb.bottom <= sb.bottom + 1, tip: tb && [Math.round(tb.top), Math.round(tb.bottom)], sb: [Math.round(sb.top), Math.round(sb.bottom)] }; })()`);
   ok(`${at}: the Numbers sheet says its title once`, n.title.length > 0 && !n.heads.includes(n.title), n);
   ok(`${at}: the Numbers sheet's Tip is in view`, n.tipIn, n);
