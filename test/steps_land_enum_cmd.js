@@ -1,8 +1,7 @@
 // The test hooks of an exact Landscape glide frame: window.__cmwLandEnum(pts) answers the CPU enumerator's members (src/inverse.js,
 // on the plan and prep the frame inverts) at places of the shown plane's box, and window.__cmwLandFrameVerts(pts) the layers the frame
-// draws at the nearest grid vertex of each. At a vertex's own place the enumerator has a member at the vertex's z (within Z_TOL) on
-// some sheet; one on the frame's own sheet that has the vertex's value and height when the vertex is on that sheet. A
-// member's height and value off by the control's offset are not found. Sheets off, cube root and log of an annulus, at u = .5.
+// draws at the nearest grid vertex of each. At a vertex's own place the enumerator has a member at the vertex's z (within Z_TOL)
+// with the vertex's value and height, on whichever sheet it is; a z off by the control's offset is not found. Sheets off, cube root and log of an annulus, at u = .5.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -33,7 +32,7 @@ for (const c of CASES) {
   const vpts = pts.map((p, i) => (verts && verts[i] && verts[i][0] && verts[i][0].w) || p);
   const en = await ev(`__cmwLandEnum(${JSON.stringify(vpts)})`);
   ok(`${c.tag}: the hooks answer, a place each`, Array.isArray(verts) && Array.isArray(en) && verts.length === pts.length && en.length === pts.length, { v: verts && verts.length, e: en && en.length });
-  let drawn = 0, found = 0, own = 0, ownHit = 0, wrong = 0, bad = [];
+  let drawn = 0, found = 0, ownHit = 0, wrong = 0, bad = [];
   pts.forEach((p, i) => {
     const l = verts[i] && verts[i][0];
     if (!l || !l.z) return;
@@ -41,14 +40,13 @@ for (const c of CASES) {
     const ms = en[i] || [], near = (m, dz) => Math.hypot(m.z[0] - l.z[0] - dz, m.z[1] - l.z[1]) <= Z_TOL * (Math.hypot(l.z[0], l.z[1]) + 1);
     if (ms.some((m) => near(m, 0))) found++; else if (bad.length < 3) bad.push({ p, l, ms });
     if (ms.some((m) => near(m, WRONG_OFFSET))) wrong++;
-    const m0 = ms.find((m) => m.sheet === 0 && near(m, 0));
-    if (m0) { own++; if (Math.abs(m0.h - l.h) <= HEIGHT_TOL && Math.hypot(m0.f[0] - l.f[0], m0.f[1] - l.f[1]) <= F_TOL) ownHit++; }
+    const m0 = ms.find((m) => near(m, 0) && Math.abs(m.h - l.h) <= HEIGHT_TOL && m.f && l.f && Math.hypot(m.f[0] - l.f[0], m.f[1] - l.f[1]) <= F_TOL);
+    if (m0) ownHit++;
   });
-  info[c.tag] = { drawn, found, own, ownHit, wrong };
+  info[c.tag] = { drawn, found, ownHit, wrong };
   ok(`${c.tag}: some places are drawn`, drawn > 0, { drawn });
   ok(`${c.tag}: every drawn place has the enumerator's member at its z`, drawn > 0 && found === drawn, { drawn, found, bad });
-  ok(`${c.tag}: some vertices are on the frame's own sheet`, own > 0, { own });
-  ok(`${c.tag}: a vertex on the frame's own sheet has that member's height and value`, ownHit === own, { own, ownHit });
+  ok(`${c.tag}: every drawn place has a member at its z with its height and value`, ownHit === drawn, { drawn, ownHit });
   ok(`${c.tag}: the control (a z ${WRONG_OFFSET} off) matches no member`, wrong === 0, { wrong });
 }
 // a frame the mesh path draws has no inverse inputs: the hook answers null
