@@ -555,8 +555,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
-  // the uniforms of one inverse pass: the plan data d (passData), the shape rec, the look and the program extra
+  // The uniforms every inverse program takes: the inverse's slots (the glide's parameters), the map's stage range, the
+  // walk's plan data d (passData), the shape rec, the look and the program extra. inv is the plan's inverse (st.inv or the chain's)
   function bindInverse(P, st, d, rec, look, extra) {
+    const inv = st.inv || cur.info.inverse, map = st.map || {};
+    if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
+    else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
+    if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
+    u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
     if (P.loc.uIxRef) gl.uniform2fv(P.loc.uIxRef, d.ref);
     if (P.loc.uIxN) gl.uniform1iv(P.loc.uIxN, d.N);
     if (P.loc.uIxRK) gl.uniform1iv(P.loc.uIxRK, d.RK);
@@ -672,10 +678,6 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (globe || !half) flushHalf();
     const hw = half ? Math.max(1, Math.ceil(fw / 2)) : fw, hh = half ? Math.max(1, Math.ceil(fh / 2)) : fh;
     gl.useProgram(P.p);
-    if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
-    else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
-    if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
-    u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
     // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
     if (P.loc.uNrRead) {
       const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;

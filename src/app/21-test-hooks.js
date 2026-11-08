@@ -368,6 +368,8 @@
     const pk = render3D.pick;
     return pk && pk.info ? { F: pk.F, height: (w) => pk.info.heightOf(landValue(w)), box: pk.box } : null;
   };
+  // the height the last Landscape frame draws for the plane's value v (its own scale and knee, the glide's blend): [re, im] -> height
+  window.__cmwLandFrameHeight = (v) => (render3D.frameHeight ? render3D.frameHeight(landValue({ re: v[0], im: v[1] })) : null);
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (v16.5 test/ux165_chain_cmd.js)

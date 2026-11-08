@@ -308,13 +308,15 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.tex1, 0);
     gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
+    const pz = landC.exact && landC.zTex ? new Float32Array(N * N * 4) : null;
+    if (pz) { gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.zTex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, pz); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return pts.map(([x, y]) => {
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i);
-      return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0 }] : [];
+      return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }] : [];
     });
   }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
