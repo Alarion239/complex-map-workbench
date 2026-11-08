@@ -1588,7 +1588,11 @@ const Inverse = (() => {
   function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
-    if (t >= 1) return stepOps(b);
+    if (t >= 1) {
+      // (a polynomial step with no exact ops is inverted at t = 1 by its roots, as at t < 1: the plane at rest and the glide's frames are one picture)
+      const r = stepOps(b), P = b.props;
+      return r.ok || !(P && P.analytic && P.polynomial && P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX) ? r : newtOps(b, 1, r.reason);
+    }
     const id = b.def.id, nat = b.nat || null, nd = b.natData || null;
     const T = C(t, 0), aff = (a, c) => opAff(a, c);
     const mobOf = (M) => (isZero(M[2]) ? opAff(div(M[0], M[3]), div(M[1], M[3])) : opMob(M));

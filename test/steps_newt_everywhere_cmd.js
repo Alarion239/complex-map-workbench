@@ -120,6 +120,9 @@ for (const c of CASES) {
   await park(0); const q0 = await grab('Q0');
   await park(1); const q1 = await grab('Q1');
   ok(`${c.ex}, colour plane 0: the parked frames are still`, q0 && q1, { q0, q1 });
+  // (the parked plane 1 past the colour plane is drawn by the inverse pass, as the glide's last frames are: not by the carried meshes)
+  const rest = await ev('JSON.parse(JSON.stringify(__cmwSteps().rest))');
+  ok(`${c.ex}, colour plane 0: the parked plane 1 is drawn by the inverse pass`, !!rest && rest.a === 1 && rest.path === 'inverse', rest);
   for (const [u, ref] of [[poly.end, 'Q0'], [1 - poly.end, 'Q1']]) {
     const g = await at(u);
     const still = await grab('Z' + u);
