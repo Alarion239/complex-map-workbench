@@ -4,6 +4,7 @@
 //   and outside for Both, only inside for Inside and only outside for Outside, whichever plane the thread was parked at before;
 //   with T at another plane the Cauchy tile is disabled with its reason, and a plane z that keeps the style is paper with the same
 //   sentence as its note, the key naming no bands;
+//   past the colour plane (T = z, the thread at plane 1) the key's line names the integral and the plane it is carried from;
 //   with no closed curve at all plane z is paper and the key says so.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PNG = process.mainModule.require(path.join(DIR, 'png.js'));
@@ -69,6 +70,11 @@ ok('Cauchy: the scope control is disabled with its reason and reads Everywhere',
 const pxs = await read();
 ok('Cauchy with scope Inside: the outside is still coloured', !isGrey(pxs.outside), pxs);
 await ev(`(__cmwSteps({ scope: 'all' }), 1)`);
+// (past the colour plane the hue ring's line names the integral whose colour is carried, not only the plane)
+await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
+await settled({ until: '__cmwSteps().i === 1 && !__cmwSteps().moving', max: 15000 });
+const lgc = await legend();
+ok('T = z, thread at plane 1: the key names the Cauchy integral and the plane its colour is carried from', lgc.kind === 'color' && /^Cauchy integral over .+, carried from z$/.test(lgc.caption || ''), lgc);
 
 await park(1);
 const t1 = await tile();

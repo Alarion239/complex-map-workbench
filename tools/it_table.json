@@ -3280,6 +3280,7 @@
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Prova: ingrandisci dove un raggio tocca M, oppure clicca su f₁ e aggiungi un tuo raggio (θ = 1/7, 2/7, …); oltre circa 10⁻⁵ il float32 della GPU sfoca l'immagine.",
  "Go to {p}": "Vai a %{p}",
  "key line\u0004colour carried from {p}": "colore trasportato da {p}",
+ "key line\u0004Cauchy integral over {name}, carried from {p}": "integrale di Cauchy lungo {name}, trasportato da {p}",
  "Planes": "Piani",
  "Two planes": "Due piani",
  "Two planes is for the flat surfaces": "Due piani è solo per le superfici piane",

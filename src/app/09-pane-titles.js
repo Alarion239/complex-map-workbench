@@ -1382,7 +1382,8 @@
       const KEY_PAD = 8;     // room kept at the legend's right edge
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
-      const maxW = LEG.W - KEY_PAD - KEY_X, words = $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() }).split(' '), lines = [];
+      const maxW = LEG.W - KEY_PAD - KEY_X, cp = svT() === 0 && S.dc === 'cauchy' ? cauchyPlot() : null,
+        words = (cp ? $tx('key line', 'Cauchy integral over {name}, carried from {p}', { name: cp.name, p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }

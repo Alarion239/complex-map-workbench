@@ -538,6 +538,7 @@
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Попробуйте: приблизьте место, где луч касается M, или нажмите f₁ и добавьте свой луч (θ = 1/7, 2/7, …).",
  "Go to {p}": "Перейти к %{p}",
  "key line\u0004colour carried from {p}": "цвет перенесён из %{p}",
+ "key line\u0004Cauchy integral over {name}, carried from {p}": "интеграл Коши по контуру %{name}, перенесён из %{p}",
  "Planes": "Плоскости",
  "Two planes": "Две плоскости",
  "Two planes is for the flat surfaces": "Две плоскости — только для плоских поверхностей",
