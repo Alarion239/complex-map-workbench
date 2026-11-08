@@ -64,7 +64,8 @@ const SUITES = {
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
-  // (the seams at the device pixel ratio 1 and at the Mac screen's 2: the kit's CMW_DPR; the carried fill's pixel-centre read shows its teeth at 2 on software GL.
+  // (the seams at the device pixel ratio 1 and at the Mac screen's 2, the kit's CMW_DPR: the teeth along a seam, a staircase in the
+  // fill's edge, show at the ratio 2 on software GL when the fill reads its source point off the pixel centre.
   // keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
   // job log shows where along the seam the jumps stand)
   'steps_seams_cmd.js': {
