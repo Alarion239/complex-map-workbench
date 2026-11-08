@@ -756,10 +756,10 @@ const Phone = (() => {
   }
   // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
   // that style's settings, the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
-  const OPACITY_GROUP = 3;
+  const OPACITY_GROUP = 4;
   function displayGroups(kids) {
-    const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg') ? 1 : k.querySelector('.sv-opacity') ? 3 : k.matches('.scrub, .field, .fader-row') ? 2 : 4);
-    const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Opacity'), $t('Overlays')];
+    const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg, #landPaint') ? 1 : k.matches('#heightSeg') || k.querySelector('#lscaleRange') ? 3 : k.querySelector('.sv-opacity') ? 4 : k.matches('.scrub, .field, .fader-row') ? 2 : 5);
+    const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Height'), $t('Opacity'), $t('Overlays')];
     return names.map((name, g) => [name, g, kids.filter((k) => of(k) === g)]).filter(([, , ks]) => ks.length)
       .map(([name, g, ks]) => {
         const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, name);
