@@ -1303,6 +1303,8 @@
     const zt = Math.max(zTol, 1e-12 * Math.max(Math.abs(z.re), Math.abs(z.im)));
     const zr = { re: Math.abs(z.re) < zt ? 0 : z.re, im: Math.abs(z.im) < zt ? 0 : z.im };
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
+    // (a finger found the hold-and-slide, on whichever plane: the scale chip stops teaching it)
+    if (ptrTouch && !probeLearned()) { try { localStorage.setItem('cmw-probe-learned', '1'); } catch (e) { /* */ } probeLearnedV = true; }
     // (the steps view's own probe, for the tour and an example's Try line: the shown plane, the value of the map into the colour
     // plane at the point (undefined past it, where the plane carries shapes and no colour of its own), #442)
     if (SV.on && tourL.probe) {
@@ -1372,8 +1374,6 @@
         lr.innerHTML = forms[i]();
         if (i === forms.length - 1 || [...lr.children].every(fits)) break;
       }
-      // (a finger found the hold-and-slide: the scale chip stops teaching it)
-      if (ptrTouch && !probeLearned()) { try { localStorage.setItem('cmw-probe-learned', '1'); } catch (e) { /* */ } probeLearnedV = true; }
     }
     // Y: the image of the probe (F at t = end)
     const w = wOnce !== undefined ? wOnce : focusF()(z);
