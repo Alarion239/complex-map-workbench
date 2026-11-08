@@ -12,8 +12,8 @@
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u and the
-//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z (Inverse.front's order: keys in
-//   steps of 2^-8 octave, ties by larger Im z, then larger Re z) among the roots in the regions
+//   front sheet's key from the glide's record, __cmwSteps().glide), takes the front z (Inverse.order's front: the largest Im z, then the largest Re z, among the keys
+//   within the tie band of the smallest) among the roots in the regions
 //   (where P is not the paper: a map many-to-one onto w under Inside regions; every root when none is, or with
 //   window.__giAllRoots) and colours w as P, plane z's
 //   parked frame, colours z (bilinear). A pixel whose front covered root could be one off P's canvas (whose cover P
@@ -49,6 +49,7 @@
   let n = 0, over = 0, none = 0, max = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5);
+    const roots = [];
     let best = null, bk = Infinity, bcv = false, kOff = Infinity;
     for (const s0 of seeds) {
       let z = s0;
@@ -68,11 +69,11 @@
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       const k = g.key(z), cv = covers(z);
       if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
-      const sk = Math.round(k / 2 ** -8), sb = Math.round(bk / 2 ** -8);
-      const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
-      if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
+      roots.push({ z, D: k, lam: null, cv });
     }
+    // (the front root is chosen from the whole set by Inverse.order, among the covered roots when there are any)
+    const pool = roots.some((r) => r.cv) ? roots.filter((r) => r.cv) : roots;
+    if (pool.length) { const f0 = Inverse.order(pool)[0]; best = f0.z; bk = f0.D; bcv = f0.cv; }
     // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one
     // the renderer colours w by: the regions run past the canvas, so w's colour is not known)
     if (!best || kOff < (bcv ? bk : Infinity)) { none++; continue; }

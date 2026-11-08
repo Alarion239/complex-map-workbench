@@ -206,7 +206,7 @@ for (const name of ['expH', 'zi_H', 'e1z_disc']) {
 // (h) golden emulation: the forward draw (emulated: the region meshes as the GPU places and orders them) vs the
 // inverse render of the bounded controls. Where a region covers a pixel more than once, both show the front point of
 // the one sheet key the region tiling, the pre-mapped meshes and the steps view's colours share (Inverse.sheetKey:
-// the point nearest the window's centre, the poles penalised, keys within TIE_D tied and ordered by the tie rule),
+// the point nearest the window's centre, the poles penalised, keys within the tie band tied and ordered by the tie rule),
 // which is also the forward draw's depth
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (h) golden emulation');
@@ -250,7 +250,7 @@ console.log('--- (h) golden emulation');
           const b = bary(x + 0.5, y + 0.5);
           if (b[0] < -1e-12 || b[1] < -1e-12 || b[2] < -1e-12) continue;
           const z = srcAt(b), k = y * W + x, cand = { z, D: Inverse.sheetKey(kp, z, null), lam: null };
-          if (best[k] && !(rev ? Inverse.front(best[k], cand) : Inverse.front(cand, best[k]))) continue;
+          if (best[k] && !(rev ? Inverse.frontByStep(best[k], cand) : Inverse.frontByStep(cand, best[k]))) continue;
           best[k] = cand;
           const pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] });
           col[3 * k] = pc.col[0]; col[3 * k + 1] = pc.col[1]; col[3 * k + 2] = pc.col[2]; cov[k] = 1;

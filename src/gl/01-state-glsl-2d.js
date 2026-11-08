@@ -729,7 +729,8 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   //   within a step. A map symmetric about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|)
   //   would otherwise order fragment by fragment.
   // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): s rounded to its step, so two sheets in one
-  //   step are ordered by the tie order alone. Not stepped (a vertex stage: REGION_VS's carry option): s itself, since a
+  //   step are ordered by the tie order alone (a depth is one number per fragment, so the mesh's tie is a rounding step;
+  //   the inverse pass's tie is a band under the smallest key, Inverse.order). Not stepped (a vertex stage: REGION_VS's carry option): s itself, since a
   //   depth interpolated across a triangle whose vertices straddle a step would order the sheets wrongly over the whole
   //   triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
