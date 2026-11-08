@@ -45,7 +45,8 @@
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-10,        // |H(z) - w| of a converged correction, relative to 1 + |w|
     MATCH_TOL: 1e-5,        // a carried member equals an enumerated one within this of 1 + |z|
-    BND_PX: 2,              // half-resolution pixels: a boundary cell is halved to this footprint
+    BND_PX: 2,              // half-resolution pixels: a boundary cell is halved until its members' own edges are this short
+    CAND_R: 1.5,            // half-resolution pixels: the pixels a ray is cast for lie this close to a member's projected corners and edges
     JUMP_PX: 3,             // half-resolution pixels: corners of one member this far apart at CELL_DEPTH_MAX are a wall
     RAY_SAMPLES: 8,         // samples along a pixel's ray inside a boundary cell
     RAY_SUB_PX: 1 / 16,     // a ray's bisection stops at this many pixels
@@ -62,6 +63,8 @@
     CERT_RHO_MIN: 1e-3,     // the smallest disc radius, relative to the members' distance
     CERT_LIP_SAFE: 1.25,    // the sampled bound of H''' is taken this much over
     CERT_CRIT_TOL: 1e-9,    // |H'(c)| of the located critical point
+    CERT_DEGEN: 1e-9,       // |H''| under this share of |H'| (per unit of the members' distance): the critical point is not simple
+    CERT_TIGHT: 0.125,      // the cluster certificate's inner circle, as a share of the outer
     CERT_WIND_RES: 1e-3,    // the winding number's distance from an integer
     PLACES_MAX: 4e6,        // places looked up at most (a bound on the run)
   };
@@ -221,6 +224,26 @@
       places++; cells.places = places;
       return mkVert(w, e);
     }
+    // the longest projected edge of a member of the cell's corners that the edges carry from one corner to the next
+    const EDGES = [[0, 1], [0, 2], [1, 3], [2, 3]];
+    function* pairedSegments(vs, cp) {
+      for (const [a, b] of EDGES) {
+        const pm = cp.P[a + ',' + b];
+        if (!pm || !pm.map) continue;
+        for (let i = 0; i < vs[a].all.length; i++) {
+          const j = pm.map[i];
+          if (j < 0) continue;
+          const A = vs[a].all[i], B = vs[b].all[j];
+          if (!A.drawn || !B.drawn) continue;
+          for (const la of A.layers) { const lb = B.layers.find((l) => l.combo === la.combo); if (lb) yield [la.P, lb.P]; }
+        }
+      }
+    }
+    function pairedExtent(vs, cp) {
+      let m = 0;
+      for (const [P, Q] of pairedSegments(vs, cp)) m = Math.max(m, dist2(P, Q));
+      return m;
+    }
     // the cell's (a) test: corners carry the same members; E at the midpoints and the centre; returns { E, ratioOk, why } or null when not (a)
     function* judgeA(vs, pr, cell) {
       // pr: pairings of the four edges 0-1, 0-2, 1-3, 2-3 (member of the first place -> member of the second)
@@ -325,23 +348,23 @@
       }
       if (!sameMembers(vs, cp)) {
         why('members differ');
-        const bb = bboxOf(vs);
-        if (d < o.CELL_DEPTH_MAX && (!Number.isFinite(bb[0]) || Math.max(bb[2] - bb[0], bb[3] - bb[1]) > o.BND_PX)) { split(); continue; }
-        leaves.boundary.push({ i, j, s, vs });
+        if (d < o.CELL_DEPTH_MAX && pairedExtent(vs, cp) > o.BND_PX) { split(); continue; }
+        leaves.boundary.push({ i, j, s, vs, cp });
         continue;
       }
       if (!vs[0].all.some((m) => m.drawn)) { cells.empty++; continue; }
       const jd = yield* judgeA(vs, cp, [i, j, s]);
       if (jd.suspect || jd.mismatch) why('judge: ' + jd.why);
       if (jd.suspect) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.branch.push({ i, j, s, vs, why: jd.why }); continue; }
-      if (jd.mismatch) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.boundary.push({ i, j, s, vs }); continue; }
+      if (jd.mismatch) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.boundary.push({ i, j, s, vs, cp }); continue; }
       if (jd.E >= o.E_SAFE / 2) {
         why('E over');
         if (d < o.CELL_DEPTH_MAX) { split(); continue; }
         // a wall: the corners of one member stay apart however fine the cell
         const bb = bboxOf(vs);
-        if (Math.max(bb[2] - bb[0], bb[3] - bb[1]) > o.JUMP_PX) { leaves.boundary.push({ i, j, s, vs }); continue; }
-        fail({ kind: 'cellDepth', i, j, depth: d, w: wAt(i, j), E: jd.E, worst: jd.worst });
+        if (Math.max(bb[2] - bb[0], bb[3] - bb[1]) > o.JUMP_PX) { leaves.boundary.push({ i, j, s, vs, cp }); continue; }
+        // (at the depth cap: only a branch certificate may take the cell; otherwise it is a failure of the cell's depth)
+        leaves.branch.push({ i, j, s, vs, why: 'E over at the cap', kind: 'cellDepth', info: { depth: d, w: wAt(i, j), E: jd.E, worst: jd.worst } });
         continue;
       }
       // accepted: fill every drawn layer's two triangles
@@ -358,7 +381,7 @@
     }
     if (leaves.branch.length) yield* certifyBranches(leaves);
     yield* boundaryRays(leaves.boundary.concat(leaves.branch.filter((c) => c.certified)));
-    for (const c of leaves.branch) if (!c.certified) fail({ kind: 'uncertifiedBranch', w: wAt(c.i, c.j), why: c.why });
+    for (const c of leaves.branch) if (!c.certified) fail(Object.assign({ kind: c.kind || 'branch', i: c.i, j: c.j, w: wAt(c.i, c.j), why: c.certWhy || c.why }, c.info));
     return { px, cells, certs, failures };
 
     // ---- (c) branch certificates
@@ -370,7 +393,7 @@
         const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2), diag = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
         const known = certs.find((q) => dist2(q.w, ctr) <= q.rImage + diag);
         if (known) { c.certified = known; continue; }
-        if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w: ctr }); continue; }
+        if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w: ctr }); c.certWhy = 'certMax'; continue; }
         const ms = c.vs.flatMap((v) => v.all);
         let pair = null, best = Infinity;
         for (let a = 0; a < ms.length; a++) for (let b = a + 1; b < ms.length; b++) {
@@ -378,25 +401,84 @@
           const d = dist2(ms[a].z, ms[b].z);
           if (d > 0 && d < best) { best = d; pair = [ms[a], ms[b]]; }
         }
-        if (!pair) { fail({ kind: 'branch', w: ctr, why: 'no merging pair' }); continue; }
-        const cert = certifyAt(pair, best);
-        if (!cert.ok) { fail({ kind: 'branch', w: ctr, why: cert.why }); continue; }
+        if (!pair) { c.certWhy = 'no merging pair'; continue; }
+        const cert = certifyAt(pair, best, ms.filter((q) => q.sheet === pair[0].sheet));
+        if (!cert.ok) { c.certWhy = cert.why; continue; }
         // the location test: H(c) lies inside a cell of the suspect ones (the control moves it one cell), and then covers its neighbours
         const wc = o.branch ? [cert.w[0] + o.branch * c.s * cellW, cert.w[1]] : cert.w;
         const holds = lv.branch.some((q) => { const a = wAt(q.i, q.j), b = wAt(q.i + q.s, q.j + q.s); return wc[0] >= a[0] && wc[0] <= b[0] && wc[1] >= a[1] && wc[1] <= b[1]; });
         if (holds) { cert.w = wc; certs.push(cert); c.certified = cert; }
-        else fail({ kind: 'branch', w: ctr, why: 'the critical point is not in a suspect cell', wc });
+        else c.certWhy = 'the critical point is not in a suspect cell';
         yield;
       }
     }
-    function certifyAt(pair, sep) {
+    function certifyAt(pair, sep, group) {
+      const simple = certifySimple(pair, sep);
+      if (simple.ok || !simple.degenerate) return simple;
+      return certifyCluster(pair, sep, group, simple);
+    }
+    // a critical point of H that is not simple (H' has a zero of order m >= 2 there, as for a cube): the argument principle on a circle
+    // counts the zeros of H' (m of them), their centroid is the point c, a circle a CERT_TIGHT share as wide holds all m, and the winding
+    // of H - H(c) is m + 1, the local degree
+    function certifyCluster(pair, sep, group, simple) {
+      const m0 = pair[0], zc = group.reduce((a, q) => cadd(a, q.z), [0, 0]).map((x) => x / group.length);
+      const lam0 = m0.lam ? cadd(m0.lam, relLog(m0.z, zc)) : null, lamAt = (z) => (lam0 ? cadd(lam0, relLog(zc, z)) : null);
+      const dHat = (z) => { const r = Hof(m0, z, lamAt(z)); return r ? r.dH : null; };
+      const R = 2 * Math.max(...group.map((q) => dist2(q.z, zc)), sep);
+      // the winding and the centroid integral of f = H' about a circle (c0, r): adaptive steps of argument at most CERT_ARG
+      const ring = (c0, r) => {
+        let tot = 0, cen = [0, 0];
+        const at = (th) => dHat(cadd(c0, [r * Math.cos(th), r * Math.sin(th)])), stack = [];
+        for (let k = o.CERT_WIND; k > 0; k--) stack.push([2 * Math.PI * (k - 1) / o.CERT_WIND, 2 * Math.PI * k / o.CERT_WIND]);
+        let steps = 0;
+        while (stack.length) {
+          const [a, b] = stack.pop(), A = at(a), B = at(b);
+          if (!A || !B || cabs(A) < 1e-300 || cabs(B) < 1e-300) return null;
+          const dth = Math.atan2(A[0] * B[1] - A[1] * B[0], A[0] * B[0] + A[1] * B[1]);
+          if (Math.abs(dth) > o.CERT_ARG && b - a > 1e-9) { const mm = (a + b) / 2; stack.push([mm, b], [a, mm]); continue; }
+          const lg = Math.log(cabs(B) / cabs(A)), zm = cadd(c0, [r * Math.cos((a + b) / 2), r * Math.sin((a + b) / 2)]);
+          tot += dth; cen = cadd(cen, cscale([zm[0] * dth + zm[1] * lg, zm[1] * dth - zm[0] * lg], 1 / (2 * Math.PI)));
+          if (++steps > 1e5) return null;
+        }
+        return { wind: tot / (2 * Math.PI), cen };
+      };
+      const big = ring(zc, R);
+      if (!big) return { ok: false, why: 'cluster: H\' on the circle (' + simple.why + ')' };
+      const mm = Math.round(big.wind);
+      if (Math.abs(big.wind - mm) > o.CERT_WIND_RES || mm < 1) return { ok: false, why: 'cluster: zeros of H\' ' + big.wind.toFixed(4) };
+      const c = cscale(big.cen, 1 / mm), r = R * o.CERT_TIGHT, small = ring(c, r);
+      if (!small || Math.abs(small.wind - mm) > o.CERT_WIND_RES) return { ok: false, why: 'cluster: not tight ' + (small ? small.wind.toFixed(4) : 'x') };
+      const rc = Hof(m0, c, lamAt(c));
+      if (!rc) return { ok: false, why: 'cluster: H at c' };
+      const at = (th) => { const zz = cadd(c, [r * Math.cos(th), r * Math.sin(th)]), rr = Hof(m0, zz, lamAt(zz)); return rr ? csub(rr.H, rc.H) : null; };
+      let total = 0, rImage = Infinity, steps = 0;
+      const stack = [];
+      for (let k = o.CERT_WIND; k > 0; k--) stack.push([2 * Math.PI * (k - 1) / o.CERT_WIND, 2 * Math.PI * k / o.CERT_WIND]);
+      while (stack.length) {
+        const [a, b] = stack.pop(), A = at(a), B = at(b);
+        if (!A || !B) return { ok: false, why: 'cluster: H on the circle' };
+        const d = Math.atan2(A[0] * B[1] - A[1] * B[0], A[0] * B[0] + A[1] * B[1]);
+        if (Math.abs(d) > o.CERT_ARG && b - a > 1e-9) { const mid = (a + b) / 2; stack.push([mid, b], [a, mid]); continue; }
+        total += d; rImage = Math.min(rImage, cabs(A));
+        if (++steps > 1e5) return { ok: false, why: 'winding steps' };
+      }
+      const deg = total / (2 * Math.PI), dd = Math.round(deg);
+      if (Math.abs(deg - dd) > o.CERT_WIND_RES || dd !== mm + 1) return { ok: false, why: 'cluster: degree ' + deg.toFixed(4) + ' for ' + mm + ' zeros' };
+      const inDisc = [[1, 0], [-1, 0]].map(([ux, uy]) => {
+        const e = frame.enumAt([[rc.H[0] + ux * rImage / 2, rc.H[1] + uy * rImage / 2]])[0] || [];
+        return e.filter((q) => q.sheet === m0.sheet && dist2(q.z, c) < r).length;
+      });
+      if (inDisc.some((q) => q !== dd)) return { ok: false, why: 'cluster: members in the disc ' + inDisc.join(',') + ' of ' + dd, inDisc };
+      return { ok: true, c, w: rc.H, r, rImage, d: dd, kantorovich: null, cluster: { zeros: mm, R }, winding: deg, inDisc };
+    }
+    function certifySimple(pair, sep) {
       const m = pair[0], z0 = mid2(pair[0].z, pair[1].z), lam0 = m.lam ? cadd(m.lam, relLog(m.z, z0)) : null;
       const lamAt = (z) => (lam0 ? cadd(lam0, relLog(z0, z)) : null);
       const dHat = (z) => { const r = Hof(m, z, lamAt(z)); return r ? r.dH : null; };
       const delta = o.CERT_DELTA * (1 + cabs(z0));
       const d2H = (z) => { const a = dHat(cadd(z, [delta, 0])), b = dHat(csub(z, [delta, 0])); return a && b ? cscale(csub(a, b), 1 / (2 * delta)) : null; };
       const f = dHat(z0), fp = d2H(z0);
-      if (!f || !fp || cabs(fp) < 1e-300) return { ok: false, why: 'no derivative' };
+      if (!f || !fp || cabs(fp) < o.CERT_DEGEN * cabs(f) / (1 + sep)) return { ok: false, why: 'no derivative', degenerate: true };
       // Kantorovich for f = H': beta = 1/|f'|, eta = |f|/|f'|, the Lipschitz constant of f' (H''') sampled on the disc of radius rho
       const beta = 1 / cabs(fp), eta = cabs(f) * beta, rho = Math.max(2 * eta, sep * o.CERT_RHO_MIN);
       let lip = 0;
@@ -408,7 +490,7 @@
       }
       lip *= o.CERT_LIP_SAFE;
       const kh = beta * eta * lip * beta;
-      if (!(kh <= 0.5)) return { ok: false, why: 'Kantorovich h=' + kh.toExponential(2) + ' over 1/2', kh };
+      if (!(kh <= 0.5)) return { ok: false, why: 'Kantorovich h=' + kh.toExponential(2) + ' over 1/2', kh, degenerate: true };
       let c = z0;
       for (let it = 0; it < o.NEWT_ITER * 4; it++) {
         const fc = dHat(c), fpc = d2H(c);
@@ -447,18 +529,31 @@
       const wPx = (box.x1 - box.x0) / W2;
       let n = 0;
       for (const c of list) {
-        const bb = bboxOf(c.vs);
-        if (!Number.isFinite(bb[0])) continue;
+        const pts = [];
+        for (const v of c.vs) for (const m of v.all) for (const l of m.layers) pts.push(l.P);
+        if (!pts.length) continue;
         cells[c.certified ? 'branch' : 'boundary']++;
+        // the pixels to decide: those close to a drawn member's corners, and to the edges that carry it from one corner to the next
+        // (a certified cell's members are not paired along edges: all of its corners' bounding box)
+        const cand = new Set(), R = o.CAND_R;
+        const mark = (P) => { for (let y = Math.floor(P[1] - R); y <= Math.floor(P[1] + R); y++) for (let x = Math.floor(P[0] - R); x <= Math.floor(P[0] + R); x++) if (x >= 0 && y >= 0 && x < W2 && y < H2) cand.add(y * W2 + x); };
+        if (c.certified || !c.cp) {
+          const bb = bboxOf(c.vs);
+          for (let y = Math.floor(bb[1] - R); y <= Math.ceil(bb[3] + R); y++) for (let x = Math.floor(bb[0] - R); x <= Math.ceil(bb[2] + R); x++) if (x >= 0 && y >= 0 && x < W2 && y < H2) cand.add(y * W2 + x);
+        } else {
+          pts.forEach(mark);
+          for (const [P, Q] of pairedSegments(c.vs, c.cp)) { const k = Math.max(1, Math.ceil(dist2(P, Q) / (R / 2))); for (let t = 1; t < k; t++) mark([P[0] + (Q[0] - P[0]) * t / k, P[1] + (Q[1] - P[1]) * t / k]); }
+        }
         const hs = c.vs.flatMap((v) => v.all.flatMap((m) => m.layers.map((l) => l.h)));
         const lo = Math.min(...hs), hi = Math.max(...hs), pad = o.RAY_PAD * (hi - lo) + 1e-6;
         const sh = o.seam ? o.seam * c.s * cellW : 0;   // (the control moves the seam: the rays test the cell one cell over)
         const w0 = wAt(c.i, c.j), w1 = wAt(c.i + c.s, c.j + c.s), mg = (w1[0] - w0[0]) * o.RAY_BOX;
         const bx = [w0[0] + sh - mg, w0[1] - mg, w1[0] + sh + mg, w1[1] + mg], cen = mid2([bx[0], bx[1]], [bx[2], bx[3]]);
-        for (let y = Math.floor(bb[1]) - 1; y <= Math.ceil(bb[3]) + 1; y++) for (let x = Math.floor(bb[0]) - 1; x <= Math.ceil(bb[2]) + 1; x++) {
-          if (x < 0 || y < 0 || x >= W2 || y >= H2 || px[y * W2 + x]) continue;
+        for (const key of cand) {
+          if (px[key]) continue;
+          const x = key % W2, y = (key - x) / W2;
           cells.rays++;
-          if (rayHit([x + 0.5, y + 0.5], lo - pad, hi + pad, bx, cen, wPx)) px[y * W2 + x] = 1;
+          if (rayHit([x + 0.5, y + 0.5], lo - pad, hi + pad, bx, cen, wPx)) px[key] = 1;
           if (++n % 16 === 0) yield;
         }
       }
