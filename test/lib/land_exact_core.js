@@ -87,6 +87,7 @@
     const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0, why: {} };
     const why = (k) => { cells.why[k] = (cells.why[k] || 0) + 1; };
     const certs = [], failures = [];
+    let singList = null;   // the plan's declared singular points, read once
     const fail = (f) => { if (failures.length < 64) failures.push(f); };
     const tick = () => { if (frame.progress) frame.progress(cells, failures); };
     const FINE = 1 << o.CELL_DEPTH_MAX;                       // lattice steps of the finest cell, per initial cell
@@ -415,7 +416,6 @@
         yield;
       }
     }
-    let singList = null;
     function singularCert(c) {
       if (!frame.sing) return null;
       if (singList === null) singList = frame.sing() || [];
