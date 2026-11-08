@@ -81,9 +81,9 @@ const geo = await ev(`(() => { const r = document.querySelector('.ph-sheet').get
 ok('the sheet is at most 60 % of the viewport', geo.h <= 0.6 * geo.vh + 1, geo);
 ok('opening moves focus to the current style, with no tooltip', geo.focus === 'style' && !geo.tip, geo);
 ok('the disabled Outlines is dimmed', +geo.dim <= 0.45, geo);
-const sh = await ev(`(() => { const o = document.querySelector('.ph-vopts #outlineChk'), k = [...document.querySelectorAll('.ph-vopts > *')]; return { title: (document.querySelector('.ph-sh .ph-t, .ph-sh .ttl') || {}).textContent || document.querySelector('.ph-sheet').getAttribute('aria-label'), first: k[0] && k[0].id, outDis: !!o && o.disabled && o.getAttribute('aria-description') || '' }; })()`);
+const sh = await ev(`(() => { const o = document.querySelector('.ph-vopts #outlineChk'), k = [...document.querySelectorAll('.ph-vopts > .ph-grp > :not(h3)')]; return { title: (document.querySelector('.ph-sh .ph-t, .ph-sh .ttl') || {}).textContent || document.querySelector('.ph-sheet').getAttribute('aria-label'), first: k[0] && k[0].id, scopeFirst: !!k[0] && k[0].classList.contains('sv-sheet-scope') && k[1] && k[1].id, outDis: !!o && o.disabled && o.getAttribute('aria-description') || '' }; })()`);
 ok('the sheet names the colour panel and the shown plane', /Colour · w/.test(sh.title || ''), sh);
-ok('the sheet opens on the style row', sh.first === 'dcSeg', sh);
+ok('the sheet lists the scope switch, then the style row', sh.scopeFirst === 'dcSeg', sh);
 ok('Outlines in the sheet is disabled with its reason past the colour plane', /colour plane/.test(sh.outDis), sh);
 await ev(`document.querySelector('.ph-sheet .ph-x').click(); 1`); await settled({ floor: 500 });
 ok('closing gives the focus back to the button that opened the sheet', await ev(`document.activeElement && document.activeElement.classList.contains('ph-dsp')`), await ev(`document.activeElement && document.activeElement.className`));

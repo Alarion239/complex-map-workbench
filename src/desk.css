@@ -208,6 +208,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sty-seg .sty-g svg { display: block; width: 15px; height: 15px; }
 .pane-head > .options > .scrub { height: 26px; padding: 0 0 0 6px; border: 1px solid var(--line); border-radius: var(--r-2, 6px); }
 .pane-head > .options > .scrub select.sel { height: 24px; border: 0; background-color: transparent; }
+.pane-head > .options > .scrub .sv-choice-num { height: 24px; min-width: 0; border: 0; background-color: transparent; }
 .pane-head > .options label.check.ic-tg { position: relative; display: inline-grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0;
   border: 1px solid transparent; border-radius: var(--r-2, 6px); color: var(--ink-2); cursor: pointer; }
 .pane-head > .options label.check.ic-tg:hover { background: var(--well); color: var(--ink); }
