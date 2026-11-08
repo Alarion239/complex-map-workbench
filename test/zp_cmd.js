@@ -24,9 +24,17 @@ const EXACT_SRC = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'zp_kit.js'),
 // ---------------------------------------------------------------------------------------------------------------
 // (v15 review regress-3: the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
 // edges, 16 px, where axis ink is neither fill nor plane)
-// (a step's ⋯ menu and its name: the chain's card in the classic view, the thread's step in the steps view)
-const stepMore = (k) => inSteps ? `#svStrip .sv-step[data-k="${k}"] .sv-more` : `#pipeline .card[data-k="${k}"] .more`;
-const stepName = async (k) => inSteps ? ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"]').textContent`) : (await ev('__qa.cards()'))[k];
+// (a step's ⋯ menu and its name, on the thread)
+const stepMore = (k) => `#svStrip .sv-step[data-k="${k}"] .sv-more`;
+const stepName = (k) => ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"]').textContent`);
+// F's guarantees, as the Inspector lists them with F selected (the whole map's chip); the step selected before is selected again
+const fLamps = async () => {
+  const sel = await ev('__cmwCards().sel');
+  await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`); await settled({ until: "!!document.querySelector('#propsPanel .iform, #propsPanel .insp-step')", max: 8000 });
+  const l = await ev('__qa.lamps()');
+  if (sel !== 'F') { await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="${sel}"] .sv-fchip'); if (c) c.click(); return 1; })()`); await settled({ until: `!!document.querySelector('#propsPanel .insp-step[data-k="${sel}"]')`, max: 8000 }); }
+  return l;
+};
 // 1. (z^2 - 1)/z of a disc: handles, the card, exact at rest
 await view(1440, 900, false);
 // (Y, the image, is the classic view's right pane; the steps view shows it as its last plane, so the exactness is read
@@ -54,7 +62,7 @@ ok('pole 1 drawn at 0', p0 && Math.hypot(p0.x - e1[0], p0.y - e1[1]) < 0.75, { p
 const card = await ev(`(() => { const c = document.querySelector('#propsPanel .insp-step[data-k="1"]'); return { fields: [...c.querySelectorAll('input[data-zp]')].map((e) => [e.dataset.zp, e.value]), adds: [...c.querySelectorAll('.zp-add')].map((b) => b.textContent), syms: [...c.querySelectorAll('.zp-sym')].map((e) => e.textContent), tex: c.querySelector('.ftex').dataset.tex }; })()`);
 ok('Inspector: a field per zero and pole, Add zero / Add pole', JSON.stringify(card.fields) === JSON.stringify([['zeros:0', '1'], ['zeros:1', '−1'], ['poles:0', '0']]) && card.adds.join('|') === 'Add zero2|Add pole1' && card.syms.join('') === 'ζ₁ζ₂p₁', card);
 ok('card formula factored', /\\frac\{\\left\(z-1\\right\)\\left\(z\+1\\right\)\}\{z\}/.test(card.tex || ''), card.tex);
-let lamps = await ev('__qa.lamps()');
+let lamps = await fLamps();
 ok('guarantees: rational of exact degree 2, not polynomial, not Möbius', /●rational\(deg 2\)/.test(lamps) && /○polynomial/.test(lamps) && /○mobius/.test(lamps), lamps);
 let ex = await exact();
 ok('exact at rest (per pixel against the truth)', ex.n > 2000 && ex.rate < 0.002, ex);
@@ -103,7 +111,7 @@ const ax = pane.left + pane.w * 0.78, ay = pane.top + pane.h * 0.2;
 await click(ax, ay, { mods: 8 }); await settle(700);
 z = await zp();
 ok('Shift-click adds zero 3', Funcs_split(z.params.zeros).length === 3 && z.handles.filter((q) => q.kind === 'zeros').length === 3, z.params);
-lamps = await ev('__qa.lamps()');
+lamps = await fLamps();
 ok('degree 3 rational', /●rational\(deg 3\)/.test(lamps), lamps);
 await settle(600);
 await click(pane.left + pane.w * 0.2, pane.top + pane.h * 0.8, { mods: 8 | 4 }); await settle(700);
@@ -167,9 +175,7 @@ await grab();
 await load('zpacc2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [0.5, 1] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '1+i, -1', poles: '' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, { pattern: 'checker' }));
 await settle(1200); await grab();
 ok('whole chain: no handles in X (step 2 acts on w1)', (await zp()).handles.length === 0, await zp());
-// (a click selects; Show alone is a double-click)
-if (inSteps) await toPlane(1);   // (f2's input plane)
-else await ev(`document.querySelector('#pipeline .card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+await toPlane(1);   // (f2's input plane)
 await settle(1200);
 z = await zp();
 ok('f2 focused: its zeros in its input plane', z.k === 2 && z.handles.length === 2, z);
@@ -178,7 +184,6 @@ ok('a zero of f2 in view', !!h, z);
 if (h) await drag(h.x, h.y, h.x + 40, h.y + 20, 30, 16);
 await settle(800);
 ok('dragging in the focused plane changes f2', (await zp()).params.zeros !== '1+i, -1', (await zp()).params);
-lamps = await ev('__qa.lamps()');
 await shot('zp-focused-light'); shots.push('zp-focused-light');
 
 // 8. dark

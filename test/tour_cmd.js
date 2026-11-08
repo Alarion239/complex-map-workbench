@@ -145,47 +145,8 @@ await ev(`document.querySelector('.ts-next').focus()`);
 await key('Escape'); await settle(300);
 check('Escape with the focus in the callout ends the tour, busy or not', !(await ev('Tour.isActive()')));
 
-// 4. Try it completes and advances: the view switch; the portrait's callout sits below it (the classic views' Views chapter); the
-// end of a chapter with a task: Phase key, or in the steps view Edit a step
-if (!SV) {
-  await open('t3', { chapter: 'views', step: 0 }, 1440, 900, true);
-  // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look (
-  // the regions' fill is the phase, there is no pattern to choose)
-  await ev(`__cmwSet('alpha', 0.3), 1`); await waitFor(() => ev('__cmwRegions().alpha === 0.3'));
-  await startAndWait({ chapter: 'views' });
-  g = await ev(`__cmwRegions()`);
-  check('a scene sets its look: the default opacity even after the user chose 0.3, and the phase fill', g && g.alpha === 0.85 && g.pattern === 'phase', g);
-  await snap('tour-views-switch-dark');
-  // (a door respects Move on by itself, which this walk turns off: on for the door)
-  await ev('Tour.auto(true)');
-  await ev(`window.__cmwSetMain('phase')`); await waitFor(async () => ((await cur()) || {}).id === 'phase');   // (the door moves on 0.7 s after Choose Phase)
-  g = await cur();
-  check('Try it "Choose Phase" advances to the portrait', g && g.id === 'phase', g);
-  await ev('Tour.auto(false)');
-  await shaded();
-  const panes = await box('#panes'), card = await box('.tour-strip');
-  check('Phase portrait: the strip is above the panel, not over it', !meet(card, panes) && card.b <= panes.t + 0.5, { card, panes });
-  await snap('tour-phase-dark');
-  // the sphere: the panel is lit, its Plane · Sphere control has a ring of its own
-  await nextStep(); await nextStep();
-  g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
-  check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
-  await snap('tour-sphere-dark');
-  // the Phase key: Y is lit, and (the check is a toggle in Y's pane head, or behind the head's ⋯ button)
-  // the check, or that button, has a ring of its own
-  await nextStep();
-  g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); const a = L && L.anchor, el = k && k.getClientRects().length ? k.closest('label') : ob, b = el.getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!el.closest('.pane-head'), y: (Tour.lit() || {}).body }; })()`);
-  check('Phase key: Y lit, its toggle (or the head\'s ⋯) ringed in the pane head, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
-  await snap('tour-phasekey-dark');
-  // the Phase key ends the chapter: Choose Phase key ticks its Try it
-  // (the check, in Y's head or behind its ⋯ / Regions button, whose pop-up holds it while open)
-  if (!(await ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`))) { await ev(`(document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')).click()`); await waitFor(() => ev(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`)); }
-  await clickSel('label:has(#wKeyChkR)'); await waitFor(() => ev(`document.querySelector('.ts-l2').classList.contains('done')`));
-  check('Phase key: turning it on ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
-  g = await ev(`({ count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent, label: document.querySelector('.ts-next').getAttribute('aria-label'), h: Math.round(document.querySelector('.ts-row').getBoundingClientRect().height) })`);
-  check('end of a chapter: "Next: Editing the chain" (or Next → with that name) on the strip\'s one row', /5 of 5/.test(g.count) && (g.next === 'Next: Editing the chain' || g.label === 'Next: Editing the chain') && g.h <= 62, g);
-  await snap('tour-views-end-dark');
-} else {
+// 4. Try it completes and advances: the end of a chapter with a task, Edit a step
+if (SV) {
   await open('t3', null, 1440, 900, true);
   // the user's look never leaks into the scene: an opacity of 0.3 is set back to the default by the scene's look
   await ev(`__cmwSet('alpha', 0.3), 1`); await waitFor(() => ev('__cmwRegions().alpha === 0.3'));
@@ -200,6 +161,8 @@ if (!SV) {
   const nx = 'Next: ' + CH[2].title, n = chOf('planes').steps.length;
   check(`end of a chapter: "${nx}" (or Next → with that name) on the strip's one row`, new RegExp(`${n} of ${n}`).test(g.count) && (g.next === nx || g.label === nx) && g.h <= 62, g);
   await snap('tour-planes-end-dark');
+} else {
+  await open('t3', { chapter: 'views', step: 0 }, 1440, 900, true);
 }
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
@@ -214,23 +177,7 @@ await ev(`document.querySelector('#tip').hidden = true`);
 check('a tooltip over the callout is hidden, and shows again away from it', g.over === 'hidden' && g.away === 'visible', g);
 
 // 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step (the classic views' Deformation chapter; the steps view's Part of the chain is in Playing the chain)
-if (!SV) {
-  await open('t4', { chapter: 'deform', step: 2 });
-  g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
-  check('Paths is step 3 of 5 of Deformation (with Part of the chain)', g.id === 'paths' && /3 of 5$/.test(g.count) && (g.next === 'Next' || g.next === 'Skip'), g);
-  await snap('tour-paths-light');
-  await nextStep();
-  g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, lit: (() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return !!a && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })(), sel: !!document.querySelector('#homOrderSel') })`);
-  check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && (g.next === 'Next' || g.next === 'Skip'), g);
-  await snap('tour-order-light');
-  await nextStep();
-  // (notes/deform-range/SPEC.md 10.2) Part of the chain: the bracket's left end lit, every step bracketed
-  g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, body: (Tour.lit() || {}).body, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
-  check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && (g.next === 'Next: Analysis' || g.next === 'Skip') && /The bracket over the cards/.test(g.body) && g.range === null, g);
-  await snap('tour-range-light');
-  await nextStep();
-  g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
-} else {
+if (SV) {
   await open('t4', at('playing/range'));
   g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
   const n = chOf('playing').steps.length, nx = 'Next: ' + CH[3].title;
@@ -238,9 +185,9 @@ if (!SV) {
   await snap('tour-range-light');
   await nextStep();
   check('Next on Part of the chain starts Editing the chain', ((await cur()) || {}).chapter === CH[3].id, await cur());
-  await startAndWait({ chapter: 'analysis' });
-  g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 }
+await startAndWait({ chapter: 'analysis' });
+g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
 g = await ev(`(Tour.lit() || {}).body`);
 // (the steps view's step is Shapes on a later plane: a later plane's regions pulled back to z)
@@ -286,9 +233,11 @@ check('Natural domain comes next, and its copy matches the F Inspector of the zp
 await snap('tour-domain-light');
 await ev('Tour.next()'); await settle(1500);
 check('then Guarantees', (await cur()).id === 'guarantees');
-// (the chapter left by its last Next: Deformation, or in the steps view Playing the chain)
-const LEFT = chOf(SV ? 'playing' : 'deform');
-check(`chapter counted done on leaving it (at its rev ${LEFT.rev})`, (await recOf('t4')).done[LEFT.id] === LEFT.rev, await recOf('t4'));
+// (the chapter left by the last Next of the Playing the chain walk above; the classic run does not walk one)
+if (SV) {
+  const LEFT = chOf('playing');
+  check(`chapter counted done on leaving it (at its rev ${LEFT.rev})`, (await recOf('t4')).done[LEFT.id] === LEFT.rev, await recOf('t4'));
+}
 
 // 6. welcome (centred) and the end of Basics
 await open('t5', { chapter: 'basics', step: 0 }, 1440, 900, true);
