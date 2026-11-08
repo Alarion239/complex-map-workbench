@@ -45,6 +45,7 @@
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-10,        // |H(z) - w| of a converged correction, relative to 1 + |w|
+    DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
     NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
     MATCH_TOL: 1e-5,        // a carried member equals an enumerated one within this of 1 + |z|
     BND_PX: 2,              // half-resolution pixels: a boundary cell is halved until its members' own edges are this short
@@ -154,6 +155,25 @@
       vb.all.forEach((n, j) => { if (n.sheet !== m.sheet) return; const d = dist2(z, n.z); if (d < bd) { bd = d; bj = j; } });
       return bj >= 0 && bd <= o.MATCH_TOL * (1 + cabs(vb.all[bj].z)) ? bj : -1;
     };
+    // the members of place va matched to those of vb by displacement: each to the member of its sheet nearest to it, accepted only where the
+    // displacement is under DISP_SEP of the smallest distance between two members of that sheet at either place, and no two take one;
+    // null when any member cannot be matched so
+    function displacementMap(va, vb) {
+      const sep = (v, sheet) => {
+        let m = Infinity;
+        for (let a = 0; a < v.all.length; a++) for (let b = a + 1; b < v.all.length; b++) if (v.all[a].sheet === sheet && v.all[b].sheet === sheet) m = Math.min(m, dist2(v.all[a].z, v.all[b].z));
+        return m;
+      };
+      const map = [], used = new Set();
+      for (const m of va.all) {
+        let bj = -1, bd = Infinity;
+        vb.all.forEach((n, j) => { if (n.sheet !== m.sheet) return; const d = dist2(m.z, n.z); if (d < bd) { bd = d; bj = j; } });
+        if (bj < 0) { map.push(-1); continue; }
+        if (!(bd < o.DISP_SEP * Math.min(sep(va, m.sheet), sep(vb, m.sheet))) || used.has(bj)) return null;
+        used.add(bj); map.push(bj);
+      }
+      return map;
+    }
     // all members of `from` carried from place wA to place wB in lockstep: { ok, z[], lam[] } or { ok: false, why }
     function track(from, wA, wB) {
       let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0, last = '';
@@ -621,8 +641,13 @@
         if (o.seed) return pairingTo(A.v, S.v).map;
         if (!A.v.all.length) return [];
         const tr = track(A.v.all, A.v.w, S.v.w);
-        if (!tr.ok) { fail({ kind: 'rayIdentity', w: A.v.w, why: tr.why }); return null; }
-        return tr.z.map((z, i) => matchIn(S.v, A.v.all[i], z));
+        if (tr.ok) return tr.z.map((z, i) => matchIn(S.v, A.v.all[i], z));
+        // (the continuation reached its step floor, beside a singular point of H: members are matched by displacement alone where
+        // that is under half of the smallest separation of its sheet's members at both places, which makes the match unique)
+        const near = displacementMap(A.v, S.v);
+        if (near) return near;
+        fail({ kind: 'rayIdentity', w: A.v.w, why: tr.why });
+        return null;
       };
       const range = Math.max(hHi - hLo, 1e-12), wTiny = o.RAY_SUB_PX * wPx;
       for (let a = 0; a + 1 < smp.length; a++) {
