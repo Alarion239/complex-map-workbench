@@ -47,6 +47,8 @@
     NEWT_TOL: 1e-8,         // |H(z) - w| of a converged correction, relative to 1 + |w| (the forward map's own rounding is about 2e-10)
     SING_REACH: 8,          // leaf cells around a declared singular point's own cell that its certificate covers: the surface is not
                             // smooth there at any depth the lattice reaches (infinite slope), the pixels are decided by rays
+    SING_ADJ: 3,            // leaf cells apart at most: suspect cells of one kind that touch are one neighbourhood
+    SING_REACH_MAX: 40,     // leaf cells from the singular point at most, whatever touches
     SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
     DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
     NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
@@ -470,14 +472,28 @@
     function issueSingular(lv) {
       if (!frame.sing) return;
       if (singList === null) singList = frame.sing() || [];
-      const reach = o.SING_REACH * cellW, shift = o.branch ? o.branch * 2 * reach : 0;
+      const reach = o.SING_REACH * cellW, shift = o.branch ? o.branch * 4 * reach : 0;
       for (const q of singList) {
         if (!q.w) continue;
         const w = [q.w[0] + shift, q.w[1]];
         const near = lv.branch.some((c) => dist2(w, mid2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s))) <= reach + dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)));
         if (!near) continue;
         if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w }); continue; }
-        certs.push({ ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: reach, kantorovich: null, winding: null, inDisc: null });
+        const cert = { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: reach, kantorovich: null, winding: null, inDisc: null };
+        certs.push(cert);
+        // the cells within reach, and the cells of the same kind that touch them (within SING_ADJ leaf cells) up to SING_REACH_MAX leaf
+        // cells from the point: the neighbourhood where the surface is not smooth at the depth the lattice reaches
+        const cdist = (c) => dist2(w, mid2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)));
+        const seeds = lv.branch.filter((c) => cdist(c) <= reach + dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)));
+        const seen = new Set(seeds), stack = seeds.slice();
+        while (stack.length) {
+          const c = stack.pop();
+          c.certified = cert;
+          for (const d of lv.branch) {
+            if (seen.has(d) || d.kind !== c.kind || cdist(d) > o.SING_REACH_MAX * cellW) continue;
+            if (dist2(mid2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)), mid2(wAt(d.i, d.j), wAt(d.i + d.s, d.j + d.s))) <= o.SING_ADJ * cellW) { seen.add(d); stack.push(d); }
+          }
+        }
       }
     }
     function certifyAt(pair, sep, group) {
