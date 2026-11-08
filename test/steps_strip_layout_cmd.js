@@ -158,14 +158,13 @@ for (const chain of ['two', 'three', 'four']) {
         if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
       }
     }
-    // the same on a page opened at a width in the band, with no resize before it
-    const mid = bandWidths[Math.floor(bandWidths.length / 2)];
-    await open(mid, 360, true, 'en', chain);
-    for (let i = 1; i <= CHAINS[chain].length; i++) {
-      await ev(`__cmwSteps({ go: ${i}, now: true }); 1`);
+    // a page opened at each width of the band, with no resize before it, and walked to its last plane: F whole or the rail at its end
+    for (const w of bandWidths) {
+      await open(w, 360, true, 'en', chain);
+      await ev(`__cmwSteps({ go: ${CHAINS[chain].length}, now: true }); 1`);
       await still({ floor: SETTLE_FLOOR });
       const m = await measure();
-      if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w: mid, opened: true, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+      if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, opened: true, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
     }
     ok(`${chain}: in the band, parked on each plane the plane and its pill are whole and F is whole or fully out of view`, badPark.length === 0, badPark);
     await view(inBand, 360, false, true);
@@ -180,6 +179,32 @@ for (const chain of ['two', 'three', 'four']) {
     seen.push((await lead()).margin);
     ok(`${chain}: the margin does not change during or after a glide`, seen.every((v) => v === m0), { m0, seen });
   }
+}
+// a selection on a phone brings the step's chip whole into the rail, each selection in turn, and a later jump of the ring is followed by the
+// rail: the ring is in the rail's view on the plane it parks on
+{
+  await open(390, 740, true, 'en', 'four');
+  const chipIn = (k) => ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="${k}"]'), r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), b = c.getBoundingClientRect(); return b.left >= r.left - ${EPS} && b.right <= r.right + ${EPS}; })()`);
+  const ringIn = () => ev(`(() => { const t = document.querySelector('#svStrip .sv-thumb').getBoundingClientRect(), r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(); return t.left >= r.left - ${EPS} && t.right <= r.right + ${EPS}; })()`);
+  const select = async (plane, k) => {
+    await ev(`__cmwSteps({ go: ${plane}, now: true }); 1`);
+    await still({ floor: SETTLE_FLOOR });
+    await ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"] .sv-fchip').click(); 1`);
+    await still({ floor: SETTLE_FLOOR });
+  };
+  const res = {};
+  await select(2, 2); res.chip2 = await chipIn(2);
+  await select(3, 3); res.chip3 = await chipIn(3);
+  await ev("__cmwSteps({ go: 1, now: true }); 1"); await still({ floor: SETTLE_FLOOR });
+  res.ringOnPlane1 = await ringIn();
+  res.state = await ev("(() => { const r = document.querySelector('#svStrip .sv-rail'), t = document.querySelector('#svStrip .sv-thumb').getBoundingClientRect(), rb = r.getBoundingClientRect(); return { sl: r.scrollLeft, sw: r.scrollWidth, cw: r.clientWidth, tl: Math.round(t.left - rb.left), tr: Math.round(t.right - rb.left), x: __cmwSteps().x, moving: __cmwSteps().moving }; })()");
+  ok('390 en four: a selection brings the step\'s chip whole into the rail, the second one too', res.chip2 && res.chip3, res);
+  ok('390 en four: after two selections a jump to plane 1 leaves the ring in the rail\'s view', res.ringOnPlane1, res);
+  // a lone selection then a jump behaves the same
+  await open(390, 740, true, 'en', 'four');
+  await select(3, 3);
+  await ev("__cmwSteps({ go: 1, now: true }); 1"); await still({ floor: SETTLE_FLOOR });
+  ok('390 en four: after one selection a jump to plane 1 leaves the ring in the rail\'s view', await ringIn(), null);
 }
 info.checks = 'steps view: the thread bar at 1920/1440/1280/1024 and 390/360, en and ru: clear of the ruler, meets no control, centred on the pane (laptop) or in its rail (phone)';
 return { pass: fails.length === 0, fails, info };
