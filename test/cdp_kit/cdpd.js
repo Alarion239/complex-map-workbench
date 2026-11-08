@@ -219,6 +219,7 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
+const LOAD_START_MS = 60000, LOAD_POLL_MS = 250;   // how long H.load waits for the app to start, and how often it looks
 H.load = async (ns, st, extra) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
@@ -229,7 +230,16 @@ H.load = async (ns, st, extra) => {
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
   H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
   await H.reseed();
-  return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+  // (#1277) the page may still be starting after the fixed wait above (software GL, a busy machine): its chain is built once the
+  // app has started, so the answer waits for the first card when the saved chain has a step, and a page that never gets there
+  // fails here, with what it answered, rather than leaving the suite to read elements that are not there yet
+  const want = Array.isArray(o.steps) && o.steps.length ? 1 : 0, t1 = Date.now();
+  for (;;) {
+    const r = await H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+    if (r && !r.__exc && r.cards.length >= want) return r;
+    if (Date.now() - t1 > LOAD_START_MS) throw new Error(`H.load: the page did not build its chain (${want} card wanted) within ${LOAD_START_MS} ms after loading (${ns}): ${JSON.stringify(r)}`);
+    await sleep(LOAD_POLL_MS);
+  }
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
