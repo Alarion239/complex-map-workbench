@@ -516,15 +516,21 @@ float landAO(ivec2 p, float h) {
 `;
   // normals by central differences (one-sided across a real jump, LAND_EDGE_VS) and ambient occlusion from a 9x9 box
   // filter (LAND_AO)
+  // The cut edges of a grid, found into uE0 (the edge from p to p + (1, 0)) and uE1 (to p + (0, 1)) when uCuts is 1: cutX(p) and
+  // cutY(p) tell whether that edge crosses a cut, so a normal there is one-sided on the vertex's own bank
+  const LAND_CUT_EDGES = `
+uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uCuts;
+bool cutX(ivec2 p) { return uCuts > 0 && texelFetch(uE0, p, 0).w > 0.5; }
+bool cutY(ivec2 p) { return uCuts > 0 && texelFetch(uE1, p, 0).w > 0.5; }
+`;
   const LAND_NRM_VS = `
-uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uN; uniform vec2 uAspect; uniform float uH;
-uniform int uCuts;
+uniform highp sampler2D uT1; uniform int uN; uniform vec2 uAspect; uniform float uH;
 out vec4 tfOut;
-` + LAND_AO + `
+` + LAND_CUT_EDGES + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
 // (uCuts -1: the edge pass still compiles, the former rule stands in: a height step over 0.3 H)
-bool jx(ivec2 p) { return uCuts > 0 ? texelFetch(uE0, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH; }
-bool jy(ivec2 p) { return uCuts > 0 ? texelFetch(uE1, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(0, 1)).z - T(p).z) > 0.3 * uH; }
+bool jx(ivec2 p) { return cutX(p) || (uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH); }
+bool jy(ivec2 p) { return cutY(p) || (uCuts < 0 && abs(T(p + ivec2(0, 1)).z - T(p).z) > 0.3 * uH); }
 void main() {
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
   vec4 c = T(p);
@@ -631,14 +637,9 @@ void main() {
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 uniform float uPatch;
-// uCuts 1 (the exact glide's cuts, found into uE0 for the +x edges and uE1 for the +y edges): a neighbour across a cut is not
-// one, so the normal is one-sided on the vertex's own bank
-uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uCuts;
 out vec4 tfOut;
-` + LAND_AO + `
+` + LAND_CUT_EDGES + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
-bool jx(ivec2 p) { return uCuts > 0 && texelFetch(uE0, p, 0).w > 0.5; }
-bool jy(ivec2 p) { return uCuts > 0 && texelFetch(uE1, p, 0).w > 0.5; }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
 void main() {
@@ -648,8 +649,8 @@ void main() {
   vec4 c = T(p);
   if (c.w < 0.5) { tfOut = vec4(0.0, 0.0, 1.0, 1.0); return; }
   vec4 L = T(p - ivec2(1, 0)), R = T(p + ivec2(1, 0)), D = T(p - ivec2(0, 1)), U = T(p + ivec2(0, 1));
-  bool oL = p.x > 0 && near(c, L) && !jx(p - ivec2(1, 0)), oR = p.x < uN - 1 && near(c, R) && !jx(p);
-  bool oD = p.y > 0 && near(c, D) && !jy(p - ivec2(0, 1)), oU = p.y < uN - 1 && near(c, U) && !jy(p);
+  bool oL = p.x > 0 && near(c, L) && !cutX(p - ivec2(1, 0)), oR = p.x < uN - 1 && near(c, R) && !cutX(p);
+  bool oD = p.y > 0 && near(c, D) && !cutY(p - ivec2(0, 1)), oU = p.y < uN - 1 && near(c, U) && !cutY(p);
   vec3 P0 = placeOf(c);
   vec3 dx = (oR ? placeOf(R) : P0) - (oL ? placeOf(L) : P0), dy = (oU ? placeOf(U) : P0) - (oD ? placeOf(D) : P0);
   vec3 n = cross(dx, dy);
