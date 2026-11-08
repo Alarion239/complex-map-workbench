@@ -13,6 +13,7 @@ const MIN_TARGET = 44, MIN_FONT = 13, SCOPE_SEGMENTS = 2, FULL_WIDTH_SLACK = 12;
 const NUM_CHOICES = 4;   // (the sectors n offers 8, 12, 16 and 24)
 const SLIDER_LINE = 44;   // (px: the slider's touch line)
 const CHOICE_TARGET = 48;   // (px: a colour-style choice)
+const SETTLE_FLOOR = 300;   // (ms the page stays quiet before a state is read)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
@@ -111,11 +112,11 @@ for (const lang of ['en', 'ru', 'it']) {
 }
 await open(PHONE, 'en', false);
 await ev(`document.querySelector('.ph-sheet .sv-sheet-scope [data-v="in"]').click(); 1`);
-await settled({ floor: 300 });
+await settled({ floor: SETTLE_FLOOR });
 const head = await ev(`(() => { const h = document.querySelector('#svHead .sv-scope .on'); return { head: h && h.dataset.v, sheet: document.querySelector('.ph-sheet .sv-sheet-scope .on').dataset.v }; })()`);
 ok('the sheet\'s scope switch sets the scope and the head\'s switch follows', head.sheet === 'in' && head.head === 'in', head);
 await ev(`document.querySelector('.ph-sheet #secSel').click(); 1`);
-await settled({ floor: 300 });
+await settled({ floor: SETTLE_FLOOR });
 const menu = await ev(`(() => { const it = [...document.querySelectorAll('[role="menuitemradio"]')]; return { n: it.length, minH: Math.min(...it.map((e) => e.getBoundingClientRect().height)) }; })()`);
 ok('the n menu lists its four choices, each at least 44 px tall', menu.n === NUM_CHOICES && menu.minH >= MIN_TARGET, menu);
 await open(WIDE_PHONE, 'en', false);
