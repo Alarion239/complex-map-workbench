@@ -1081,6 +1081,31 @@ section('singularAfter (ζ after an injective plan)');
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
 }
 
+
+// Inverse.homOps with dk: the side sheets of a log or a root at and near rest (t >= 1, and the log's u below 1e-6) are the
+// step's own ops on branch k + dk, so their forward map differs from sheet 0's by the branch shift: 2 pi i dk for a log,
+// the factor e^(2 pi i dk / n) for an n-th root. dk = 0 is the control: it must not move.
+{
+  const SHIFT_TOL = 1e-12, NEAR_REST_TOL = 1e-6;   // (just below rest the exponent is 1 / n only to the distance from rest)
+  const shiftOf = (b, t, dk, z) => {
+    const f = (d) => { let w = z; for (const o of Inverse.homOps(b, t, d).ops) w = o.fwd(w); return w; };
+    return { w0: f(0), wd: f(dk) };
+  };
+  const z = C(0.3, 0.2);
+  for (const t of [1, 1.5, 1 - 1e-7]) {
+    const tol = t >= 1 ? SHIFT_TOL : NEAR_REST_TOL;
+    for (const dk of [-2, 1]) {
+      const b = Funcs.build(St('log', { cut: 180, k: 0 })), { w0, wd } = shiftOf(b, t, dk, z);
+      check(`homOps log at t = ${t}, dk = ${dk}: sheet dk is sheet 0 shifted by 2 pi i dk`, Math.abs(wd.re - w0.re) < tol && Math.abs(wd.im - w0.im - 2 * Math.PI * dk) < tol, { w0, wd });
+    }
+    const b = Funcs.build(St('log', { cut: 180, k: 0 })), c0 = shiftOf(b, t, 0, z);
+    check(`homOps log at t = ${t}, dk = 0 (control): the sheet does not move`, Math.abs(c0.wd.re - c0.w0.re) < tol && Math.abs(c0.wd.im - c0.w0.im) < tol, c0);
+    const r = Funcs.build(St('root', { n: 3, cut: 180, k: 0 })), { w0, wd } = shiftOf(r, t, 1, z);
+    const rot = C(Math.cos(2 * Math.PI / 3), Math.sin(2 * Math.PI / 3)), want = C(w0.re * rot.re - w0.im * rot.im, w0.re * rot.im + w0.im * rot.re);
+    check(`homOps root n = 3 at t = ${t}, dk = 1: sheet 1 is sheet 0 turned by e^(2 pi i / 3)`, Math.abs(wd.re - want.re) < tol && Math.abs(wd.im - want.im) < tol, { w0, wd, want });
+  }
+}
+
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
 // homotopy with no exact ops, and by Inverse.homOps' exact chain C^-1((Cz)^(1+t)) (MOB C, ROOTPOW 1 + t on the branch
 // arg Cz in (-pi/2, 3pi/2], MOB C^-1). The homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
