@@ -563,7 +563,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 /* (the hold-and-slide line is never cut: it drops to a second line of the chip, whole) */
 .chip.readout:has(> .rteach) { height: auto; white-space: normal; line-height: 20px; padding-top: 2px; padding-bottom: 2px; }
 .chip.readout .rteach { display: inline-block; white-space: nowrap; }
-.plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 164px); }
+.plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - var(--lg-w, 136px) - 28px); }
 /* On a plate narrower than readout + legend (about 560px), the readout takes the full top row and the
    legend drops below it, so the probe values are never cut off. */
 @container pane (max-width: 559px) {

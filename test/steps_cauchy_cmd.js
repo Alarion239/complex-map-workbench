@@ -90,6 +90,7 @@ ok('no closed curve: the key says so, no bands', lg2.caption === 'No curve selec
 // past the colour plane the hue ring's line names the integral and the plane its colour is carried from, whole in the key's
 // room (KEY_LINES lines of the chip beside the wheel), in each language
 const KEY_LINES = 4;
+const READOUT_GAP = 8, NARROW_KEY = 136;
 for (const [lang, re] of [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из z$/], ['it', /^integrale di Cauchy trasportato da z$/]]) {
   await open(CIRCLE, lang);
   await ev(`(__cmwSteps({ go: 1, now: true }), 1)`);
@@ -98,5 +99,18 @@ for (const [lang, re] of [['en', /^Cauchy integral carried from z$/], ['ru', /^�
   ok(`T = z, thread at plane 1, ${lang}: the key names the Cauchy integral and the plane its colour is carried from`, lgc.kind === 'color' && re.test(lgc.caption || ''), lgc);
   ok(`T = z, thread at plane 1, ${lang}: the line fits the key (at most ${KEY_LINES} lines)`, lgc.lines >= 1 && lgc.lines <= KEY_LINES, lgc);
   ok(`T = z, thread at plane 1, ${lang}: the widest word fits the key's room`, lgc.widest > 0 && lgc.widest <= lgc.room, lgc);
+  // the readout, made long enough to fill its room, keeps READOUT_GAP clear of the key; with the reserve of a narrower key it
+  // would not (the control)
+  const gaps = JSON.parse(await ev(`(() => {
+    const pl = document.querySelector('.plot:has(> .legend-chip:not([hidden]))'), r = pl.querySelector(':scope > .chip.readout'), k = pl.querySelector(':scope > .legend-chip');
+    r.textContent = 'x '.repeat(400);
+    const gap = () => Math.round(k.getBoundingClientRect().left - r.getBoundingClientRect().right), own = gap();
+    pl.style.setProperty('--lg-w', '${NARROW_KEY}px');
+    const narrow = gap();
+    pl.style.removeProperty('--lg-w');
+    return JSON.stringify({ own, narrow });
+  })()`));
+  ok(`T = z, thread at plane 1, ${lang}: the readout ends at least ${READOUT_GAP} px short of the key`, gaps.own >= READOUT_GAP, gaps);
+  ok(`T = z, thread at plane 1, ${lang}: control: the reserve of a ${NARROW_KEY} px key leaves the readout under ${READOUT_GAP} px from the key`, gaps.narrow < READOUT_GAP, gaps);
 }
 return { pass: !fails.length, fails, info };

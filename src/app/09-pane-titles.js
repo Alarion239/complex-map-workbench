@@ -1243,7 +1243,7 @@
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
     const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = SV.on && kind === 'color' && svCarriedFrom() && !lPhase() ? LEG.Wk : LEG.W;
-    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.style.width = W + 'px'; st.drawn = ''; }
+    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.style.width = W + 'px'; const plot = cv.closest('.plot'); if (plot) plot.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
     st.h = Hh; st.w = W;
     const img = kind === 'image';
     const k = rightStage();
