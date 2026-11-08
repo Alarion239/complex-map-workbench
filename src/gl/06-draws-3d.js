@@ -451,6 +451,25 @@
       return out;
     });
   }
+  // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
+  // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels
+  function landEdgeCounts() {
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    const count = (G, N) => {
+      if (!G || !G.edges || !G.tex1) return null;
+      const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
+      const t = read(G.tex1), w = [];
+      let jumps = 0;
+      const rows = {};
+      G.edges.forEach((tex, d) => { const e = read(tex); for (let k = 0; k < N * N; k++) if (e[4 * k + 3] > 0.5) { jumps++; const key = d + ':' + Math.floor(k / N); rows[key] = (rows[key] || 0) + 1; if (w.length < 6) w.push([t[4 * k], t[4 * k + 1]]); } });
+      return { n: N, jumps, w, rows };
+    };
+    const out = (landActive.length ? landActive : [landC]).map((L) => ({ cuts: !!(L.exact && L.cuts), box: count(L, L.N), pp: (L.pp || []).map((o) => count(o, LAND_POLAR_N)) }));
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo);
+    return out;
+  }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
