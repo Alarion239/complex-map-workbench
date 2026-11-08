@@ -1091,12 +1091,24 @@ section('singularAfter (ζ after an injective plan)');
     const f = (d) => { let w = z; for (const o of Inverse.homOps(b, t, d).ops) w = o.fwd(w); return w; };
     return { w0: f(0), wd: f(dk) };
   };
+  // a root's sheets are the branches k + dk mod n, the chain data's: the plan for dk is the homotopy of the root built on that branch
+  {
+    const HOM_TOL = 1e-12;
+    for (const n of [3, 5]) for (const dk of [-2, -1, 1, 2, n]) for (const t of [1e-4, 0.5, 0.9]) {
+      const b = Funcs.build(St('root', { n, cut: 180, k: 0 })), kk = ((dk % n) + n) % n, b2 = Funcs.build(St('root', { n, cut: 180, k: kk }));
+      let w = C(1.9, -3.7); const z = w;
+      for (const o of Inverse.homOps(b, t, dk).ops) w = o.fwd(w);
+      const v = b2.hom(t)(z);
+      check(`homOps root n = ${n} at t = ${t}, dk = ${dk}: the homotopy of the root on branch ${kk}`, Math.hypot(w.re - v.re, w.im - v.im) < HOM_TOL, { w, v });
+    }
+  }
   // the op's branch is the step's k + dk at every t (the log's u below 1e-6 and the rest included)
   for (const [type, params] of [['log', { cut: 180, k: 1 }], ['root', { n: 5, cut: 180, k: 1 }]]) {
     const b = Funcs.build(St(type, params)), k0 = Inverse.homOps(b, 1, 0).ops[0].p.k;
     for (const t of [0.5, 1 - 1e-7, 1]) for (const dk of [-2, -1, 0, 1, 2]) {
       const o = Inverse.homOps(b, t, dk).ops.find((q) => q.kind === 'LOG' || q.kind === 'ROOTPOW');
-      check(`homOps ${type} at t = ${t}, dk = ${dk}: its op is on branch k + dk`, !!o && o.p.k === k0 + dk, o && o.p.k);
+      const want = type === 'root' ? (((k0 + dk) % 5) + 5) % 5 : k0 + dk;   // (a root's branch is mod n)
+      check(`homOps ${type} at t = ${t}, dk = ${dk}: its op is on branch k + dk`, !!o && o.p.k === want, o && o.p.k);
     }
   }
   const z = C(0.3, 0.2);
