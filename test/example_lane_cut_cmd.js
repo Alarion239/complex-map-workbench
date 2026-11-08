@@ -7,6 +7,7 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 // (Italian wording that is Pietro's, five lines at 360 (issue #576); any other line over four fails)
+const LANE_MS = 4000;   // how long the lane may take to show an example's name
 const KNOWN_FIFTH = new Set(['it La mappa di Douady–Hubbard']);
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const PROBE = `(() => {
@@ -28,10 +29,12 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 8
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
   let n = 0, grown = 0, maxLines = 2, lastName = null; const tooLong = [];
   for (let i = 0; i < 60; i++) {
-    const thrown = await ev(`(() => { try { __cmwExample(${i}); return false; } catch (e) { return true; } })()`);
-    if (thrown) break;
-    // (the lane has laid out when the page is quiet and the lane shows this example's name)
-    await settled({ until: `(() => { const l = document.querySelector('.tour-lane[data-lane="example"]'); return !l || (document.querySelector('#examplesBtn .exlabel') || {}).textContent !== ${JSON.stringify(lastName)}; })()`, max: 4000 });
+    // (__cmwExample answers whether example i exists and opened: past the last one it answers false)
+    const opened = await ev(`(() => { try { return __cmwExample(${i}); } catch (e) { return false; } })()`);
+    if (opened !== true) break;
+    // (the lane has laid out when it shows this example's name; the probe reads the page's elements, so no quiet is asked)
+    const laid = await settled({ only: true, until: `(() => { const l = document.querySelector('.tour-lane[data-lane="example"]'); return !l || (document.querySelector('#examplesBtn .exlabel') || {}).textContent !== ${JSON.stringify(lastName)}; })()`, max: LANE_MS });
+    ok(`${tag}: example ${i}: the lane shows its name`, laid.ok, laid);
     const p = await ev(PROBE);
     if (!p) continue;
     lastName = p.name;
