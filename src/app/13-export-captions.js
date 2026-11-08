@@ -321,8 +321,8 @@
     svSurf: () => SV.surf,
     svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
-    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
-    // plane the line saying where the colour is carried from; and the plane's name for the axis title
+    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or on every plane but the colour
+    // plane's own the line saying where the colour is carried from; and the plane's name for the axis title
     svKey: (x) => {
       if (!SV.on) return null;
       // (the plane the key and the title name is the thread's nearest one: they change at the midpoint between two)
