@@ -84,18 +84,7 @@ async function rounds(name, n, steps) {
   }
   info[name] = { start: fmt(start), worstBack: +(worst * 100).toFixed(4) + ' %' };
 }
-// waits for the page that a reload brings: a document other than the one that began at `old` (performance.timeOrigin),
-// loaded, with the phone's sheets. A call in flight when the old page goes away is cut off with "navigated or closed";
-// that is the cue to ask again, any other error is the suite's
-const NAV = /navigated or closed/;
-const reloaded = async (old, max = 20000) => {
-  const t0 = Date.now();
-  for (;;) {
-    try { if ((await ev(`performance.timeOrigin !== ${old} && document.readyState === 'complete' && typeof Phone === 'object'`)) === true) return true; } catch (e) { if (!NAV.test(String((e && e.message) || e))) throw e; }
-    if (Date.now() - t0 > max) { fails.push({ name: 'the page did not reload', got: old }); return false; }
-    await sleep(50);
-  }
-};
+const { reloaded, holdClick } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 
@@ -129,7 +118,7 @@ for (const mk of mapsFor) {
       await ev(`document.querySelector('.ph-sheet .ph-seg button[data-v="${v}"]').scrollIntoView({ block: 'center' }), 1`);
       await settle();
       const old = await ev('performance.timeOrigin');
-      await ev(`document.addEventListener('click', (e) => { e.stopImmediatePropagation(); const b = e.target; setTimeout(() => b.click(), ${LANG_RELOAD_LATE_MS}); }, { capture: true, once: true }), 1`);
+      await holdClick(LANG_RELOAD_LATE_MS);
       await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`);
       await reloaded(old);
       await settle(`(document.documentElement.lang || 'en') === '${v}'`);
