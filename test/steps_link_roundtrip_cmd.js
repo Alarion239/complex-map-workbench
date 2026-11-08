@@ -93,7 +93,7 @@ const CASES = [
 for (const [name, figure, used] of CASES) {
   try {
     const first = strip(await openLinked(figure));
-    const want = expected(figure, used);
+    const want = strip(expected(figure, used));
     const lost = diff(want, first);
     ok(`${name}: every key the figure set comes back (a normalised one at its named value)`, lost.length === 0, lost);
     const second = strip(await openLinked(first));
@@ -107,7 +107,7 @@ ok('control: every normalisation is used by a case', Object.keys(NORMALISED).eve
 {
   const figure = CASES[3][1];
   const first = strip(await openLinked(figure));
-  const want = expected(figure, CASES[3][2]);
+  const want = strip(expected(figure, CASES[3][2]));
   const changed = JSON.parse(JSON.stringify(want));
   changed.params[1].expr = 'a+2';
   ok('control: the comparison reports a changed expression', diff(changed, first).length === 1, diff(changed, first));
