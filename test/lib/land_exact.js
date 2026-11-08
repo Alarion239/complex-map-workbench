@@ -8,10 +8,9 @@
 // - the path: the frame's record says 'inverse' (render3D.carried.path), not 'mesh';
 // - the geometry: at probe places w (a grid over the box and a pair either side of the real axis) the frame's per-vertex draw
 //   data (window.__cmwLandFrameVerts(pts): per place the layers the frame draws there, { h: height, f: F, member, w }) is the CPU
-//   reference's: Newton's method for H_u(z) = w from seeds over the plane's box, h = the height of the plane's value at z
-//   (window.__cmwLandPick); All sheets: every member (the same number of layers, the same heights within HEIGHT_TOL; the seeds
-//   span SEED_SPAN boxes for the far members); sheets off: one layer, the front member, the root continued along u from the first
-//   probe; and the layers' colour is the members' (arg F within PHASE_TOL);
+//   reference's: the enumerator's preimages of w (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame
+//   inverts), h the frame's own height of F(z); All sheets: every member (the same number of layers, the same heights within
+//   HEIGHT_TOL); sheets off: one layer, the front member; and the layers' colour is the members' (arg F within PHASE_TOL);
 // - the coverage: COVER_NX x COVER_NY places over the box are each drawn (the frame has a layer at its grid vertex) or covered (the
 //   reference has a preimage there), and at most CELL_TOL of them differ either way; at the ends also the surface pixels (saturation
 //   over 30, the measure of steps_land_cover_cmd.js's surface(), counted on the kit's kept pixels) are at least the parked plane's
@@ -43,14 +42,10 @@
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
-  const TRACK_STEPS = 10;                                   // the u steps between two probes along which the front member is continued
-  const SEED_SPAN = 3;                                      // All sheets: the reference's seed window is this many times the box, for the far members drawn as their own layers
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
-  const PROBES = 5, SEED_N = 12, NEWTON_STEPS = 40, ROOT_TOL = 1e-9, SAT_MIN = 30;
-  // the reference's numerics: FD_STEP the finite-difference step of H's Jacobian, DET_MIN a Jacobian determinant below which Newton's
-  // step is not taken, RESIDUAL_MAX the largest |H(z) - w| of a member, SAME_ROOT the distance under which two roots are one
-  const FD_STEP = 1e-6, DET_MIN = 1e-14, RESIDUAL_MAX = 1e-6, SAME_ROOT = 1e-5;
-  const DENSE_N = 48, NEAR_N = 12, LOGR_N = 120, LOGR_DEC = 3, ANG_N = 180;   // the completeness sample: DENSE_N x DENSE_N points of plane 0's box; the NEAR_N whose image is nearest w are polished too; the coverage adds LOGR_N log-spaced radii (to 10^LOGR_DEC) x ANG_N angles about 0
+  const PROBES = 5, SAT_MIN = 30;
+  const TIE_D = 2 ** -14;   // the depth keys' tie band, Inverse.front's: two members whose keys differ by less are ordered by their z
+  const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
@@ -60,54 +55,25 @@
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
     { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
   ];
-  // the page's helpers: the surface pixels of the left pane, and the exact reference's preimages of a place
+  // the page's helpers: the surface pixels of the left pane, and the CPU reference's members at places w: the enumerator's preimages
+  // (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame inverts) without the repeats of one z, each
+  // { z, f, h } (null when the frame was not drawn by the inverse path); the front member (sheets off) is the first
   const HELP = `window.__lx = {
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
   window.__lxPick = null;
-  window.__lxRoots = (pts, tracks, span, any) => {
-    const g = __cmwSvGlobe(0, 0), H = g.H, pk = window.__lxPick, b0 = pk.box, C = (re, im) => ({ re, im });
-    const cx = (b0.x0 + b0.x1) / 2, cy = (b0.y0 + b0.y1) / 2, sp = span || 1, b = { x0: cx - sp * (b0.x1 - b0.x0) / 2, x1: cx + sp * (b0.x1 - b0.x0) / 2, y0: cy - sp * (b0.y1 - b0.y0) / 2, y1: cy + sp * (b0.y1 - b0.y0) / 2 };
-    const seeds = [];
-    for (let i = 0; i < ${SEED_N}; i++) for (let j = 0; j < ${SEED_N}; j++) seeds.push(C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${SEED_N}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${SEED_N}));
-    const dense = [];
-    const dn = ${DENSE_N};
-    for (let i = 0; i < dn; i++) for (let j = 0; j < dn; j++) { const z = C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / dn, b.y0 + (j + 0.5) * (b.y1 - b.y0) / dn), f = H(z); if (f && Number.isFinite(f.re) && Number.isFinite(f.im)) dense.push({ z, f }); }
-    if (any) {   // (and a log-polar sample about 0, ${LOGR_N} radii from 10^-${LOGR_DEC} to 10^${LOGR_DEC} by ${ANG_N} angles: the preimages of a root or a logarithm are orders of magnitude from the box)
-      for (let i = 0; i < ${LOGR_N}; i++) for (let j = 0; j < ${ANG_N}; j++) { const r = Math.pow(10, -${LOGR_DEC} + 2 * ${LOGR_DEC} * (i + 0.5) / ${LOGR_N}), a = 2 * Math.PI * (j + 0.5) / ${ANG_N}, z = C(r * Math.cos(a), r * Math.sin(a)), f = H(z); if (f && Number.isFinite(f.re) && Number.isFinite(f.im)) dense.push({ z, f }); }
-    }
-    const newton = (s, re, im) => {
-      let z = s;
-      for (let k = 0; k < ${NEWTON_STEPS}; k++) {
-        const h = ${FD_STEP}, f = H(z), fr = H(C(z.re + h, z.im)), fi = H(C(z.re, z.im + h));
-        if (!f || !fr || !fi || ![f.re, f.im, fr.re, fr.im, fi.re, fi.im].every(Number.isFinite)) return null;
-        const a = (fr.re - f.re) / h, c = (fr.im - f.im) / h, bb = (fi.re - f.re) / h, d = (fi.im - f.im) / h, det = a * d - bb * c;
-        if (!(Math.abs(det) > ${DET_MIN})) return null;
-        const er = f.re - re, ei = f.im - im, dr = (d * er - bb * ei) / det, di = (-c * er + a * ei) / det;
-        z = C(z.re - dr, z.im - di);
-        if (Math.hypot(dr, di) < ${ROOT_TOL}) break;
-      }
-      const f = H(z);
-      return f && Math.hypot(f.re - re, f.im - im) <= ${RESIDUAL_MAX} ? z : null;   // (the residual of each member)
-    };
-    return pts.map(([re, im], pi) => {
-      const roots = [];
-      if (tracks) {   // (the front member continued: Newton from the place's previous root alone)
-        const t = tracks[pi], z = t && newton(C(t[0], t[1]), re, im);
-        if (!z) return [];
-        const f = pk.F(z);
-        return [{ z: [z.re, z.im], f: [f.re, f.im], h: typeof __cmwLandFrameHeight === 'function' ? __cmwLandFrameHeight([f.re, f.im]) : pk.height(f) }];
-      }
-      // (the grid's seeds, and the dense sample's points whose image is nearest w: no member is left that the forward map of a plane 0 sample lands beside)
-      const near = [];   // (the NEAR_N of the dense sample whose image is nearest w, by selection)
-    { const dd = []; for (const p of dense) { const d = Math.hypot(p.f.re - re, p.f.im - im); if (dd.length < ${NEAR_N} || d < dd[dd.length - 1][0]) { dd.push([d, p.z]); dd.sort((x, y) => x[0] - y[0]); if (dd.length > ${NEAR_N}) dd.pop(); } } for (const q of dd) near.push(q[1]); }
-      for (const s of any ? near.concat(seeds) : seeds.concat(near)) {
-        const z = newton(s, re, im);
-        if (z && !roots.some((r) => Math.hypot(r.re - z.re, r.im - z.im) < ${SAME_ROOT})) roots.push(z);
-      if (any && roots.length) break;   // (existence only)
-      }
-      // (the frame logLerps its height scale over u: the height is the frame's own, __cmwLandFrameHeight, when the page has it)
-      return roots.map((z) => { const f = pk.F(z); return { z: [z.re, z.im], f: [f.re, f.im], h: typeof __cmwLandFrameHeight === 'function' ? __cmwLandFrameHeight([f.re, f.im]) : pk.height(f) }; });
+  window.__lxEnum = (pts) => {
+    const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
+    if (!e) return null;
+    // (the front member first: the enumerator's members of the frame's own sheet (all of them when it has none there) in Inverse.front's
+    // order: the smaller depth key D, keys within the tie band equal, then the larger Im z, then the larger Re z)
+    const tie = (a, b) => Math.abs(a - b) <= ${TIE_D} * (1 + Math.min(a, b));
+    const order = (p, q) => (tie(p.D, q.D) ? (p.z[1] !== q.z[1] ? q.z[1] - p.z[1] : q.z[0] - p.z[0]) : p.D - q.D);
+    return e.map((ms) => {
+      const own = ms.filter((m) => m.sheet === 0), use = (own.length ? own : ms).slice().sort(order), o = [];
+      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h });
+      for (const m of ms) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h });
+      return o;
     });
   };
   1`;
@@ -179,17 +145,9 @@
     const p0 = await park(0, 'P0'), p1 = await park(last, 'P1');
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
-    // the front member of sheets off, continued along u from the first probe: the place's root, per probe place
-    let track = null, vfirst = null, prevU = null;
     for (const u0 of GLIDE_U) {
       const u = u0, first = u0 < 0.5, lastU = u0 > 0.5;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
-      if (track) {
-        for (let k = 1; k < TRACK_STEPS; k++) {
-          await setU(prevU + (u - prevU) * k / TRACK_STEPS);
-          track = (await ev(`__lxRoots(${JSON.stringify(vfirst)}, ${JSON.stringify(track)})`)).map((x) => (x[0] ? x[0].z : null));
-        }
-      }
       await setU(u);
       const still = await grab('cur');
       const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u }; })()');
@@ -209,42 +167,30 @@
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
       ok(`${t}: the frame's box is readable`, !!box, null);
-      if (!box) { prevU = u; continue; }
+      if (!box) continue;
       const pts = probes(box), cpts = cells(box);
       const hook = (q) => ev(`typeof __cmwLandFrameVerts === 'function' ? __cmwLandFrameVerts(${JSON.stringify(q)}) : null`);
       const got = await hook(pts), cgot = await hook(cpts);
       // (the place the frame draws a probe at is its nearest grid vertex: the reference is read there, where a cut or a steep height would make the probe's own offset a false failure)
       const at1 = (g, q) => q.map((p, i) => (g && g[i] && g[i][0] && g[i][0].w) || p);
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
-      const ref = await ev(`__lxRoots(${JSON.stringify(vpts)}, null, ${sheets ? SEED_SPAN : 1})`);
+      const ref = await ev(`__lxEnum(${JSON.stringify(vpts)})`);
+      ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
+      ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
+      if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
-      ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
-      if (!Array.isArray(got) || !Array.isArray(cgot)) { prevU = u; continue; }
-      // the front member of sheets off: at the first probe the root nearest the place (the glide is the plane there), then continued
-      if (!sheets) {
-        if (!track) {
-          vfirst = vpts;
-          track = ref.map((x, i) => (x.length ? x.reduce((a, b) => (Math.hypot(a.z[0] - vpts[i][0], a.z[1] - vpts[i][1]) <= Math.hypot(b.z[0] - vpts[i][0], b.z[1] - vpts[i][1]) ? a : b)).z : null));
-        } else {
-          track = (await ev(`__lxRoots(${JSON.stringify(vfirst)}, ${JSON.stringify(track)})`)).map((x) => (x[0] ? x[0].z : null));
-        }
-      }
-      const front = !sheets ? await ev(`__lxRoots(${JSON.stringify(vfirst)}, ${JSON.stringify(track)})`) : null;
-      let bad = 0, n = 0, lost = 0, badPh = 0, phN = 0, noF = 0; const at = [], atPh = [];
+      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0; const at = [], atPh = [];
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = got[i] || [];
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
-        let want = wantAll;
-        if (!sheets) {
-          if (!front[i] || !front[i][0]) { lost++; return; }
-          want = front[i];
-        }
+        const onCut = Math.abs(p[1]) < CUT_OFF * (box.y1 - box.y0) / 2;   // (a place on the real axis: either side of the cut is the front member)
+        const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
         const hs = (a) => a.map((x) => x.h).sort((x, y) => x - y), wh = hs(want), hh = hs(haveAll);
         const same = sheets ? wh.length === hh.length && wh.every((h, k) => Math.abs(h - hh[k]) <= HEIGHT_TOL)
-          : hh.length === 1 && Math.abs(hh[0] - wh[0]) <= HEIGHT_TOL;
+          : hh.length === 1 && (onCut ? wantAll.some((x) => Math.abs(hh[0] - x.h) <= HEIGHT_TOL) : Math.abs(hh[0] - wh[0]) <= HEIGHT_TOL);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: wh, have: hh }); return; }
         // (the member's colour: the layers sorted by height pair up with the reference's members)
         const wo = want.slice().sort((x, y) => x.h - y.h), ho = haveAll.slice().sort((x, y) => x.h - y.h);
@@ -256,16 +202,14 @@
           if (gap > PHASE_TOL) { badPh++; if (atPh.length < 4) atPh.push({ p, have: ho[k].f, want: m.f }); }
         });
       });
-      r[u].geometry = { n, bad, lost, at, phN, badPh, noF };
+      r[u].geometry = { n, bad, at, phN, badPh, noF };
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place (${n} places)`, n > 0 && bad === 0, { n, bad, at });
-      if (!sheets) ok(`${t}: the front member is continued along u at every probe place (${lost} lost)`, lost === 0, { lost });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
-      const cref = await ev(`__lxRoots(${JSON.stringify(cw)}, null, 1, true)`);   // (a place is covered when a root is found: some z of the sample, polished)
+      const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
-      prevU = u;
     }
   }
   return { pass: !fails.length, fails, info };
