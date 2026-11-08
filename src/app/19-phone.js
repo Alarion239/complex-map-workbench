@@ -29,6 +29,7 @@
       prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
       moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
+      regionsNote,
       regionsView: () => SV.on || S.view.main === 'xy',   // the views that hold the regions' display
       // (the steps view's Display sheet is the colour panel: it names the shown plane)
       displayTitle: () => (SV.on ? `${$t('Colour')} · ${svName(svStage())}` : ''),

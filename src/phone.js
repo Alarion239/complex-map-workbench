@@ -798,7 +798,7 @@ const Phone = (() => {
     homeDisplay();
     const tn = A.targetNote(), scope = A.scopeSeg();
     els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]));
-    if (reg) els.regions.append(reg);
+    if (reg) { A.regionsNote(); els.regions.append(reg); }
     els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
