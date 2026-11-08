@@ -1,7 +1,7 @@
 'use strict';
 // Bit-for-bit comparison of the NEWT ops' GPU output between a base build and this checkout's build, on the software
 // renderer (test/newt_ab_cmd.js records every scene's raw float targets and settled canvas as hashes):
-//   node ci/newt_ab.js [--base REF] [--keep]      REF defaults to origin/claude/funny-darwin-l5uis3
+//   node ci/newt_ab.js [--base REF] [--keep] [--no-control]      REF defaults to origin/claude/funny-darwin-l5uis3
 // Builds REF and the working tree, records both, and requires equal records: exit 1 on any differing target.
 // Negative control: a third build of the working tree with the Newton step's cap (0.25 (1 + |u|)) moved by one part
 // in 2.5e6 must differ from the base in at least one target, else the comparison cannot see a change and the run fails.
@@ -74,12 +74,12 @@ let code = 0;
 try {
   const A = record('base', tree('base', BASE, true));
   const B = record('head', tree('head', null, false));
-  const C = record('control', tree('control', null, false, (s) => s.split(CAP).join(CAP_CONTROL)));
-  const ab = diff(A.rec, B.rec), ac = diff(A.rec, C.rec);
+  const C = argv.includes('--no-control') ? null : record('control', tree('control', null, false, (s) => s.split(CAP).join(CAP_CONTROL)));
+  const ab = diff(A.rec, B.rec), ac = C ? diff(A.rec, C.rec) : null;
   console.log(`A/B: ${ab.n} targets compared, ${ab.d.length} differ${ab.d.length ? ': ' + ab.d.slice(0, 20).join('; ') : ''}`);
-  console.log(`control: ${ac.d.length} of ${ac.n} targets differ from the base${ac.d.length ? '' : ' (the comparison cannot see a change)'}`);
-  if (ab.d.length || !ac.d.length || !A.ok || !B.ok) code = 1;
-  console.log(code ? 'FAIL' : 'PASS: 0 differing bits, and the control is seen');
+  if (ac) console.log(`control: ${ac.d.length} of ${ac.n} targets differ from the base${ac.d.length ? '' : ' (the comparison cannot see a change)'}`);
+  if (ab.d.length || (ac && !ac.d.length) || !A.ok || !B.ok) code = 1;
+  console.log(code ? 'FAIL' : ac ? 'PASS: 0 differing bits, and the control is seen' : 'PASS: 0 differing bits (no control run)');
 } catch (e) {
   console.log('FAIL ' + e.message);
   code = 1;
