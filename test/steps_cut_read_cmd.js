@@ -12,7 +12,8 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (TOL levels of 255 per channel and FRAC of the pixels, as steps_region_centre_cmd.js; measured on the two chains: max 5 and
-// 204 levels at a few pixels, at most 0.01 % over TOL. A control must put more than CONTROL_FACTOR times FRAC over TOL: measured,
+// 204 levels at a few pixels, at most 0.01 % over TOL; the band around the cut's image, left out and only reported, is the
+// info's band. A control must put more than CONTROL_FACTOR times FRAC over TOL: measured,
 // the wrong u 98 %, the read 3 px off 3.4 % and 8.2 %)
 const TOL = 6, FRAC = 0.002, CONTROL_FACTOR = 10, CONTROL_MIN_FRAC = CONTROL_FACTOR * FRAC;
 // (u of the glide frame, the wrong u of the comparator control; CUT_PX the half-width of the band around the cut's image that
@@ -48,14 +49,15 @@ const measure = async (c, ex, { exactU = GLIDE_U, meshU = GLIDE_U, fault = false
     const mask = new Uint8Array(W * H);
     for (const [re, im] of ${c.points}) { const p = __cmwW2S('L', re, im), x = Math.round((p[0] - rc.left) * k), y = Math.round((p[1] - rc.top) * k);
       for (let dy = -${CUT_PX}; dy <= ${CUT_PX}; dy++) for (let dx = -${CUT_PX}; dx <= ${CUT_PX}; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) mask[Y * W + X] = 1; } }
-    let n = 0, over = 0, max = 0;
+    let n = 0, over = 0, max = 0, bn = 0, bover = 0, bmax = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      const i = 4 * (y * W + x); if (mask[y * W + x]) continue;
+      const i = 4 * (y * W + x);
       if (E[i] > ${WHITE} && E[i + 1] > ${WHITE} && E[i + 2] > ${WHITE} && M[i] > ${WHITE} && M[i + 1] > ${WHITE} && M[i + 2] > ${WHITE}) continue;
       const d = Math.max(Math.abs(E[i] - M[i]), Math.abs(E[i + 1] - M[i + 1]), Math.abs(E[i + 2] - M[i + 2]));
+      if (mask[y * W + x]) { bn++; bmax = Math.max(bmax, d); if (d > ${TOL}) bover++; continue; }
       n++; max = Math.max(max, d); if (d > ${TOL}) over++;
     }
-    return { n, max, over: +(over / n).toFixed(4) };
+    return { n, max, over: +(over / n).toFixed(4), band: { n: bn, max: bmax, over: +(bover / bn).toFixed(4) } };
   })()`);
   r.paths = [exact, mesh];
   return r;
