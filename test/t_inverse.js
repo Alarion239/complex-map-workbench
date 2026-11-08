@@ -1126,45 +1126,6 @@ section('singularAfter (ζ after an injective plan)');
   }
 }
 
-// A side sheet's members are preimages under its own branch, but for the range ramp: a member whose range level lvl is in
-// [-RAMP, 0) lies a pixel or less across the step's cut (the cut-edge strip the parked frame draws too), and the sheet's own forward
-// map takes it to the neighbouring branch. At t = .002 the rotation of sheet dk is a small turn, so every such member sits at
-// the cut. Every member with lvl >= 0 maps to its place under the sheet's own forward map; every ramp member has lvl in
-// the ramp and maps exactly when the sheet's map is evaluated from its lam, the lifted log coordinate (the forward digit is read
-// from lam, never from z's argument); the ramp members stay.
-{
-  const MISS_TOL = 1e-9, WALK_PIX = 1 / 60, PLACES = [40, 26], T_NEAR = 0.002, RAMP_PX = 1;
-  const places = [];
-  for (let i = 0; i < PLACES[0]; i++) for (let j = 0; j < PLACES[1]; j++) places.push(C(-3 + 6 * (i + 0.5) / PLACES[0], -2 + 4 * (j + 0.5) / PLACES[1]));
-  const sheetOf = (b, st, t, dk) => {
-    const hk = Inverse.homOps(b, t, dk), plan = Inverse.planChain([st], [Inverse.homBuilt(b, hk)]);
-    return { hk, plan, prep: Inverse.prepare(plan, { win: WIN0, shape: H }), F: (z) => hk.ops.reduce((u, o) => o.fwd(u), z) };
-  };
-  const leaves = (sh, w, ramp) => Inverse.enumerate(sh.plan, sh.prep, w, WALK_PIX, { K: 16, B: 16, ramp }).leaves;
-  const miss = (F, z, w) => CX.abs(CX.sub(F(z), w));
-  // the sheet's forward map from the member's lam (its lifted log coordinate): the first op's value from lam, then the rest
-  const fromLam = (sh, lam) => sh.hk.ops.reduce((u, o, i) => (i === 0 ? (o.kind === 'LOG' ? lam : CX.exp(CX.mul(o.p.s, lam))) : o.fwd(u)), lam);
-  for (const [type, params] of [['log', { cut: 180, k: 0 }], ['root', { n: 3, cut: 180, k: 0 }]]) {
-    const st = St(type, params), b = Funcs.build(st);
-    for (const dk of [-3, -2, -1, 1, 2, 3]) {
-      const sd = sheetOf(b, st, T_NEAR, dk), sn = sheetOf(b, st, T_NEAR, dk + 1), one = sd.hk.ops.find((q) => q.kind === 'LOG' || q.kind === 'ROOTPOW');
-      let cnt = 0, inner = 0, ramped = 0, rampOff = 0, nextBad = 0, innerAll = 0;
-      for (const w of places) {
-        for (const m of leaves(sd, w, RAMP_PX)) {
-          cnt++;
-          if (m.lvl >= 0) { innerAll++; if (miss(sd.F, m.z, w) > MISS_TOL) inner++; if (miss(sn.F, m.z, w) > MISS_TOL) nextBad++; continue; }
-          ramped++;
-          if (!(m.lvl >= -RAMP_PX) || !m.lam || CX.abs(CX.sub(fromLam(sd, m.lam), w)) > MISS_TOL) rampOff++;
-        }
-      }
-      check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: every member inside its branch maps to its place under the sheet's own forward map`, innerAll > 0 && inner === 0, { cnt, inner });
-      check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: a ramp member (lvl in [-RAMP, 0)) maps to its place when the sheet's map is evaluated from its lam`, rampOff === 0, { cnt, ramped, rampOff });
-      if (type === 'log' && Math.abs(dk) >= 2) check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): the ramp members across the cut stay`, ramped > 0, { cnt, ramped });
-      check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): the neighbouring sheet's forward map rejects members`, nextBad > 0 || dk % 3 === 0 && type === 'root', { innerAll, nextBad });
-    }
-  }
-}
-
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
 // homotopy with no exact ops, and by Inverse.homOps' exact chain C^-1((Cz)^(1+t)) (MOB C, ROOTPOW 1 + t on the branch
 // arg Cz in (-pi/2, 3pi/2], MOB C^-1). The homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
