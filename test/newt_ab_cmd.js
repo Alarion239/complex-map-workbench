@@ -14,6 +14,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const OUT = process.env.CMW_NEWT_AB_OUT || '';
 // (CMW_NEWT_AB_ONLY: a regex of the 'scene@x' records to take)
 const ONLY = process.env.CMW_NEWT_AB_ONLY ? new RegExp(process.env.CMW_NEWT_AB_ONLY) : null;
+// (CMW_NEWT_AB_RAW: a folder to write each float target's raw float32 data to, '<scene>@<x> <target>.f32')
+const RAW = process.env.CMW_NEWT_AB_RAW || '';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (the places of a thread: x is the plane index plus the glide's u)
 const U = [0.25, 0.5, 0.75, 0.998];
@@ -29,7 +31,8 @@ const HOOK = `(() => {
   if (window.__ab) return 1;
   const gl = GLR.gl, rec = {}, st = { on: false };
   const hash = (u) => { let a = 0x811c9dc5 | 0, b = 0x01000193 | 0; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); b = Math.imul(b + u[i] | 0, 0x85ebca6b) ^ (b >>> 13); } return (a >>> 0).toString(16) + (b >>> 0).toString(16); };
-  const grab = (k, w, h, float) => { const buf = float ? new Float32Array(4 * w * h) : new Uint8Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, buf); const u = new Uint32Array(buf.buffer); let blank = true; for (let i = 0; i < u.length; i++) if (u[i] !== u[0]) { blank = false; break; } rec[k + '|' + w + 'x' + h] = { h: hash(u), blank }; };
+  const raw = {};
+  const grab = (k, w, h, float) => { const buf = float ? new Float32Array(4 * w * h) : new Uint8Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, buf); if (float) raw[k + '|' + w + 'x' + h] = buf; const u = new Uint32Array(buf.buffer); let blank = true; for (let i = 0; i < u.length; i++) if (u[i] !== u[0]) { blank = false; break; } rec[k + '|' + w + 'x' + h] = { h: hash(u), blank }; };
   const capture = () => {
     const vp = gl.getParameter(gl.VIEWPORT), fb = gl.getParameter(gl.FRAMEBUFFER_BINDING), w = vp[2], h = vp[3];
     if (!(w > 0 && h > 0)) return;
@@ -48,7 +51,7 @@ const HOOK = `(() => {
     const o = WebGL2RenderingContext.prototype[name];
     WebGL2RenderingContext.prototype[name] = function (...a) { o.apply(this, a); if (st.on && this === gl) { try { capture(); } catch (e) { rec.error = String(e); } } };
   }
-  window.__ab = { rec, st };
+  window.__ab = { rec, st, raw };
   return 1;
 })()`;
 const stateOf = (sc) => ({ shapes: [sc.shape], steps: [sc.step], rightMode: 'image', srcView: sc.view });
@@ -74,6 +77,14 @@ for (const sc of SCENES) {
     if (ONLY && !ONLY.test(key)) continue;
     const a = await record(sc, x), b = await record(sc, x);
     records[key] = a;
+    if (RAW) {
+      fs.mkdirSync(RAW, { recursive: true });
+      for (const t of Object.keys(a)) {
+        if (!/^fbo/.test(t)) continue;
+        const b64 = await ev(`(() => { const u8 = new Uint8Array(window.__ab.raw[${JSON.stringify(t)}].buffer); let s = ''; for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768)); return btoa(s); })()`);
+        fs.writeFileSync(path.join(RAW, `${key} ${t}.f32`), Buffer.from(b64, 'base64'));
+      }
+    }
     const targets = Object.keys(a).filter((k) => k !== 'error');
     ok(`${key}: draws were read back`, targets.length > 0 && !a.error, a.error || targets.length);
     ok(`${key}: a second load records the same hashes`, JSON.stringify(a) === JSON.stringify(b), Object.keys(a).filter((k) => !b[k] || a[k].h !== b[k].h));
