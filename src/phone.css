@@ -375,6 +375,9 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the scope switch: full width, 44 px, each segment's words wrapping to two lines (13 px at the least) rather than shrinking */
 :root.ph .ph-vopts .sv-sheet-scope { display: flex; width: 100%; height: auto; min-height: 44px; overflow: visible; }
 :root.ph .ph-vopts .sv-sheet-scope > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 4px 6px; font: 500 13px/16px var(--f-ui); white-space: normal; text-align: center; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
+/* a list of a few numbers (sectors, grid step): its label, then the choice button across the rest of the row, 44 px */
+:root.ph .ph-vopts .scrub { display: flex; align-items: center; gap: var(--s-4); width: 100%; height: auto; padding: 0; border: 0; }
+:root.ph .ph-vopts .scrub .sv-choice-num { flex: 1 1 auto; height: 44px; min-width: 0; justify-content: space-between; font-size: 15px; border: 1px solid var(--line); }
 /* a group of the Display sheet: its small-caps label, then its rows 8 px apart; the groups are 12 px apart */
 :root.ph .ph-grp { display: flex; flex-direction: column; gap: var(--s-4); }
 :root.ph .ph-gl { margin: 0; font: var(--t-label); font-variant-caps: all-small-caps; letter-spacing: .04em; color: var(--muted); }

@@ -10,6 +10,7 @@ const STYLES = 6, PER_ROW = 4, ROWS = 2, MAX_LINES = 2;   // (the grid at 360: i
 const MIN_TILE = 48, MAX_SHEET_SHARE = 0.6, DIMMED_BELOW = 0.5;   // (px, the sheet's share of the viewport, an opacity)
 const GROUP_GAP = 12, ROW_GAP = 8, GROUPS = 5;   // (px between groups, px between a group's rows, the groups the sheet has)
 const MIN_TARGET = 44, MIN_FONT = 13, SCOPE_SEGMENTS = 2, FULL_WIDTH_SLACK = 12;   // (px; the segments; px a full-width control may stop short of its group)
+const NUM_CHOICES = 4;   // (the sectors n offers 8, 12, 16 and 24)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
@@ -48,6 +49,11 @@ const scope = () => ev(`(() => {
     font: Math.min(...bs.map((b) => parseFloat(getComputedStyle(b).fontSize))), lines: Math.max(...bs.map((b) => Math.round(r(b).height / lh(b)))),
     cut: bs.filter((b) => b.scrollWidth > b.clientWidth + 1).length, on: g.querySelector('[aria-checked="true"]') && g.querySelector('[aria-checked="true"]').dataset.v };
 })()`);
+const numChoice = () => ev(`(() => {
+  const b = document.querySelector('.ph-sheet #secSel'); if (!b) return null;
+  const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), sheet = document.querySelector('.ph-sheet').getBoundingClientRect();
+  return { tag: b.tagName, popup: b.getAttribute('aria-haspopup'), h: r.height, rowFree: row.right - r.right, inside: r.right <= sheet.right && r.left >= sheet.left, name: b.getAttribute('aria-label') };
+})()`);
 const groups = () => ev(`(() => {
   const gs = [...document.querySelectorAll('.ph-sheet .ph-vopts > .ph-grp')], r = (e) => e.getBoundingClientRect();
   return { n: gs.length, labelled: gs.every((g) => g.firstElementChild.matches('h3.ph-gl') && g.firstElementChild.textContent.trim()),
@@ -68,6 +74,9 @@ for (const lang of ['en', 'ru', 'it']) {
   const sc = await scope();
   info[lang + 'Scope'] = sc;
   ok(`${lang} 360: the scope is a full-width switch of two segments, 44 px tall, text at least 13 px, none cut`, !!sc && sc.n === SCOPE_SEGMENTS && sc.fullWidth <= FULL_WIDTH_SLACK && sc.minH >= MIN_TARGET && sc.minW >= MIN_TARGET && sc.font >= MIN_FONT && sc.cut === 0, sc);
+  const nc = await numChoice();
+  info[lang + 'N'] = nc;
+  ok(`${lang} 360: n is a menu button, 44 px tall, across its row, inside the sheet`, !!nc && nc.tag === 'BUTTON' && nc.popup === 'menu' && nc.h >= MIN_TARGET && nc.rowFree <= FULL_WIDTH_SLACK && nc.inside, nc);
   const gr = await groups();
   info[lang + 'Groups'] = gr;
   ok(`${lang} 360: the controls are in ${GROUPS} groups, each under a small-caps label`, gr.n === GROUPS && gr.labelled && gr.caps, gr);
@@ -78,6 +87,10 @@ await ev(`document.querySelector('.ph-sheet .sv-sheet-scope [data-v="in"]').clic
 await settled({ floor: 300 });
 const head = await ev(`(() => { const h = document.querySelector('#svHead .sv-scope .on'); return { head: h && h.dataset.v, sheet: document.querySelector('.ph-sheet .sv-sheet-scope .on').dataset.v }; })()`);
 ok('the sheet\'s scope switch sets the scope and the head\'s switch follows', head.sheet === 'in' && head.head === 'in', head);
+await ev(`document.querySelector('.ph-sheet #secSel').click(); 1`);
+await settled({ floor: 300 });
+const menu = await ev(`(() => { const it = [...document.querySelectorAll('[role="menuitemradio"]')]; return { n: it.length, minH: Math.min(...it.map((e) => e.getBoundingClientRect().height)) }; })()`);
+ok('the n menu lists its four choices, each at least 44 px tall', menu.n === NUM_CHOICES && menu.minH >= MIN_TARGET, menu);
 await open(WIDE_PHONE, 'en', false);
 const g390 = await grid();
 ok('390: four to a row too', g390 && g390.perRow >= PER_ROW && g390.minW >= MIN_TILE, g390);
