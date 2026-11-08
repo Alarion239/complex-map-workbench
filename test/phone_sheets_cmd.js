@@ -5,6 +5,7 @@
 // file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
+const SHEET_UP_MS = 8000;   // the longest a sheet may take to put its body, title and Tip in the page
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
@@ -53,7 +54,7 @@ for (const [w, h] of [[360, 740], [390, 844], [412, 915]]) for (const lang of ['
   // the Numbers sheet: its title once, its Tip in view
   await ev(`Phone.open('edit', { params: true })`);
   // (the read below needs the sheet's visible scroll body and its title in the page: wait for those, not for a time)
-  const numbersUp = await settled({ until: `(() => { const sh = document.querySelector('.ph-sheet'); return !!sh && !!sh.querySelector('.ph-sb:not([hidden])') && !!sh.querySelector('.ph-st') && !!sh.querySelector('.ph-tip'); })()`, max: 8000 });
+  const numbersUp = await settled({ until: `(() => { const sh = document.querySelector('.ph-sheet'); return !!sh && !!sh.querySelector('.ph-sb:not([hidden])') && !!sh.querySelector('.ph-st') && !!sh.querySelector('.ph-tip'); })()`, max: SHEET_UP_MS });
   ok(`${at}: the Numbers sheet is up`, numbersUp && numbersUp.ok, numbersUp);
   const n = await evr(`(() => { const sh = document.querySelector('.ph-sheet'), sb = sh.querySelector('.ph-sb:not([hidden])').getBoundingClientRect(), tip = sh.querySelector('.ph-tip'), tb = tip && tip.getBoundingClientRect(); const heads = [...sh.querySelectorAll('h2')].filter((e) => e.getClientRects().length).map((e) => e.textContent.trim()); return { title: sh.querySelector('.ph-st').textContent, heads, tipIn: !!tb && tb.top >= sb.top && tb.bottom <= sb.bottom + 1, tip: tb && [Math.round(tb.top), Math.round(tb.bottom)], sb: [Math.round(sb.top), Math.round(sb.bottom)] }; })()`);
   ok(`${at}: the Numbers sheet says its title once`, n.title.length > 0 && !n.heads.includes(n.title), n);
