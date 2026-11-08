@@ -45,6 +45,7 @@
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-10,        // |H(z) - w| of a converged correction, relative to 1 + |w|
+    NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
     MATCH_TOL: 1e-5,        // a carried member equals an enumerated one within this of 1 + |z|
     BND_PX: 2,              // half-resolution pixels: a boundary cell is halved until its members' own edges are this short
     CAND_R: 1.5,            // half-resolution pixels: the pixels a ray is cast for lie this close to a member's projected corners and edges
@@ -130,7 +131,7 @@
         const r = Hof(m, z, lam);
         if (!r) return null;
         const res = csub(r.H, w);
-        if (cabs(res) <= o.NEWT_TOL * (1 + cabs(w))) return { z, lam, ratio: d1 === null ? 0 : (d2 === null ? 0 : d2 / d1) };
+        if (cabs(res) <= o.NEWT_TOL * (1 + cabs(w))) return { z, lam, ratio: d1 === null || d1 <= o.NEWT_FLOOR * (1 + cabs(z)) || d2 === null ? 0 : d2 / d1 };
         if (cabs(r.dH) < 1e-300) return null;
         const dz = cdiv(res, r.dH);
         if (it === 0) d1 = cabs(dz); else if (it === 1) d2 = cabs(dz);
