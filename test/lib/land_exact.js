@@ -70,10 +70,14 @@
   window.__lxEnum = (pts) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
-    // (the front member first: the hook marks it, front: true, one per place. The same z repeats on sheets that differ by a multiple
-    // of n, so a z listed again is dropped.)
+    // (the front member first: the hook marks it, front: true, one per place; a place with members and none marked is counted in
+    // window.__lxNoFront, which the suite fails on, and is not ordered by any rule here. The same z repeats on sheets that differ by
+    // a multiple of n, so a z listed again is dropped.)
+    window.__lxNoFront = 0;
     return e.map((ms) => {
-      const best = ms.find((m) => m.front), use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
+      const best = ms.find((m) => m.front);
+      if (ms.length && !best) window.__lxNoFront++;
+      const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
       for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
       return o;
     });
@@ -202,12 +206,14 @@
       const at1 = (g, q) => q.map((p, i) => (g && g[i] && g[i][0] && g[i][0].w) || p);
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
       const ref = await ev(`__lxEnum(${JSON.stringify(vpts)})`);
+      const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
       ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
       if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
+      ok(`${t}: the hook marks the front member (front: true) at every place that has members; ${noFront} places without (the front member is the page's, never ordered here)`, noFront === 0, { noFront });
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = got[i] || [];
