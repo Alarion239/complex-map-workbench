@@ -2327,6 +2327,7 @@
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
       svCentreRail(E, 0);
+      svLeadF(E);
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
       E.railMode = SV_RAIL_EQUAL;
@@ -2350,6 +2351,19 @@
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
     svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
+  }
+  // On a phone F ends what the rail scrolls. When the thread plus F overflows the rail by less than F's own width, F would lie
+  // partly in view at rest, cut by the rail's edge; a lead margin before F makes the overflow exactly F's width, so F lies fully
+  // past the edge at rest and whole at the rail's end, with at most that margin as blank track before it. The margin is a
+  // function of the rail's and the thread's widths, so a glide (svFitRail returns first) never changes it.
+  function svLeadF(E) {
+    const F = E.wholeMap, own = F.style.marginLeft;
+    if (F.hidden || F.parentNode !== E.rail || E.rail.lastElementChild !== F) { if (own) { F.style.marginLeft = ''; E.centres = null; } return; }
+    F.style.marginLeft = '';
+    const over = E.rail.scrollWidth - E.rail.clientWidth, fw = F.offsetWidth;
+    const lead = over > 1 && over < fw ? Math.ceil(fw - over) : 0;
+    if (lead) F.style.marginLeft = `${lead}px`;
+    if ((lead ? `${lead}px` : '') !== own) E.centres = null;
   }
   // (CSS px: a centring margin smaller than this is none, and a change smaller than this leaves the margin as it is)
   const SV_CENTRE_MIN = 0.5;

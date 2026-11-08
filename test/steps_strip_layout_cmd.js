@@ -90,20 +90,53 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
   }
 }
 // landscape phones, 568 to 932 px in 4 px steps, with two, three and four steps: at rest F is whole or fully out of the rail's view,
-// at every width (a spacing change moves the band of widths where the thread plus F overflows by less than F, it does not remove it)
+// at every width. Where the thread plus F would overflow the rail by less than F's width (the band), F gets a lead margin that puts it
+// fully out of view at rest; scrolled to the end F is whole and the blank before it is under BLANK_MAX; outside the band the margin is 0
 const SWEEP_FROM = 568, SWEEP_TO = 932, SWEEP_STEP = 4;
+const BLANK_MAX = 48;   // (px: the blank track before F at the rail's end)
+const lead = () => ev(`(() => {
+  const rail = document.querySelector('#svStrip .sv-rail'), F = document.querySelector('.sv-wholemap'), fw = F.getBoundingClientRect().width;
+  const margin = parseFloat(getComputedStyle(F).marginLeft) || 0, over = rail.scrollWidth - rail.clientWidth - margin;
+  return { margin, over, fw, inBand: over > 1 && over < fw };
+})()`);
+const atEnd = () => ev(`(() => {
+  const rail = document.querySelector('#svStrip .sv-rail'), F = document.querySelector('.sv-wholemap');
+  rail.scrollLeft = rail.scrollWidth; const rb = rail.getBoundingClientRect(), fb = F.getBoundingClientRect();
+  const planes = [...rail.querySelectorAll('.sv-plane')], last = planes[planes.length - 1].getBoundingClientRect();
+  return { fWhole: fb.left >= rb.left - ${EPS} && fb.right <= rb.right + ${EPS}, blank: fb.left - last.right };
+})()`);
 for (const chain of ['two', 'three', 'four']) {
   await open(SWEEP_FROM, 360, true, 'en', chain);
-  const bad = [];
+  const bad = [], badMargin = [], badEnd = [];
+  let inBand = null;
   for (let w = SWEEP_FROM; w <= SWEEP_TO; w += SWEEP_STEP) {
     await view(w, 360, false, true);
     await still({ floor: 150 });
     await ev("document.querySelector('#svStrip .sv-rail').scrollLeft = 0; 1");
     await still();
-    const m = await measure();
+    const m = await measure(), l = await lead();
     if (!(m.fIn !== false || m.fOut === true)) bad.push({ w, fIn: m.fIn, fOut: m.fOut, railW: m.railW });
+    if ((l.margin > 0) !== l.inBand) badMargin.push({ w, ...l });
+    if (l.inBand) {
+      if (inBand === null) inBand = w;
+      const e = await atEnd();
+      if (!e.fWhole || e.blank >= BLANK_MAX) badEnd.push({ w, ...e });
+    }
   }
   ok(`${chain}, ${SWEEP_FROM} to ${SWEEP_TO} px landscape in ${SWEEP_STEP} px steps: F is whole or fully out of the rail's view at rest`, bad.length === 0, bad);
+  ok(`${chain}: F's lead margin is set in the band and 0 outside it`, badMargin.length === 0 && inBand !== null, { badMargin, inBand });
+  ok(`${chain}: in the band, scrolled to the end F is whole and the blank before it is under ${BLANK_MAX} px`, badEnd.length === 0, badEnd);
+  if (inBand !== null) {
+    // a glide to the next plane leaves the margin as it was
+    await view(inBand, 360, false, true);
+    await still({ floor: 150 });
+    const m0 = (await lead()).margin, seen = [];
+    await ev("document.querySelector('.sv-next').click(); 1");
+    for (let i = 0; i < 12; i++) { seen.push((await lead()).margin); await new Promise((r) => setTimeout(r, 40)); }
+    await still();
+    seen.push((await lead()).margin);
+    ok(`${chain}: the margin does not change during or after a glide`, seen.every((v) => v === m0), { m0, seen });
+  }
 }
 info.checks = 'steps view: the thread bar at 1920/1440/1280/1024 and 390/360, en and ru: clear of the ruler, meets no control, centred on the pane (laptop) or in its rail (phone)';
 return { pass: fails.length === 0, fails, info };
