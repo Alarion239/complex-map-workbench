@@ -6,7 +6,7 @@
       // (the steps view's surface, for the plane's Sphere key: null outside the steps view)
       svSphere: () => svSphereKey(), svOnSphere: () => (SV.on ? SV.surf === 'sphere' : null),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
-      resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
+      resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); },
       // (build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
       // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
       // (land: a running tween on that view ends at its target first, review-phone-swap swap-8)
@@ -25,9 +25,9 @@
       fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
       // (#246) the phone's chain row and sheet: the plane it is at, ‹ › (the step glide), the deformation's programs
       // compiled ahead of the first press, a step's sheet, a step moved by the sheet's drag
-      chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => (k === 'F' ? selectStep('F') : cardClick(k)),
+      chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => selectStep(k),
       prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
-      moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
+      moveStep: (k, d) => moveStep(k, d),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
       regionsNote,
       regionsView: () => SV.on || S.view.main === 'xy',   // the views that hold the regions' display
