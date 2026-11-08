@@ -1,7 +1,7 @@
 // One stack of canvas controls on every plane (laptop). A plane's .viewstack holds Zoom in, Zoom out, Fit view, Expand, then the
 // plane's surface button, Sphere, in that order; the steps view shows one plane, so its Expand (which swaps two planes) is not
 // shown and its stack is the other four. The stack is the same on the Plane, the Sphere and the Landscape, and its buttons keep
-// their places relative to each other when the surface changes. A button the surface cannot use stays where it is and is
+// their places (x and y within a half pixel) when the surface changes. A button the surface cannot use stays where it is and is
 // aria-disabled with its reason in the tooltip and in an aria-describedby note: Sphere on the Landscape, Fit on a plane with no
 // image. Sphere keeps one name and carries the surface in aria-pressed: in the steps view one press switches the view's surface;
 // with two planes shown (?view=classic) a press switches that plane's own surface.
@@ -33,8 +33,8 @@ const stack = (side) => ev(`(() => [...document.querySelectorAll('#pane${side} .
 }))()`);
 const byLabel = (list, l) => list.find((b) => b.label === l);
 const matches = (list, LABELS) => list.length === LABELS.length && list.every((b, i) => (LABELS[i] instanceof RegExp ? LABELS[i].test(b.label) : b.label === LABELS[i]));
-// (a box relative to the stack's first button: the stack follows the plot's edge, which moves when the rulers go)
-const rel = (boxes) => boxes.map((b) => [b[0] - boxes[0][0], b[1] - boxes[0][1], b[2], b[3]]);
+const POS_TOLERANCE = 0.5;   // px: the stack's buttons are at the same place after a surface switch
+const samePlaces = (a, b) => a.length === b.length && a.every((r, i) => r.every((v, j) => Math.abs(v - b[i][j]) <= POS_TOLERANCE));
 
 // the steps view: one plane
 await open('chain', [MOB, CUBE]);
@@ -51,9 +51,12 @@ for (const surf of SURFACES) {
   }
   const fit = byLabel(s, 'Fit view');
   ok(`${tag}: Fit view stays enabled`, !!fit && fit.disabled !== 'true', fit);
-  boxes[surf] = rel(s.map((b) => b.box));
+  boxes[surf] = s.map((b) => b.box);
 }
-for (const surf of ['sphere', 'land']) ok(`no button moves, relative to the stack, between the plane and the ${surf}`, JSON.stringify(boxes[surf]) === JSON.stringify(boxes.plane), { plane: boxes.plane, [surf]: boxes[surf] });
+for (const surf of ['sphere', 'land']) ok(`no button moves, x or y, between the plane and the ${surf}`, samePlaces(boxes[surf], boxes.plane), { plane: boxes.plane, [surf]: boxes[surf] });
+await ev(`(__cmwSteps({ surf: 'plane' }), 1)`); await still();
+const back = (await stack('L')).map((b) => b.box);
+ok('and back on the plane every button is where it was', samePlaces(back, boxes.plane), { plane: boxes.plane, back });
 // one press switches the view's surface and the key shows it
 await ev(`(__cmwSteps({ surf: 'plane' }), 1)`); await still();
 await ev(`document.querySelector('#paneL .viewstack button[aria-label="Sphere"]').click(), 1`); await still();
