@@ -42,7 +42,7 @@ const grid = () => ev(`(() => {
 })()`);
 const groups = () => ev(`(() => {
   const gs = [...document.querySelectorAll('.ph-sheet .ph-vopts > .ph-grp')], r = (e) => e.getBoundingClientRect();
-  return { n: gs.length, labelled: gs.every((g) => g.firstElementChild.matches('h3.ph-gl') && g.firstElementChild.textContent.trim()),
+  return { n: gs.length, labelled: gs.every((g) => g.firstElementChild.matches('h3.ph-h') && g.firstElementChild.textContent.trim()),
     caps: gs.every((g) => /small-caps/.test(getComputedStyle(g.firstElementChild).fontVariantCaps)),
     gaps: gs.slice(1).map((g, i) => Math.round(r(g).top - r(gs[i]).bottom)),
     rowGap: gs.map((g) => { const k = g.children; return k.length > 2 ? Math.round(r(k[2]).top - r(k[1]).bottom) : null; }).filter((x) => x != null),
