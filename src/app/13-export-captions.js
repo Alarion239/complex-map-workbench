@@ -35,34 +35,6 @@
     if (Number.isInteger(S.sel) && S.sel >= 0 && S.sel <= n) return S.sel;
     return S.focus > 0 && S.focus <= n ? S.focus : n;
   }
-  function syncSel() {
-    const sel = selOf(), quiet = !!(morph.playing && morph.open);
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) {
-      const on = +c.dataset.k === sel;
-      c.classList.toggle('sel', on); c.classList.toggle('quiet', on && quiet);
-      if (c.getAttribute('aria-selected') !== String(on)) c.setAttribute('aria-selected', String(on));
-      c.tabIndex = on ? 0 : -1;   // (review design-14: one tab stop, the selected option; the arrows move inside)
-    }
-    const ft = /** @type {HTMLElement | null} */ (document.querySelector('#pipeline .ftile'));
-    if (ft) { ft.classList.toggle('sel', sel === 'F'); ft.setAttribute('aria-selected', String(sel === 'F')); ft.tabIndex = sel === 'F' ? 0 : -1; }
-    syncPlaying();
-    const wb = $('viewAllBtn');
-    if (wb) wb.disabled = S.focus === 0;
-  }
-  // the card of the step the deformation is in (review design-13): one after another, the step at t; all at once, the
-  // last card, which shows the deformation itself
-  let playKey = '';
-  function syncPlaying() {
-    let k = 0;
-    if (morph.open && morphOn()) {
-      const steps = morphRange().steps;
-      k = allAtOnce() ? steps[steps.length - 1] : steps[Math.max(0, Math.min(steps.length - 1, Math.floor(morph.T - (morph.T >= steps.length ? 1e-9 : 0))))];
-    }
-    const key = String(k || 0);
-    if (key === playKey && (!k || document.querySelector('#pipeline .card.playing'))) return;
-    playKey = key;
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) c.classList.toggle('playing', !!k && +c.dataset.k === k);
-  }
   // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
   function syncAloneChip() {
     const head = document.querySelector('#paneL .pane-head');
@@ -151,7 +123,6 @@
     setSel(k);
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
-    syncSel();
     svFSync();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
@@ -230,7 +201,7 @@
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
-      svOn: () => SV.on, regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -348,6 +319,7 @@
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
+    svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
     // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
     // plane the line saying where the colour is carried from; and the plane's name for the axis title
@@ -421,6 +393,7 @@
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
+      get artRelief() { return artRelief; }, set artRelief(v) { artRelief = v; },
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },

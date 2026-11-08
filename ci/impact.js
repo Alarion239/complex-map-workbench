@@ -75,10 +75,10 @@ const MAP = [
   ['src/app/04-labels-zeros-poles.js', ui('views', 'constructions')],                     // labels, zeros and poles
   ['src/app/05-panes-rulers.js', ui('views', 'desktop', 'phone')],                         // view fitting, panes, rulers
   ['src/app/06-deformation.js', ui('deform')],                                             // the deformation
-  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // thumbnails, the render loop
+  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // the render loop
   ['src/app/09-pane-titles.js', ui('desktop', 'phone')],                                   // pane titles, option strips
   ['src/app/10-tools-menus.js', ui('constructions', 'desktop', 'phone')],                  // the tools and menus
-  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's cards
+  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's edits, Repeat and range
   ['src/app/12-command-palette.js', ui('desktop', 'i18n')],                                // the command palette
   ['src/app/13-export-captions.js', ui('export', 'i18n')],                                 // guarantees, export, captions
   ['src/app/14-interaction.js', ui('constructions', 'desktop', 'phone')],                  // pointer and keys
