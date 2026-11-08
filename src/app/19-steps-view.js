@@ -379,7 +379,7 @@
     if (p.plan.ops.some((o) => (o.kind === 'ROOTPOW' || o.kind === 'LOG') && o.p && Number.isFinite(o.p.k))) {
       for (let j = 1; j <= SV_LAND_SHEETS; j++) for (const dk of [j, -j]) {
         const q = invHomPath(SV_ALL, 0, b, u, null, dk);
-        if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk } });
+        if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk, k: b } });
       }
     }
     // All sheets: the step's own sheets are layers of their own (those that are distinct branches of the step: its k mod n for n
@@ -403,10 +403,10 @@
         const bb = built[e.k - 1];
         if (e.k <= b || e.k > top || e.node || !bb || !bb.vals || !['root', 'powa', 'log'].includes(bb.def && bb.def.id)) continue;
         const dks = e.n > 0 ? Array.from({ length: e.n }, (_, i) => i) : [0].concat(...Array.from({ length: W }, (_, i) => [i + 1, -(i + 1)]));
-        fwd = fwd.flatMap((c) => dks.map((dk) => (dk ? c.concat([{ vals: bb.vals, dk }]) : c)));
+        fwd = fwd.flatMap((c) => dks.map((dk) => (dk ? c.concat([{ vals: bb.vals, dk, k: e.k }]) : c)));
       }
     }
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, fwd: fwd.slice(0, SV_LAND_LAYERS) };
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS) };
   }
   const SV_LAND_SHEETS = 4, SV_LAND_LAYERS = 24;   // (the sheets' limit, SHEET_MAX)
   function svLandMoving(pane) {

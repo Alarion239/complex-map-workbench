@@ -216,10 +216,14 @@
     // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
-    landCarryEdge: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS, fs: () => TF_FS, tf: true },
+    landCarryEdge: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(), fs: () => TF_FS, tf: true },
+    // (the layered glide's variants, whose cuts are continued from an own vertex: see LAND_CARRY_CONT_VS)
+    landCarryEdgeL: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(true), fs: () => TF_FS, tf: true },
+    landCarryCont: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_CONT_VS, fs: () => TF_FS, tf: true },
     landCarryFix: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_FIX_VS, fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
-    landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
+    landCarry: { chain: true, vs: () => LAND_CARRY_VS(), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
+    landCarryL: { chain: true, vs: () => LAND_CARRY_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     landB: { chain: false, vs: () => LAND_B_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },

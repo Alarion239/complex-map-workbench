@@ -268,6 +268,18 @@
   }
   // (a step sheet's chain data: its own shift, then the layer's forward shifts)
   const sheetChainData = (shift, more = []) => chainWith((shift && shift.vals ? [shift] : []).concat(more));
+  const CARRY_CONT_CODE = 10.25;   // a vertex continued onto the layer's branch past its range (LAND_CARRY_CONT_VS)
+  // the sheet number (chainSheetRange's combo) of the branch each multivalued step has at the point it is continued from
+  // (digit 0 of a finite step, the window's centre for a log or an irrational power), for the steps up to stage top
+  const ownCombo = (W, top, shifts) => {
+    const steps = cur.info && cur.info.sheets && Array.isArray(cur.info.sheets.steps) ? cur.info.sheets.steps.filter((e) => e && e.k >= 1 && e.k <= top).sort((p, q) => p.k - q.k) : [];
+    let c = 0, m = 1;
+    for (const e of steps) {
+      const dk = shifts.filter((x) => x && x.k === e.k).reduce((a, x) => a + x.dk, 0), r = e.n > 0 ? e.n : 2 * W + 1;
+      c += (e.n > 0 ? ((dk % e.n) + e.n) % e.n : W + dk) * m; m *= r;
+    }
+    return c;
+  };
   const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
@@ -322,27 +334,40 @@
       c.exactState = r;
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
       // have compiled; until then the cells are drawn whole
-      out.cuts = 0; out.datas = null;
+      out.cuts = 0; out.datas = null; out.cont = false;
       const sheets = exact ? [{ shift: ex.shift || null }].concat(ex.more || []) : [];
-      const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
-      if (P3 && (Pf || sheets.length === 1)) {
+      // (layered: a layer is one branch, whose cuts are continued from its own vertices: the fix pass always, then the
+      // continuation pass, the edges with the cuts anchored at an own end)
+      const lyr = !!ex.layered && sheets.length === 1;
+      const Pf = sheets.length > 1 || lyr ? program('landCarryFix', c.map) : null, P3 = exact ? program(lyr ? 'landCarryEdgeL' : 'landCarryEdge', c.map) : null;
+      const Pn = lyr ? program('landCarryCont', c.map) : null;
+      out.own = ownCombo(ex.sheetW || 2, Math.max(h0, c.hT2 == null ? h0 : c.hT2, c.T), [ex.shift].concat(ex.shifts || []));
+      const own = (P) => { u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', out.own); };
+      if (P3 && (Pf || sheets.length === 1) && (!lyr || Pn)) {
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
         const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, out.zTex);
-        if (Pf) for (const tol of CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
+        if (Pf) for (const tol of lyr ? CARRY_SHEET_TOLS.slice(0, 1) : CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
           use(Pf, Object.assign({}, c.map, { base: 0 }));
           if (datas[i]) gl.uniform4fv(Pf.loc.uChain, datas[i]);
           stages(Pf); u1f(Pf, 'uCode', code(i)); u1f(Pf, 'uTol', tol);
           gl.activeTexture(gl.TEXTURE15);
           runTF(Pf, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }
+        if (lyr) {
+          use(Pn, c.map);
+          if (datas[0]) gl.uniform4fv(Pn.loc.uChain, datas[0]);
+          stages(Pn); own(Pn); u1f(Pn, 'uCode', code(0)); u1f(Pn, 'uContCode', CARRY_CONT_CODE);
+          gl.activeTexture(gl.TEXTURE15);
+          runTF(Pn, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
+        }
         for (let i = 0; i < sheets.length; i++) {
           use(P3, c.map);
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i));
+          stages(P3); if (lyr) own(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
@@ -354,7 +379,7 @@
           }
         }
         // (the edges between two sheets, last: the earlier passes' edges stay)
-        if (Pf) {
+        if (Pf && !lyr) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
@@ -364,6 +389,7 @@
           }
         }
         out.cuts = 1;
+        out.cont = lyr;
         out.datas = Pf ? datas : null;
         out.chain = Pf ? null : datas[0];
       }
@@ -1450,8 +1476,10 @@
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
-      const Pc = program('landCarry', st.carry.map);
+      const contDraw = !!(landC && landC.cont);
+      const Pc = program(contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
+      if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
@@ -1473,6 +1501,7 @@
       for (const L of landActive.length ? landActive : [landC]) {
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
+        if (contDraw) u1i(Pc, 'uOwn', L.own);
         u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);

@@ -568,6 +568,20 @@ vec2 carryHeight(vec2 z) {
   return uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
 }
 `;
+  // the same heights with the cuts of the steps placed opposite the point zc, a point of the same layer (the layer's own
+  // branch continued from zc: chainSheetRange digit uOwn), so a point just past its branch's range keeps the layer's
+  // surface; the layered glide's programs
+  const CARRY_HEIGHT_ANCHORED = `
+uniform int uOwn;
+vec2 carryWA(vec2 zc, vec2 z, int b) { return chainSheetRange(zc, z, uGs, b, uOwn); }
+vec2 carryHeightA(vec2 zc, vec2 z) {
+  vec2 hv = heightW(carryWA(zc, z, uGt));
+  if (uGt2 == uGt) return hv;
+  vec2 h2 = heightW(carryWA(zc, z, uGt2));
+  bool both = hv.y > 0.5 && h2.y > 0.5;
+  return uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
+}
+`;
   const LAND_CARRY_TF_VS = `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
@@ -628,7 +642,7 @@ void main() {
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form)
-  const LAND_CARRY_VS = `
+  const LAND_CARRY_VS = (L = false) => `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep;
@@ -642,6 +656,7 @@ uniform int uCuts; uniform int uPer;
 uniform float uDrawCode; uniform float uDrawCode0;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
+${L ? 'flat out vec2 vZc;' : ''}
 ` + CARRY_Z + `
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
 vec4 edgeOf(ivec2 a, ivec2 b) {
@@ -661,6 +676,12 @@ void main() {
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
+${L ? `  // (layered: a triangle is a layer's when its corners are all placed on it, own or continued, and one is own; its
+  // colour is continued from that corner)
+  if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) return;
+  bool o0 = t0.w < uDrawCode0 + 0.1, o1 = t1.w < uDrawCode0 + 0.1, o2 = t2.w < uDrawCode0 + 0.1;
+  if (!(o0 || o1 || o2)) return;
+  vZc = texelFetch(uZ, o0 ? V0 : (o1 ? V1 : V2), 0).xy;` : ''}
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uDrawCode > 0.0) {
@@ -730,11 +751,19 @@ void main() {
   // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
   // the edges whose two vertices are on the sheet uCode (the texel's w, LAND_CARRY_FIX_VS) are looked at, with that
   // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
-  const LAND_CARRY_EDGE_VS = `
+  const LAND_CARRY_EDGE_VS = (L = false) => `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
-` + CARRY_HEIGHT + `
+` + CARRY_HEIGHT + (L ? CARRY_HEIGHT_ANCHORED + `
+// (layered: heights and places of a point of the edge, continued from the edge's own end eZc)
+vec2 eZc;
+vec2 edgeH(vec2 z) { return carryHeightA(eZc, z); }
+vec2 edgeW(vec2 z) { return carryWA(eZc, z, uGt); }
+` : `
+vec2 edgeH(vec2 z) { return carryHeight(z); }
+vec2 edgeW(vec2 z) { return chainRange(z, uGs, uGt); }
+`) + `
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -755,15 +784,18 @@ void main() {
   float tol = 2e-3 * uH, d0 = abs(b.z - a.z);
   if (!(d0 > tol)) return;
   vec2 z0 = texelFetch(uZ, p, 0).xy, z1 = texelFetch(uZ, q, 0).xy;
-  vec2 ha = carryHeight(z0), hb = carryHeight(z1);
+${L ? `  bool ownA = a.w < uCode + 0.1, ownB = b.w < uCode + 0.1;
+  if (!ownA && !ownB) return;
+  eZc = ownA ? z0 : z1;` : ''}
+  vec2 ha = edgeH(z0), hb = edgeH(z1);
   if (!(ha.y > 0.5 && hb.y > 0.5) || abs(ha.x - a.z) > tol || abs(hb.x - b.z) > tol) return;
-  vec2 wLo = chainRange(z0, uGs, uGt), wHi = chainRange(z1, uGs, uGt);
+  vec2 wLo = edgeW(z0), wHi = edgeW(z1);
   float lo = 0.0, hi = 1.0, hLo = a.z, hHi = b.z, d3 = d0;
   bool jump = true, fin = true;
   for (int it = 0; it < uSteps - 1; it++) {
     float m = 0.5 * (lo + hi);
     vec2 zm = mix(z0, z1, m);
-    vec2 hp = carryHeight(zm), wp = chainRange(zm, uGs, uGt);
+    vec2 hp = edgeH(zm), wp = edgeW(zm);
     if (!(hp.y > 0.5)) { fin = false; break; }
     if (abs(hp.x - hLo) >= abs(hHi - hp.x)) { hi = m; hHi = hp.x; wHi = wp; } else { lo = m; hLo = hp.x; wLo = wp; }
     // (a continuous rise shrinks under bisection, by 8 over three halvings where it is smooth: stop early)
@@ -772,6 +804,35 @@ void main() {
   float big = 1e3 * max(uMu, 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
   if (jump) tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0);
+}
+`;
+  // The layered glide's continuation of a layer past the range of its branch: a vertex the walk placed with a preimage z
+  // that the layer's own glide does not land on its place (texel w 1) takes the height of the layer's branch
+  // continued from an adjacent own vertex (its first own neighbour, the cut opposite that vertex's preimage), texel w
+  // uContCode; the same point of the source plane keeps its surface across the branch's cut
+  const LAND_CARRY_CONT_VS = `
+uniform int uN; uniform int uGs; uniform int uGt; uniform float uCode; uniform float uContCode;
+uniform highp sampler2D uT1; uniform highp sampler2D uZ;
+out vec4 tfOut;
+` + CARRY_HEIGHT + CARRY_HEIGHT_ANCHORED + `
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  vec4 t = texelFetch(uT1, p, 0);
+  tfOut = t;
+  if (t.w < 0.5 || t.w > 5.0) return;
+  vec2 za = vec2(0.0);
+  bool found = false;
+  for (int j = 0; j < 9; j++) {
+    ivec2 q = p + ivec2(j % 3 - 1, j / 3 - 1);
+    if (j == 4 || q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
+    vec4 tq = texelFetch(uT1, q, 0);
+    if (tq.w > 5.0 && tq.w < uCode + 0.1) { za = texelFetch(uZ, q, 0).xy; found = true; break; }
+  }
+  if (!found) return;
+  vec2 h = carryHeightA(za, texelFetch(uZ, p, 0).xy);
+  if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode);
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
@@ -1289,12 +1350,12 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
-  const LAND_FS = (sheet, plain, lite, carry = false) => `
+  const LAND_FS = (sheet, plain, lite, carry = false, layered = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'flat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'vec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
