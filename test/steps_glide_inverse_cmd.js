@@ -126,6 +126,63 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share });
   }
 }
+// ---- a scrub right after load, before step b's pole tracks exist (zeta) ----
+// The first frame of a scrub made at once (no wait for ready.ready) is the held frame, pixel-equal to plane z's parked
+// frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The hold ends once the
+// tracks exist, and a glide with an exact inverse (z squared) is never held.
+{
+  const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 2, HELD_OVER = 0.001;
+  const FLOOR = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
+  const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared');
+  ok('the zeta and the squared examples are found', ex >= 0 && sq >= 0, names.length);
+  const SHARE = `(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`;
+  const load = async (example) => {
+    await go(`${BASE}/test.html?ns=gh${Date.now()}&lang=en&view=steps`);
+    await ready();
+    await ev(HELP);
+    await ev(`__cmwExample(${example}), 1`);
+    await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
+  };
+  // the first frame after the scrub to x: the page's canvas then, its share, and the thread's record
+  const first = async (x) => {
+    await ev(`__cmwSteps({ x: ${x} }), 1`);
+    await settled({ max: FIRST_MS, until: `(() => { const s = __cmwSteps(), g = s.glide; return !!s.hold || (!!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < 1e-9); })()` });
+    const r = await ev(`(() => { const s = __cmwSteps(), g = s.glide; window.__gi.f = __giGrab(); return { hold: s.hold || 0, ready: s.ready.ready, g: g && { u: g.u, path: g.path }, share: ${SHARE} }; })()`);
+    return r;
+  };
+  // the held frame's test: plane z's parked frame, measured once the frames are parked
+  const heldFrame = async () => {
+    await park(0);
+    return ev(`(() => { const A = window.__gi.f, B = __giGrab(); let over = 0; for (let i = 0; i < A.d.length; i += 4) { let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > ${HELD_DIFF}) over++; } return over / (A.d.length / 4); })()`);
+  };
+  for (const x of [0.25, 0.5, 0.75]) {
+    await load(ex);
+    const r = await first(x);
+    const over = await heldFrame();
+    const held = over <= HELD_OVER, inv = !!r.g && r.g.path === 'inverse' && r.share >= FLOOR[x];
+    info[`zeta scrub at once x ${x}`] = { r, over };
+    ok(`zeta scrubbed at once to x = ${x}: the first frame is the held frame of plane z or the inverse pass's at least ${FLOOR[x]} of the pane`, held || inv, { r, over });
+    if (x === 0.5) {
+      // (the hold ends: once the tracks exist the frame at the finger is the inverse pass's, above the floor)
+      await ev(`__cmwSteps({ x: ${x} }), 1`);
+      await settled({ max: FRAME_MS, until: '__cmwSteps().ready.ready' });
+      const g = await at(x, 'inverse', FRAME_MS);
+      const share = await ev(SHARE);
+      info['zeta hold ends'] = { g, share };
+      ok(`zeta scrubbed at once to x = ${x}: after the tracks exist the frame at the finger is the inverse pass's, above the floor`, !!g && g.path === 'inverse' && share >= FLOOR[x], { g, share });
+      // (after ready.ready the same scrub is never held)
+      await ev('__cmwSteps({ x: 0.25 }), 1');
+      const r2 = await first(0.75);
+      info['zeta scrub after ready'] = r2;
+      ok('zeta scrubbed after ready.ready: not held, drawn by the inverse pass above the floor', !r2.hold && !!r2.g && r2.g.path === 'inverse' && r2.share >= FLOOR[0.75], r2);
+    }
+  }
+  // a glide with an exact inverse needs no tracks: never held
+  await load(sq);
+  const r3 = await first(0.5);
+  info['squared scrub at once'] = r3;
+  ok('z squared scrubbed at once after load: never held, drawn by the inverse pass', !r3.hold && !!r3.g && r3.g.path === 'inverse', r3);
+}
 // ---- the NEWT roots pass reads no GL state back ----
 // (the partial sum of the exponential, degree 8, Inside regions, inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a
 // frame, so it keeps the frame's state from the renderer's own record, not by getParameter, a synchronous read from the
