@@ -1,7 +1,13 @@
   // ---------------- the page's shell: the header, its menus and Settings, the panels and drawers (#385) ----------------
-  // (the area wiring init() calls, at the point where it had it; the theme the header cycles, which the phone's More
+  // (the area wiring init() calls, at the point where it had it; the theme the header's menu sets, which the phone's More
   // sheet reads and sets too)
   let curTheme = 'auto';
+  // a theme picked from the header's menu, Settings' entry or the phone's sheet
+  function pickTheme(v) { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }
+  // the theme's one menu, from the header button and from Settings: Auto, Light, Dark, the current one checked
+  function openThemeMenu(btn) {
+    svChoiceMenu(btn, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], curTheme, $t('Theme'), pickTheme);
+  }
   // the header: the icons, the command field, its fit (init: before the view controls)
   function setupHeader() {
     // right tabs
@@ -33,13 +39,13 @@
   }
   // the right click, the messages' place, the drawers and the panels' buttons (init: before applyLayout)
   function setupShell() {
-    // (v16.5 UX99) a right click on a chain card or a Shapes row opens its ⋯ menu at the pointer, as on the planes
+    // a right click on a Shapes row opens its ⋯ menu at the pointer, as on the planes
     // (a mouse only: a phone's long press keeps its own meaning)
     document.addEventListener('contextmenu', (e) => {
       const t = e.target instanceof Element ? e.target : null;
       if (!t || document.documentElement.classList.contains('ph') || (e.pointerType && e.pointerType !== 'mouse')) return;
-      const card = t.closest('#pipeline .card[data-k]'), row = !card && t.closest('.shape-row');
-      const more = /** @type {HTMLButtonElement | null} */ (card ? card.querySelector('.card-head .more') : row ? row.querySelector(':scope > .more') : null);
+      const row = t.closest('.shape-row');
+      const more = /** @type {HTMLButtonElement | null} */ (row ? row.querySelector(':scope > .more') : null);
       if (!more || more.disabled) return;
       e.preventDefault();
       if (popEl && popEl._opener === more) closePalette();
@@ -121,12 +127,7 @@
     $('examplesBtn').addEventListener('click', (e) => openGallery(e.currentTarget));
     // the cycle runs on the theme in use, so it still reaches Dark when storage is blocked
     curTheme = themePref();
-    $('themeBtn').addEventListener('click', () => {
-      const order = ['auto', 'light', 'dark'];
-      curTheme = order[(order.indexOf(curTheme) + 1) % 3];
-      setTheme(curTheme);
-      sndToggleCue(curTheme !== 'light');
-    });
+    $('themeBtn').addEventListener('click', (e) => openThemeMenu(e.currentTarget));
     setTheme(curTheme);
     // Phase colors (issue 8): the palette menu, with a preview of each
     const pb = $('palBtn');
@@ -163,7 +164,8 @@
     // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English, review eng-12; the languages'
     // own names are never translated)
     const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
-    const kids = [sep($t('Theme'), true), seg('setTheme', curTheme, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], (v) => { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }, $t('Theme')),
+    const themeName = { auto: $t('Auto'), light: $t('Light'), dark: $t('Dark') };
+    const kids = [sep($t('Theme'), true), h('button', { type: 'button', id: 'setTheme', class: 'set-link', 'aria-haspopup': 'menu', onclick: (e) => openThemeMenu(e.currentTarget) }, $t('Theme: {name}', { name: themeName[curTheme] })),
       sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
     if (SND) {
       const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });

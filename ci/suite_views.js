@@ -1,11 +1,11 @@
 'use strict';
-// Which view each browser suite tests: the steps view, or the classic views, which stay as a view of their own (#621).
+// Which view each browser suite tests: the steps view (the page's default), or the classic views, which stay reachable by ?view=classic (#621).
 // Every runnable suite (ci/browser_shards.js) has exactly one entry; `node ci/browser_shards.js check` fails without
-// one. The kit pins every page to the classic view unless its URL asks for ?view=steps (test/cdp_kit/pin_view.js), so
-// a suite tagged port or classic runs classic.
-//   steps()               opens the steps view itself (its URL has ?view=steps; some check the classic view too)
-//   steps({ pin: true })  a ported suite: ci/browser.js runs it with CMW_VIEW=steps, so the kit opens every page it loads
-//                         in the steps view, with no change to its URLs (a page asking ?view=classic keeps the classic one).
+// one. The kit opens every page in the steps view unless its URL asks for ?view=classic (test/cdp_kit/pin_view.js);
+// ci/browser.js runs a suite tagged port or classic with CMW_VIEW=classic, so it runs classic.
+//   steps()               runs in the steps view (some check the classic view too, by ?view=classic)
+//   steps({ pin: true })  a ported suite: its URLs name no view and open in the steps view (a page asking ?view=classic
+//                         keeps the classic one).
 //                         Porting a suite is this tag, plus its assertions retargeted to what the steps view shows
 //   port(area, note)      tests behaviour the steps view has, or will have (the note says what it waits on): it must
 //                         run against the steps view; area is the worker group that ports it (#620's breakdown)
@@ -36,7 +36,7 @@ const VIEWS = {
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
   'phone_ctx_slide_cmd.js': steps(),
-  'phone_edit_head_cmd.js': steps(),
+  'phone_edit_head_cmd.js': steps({ pin: true }),
   'phone_fmap_cmd.js': steps(),
   'phone_export_steps_cmd.js': steps(),
   'phone_landscape_cmd.js': steps(),
@@ -57,6 +57,7 @@ const VIEWS = {
   'sv_land_sin_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
   'steps_land_inregions_cmd.js': steps(),
+  'steps_land_footprint_cmd.js': steps(),
   'steps_inregions_pending_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
@@ -94,6 +95,7 @@ const VIEWS = {
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
+  'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
   'steps_repeat_cmd.js': steps(),
   'steps_parked_pan_cmd.js': steps(),
@@ -134,31 +136,17 @@ const VIEWS = {
   'tour_planes_cmd.js': steps(),
 
   // the classic views' own parts, pinned to the classic view
-  'card_canvas_cmd.js': classic('the chain cards\' thumbnails: the steps view has the thread, no card row'),
-  'card_resize_cmd.js': classic('the chain cards during a resize: no card row in the steps view'),
-  'chain_row_cmd.js': classic('the phone\'s chain bar with Deformation and its glide: the steps view\'s phone has the strip'),
-  'clear_chain_open_cmd.js': classic('the classic chain head beside the floating Inspector (it names the classic view)'),
-  'deform_range_classic_cmd.js': classic('the Deformation bracket over the card row, its menu items and chain edits, the phone bar, the sound probe and the morph figure\'s captions: the thread\'s range is deform_range_cmd\'s and steps_play_cmd\'s'),
   'deform_range_cmd.js': steps({ pin: true }),
-  'header_layout_cmd.js': classic('the top bar\'s view tabs (X → Y | Phase | Landscape), which only the classic view has'),
-  'land_cards_cmd.js': classic('the Landscape step cards: no card row in the steps view'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
-  'mv_views_cmd.js': classic('the merged X → Y / Phase / Landscape views and their switch, which the steps view replaces'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
-  'phone_glide_export_cmd.js': classic('the export while the classic ‹ › glide has Y on a step\'s plane, and the chip over it: the steps view\'s export of a step\'s plane is phone_export_steps_cmd'),
-  'phone_glide_cmd.js': classic('the phone\'s ‹ › glide of Y between X and Y: the steps view glides its one plane (steps_view_cmd)'),
   'phone_plane_cmd.js': steps({ pin: true }),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
-  'ux165_chain_cmd.js': classic('v16.5\'s fixes of the chain cards and the chain head'),
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
-  'v15_desktop_cmd.js': classic('the cards following the view switch (X → Y, Phase, Landscape, the Deformation)'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
   'deform_range_gl_cmd.js': steps({ pin: true }),
-  'example_try_cmd.js': classic('its line is "press Deformation"; the steps view\'s Try lines are example_try_sv_cmd\'s'),
 
   // to port: interact
   'a11y_axe_cmd.js': steps({ pin: true }),
-  'a11y_axe_cards_cmd.js': classic('the classic chain cards\' inert actions and the mouse click on Bypass: the steps view has the thread, whose chips hold their ⋯ as ordinary controls'),
   'chip_clamp_cmd.js': steps({ pin: true }),
   'complex_point_cmd.js': steps({ pin: true }),
   'complex_params_cmd.js': steps({ pin: true }),
@@ -167,24 +155,18 @@ const VIEWS = {
   'display_inline_cmd.js': classic('the classic pane heads\' Display, Regions and title toggles at each width: the steps view\'s head is layout_invariants_cmd\'s and steps_head_cmd\'s'),
   'field_settle_cmd.js': steps({ pin: true }),
   'kbd_nav_cmd.js': steps({ pin: true }),
-  'kbd_nav_classic_cmd.js': classic('the classic chain cards\' one Tab stop and F6 across X, Y and the chain: the steps view has the thread, and its F6 areas are kbd_nav_cmd\'s'),
   'key_popup_cmd.js': steps({ pin: true }),
   'mode_chips_cmd.js': steps({ pin: true }),
-  'mode_chips_classic_cmd.js': classic('the step-alone, expanded-plane and deformation chips of the classic pane head: the steps view keeps the Construct tool chip and Listening along only'),
   'param_planes_cmd.js': steps({ pin: true }),
   'phase_key_cmd.js': steps({ pin: true }),
-  'phase_key_classic_cmd.js': classic('X → Y\'s hidden X key: the steps view has one plane and shows its key (phase_key_cmd)'),
   'phase_style_cmd.js': steps({ pin: true }),
   'repeat_cmd.js': steps({ pin: true }),
-  'repeat_classic_cmd.js': classic('the classic card row\'s ⋯ menu and its bracket under the cards (the bracket\'s N chip, its × and its spans), and F read from the classic F tile: the steps view has no card row, and its Repeat is a chip menu and an Inspector row (repeat_cmd, steps_repeat_cmd)'),
   'repeat_settle_cmd.js': steps({ pin: true }),
   'series_edit_cmd.js': steps({ pin: true }),
   'series_params_cmd.js': steps({ pin: true }),
   'shape_rows_cmd.js': steps({ pin: true }),
   'stage_shapes_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
-  'top_bar_focus_classic_cmd.js': classic('the classic top bar\'s view switch and Deformation in the Tab order, and the segments of the view switch and of the classic heads: the steps view has none of them (top_bar_focus_cmd)'),
-  'ux165_fix_classic_cmd.js': classic('the classic transport dock\'s one row, the Sphere view\'s switch-to-the-plane hint for Orthogonal, and the planes staying put when Listen starts: the steps view has no dock, takes no curve pick on its globe yet, and its Listening-along note moves the plane'),
   'ux165_fix_cmd.js': steps({ pin: true }),
   'ux165_merge_classic_cmd.js': classic('Y\'s head with its "Y · " tag: the classic right pane; the steps view has one plane and no such head'),
   'ux165_merge_cmd.js': steps({ pin: true }),
@@ -197,7 +179,6 @@ const VIEWS = {
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
   'deform_nat_cmd.js': steps({ pin: true }),
-  'deform_nat_classic_cmd.js': classic('the classic Deformation dock: its Paths button, key P and palette entry, the figure export with paths, the order select and all at once as one homotopy with its scrubber, caption and play loop, Phase beside the deformation, and the 60 fps check of the paths: the steps view has no dock, draws a glide over several steps as one run of them, and keeps its own Paths and order controls (steps_paths_cmd, steps_order_cmd)'),
 
   // to port: phone
   'phone_ctx_tex_cmd.js': steps({ pin: true }),
@@ -210,13 +191,12 @@ const VIEWS = {
 
   // to port: words (the tour, the Try lines left and the chapters' retargeting)
   'example_cauchy_cmd.js': steps({ pin: true }),
+  'steps_foot_note_order_cmd.js': steps({ pin: true }),
   'example_params_cmd.js': steps({ pin: true }),
   'example_try_events_cmd.js': steps({ pin: true }),
-  'example_try_events_classic_cmd.js': classic('the classic cards\' Try lines: the sheet buttons, the formula field and the Add ray button on a card; example_try_events_cmd asks the same in the steps view'),
   'example_try_repeat_cmd.js': steps({ pin: true }),
-  'example_try_repeat_classic_cmd.js': classic('the classic cards\' Repeat Try lines: the card ⋯ menu and the bracket\'s N field; example_try_repeat_cmd asks the same in the steps view'),
   'fix152_cmd.js': steps({ pin: true }),
-  'fix152_classic_cmd.js': classic('the Split offer in the classic views: focus on a card, f₂ shown alone; fix152_cmd.js runs the offer in the steps view'),
+  'ux165_palette_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': steps({ pin: true }),
   'i18n_classic_cmd.js': classic('the Deformation\'s keys on a Russian layout (Ь, З), the digit keys that pick X → Y, Phase and Landscape, and the classic Landscape title of the logarithm\'s example: the steps view has none of those keys (its play and Paths keys and its plane head\'s sheets are in i18n_cmd)'),
@@ -229,7 +209,7 @@ const VIEWS = {
   'tour_audit_cmd.js': steps({ pin: true }),
   'tour_auto_cmd.js': steps({ pin: true }),
   'tour_auto_classic_cmd.js': classic('the classic views\' tour tasks with real input: the view switch\'s doors, Phase key, X\'s pan,'
-    + ' the chain step, the preimages hint and the Deformation\'s Part of the chain; the steps view\'s are tour_auto_cmd'),
+    + ' the preimages hint and the Deformation\'s Part of the chain; the steps view\'s are tour_auto_cmd'),
   'tour_chapters_cmd.js': steps({ pin: true }),
   'tour_cmd.js': steps({ pin: true }),
   'tour_cmd_classic_cmd.js': classic('the classic views\' tour: X\'s pan task and the strip\'s arrow keys, the Views chapter (the view'
@@ -244,10 +224,11 @@ const VIEWS = {
     + ' the steps view\'s is tour_phone_cmd'),
   'tour_skip_hover_cmd.js': steps({ pin: true }),
   'tour_tasks_cmd.js': steps({ pin: true }),
-  'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag, the F tile in the chain sheet and the card d/dz in its sheet on a phone, and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
+  'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'steps_cauchy_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
-  'steps_plane_key_cmd.js': steps(),
+  'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)
+  'steps_phone_key_cmd.js': steps({ pin: true }),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
@@ -256,10 +237,8 @@ const VIEWS = {
   'ux165_learn_classic_cmd.js': classic('the classic views\' learn checks: Y\'s pane head (the pattern key, option bar, target note, the empty chain\'s Add function), the deformation\'s readout, play button, draw chip and Video format, the Shapes list\'s shape keys and the right-click menus of the Shapes rows and chain cards; the steps view has none of these'),
   'ux165_learn_phone_classic_cmd.js': classic('the classic phone\'s learn checks: Y\'s chip naming the inset after a target and the inset\'s pulse (V01), and the message row under the chain bar (UX80); the steps view\'s phone has no inset and no chain bar'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
-  'ux165_learn_msg_classic_cmd.js': classic('the Undo message in the chain head: the steps view has no chain head; toasts_515_cmd and ux165_fix_cmd ask its message over the plot, above the strip'),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
   'v151_cmd.js': steps({ pin: true }),
-  'v151_alone_classic_cmd.js': classic('the language switch with a step shown alone (v15.1 verify-8): "Show alone" is the classic view\'s; v151_cmd has the steps view\'s equivalent'),
 
   // to port: export (the shown plane, the filmstrip, the glide)
   'complex_lang_export_cmd.js': steps({ pin: true }),
@@ -318,7 +297,7 @@ const VIEWS = {
   'seasong_cmd.js': port('sound', 'the Mountain King example: its gallery entry, its circle menu with Listen along and the first samples it prepares, in English, Russian, desktop and phone; it waits on the sound checks in the steps view'),
   'sound_cmd.js': port('sound', 'the browser side of sound: consent, the tiers and their palette entries, the settings, the cues, the pointer voice, loops and the Landscape contours; it waits on the sound checks in the steps view'),
   'sound_v152_cmd.js': steps({ pin: true }),
-  'sound_v152_deform_classic_cmd.js': classic('the loop singing while the Deformation plays, palette B\'s scrub with its slider and Esc while it plays: the steps view has no open Deformation'),
+  'sound_v152_deform_classic_cmd.js': classic('the loop singing while the Deformation plays and Esc while it plays: the steps view has no open Deformation'),
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),

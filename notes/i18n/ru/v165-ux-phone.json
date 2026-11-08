@@ -26,8 +26,8 @@
   "note": "UX17: the guide on a touch screen, the paragraph that starts \"Draw with the tools\" on the desktop, in a phone's words."
  },
  "guide.touch.chain": {
-  "en": "Add a step with the + in the chain bar; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in its search to add it directly. Tap a card: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show this step alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.",
-  "ru": "Шаг добавляет кнопка + в панели цепочки; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в её поиске, и она станет шагом. Коснитесь карточки: внизу откроется панель с её редактором — формула целиком, поле для каждого коэффициента и меню ⋯, которое заменяет шаг обратной функцией, отключает, перемещает, дублирует или удаляет его. Собственные коэффициенты шага помечены его номером (<i>a</i><sub>2</sub>); буква без номера — это общее число. Кнопка <b>Показать только этот шаг</b> в редакторе показывает только этот шаг. Порядок меняют пункты «Сдвинуть» в меню ⋯.",
+  "en": "Add a step with the + at the end of the thread; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in its search to add it directly. Tap a step on the thread: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.",
+  "ru": "Шаг добавляет кнопка + в конце нити; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в её поиске, и она станет шагом. Коснитесь шага на нити: внизу откроется панель с его редактором — формула целиком, поле для каждого коэффициента и меню ⋯, которое заменяет шаг обратной функцией, отключает, перемещает, дублирует или удаляет его. Собственные коэффициенты шага помечены его номером (<i>a</i><sub>2</sub>); буква без номера — это общее число. Кнопка <b>Показать отдельно</b> в редакторе показывает только этот шаг. Порядок меняют пункты «Сдвинуть» в меню ⋯.",
   "note": "UX17: the guide on a touch screen, the paragraph that starts \"Add a step with\" on the desktop, in a phone's words."
  },
  "guide.touch.split": {
@@ -91,8 +91,8 @@
   "note": "UX17: the guide on a touch screen, the paragraph that starts \"The <b>F</b> tile at the end\" on the desktop, in a phone's words."
  },
  "guide.touch.deform": {
-  "en": "On a phone, <b>Deformation</b> is the key at the end of the chain bar. While it plays, the row along the bottom holds Undo, play, the time <i>t</i>, the speed (tap it: 1×, 2×, ½×), Paths and ×; the plane's Display key holds the order, Loop and the deformed steps.",
-  "ru": "На телефоне <b>Деформация</b> — кнопка в конце панели цепочки. Пока она идёт, в нижней строке — «Отменить», воспроизведение, время <i>t</i>, скорость (коснитесь её: 1×, 2×, ½×), «Пути» и ×; кнопка «Вид» на плоскости открывает порядок, «Цикл» и деформируемые шаги.",
+  "en": "On a phone, the play key on the thread runs the deformation along the chain; hold it to choose the speed and Loop.",
+  "ru": "На телефоне кнопка воспроизведения на нити запускает деформацию вдоль цепочки; удержите её, чтобы выбрать скорость и «Цикл».",
   "note": "UX17: the guide on a touch screen, a line under the Deformation heading: where its controls are on a phone."
  },
  "tour.formula.touch": {
