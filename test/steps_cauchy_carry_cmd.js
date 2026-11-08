@@ -14,6 +14,10 @@ const PIXEL_TOL = 6;
 const EDGE_SHARE_MAX = 0.002;
 // a colour pixel has channels that differ by more than this (of 255); a coloured reference has more than COLOUR_SHARE_MIN of them
 const COLOUR_CHANNEL_GAP = 20, COLOUR_SHARE_MIN = 0.05;
+// the plot's show settings as the residue data carries them: Both and Inside
+const SHOW_BOTH = 0, SHOW_IN = 1;
+// a wrong reference must differ from the carried colour on more than this share of pixels, far above EDGE_SHARE_MAX
+const CONTROL_SHARE_MIN = 0.05;
 // the pixel comparison's frame: its size in px and the carried mesh's cells across and down
 const FRAME_W = 240, FRAME_H = 160, MESH_NX = 96, MESH_NY = 64;
 // the shaders link in the background: the frame is drawn again every LINK_POLL_MS until they are linked, at most LINK_POLL_MAX times
@@ -35,7 +39,7 @@ for (const show of ['both', 'in', 'out']) {
     if (!cz) return { err: 'no residue data' };
     const st = { view: v, dpr: 1, style: 'cauchy', sectors: 12, grid: 0.5, plane: [0.99, 0.99, 0.99], ink: [0.07, 0.1, 0.12], dark: false };
     const cv = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
-    const a = cv(), b = cv();
+    const a = cv(), b = cv(), c = cv();
     for (let i = 0; i < ${LINK_POLL_MAX}; i++) {
       GLR.begin(W, H);
       const ok1 = GLR.drawCarried(Object.assign({ map: { mode: 0, a: 0, b: 0 }, s: 0, T: 1, lim: 1e30, cauchy: cz,
@@ -44,24 +48,30 @@ for (const show of ['both', 'in', 'out']) {
       GLR.begin(W, H);
       GLR.drawColorPlot(Object.assign({ map: { mode: 0, a: 0, b: 1 }, cauchy: cz }, st));
       GLR.blit(b.getContext('2d'));
+      GLR.begin(W, H);
+      GLR.drawColorPlot(Object.assign({ map: { mode: 0, a: 0, b: 1 }, cauchy: Object.assign({}, cz, { show: cz.show === ${SHOW_BOTH} ? ${SHOW_IN} : ${SHOW_BOTH} }) }, st));
+      GLR.blit(c.getContext('2d'));
       if (ok1 && !GLR.pendingLinks) break;
       await new Promise((r) => setTimeout(r, ${LINK_POLL_MS}));
     }
-    const pa = a.getContext('2d').getImageData(0, 0, W, H).data, pb = b.getContext('2d').getImageData(0, 0, W, H).data;
-    let over = 0, n = 0, blank = 0, colour = 0;
+    const pa = a.getContext('2d').getImageData(0, 0, W, H).data, pb = b.getContext('2d').getImageData(0, 0, W, H).data, pc = c.getContext('2d').getImageData(0, 0, W, H).data;
+    let over = 0, wrong = 0, n = 0, blank = 0, colour = 0;
     for (let i = 0; i < pa.length; i += 4) {
       n++;
       if (pa[i + 3] === 0) blank++;
       if (Math.abs(pb[i] - pb[i + 1]) > ${COLOUR_CHANNEL_GAP} || Math.abs(pb[i + 1] - pb[i + 2]) > ${COLOUR_CHANNEL_GAP}) colour++;
       if (Math.max(Math.abs(pa[i] - pb[i]), Math.abs(pa[i + 1] - pb[i + 1]), Math.abs(pa[i + 2] - pb[i + 2])) > ${PIXEL_TOL}) over++;
+      if (Math.max(Math.abs(pa[i] - pc[i]), Math.abs(pa[i + 1] - pc[i + 1]), Math.abs(pa[i + 2] - pc[i + 2])) > ${PIXEL_TOL}) wrong++;
     }
-    return { over: +(over / n).toFixed(4), blank, colour: +(colour / n).toFixed(3), show: cz.show };
+    return { over: +(over / n).toFixed(4), wrong: +(wrong / n).toFixed(4), blank, colour: +(colour / n).toFixed(3), show: cz.show };
   })()` });
   const r = rr.exceptionDetails ? { err: rr.exceptionDetails.exception && rr.exceptionDetails.exception.description } : rr.result.value;
   info[show] = r;
   ok(`${show}: drawn (the program ready)`, r && r.blank === 0, r);
   ok(`${show}: the reference plot is coloured (the check is not between two blanks)`, r && r.colour > COLOUR_SHARE_MIN, r);
   ok(`${show}: the carried colour is the plot of the style on plane z, pixel for pixel`, r && r.over <= EDGE_SHARE_MAX, r);
+  // negative control: the same comparison against the plot of another show setting (the other side of the curve coloured) must fail
+  ok(`${show}: negative control: the plot of another show setting is not the carried colour`, r && r.wrong > CONTROL_SHARE_MIN, r);
 }
 // (Outside is the sharp case: F(z0) at an outside point is the colour of f₋ there, not the plain colour of F)
 // (alpha 1: the sheet is opaque, so its pixels are the carried colour and not a blend with the plane behind it)
@@ -92,6 +102,11 @@ for (const [show, z0] of [['both', [0.55, 0.3]], ['both', [1.9, 0.45]], ['out', 
   const onW = await pixel(...F(z0));
   info[show + ' z ' + z0] = { onZ, onZ2, onW, carry: await ev('JSON.stringify((() => { const c = __cmwCauchyCarry(); return c && { T: c.T, show: c.show, edges: c.edges.length }; })())'), steps: await ev('JSON.stringify(__cmwSteps().glide || null)') };
   ok(`${show}, z0 = ${z0}: the colour of F(z0) on plane 1 is the colour of z0 or of 1/z0 on plane z`, near(onZ, onW) || near(onZ2, onW), info[show + ' z ' + z0]);
+  // negative control: i·z0 is a quarter turn from z0 (a different phase, in the same part of the plane), so the colour of F(z0)
+  // is not its colour on plane z
+  await parkAt(0);
+  const turned = await pixel(-z0[1], z0[0]);
+  ok(`${show}, z0 = ${z0}: negative control: the colour of F(z0) is not the colour of i·z0 on plane z`, !near(turned, onW), { turned, onW });
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warn') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors or warnings', !errs.length, errs.slice(0, 4).map((x) => String(x.m).slice(0, 300)));
