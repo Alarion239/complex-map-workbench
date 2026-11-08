@@ -286,6 +286,8 @@
   // The All sheets' layers past the first (member k >= 1 of the glide's inverse, drawn with the first's programs): each its
   // own places, preimages, normals and edges, kept between frames; layer 0 is landC
   const landLs = [];
+  const LAND_HOLES_MAX = 4, LAND_HOLE_CELLS = 8, LAND_POLAR_N = 65;   // polar patches about a layer's branch points: at most, the patch's reach in cells, its grid
+  let landHoles = [];   // the last carried frame's patches [x, y, r0, r1]
   const LAND_MEMBERS_MAX = 8;   // the walk's largest B
   let landActive = [];   // the layers the last carried frame drew: landC, then landLs's that are exact
   // the inverse inputs of layer lay { member }: the glide's own, walked for its member-th member at each vertex (the step's
@@ -325,10 +327,10 @@
     // backwards through the glide's map, not plane s's grid carried forward; a pass that cannot draw leaves this
     // frame to the carried grid
     let exact = false;
-    if (ex && !polar) {
+    if (ex && (!polar || (lay && ex.layered))) {
       if (!out.zTex) out.zTex = floatTex();
       const h0 = c.hT == null ? c.T : c.hT;
-      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex }));
+      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, polar }));
       exact = r === 'drawn';
       c.exactState = r;
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
@@ -393,7 +395,8 @@
         out.chain = Pf ? null : datas[0];
       }
     }
-    if (!polar) out.exact = exact;
+    if (!polar || (lay && ex && ex.layered)) out.exact = exact;
+    if (polar && lay && !exact) return out;
     if (lay && lay.k && !exact) return out;
     if (!exact) {
     use(P1, c.map);
@@ -429,7 +432,7 @@
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i), out = [];
-      layers.forEach(({ px, pz, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
+      layers.forEach(({ px, pz, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
       return out;
     });
   }
@@ -1389,14 +1392,21 @@
     const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, layered ? { k: 0, member: 0, sheet: { shift: null } } : null) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (All sheets: every member of the glide's inverse is a layer of its own, the first being landC; a layer a pass cannot
     // draw is left out)
-    landActive = [landC];
+    landActive = [landC]; landHoles = [];
     if (layered && hd && landC && landC.exact) {
       const M = landMembers(st), specs = [];
       for (const sheet of [{ shift: null }].concat(st.carry.exact.more || [])) for (const shifts of st.carry.exact.fwd || [[]]) for (let member = 0; member < M; member++) specs.push({ sheet, shifts, member });
       for (let k = 1; k < specs.length; k++) {
         const L = carryHeights(st, N, mode, H, mu, aspect, null, null, Object.assign({ k }, specs[k]));
-        if (L.exact) landActive.push(L);
+        if (L.exact) { L.spec = specs[k]; landActive.push(L); }
       }
+      landC.spec = specs[0];
+      // (a polar patch of every layer about each branch point of the glide's inverse in view, where the box's cell holding
+      // the point spans a whole turn of the helicoid: the box's triangles about it are left out)
+      const bx = st.box, cell = (bx.x1 - bx.x0) / (N - 1), r1 = cell * LAND_HOLE_CELLS, ext = r1;
+      landHoles = (st.carry.exact.hole || []).filter(([x, y]) => x > bx.x0 - ext && x < bx.x1 + ext && y > bx.y0 - ext && y < bx.y1 + ext).slice(0, LAND_HOLES_MAX)
+        .map(([x, y]) => [x, y, cell * 1e-4, r1]);
+      for (const L of landActive) L.pp = landHoles.map((pl, i) => carryHeights(st, LAND_POLAR_N, mode, H, mu, aspect, pl, (L.pp && L.pp[i]) || {}, Object.assign({ k: 0 }, L.spec)));
     }
     // (the glide's inverse pass: 'drawn', 'pending' or 'error' when st.carry.exact asked for it)
     info.exact = st.carry && st.carry.exact ? st.carry.exactState || null : null;
@@ -1497,6 +1507,30 @@
       gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
       // (each layer: its places, preimages and edges; the glide's sheets, one draw each with that sheet's chain data, its
       // colour being of the sheet's branch)
+      // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
+      const drawCarryGrid = (G, n) => {
+        const cutDraw = !!(G.exact && G.cuts);
+        u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.tex2);
+        if (G.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, G.zTex); }
+        if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, G.edges[d]); }
+        const datas = cutDraw ? G.datas : null;
+        // (a layer of one sheet: its chain data, the forward sheet's)
+        const own = !datas && !!G.chain;
+        if (own) gl.uniform4fv(Pc.loc.uChain, G.chain);
+        for (let i = 0; i < (datas ? datas.length : 1); i++) {
+          if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
+          u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
+          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (n - 1) * (n - 1));
+        }
+        if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
+      };
+      {
+        const hv = new Float32Array(16);
+        landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
+        gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
+      }
       for (const L of landActive.length ? landActive : [landC]) {
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
@@ -1506,16 +1540,14 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
-        const datas = cutDraw ? L.datas : null;
-        // (a layer of one sheet: its chain data, the forward sheet's)
-        const own = !datas && !!L.chain;
-        if (own) gl.uniform4fv(Pc.loc.uChain, L.chain);
-        for (let i = 0; i < (datas ? datas.length : 1); i++) {
-          if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
-          u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
-          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
+        drawCarryGrid(L, hd.N);
+        // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
+        if (L.pp && L.pp.length) {
+          gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 4);
+          L.pp.forEach((o, i) => { if (!o.exact) return; u4f(Pc, 'uPolar', ...landHoles[i]); u1i(Pc, 'uZOn', 1); if (contDraw) u1i(Pc, 'uOwn', o.own); drawCarryGrid(o, LAND_POLAR_N); });
+          u4f(Pc, 'uPolar', 0, 0, 0, 0);
+          gl.disable(gl.POLYGON_OFFSET_FILL);
         }
-        if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
       }
       u1f(Pc, 'uDrawCode', 0);
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
@@ -1532,7 +1564,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.layers = landActive.length;
+      info.layers = landActive.length; info.landHoles = landHoles.length;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)

@@ -760,16 +760,24 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, its depth key, 1), with the height of the stages (uGs, uGt] at z (blended over
   // uHu into that of (uGs, uGt2] when uGt2 differs; the member is the uMember-th of the walk's, the front one at 0), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
   const INV_LAND_MAIN = `
-uniform vec4 uLBox; uniform int uLN; uniform int uMember; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
+uniform vec4 uLBox; uniform vec4 uLPolar; uniform int uLN; uniform int uMember; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
 layout(location = 1) out vec4 oZ;
 void main() {
   vec2 g = floor(gl_FragCoord.xy);
   vec4 pa = vec4(0.0), pz = vec4(0.0);
   if (uUsePrev) { pa = texelFetch(uPrevA, ivec2(g), 0); pz = texelFetch(uPrevZ, ivec2(g), 0); }
   bool had = pa.w > 0.5;
-  vec2 w = uLBox.xy + g / float(uLN - 1) * uLBox.zw;
-  ixDwX = vec2(uLBox.z / float(uLN - 1), 0.0); ixDwY = vec2(0.0, uLBox.w / float(uLN - 1));
-  ixPix = ixDwX.x;
+  float lf = 1.0 / float(uLN - 1);
+  vec2 w = uLBox.xy + g * lf * uLBox.zw;
+  ixDwX = vec2(uLBox.z * lf, 0.0); ixDwY = vec2(0.0, uLBox.w * lf);
+  if (uLPolar.w > 0.0) {
+    // a polar patch about a point of the shown plane (uLPolar: x, y, r0, r1): the angle once round clockwise with i, the radius from r0 to r1 geometrically with j; a cell's footprint is the patch cell's
+    float th = -6.283185307179586 * g.x * lf, r = uLPolar.z * pow(uLPolar.w / uLPolar.z, g.y * lf);
+    w = polarAt(uLPolar, g, lf);
+    ixDwX = r * 6.283185307179586 * lf * vec2(sin(th), -cos(th));
+    ixDwY = r * log(uLPolar.w / uLPolar.z) * lf * vec2(cos(th), sin(th));
+  }
+  ixPix = length(ixDwX);
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
@@ -783,7 +791,7 @@ void main() {
   if (had) { o = pa; oZ = pz; }
 }
 `;
-  const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
+  const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + POLAR_AT + INV_LAND_MAIN };
   // the look's alpha of an All-sheets pass: under 0.5 the walk keeps up to INV_B_MAX members (invB)
   const LAND_MEMBER_ALPHA = 0.25;
   let landSet = null;
@@ -845,6 +853,7 @@ void main() {
       u1f(P, 'uHu', c.hu || 0);
       u1i(P, 'uLN', N); u1i(P, 'uMember', member);
       u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
+      u4f(P, 'uLPolar', ...(st.polar || [0, 0, 0, 0]));
       u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', st.hMode === 4 || st.hMode === 5 ? 1e4 : 0);
       u4f(P, 'uVp', 0, 0, N, N);
       u2f(P, 'uCenter', 0, 0); u2f(P, 'uCenterLo', 0, 0); u2f(P, 'uInvScale', 1, 1);

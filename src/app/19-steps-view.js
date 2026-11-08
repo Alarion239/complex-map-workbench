@@ -369,7 +369,7 @@
   // The inverse inputs of a glide frame's exact Landscape (GLR.landInverse): the front point z of plane 0 over each vertex of
   // the shown plane's grid, from step b's homotopy at u inverted by its own ops (invHomPath). Null unless that path draws:
   // a d/dz step, a chain with no inverse plan, a Newton inverse that is neither an exact-degree polynomial (all its roots) nor seeded
-  function svLandExact(b, u) {
+  function svLandExact(b, u, F) {
     if (!GLR.landInverse || !GLR.packShapes || derivIn(0, b)) return null;
     packRecs([SV_ALL], true);
     const p = invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
@@ -407,7 +407,19 @@
         fwd = fwd.flatMap((c) => dks.map((dk) => (dk ? c.concat([{ vals: bb.vals, dk, k: e.k }]) : c)));
       }
     }
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS) };
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS), hole: S.sheets ? svLandHoles(p.plan, F) : [] };
+  }
+  // The branch points of the glide's inverse as places of the shown plane ([x, y] each, at most LAND_HOLES): the z-plane's
+  // branch points over the camera's window, carried by the glide's map F. A layer draws a polar patch about each, where the
+  // box's cell holding the point would span a whole turn of the helicoid.
+  const LAND_HOLES = 4;
+  function svLandHoles(plan, F) {
+    if (!F) return [];
+    let sing;
+    try { sing = Inverse.singular(plan, clipWin, ['branch'], LAND_HOLES); } catch (e) { return []; }
+    const out = [];
+    for (const e of sing) { const w = F(e.z); if (w && Number.isFinite(w.re) && Number.isFinite(w.im)) out.push([w.re, w.im]); }
+    return out;
   }
   const SV_LAND_SHEETS = 4, SV_LAND_LAYERS = 24;   // (the sheets' limit, SHEET_MAX)
   function svLandMoving(pane) {
@@ -416,7 +428,7 @@
     if (!g.all && (g.u <= 1e-6 || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u });
     const c = svLandCarry(mapOf, g.a, g.b, g.u);
-    if (!g.all && !c.plain) c.exact = svLandExact(g.b, g.u);
+    if (!g.all && !c.plain) c.exact = svLandExact(g.b, g.u, g.F);
     render3D(pane, c);
     return true;
   }

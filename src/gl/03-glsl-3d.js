@@ -544,13 +544,19 @@ void main() {
   // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
   // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
   // are left out
-  const CARRY_ZIN = `
+  // polarAt(P, ij, f): the place of patch P (x, y, r0, r1) at grid place ij, f the grid's spacing 1 / (N - 1)
+  const POLAR_AT = `
+vec2 polarAt(vec4 P, vec2 ij, float f) {
+  float th = -6.283185307179586 * ij.x * f, r = P.z * pow(P.w / P.z, ij.y * f);
+  return P.xy + r * vec2(cos(th), sin(th));
+}
+`;
+  const CARRY_ZIN = POLAR_AT + `
 uniform vec4 uPolar;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
-  float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
-  return uPolar.xy + r * vec2(cos(th), sin(th));
+  return polarAt(uPolar, ij, f);
 }
 `;
   const CARRY_Z = CARRY_ZIN + `
@@ -654,6 +660,8 @@ uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2
 uniform int uCuts; uniform int uPer;
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
+// the box's triangles whose centre is within uHoles[i].z of uHoles[i].xy are left out (uNHoles of them): polar patches draw there
+uniform vec4 uHoles[4]; uniform int uNHoles;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ${L ? 'flat out vec2 vZc;' : ''}
@@ -683,6 +691,10 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   if (!(o0 || o1 || o2)) return;
   vZc = texelFetch(uZ, o0 ? V0 : (o1 ? V1 : V2), 0).xy;` : ''}
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
+  if (uPolar.w <= 0.0) {
+    vec2 ctr = (t0.xy + t1.xy + t2.xy) / 3.0;
+    for (int i = 0; i < 4; i++) if (i < uNHoles && length(ctr - uHoles[i].xy) < uHoles[i].z) return;
+  }
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   if (uDrawCode > 0.0) {
     float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
