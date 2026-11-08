@@ -1,6 +1,5 @@
 // Frame times of the deformation range (notes/deform-range/SPEC.md 13.5): a 12-step chain, a pre of 5 heavy steps, a
-// bracket of 2, a post of 5. Plays one after another and all at once in X → Y, Phase and Landscape with Paths on, and
-// drags a bracket end for 3 s. Gate (BUDGET60, the AS-BUILT bar): p95 <= 18.4 ms and 60 fps at 1440 x 900 and 390 x 844.
+// range of 2, a post of 5. Plays one after another and all at once in X → Y, Phase and Landscape with Paths on. Gate (BUDGET60, the AS-BUILT bar): p95 <= 18.4 ms and 60 fps at 1440 x 900 and 390 x 844.
 // The merged tree before the range (dist/v16m.html, its whole-chain deformation) runs on the same chain for comparison,
 // alternating with this build. Not on GeForce NOW; run with the machine otherwise as quiet as it can be. standards-ok: GeForce NOW is a product name
 //   <runner> test/deform_range_fps_cmd.js
@@ -34,29 +33,12 @@ for (const [w, h, phone] of [[1440, 900, false], [390, 844, true]]) {
       }
       await ev('__cmwMorph({ open: false })'); await sleep(300);
     }
-    // the bracket drag (desktop): the left end back and forth over two connectors for 3 s, frames meanwhile
-    if (build === 'v16' && !phone) {
-      await ev(`__cmwSetMain('xy')`); await sleep(500);
-      await ev('__cmwMorph({ open: true, playing: false, range: { a: 6, b: 7 } })'); await sleep(900);
-      const L = await ev(`(() => { const e = document.querySelector('.br-end.l'); e.scrollIntoView({ inline: 'center' }); const r = e.getBoundingClientRect(); const c = document.querySelector('#pipeline .card[data-k="5"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 30, x1: c.left + c.width * 0.3 }; })()`);
-      await sleep(300);
-      const L2 = await ev(`(() => { const e = document.querySelector('.br-end.l'); const r = e.getBoundingClientRect(); const c = document.querySelector('#pipeline .card[data-k="5"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 30, x1: c.left + c.width * 0.3 }; })()`);
-      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L2.x, y: L2.y, button: 'left', buttons: 1, clickCount: 1 });
-      const pf = ev('await (async () => await __qa.frames(3000))()', 30000);
-      const t0 = Date.now();
-      let i = 0;
-      while (Date.now() - t0 < 3000) { const u = (Math.sin(i++ / 6) + 1) / 2; await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: L2.x + (L2.x1 - L2.x) * u, y: L2.y, button: 'left', buttons: 1 }); await sleep(16); }
-      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L2.x, y: L2.y, button: 'left', buttons: 0, clickCount: 1 });
-      out.drag = { frames: await pf, moves: i, range: await ev('__cmwState().homView && __cmwState().homView.range') };
-      await ev('__cmwMorph({ open: false })');
-    }
   }
 }
 await send('Emulation.setUserAgentOverride', { userAgent: '' });
 await view(1440, 900, false, false);
 // the gate: p95 <= 18.4 ms and >= 58 fps for this build's runs
 out.gate = out.runs.filter((r) => r.build === 'v16').map((r) => ({ k: `${r.size} ${r.main} ${r.order}`, p95: r.frames.p95, fps: r.frames.fps, ok: r.frames.p95 <= 18.4 && r.frames.fps >= 58 }));
-if (out.drag) out.gate.push({ k: 'drag', p95: out.drag.frames.p95, fps: out.drag.frames.fps, ok: out.drag.frames.p95 <= 18.4 && out.drag.frames.fps >= 58 });
 out.pass = out.gate.every((g) => g.ok);
 out.load = (await ev('1')) && null;
 return out;

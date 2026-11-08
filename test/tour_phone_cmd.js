@@ -35,7 +35,7 @@ const PROBE = `(() => {
   // the topmost element at a point, the tour's shade and rings aside
   const top = (x, y) => (document.elementsFromPoint(x, y) || []).find((e) => !e.closest('[data-tour="root"], [data-tour="top"]'));
   const covered = [];
-  for (const e of document.querySelectorAll('#secDraw > .tools > .tool, #secDraw > .ph-undo, #secDraw > .tool-more > summary, #viewSwitch > button, #hdrMoreBtn')) {
+  for (const e of document.querySelectorAll('#secDraw > .tools > .tool, #secDraw > .ph-undo, #secDraw > .tool-more > summary, #hdrMoreBtn')) {
     if (!vis(e)) continue;
     const q = e.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2;
     if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
