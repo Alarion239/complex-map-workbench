@@ -14,19 +14,21 @@ const stateOf = (expr, extra) => Object.assign({ shapes: CIRCLE, steps: [{ type:
 const NO_POLE = 'No pole inside the curve: F inside, 0 outside';
 // the key off z is one line of text: its canvas is at most KEY_LINE_MAX CSS px tall (the ringed key is 72)
 const KEY_LINE_MAX = 30;
+// the bounds (ms) for a ready page, for the view to settle and for a pop-up to open, and the window's size
+const PAGE_READY_MS = 30000, SETTLE_MS = 15000, POPUP_MS = 5000, WIN_W = 1440, WIN_H = 900;
 const OFF_Z = 'The Cauchy integral is drawn on z, where its curve lies: colour from z';
 const open = async (ns, state) => {
-  await view(1440, 900, false, false);
+  await view(WIN_W, WIN_H, false, false);
   await load(ns, state);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
-  await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0', max: 30000 });
+  await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0', max: PAGE_READY_MS });
   await ev(`__cmwSelect('s1'); 1`);
-  await settled({ until: '!__cmwSteps().moving', max: 15000 });
+  await settled({ until: '!__cmwSteps().moving', max: SETTLE_MS });
 };
 // the style row's controls behind ⋯, read with the pop-up open and closed again
 const parts = async () => {
   await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
-  await settled({ until: '!!document.querySelector(".opts-pop")', max: 5000 });
+  await settled({ until: '!!document.querySelector(".opts-pop")', max: POPUP_MS });
   const r = JSON.parse(await ev(`JSON.stringify((() => { const p = document.querySelector('.opts-pop'), seg = p.querySelector('#cauchySeg'), n = p.querySelector('.foot-note'); return { seg: !!seg, buttons: seg ? [...seg.querySelectorAll('button')].map((b) => ({ v: b.dataset.v, disabled: b.disabled, tip: b.dataset.tip, desc: b.getAttribute('aria-description'), on: b.classList.contains('on') })) : [], note: n ? n.innerText : '' }; })())`));
   await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
   return r;
@@ -40,9 +42,9 @@ ok('pole inside: the parts are enabled', a.buttons.every((b) => !b.disabled), a)
 ok('pole inside: the note names f₊ and f₋', /f₊/.test(a.note) && /f₋/.test(a.note), a);
 await ev(`__cmwCauchyOpt('in', true)`);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
-await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0', max: 30000 });
+await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0', max: PAGE_READY_MS });
 await ev(`__cmwSelect('s1'); 1`);
-await settled({ until: '!__cmwSteps().moving', max: 15000 });
+await settled({ until: '!__cmwSteps().moving', max: SETTLE_MS });
 const b = await parts();
 ok('a reload keeps the chosen part', b.buttons.some((x) => x.v === 'in' && x.on), b);
 
@@ -63,9 +65,9 @@ info.undefined = u;
 ok('F not finite on the curve: the parts are disabled with a reason that says so', u.seg && u.buttons.every((x) => x.disabled && /not finite/.test(x.tip) && !/No pole/.test(x.tip)), u);
 await open(ns, stateOf('z+\\frac{1}{z}'));
 await ev(`(__cmwSteps({ T: 1 }), 1)`);
-await settled({ until: '__cmwSteps().T === 1 && !__cmwSteps().moving', max: 15000 });
+await settled({ until: '__cmwSteps().T === 1 && !__cmwSteps().moving', max: SETTLE_MS });
 await ev(`(__cmwSteps({ go: 0, now: true }), 1)`);
-await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().moving', max: 15000 });
+await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().moving', max: SETTLE_MS });
 const d = await parts();
 info.off = d;
 ok('off z: the parts are disabled with the drawn-on-z reason', d.seg && d.buttons.every((x) => x.disabled && x.tip === OFF_Z), d);
@@ -73,4 +75,30 @@ const ti = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
 ok('off z: the title of plane z keeps the Cauchy subject', /^Cauchy integral over /.test(ti.role), ti);
 const h = await ev(`(() => { __cmwLegend(); const c = document.querySelector('.legend-chip canvas'); return c ? c.height / 2 : -1; })()`);
 ok('off z: the key is one line of text', h > 0 && h <= KEY_LINE_MAX, h);
+// a plane past z: the ⋯ pop-up carries the same parts control and note, and a part chosen there is the setting the carried colour is drawn with
+const goPlane = async (i) => {
+  await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === ${i} && !__cmwSteps().moving`, max: SETTLE_MS });
+};
+await open(ns, stateOf('z+\\frac{1}{z}'));
+await goPlane(1);
+const p1 = await parts();
+info.past = p1;
+ok('past z: the parts control is in the pop-up, three choices, enabled', p1.seg && p1.buttons.length === 3 && p1.buttons.every((x) => !x.disabled), p1);
+ok('past z: the note names f₊ and f₋', /f₊/.test(p1.note) && /f₋/.test(p1.note), p1);
+// negative control: the carried colour starts on Both, so the choice below is a change and not the setting already there
+const SHOW_BOTH = 0, SHOW_OUT = 2;
+const before = await ev(`JSON.stringify(__cmwCauchyCarry() && { show: __cmwCauchyCarry().show })`);
+ok('past z: negative control: the carried colour starts on Both', before === JSON.stringify({ show: SHOW_BOTH }), before);
+await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
+await settled({ until: '!!document.querySelector(".opts-pop #cauchySeg")', max: POPUP_MS });
+await ev(`document.querySelector('.opts-pop #cauchySeg button[data-v="out"]').click(); 1`);
+await settled({ until: '!!document.querySelector(".opts-pop #cauchySeg button[data-v=\\"out\\"].on")', max: POPUP_MS });
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+const carried = await ev(`JSON.stringify(__cmwCauchyCarry() && { show: __cmwCauchyCarry().show })`);
+ok('past z: the part chosen there is the carried colour\'s setting', carried === JSON.stringify({ show: SHOW_OUT }), carried);
+await open(ns2, stateOf('z^2-1'));
+await goPlane(1);
+const p2 = await parts();
+ok('past z, no pole inside: the pop-up parts are disabled with the reason', p2.seg && p2.buttons.every((x) => x.disabled && x.tip === NO_POLE), p2);
 return { pass: !fails.length, fails, info };

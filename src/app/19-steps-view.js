@@ -938,7 +938,14 @@
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a
   // pixel gives the one down it)
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark,
-    an: Funcs.composeProps(activeSteps().filter((k) => k <= T).map((k) => built[k - 1].props)).analytic });
+    an: Funcs.composeProps(activeSteps().filter((k) => k <= T).map((k) => built[k - 1].props)).analytic, cauchy: svCauchyCarry() });
+  // the Cauchy style's residue data (plan, edges at the shared camera's scale, part shown) with the chain's length, for the carried colour on a plane past z; null for
+  // any other style, with no closed curve, or when the integral is not by the residue theorem (the carried colour is then the stages' colour)
+  const svCauchyCarry = () => {
+    if (S.dc !== 'cauchy') return null;
+    const cz = cauchyDraw(S.srcView.s);
+    return GLR.cauchyUsable(cz) && cz.plan.ok ? Object.assign({}, cz, { T: nSteps() }) : null;
+  };
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
   // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
@@ -1890,7 +1897,7 @@
   // there while z is the colour plane, and with no closed curve (cz, cauchyDraw's data) there is nothing to draw
   function svCauchyWhy(cz) {
     if (S.dc !== 'cauchy') return '';
-    if (svT() !== 0) return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+    if (svT() !== 0) return cauchyOffZWhy();
     return cz ? '' : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.');
   }
   // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
