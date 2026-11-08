@@ -1126,38 +1126,38 @@ section('singularAfter (ζ after an injective plan)');
   }
 }
 
-// A side sheet's members are preimages under its own branch: every member the walk returns for sheet dk of a log or a root near
-// the start of its homotopy (t = .002, where the rotation of sheet dk is a small turn that carries members across the cut) maps
-// to its place under that sheet's forward map, and is sheet 0's member turned by e^(2 pi i dk beta) (beta = 1 / (1 - t) for the
-// log's z^(1-t), 1 / (1 + (1 / n - 1) t) for a root's z^s). Controls: the forward map of the neighbouring sheet dk + 1 and sheet 0's on every sheet reject members.
+// A side sheet's members are preimages under its own branch, but for the range ramp: a member whose range level lvl is in
+// [-RAMP, 0) lies a pixel or less across the step's cut (the cut-edge strip the parked frame draws too), and the sheet's own forward
+// map takes it to the neighbouring branch. At t = .002 the rotation of sheet dk is a small turn, so every such member sits at
+// the cut. Every member with lvl >= 0 maps to its place under the sheet's own forward map; every member that does not has lvl in
+// the ramp and its lam digit one off dk (the forward digit is read from lam, never from z's argument); the ramp members stay.
 {
-  const MISS_TOL = 1e-9, WALK_PIX = 1 / 60, PLACES = [40, 26], T_NEAR = 0.002;
+  const MISS_TOL = 1e-9, WALK_PIX = 1 / 60, PLACES = [40, 26], T_NEAR = 0.002, RAMP_PX = 1;
   const places = [];
   for (let i = 0; i < PLACES[0]; i++) for (let j = 0; j < PLACES[1]; j++) places.push(C(-3 + 6 * (i + 0.5) / PLACES[0], -2 + 4 * (j + 0.5) / PLACES[1]));
   const sheetOf = (b, st, t, dk) => {
     const hk = Inverse.homOps(b, t, dk), plan = Inverse.planChain([st], [Inverse.homBuilt(b, hk)]);
     return { hk, plan, prep: Inverse.prepare(plan, { win: WIN0, shape: H }), F: (z) => hk.ops.reduce((u, o) => o.fwd(u), z) };
   };
-  const members = (sh, w) => Inverse.enumerate(sh.plan, sh.prep, w, WALK_PIX, { K: 16, B: 16 }).leaves.map((m) => m.z);
+  const leaves = (sh, w, ramp) => Inverse.enumerate(sh.plan, sh.prep, w, WALK_PIX, { K: 16, B: 16, ramp }).leaves;
   const miss = (F, z, w) => CX.abs(CX.sub(F(z), w));
-  for (const [type, params, beta] of [['log', { cut: 180, k: 0 }, 1 / (1 - T_NEAR)], ['root', { n: 3, cut: 180, k: 0 }, 1 / (1 + (1 / 3 - 1) * T_NEAR)]]) {
-    const st = St(type, params), b = Funcs.build(st), s0 = sheetOf(b, st, T_NEAR, 0);
+  for (const [type, params] of [['log', { cut: 180, k: 0 }], ['root', { n: 3, cut: 180, k: 0 }]]) {
+    const st = St(type, params), b = Funcs.build(st);
     for (const dk of [-3, -2, -1, 1, 2, 3]) {
-      const sd = sheetOf(b, st, T_NEAR, dk), sn = sheetOf(b, st, T_NEAR, dk + 1), turn = C(Math.cos(TAU * dk * beta), Math.sin(TAU * dk * beta));
-      let cnt = 0, own = 0, ratio = 0, nextBad = 0, zeroBad = 0;
-      for (const w of places) for (const z of members(sd, w)) {
-        cnt++;
-        if (miss(sd.F, z, w) > MISS_TOL) own++;
-        if (miss(sn.F, z, w) > MISS_TOL) nextBad++;
-        if (miss(s0.F, z, w) > MISS_TOL) zeroBad++;
-        if (miss(s0.F, CX.div(z, turn), w) > MISS_TOL) ratio++;
+      const sd = sheetOf(b, st, T_NEAR, dk), sn = sheetOf(b, st, T_NEAR, dk + 1), one = sd.hk.ops.find((q) => q.kind === 'LOG' || q.kind === 'ROOTPOW');
+      let cnt = 0, inner = 0, ramped = 0, rampOff = 0, nextBad = 0, innerAll = 0;
+      for (const w of places) {
+        for (const m of leaves(sd, w, RAMP_PX)) {
+          cnt++;
+          if (m.lvl >= 0) { innerAll++; if (miss(sd.F, m.z, w) > MISS_TOL) inner++; if (miss(sn.F, m.z, w) > MISS_TOL) nextBad++; continue; }
+          ramped++;
+          if (miss(sd.F, m.z, w) > MISS_TOL && !(m.lam && (m.lam.im > one.p.hi || m.lam.im <= one.p.lo))) rampOff++;
+        }
       }
-      check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: every member maps to its place under the sheet's own forward map`, cnt > 0 && own === 0, { cnt, own });
-      // (the oracle holds where sheet 0's own walk reaches the turned place: a root's sheets differ by a turn of the value, not of z,
-      // and a log's sheet 3 turns members across sheet 0's cut)
-      if (type === 'log' && Math.abs(dk) < 3) check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: each member is sheet 0's turned by e^(2 pi i dk beta)`, cnt > 0 && ratio === 0, { cnt, ratio });
-      check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): the neighbouring sheet's forward map rejects members`, nextBad > 0, { cnt, nextBad });
-      if (type === 'log' || dk % 3) check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): sheet 0's forward map rejects members`, zeroBad > 0, { cnt, zeroBad });
+      check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: every member inside its branch maps to its place under the sheet's own forward map`, innerAll > 0 && inner === 0, { cnt, inner });
+      check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: a member that does not map is a ramp member across the cut (lam outside the branch's range)`, rampOff === 0, { cnt, ramped, rampOff });
+      if (type === 'log' && Math.abs(dk) >= 2) check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): the ramp members across the cut stay`, ramped > 0, { cnt, ramped });
+      check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): the neighbouring sheet's forward map rejects members`, nextBad > 0 || dk % 3 === 0 && type === 'root', { innerAll, nextBad });
     }
   }
 }

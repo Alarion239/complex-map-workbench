@@ -1591,21 +1591,11 @@ const Inverse = (() => {
     return n > 1 ? ((k % n) + n) % n : k;
   }
   // the ops of step b itself, on the sheet k + dk of a log or a root (a power on its own branch): the homotopy's end at rest
-  // a side sheet's ops (log and power op on the branch k + dk): the members whose Im L lies outside the branch's range (lo, hi]
-  // are dropped, so each is a preimage under that branch's own forward map and not one a cut crossing carried to a neighbour's;
-  // the walk's range ramp keeps such members for the shown sheet only
-  function ownBranch(o) {
-    const { lo, hi } = o.p, inRange = (L) => L.im > lo && L.im <= hi;
-    const out = Object.assign({}, o);
-    if (o.fam && o.fam.type === 'log') out.fam = Object.assign({}, o.fam, { member: (w, m, l0) => { const r = o.fam.member(w, m, l0); return r && inRange(r.lam) ? r : null; } });
-    if (o.pre) out.pre = (w) => o.pre(w).filter((r) => inRange(r.lam));
-    return out;
-  }
   function ownOps(b, dk) {
     const own = stepOps(b), id = b.def && b.def.id, one = own.ok && own.ops.length === 1 ? own.ops[0] : null;
     if (!dk || !one || b.nat || b.__homOps) return own;
-    if (one.kind === 'LOG' && id === 'log') { const { theta } = one.p, k = one.p.k + dk; return { ok: true, ops: [ownBranch(opLog(theta, k, (z) => CX.log(z, theta, k)))] }; }
-    if (one.kind === 'ROOTPOW' && (id === 'root' || id === 'powa')) { const { s, theta } = one.p, k = sheetK(id, one, dk); return { ok: true, ops: [ownBranch(opRootPow(s, theta, k, (z) => CX.pow(z, s, theta, k)))] }; }
+    if (one.kind === 'LOG' && id === 'log') { const { theta } = one.p, k = one.p.k + dk; return { ok: true, ops: [opLog(theta, k, (z) => CX.log(z, theta, k))] }; }
+    if (one.kind === 'ROOTPOW' && (id === 'root' || id === 'powa')) { const { s, theta } = one.p, k = sheetK(id, one, dk); return { ok: true, ops: [opRootPow(s, theta, k, (z) => CX.pow(z, s, theta, k))] }; }
     return own;
   }
   function homOps(b, t, dk = 0) {
@@ -1640,14 +1630,14 @@ const Inverse = (() => {
     // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
     if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
       const { s, theta } = one.p, k = sheetK(id, one, dk), sv = add(ONE, scale(sub(s, ONE), t));
-      return { ok: true, ops: [dk ? ownBranch(opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))) : opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] };
+      return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] };
     }
     // log on the cut theta, sheet k (logHom): (z^u - 1)/u + u, u = 1 - t, z^u on that branch; the logarithm itself
     // where u is below logHom's 1e-6
     if (one && one.kind === 'LOG' && !nat && id === 'log') {
       const u = 1 - t, theta = one.p.theta, k = one.p.k + dk;
       if (u < 1e-6) return ownOps(b, dk);
-      return { ok: true, ops: [(dk ? ownBranch : (o) => o)(opRootPow(C(u, 0), theta, k, (z) => CX.powReal(z, u, theta, k))), aff(C(1 / u, 0), C(u - 1 / u, 0))] };
+      return { ok: true, ops: [opRootPow(C(u, 0), theta, k, (z) => CX.powReal(z, u, theta, k)), aff(C(1 / u, 0), C(u - 1 / u, 0))] };
     }
     if (nat && nat.kind === 'pow' && nd) {
       const sv = C(1 + (nd.n - 1) * t, 0);
