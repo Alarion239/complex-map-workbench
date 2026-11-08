@@ -638,11 +638,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-title { font-size: 19px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
-:root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: 8px; border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
+:root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
-:root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 12px; border-radius: 22px; }
+:root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
 :root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
@@ -653,12 +653,12 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-nof .sv-track { min-width: 100%; }
 /* (no F beside it, + sits on the bar's own gaps: a one-step thread then fits the 128 px rail of a 360 px phone) */
 :root.ph.sv .sv-nof .sv-add { margin: 0; }
-:root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0 4px 0 0; }
+:root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0 var(--s-2) 0 0; }
 :root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
-:root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 4px; border-radius: 22px; }
+:root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2); border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
-:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 4px 0 6px; }
+:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 6px; }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-playmore, :root.ph.sv #svStrip .sv-playpop, :root.ph.sv #svStrip .sv-loop { display: none; }
 /* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge clears the range) */
