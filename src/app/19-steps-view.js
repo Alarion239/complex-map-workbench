@@ -1802,8 +1802,7 @@
   function svGlobeBox(p, x) {
     return shapeStage(x) ? null : globeImageBox(p, x, false);
   }
-  // the carried mesh of plane a's globe (drawSphere's st.carried; x: the frame's position along the chain, which draws the
-  // globe's graticule over the colour at or before the colour plane T, none past it, as the exact pass does): the colour plane's grid, plane min(a, T)'s, placed by
+  // the carried mesh of plane a's globe (drawSphere's st.carried; its graticule shows at x <= T, as the exact pass's): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
   // on the way from that plane to the colour plane
   function svGlobeMesh(pane, a, T, map, x = a) {

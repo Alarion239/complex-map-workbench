@@ -1284,7 +1284,7 @@ void main() {
 `;
   // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE, TIERS and SPHERE_LINES): the side away from the camera left out, so the sheet
   // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour under the globe's graticule
-  // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule (st.graticule) is 0 where the frame is past the colour plane, which draws no graticule over its colour
+  // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule 0 leaves the graticule out
   const CARRY_GLOBE_FS = (id) => {
     let t = CARRY_FS(id);
     for (const [a, b] of [

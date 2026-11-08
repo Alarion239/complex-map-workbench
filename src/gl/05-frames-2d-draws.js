@@ -886,7 +886,7 @@
   // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
   // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
   // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's), unless st.graticule is false. False when the program is not ready
-  // whether the last carried globe drew the graticule over its colour (null before the first)
+  // whether the last carried globe drew the graticule (null before the first)
   let carriedGlobeGraticule = null;
   function drawCarriedGlobe(st, sph) {
     if (!ok) return false;
@@ -897,7 +897,7 @@
     globeLight(P, sph);
     sphereNetUniforms(P, st.net, st.gridMajor);
     carriedGlobeGraticule = st.graticule !== false;
-    u1f(P, 'uGraticule', carriedGlobeGraticule ? 1 : 0);
+    u1f(P, 'uGraticule', +carriedGlobeGraticule);
     const g = st.mesh;
     u2i(P, 'uN', g.nx, g.ny);
     u1f(P, 'uLim', st.lim);
