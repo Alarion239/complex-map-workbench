@@ -51,7 +51,7 @@
   // the reference's numerics: FD_STEP the finite-difference step of H's Jacobian, DET_MIN a Jacobian determinant below which Newton's
   // step is not taken, RESIDUAL_MAX the largest |H(z) - w| of a member, SAME_ROOT the distance under which two roots are one
   const FD_STEP = 1e-6, DET_MIN = 1e-14, RESIDUAL_MAX = 1e-6, SAME_ROOT = 1e-5;
-  const DENSE_N = 48, NEAR_N = 12;   // the completeness sample: DENSE_N x DENSE_N points of plane 0's box; the NEAR_N whose image is nearest w are polished too
+  const DENSE_N = 48, NEAR_N = 12, LOGR_N = 120, LOGR_DEC = 3, ANG_N = 180;   // the completeness sample: DENSE_N x DENSE_N points of plane 0's box; the NEAR_N whose image is nearest w are polished too; the coverage adds LOGR_N log-spaced radii (to 10^LOGR_DEC) x ANG_N angles about 0
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
@@ -66,13 +66,17 @@
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
   window.__lxPick = null;
-  window.__lxRoots = (pts, tracks, span) => {
+  window.__lxRoots = (pts, tracks, span, any) => {
     const g = __cmwSvGlobe(0, 0), H = g.H, pk = window.__lxPick, b0 = pk.box, C = (re, im) => ({ re, im });
     const cx = (b0.x0 + b0.x1) / 2, cy = (b0.y0 + b0.y1) / 2, sp = span || 1, b = { x0: cx - sp * (b0.x1 - b0.x0) / 2, x1: cx + sp * (b0.x1 - b0.x0) / 2, y0: cy - sp * (b0.y1 - b0.y0) / 2, y1: cy + sp * (b0.y1 - b0.y0) / 2 };
     const seeds = [];
     for (let i = 0; i < ${SEED_N}; i++) for (let j = 0; j < ${SEED_N}; j++) seeds.push(C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${SEED_N}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${SEED_N}));
     const dense = [];
-    for (let i = 0; i < ${DENSE_N}; i++) for (let j = 0; j < ${DENSE_N}; j++) { const z = C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${DENSE_N}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${DENSE_N}), f = H(z); if (f && Number.isFinite(f.re) && Number.isFinite(f.im)) dense.push({ z, f }); }
+    const dn = ${DENSE_N};
+    for (let i = 0; i < dn; i++) for (let j = 0; j < dn; j++) { const z = C(b.x0 + (i + 0.5) * (b.x1 - b.x0) / dn, b.y0 + (j + 0.5) * (b.y1 - b.y0) / dn), f = H(z); if (f && Number.isFinite(f.re) && Number.isFinite(f.im)) dense.push({ z, f }); }
+    if (any) {   // (and a log-polar sample about 0, ${LOGR_N} radii from 10^-${LOGR_DEC} to 10^${LOGR_DEC} by ${ANG_N} angles: the preimages of a root or a logarithm are orders of magnitude from the box)
+      for (let i = 0; i < ${LOGR_N}; i++) for (let j = 0; j < ${ANG_N}; j++) { const r = Math.pow(10, -${LOGR_DEC} + 2 * ${LOGR_DEC} * (i + 0.5) / ${LOGR_N}), a = 2 * Math.PI * (j + 0.5) / ${ANG_N}, z = C(r * Math.cos(a), r * Math.sin(a)), f = H(z); if (f && Number.isFinite(f.re) && Number.isFinite(f.im)) dense.push({ z, f }); }
+    }
     const newton = (s, re, im) => {
       let z = s;
       for (let k = 0; k < ${NEWTON_STEPS}; k++) {
@@ -96,10 +100,12 @@
         return [{ z: [z.re, z.im], f: [f.re, f.im], h: typeof __cmwLandFrameHeight === 'function' ? __cmwLandFrameHeight([f.re, f.im]) : pk.height(f) }];
       }
       // (the grid's seeds, and the dense sample's points whose image is nearest w: no member is left that the forward map of a plane 0 sample lands beside)
-      const near = dense.slice().sort((p, q) => Math.hypot(p.f.re - re, p.f.im - im) - Math.hypot(q.f.re - re, q.f.im - im)).slice(0, ${NEAR_N}).map((p) => p.z);
-      for (const s of seeds.concat(near)) {
+      const near = [];   // (the NEAR_N of the dense sample whose image is nearest w, by selection)
+    { const dd = []; for (const p of dense) { const d = Math.hypot(p.f.re - re, p.f.im - im); if (dd.length < ${NEAR_N} || d < dd[dd.length - 1][0]) { dd.push([d, p.z]); dd.sort((x, y) => x[0] - y[0]); if (dd.length > ${NEAR_N}) dd.pop(); } } for (const q of dd) near.push(q[1]); }
+      for (const s of any ? near.concat(seeds) : seeds.concat(near)) {
         const z = newton(s, re, im);
         if (z && !roots.some((r) => Math.hypot(r.re - z.re, r.im - z.im) < ${SAME_ROOT})) roots.push(z);
+      if (any && roots.length) break;   // (existence only)
       }
       // (the frame logLerps its height scale over u: the height is the frame's own, __cmwLandFrameHeight, when the page has it)
       return roots.map((z) => { const f = pk.F(z); return { z: [z.re, z.im], f: [f.re, f.im], h: typeof __cmwLandFrameHeight === 'function' ? __cmwLandFrameHeight([f.re, f.im]) : pk.height(f) }; });
@@ -256,7 +262,7 @@
       if (!sheets) ok(`${t}: the front member is continued along u at every probe place (${lost} lost)`, lost === 0, { lost });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
-      const cref = await ev(`__lxRoots(${JSON.stringify(cw)}, null, ${sheets ? SEED_SPAN : 1})`);
+      const cref = await ev(`__lxRoots(${JSON.stringify(cw)}, null, 1, true)`);   // (a place is covered when a root is found: some z of the sample, polished)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
