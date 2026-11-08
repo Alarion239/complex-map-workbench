@@ -93,6 +93,7 @@ async function load(c, sheets) {
     await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
     await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   }
+  await settled({ max: LOAD_MAX_MS * 2, until: '__cmwSteps().ready.ready' });   // (the prestart's idle warm draw lands in the GL canvas next to a requested frame while it runs)
   await ev(HELP);
 }
 // the plane at index k parked and its frame kept as tag; its height reading kept for the references
