@@ -307,6 +307,19 @@
           gl.activeTexture(gl.TEXTURE15);
           runTF(Pf, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }
+        // (the colour values: the vertices on no sheet first, from the first sheet's chain, then each sheet's own)
+        const Pw = program('landCarryCol', c.map);
+        if (Pw) {
+          if (!landC.wTex) landC.wTex = floatTex();
+          for (const [i, cd] of [[0, 1]].concat(sheets.map((_, k) => [k, code(k)]))) {
+            use(Pw, Object.assign({}, c.map, { base: 0 }));
+            if (datas[i]) gl.uniform4fv(Pw.loc.uChain, datas[i]);
+            stages(Pw); u1f(Pw, 'uCode', cd);
+            gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landC.wTex);
+            gl.activeTexture(gl.TEXTURE15);
+            runTF(Pw, empty(), gl.POINTS, N * N, 0, bytes, landC.wTex, N, N, gl.RGBA32F, gl.RGBA);
+          }
+        }
         for (let i = 0; i < sheets.length; i++) {
           use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
@@ -1416,7 +1429,10 @@
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
       const cutDraw = !!(landC && landC.exact && landC.cuts);
       u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);
-      if (landC && landC.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex); }
+      if (landC && landC.exact) {
+        gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex);
+        if (landC.wTex) { gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landC.wTex); }
+      }
       if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
       // (the sheet key orders the points of the carried mesh where its places fold onto one spot: LAND_FS's carry; 10 % of the distance.
       // The exact glide draws one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key)
