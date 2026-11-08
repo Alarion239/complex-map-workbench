@@ -839,11 +839,10 @@ void main() {
       u4f(P, 'uVp', 0, 0, N, N);
       u2f(P, 'uCenter', 0, 0); u2f(P, 'uCenterLo', 0, 0); u2f(P, 'uInvScale', 1, 1);
       u1i(P, 'uUsePrev', i > 0 ? 1 : 0); u1i(P, 'uPrevA', 12); u1i(P, 'uPrevZ', 13);
-      if (i > 0) {
-        gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, src.tex);
-        gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, src.zTex);
-        gl.activeTexture(gl.TEXTURE15);
-      }
+      // (bound on every pass, the first too: the sampled units must not hold the textures this pass renders into)
+      gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+      gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, src.zTex);
+      gl.activeTexture(gl.TEXTURE15);
       gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
       gl.viewport(0, 0, N, N);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
