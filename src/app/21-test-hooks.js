@@ -429,10 +429,11 @@
     })) : g;
   };
   // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
-  // [{ z, f, h, member, sheet, D, front? }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
+  // [{ z, f, h, member, sheet, D, lvl, lam, front? }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
   // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn
   // ones for the frame's own sheet (sheet 0); a member on a sheet beside it has its value on that sheet's branch of the step, so
-  // its z and D are the reference there, not f and h. front: true marks the one member the frame draws with sheets off. Null when the frame was not drawn by the inverse path
+  // its z and D are the reference there, not f and h. lvl: the member's level inside its sheet's window in pixels (negative: a member of the range
+  // ramp just outside it); lam: [re, im] its continued log coordinate, the member's own sheet's H is exact there. front: true marks the one member the frame draws with sheets off. Null when the frame was not drawn by the inverse path
   window.__cmwLandEnum = (pts) => {
     const inp = render3D.exactIn, hOf = render3D.frameHeight, bx = render3D.box;
     if (!inp || !hOf || !bx) return null;
@@ -458,7 +459,7 @@
         };
         if (r) r.entries.forEach((e, member) => {
           const f = Fs(e.z);
-          out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D });
+          out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D, lvl: e.lvl, lam: e.lam ? [e.lam.re, e.lam.im] : null });
         });
       });
       // the member the frame draws with sheets off: the first sheet's front member (the sheets are taken in order, the frame's own
