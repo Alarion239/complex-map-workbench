@@ -42,7 +42,7 @@ const measureMore = () => ev(`(() => {
 // the toast's words wrap at a phone's width rather than being cut (#1329, ux's ruling): the text span may overflow by at most one
 // pixel, and its text is at most two lines (lines = its text's line boxes, 18 px apart); English, which fits on one line at 360 px,
 // keeps the one-line control
-const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, BTN_GAP_MAX = 8, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
+const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, TOAST_GAP = 12, BTN_GAP_MAX = TOAST_GAP + 1, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   await fresh(w, h, lang);

@@ -477,7 +477,7 @@ html:not(.ph) .ph-only { display: none !important; }
    bottom inset is the message's height and a gap, so that every control scrolls clear of it; no control moves when it shows */
 :root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { bottom: 0; padding-bottom: var(--ph-safe-b); max-height: calc(100dvh - 48px); }
 :root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] > .ph-sb { padding-bottom: calc(var(--ph-toast-h, 56px) + 8px); }
-:root.ph:not(.ph-land):has(.ph-sheet[data-k="more"].open) #toastHost { bottom: calc(var(--ph-safe-b) + 8px); }
+:root.ph:not(.ph-land):has(.ph-sheet[data-k="more"].open) #toastHost { bottom: var(--ph-safe-b); }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
 .ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
@@ -512,7 +512,8 @@ html:not(.ph) .ph-only { display: none !important; }
    at most two lines, and the buttons below them, right-aligned, at 44 px */
 :root.ph #toastHost .toast[data-rows="two"] { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
 :root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; }
-:root.ph #toastHost .toast[data-rows="two"] > .toast-act { height: 44px; min-width: 44px; margin-left: auto; }
+:root.ph #toastHost .toast[data-rows="two"] > .toast-act { height: 44px; min-width: 44px; }
+:root.ph #toastHost .toast[data-rows="two"] > span + .toast-act { margin-left: auto; }
 /* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
    a vertical drag on it is its own (a swipe down dismisses it) */
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
