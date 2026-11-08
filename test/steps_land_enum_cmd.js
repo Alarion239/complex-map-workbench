@@ -32,7 +32,7 @@ for (const c of CASES) {
   const vpts = pts.map((p, i) => (verts && verts[i] && verts[i][0] && verts[i][0].w) || p);
   const en = await ev(`__cmwLandEnum(${JSON.stringify(vpts)})`);
   ok(`${c.tag}: the hooks answer, a place each`, Array.isArray(verts) && Array.isArray(en) && verts.length === pts.length && en.length === pts.length, { v: verts && verts.length, e: en && en.length });
-  let drawn = 0, found = 0, ownHit = 0, wrong = 0, bad = [];
+  let drawn = 0, found = 0, ownHit = 0, frontHit = 0, fronts = 0, wrong = 0, bad = [];
   pts.forEach((p, i) => {
     const l = verts[i] && verts[i][0];
     if (!l || !l.z) return;
@@ -42,11 +42,16 @@ for (const c of CASES) {
     if (ms.some((m) => near(m, WRONG_OFFSET))) wrong++;
     const m0 = ms.find((m) => near(m, 0) && Math.abs(m.h - l.h) <= HEIGHT_TOL && m.f && l.f && Math.hypot(m.f[0] - l.f[0], m.f[1] - l.f[1]) <= F_TOL);
     if (m0) ownHit++;
+    const fr = ms.filter((m) => m.front);
+    fronts += fr.length === 1 ? 1 : 0;
+    if (fr.length === 1 && near(fr[0], 0)) frontHit++;
   });
-  info[c.tag] = { drawn, found, ownHit, wrong };
+  info[c.tag] = { drawn, found, ownHit, wrong, fronts, frontHit };
   ok(`${c.tag}: some places are drawn`, drawn > 0, { drawn });
   ok(`${c.tag}: every drawn place has the enumerator's member at its z`, drawn > 0 && found === drawn, { drawn, found, bad });
   ok(`${c.tag}: every drawn place has a member at its z with its height and value`, ownHit === drawn, { drawn, ownHit });
+  ok(`${c.tag}: each drawn place has one front member`, fronts === drawn, { drawn, fronts });
+  ok(`${c.tag}: the front member is the one the frame draws (its z)`, frontHit === drawn, { drawn, frontHit });
   ok(`${c.tag}: the control (a z ${WRONG_OFFSET} off) matches no member`, wrong === 0, { wrong });
 }
 // a frame the mesh path draws has no inverse inputs: the hook answers null
