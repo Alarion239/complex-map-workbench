@@ -13,9 +13,16 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the format flags of a current figure: without them the page reads the figure as an older build's and resets the settings the
 // older builds did not have
 const CURRENT = { v3: true, v4: true, v5: true, v6: true };
-// the figure's camera and the Deformation's time are written at the link and read once at the load; they are not part of the state
-const READ_ONCE = ['figCam', 'figMorph'];
-const strip = (o) => { const c = JSON.parse(JSON.stringify(o)); for (const k of READ_ONCE) delete c[k]; return c; };
+// The figure's camera (figCam) is written at the link from the live camera and read at the load, so it is compared like any key, to
+// CAM_DIGITS places (the camera is kept as distance over the fit's, a float). The Deformation's time (figMorph) is the steps view's
+// place x at the load and not a key of the state; steps_link_migrate_cmd covers its reading, so it is left out here.
+const CAM_DIGITS = 9;
+const strip = (o) => {
+  const c = JSON.parse(JSON.stringify(o));
+  delete c.figMorph;
+  if (c.figCam) for (const k of Object.keys(c.figCam)) if (typeof c.figCam[k] === 'number') c.figCam[k] = +c.figCam[k].toFixed(CAM_DIGITS);
+  return c;
+};
 // the differences of `got` from `want`, over the keys `want` has: 'path: wanted -> got'
 const diff = (want, got, p = '') => {
   if (want && got && typeof want === 'object' && typeof got === 'object') return Object.keys(want).flatMap((k) => diff(want[k], got[k], p + '.' + k));
@@ -63,7 +70,7 @@ const CASES = [
   ['display options and the selection', { ...CURRENT, steps: [{ type: 'pown', params: { n: 2 } }], shapes: [], targets: [], nextId: 5,
     view: { main: 'phase', L: { surf: 'plane', eq: false }, R: { surf: 'plane', eq: false }, P: { surf: 'plane', eq: false }, D: { phase: true } },
     focus: 1, sel: 1, alpha: 0.6, meshN: 120, lines: true, unit: true, snap: true, outline: true, compact: true, chev: true, unitLevel: true, hcap: 3, dcGrid: 5,
-    patternScale: 2, sheets: true, sheetW: 3, height: 'abs', homAll: true, morphPaths: false, exactImages: false, cauchyShow: 'in', cauchyPlus: true,
+    patternScale: 2, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, sheets: true, sheetW: 3, height: 'abs', homAll: true, morphPaths: false, exactImages: false, cauchyShow: 'in', cauchyPlus: true,
     landPlain: true, wKey: true, lscale: 1.5, sectors: 16, fov: false, srcView: { cx: 1, cy: 2, s: 77 }, morphSecs: 3.2 }, ['focus']],
   ['every kind of shape, and the targets', { ...CURRENT, steps: [{ type: 'pown', params: { n: 2 } }], nextId: 60,
     shapes: KINDS.map((k, i) => ({ ...k, id: 's' + (i + 1), ci: i % 8, visible: i % 3 !== 0, label: 'L' + i, ...(i % 2 ? { complement: true } : {}), ...(i === 1 ? { color: '#aa3300', stage: 1 } : {}) })),
