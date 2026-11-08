@@ -281,6 +281,11 @@ await open(360, 700, true);
 await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(700);
 const end = await ev(`(() => { const ps = [...document.querySelectorAll('#svStrip .sv-plane')], l = ps[ps.length - 1], b = l.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(); return { n: ps.length, ok: l === at || l.contains(at), at: at && (at.className || at.tagName), overlap: !(a.left >= b.right || a.right <= b.left), add: a.width }; })()`);
 ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok && !end.overlap, end);
+// every step has its ⋯ on a phone: it is drawn, and a touch up to 22 px from its centre in each direction lands on it (a 44 px target)
+const MORE_REACH = 21;
+const moreHit = await ev(`(() => { const out = []; for (const m of document.querySelectorAll('#svStrip .sv-step .sv-more')) { m.scrollIntoView({ inline: 'center', block: 'nearest' }); const b = m.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2, vis = getComputedStyle(m).display !== 'none' && b.width > 0;
+  out.push({ k: m.closest('.sv-step').dataset.k, vis, hit: vis && [[-1, 0], [1, 0], [0, -1], [0, 1]].every(([dx, dy]) => { const e = document.elementFromPoint(cx + dx * ${MORE_REACH}, cy + dy * ${MORE_REACH}); return e === m || m.contains(e); }) }); } return out; })()`);
+ok('360 px: every step has a ⋯ that is a 44 px target', moreHit.length > 0 && moreHit.every((m) => m.vis && m.hit), moreHit);
 // shown alone on a 360 px phone: the step's own planes stay in view, and a long press on the disabled Add gives its reason
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
   window.__lp = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp('pointerdown'); return 1; })()`);
