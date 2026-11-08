@@ -13,6 +13,7 @@
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
+    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -861,7 +862,7 @@
       P.seek = { j, gen: (function* () { try { return yield* svPolesNear(P.Ft(j / SV_POLE_K), P); } catch (e) { return []; } })() };
       if (ps) ps.poleSync = (ps.poleSync || 0) + 1;
     }
-    const r = svPoleRun(P.seek.gen, P.E, SV_POLE_BUDGET, 'frame', null);
+    const r = svPoleRun(P.seek.gen, P.E, SV.poleFrameMs || SV_POLE_BUDGET, 'frame', null);
     if (r.done) { P.found = { j, poles: r.value }; P.seek = null; }
     if (ps) ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0;
     return P.found ? P.found.poles : [];

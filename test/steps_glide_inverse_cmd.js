@@ -131,13 +131,13 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The hold ends once the
 // tracks exist, and a glide with an exact inverse (z squared) is never held.
 {
-  const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 2, HELD_OVER = 0.001;
+  const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 2, HELD_OVER = 0.001, FRAME_SEARCH_MS = 0.001;
   const FLOOR = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
   const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared');
   ok('the zeta and the squared examples are found', ex >= 0 && sq >= 0, names.length);
   const SHARE = `(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`;
   // (the example, then every pole track dropped and the scrub to x in one page call: no idle moment makes tracks in
-  // between, as right after load)
+  // between, as right after load; a frame's own pole search gets FRAME_SEARCH_MS, as on a machine too slow to finish it)
   const load = async (example, x) => {
     await go(`${BASE}/test.html?ns=gh${Date.now()}&lang=en&view=steps`);
     await ready();
@@ -145,7 +145,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     await ev(`__cmwExample(${example}), 1`);
     await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
     await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
-    await ev(`__cmwSteps({ dropTracks: true, x: ${x} }), 1`);
+    await ev(`__cmwSteps({ poleFrameMs: ${FRAME_SEARCH_MS}, dropTracks: true, x: ${x} }), 1`);
   };
   // the first frame after the scrub to x: the page's canvas then, its share, and the thread's record
   const first = async (x, scrubbed) => {
