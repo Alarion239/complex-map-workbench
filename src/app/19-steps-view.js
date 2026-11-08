@@ -382,9 +382,13 @@
         if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk } });
       }
     }
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1 };
+    // All sheets: one layer per member (the product of the finite branch counts of the plan's steps; the infinite families
+    // are the sheets beside the step's own, above)
+    const layered = !!S.sheets;
+    const members = layered ? Math.min(SV_LAND_MEMBERS, p.plan.ops.reduce((n, o) => n * (o.fam && o.fam.type === 'fin' ? o.fam.count : 1), 1)) : 1;
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered, members };
   }
-  const SV_LAND_SHEETS = 4;
+  const SV_LAND_SHEETS = 4, SV_LAND_MEMBERS = 8;   // (the walk's largest B)
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();

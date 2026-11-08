@@ -758,9 +758,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // INV_LAND: the inverse program's variant that reads one front member per grid vertex instead of shading a pixel. Pixel
   // (i, j) of an N x N target is the shown plane's point w of vertex (i, j) over the box uLBox; the walk finds the front
   // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, 0, 1), with the height of the stages (uGs, uGt] at z (blended over
-  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
+  // uHu into that of (uGs, uGt2] when uGt2 differs; the member is the uMember-th of the walk's, the front one at 0), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
   const INV_LAND_MAIN = `
-uniform vec4 uLBox; uniform int uLN; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
+uniform vec4 uLBox; uniform int uLN; uniform int uMember; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
 layout(location = 1) out vec4 oZ;
 void main() {
   vec2 g = floor(gl_FragCoord.xy);
@@ -774,12 +774,14 @@ void main() {
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
-  if (nb < 1) return;
-  vec2 z = bZ[0], hv = carryHeight(z);
+  if (uMember >= nb) return;
+  vec2 z = bZ[uMember], hv = carryHeight(z);
   if (hv.y > 0.5 && !(abs(hv.x) > 3e38)) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, 0.0, 1.0); }
 }
 `;
   const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
+  // the look's alpha of an All-sheets pass: under 0.5 the walk keeps up to INV_B_MAX members (invB)
+  const LAND_MEMBER_ALPHA = 0.25;
   let landSet = null;
   // GLR.landInverse(st) -> 'drawn' | 'pending' | 'error'; it writes st.tex (the places) and st.zTex (the preimages), N x N RGBA32F textures. st: drawInverse's map, plan, prep, inv,
   // shape, more ([{map, plan, prep, inv, shift: {vals, dk}}], the further sheets walked after it; shift: the step's values object and the sheet shift its branch takes), plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
@@ -790,9 +792,12 @@ void main() {
     if (!rec || !rec.ok) return 'error';
     // the sheets in order: a vertex takes the first sheet whose walk finds a member there
     const sheets = [st].concat((st.more || []).filter((m) => m && m.plan && m.prep && m.prep.ok));
+    // (st.layered, All sheets: every member is wanted, so the walk keeps up to the largest B, which a low alpha asks for)
+    const member = st.member || 0;
+    const look = { alpha: st.layered ? LAND_MEMBER_ALPHA : 1, alphaOwn: st.layered ? LAND_MEMBER_ALPHA : 1, lastOpaque: true, pattern: 'carry', cell: 1, lines: false };
     const progs = [];
     for (const sh of sheets) {
-      const pr = /** @type {any} */ (invProgram(3, false, true, INV_LAND, sh.inv || st.inv));
+      const pr = /** @type {any} */ (invProgram(invB(look.alphaOwn), false, true, INV_LAND, sh.inv || st.inv));
       if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
       if (pr.state !== 'ready') return 'error';
       const d = passData(sh.inv || st.inv || cur.info.inverse, sh.plan, sh.prep);
@@ -822,7 +827,6 @@ void main() {
       landSet.size.set(t, N);
     }
     flushHalf();
-    const look = { alpha: 1, alphaOwn: 1, lastOpaque: true, pattern: 'carry', cell: 1, lines: false };
     const c = st.heights;
     const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
     // (the passes alternate between the two target pairs, each reading the other's result; the last writes st's)
@@ -840,7 +844,7 @@ void main() {
       bindInverse(P, Object.assign({}, st, sh, { look, chainData }), d, rec, look, INV_LAND);
       u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
       u1f(P, 'uHu', c.hu || 0);
-      u1i(P, 'uLN', N);
+      u1i(P, 'uLN', N); u1i(P, 'uMember', member);
       u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
       u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', 0);
       u4f(P, 'uVp', 0, 0, N, N);
