@@ -26,9 +26,9 @@ const withState = async (ns, w, h, mobile, st) => { await view(w, h, false, !!mo
 const box = (sel) => ev(`(() => { const e = typeof ${JSON.stringify(sel)} === 'string' ? document.querySelector(${JSON.stringify(sel)}) : null; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom), top: !!t && (t === e || e.contains(t)) }; })()`);
 const center = async (sel) => { const b = await box(sel); return b ? [b.l + b.w / 2, b.t + b.h / 2] : null; };
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-// (on a phone the chain's cards, F, Add function and Numbers are rows of the chain sheet; while it is closed, a
-// tap on one of them is first the tap on "N steps ▾" that opens it, as a user's)
-const CHAIN = /#pipeline|#addStepBtn|\.ph-nums/;
+// (on a phone Numbers is a row of the chain sheet; while it is closed, a tap on it is first the tap on "N steps ▾" that
+// opens it, as a user's)
+const CHAIN = /\.ph-nums/;
 const tap = async (sel) => {
   const into = () => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); })()`);
   await into(); await settled({ panes: false });

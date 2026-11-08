@@ -10,10 +10,10 @@ const MorphPaths = (() => {
     compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
     drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
     classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
-    morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
+    morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paper,
     patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
     resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-    sub, syncPlaying, trans, transState, tweens, updateCalcChip;
+    trans, transState, tweens, updateCalcChip;
   // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
   // caption explains them, dots at m/4 and 3m/4); steps one after another have an arrowhead in the middle of each step
   // (t = k - 1/2: never on the corner where the steps meet) and a bar across the path at each step's end inside the
@@ -1060,53 +1060,6 @@ const MorphPaths = (() => {
     drawPoints(pane, ms.F, { primes: morphPrimes() });
     drawRulers(pane, 'R');
   }
-  // the transport's readout and scrubber follow the time in every view
-  // the play tick calls this every frame, also in Phase and Landscape alone. It reads
-  // before it writes (the phone's label check measured the scrubber after the readout changed: a forced layout every
-  // frame), sets the readout's Text node instead of replacing it, and while playing moves the scrubber only when its
-  // thumb moves by half a pixel: on a phone each change of the page's tree or a style is a full style recalc (the
-  // page's :has() rules), about 1.5 to 2 ms a frame. Paused, the scrubber shows T exactly.
-  function syncTransport() {
-    const sl = /** @type {HTMLInputElement} */ ($('morphRange'));
-    // (a phone's transport labels, SPEC 6.6)
-    const fs = /** @type {HTMLElement | null} */ (sl && sl.closest('.tscrub[data-fit="1"]'));
-    if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of /** @type {NodeListOf<HTMLElement>} */ (fs.querySelectorAll('.tfix'))) x.hidden = true; delete fs.dataset.fit; } }
-    syncPlaying();
-    const lab = $('morphLabel');
-    if (lab) setText(lab, morphReadout(lab.dataset.short === '1'));
-    if (sl && document.activeElement !== sl && +sl.value !== morph.T) {
-      const w = faderW.get(sl) || 0, span = (+sl.max || 1) - (+sl.min || 0) || 1;
-      if (!(morph.playing && w > 0 && Math.abs(morph.T - +sl.value) * w / span < 0.5)) { sl.value = morph.T; paintFader(sl); }
-    }
-  }
-  // the deformation's readout in words: "Step 1 of 3 · f₂ · 84 %", the step and its function as the ticks
-  // name it (it read "t = 0.84 / 3", like a page count); t itself is in its tooltip. All at once: "All steps · 84 %"
-  // (the percentage is padded to three figures with figure spaces, so the row never reflows while
-  // it plays; short: "1/2 · f₁ · 53 %", the form a tight row takes (the words stay in the tooltip), so the close button
-  // keeps its place on the row and the plane keeps its height)
-  function morphReadout(short) {
-    const m = morphLen(), T = Math.max(0, Math.min(m, morph.T));
-    if (!(m > 0)) return '';
-    const pc = (v) => String(v).padStart(3, '\u2007');
-    if (allAtOnce()) return short ? `${pc(Math.round(100 * T))} %` : $t('All steps at once · {p} %', { p: pc(Math.round(100 * T)) });
-    const i = Math.min(m, Math.floor(T) + 1), p = Math.round(100 * (T - (i - 1))), k = morphRange().steps[i - 1];
-    const f = k == null ? '' : isDeriv(k) ? 'd/dz' : 'f' + sub(k);
-    return short ? `${i}/${m} · ${f} · ${pc(p)} %` : $t('Step {k} of {m} · {f} · {p} %', { k: i, m, f, p: pc(p) });
-  }
-  // a text that changes every frame: its Text node's data (a characterData change), never a new node (a childList change)
-  function setText(el, s) {
-    const t = el.firstChild;
-    if (t && t.nodeType === 3 && !t.nextSibling) { if (t.data !== s) t.data = s; } else el.textContent = s;
-  }
-  // the transport scrubber's width (a ResizeObserver: no layout read in a frame)
-  const faderW = new WeakMap();
-  let faderObs = null;
-  const faderRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) faderW.set(e.target, e.contentRect.width); }) : null;
-  function watchFader(rng) {
-    if (!faderRO) return;
-    if (faderObs && faderObs !== rng) faderRO.unobserve(faderObs);
-    faderObs = rng; faderRO.observe(rng);
-  }
   // the colour key of X's phase portrait painted under the Y plane (the Key switch in X's legend chip): the
   // portrait of the identity in the current style, so a colour in X reads off as a value in Y
   // (one predicate for the switch and the paint: on the landscape and under Cauchy the switch hides, and the key with it)
@@ -1149,7 +1102,6 @@ const MorphPaths = (() => {
       if (hasTargets()) drawPoints(pane, (z) => z, { list: A.S.targets, target: true });
       drawRulers(pane, 'R');
     }
-    if (morph.open) syncTransport();
     const er = $('emptyRight');
     if (er) {
       const show = !A.S.steps.length && rImage();
@@ -1162,9 +1114,9 @@ const MorphPaths = (() => {
 
   function init(api) {
     A = api;
-    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, sub, syncPlaying, trans, transState, tweens, updateCalcChip } = api);
+    ({ C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, cmFormAnchor, compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback, drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType, classicSource, lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline, morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paper, patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender, resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets, trans, transState, tweens, updateCalcChip } = api);
   }
-  return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, pathsSentence, morphCaption, morphAt, syncTransport, morphReadout, setText, watchFader, wKeyAvail, wKeyOn, renderRight };
+  return { init, pathMarkTimes, pathsGen, retraceShare, pathRetrace, drawMorphPathsX, pathsSvg, morphFigureLayers, texSegs, inlineFrac, rangeTex, wDefSegs, morphHomSegs, pathTimesTex, pathMarksTex, pathsSentence, morphCaption, morphAt, wKeyAvail, wKeyOn, renderRight };
 })();
 import { $, DEG, TAU, h } from './util.js';
 import { CX } from './cx.js';

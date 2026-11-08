@@ -4,6 +4,9 @@
 // plays (the per-event deadline is 3 ms). Main-thread work a frame: the time from the rAF callback to the next task
 // (a MessageChannel message posted in the callback), i.e. the frame's scripts after ours.
 //   test/<you>_cdp/q.sh test/sound_deform_fps_cmd.js
+// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
+// the digit keys and the toggle button are gone
+const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const ns = 'snddeffps' + Date.now();
 const loadHere = async (st) => {
@@ -29,7 +32,7 @@ for (const [name, steps] of Object.entries(CH)) {
     for (const on of [false, true]) {
       await ev(`Sound.set({ on: true, sonify: ${on} }, { quiet: true }); 1`);
       await move(p[0] + 3, p[1]); await sleep(40); await move(p[0], p[1]); await sleep(200);
-      await key('m'); await sleep(600);
+      await morphKey(); await settled();
       const r = await ev(`await (async () => {
         const A = Calc.argStep, O = Calc.orderAt, PS = Sound.pathStep; let tr = 0, calls = 0;
         const wrap = (f) => function (...a) { const t = performance.now(); try { return f.apply(this, a); } finally { tr += performance.now() - t; calls++; } };
@@ -43,7 +46,7 @@ for (const [name, steps] of Object.entries(CH)) {
         return { fps: +(1000 * iv.length / iv.reduce((s, x) => s + x, 0)).toFixed(1), p95: q(iv, 0.95), max: q(iv, 1), workP95: q(work, 0.95), workMax: q(work, 1), soundP95: q(per, 0.95), soundMax: q(per, 1), evals: __cmwSound().fcN - fc0 };
       })()`, 60000);
       out[`${name}_${cpu}x_${on ? 'on' : 'off'}`] = r;
-      await key('m'); await sleep(400);
+      await morphKey(); await settled();
     }
   }
   await send('Emulation.setCPUThrottlingRate', { rate: 1 });
