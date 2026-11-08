@@ -300,7 +300,7 @@
         const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex);
-        if (Pf) for (const tol of CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
+        if (Pf && !carryProbe.noFix) for (const tol of CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
           use(Pf, Object.assign({}, c.map, { base: 0 }));
           if (datas[i]) gl.uniform4fv(Pf.loc.uChain, datas[i]);
           stages(Pf); u1f(Pf, 'uCode', code(i)); u1f(Pf, 'uTol', tol);
