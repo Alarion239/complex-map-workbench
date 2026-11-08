@@ -94,6 +94,8 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
 // fully out of view at rest; scrolled to the end F is whole and the blank before it is under BLANK_MAX; outside the band the margin is 0
 const SWEEP_FROM = 568, SWEEP_TO = 932, SWEEP_STEP = 4;
 const BLANK_MAX = 48;   // (px: the blank track before F at the rail's end)
+const SETTLE_FLOOR = 150;   // (ms: the least a view change is given to settle)
+const GLIDE_SAMPLES = 12, GLIDE_SAMPLE_MS = 40;   // (the margin is read this many times, this far apart, while a glide runs)
 const lead = () => ev(`(() => {
   const rail = document.querySelector('#svStrip .sv-rail'), F = document.querySelector('.sv-wholemap'), fw = F.getBoundingClientRect().width;
   const margin = parseFloat(getComputedStyle(F).marginLeft) || 0, over = rail.scrollWidth - rail.clientWidth - margin;
@@ -107,11 +109,12 @@ const atEnd = () => ev(`(() => {
 })()`);
 for (const chain of ['two', 'three', 'four']) {
   await open(SWEEP_FROM, 360, true, 'en', chain);
-  const bad = [], badMargin = [], badEnd = [];
+  const bad = [], badMargin = [], badEnd = [], badRest = [];
   let inBand = null;
+  const bandWidths = [];
   for (let w = SWEEP_FROM; w <= SWEEP_TO; w += SWEEP_STEP) {
     await view(w, 360, false, true);
-    await still({ floor: 150 });
+    await still({ floor: SETTLE_FLOOR });
     await ev("document.querySelector('#svStrip .sv-rail').scrollLeft = 0; 1");
     await still();
     const m = await measure(), l = await lead();
@@ -119,20 +122,59 @@ for (const chain of ['two', 'three', 'four']) {
     if ((l.margin > 0) !== l.inBand) badMargin.push({ w, ...l });
     if (l.inBand) {
       if (inBand === null) inBand = w;
+      bandWidths.push(w);
+      if (!(m.fOut === true && m.planeIn && m.pillIn)) badRest.push({ w, fOut: m.fOut, planeIn: m.planeIn, pillIn: m.pillIn });
       const e = await atEnd();
       if (!e.fWhole || e.blank >= BLANK_MAX) badEnd.push({ w, ...e });
     }
   }
   ok(`${chain}, ${SWEEP_FROM} to ${SWEEP_TO} px landscape in ${SWEEP_STEP} px steps: F is whole or fully out of the rail's view at rest`, bad.length === 0, bad);
   ok(`${chain}: F's lead margin is set in the band and 0 outside it`, badMargin.length === 0 && inBand !== null, { badMargin, inBand });
+  ok(`${chain}: in the band, at rest F is fully out of view and the shown plane and its pill are whole`, badRest.length === 0, badRest);
   ok(`${chain}: in the band, scrolled to the end F is whole and the blank before it is under ${BLANK_MAX} px`, badEnd.length === 0, badEnd);
   if (inBand !== null) {
+    // parked on each plane in turn, at every width of the band: the plane and its pill are whole, and F is whole or fully out of view
+    const badPark = [];
+    for (const w of bandWidths) {
+      await view(w, 360, false, true);
+      await still({ floor: SETTLE_FLOOR });
+      await ev("document.querySelector('#svStrip .sv-rail').scrollLeft = 0; 1");
+      for (let i = 0; i < CHAINS[chain].length; i++) {
+        await ev("document.querySelector('.sv-next').click(); 1");
+        await still({ floor: SETTLE_FLOOR });
+        const m = await measure();
+        if (!(m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, plane: i + 1, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+      }
+    }
+    // a jump to each plane (no glide) parks the same way
+    for (const w of bandWidths) {
+      await view(w, 360, false, true);
+      await still({ floor: SETTLE_FLOOR });
+      for (let i = 1; i <= CHAINS[chain].length; i++) {
+        await ev(`__cmwSteps({ go: ${i}, now: true }); 1`);
+        await still({ floor: SETTLE_FLOOR });
+        const m = await measure();
+        if (!(m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+      }
+    }
+    // the same on a page opened at a width in the band, with no resize before it
+    const mid = bandWidths[Math.floor(bandWidths.length / 2)];
+    await open(mid, 360, true, 'en', chain);
+    for (let i = 1; i <= CHAINS[chain].length; i++) {
+      await ev(`__cmwSteps({ go: ${i}, now: true }); 1`);
+      await still({ floor: SETTLE_FLOOR });
+      const m = await measure();
+      if (!(m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w: mid, opened: true, jump: i, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
+    }
+    ok(`${chain}: in the band, parked on each plane the plane and its pill are whole and F is whole or fully out of view`, badPark.length === 0, badPark);
+    await view(inBand, 360, false, true);
+    await still({ floor: SETTLE_FLOOR });
     // a glide to the next plane leaves the margin as it was
     await view(inBand, 360, false, true);
-    await still({ floor: 150 });
+    await still({ floor: SETTLE_FLOOR });
     const m0 = (await lead()).margin, seen = [];
     await ev("document.querySelector('.sv-next').click(); 1");
-    for (let i = 0; i < 12; i++) { seen.push((await lead()).margin); await new Promise((r) => setTimeout(r, 40)); }
+    for (let i = 0; i < GLIDE_SAMPLES; i++) { seen.push((await lead()).margin); await new Promise((r) => setTimeout(r, GLIDE_SAMPLE_MS)); }
     await still();
     seen.push((await lead()).margin);
     ok(`${chain}: the margin does not change during or after a glide`, seen.every((v) => v === m0), { m0, seen });
