@@ -381,6 +381,7 @@ html:not(.ph) .ph-only { display: none !important; }
 /* a slider row: its label at the left and its value at the right (tabular figures), the slider across the row on a 44 px line */
 :root.ph .ph-vopts .fader-row.compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "fl fv" "rng rng"; width: 100%; gap: 0 var(--s-4); }
 :root.ph .ph-vopts .fader-row.compact > input[type="range"] { width: 100%; }
+:root.ph .ph-vopts .fader-row.ph-named > .fl { display: none; }
 :root.ph .ph-vopts .fader-row.compact > .fval { grid-area: fv; font-variant-numeric: tabular-nums; text-align: right; }
 /* a group of the Display sheet: its small-caps label, then its rows 8 px apart; the groups are 12 px apart */
 :root.ph .ph-grp { display: flex; flex-direction: column; gap: var(--s-4); }

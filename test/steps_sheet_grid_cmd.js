@@ -59,7 +59,8 @@ const slider = () => ev(`(() => {
   const row = document.querySelector('.ph-sheet .fader-row'); if (!row) return null;
   const rng = row.querySelector('input[type="range"]'), v = row.querySelector('.fval'), lab = row.querySelector('.fl'), r = (e) => e.getBoundingClientRect(), pr = r(row.parentElement);
   return { rowFree: pr.width - r(row).width, rngW: r(rng).width, rowW: r(row).width, rngH: r(rng).height, valRight: r(row).right - r(v).right, valLeftOfLabel: r(v).left < r(lab).right,
-    tab: getComputedStyle(v).fontVariantNumeric, text: v.textContent, vt: rng.getAttribute('aria-valuetext') };
+    tab: getComputedStyle(v).fontVariantNumeric, text: v.textContent, vt: rng.getAttribute('aria-valuetext'),
+    labShown: lab.getClientRects().length > 0, named: (document.getElementById(rng.getAttribute('aria-labelledby')) || {}).textContent, groupLabel: row.closest('.ph-grp').firstElementChild.textContent };
 })()`);
 const groups = () => ev(`(() => {
   const gs = [...document.querySelectorAll('.ph-sheet .ph-vopts > .ph-grp')], r = (e) => e.getBoundingClientRect();
@@ -84,6 +85,7 @@ for (const lang of ['en', 'ru', 'it']) {
   const sl = await slider();
   info[lang + 'Slider'] = sl;
   ok(`${lang} 360: the opacity slider is full width on a 44 px line, its value at the right in tabular figures, said as its aria-valuetext`, !!sl && sl.rowFree <= FULL_WIDTH_SLACK && sl.rowW - sl.rngW <= FULL_WIDTH_SLACK && sl.rngH >= SLIDER_LINE && sl.valRight <= FULL_WIDTH_SLACK && !sl.valLeftOfLabel && /tabular-nums/.test(sl.tab) && sl.text === sl.vt && /%/.test(sl.text), sl);
+  ok(`${lang} 360: the opacity row shows no second "Opacity": the slider is named by the group's label`, !!sl && !sl.labShown && !!sl.named && sl.named === sl.groupLabel, sl);
   const nc = await numChoice();
   info[lang + 'N'] = nc;
   ok(`${lang} 360: n is a menu button, 44 px tall, across its row, inside the sheet`, !!nc && nc.tag === 'BUTTON' && nc.popup === 'menu' && nc.h >= MIN_TARGET && nc.rowFree <= FULL_WIDTH_SLACK && nc.inside, nc);
