@@ -46,6 +46,7 @@
   // cells: their corners within jump pixels, a larger jump is a cut's wall), at most cap places
   // looked up; the masks agree within slack half-resolution pixels (the frame's edge pixels and the projected points' rounding), and
   // at most RASTER_TOL of the reference's pixels are unmatched either way
+  const MASK_ON = 0.5;   // the Inside-regions mask (window.__cmwLandMask, 0 to 1, null with none) at which a place counts as drawn: half
   const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1 }, RASTER_TOL = SAME_FRAC;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
@@ -100,7 +101,7 @@
       if (!e) return false;
       need.forEach(([i, j], k) => {
         // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
-        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < 0.5 ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
+        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < ${MASK_ON} ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
         for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2]); }
         cache.set(key(i, j), pts);
       });
@@ -167,7 +168,7 @@
     return { n, extra, missing, off: n ? (extra + missing) / n : 1, capped: !!capped, w: W2, h: H2 };
   };
   window.__lxPick = null;
-  window.__lxEnum = (pts) => {
+  window.__lxEnum = (pts, sheets) => {
     const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
     if (!e) return null;
     // (the front member first: the hook marks it, front: true, one per place; a place with members and none marked is counted in
@@ -179,7 +180,13 @@
       if (ms.length && !best) window.__lxNoFront++;
       const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
       for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z} && Math.abs(x.h - m.h) <= ${HEIGHT_TOL})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
-      return o;
+      // (All sheets: a member of a chain with a multivalued step past plane 0 is drawn once per forward combo of the colour map's distinct
+      // sheets, the parked frame's own: window.__cmwLandRefSheets(z), each { combo, z, f, h }; a chain without one has the member alone)
+      if (!sheets || typeof __cmwLandRefSheets !== 'function') return o;
+      return o.flatMap((m) => {
+        const rs = __cmwLandRefSheets(m.z).filter((r) => r.f && r.h !== null);
+        return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, combo: r.combo })) : [m];
+      });
     });
   };
   1`;
@@ -333,7 +340,7 @@
       // (the place the frame draws a probe at is its nearest grid vertex: the reference is read there, where a cut or a steep height would make the probe's own offset a false failure)
       const at1 = (g, q) => q.map((p, i) => (g && g[i] && g[i][0] && g[i][0].w) || p);
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
-      const ref = await ev(`__lxEnum(${JSON.stringify(vpts)})`);
+      const ref = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
       const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
       ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
@@ -383,7 +390,7 @@
         ok(`${t}: a front-by-depth-key rule picks another sheet than the frame's own at some probe place`, differ > 0, { differ });
       }
       // the coverage: the places the frame draws against the places the reference covers
-      const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
+      const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
       // the exact image reference: the frame's relief against the raster of the reference's members, at this u
