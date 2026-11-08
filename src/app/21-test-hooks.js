@@ -267,7 +267,7 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
-  window.__cmwLandFrameVerts = (pts) => (render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null);
+  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8;   // (the enumerator's pixel size as a fraction of the box; its buffer)
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
@@ -377,6 +377,35 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
+  // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f }], f the value of the
+  // shown plane's map at z
+  window.__cmwLandFrameVerts = (pts) => {
+    const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null, F = render3D.exactIn && render3D.exactIn.F;
+    return g && F ? g.map((ls) => ls.map((l) => { const f = l.z ? F(C(l.z[0], l.z[1])) : null; return Object.assign({}, l, { f: f && CX.isFin(f) ? [f.re, f.im] : null }); })) : g;
+  };
+  // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
+  // [{ z, f, h, member, sheet, D }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
+  // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn
+  // ones for the frame's own sheet (sheet 0); a member on a sheet beside it has its value on that sheet's branch of the step, so
+  // its z and D are the reference there, not f and h. Null when the frame was not drawn by the inverse path
+  window.__cmwLandEnum = (pts) => {
+    const inp = render3D.exactIn, hOf = render3D.frameHeight, bx = render3D.box;
+    if (!inp || !hOf || !bx) return null;
+    const ex = inp.exact, F = inp.F;
+    const pix = (bx.x1 - bx.x0) / LAND_ENUM_PIX, sheets = [ex].concat(ex.more || []);
+    return pts.map(([x, y]) => {
+      const out = [];
+      sheets.forEach((sh, sheet) => {
+        let r = null;
+        try { r = Inverse.enumerate(sh.plan, sh.prep, C(x, y), pix, { K: LAND_ENUM_B, B: LAND_ENUM_B, all: true, leaves: false }); } catch (e) { r = null; }
+        if (r) r.entries.forEach((e, member) => {
+          const f = F(e.z);
+          out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D });
+        });
+      });
+      return out;
+    });
+  };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
