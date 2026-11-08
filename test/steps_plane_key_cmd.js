@@ -7,42 +7,18 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_key_kit.js'), 'utf8'));
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-await go(`http://localhost:${PORT}/test.html?view=steps&ns=planekey${Date.now() % 1e7}`);
-await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps', max: 30000 });
-await ev(`(__cmwExample(1), 1)`);
-await settled({ until: '__cmwSteps().planes.length > 1', max: 15000 });
-await ev(`(__cmwSteps({ surf: 'plane' }), 1)`);
-const nPl = await ev('__cmwSteps().planes.length');
-const PLANE = ['z', 'w₁', 'w₂'];
-const next = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))');
-const legend = async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())'));
-const park = async (T, i) => {
-  await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${i}, now: true }), 1)`);
-  await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: 15000 });
-  return legend();
-};
+const nPl = await K.open('planekey', PORT);
 ok('example 1 has three planes', nPl === 3, nPl);
-for (const surf of ['plane', 'sphere', 'land']) {
-  await ev(`(__cmwSteps({ surf: '${surf}' }), 1)`);
-  for (let T = 0; T < nPl; T++) {
-    for (let i = 0; i < nPl; i++) {
-      const lg = await park(T, i);
-      info[`${surf} T ${T} plane ${i}`] = lg;
-      const name = `${surf}, T at plane ${T}, plane ${i}`;
-      if (surf === 'land') ok(`${name}: the height key`, lg.kind === '3d' && lg.caption === 'height log |F|', lg);
-      else if (i > T) ok(`${name}: the hue ring, colour carried from ${PLANE[T]}`, lg.kind === 'color' && lg.caption === `colour carried from ${PLANE[T]}`, lg);
-      else ok(`${name}: the style's key, no carried line`, lg.kind === (surf === 'sphere' ? 'sphere' : 'color') && /^arg and \|/.test(lg.caption || ''), lg);
-    }
-  }
-}
+await K.sweep(ok, info, nPl);
 // moving T re-reads the key in the frame it moves in (no wait for the thread)
 await ev(`(__cmwSteps({ surf: 'plane' }), 1)`);
-await park(2, 2);
-await ev(`(__cmwSteps({ T: 1 }), 1)`); await next();
-const moved = await legend();
+await K.park(2, 2);
+await ev(`(__cmwSteps({ T: 1 }), 1)`); await K.next();
+const moved = await K.legend();
 ok('plane 2 after T moves from plane 2 to plane 1: the key is already the carried line', moved.caption === 'colour carried from w₁', moved);
-await ev(`(__cmwSteps({ T: 2 }), 1)`); await next();
-const back = await legend();
+await ev(`(__cmwSteps({ T: 2 }), 1)`); await K.next();
+const back = await K.legend();
 ok('and back to T at plane 2: the plane\'s own key', /^arg and \|w₂\|$/.test(back.caption || ''), back);
 return { pass: !fails.length, fails, info };
