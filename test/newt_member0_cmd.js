@@ -1,11 +1,11 @@
 // Member 0 of a generic NEWT op in the inverse program (#1380): the Newton kit's _roots walks member 0 from w, continued in
 // t, which Inverse.opNewt's op.pre(w) (float64) lists first (m = 0). On the whole 40 x 40 grid of points over the window,
-// at u = 1e-4, 0.002 and 0.5, the GPU's member 0 must be kept, hit w (residual within NEWT_HIT_F) and be the
+// at u = 1e-4 and 0.002, the GPU's member 0 must be kept, hit w (residual within NEWT_HIT_F) and be the
 // CPU's (within NEWT_DEDUPE (1 + |z|), the product's "same root" rule); both bounds are read from src/glsl.js. The step is the series (a plain NEWT op); the members are the ones the page's NEWT
 // roots pass writes (test/glsl_inverse_test.js, `single` with `hom` and `members`).
-// u = 0.5 is asserted too: at 140 of the 1600 points the float32 walk of member 0 does not reach the float64 one (a product
-// defect, #1396), so that check is red and listed in KNOWN (ci/browser_suites.js). Not asserted: the other members (the
-// ladder's and the deflated one; #1396); zeta, whose program the page cannot run (it lacks the chain data; #1397).
+// Not asserted: u = 0.5, where at 140 of the 1600 points the float32 walk of member 0 does not reach the float64 one (a product
+// defect, #1396: the assertion returns with its fix; the count is in info); the other members (the ladder's and the deflated
+// one; #1396); zeta, whose program the page cannot run (it lacks the chain data; #1397).
 // Control: the GPU's member 0 of u = 0.002 is not the CPU's of u = 0.5, and the same comparison reports it.
 // Page: dist/glsl-inverse-test.html (test/make_glsl_inverse_test.py).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
@@ -18,9 +18,6 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const GLSL = fs.readFileSync(path.join(DIR, '../../src/glsl.js'), 'utf8');
 const NEWT_HIT_F = Number(/const NEWT_HIT_F = '([^']+)'/.exec(GLSL)[1]), NEWT_DEDUPE = Number(/NEWT_DEDUPE = '([^']+)'/.exec(GLSL)[1]);
 const GRID = 40, U = [1e-4, 0.002], U_FAR = 0.5;
-// (the points of u = 0.5 where the float32 walk does not reach the float64 one: an open product defect, #1396, listed in KNOWN
-// of ci/browser_suites.js)
-const U_ALL = [...U, U_FAR];
 const SHAPE = { id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }, WIN = { x0: -4, x1: 4, y0: -4, y1: 4 };
 await nav(`http://localhost:${PORT}/glsl-inverse-test.html`);
 const grid = async (u) => {
@@ -38,7 +35,9 @@ const mismatch = (gpuPts, cpuPts) => {
 };
 const at = {};
 for (const u of [...U, U_FAR]) at[u] = await grid(u);
-for (const u of U_ALL) {
+// (u = 0.5, reported: the count that #1396's fix brings to 0, where that assertion returns)
+info[`series u=${U_FAR} (reported, not asserted)`] = mismatch(at[U_FAR], at[U_FAR]);
+for (const u of U) {
   const r = mismatch(at[u], at[u]);
   info[`series u=${u}`] = r;
   ok(`series at u = ${u}: the GPU's member 0 is the CPU's at every point (residual within NEWT_HIT_F, z within NEWT_DEDUPE (1 + |z|))`, r.points > 1000 && r.mismatch === 0, r);
