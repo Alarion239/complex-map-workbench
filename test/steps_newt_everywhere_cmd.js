@@ -48,11 +48,18 @@ const at = async (x, max = FRAME_MS) => {
 // The end u of a polynomial step under Everywhere. H_u(z) - z = u (f(z) - z), so a point moves u |f(z) - z| along the glide, and
 // the window holds points where that is large (a polynomial of high degree): the frame at u is plane 0's within a tenth of a CSS
 // pixel only where u max |f(z) - z| <= DISP_PX, u over the window (the left pane's view, DISP_GRID x DISP_GRID points), from the glide's
-// H at the frame held now (at u0). The end is that u, at most END_MAX; at least END_MIN, twice the page's SV_REST_U (below that u a thread is the plane
-// at rest, with no glide frame): then the end is END_MIN and the check reports the displacement it leaves. Answers
+// H at the frame held now (at u0). The end is that u, at most END_MAX; at least END_MIN, END_MIN_RESTS times the page's SV_REST_U (read from the
+// page: at or below it a thread is the plane at rest, with no glide frame, so END_MIN is the product's own first moving u): then the end is
+// END_MIN and the check reports the displacement it leaves. END_LOOSE is the control: a first moving u that far from 1 leaves more than DISP_PX. Answers
 // { end, disp: the largest displacement in CSS px at END_MIN's u }
-const END_MAX = 1e-4, END_MIN = 2e-6, DISP_PX = 0.1;
-const endFor = (u0) => ev(`(() => {
+const END_MAX = 1e-4, END_MIN_RESTS = 2, END_LOOSE = 2e-6, DISP_PX = 0.1;
+let END_MIN = 0;   // (END_MIN_RESTS x the page's SV_REST_U, set by endFor)
+const endFor = async (u0) => {
+  const rest = await ev('({ u: __cmwSteps().restU, min: __cmwSteps().restUMin })');
+  END_MIN = END_MIN_RESTS * rest.u;
+  return endForAt(u0, rest);
+};
+const endForAt = (u0, rest) => ev(`(() => {
   const g = __cmwSteps().glide, H = g.H, v = g.view, n = ${DISP_GRID}, hw = g.w / 2 / v.s, hh = g.h / 2 / v.s;
   let D = 0;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
@@ -62,7 +69,7 @@ const endFor = (u0) => ev(`(() => {
   const perU = D / ${u0} * v.s;   // CSS px of displacement per unit u
   const want = perU > 0 ? ${DISP_PX} / perU : ${END_MAX};
   const end = Math.min(${END_MAX}, Math.max(${END_MIN}, want));
-  return { end, disp: +(perU * ${END_MIN}).toFixed(3), perU };
+  return { end, disp: +(perU * ${END_MIN}).toFixed(3), perU, loose: +(perU * ${END_LOOSE}).toFixed(3), restU: ${rest.u}, restUMin: ${rest.min} };
 })()`);
 const park = async (k) => {
   await ev(`__cmwSteps({ park: ${k} }), 1`);
@@ -95,6 +102,8 @@ for (const c of CASES) {
   const poly = await endFor(0.5);
   rec.poly = poly;
   ok(`${c.ex}: the front member at u = ${poly.end} moves a point less than ${DISP_PX} CSS px (END_MIN = ${END_MIN} leaves ${poly.disp})`, poly.end > END_MIN || poly.disp <= DISP_PX, poly);
+  ok(`${c.ex}: the page's SV_REST_U (${poly.restU}) stays above its float32 floor (${poly.restUMin}), where 1 - t is exact`, poly.restU > poly.restUMin, poly);
+  ok(`${c.ex}: the control: a first moving u of ${END_LOOSE} leaves ${poly.loose} CSS px, over ${DISP_PX}`, poly.loose > DISP_PX, poly);
   for (const [u, ref] of [[poly.end, 'P0'], [1 - poly.end, 'P1']]) {
     const g = await at(u);
     const still = await grab('G' + u);
