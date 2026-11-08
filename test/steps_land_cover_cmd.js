@@ -39,6 +39,21 @@ for (const c of CASES) {
   await settled({ max: 60000 });
   const last = (await ev('__cmwSteps().planes')).length - 1;
   info[name] = {};
+  // a sheets-off frame is drawn by the exact inverse path by default (a silent fallback to the mesh fails); the checks below read the
+  // carried mesh, the path a plane at rest and All sheets still use, so the frames run with the mesh switch; with it the frame is not exact
+  if (!c.sheets) {
+    await ev(`__cmwSteps({ go: ${last}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+    await ev(`__cmwSteps({ x: ${last - 0.002} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+    info[name].pathDefault = await ev('(() => { const c = __cmwLandCarry(); return c ? c.path || "mesh" : null; })()');
+    ok(`${name}: the glide frame is drawn by the exact inverse path`, info[name].pathDefault === 'inverse', info[name].pathDefault);
+  }
+  await ev('__cmwLandMeshOnly(true); 1');
+  await settled({ max: 60000 });
+  if (!c.sheets) {
+    await ev(rAF2);
+    info[name].pathMesh = await ev('(() => { const c = __cmwLandCarry(); return c ? c.path || "mesh" : null; })()');
+    ok(`${name}: the control: with the mesh switch the same frame is not drawn by the inverse path`, info[name].pathMesh !== 'inverse', info[name].pathMesh);
+  }
   for (const [tag, k, x] of [['u=.002', 0, 0.002], ['u=.998', last, last - 0.002]]) {
     await ev(`__cmwSteps({ go: ${k}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const rest = await surface();
