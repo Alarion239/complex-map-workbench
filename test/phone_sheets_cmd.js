@@ -16,7 +16,8 @@ const open = async (w, h, lang, classic = false) => {
     await load(ns, ST);
     if (lang !== 'en') { const u = await ev('location.href'); await send('Page.navigate', { url: u + (u.includes('?') ? '&' : '?') + 'lang=' + lang }); }
   }
-  for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined'`)) break; await sleep(250); }
+  // (a page still loading has no document element yet: the poll reads that as "not yet")
+  for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined'`)) break; await sleep(250); }
   await settle(900);
 };
 // (a read just after a layout change can come back empty on a slow runner: ask again before judging it)

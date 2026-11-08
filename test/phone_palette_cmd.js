@@ -9,7 +9,8 @@ const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) 
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }, { type: 'power', params: { n: '2' }, on: true }] };
-const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(900); };
+// (a page still loading has no document element yet: the poll reads that as "not yet")
+const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(900); };
 const geo = () => ev(`(() => { const sv = document.documentElement.classList.contains('sv'), c = document.querySelector(sv ? '#svStrip' : '.pipe-wrap'), p = document.querySelector('.pop.palette'), i = document.querySelector('.pal-input');
   if (!p || !c) return null; const q = p.getBoundingClientRect(), cr = c.getBoundingClientRect(), ir = i.getBoundingClientRect(), hd = document.querySelector('.top').getBoundingClientRect();
   return { pal: [Math.round(q.left), Math.round(q.top), Math.round(q.right), Math.round(q.bottom)], chain: [Math.round(cr.left), Math.round(cr.top), Math.round(cr.right), Math.round(cr.bottom)], input: [Math.round(ir.top), Math.round(ir.bottom)], head: Math.round(hd.bottom), vh: innerHeight, focus: document.activeElement === i }; })()`);
