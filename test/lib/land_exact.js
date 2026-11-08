@@ -15,9 +15,8 @@
 //   reference has a preimage there), and at most CELL_TOL of them differ either way; at the ends also the surface pixels (saturation
 //   over 30, the measure of steps_land_cover_cmd.js's surface(), counted on the kit's kept pixels) are at least the parked plane's
 //   less COVER_TOL; negative controls: a hole, and a wall filled across the cut, fail the comparison;
-// - the image: u = END_U is plane z's parked frame and u = 1 - END_U the next plane's, at most SAME_FRAC of the pixels more
-//   than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js); at the other probes the geometry and the
-//   coverage above are the reference's (see GLIDE_U).
+// - the image: u below 0.5 is plane z's parked frame and u above it the next plane's, at most SAME_FRAC of the pixels more
+//   than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js).
 // An expression for eval in a command file of a CDP daemon (test/cdp_kit README), which sees its globals (fs, DIR, ev, go,
 // settled, loadView, view): `return await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'land_exact.js'), 'utf8'))(modes)`, with modes the
 // Inside regions' sheets settings to run, [false] (sheets off) or [true] (All sheets). Answers {pass, fails, info}.
@@ -30,11 +29,10 @@
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
-  const GLIDE_MID = 0.5;   // (the glide's middle)
+  const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
   const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
-  // At every probe the frame is compared with the exact reference for H_u at that u (the enumerator's members, heights, colour and
-  // coverage). It is compared with the parked planes only at END_U from them: H_u is not F, and at u = 0.998 it is 0.2 % off F, so thin
-  // lines move by under a pixel and the frame is not the parked plane's within SAME_FRAC (cube root: 0.61 % at 0.998, 0.23 % at 0.9999).
+  // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
+  // frame there matches the parked plane within SAME_FRAC; END_U is the ends of a polynomial's glide)
   const { grab, compare, DIFF_TOL, SAME_FRAC } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));   // (the look suite's constants)
   // the share of the parked plane's surface pixels a frame at an end may lack: it is the parked plane's within SAME_FRAC of its pixels,
   // so a surface pixel it lacks is one of those
@@ -163,7 +161,7 @@
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     for (const u0 of GLIDE_U) {
-      const u = u0, first = u0 <= END_U, lastU = u0 >= 1 - END_U;   // (first: the end at plane z, lastU: at the next plane: the frames compared with the parked planes)
+      const u = u0, first = u0 < GLIDE_MID, lastU = u0 > GLIDE_MID;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
       const still = await grab('cur');
