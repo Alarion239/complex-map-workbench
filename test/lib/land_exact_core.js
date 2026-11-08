@@ -40,11 +40,13 @@
     CURV_RATIO: 4,          // the second difference of a cell over that of its halves: 4 for a quadratic
     CURV_SLACK: 1,          // ... within this much either way
     CURV_FLOOR: 0.05,       // full-resolution pixels: a second difference below this is rounding
-    CONT_STEP_MIN: 1e-6,    // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
+    CONT_STEP_MIN: 1e-12,   // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-10,        // |H(z) - w| of a converged correction, relative to 1 + |w|
+    SING_REACH: 8,          // leaf cells around a declared singular point's own cell that its certificate covers: the surface is not
+                            // smooth there at any depth the lattice reaches (infinite slope), the pixels are decided by rays
     SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
     DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
     NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
@@ -453,7 +455,7 @@
       for (const q of singList) {
         if (!q.w) continue;
         const w = [q.w[0] + sh, q.w[1]];   // (the control moves the point one cell)
-        if (w[0] >= a[0] && w[0] <= b[0] && w[1] >= a[1] && w[1] <= b[1]) return { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: dist2(a, b), kantorovich: null, winding: null, inDisc: null };
+        if (w[0] >= a[0] && w[0] <= b[0] && w[1] >= a[1] && w[1] <= b[1]) return { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: o.SING_REACH * c.s * cellW, kantorovich: null, winding: null, inDisc: null };
       }
       return null;
     }
