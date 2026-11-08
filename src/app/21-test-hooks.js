@@ -262,6 +262,9 @@
   // rest; box: the last frame's block, carried or not
   // the last Landscape frame's height-axis labels, as their screen y (CSS px)
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
+  // the height ruler's labels as placed, { v: value, hz: world height }, and the frame's own height function of a value
+  window.__cmwLandTickMarks = () => (render3D.tickMarks || []).map((m) => ({ v: m.v, hz: m.hz }));
+  window.__cmwLandHeightOf = (v) => (render3D.frameHeight ? render3D.frameHeight(v) : null);
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
   // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and

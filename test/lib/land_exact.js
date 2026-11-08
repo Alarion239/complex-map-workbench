@@ -31,7 +31,15 @@
   // the step sheets dk the glide draws are -SHEET_W..SHEET_W and M_MAX members m of a sheet are tried; a member whose turn lies within
   // EDGE_MARGIN (in Im) of its sheet's window edge is on that edge
   const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;
-  const TICK_PX = 2;   // (the screen y of a ruler label: the ends' scales are the parked plane's within SCALE_TOL, which moves a label a fraction of a pixel)
+  // A ruler label's screen y is a float, drawn with the glyphs snapped to the pixel grid: at most half a pixel in each of two frames. The end
+  // frame's real scale gap against the parked plane (1.6e-4 of the ruler's length at 1 - END_U, a few hundredths of a pixel) adds to that, so
+  // two frames' labels are at most TICK_PX = 1 px apart; the gap itself is not absorbed here: the own-height check below sees it.
+  const TICK_PX = 1;
+  // The cut's seam: parked draws the cut as one continuous surface with no dark line, so the pixels of a near-end frame that differ from
+  // the next plane's parked frame form no run of connected pixels as long as a seam. The rim's anti-aliasing dots are runs of at most 27.
+  const SEAM_RUN = 40;
+  const TICK_H_TOL = 1e-9;   // (a label's world height against the frame's own height function of its value: the same float computation)
+  const TICK_SCALE_ERR = 1.6e-3;   // (the scale error the own-scale check must see: the gap the near ends have against the parked plane at .998)
   const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
@@ -72,7 +80,7 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
-    { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true },
+    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true },
     { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
     // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
     // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
@@ -440,7 +448,41 @@
         const base = first ? p0.cover : p1.cover;
         ok(`${t}: at least the parked plane's surface pixels less ${COVER_TOL * 100} %`, cov.n >= (1 - COVER_TOL) * base, { n: cov.n, base });
       }
-      // the height ruler's labels at the ends are the parked plane's: the same number, each within TICK_PX of the parked one's screen y
+      // the cut's seam: the longest run of connected pixels (8-neighbours) more than DIFF_TOL from the next plane's parked frame
+      if (u === 1 - END_U && c.seam && sheets) {
+        const longest = async (a, b) => ev(`(() => {
+          const A = window.__heldPx.${a}, B = window.__heldPx.${b}, W = document.getElementById('canvasL').width, n = A.length / 4, on = new Uint8Array(n);
+          for (let q = 0; q < n; q++) { const i = 4 * q; on[q] = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${DIFF_TOL} ? 1 : 0; }
+          let best = 0; const st = [];
+          for (let q0 = 0; q0 < n; q0++) {
+            if (on[q0] !== 1) continue;
+            let len = 0; st.push(q0); on[q0] = 2;
+            while (st.length) {
+              const q = st.pop(); len++; const x = q % W;
+              for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                const xx = x + dx, r = q + dy * W + dx;
+                if (xx >= 0 && xx < W && r >= 0 && r < n && on[r] === 1) { on[r] = 2; st.push(r); }
+              }
+            }
+            if (len > best) best = len;
+          }
+          return best;
+        })()`);
+        const run = await longest('cur', 'P1'), ctl = await longest('P0', 'P1');
+        ok(`${t}: no seam along the cut: the longest run of pixels over ${DIFF_TOL} from the next plane's parked frame is ${run} (at most ${SEAM_RUN})`, run <= SEAM_RUN, { run });
+        ok(`${t}: the seam measure sees a different frame (control; plane z's parked frame against the next plane's: a run of ${ctl})`, ctl > SEAM_RUN, { ctl });
+      }
+      // the height ruler's labels: at every u each label sits at the frame's OWN height of its value; at the ends the same labels as the parked
+      // plane's, each within TICK_PX of its screen y (rasterization only; the end frames' real scale gap is not absorbed: it is checked by the own height)
+      {
+        const marks = await ev('__cmwLandTickMarks()');
+        const own = await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`).then(JSON.parse);
+        const relErr = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
+        const bad = marks.filter((m, i) => !(own[i] != null && relErr(m.hz, own[i]) <= TICK_H_TOL));
+        ok(`${t}: the height ruler's ${marks.length} labels sit at the frame's own height of their value`, marks.length > 0 && !bad.length, { marks, own });
+        const nz = marks.map((m, i) => i).filter((i) => own[i]), off = nz.filter((i) => relErr(marks[i].hz, own[i] * (1 + TICK_SCALE_ERR)) > TICK_H_TOL);   // (a label at height 0 has no scale)
+        ok(`${t}: a ${TICK_SCALE_ERR} scale error in the frame's own height is not matched (control; ${off.length} of ${nz.length} labels off)`, nz.length > 0 && off.length === nz.length, { marks, own });
+      }
       if (first || lastU) {
         const ref = (first ? p0 : p1).ticks, got = await ev('__cmwLandTicks()');
         ok(`${t}: the height ruler's tick labels are the parked plane's (${got && got.length} against ${ref && ref.length}; each within ${TICK_PX} px)`,

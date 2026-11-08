@@ -830,7 +830,7 @@
     render3D.frameHeight = info ? info.heightOf : undefined;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.scale = undefined; render3D.mix = undefined; render3D.exactIn = undefined; render3D.frameHeight = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.tickMarks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.scale = undefined; render3D.mix = undefined; render3D.exactIn = undefined; render3D.frameHeight = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -1023,15 +1023,16 @@
     ctx.strokeStyle = TH.rulerTick;
     // (a label closer than a line and a half to one already placed, in the order of priority, is left out, so the
     // decades of a compressed top read evenly)
-    const placed = [];
+    const placed = [], marks = [];
     render3D.ticks = placed;   // (the screen y of each label placed: tests)
+    render3D.tickMarks = marks;   // (the value and world height of each label placed: tests)
     for (const [v, lab] of vals) {
       const hz = hOf(v);
       if (!Number.isFinite(hz) || hz > top - 0.01 || hz < z0 + 0.01) continue;
       const a = P([rc[0], rc[1], hz]);
       if (!a || placed.some((y) => Math.abs(y - a[1]) < 18)) continue;
       if (!label([[lab, false]], a, [dir, 0], 8, micro, null, TH.label)) continue;
-      placed.push(a[1]);
+      placed.push(a[1]); marks.push({ v, hz });
       ctx.globalAlpha = 0.7;
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(a[0] + dir * 5, a[1]); ctx.stroke();
       ctx.globalAlpha = 1;
