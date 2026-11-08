@@ -1076,9 +1076,11 @@
       const nm = $t('Colour key');
       if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
-    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
-      box.dataset.kind = kind; box.dataset.pal = GLR.palette();
-      box.style.setProperty('--wheel', keyConic());
+    // (the chip's glyph is the hue wheel; the Landscape under Plaster paints no hue, so its glyph keeps the neutral ink)
+    const hueless = kind === '3d' && !lPhase();
+    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette() || box.dataset.hueless !== String(hueless))) {
+      box.dataset.kind = kind; box.dataset.pal = GLR.palette(); box.dataset.hueless = String(hueless);
+      if (hueless) box.style.removeProperty('--wheel'); else box.style.setProperty('--wheel', keyConic());
     }
     if (side === 'L') {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
@@ -1200,15 +1202,17 @@
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
     const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
-    st.ring = !cauchyOff;
+    // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
+    const noRing = cauchyOff || (kind === '3d' && !lPhase());
+    st.ring = !noRing;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
-    if (!cauchyOff) for (let i = 0; i < 360; i++) {
+    if (!noRing) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
-    if (!cauchyOff) {
+    if (!noRing) {
       ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
       // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip

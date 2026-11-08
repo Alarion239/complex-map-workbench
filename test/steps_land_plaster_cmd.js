@@ -51,7 +51,8 @@ const plain = await read();
 ok('Plain: D.phase is true and the choice is Plain', plain.phase === true && plain.checked === 'phase' && plain.coloured > 0, plain);
 // the Landscape's key stays its height key under Plaster, at plane 0 and at a plane past the colour plane (where a carried wheel would
 // otherwise be named), and under Tiles as the control
-const legend = () => ev('(() => { const l = __cmwLegend(); const b = document.getElementById("leftLegend"); return { kind: l.kind, caption: l.caption, shown: !!b && !b.hidden }; })()');
+// (ring: the key draws the hue ring; glyph: the chip's glyph is the hue wheel, a conic gradient, and the neutral ink under Plaster)
+const legend = () => ev('(() => { const l = __cmwLegend(); const b = document.getElementById("leftLegend"); return { kind: l.kind, caption: l.caption, ring: l.ring, shown: !!b && !b.hidden, glyph: b ? getComputedStyle(b, "::before").backgroundImage : null }; })()');
 const CARRIED = /carried/;
 for (const [name, colouring, at] of [['Tiles', 'tiles', 1], ['Plaster', 'plaster', 0], ['Plaster', 'plaster', 1]]) {
   await press(colouring);
@@ -59,6 +60,9 @@ for (const [name, colouring, at] of [['Tiles', 'tiles', 1], ['Plaster', 'plaster
   const lg = await legend();
   ok(`${name} at plane ${at}: the key is the Landscape's height key, shown`, lg.kind === '3d' && lg.shown, lg);
   ok(`${name} at plane ${at}: and it does not name a carried colour`, !CARRIED.test(lg.caption || ''), lg);
+  const hue = colouring === 'tiles';
+  ok(`${name} at plane ${at}: the key ${hue ? 'draws' : 'does not draw'} the hue ring`, lg.ring === hue, lg);
+  ok(`${name} at plane ${at}: the chip's glyph is ${hue ? 'the hue wheel' : 'neutral'}`, /conic-gradient/.test(lg.glyph || '') === hue, lg);
 }
 await press('plaster');
 // the cold-load cases: a saved state whose view is the Landscape with Plaster keeps it; one whose view has no D entry, or has D.phase
