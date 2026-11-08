@@ -23,15 +23,17 @@ const probe = (pad = 0) => ev(`(() => {
   const onTop = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && (e === k || k.contains(e)) ? '' : (e ? (e.id || e.className || e.tagName) + '' : 'none'); };
   const pts = [[0.5, 0.5], [0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]].map(([fx, fy]) => onTop(b.left + fx * b.width, b.top + fy * b.height));
   const r = (x) => Math.round(x * 10) / 10;
+  // (whether a rect overlaps the key's box grown by pad on each side)
+  const touches = (q2, pad) => q2.left < b.right + pad && q2.right > b.left - pad && q2.top < b.bottom + pad && q2.bottom > b.top - pad;
   return { shown: true, collapsed: k.classList.contains('collapsed'), open: k.classList.contains('open'), w: r(b.width), h: r(b.height),
     inPlane: b.left >= q.left - 0.5 && b.right <= q.right + 0.5 && b.top >= q.top - 0.5 && b.bottom <= q.bottom + 0.5,
     onScreen: b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight, top: pts, vw: innerWidth,
     // (the readout chip of the plane: the folded key stands clear of it)
-    readout: (() => { const ro = document.getElementById('leftReadout'); if (!ro || !ro.getClientRects().length) return null; const q3 = ro.getBoundingClientRect(); return q3.left < b.right && q3.right > b.left && q3.top < b.bottom && q3.bottom > b.top; })(),
+    readout: (() => { const ro = document.getElementById('leftReadout'); if (!ro || !ro.getClientRects().length) return null; return touches(ro.getBoundingClientRect(), 0); })(),
     // (the 44 px hit area: the key on top at the centre and 21.5 px out from it on each side, the padded box clear of every other button)
     hit: [[0, 0], [-${OUT}, 0], [${OUT}, 0], [0, -${OUT}], [0, ${OUT}]].map(([dx, dy]) => onTop(b.left + b.width / 2 + dx, b.top + b.height / 2 + dy)),
     meets: [...document.querySelectorAll('button, [role="button"], a[href], input, select, summary')].filter((e) => e.getClientRects().length && !k.contains(e)).map((e) => { const q2 = e.getBoundingClientRect(); return { e, q2 }; })
-      .filter(({ q2 }) => q2.width > 0 && q2.left < b.right + ${pad} && q2.right > b.left - ${pad} && q2.top < b.bottom + ${pad} && q2.bottom > b.top - ${pad}).map(({ e }) => (e.id || e.className || e.tagName) + '') };
+      .filter(({ q2 }) => q2.width > 0 && touches(q2, ${pad})).map(({ e }) => (e.id || e.className || e.tagName) + '') };
 })()`);
 for (const [w, h, lang] of WIDTHS) {
   await view(w, h, false, true);
