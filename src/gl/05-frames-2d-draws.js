@@ -466,12 +466,13 @@
   // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   // (peel: the variants of carryLayers, which write the sheet key per fragment)
-  function prestartCarry(peel) {
+  function carryNames(peel) {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
     const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'];
-    return prestartNames(peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names, [1]);
+    return peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names;
   }
+  function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its
