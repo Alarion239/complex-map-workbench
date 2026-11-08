@@ -388,7 +388,7 @@
   // patch of its own like the glide map's poles (svLandPatches); one whose image is not in the block is never seen. hF
   // does not move with the glide, so the candidates (the LAND_HEIGHT_CANDIDATES nearest) are searched once per plane s
   // and box (hKey names hF); F, which does, picks among them each frame
-  const LAND_HEIGHT_POLES = 40, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, svLandHeightMemo = { key: '', poles: [] };
+  const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach, F, box) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
     const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2;
