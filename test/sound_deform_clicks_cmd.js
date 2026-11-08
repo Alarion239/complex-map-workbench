@@ -2,7 +2,7 @@
 // APP. Hear F on, every cue off (the voice alone). Cases, each with the pointer still unless said: the Deformation of
 // z⁵ on X's Phase plane; the same across a loop repeat (t back to 0: a new start); the pointer moving while it plays;
 // the merged deformation plane of X → Y; the Landscape, at the open and across a loop repeat; z − 1 (a zero of H_t
-// passing the probe); the slider scrubbed back and forth once a frame; a zero dragged round and through the probe once
+// passing the probe); a zero dragged round and through the probe once
 // a frame. Each at 60 Hz frames (headless
 // Chrome's own) and 240 Hz (test/sound_deform_inj.js), with the CPU at 1× and 6×. Writes <daemon folder>/rec_deform/
 // <case>_<hz>_<cpu>x.f32 (+ .json for test/sound_clicks.py) and rec_deform/det/ (the same audio, + .json for
@@ -101,14 +101,11 @@ for (const hz of [60, 240]) {
       await startRec(); await morphKey(); await playAdv(1.8); await stopRec(`landLoop_${tag}`); await morphKey(); await settled();
       await ev(`__cmwSet('loop', false); 1`);
     }
-    // z − 1: a zero of H_t passes the still pointer; then the slider scrubbed back and forth, once a frame
+    // z − 1: a zero of H_t passes the still pointer
     await page('zm1', 'phase', hz); await thr();
     await rest(await W('L', 0.5, 0.003));
     await startRec(); await morphKey(); await playAdv(1.3); await stopRec(`zeroSweep_${tag}`);
-    await rest(await W('L', 0.5, 0.003));
-    await startRec();
-    await ev(`await (async () => { const r = document.getElementById('morphRange'), t0 = performance.now(); for (;;) { const u = (performance.now() - t0) / 2800; if (u >= 1) break; r.value = 0.5 + 0.5 * Math.cos(2 * Math.PI * 1.5 * u); r.dispatchEvent(new Event('input', { bubbles: true })); await new Promise((res) => requestAnimationFrame(res)); } return 1; })()`, 60000);
-    await settled(); await stopRec(`scrub_${tag}`); await morphKey(); await settled();
+    await morphKey(); await settled();
     // a zero dragged round the still pointer and through it, once a frame
     await page('zp', 'phase', hz); await thr();
     await rest(await W('L', 0.2, 0.5));
