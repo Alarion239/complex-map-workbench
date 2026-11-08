@@ -41,6 +41,12 @@
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
+  // the exact image reference's raster (window.__lxRaster): the box's lattice (nx x ny cells, each halved up to depth times where the
+  // surface needs it), a covered cell a facet when its centre's projection is within step half-resolution pixels of its corners' mean (the finest
+  // cells: their corners within jump pixels, a larger jump is a cut's wall), at most cap places
+  // looked up; the masks agree within slack half-resolution pixels (the frame's edge pixels and the projected points' rounding), and
+  // at most RASTER_TOL of the reference's pixels are unmatched either way
+  const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1 }, RASTER_TOL = SAME_FRAC;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -68,6 +74,97 @@
   // { z, f, h } (null when the frame was not drawn by the inverse path); the front member (sheets off) is the first
   const HELP = `window.__lx = {
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
+  };
+  // The exact image reference, as a coverage mask at half the canvas's resolution: the box is sampled on a lattice that is refined
+  // only where the surface needs it, and each place's member (the front one, or every member with All sheets) is projected to the
+  // pane at its drawn height (window.__cmwLandProject); the half-resolution pixels those points land on are the surface the exact map
+  // draws. A cell of the lattice is refined where its corners are not all covered or all uncovered, and where it is not a facet (the
+  // projection of its centre is more than step half-resolution pixels from the corners' mean, or the corners' members do not pair up),
+  // down to depth halvings; a facet is filled as two triangles; cap bounds the places looked up, and a mask that reaches it is reported incomplete. The frame's own mask is the relief
+  // alone on a transparent frame (window.__cmwLandRelief), cut into the same pixels (a pixel is covered when half of its canvas
+  // pixels are). Answers { n (reference pixels), extra, missing, off, places (looked up), capped, w, h } or null with no inverse path.
+  window.__lxRaster = (sheets, g) => {
+    const L = window.__cmwLandRelief && window.__cmwLandRelief.land, cv = document.getElementById('canvasL');
+    if (!L || !window.__cmwLandRelief.cov) return null;
+    const b = L.box, dpr = cv.width / cv.getBoundingClientRect().width, W2 = Math.ceil(cv.width / 2), H2 = Math.ceil(cv.height / 2);
+    const NX = g.nx << g.depth, NY = g.ny << g.depth, S = 1 << g.depth, cache = new Map();
+    const xy = (i, j) => [b.x0 + i * (b.x1 - b.x0) / NX, b.y0 + j * (b.y1 - b.y0) / NY];
+    const key = (i, j) => i * (NY + 1) + j;
+    let capped = false;
+    // the places' members projected, in half-resolution pixels: [] where the place has none, null where unknown (not looked up yet)
+    const look = (list) => {
+      const need = list.filter(([i, j]) => !cache.has(key(i, j)));
+      if (!need.length) return true;
+      if (cache.size + need.length > g.cap) { capped = true; return false; }
+      const e = __cmwLandEnum(need.map(([i, j]) => xy(i, j)));
+      if (!e) return false;
+      need.forEach(([i, j], k) => {
+        // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
+        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < 0.5 ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
+        for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2]); }
+        cache.set(key(i, j), pts);
+      });
+      return true;
+    };
+    const mark = new Uint8Array(W2 * H2);
+    const put = (q) => { const x = Math.floor(q[0]), y = Math.floor(q[1]); if (x >= 0 && y >= 0 && x < W2 && y < H2) mark[y * W2 + x] = 1; };
+    // the pixels a triangle of projected places covers (a pixel whose centre is inside it, or within half a pixel of its edge)
+    const fill = (A, B, C) => {
+      const x0 = Math.max(0, Math.floor(Math.min(A[0], B[0], C[0]) - 0.5)), x1 = Math.min(W2 - 1, Math.ceil(Math.max(A[0], B[0], C[0]) + 0.5));
+      const y0 = Math.max(0, Math.floor(Math.min(A[1], B[1], C[1]) - 0.5)), y1 = Math.min(H2 - 1, Math.ceil(Math.max(A[1], B[1], C[1]) + 0.5));
+      const den = (B[1] - C[1]) * (A[0] - C[0]) + (C[0] - B[0]) * (A[1] - C[1]);
+      if (Math.abs(den) < 1e-12) { put(A); put(B); put(C); return; }
+      const eps = 0.5 / Math.max(1, Math.hypot(B[0] - A[0], B[1] - A[1]), Math.hypot(C[0] - A[0], C[1] - A[1]), Math.hypot(C[0] - B[0], C[1] - B[1]));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const px = x + 0.5, py = y + 0.5, l1 = ((B[1] - C[1]) * (px - C[0]) + (C[0] - B[0]) * (py - C[1])) / den, l2 = ((C[1] - A[1]) * (px - C[0]) + (A[0] - C[0]) * (py - C[1])) / den, l3 = 1 - l1 - l2;
+        if (l1 >= -eps && l2 >= -eps && l3 >= -eps) mark[y * W2 + x] = 1;
+      }
+    };
+    // a cell whose corners all have the same number of members is a facet of each member k (the k-th of every corner) when the
+    // projection of its centre is within g.step half-resolution pixels of the corners' mean: the facet's two triangles are filled
+    let work = [];
+    for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) work.push([i * S, j * S, S]);
+    for (let guard = 0; work.length && guard < 64; guard++) {
+      const corners = (c) => [[c[0], c[1]], [c[0] + c[2], c[1]], [c[0], c[1] + c[2]], [c[0] + c[2], c[1] + c[2]]];
+      const centre = (c) => [c[0] + c[2] / 2, c[1] + c[2] / 2];
+      if (!look(work.flatMap(corners))) { capped = true; break; }
+      const maybe = work.filter((c) => c[2] > 1 && corners(c).every(([i, j]) => cache.get(key(i, j)).length > 0));
+      if (!look(maybe.map(centre).filter(([i, j]) => Number.isInteger(i) && Number.isInteger(j)))) { capped = true; break; }
+      const next = [];
+      for (const c of work) {
+        const P = corners(c).map(([i, j]) => cache.get(key(i, j))), covered = P.filter((q) => q.length).length;
+        if (covered === 0) continue;
+        const [ci, cj] = centre(c), M = Number.isInteger(ci) && Number.isInteger(cj) ? cache.get(key(ci, cj)) : null;
+        const n = P[0].length;
+        const far = (k) => Math.max(...[1, 2, 3].map((q) => Math.hypot(P[q][k][0] - P[0][k][0], P[q][k][1] - P[0][k][1])));
+        // (the finest cells are facets only where their corners are within g.jump half-resolution pixels: a larger jump is a cut's wall, never filled)
+        const facet = covered === 4 && P.every((q) => q.length === n) && (c[2] === 1 ? P[0].every((_, k) => far(k) <= g.jump) : M && M.length === n && P[0].every((_, k) => {
+          const mx = (P[0][k][0] + P[1][k][0] + P[2][k][0] + P[3][k][0]) / 4, my = (P[0][k][1] + P[1][k][1] + P[2][k][1] + P[3][k][1]) / 4;
+          return Math.hypot(M[k][0] - mx, M[k][1] - my) <= g.step;
+        }));
+        if (facet) { for (let k = 0; k < n; k++) { fill(P[0][k], P[1][k], P[2][k]); fill(P[1][k], P[2][k], P[3][k]); } continue; }
+        if (c[2] === 1) { for (const q of P) for (const m of q) put(m); continue; }
+        const h = c[2] / 2;
+        next.push([c[0], c[1], h], [c[0] + h, c[1], h], [c[0], c[1] + h, h], [c[0] + h, c[1] + h, h]);
+      }
+      work = next;
+    }
+    const cov = window.__cmwLandRelief.cov, w = window.__cmwLandRelief.w, frame = new Uint8Array(W2 * H2);
+    for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+      let n = 0, t = 0;
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) { const px = 2 * x + dx, py = 2 * y + dy; if (px < w && py < window.__cmwLandRelief.h) { t++; if (cov[py * w + px] > 0) n++; } }
+      frame[y * W2 + x] = t && 2 * n >= t ? 1 : 0;
+    }
+    window.__lxMasks = { ref: mark, frame, W2, H2 };
+    const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = cache.size; return res;
+  };
+  // the pixels of a mask a pixel of the other is not within slack pixels of, each way, as a share of the first's pixels
+  window.__lxCompare = (ref, frame, W2, H2, slack, capped) => {
+    const grow = (m) => { const o = new Uint8Array(m.length); for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) if (m[y * W2 + x]) for (let dy = -slack; dy <= slack; dy++) for (let dx = -slack; dx <= slack; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W2 && Y < H2) o[Y * W2 + X] = 1; } return o; };
+    const gr = grow(ref), gf = grow(frame);
+    let n = 0, extra = 0, missing = 0;
+    for (let i = 0; i < ref.length; i++) { if (ref[i]) { n++; if (!gf[i]) missing++; } if (frame[i] && !gr[i]) extra++; }
+    return { n, extra, missing, off: n ? (extra + missing) / n : 1, capped: !!capped, w: W2, h: H2 };
   };
   window.__lxPick = null;
   window.__lxEnum = (pts) => {
@@ -173,12 +270,36 @@
   const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
   ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
+
+  // the raster's controls, on synthetic masks through the page's comparison: equal masks, one a pixel off (inside slack) pass; a hole of
+  // CTL_HOLE_R, a wall of CTL_WALL_W pixels and a mask CTL_SHIFT pixels off fail
+  const CTL = { w: 200, h: 160, r: 60, holeR: 8, wallW: 6, shift: 4 };
+  let rcDone = false;
+  async function rasterControls() {
+    const o = await ev(`(() => {
+      const c = ${JSON.stringify(CTL)}, W = c.w, H = c.h, mk = (f) => { const m = new Uint8Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) m[y * W + x] = f(x, y) ? 1 : 0; return m; };
+      const disc = (cx, cy, r) => (x, y) => Math.hypot(x - cx, y - cy) <= r, cx = W / 2, cy = H / 2, ref = mk(disc(cx, cy, c.r));
+      const cmp = (m) => __lxCompare(ref, m, W, H, ${REF.slack}, false).off;
+      return {
+        same: cmp(ref), one: cmp(mk(disc(cx + 1, cy, c.r))),
+        hole: cmp(mk((x, y) => disc(cx, cy, c.r)(x, y) && !disc(cx + 20, cy, c.holeR)(x, y))),
+        wall: cmp(mk((x, y) => disc(cx, cy, c.r)(x, y) || (x >= W - c.wallW && y > 20 && y < H - 20))),
+        shift: cmp(mk(disc(cx + c.shift, cy, c.r)))
+      };
+    })()`);
+    ok('the raster check passes equal masks', o.same === 0, o);
+    ok(`the raster check passes a mask a pixel off (slack ${REF.slack})`, o.one <= RASTER_TOL, o);
+    ok(`the raster check fails a hole of radius ${CTL.holeR}`, o.hole > RASTER_TOL, o);
+    ok(`the raster check fails a wall of ${CTL.wallW} pixels`, o.wall > RASTER_TOL, o);
+    ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
+  }
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   await view(VIEW_W, VIEW_H, false, false);
   for (const c of CASES) for (const sheets of MODES) {
     const name = `${c.tag}, ${sheets ? 'All sheets' : 'sheets off'}`;
     const r = info[name] = {};
     await load(c, sheets);
+    if (!rcDone) { rcDone = true; await rasterControls(); }
     const last = 1;   // (the glide from plane 0 to plane 1)
     const p0 = await park(0, 'P0'), p1 = await park(last, 'P1');
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
@@ -265,6 +386,11 @@
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
       r[u].coverage = cd;
+      // the exact image reference: the frame's relief against the raster of the reference's members, at this u
+      const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+      const rk = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
+      r[u].raster = rk;
+      ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
     // the glide's sheet pass (the image test that gives each vertex its step sheet's height) is what keeps the frame near the next plane's
