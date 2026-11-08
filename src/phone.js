@@ -646,7 +646,7 @@ const Phone = (() => {
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
     // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
-    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on') || els.viewOpts.querySelector('.sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -783,11 +783,11 @@ const Phone = (() => {
     els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
     els.style.setAttribute('aria-disabled', String(st.land));
   }
-  // the Display sheet's controls in groups, each under a small-caps label: the colour style, that style's settings,
-  // the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
+  // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
+  // that style's settings, the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
   function displayGroups(kids) {
-    const of = (k) => (k.matches('.sty-seg') ? 0 : k.matches('.fader-row') ? 2 : k.matches('.scrub, .field') ? 1 : 3);
-    const names = [$t('Colour style'), $t('Style settings'), $t('Opacity'), $t('Overlays')];
+    const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg') ? 1 : k.matches('.fader-row') ? 3 : k.matches('.scrub, .field') ? 2 : 4);
+    const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Opacity'), $t('Overlays')];
     return names.map((name, g) => [name, kids.filter((k) => of(k) === g)]).filter(([, ks]) => ks.length)
       .map(([name, ks]) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-gl' }, name), ...ks));
   }
@@ -796,8 +796,8 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...kids, ...(unit ? [unit] : [])]));
+    const tn = A.targetNote(), scope = A.scopeSeg();
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]));
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
