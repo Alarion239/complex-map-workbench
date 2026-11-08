@@ -31,6 +31,7 @@ const renewed = (x, t1) => `Math.abs(__cmwSvX() - ${x}) < 0.01`
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gs${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 20000 });
@@ -74,6 +75,7 @@ const renewed = (x, t1) => `Math.abs(__cmwSvX() - ${x}) < 0.01`
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gi${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'in', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 20000 });

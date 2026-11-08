@@ -58,6 +58,7 @@ for (const c of CASES) {
   await go(`${base}/test.html?view=steps&ns=xsv${Date.now() % 1e7}${ns++}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${c.ex}), 1)`);
+  await adopted();
   await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
   await ev(`(__cmwSteps({ surf: '${c.surf}' }), ${c.T != null ? `__cmwSteps({ T: ${c.T} }),` : ''} __cmwSteps({ go: ${c.go}, now: true }), 1)`);
   // (the key drawn on the plane is a screen aid the figure leaves out)
@@ -129,6 +130,7 @@ for (const c of CASES) {
 await go(`${base}/test.html?view=steps&ns=xsvl${Date.now() % 1e7}`);
 await settled({ until: 'window.MathJax && typeof MathJax.tex2mml === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
 await ev(`(__cmwExample(1), 1)`);
+await adopted();
 await settled({ until: '__cmwSteps().planes.length > 2', max: 15000, floor: 300 });
 // (plane 1 is coloured by f₂, the map from w₁ into the colour plane; plane 2 lies past the colour plane w₁, and carries
 // the shapes from z under F)

@@ -87,6 +87,7 @@ const svSet = async (o) => { await ev(`(__cmwSteps(${JSON.stringify(o)}), 1)`); 
 // cube, the quarter plane squared
 for (const [ex, nm] of [[1, 'strip'], [8, 'cayleycube'], [2, 'quarter']]) {
   await ev(`__cmwExample(${ex}); 1`); await settle(2200);
+  await adopted();
   await svSet({ surf: 'plane', go: 0, now: true });
   for (const [p, o] of Object.entries(PRESETS)) {
     const r = await build(`plane-${nm}-${p}`, o);
@@ -96,6 +97,7 @@ for (const [ex, nm] of [[1, 'strip'], [8, 'cayleycube'], [2, 'quarter']]) {
 }
 // the strip map on the sphere and as a landscape
 await ev('__cmwExample(1); 1'); await settle(2200);
+await adopted();
 await svSet({ surf: 'sphere', go: 0, now: true });
 for (const [p, o] of Object.entries(PRESETS)) await build(`sphere-strip-${p}`, o, p === 'article1' ? ['pdf', 'svg', 'png', 'tex'] : ['pdf', 'tex']);
 await svSet({ surf: 'land' });

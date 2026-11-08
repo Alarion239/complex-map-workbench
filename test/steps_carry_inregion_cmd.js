@@ -76,6 +76,7 @@ await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
 await ready();
 await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
 await ev(`__cmwExample(${EX}); 1`);
+await adopted();
 await wait();
 {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });

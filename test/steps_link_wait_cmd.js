@@ -22,6 +22,7 @@ if (ex >= 0) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=lkw${Date.now()}`);
   await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true }); 1`);
   await settled({ max: 30000 });

@@ -61,6 +61,7 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gl${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 20000 });
@@ -90,6 +91,7 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gp${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000, panes: false });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000, panes: false });
@@ -136,6 +138,7 @@ async function hold(x, links = true) {
   // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
   await watchCalls('GLR', ['createLines'], ['svRingGPU'], '__ringLines');
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   // (from here, the work counted: the idle job's after the page settles on plane 0, before any frame between planes)
   await ev('globalThis.__svPathStats = {}, 1');
@@ -176,6 +179,7 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gz${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });
@@ -198,6 +202,7 @@ async function hold(x, links = true) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=ga${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });

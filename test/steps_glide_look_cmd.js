@@ -181,6 +181,7 @@ async function look(c, r) {
     const ex = names.indexOf(c.example);
     ok(`${c.tag}: the example is found`, ex >= 0, names.length);
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
     await settled({ max: 60000 });
   }
   // (100 % opacity: the references are the front point's colour alone; the Opacity slider's 85 % default mixes the layers behind)
