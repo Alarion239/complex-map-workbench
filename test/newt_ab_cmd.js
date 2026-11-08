@@ -63,7 +63,8 @@ const record = async (sc, x) => {
   await ev(`__cmwSteps({ ${x === Math.floor(x) ? 'park' : 'x'}: ${x} }), 1`);
   await settled({ max: 90000, until: `__cmwSteps().x === ${x} || (__cmwSteps().glide && Math.abs(${Math.floor(x)} + __cmwSteps().glide.u - ${x}) < 1e-9)` });
   await sleep(2500);
-  return ev('JSON.stringify(window.__ab.rec)').then(JSON.parse);
+  const r = await ev('JSON.stringify(window.__ab.rec)');
+  return typeof r === 'string' ? JSON.parse(r) : r;
 };
 const records = {};
 for (const sc of SCENES) {
