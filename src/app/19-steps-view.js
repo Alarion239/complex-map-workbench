@@ -1086,9 +1086,9 @@
   // (null: none) parked
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
-  // (the sizes kept: 21 a glide, two glides beside the plane, so 400 holds those of about nine views or windows; each
-  // is a number, and a full table is dropped whole)
-  const SV_RING_SIZES_MAX = 400;
+  // (the sizes kept: SV_RING_Q + 1 a glide; the idle job makes those of every glide while the table is under half its
+  // limit, so 400 holds those of a few views or windows; each is a number, and a full table is dropped whole)
+  const SV_RING_SIZES_MAX = 400, SV_RING_Q = 20;
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
@@ -1171,7 +1171,7 @@
     svRingSizes.set(key, m);
   }
   function svRingFor(pane, map) {
-    const g = svBetween(), v = pane.view, q = Math.round(g.u * 20), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
+    const g = svBetween(), v = pane.view, q = Math.round(g.u * SV_RING_Q), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
     if (svRingMemo && svRingMemo.key === key) return svRingMemo.ring;
     let m = svRingSizes.get(sk);
     if (m === undefined) {
@@ -1353,17 +1353,18 @@
     if (!L || !L.includes(SV_ALL)) return null;
     // (the view the frames between planes draw in: svRenderMoving sets the pane's view to S.srcView)
     const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView, order = [i - 1, i];
-    if (svPolarRes.size < SV_POLAR_KEEP) for (let j = 0; j + 1 < P.length; j++) if (j !== i - 1 && j !== i) order.push(j);
+    if (svPolarRes.size < SV_POLAR_KEEP && svRingSizes.size < SV_RING_SIZES_MAX / 2) for (let j = 0; j + 1 < P.length; j++) if (j !== i - 1 && j !== i) order.push(j);
     for (const j of order) {
       if (j < 0 || j + 1 >= P.length) continue;
       const g = svBetween(j + 0.5, null);
-      for (let q = 0; q <= 20; q++) {
-        const key = svRingKey(g, q, v, paneL.w, paneL.h);
+      for (const { q, key } of svRingKeys(g, v)) {
         if (!svRingSizes.has(key)) return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s }, w: paneL.w, h: paneL.h };
       }
     }
     return null;
   }
+  // the keys of a glide g's ring sizes at view v in the left pane, a twentieth (q) each
+  function* svRingKeys(g, v) { for (let q = 0; q <= SV_RING_Q; q++) yield { q, key: svRingKey(g, q, v, paneL.w, paneL.h) }; }
   const svRingLeft = () => !!svRingJob || !!svRingNext();
   // the idle job's share of the ring: an m made for at most ms, its mesh built (svRingWarm) in the slice that publishes
   // it, so no frame finds a size whose mesh is not built; that slice can run past ms by the build's time. false when
