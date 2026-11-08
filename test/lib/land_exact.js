@@ -28,8 +28,9 @@
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
-  const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;   // (EDGE_MARGIN: the distance in Im of a member's turn under which it counts as on its sheet's window edge)
-  // (   // (the step sheets dk the glide draws, -SHEET_W..SHEET_W; the members m of a sheet tried)
+  // the step sheets dk the glide draws are -SHEET_W..SHEET_W and M_MAX members m of a sheet are tried; a member whose turn lies within
+  // EDGE_MARGIN (in Im) of its sheet's window edge is on that edge
+  const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
