@@ -1,6 +1,7 @@
-// A Split while the steps view's thread is parked between planes (#945): the formula's unit [j, j+1) becomes [j, j+n), so the
-// thread keeps its picture (the left pane is pixel-equal across the Split), the colour plane stays the chain's last, a step shown
-// alone past the formula stays that step, and Undo gives the place back.
+// A Split while the steps view's glide is in flight with All at once (S.homAll): the formula's unit [j, j+1) becomes [j, j+n), and
+// the span, which keeps its progress u, carries those n steps as a group that runs as the formula's own homotopy did. The left
+// pane at the same u is pixel-equal across the Split (the exact plot), and the group lasts to the end of that glide.
+// Negative control: the same frame with the group dropped from the span differs from the frame before the Split.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -53,6 +54,17 @@ ok('the glide ends on the last plane (5)', Math.abs((await sv()).x - 5) < 1e-9, 
 await ev('__cmwSteps({ clock: 0.0001 })'); await ev('__cmwSteps({ go: 0 })');
 info.next = await ev('__cmwSteps().span');
 ok('the next glide runs the sub-steps (a span over [0, 5], no group)', !!info.next && info.next.x1 === 5 && !info.next.grp, info.next);
+// negative control: the same Split with the group dropped from the span (the sub-steps' own homotopies at one u) is not the
+// formula's picture, so the frame check above can fail
+await open();
+await ev('__cmwSteps({ clock: 40 })'); await ev('__cmwSteps({ go: 3 })');
+await until('__cmwSteps().x > 1.2', 120000); await ev('__cmwSteps({ clock: 0.0001 })'); await quiet();
+const c0 = await pane();
+await splitNow();
+await ev('__cmwSteps({ span: [0, 5] })'); await quiet();
+const c1 = await pane();
+info.noGroupPx = diff(c0, c1);
+ok('the same frame without the group differs from the frame before the Split (negative control)', info.noGroupPx < 0 || info.noGroupPx > 0.05 * info.area, [info.noGroupPx, info.area]);
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
 return { pass, fails, info };
