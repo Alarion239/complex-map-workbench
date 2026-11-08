@@ -99,8 +99,9 @@
   // the map from the shown plane into the colour plane as a function: what the probe reads (the identity past it, where
   // the plane carries shapes and no colour of its own)
   function svF(k = svStage()) { const T = svT(); return !svColoured(k) ? (z) => z : k === 0 ? stageF(T) : k === T ? (z) => z : rangeF(k, T); }
-  // the plane the shown plane's colour is carried from, "w₁", on every plane but the colour plane's own (the key says so); else ''
-  const svCarriedFrom = () => (SV.on && svStage() !== svT() ? svName(svT()) : '');
+  // the plane the shown plane's colour is carried from, "w₁", on every plane but the colour plane's own (the key says so); else ''.
+  // A plane that draws no carried hue keeps its own key: before T the Cauchy style paints paper, not T's colour
+  const svCarriedFrom = () => (SV.on && (svStage() > svT() || (svStage() < svT() && S.dc !== 'cauchy')) ? svName(svT()) : '');
   // what the key's caption calls the colouring, "arg and |f₂|": the map into the colour plane, or the plane's own variable
   const svKeyName = (k = svStage()) => svMapName('text', k) || svName(k);
   // past the colour plane the colour is carried, so the probe names where its point comes from in the colour plane T: a

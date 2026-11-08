@@ -2,7 +2,8 @@
 // plane of example 1, for each place of T (the colour plane). The pane draws its own key: on plane T the style's key, named
 // after the map its colour is read from; on every other plane, before T and past it, the hue ring with the line saying which
 // plane its colour is carried from; on the Landscape the height key, whatever T is. The classic views' key under the image (keyUnder) has no steps
-// counterpart; this key is what a reader reads a colour by. The key follows T in the frame it moves in.
+// counterpart; this key is what a reader reads a colour by. A plane that draws no carried hue keeps its own key: the Cauchy style's
+// plane z with T elsewhere is paper, and its key stays the reason alone (test/steps_cauchy_cmd.js and steps_cauchy_parts_cmd.js). The key follows T in the frame it moves in.
 // A command file for a CDP daemon:  <runner> test/steps_plane_key_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
