@@ -802,9 +802,9 @@ const Phone = (() => {
     homeDisplay();
     const tn = A.targetNote(), scope = A.scopeSeg();
     // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
-    // drives the same value as the opacity group's, so it stays hidden while the box is in the sheet
+    // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
     const alpha = reg && $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row'));
-    if (alpha) alpha.hidden = true;
+    if (alpha) alpha.hidden = !!scope;
     if (reg) A.regionsNote();
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
