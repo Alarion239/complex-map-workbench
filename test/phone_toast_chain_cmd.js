@@ -31,14 +31,15 @@ const measureMore = () => ev(`(() => {
   const btns = [...t.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, at = document.elementFromPoint(x, y); return { t: b.textContent.trim() || b.className, hit: !!at && (at === b || b.contains(at)) }; });
   const txt = t.querySelector(':scope > span'), cut = txt ? txt.scrollWidth - txt.clientWidth : null;
   const rg = document.createRange(); if (txt) rg.selectNodeContents(txt);
-  const lines = txt ? new Set([...rg.getClientRects()].map((r) => Math.round(r.top))).size : null;
+  const tops = txt ? [...rg.getClientRects()].map((r) => r.top).sort((a, b) => a - b) : [];
+  const lines = txt ? tops.reduce((n, y, i) => n + (i > 0 && y - tops[i - 1] > ${TOAST_LINE_H / 2} ? 1 : 0), tops.length ? 1 : 0) : null;
   return { sheet: [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), head: hb && [hb.top, hb.bottom].map(Math.round), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), under, open: sheet.classList.contains('open'), cut, lines,
     win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, btns };
 })()`);
 // the toast's words wrap at a phone's width rather than being cut (#1329, ux's ruling): the text span may overflow by at most one
-// pixel, and its text is at most two lines (lines = distinct line tops of its text); English, which fits on one line at 360 px,
+// pixel, and its text is at most two lines (lines = its text's line boxes, 18 px apart); English, which fits on one line at 360 px,
 // keeps the one-line control
-const CUT_MAX = 1, TOAST_MAX_LINES = 2, PHONE_360 = [360, 640];
+const CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, PHONE_360 = [360, 640];
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   await fresh(w, h, lang);
