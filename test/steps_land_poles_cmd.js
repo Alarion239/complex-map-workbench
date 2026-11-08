@@ -32,8 +32,22 @@ info.cRest = await cover();
 ok('T = w₁: plane w₂ at rest covers its block', !!info.cRest && info.cRest.bare === 0, info.cRest);
 info.gRest = await cover(false);
 ok('T = w₁: plane w₂ at rest, the box grid alone leaves points bare', !!info.gRest && info.gRest.bare > 0, info.gRest);
-// the glide frames below draw the carried mesh (the exact inverse leaves no carry), the path a plane at rest still uses
+// the Möbius glide frame takes the exact inverse path by default; with the mesh switch it draws the carried mesh instead, so a silent
+// fallback to the mesh fails the first check and the second shows the switch changes the path
+const pathOf = async () => ev('(() => { const c = __cmwLandCarry(); return c ? c.path || "mesh" : null; })()');
+await rest(1);
+await ev(`__cmwSteps({ T: 1, x: 1.5 }); 1`);
+await settled({ max: 60000 });
+await ev(rAF2);
+info.pathDefault = await pathOf();
+ok('a Möbius glide frame is drawn by the exact inverse path', info.pathDefault === 'inverse', info.pathDefault);
 await ev('__cmwLandMeshOnly(true); 1');
+await settled({ max: 60000 });
+await ev(rAF2);
+info.pathMesh = await pathOf();
+ok('the control: with the mesh switch the same frame is not drawn by the inverse path', info.pathMesh !== 'inverse', info.pathMesh);
+// the frames below are those of the planes that still use the carried mesh when at rest (a plane drawn by a carry from w₁ over a
+// Möbius pole); the exact path is held by test/lib/land_exact.js's 'Möbius with a pole in the box'
 await rest(1);
 for (const T of [1, 2]) {
   await ev(`__cmwSteps({ T: ${T} }); 1`);
