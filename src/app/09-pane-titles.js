@@ -1234,7 +1234,7 @@
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
-    // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
+    // (the steps view on every plane but the colour plane's own: the wheel is the colour plane's, carried by the points)
     if (svCarriedKey()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
