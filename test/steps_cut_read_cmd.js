@@ -1,6 +1,7 @@
 // The carried fill's source-point read on chains with a cut (issue #1108): a glide frame drawn by the carried meshes
 // (__cmwSteps({ mesh })) is the exact picture of the map at the same u (the inverse pass), the colour layer alone, at
-// most FRAC of the pixels more than TOL levels apart, the pixels within CUT_PX of the cut's image left out. Square root
+// most FRAC of the pixels more than TOL levels apart, away from the cut's image (the pixels within CUT_PX of it, the band, are
+// compared apart with the same bounds). Square root
 // and its sheets, the Logarithm of an annulus, at u = GLIDE_U. The measure is steps_region_centre_cmd.js's.
 // Controls, each of which must fail the same measure:
 // - the comparator: the mesh frame at GLIDE_U against the exact picture at WRONG_U;
@@ -12,8 +13,8 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (TOL levels of 255 per channel and FRAC of the pixels, as steps_region_centre_cmd.js; measured on the two chains: max 5 and
-// 204 levels at a few pixels, at most 0.01 % over TOL; the band around the cut's image, left out and only reported, is the
-// info's band. A control must put more than CONTROL_FACTOR times FRAC over TOL: measured,
+// 204 levels at a few pixels, at most 0.01 % over TOL; the band around the cut's image, compared apart: 6.2 % and 8.0 % over TOL.
+// A control must put more than CONTROL_FACTOR times FRAC over TOL: measured,
 // the wrong u 98 %, the read 3 px off 3.4 % and 8.2 %)
 const TOL = 6, FRAC = 0.002, CONTROL_FACTOR = 10, CONTROL_MIN_FRAC = CONTROL_FACTOR * FRAC;
 // (u of the glide frame, the wrong u of the comparator control; CUT_PX the half-width of the band around the cut's image that
@@ -71,6 +72,7 @@ for (const c of CUTS) {
   info[c.example] = r;
   ok(`${c.example}: the two frames are the inverse pass's and the carried mesh's`, r.paths[0] === 'inverse' && r.paths[1] === 'mesh', r);
   ok(`${c.example}: the carried mesh's frame is the exact picture, at most ${FRAC * 100} % of the pixels more than ${TOL} levels off`, r.n > MIN_PIXELS && r.over <= FRAC, r);
+  ok(`${c.example}: the band of ${CUT_PX} px around the cut's image: the carried mesh's frame is the exact picture, at most ${FRAC * 100} % of its pixels more than ${TOL} levels off`, r.band.n > 0 && r.band.over <= FRAC, r.band);
   const wrongU = await measure(c, ex, { exactU: WRONG_U });
   info[`${c.example} (control: the exact picture at u = ${WRONG_U})`] = wrongU;
   ok(`${c.example} (control): the mesh frame against the exact picture at u = ${WRONG_U}: more than ${CONTROL_MIN_FRAC * 100} % of the pixels over ${TOL} levels`, wrongU.over > CONTROL_MIN_FRAC, wrongU);
