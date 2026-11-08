@@ -2,7 +2,7 @@
 // - the partial sums of the exponential (an exact-degree polynomial: its Newton op finds every root of the step's
 //   homotopy, so its members are complete) glides by the inverse pass between its planes, and its end frames are
 //   the parked plane's near the end (away from the colour lines more than 6 levels off in a channel on at most
-//   0.2 % of the pixels);
+//   0.2 % of the pixels), and near the start (u = 1e-5) the parked plane 0's;
 // - the control, a Newton inverse that is not complete (the zeta example's, with no seeds): its Everywhere glide keeps
 //   the carried mesh, whatever the gate on complete ops lets through.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
@@ -56,6 +56,15 @@ const SCOPE_ALL = JSON.stringify({ scope: 'all', surf: 'plane' });
     const g = await at(x, 'inverse');
     info[`sums x ${x}`] = g;
     ok(`partial sums, Everywhere, at x = ${x}: drawn by the inverse pass`, !!g && g.path === 'inverse', g);
+  }
+  {
+    // (a glide at u moves a point by about u times |F - z|, many band widths where F is large: the frame is the parked
+    // plane 0's only as u tends to 0)
+    const x = 0.00001, g = await at(x, 'inverse');
+    const r = await ev('__giSmooth(__giGrab(), window.__gi.p0)');
+    info[`sums start ${x}`] = { g, r };
+    ok(`partial sums, Everywhere, at x = ${x}: drawn by the inverse pass`, !!g && g.path === 'inverse', g);
+    ok(`partial sums, Everywhere, at x = ${x}: the parked plane 0's frame (away from the lines > 6 on <= 0.2 %)`, r.n > 10000 && r.over <= 0.002, r);
   }
   {
     const x = 0.999, g = await at(x, 'inverse');
