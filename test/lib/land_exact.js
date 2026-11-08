@@ -38,7 +38,12 @@
   // the share of the parked plane's surface pixels a frame at an end may lack: it is the parked plane's within SAME_FRAC of its pixels,
   // so a surface pixel it lacks is one of those
   const COVER_TOL = SAME_FRAC;
-  const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;   // the end frames in the Top view: at most this many coloured pixels with a hue this far from the parked plane's (a hue-shifted row at a sheet boundary has hundreds)
+  // The end frames in the Top view: at most HUE_OFF_MAX coloured pixels with a hue HUE_OFF_DEG or more from the parked plane's.
+  // The floor is what a frame within float precision of the parked plane (u = 1e-5 and 0.99999) shows against it: 0 to 9 pixels on
+  // the cases without a hue-shifted row, 23 on the Joukowski airfoil, the largest; a hue-shifted row at a sheet boundary is
+  // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
+  // planes' parked frames are far over it (the control in each case).
+  const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
@@ -418,6 +423,8 @@
     const p0T = await park(0, 'P0T'), p1T = await park(last, 'P1T');
     await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`);
     ok(`${name}: the parked frames are still in the Top view`, p0T.still && p1T.still, { p0T, p1T });
+    const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
+    ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     for (const u0 of GLIDE_U) {
       const u = u0, first = u0 < GLIDE_MID, lastU = u0 > GLIDE_MID;   // (first: a probe near plane z, lastU: near the next plane)
