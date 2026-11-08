@@ -232,12 +232,12 @@ H.load = async (ns, st, extra, viewName) => {
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
   H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
   await H.reseed();
-  // the page may still be starting after its load event (software GL, a busy machine): the steps chain is built once the
-  // plane list holds the origin plane and one plane per active step, so the answer waits for it when the saved state has
-  // steps, and a page that never gets there fails here, with what it answered, rather than leaving the suite to read a
-  // chain that is not there yet
+  // the page may still be starting after its load event (software GL, a busy machine): the steps chain, in whichever view
+  // the page shows, is built once the plane list holds the origin plane and one plane per active step, so the answer waits
+  // for it when the saved state has steps, and a page that never gets there fails here, with what it answered, rather than
+  // leaving the suite to read a chain that is not there yet
   const want = Array.isArray(o.steps) && o.steps.length ? 1 + o.steps.filter((q) => q.on !== false).length : 0;
-  const w = await H.settled({ only: true, max: LOAD_START_MS, until: `(() => { const s = __cmwSteps(); return s.on && s.planes.length >= ${want}; })()` });
+  const w = await H.settled({ only: true, max: LOAD_START_MS, until: `(() => { try { return __cmwSteps().planes.length >= ${want}; } catch (e) { return false; } })()` });
   const r = await H.ev(`({lamps: __qa.lamps(), planes: __cmwSteps().planes.length})`);
   if (!w.ok) throw new Error(`H.load: the page did not build its steps chain (${want} planes wanted) within ${LOAD_START_MS} ms after loading (${ns}): ${JSON.stringify(r)}`);
   return r;
