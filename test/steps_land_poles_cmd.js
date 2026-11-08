@@ -32,6 +32,8 @@ info.cRest = await cover();
 ok('T = w₁: plane w₂ at rest covers its block', !!info.cRest && info.cRest.bare === 0, info.cRest);
 info.gRest = await cover(false);
 ok('T = w₁: plane w₂ at rest, the box grid alone leaves points bare', !!info.gRest && info.gRest.bare > 0, info.gRest);
+// the glide frames below draw the carried mesh (the exact inverse leaves no carry), the path a plane at rest still uses
+await ev('__cmwLandMeshOnly(true); 1');
 await rest(1);
 for (const T of [1, 2]) {
   await ev(`__cmwSteps({ T: ${T} }); 1`);
@@ -63,4 +65,5 @@ for (const u of [0.85, 0.95]) {
   await ev('window.__svScrubUp(), 1');
   await settled({ max: 60000 });
 }
+await ev('__cmwLandMeshOnly(false); 1');
 return { pass: fails.length === 0, fails, info };
