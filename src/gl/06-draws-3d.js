@@ -268,6 +268,19 @@
     }
     const out = polar ? o : landC;
     if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
+    // c.exact (the glide's inverse inputs, GLR.landInverse): the places and preimages are the shown plane's grid walked
+    // backwards through the glide's map, not plane s's grid carried forward; a pass that cannot draw leaves this
+    // frame to the carried grid
+    let exact = false;
+    if (c.exact && !polar) {
+      if (!landC.zTex) landC.zTex = floatTex();
+      const h0 = c.hT == null ? c.T : c.hT;
+      const r = landInverse(Object.assign({}, c.exact, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: landC.zTex }));
+      exact = r === 'drawn';
+      c.exactState = r;
+    }
+    if (!polar) landC.exact = exact;
+    if (!exact) {
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -276,6 +289,7 @@
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
+    }
     use(P2);
     u1i(P2, 'uN', N);
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
@@ -1238,6 +1252,8 @@
     // its own first would stall the GPU process once for them and once more for the sheets')
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
     const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (the glide's inverse pass: 'drawn', 'pending' or 'error' when st.carry.exact asked for it)
+    info.exact = st.carry && st.carry.exact ? st.carry.exactState || null : null;
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
     const farPatches = [];
@@ -1318,7 +1334,9 @@
       common(Pc);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
+      if (landC && landC.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex); }
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
       keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);

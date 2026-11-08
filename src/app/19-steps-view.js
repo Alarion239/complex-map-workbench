@@ -365,12 +365,24 @@
   // s → b). Across a d/dz step the points of z's plane move along the classic deformation's straight line from stage a
   // to stage b (mode 1 at a d/dz step), so the glide is continuous as everywhere else. At a plane, that plane's surface
   // at rest. False when the Landscape is not on the pane
+  // The inverse inputs of a glide frame's exact Landscape (GLR.landInverse): the front point z of plane 0 over each vertex of
+  // the shown plane's grid, from step b's homotopy at u inverted by its own ops (invHomPath). Null unless that path draws:
+  // a d/dz step, a chain with no inverse plan, a Newton inverse with no seeds
+  function svLandExact(b, u) {
+    if (!GLR.landInverse || !GLR.packShapes || derivIn(0, b)) return null;
+    packRecs([SV_ALL], true);
+    const p = invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
+    if (p.path !== 'inverse' || p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back))) return null;
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1 };
+  }
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
     if (!g.all && (g.u <= 1e-6 || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u });
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    const c = svLandCarry(mapOf, g.a, g.b, g.u);
+    if (!g.all && !c.plain) c.exact = svLandExact(g.b, g.u);
+    render3D(pane, c);
     return true;
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's

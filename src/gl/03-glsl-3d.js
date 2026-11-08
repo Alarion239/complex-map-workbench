@@ -625,6 +625,8 @@ void main() {
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep;
+// uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
+uniform highp sampler2D uZ; uniform int uZOn;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
@@ -641,7 +643,7 @@ void main() {
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = carryZ(vec2(V));
+  vZ = uZOn == 1 ? texelFetch(uZ, V, 0).xy : carryZ(vec2(V));
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
