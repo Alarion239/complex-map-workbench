@@ -951,11 +951,14 @@
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the steps view on a plane other than the colour plane: the colour wheel, with the plane its colour is carried from (the
+  // Landscape keeps its height key)
+  const svCarriedKey = () => SV.on && !!svCarriedFrom() && (!lPhase() || !lLand());
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
-    // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
-    if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
+    if (svCarriedKey()) return 'color';
+    if (!lPhase()) return null;
     return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
@@ -1229,7 +1232,7 @@
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (SV.on && svCarriedFrom() && !lPhase()) {
+    if (svCarriedKey()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
