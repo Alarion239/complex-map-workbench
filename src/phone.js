@@ -619,7 +619,7 @@ const Phone = (() => {
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
     // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
-    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on') || els.viewOpts.querySelector('.sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -756,13 +756,27 @@ const Phone = (() => {
     els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
     els.style.setAttribute('aria-disabled', String(st.land));
   }
+  // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
+  // that style's settings, the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
+  const OPACITY_GROUP = 3;
+  function displayGroups(kids) {
+    const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg') ? 1 : k.matches('.fader-row') ? 3 : k.matches('.scrub, .field') ? 2 : 4);
+    const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Opacity'), $t('Overlays')];
+    return names.map((name, g) => [name, g, kids.filter((k) => of(k) === g)]).filter(([, , ks]) => ks.length)
+      .map(([name, g, ks]) => {
+        const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, name);
+        // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
+        if (g === OPACITY_GROUP) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
+        return h('section', { class: 'ph-grp' }, head, ...ks);
+      });
+  }
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
+    const tn = A.targetNote(), scope = A.scopeSeg();
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]));
     if (reg) { A.regionsNote(); els.regions.append(reg); }
     els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
