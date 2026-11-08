@@ -266,7 +266,7 @@
   // the last Landscape frame's height-axis labels, as their screen y (CSS px)
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
-  window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring, lines: legendState.L.lines || 0 }; };
+  window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring, lines: legendState.L.lines || 0, room: legendState.L.room, widest: legendState.L.widest }; };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 

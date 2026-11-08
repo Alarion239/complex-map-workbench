@@ -97,5 +97,6 @@ for (const [lang, re] of [['en', /^Cauchy integral carried from z$/], ['ru', /^Ğ
   const lgc = await legend();
   ok(`T = z, thread at plane 1, ${lang}: the key names the Cauchy integral and the plane its colour is carried from`, lgc.kind === 'color' && re.test(lgc.caption || ''), lgc);
   ok(`T = z, thread at plane 1, ${lang}: the line fits the key (at most ${KEY_LINES} lines)`, lgc.lines >= 1 && lgc.lines <= KEY_LINES, lgc);
+  ok(`T = z, thread at plane 1, ${lang}: the widest word fits the key's room`, lgc.widest > 0 && lgc.widest <= lgc.room, lgc);
 }
 return { pass: !fails.length, fails, info };

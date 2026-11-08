@@ -1094,7 +1094,8 @@
   // the key as a CSS conic gradient: arg increasing counterclockwise from 1 (the folded legend chip, the header button)
   const keyConic = () => `conic-gradient(from 90deg, ${Array.from({ length: 25 }, (_, i) => keyHex(-i * 15 * DEG)).join(', ')})`;
   // (Hc: the key's height when it is one line of text with no ring)
-  const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
+  const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8,
+    Wk: 144 };   // Wk: the width of the carried-colour key, whose lines hold the widest word of any language (≤ 58 px) right of the wheel
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
@@ -1241,9 +1242,9 @@
     const st = legendState[side];
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
     const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
-    const { W, dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H;
-    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; st.drawn = ''; }
-    st.h = Hh;
+    const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = SV.on && kind === 'color' && svCarriedFrom() && !lPhase() ? LEG.Wk : LEG.W;
+    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.style.width = W + 'px'; st.drawn = ''; }
+    st.h = Hh; st.w = W;
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
@@ -1284,7 +1285,7 @@
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
   function paintLegend(ctx, anyCut, kind, st) {
-    const W = LEG.W, Hh = st.h || LEG.H;
+    const W = st.w || LEG.W, Hh = st.h || LEG.H;
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
@@ -1382,17 +1383,18 @@
       const KEY_PAD = 8;     // room kept at the legend's right edge
       const KEY_TOP = 22;    // baseline of the first line
       const KEY_STEP = 13;   // line step (10.5 px text)
-      const maxW = LEG.W - KEY_PAD - KEY_X,
+      const maxW = W - KEY_PAD - KEY_X,
         words = (svT() === 0 && S.dc === 'cauchy' && cauchyPlot() ? $tx('key line', 'Cauchy integral carried from {p}', { p: svCarriedFrom() }) : $tx('key line', 'colour carried from {p}', { p: svCarriedFrom() })).split(' '), lines = [];
       const ui = `600 10.5px ${TH.ui}`;
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
       st.caption = words.join(' '); st.lines = lines.length;
+      st.room = maxW; st.widest = Math.max(...words.map((w) => { ctx.font = ui; return ctx.measureText(w).width; }));
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
-        for (const p of ln.split(/((?<![A-Za-z])w(?![A-Za-z]))/).filter(Boolean)) { ctx.font = p === 'w' ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP, maxW); x += Math.min(maxW, ctx.measureText(p).width); }
+        for (const p of ln.split(/((?<![A-Za-z])[a-z](?![A-Za-z]))/).filter(Boolean)) { ctx.font = /^[a-z]$/.test(p) ? `italic 500 12px ${TH.math}` : ui; ctx.fillText(p, x, KEY_TOP + i * KEY_STEP); x += ctx.measureText(p).width; }
       });
       return;
     }
