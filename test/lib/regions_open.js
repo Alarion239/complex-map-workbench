@@ -7,6 +7,8 @@
 //                        sets a seeded pattern through the test hook): what a user's own saved work does; lang, when
 //                        given, is the page's language
 (({ U, ev, send, nav, sleep, settled }) => {
+  // CMW_HOOK_DELAY_MS: the test page rebuilds itself once and defines its __cmwRegions hook that long after it starts (off by default)
+  const HOOK_DELAY_MS = (typeof process !== 'undefined' && +process.env.CMW_HOOK_DELAY_MS) || 0;
   const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
   const STATE = (o) => Object.assign({
     v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0,
@@ -15,7 +17,7 @@
   const openSaved = async (ns, st, lang) => {
     await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-    await nav(`${U}/test.html?ns=${ns}${lang ? `&lang=${lang}` : ''}`);
+    await nav(`${U}/test.html?ns=${ns}${lang ? `&lang=${lang}` : ''}${HOOK_DELAY_MS ? `&hook_delay=${HOOK_DELAY_MS}` : ''}`);
     await settled({ only: true, max: 60000, until: `typeof __cmwRegions === 'function'` });
     await settled({ floor: 800 });
   };
