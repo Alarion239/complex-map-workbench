@@ -1153,8 +1153,10 @@ section('singularAfter (ζ after an injective plan)');
 // seeds are spread over its y0..y1), seeds the grid (re, im ranges and step) of the true image's search (Newton, 40 steps,
 // residual <= 1e-9 (1 + |w|)), and the w are an n x n grid over box. A w is in the true image when the search finds an
 // in-region root; it is drawn when one of the op's members lies in the region
-function newtShare(b, t, anchor, inRegion, seeds, box, n) {
-  const o = InvOps.opNewt(t, b.hom, null, undefined, anchor), Ht = b.hom(t);
+// (viaHom: the op as the app builds it, Inverse.homOps(b, t) with the anchor set on it, else InvOps.opNewt's own without a pole)
+function newtShare(b, t, anchor, inRegion, seeds, box, n, viaHom) {
+  const o = viaHom ? Inverse.homOps(b, t).ops[0] : InvOps.opNewt(t, b.hom, null, undefined, anchor), Ht = b.hom(t);
+  if (viaHom) o.p.anchor = anchor;
   const dH = (u) => { const h = 1e-6; return CX.scale(CX.sub(Ht(C(u.re + h, u.im)), Ht(C(u.re - h, u.im))), 0.5 / h); };
   const trueRoot = (w) => {
     for (const re of seeds.re) {
@@ -1185,6 +1187,20 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   for (const t of [0.25, 0.5, 0.75, 0.9, 0.99]) {
     const r = newtShare(b, t, { re: 0.5, y0: 10.45, y1: 28.55 }, (u) => u.re > 0 && u.re < 1 && u.im > 10.45 && u.im < 28.55, { re: [0.2, 0.5, 0.8], im0: 0, im1: 110, dim: 2 }, { x0: -0.4, x1: 1.4, y0: (1 - t) * 10.45 - 1, y1: (1 - t) * 28.55 + 1 }, 14);
     check(`opNewt zeta at t = ${t}: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
+  }
+}
+// zeta in the window of its strip's pole: the source window Im -2.8..13.8 (the glide's frame over Re -10.1..11.1 is the same
+// window), where most of the strip's image is that of the neighbourhood of the pole z = 1, which no ladder seed reaches
+// (#1084): the op as the app builds it (a pole member in place of the deflated one), against the same truth
+{
+  const b = Funcs.build(St('zeta')), op = Inverse.homOps(b, 0.75).ops[0];
+  check('opNewt zeta: the op carries the pole z = 1 (residue 1, regular part Euler\'s constant) and its own program key', !!op.p.pole && Math.hypot(op.p.pole.p.re - 1, op.p.pole.p.im) < 1e-12 && Math.abs(op.p.pole.res.re - 1) < 1e-6 && Math.abs(op.p.pole.reg.re - 0.5772156649) < 1e-6 && Inverse.opSig(op) === 'NEWTP', op.p.pole);
+  const series = Inverse.homOps(Funcs.build(St('series')), 0.5).ops[0];
+  check('opNewt series: no pole, the plain program key', series.p.pole === null && Inverse.opSig(series) === 'NEWT', series.p.pole);
+  const floor = { 0.5: 0.95, 0.75: 0.95 };
+  for (const t of [0.5, 0.75]) {
+    const r = newtShare(b, t, { re: 0.5, y0: -2.8, y1: 13.8 }, (u) => u.re > 0 && u.re < 1 && u.im > -2.8 && u.im < 13.8, { re: [0.2, 0.5, 0.8], im0: -3, im1: 14, dim: 0.5 }, { x0: -10.1, x1: 11.1, y0: -2.8, y1: 13.8 }, 32, true);
+    check(`opNewt zeta at t = ${t} over the pole's image: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
   }
 }
 // the exponential series sum z^n / n! (no exact inverse), the disc |z| < 2, w over [-3, 3]^2: the members keep reaching
