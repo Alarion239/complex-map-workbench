@@ -17,12 +17,13 @@
 //   is at its end), and F is whole or fully out of the rail's view.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const NEXT_EDGE = 8;   // (px of the next plane a rail shows under its fade)
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
 const ns = 'svs' + Date.now();
 const LOG = { type: 'log', params: {}, on: true }, ROOT = { type: 'root', params: { n: 3 }, on: true }, EXP = { type: 'exp', params: {}, on: true }, SIN = { type: 'sin', params: {}, on: true };
-const CHAINS = { log: [LOG], root: [ROOT], two: [LOG, EXP], three: [LOG, EXP, SIN], long: [LOG, EXP, SIN, ROOT, LOG, EXP, SIN, ROOT, LOG, EXP] };
+const CHAINS = { log: [LOG], root: [ROOT], two: [LOG, EXP], three: [LOG, EXP, SIN], four: [LOG, EXP, SIN, ROOT], long: [LOG, EXP, SIN, ROOT, LOG, EXP, SIN, ROOT, LOG, EXP] };
 const open = async (w, h, mobile, lang, chain) => {
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: CHAINS[chain], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
   await view(w, h, false, mobile);
@@ -55,7 +56,7 @@ const measure = () => ev(`(() => {
   const unit = { l: track.l, r: Math.max(track.r, fb ? fb.r : 0) };
   const left = others.filter((o) => o.r <= rb.l + ${EPS}).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - ${EPS}).reduce((a, o) => Math.min(a, o.l), Infinity);
   return { ph, clear: top - body.b, meet, off: tc - pc, gapL: rb.l - left, gapR: right - rb.r, scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rb.r - rb.l,
-    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, ringOff, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null, planeIn: whole(curPlane), pillIn: whole(curPill), farEdge, fadeR, overlap, scrollX: rail.scrollLeft };
+    unitOff: (unit.l + unit.r) / 2 - (rb.l + rb.r) / 2, ringOff, fShown: !!fb, fIn: fb ? fb.l >= rb.l - ${EPS} && fb.r <= rb.r + ${EPS} : null, fOut: fb ? fb.l >= rb.r - ${EPS} || fb.r <= rb.l + ${EPS} : null, dotOff, atEnd, atStart, centre: strip.dataset.centre || null, planeIn: whole(curPlane), pillIn: whole(curPill), farEdge, fadeR, nextOn: !!q('.sv-next') && q('.sv-next').getAttribute('aria-disabled') !== 'true' && !q('.sv-next').disabled, overlap, scrollX: rail.scrollLeft };
 })()`);
 const SIZES = [[1920, 1080, false], [1440, 900, false], [1280, 800, false], [1024, 768, false], [390, 844, true], [360, 740, true], [740, 360, true], [915, 412, true]];
 for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two', 'three', 'long']) for (const [w, h, mobile] of SIZES) {
@@ -71,7 +72,7 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
     if (!m.ph) ok(`${tag}: a one-step thread does not scroll`, !m.scrolls, m);
     else {
       ok(`${tag}: at rest the shown plane and its pill are whole in the rail`, m.planeIn && m.pillIn, m);
-      ok(`${tag}: a thread that overflows shows the next plane's edge (> 0 px) under the fade, and the rail scrolls to it`, !m.scrolls || (m.fadeR && m.farEdge > 0), m);
+      ok(`${tag}: a thread that overflows shows the next plane's edge (≥ ${NEXT_EDGE} px) under the fade, or › is enabled at rest`, !m.scrolls || (m.fadeR && (m.farEdge >= NEXT_EDGE || m.nextOn)), m);
     }
   } else if (!m.ph) ok(`${tag}: F shows with the second step`, m.fShown, m);
   if (!m.ph && one && w >= 1024) ok(`${tag}: a one-step thread is on the pane's centre line (±4 px)`, Math.abs(m.off) <= 4, { off: Math.round(m.off), gapL: m.gapL, gapR: m.gapR, railW: m.railW });
@@ -84,9 +85,25 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
     ok(`${tag}: F is whole inside the rail`, m.fIn === true, m);
   }
   if (!one && m.scrolls) {
-    ok(`${tag}: F is whole or fully out of the rail's view, or the rail is at its start with the shown plane whole and F a scroll away under the fade`, m.fIn !== false || m.fOut === true || (m.atStart && m.planeIn && m.fadeR), m);
+    ok(`${tag}: F is whole or fully out of the rail's view`, m.fIn !== false || m.fOut === true, m);
     ok(`${tag}: the shown dot is centred in the rail (or the rail is at an end)`, Math.abs(m.dotOff) <= 4 || m.atStart || m.atEnd, m);
   }
+}
+// landscape phones, 568 to 932 px in 4 px steps, with two, three and four steps: at rest F is whole or fully out of the rail's view,
+// at every width (a spacing change moves the band of widths where the thread plus F overflows by less than F, it does not remove it)
+const SWEEP_FROM = 568, SWEEP_TO = 932, SWEEP_STEP = 4;
+for (const chain of ['two', 'three', 'four']) {
+  await open(SWEEP_FROM, 360, true, 'en', chain);
+  const bad = [];
+  for (let w = SWEEP_FROM; w <= SWEEP_TO; w += SWEEP_STEP) {
+    await view(w, 360, false, true);
+    await still({ floor: 150 });
+    await ev("document.querySelector('#svStrip .sv-rail').scrollLeft = 0; 1");
+    await still();
+    const m = await measure();
+    if (!(m.fIn !== false || m.fOut === true)) bad.push({ w, fIn: m.fIn, fOut: m.fOut, railW: m.railW });
+  }
+  ok(`${chain}, ${SWEEP_FROM} to ${SWEEP_TO} px landscape in ${SWEEP_STEP} px steps: F is whole or fully out of the rail's view at rest`, bad.length === 0, bad);
 }
 info.checks = 'steps view: the thread bar at 1920/1440/1280/1024 and 390/360, en and ru: clear of the ruler, meets no control, centred on the pane (laptop) or in its rail (phone)';
 return { pass: fails.length === 0, fails, info };
