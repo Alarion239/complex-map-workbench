@@ -801,6 +801,9 @@ ${L ? `  bool ownA = a.w < uCode + 0.1, ownB = b.w < uCode + 0.1;
   if (!ownA && !ownB) return;
   eZc = ownA ? z0 : z1; eFixed = ownA && ownB;` : ''}
   vec2 ha = edgeH(z0), hb = edgeH(z1);
+${L ? `  // (the continuation from the own end does not give the other end's height: the layer's own cut runs between them, and
+  // the fixed cut's heights, which are the vertices', are bisected)
+  if (!eFixed && (abs(ha.x - a.z) > tol || abs(hb.x - b.z) > tol)) { eFixed = true; ha = edgeH(z0); hb = edgeH(z1); }` : ''}
   if (!(ha.y > 0.5 && hb.y > 0.5) || abs(ha.x - a.z) > tol || abs(hb.x - b.z) > tol) return;
   vec2 wLo = edgeW(z0), wHi = edgeW(z1);
   float lo = 0.0, hi = 1.0, hLo = a.z, hHi = b.z, d3 = d0;
