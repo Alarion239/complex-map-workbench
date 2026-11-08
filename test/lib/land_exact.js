@@ -426,7 +426,7 @@
       }
       // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
       {
-        const sc = await ev('__cmwLandScale()'), ref = first ? p0.scale : lastU ? p1.scale : p1.scale;
+        const sc = await ev('__cmwLandScale()'), ref = first ? p0.scale : p1.scale;
         const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
         if (u === END_U || u === 1 - END_U) {
           ok(`${t}: the frame's scale and boost are the parked plane's (mu ${sc && sc.mu} against ${ref && ref.mu}, boost ${sc && sc.boost} against ${ref && ref.boost}; within ${SCALE_TOL})`,
