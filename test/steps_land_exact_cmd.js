@@ -8,8 +8,8 @@
 // - the path: the frame's record says 'inverse' (render3D.carried.path), not 'mesh';
 // - the geometry: at probe places w the frame's per-vertex draw data (window.__cmwLandFrameVerts(pts): per place the
 //   layers the frame draws there, { h: height, member }) is the CPU reference's: Newton's method for H_u(z) = w from seeds
-//   over the plane's box, h = the height the frame draws for the plane's value at z (window.__cmwLandFrameHeight: the frame's own scale and knee); All sheets: every member
-//   (the same number of layers, the same heights within HEIGHT_TOL; places where Newton's method finds no root are not checked); sheets off: one layer, a member's height;
+//   over the plane's box, h = the height of the plane's value at z (window.__cmwLandPick); All sheets: every member
+//   (the same number of layers, the same heights within HEIGHT_TOL); sheets off: one layer, a member's height;
 // - the image: u = 0.002 is plane z's parked frame and u = 0.998 the next plane's, at most SAME_FRAC of the pixels more
 //   than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js);
 // - the coverage: the frame has at least the surface pixels (saturation over 30, the measure of steps_land_cover_cmd.js's
@@ -77,7 +77,7 @@ window.__lxRoots = (pts) => {
       const z = newton(s, re, im);
       if (z && !roots.some((r) => Math.hypot(r.re - z.re, r.im - z.im) < ${SAME_ROOT})) roots.push(z);
     }
-    return roots.map((z) => ({ z: [z.re, z.im], h: __cmwLandFrameHeight([pk.F(z).re, pk.F(z).im]) }));
+    return roots.map((z) => ({ z: [z.re, z.im], h: pk.height(pk.F(z)) }));
   });
 };
 1`;
@@ -131,10 +131,7 @@ for (const c of CASES) for (const sheets of [false, true]) {
     ok(`${t}: at least the parked planes' surface pixels less ${tol * 100} %`, cov.n >= (1 - tol) * base, { n: cov.n, base });
     // the geometry
     const pts = await ev(`(() => { const b = __cmwLandCarry(true) || __lxPick.box; const o = []; for (let i = 0; i < ${PROBES}; i++) for (let j = 0; j < ${PROBES}; j++) o.push([b.x0 + (i + 0.5) * (b.x1 - b.x0) / ${PROBES}, b.y0 + (j + 0.5) * (b.y1 - b.y0) / ${PROBES}]); return o; })()`);
-    // (the reference at the places the frame's grid vertices are: the frame draws its nearest vertex, not the probe place)
-    const vts = await ev(`typeof __cmwLandFrameVerts === 'function' ? __cmwLandFrameVerts(${JSON.stringify(pts)}) : null`);
-    const wts = pts.map((p, i) => (vts && vts[i] && vts[i][0] && vts[i][0].w) || p);
-    const ref = await ev(`__lxRoots(${JSON.stringify(wts)})`);
+    const ref = await ev(`__lxRoots(${JSON.stringify(pts)})`);
     const refN = ref.filter((x) => x.length).length;
     r[u] = Object.assign(r[u], { refPlaces: refN });
     ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
@@ -144,7 +141,7 @@ for (const c of CASES) for (const sheets of [false, true]) {
       let bad = 0, n = 0; const at = [];
       pts.forEach((p, i) => {
         const want = (ref[i] || []).map((x) => x.h).sort((a, b) => a - b), have = (got[i] || []).map((x) => x.h).sort((a, b) => a - b);
-        if (!want.length) return;   // (the Newton reference finds no root in a pole's small basin: no reference, no check)
+        if (!want.length && !have.length) return;
         n++;
         const same = sheets ? want.length === have.length && want.every((h, k) => Math.abs(h - have[k]) <= HEIGHT_TOL)
           : have.length === 1 && want.some((h) => Math.abs(h - have[0]) <= HEIGHT_TOL);
