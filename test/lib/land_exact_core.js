@@ -80,7 +80,8 @@
     const o = Object.assign({ nx: 40, ny: 34, depth: 0 }, K, opts);
     const { box, W2, H2 } = frame;
     const px = new Uint8Array(W2 * H2);
-    const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0 };
+    const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0, why: {} };
+    const why = (k) => { cells.why[k] = (cells.why[k] || 0) + 1; };
     const certs = [], failures = [];
     const fail = (f) => { if (failures.length < 64) failures.push(f); };
     const tick = () => { if (frame.progress) frame.progress(cells, failures); };
@@ -135,6 +136,13 @@
       return null;
     }
     const relLog = (z, z2) => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; };
+    // the member of place vb that the carried point z of a member m is: the nearest of m's own sheet (the same z repeats on
+    // sheets beside the frame's own, as different surfaces), within MATCH_TOL; -1 when none
+    const matchIn = (vb, m, z) => {
+      let bj = -1, bd = Infinity;
+      vb.all.forEach((n, j) => { if (n.sheet !== m.sheet) return; const d = dist2(z, n.z); if (d < bd) { bd = d; bj = j; } });
+      return bj >= 0 && bd <= o.MATCH_TOL * (1 + cabs(vb.all[bj].z)) ? bj : -1;
+    };
     // all members of `from` carried from place wA to place wB in lockstep: { ok, z[], lam[] } or { ok: false, why }
     function track(from, wA, wB) {
       let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0;
@@ -150,9 +158,9 @@
         let good = pre.every((p) => p);
         const next = [], nl = [];
         if (good) for (let k = 0; k < from.length && good; k++) {
-          const near = Math.min(Infinity, ...pre.filter((_, q) => q !== k).map((q) => dist2(pre[k], q)));
+          const near = Math.min(Infinity, ...pre.map((q, i) => (i !== k && from[i].sheet === from[k].sheet ? dist2(pre[k], q) : Infinity)));
           const step = dist2(pre[k], zs[k]);
-          if (step >= o.CONT_NEAR * near && from.length > 1 && step > 0) { good = false; break; }
+          if (step >= o.CONT_NEAR * near && step > 0) { good = false; break; }
           const lam0 = lams[k] ? cadd(lams[k], relLog(zs[k], pre[k])) : null;
           const nw = newton(from[k], pre[k], lam0, w);
           if (!nw || nw.ratio > o.CONT_RATIO || dist2(nw.z, pre[k]) >= o.CONT_NEAR * Math.max(near, step * 4)) { good = false; break; }
@@ -174,17 +182,13 @@
       else if (!va.all.length || !vb.all.length) res = { map: va.all.map(() => -1), back: vb.all.map(() => -1), suspect: false };
       else if (o.seed) {
         // (the control's identity: the nearest enumerated member to the place's own, as a fresh Newton would land)
-        const map = va.all.map((m) => { let bj = -1, bd = Infinity; vb.all.forEach((n, j) => { const d = dist2(m.z, n.z); if (d < bd) { bd = d; bj = j; } }); return bj; });
+        const map = va.all.map((m) => { let bj = -1, bd = Infinity; vb.all.forEach((n, j) => { if (n.sheet !== m.sheet) return; const d = dist2(m.z, n.z); if (d < bd) { bd = d; bj = j; } }); return bj; });
         res = { map, back: vb.all.map((_, j) => map.indexOf(j)), suspect: false };
       } else {
         const tr = track(va.all, va.w, vb.w);
         if (!tr.ok) res = { map: null, back: null, suspect: true, why: tr.why };
         else {
-          const map = tr.z.map((z) => {
-            let bj = -1, bd = Infinity;
-            vb.all.forEach((n, j) => { const d = dist2(z, n.z); if (d < bd) { bd = d; bj = j; } });
-            return bj >= 0 && bd <= o.MATCH_TOL * (1 + cabs(vb.all[bj].z)) ? bj : -1;
-          });
+          const map = tr.z.map((z, i) => matchIn(vb, va.all[i], z));
           const used = new Set(map.filter((j) => j >= 0));
           res = { map, back: vb.all.map((_, j) => map.indexOf(j)), suspect: used.size !== map.filter((j) => j >= 0).length, why: 'two members to one' };
         }
@@ -251,18 +255,13 @@
     // pairing of a corner's members to those of an inner place
     function pairingTo(va, vb) {
       if (o.seed) {
-        const map = va.all.map((m) => { let bj = -1, bd = Infinity; vb.all.forEach((nn, j) => { const d = dist2(m.z, nn.z); if (d < bd) { bd = d; bj = j; } }); return bj; });
+        const map = va.all.map((m) => { let bj = -1, bd = Infinity; vb.all.forEach((nn, j) => { if (nn.sheet !== m.sheet) return; const d = dist2(m.z, nn.z); if (d < bd) { bd = d; bj = j; } }); return bj; });
         return { map, suspect: false };
       }
       if (!va.all.length || !vb.all.length) return { map: va.all.map(() => -1), suspect: false };
       const tr = track(va.all, va.w, vb.w);
       if (!tr.ok) return { map: null, suspect: true, why: tr.why };
-      const map = tr.z.map((z) => {
-        let bj = -1, bd = Infinity;
-        vb.all.forEach((nn, j) => { const d = dist2(z, nn.z); if (d < bd) { bd = d; bj = j; } });
-        return bj >= 0 && bd <= o.MATCH_TOL * (1 + cabs(vb.all[bj].z)) ? bj : -1;
-      });
-      return { map, suspect: false };
+      return { map: tr.z.map((z, i) => matchIn(vb, va.all[i], z)), suspect: false };
     }
     // the corners' pairings; chain(a, b, i): the member of corner b the member i of corner a continues to along the cell's edge
     function cornerPairs(ks, vs) {
@@ -314,12 +313,14 @@
       const cp = cornerPairs(ks, vs);
       const split = () => { const h = s / 2; work.push([i, j, h, d + 1], [i + h, j, h, d + 1], [i, j + h, h, d + 1], [i + h, j + h, h, d + 1]); cells.splits++; };
       if (cp.suspect) {
+        why('suspect: ' + cp.why);
         // a branch-suspect cell: halved until a certificate covers it, then decided at the boundary
         if (d < o.CELL_DEPTH_MAX) { split(); continue; }
         leaves.branch.push({ i, j, s, vs, why: cp.why });
         continue;
       }
       if (!sameMembers(vs, cp)) {
+        why('members differ');
         const bb = bboxOf(vs);
         if (d < o.CELL_DEPTH_MAX && (!Number.isFinite(bb[0]) || Math.max(bb[2] - bb[0], bb[3] - bb[1]) > o.BND_PX)) { split(); continue; }
         leaves.boundary.push({ i, j, s, vs });
@@ -327,9 +328,11 @@
       }
       if (!vs[0].all.some((m) => m.drawn)) { cells.empty++; continue; }
       const jd = yield* judgeA(vs, cp);
+      if (jd.suspect || jd.mismatch) why('judge: ' + jd.why);
       if (jd.suspect) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.branch.push({ i, j, s, vs, why: jd.why }); continue; }
       if (jd.mismatch) { if (d < o.CELL_DEPTH_MAX) { split(); continue; } leaves.boundary.push({ i, j, s, vs }); continue; }
       if (jd.E >= o.E_SAFE / 2) {
+        why('E over');
         if (d < o.CELL_DEPTH_MAX) { split(); continue; }
         // a wall: the corners of one member stay apart however fine the cell
         const bb = bboxOf(vs);
@@ -496,7 +499,7 @@
         if (!A.v.all.length) return [];
         const tr = track(A.v.all, A.v.w, S.v.w);
         if (!tr.ok) { fail({ kind: 'rayIdentity', w: A.v.w, why: tr.why }); return null; }
-        return tr.z.map((z) => { let bj = -1, bd = Infinity; S.v.all.forEach((nn, j) => { const d = dist2(z, nn.z); if (d < bd) { bd = d; bj = j; } }); return bj >= 0 && bd <= o.MATCH_TOL * (1 + cabs(S.v.all[bj].z)) ? bj : -1; });
+        return tr.z.map((z, i) => matchIn(S.v, A.v.all[i], z));
       };
       const range = Math.max(hHi - hLo, 1e-12), wTiny = o.RAY_SUB_PX * wPx;
       for (let a = 0; a + 1 < smp.length; a++) {
