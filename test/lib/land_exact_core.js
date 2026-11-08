@@ -89,7 +89,7 @@
     const o = Object.assign({ nx: 40, ny: 34, depth: 0 }, K, opts);
     const { box, W2, H2 } = frame;
     const px = new Uint8Array(W2 * H2);
-    const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0, apex: 0, why: {} };
+    const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, hits: 0, places: 0, apex: 0, why: {} };
     const why = (k) => { cells.why[k] = (cells.why[k] || 0) + 1; };
     const certs = [], failures = [];
     let singList = null;   // the plan's declared singular points, read once
@@ -610,7 +610,7 @@
           if (px[key]) continue;
           const x = key % W2, y = (key - x) / W2;
           cells.rays++;
-          if (rayHit([x + 0.5, y + 0.5], lo - pad, hi + pad, bx, cen, wPx)) px[key] = 1;
+          if (rayHit([x + 0.5, y + 0.5], lo - pad, hi + pad, bx, cen, wPx)) { px[key] = 1; cells.hits++; }
           if (++n % 16 === 0) yield;
         }
       }
