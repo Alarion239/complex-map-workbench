@@ -109,7 +109,8 @@
         const drawn = !masked && Number.isFinite(m.h) && (frame.all || m.front === true);
         const layers = drawn ? (frame.layers ? frame.layers(m) : [{ combo: '', h: m.h }]).filter((l) => Number.isFinite(l.h)) : [];
         for (const l of layers) l.P = frame.project(w[0], w[1], l.h);
-        return { z: m.z, lam: m.lam || null, sheet: m.sheet || 0, idx, drawn: drawn && layers.length > 0, layers };
+        const ok = layers.filter((l) => l.P);
+        return { z: m.z, lam: m.lam || null, sheet: m.sheet || 0, idx, drawn: drawn && ok.length > 0, layers: ok };
       });
       return { w, all, masked };
     }
