@@ -31,6 +31,7 @@
   // the step sheets dk the glide draws are -SHEET_W..SHEET_W and M_MAX members m of a sheet are tried; a member whose turn lies within
   // EDGE_MARGIN (in Im) of its sheet's window edge is on that edge
   const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;
+  const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
@@ -235,7 +236,7 @@
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
-    return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p }; })()`);
+    return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p, scale: __cmwLandScale() }; })()`);
   }
   // the places a frame is probed at: PROBES columns at cell centres and ROWS_SIDE rows on each side of the real axis, and a pair either side of the real axis (the
   // cut of the square root, the cube root and the logarithm) at each of CUT_X
@@ -422,6 +423,17 @@
       if (first || lastU) {
         const base = first ? p0.cover : p1.cover;
         ok(`${t}: at least the parked plane's surface pixels less ${COVER_TOL * 100} %`, cov.n >= (1 - COVER_TOL) * base, { n: cov.n, base });
+      }
+      // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
+      {
+        const sc = await ev('__cmwLandScale()'), ref = first ? p0.scale : lastU ? p1.scale : p1.scale;
+        const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
+        if (u === END_U || u === 1 - END_U) {
+          ok(`${t}: the frame's scale and boost are the parked plane's (mu ${sc && sc.mu} against ${ref && ref.mu}, boost ${sc && sc.boost} against ${ref && ref.boost}; within ${SCALE_TOL})`,
+            !!sc && !!ref && rel(sc.mu, ref.mu) <= SCALE_TOL && rel(sc.boost, ref.boost) <= SCALE_TOL, { sc, ref });
+        } else if (u === GLIDE_MID && sc && ref) {
+          ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, rel(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
+        }
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');

@@ -798,6 +798,7 @@
     render3D.exactIn = carry && carry.exact ? { exact: carry.exact, F: svHeightF(0) } : null;   // (the inverse inputs the last carried frame drew from, and plane 0's map, as z is a point of plane 0: tests)
     render3D.carried = info && info.carried ? { path: info.exact === 'drawn' ? 'inverse' : 'mesh', exact: info.exact || null, u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, layers: info.layers || 1, landHoles: info.landHoles || 0, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
+    render3D.scale = { fmKey: mapKeyOf(fm), siK: si ? si.K : 0, mu, boost: lscale / (S.lscale || 1), lscale };   // (the height scale and the block's boost the frame was fitted with: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
@@ -805,7 +806,7 @@
     render3D.frameHeight = info ? info.heightOf : undefined;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.exactIn = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined; render3D.frameHeight = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.exactIn = undefined; render3D.box = undefined; render3D.scale = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined; render3D.frameHeight = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
