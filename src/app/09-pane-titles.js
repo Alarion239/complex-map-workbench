@@ -976,6 +976,7 @@
       // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key and
       // Y's pattern key stay chips in the head)
       const onPlot = side === 'L' && !ph && keyOnPlot();
+      if (!ph) delete leg.dataset.phKey;
       if (onPlot) {
         if (leg.parentNode !== plot) {
           leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
@@ -991,7 +992,9 @@
         if (er && er.parentNode !== head) head.insertBefore(er, leg);
       } else {
         const ro = $(side === 'L' ? 'leftReadout' : 'rightReadout'), vs = plot.querySelector(':scope > .viewstack');
-        if (leg.parentNode !== plot) {
+        // (data-ph-key marks a legend this branch has placed: one the desktop's branch left on the plot is placed again, folded)
+        if (leg.parentNode !== plot || !leg.dataset.phKey) {
+          leg.dataset.phKey = '1';
           // (the head's words and tooltip go: on the plane the key is the folded glyph, a tap unfolds it)
           leg.classList.remove('open'); plot.insertBefore(leg, ro ? ro.nextSibling : vs);
           const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
