@@ -29,6 +29,7 @@
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
+  const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view: the camera the end frames are also compared in, where a missing piece of the surface shows against the pale floor
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
   const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
   // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
@@ -402,6 +403,12 @@
     const last = 1;   // (the glide from plane 0 to plane 1)
     const p0 = await park(0, 'P0'), p1 = await park(last, 'P1');
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
+    // the parked end planes again in the Top view
+    const cam0 = await ev("__cmwCam('L')");
+    await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`);
+    const p0T = await park(0, 'P0T'), p1T = await park(last, 'P1T');
+    await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`);
+    ok(`${name}: the parked frames are still in the Top view`, p0T.still && p1T.still, { p0T, p1T });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     for (const u0 of GLIDE_U) {
       const u = u0, first = u0 < GLIDE_MID, lastU = u0 > GLIDE_MID;   // (first: a probe near plane z, lastU: near the next plane)
@@ -417,6 +424,15 @@
       // the image at the ends
       if (first) ok(`${t}: plane z's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d0 <= SAME_FRAC, cov);
       if (lastU) ok(`${t}: the next plane's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d1 <= SAME_FRAC, cov);
+      // the end frames in the Top view, against the parked plane there
+      if (first || lastU) {
+        await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const stillT = await grab('curT');
+        const dT = (await compare('curT', first ? 'P0T' : 'P1T')).frac;
+        await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        r[u].top = { still: stillT, d: dT };
+        ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
+      }
       // the surface pixels at the ends
       if (first || lastU) {
         const base = first ? p0.cover : p1.cover;
