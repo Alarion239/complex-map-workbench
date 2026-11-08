@@ -296,7 +296,7 @@
       const pred = halfPred.L > 0 || halfPred.R > 0;
       if (pred && GLR.wantHalf) GLR.wantHalf();
       if (need === 1 && !pred && idle < WARM_HALF_IDLE) { scheduleWarm(Math.max(50, WARM_HALF_IDLE - idle)); return; }
-      if (GLR.warmInverse(need === 1 || pred)) requestRender('L', 'R', 'T');
+      if (GLR.warmInverse(need === 1 || pred)) requestRender('L', 'R');
     }, delay);
   }
   // the settle frame of a pane that drew half resolution in motion
@@ -331,14 +331,13 @@
     if (GLR.dropCached) for (const [res, key] of have) GLR.dropCached(res, key);
   }
   let invFailKey = '', invThrew = false;
-  let thumbNotFinal = false;   // a thumbnail drew a forward stand-in for an inverse program still compiling
   let sideDraw = false;    // renderExampleThumb: a side chain (GLR side mode) is drawing
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
   // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
   // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
-  // may be the other pane's or a card's; the quality harness reads this pane's own (a test hook)
+  // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
   let lastRecs = null;     // the shape records of the last packShapes (GLR.packShapes: once per scene draw)
@@ -370,7 +369,7 @@
     if (o.status) {
       const st = GLR.inverseStatus(S.alpha, viewKind), info = GLR.inverseInfo;
       // the query itself can land a compile (no GLR.onReady then): redraw the panes still showing a stand-in
-      if (st === 'ready' && invWaiting.size) { const w = [...invWaiting]; invWaiting.clear(); requestRender(...w, 'T'); }
+      if (st === 'ready' && invWaiting.size) { const w = [...invWaiting]; invWaiting.clear(); requestRender(...w); }
       if (st === 'pending' || (st === 'none' && info && info.ok)) { out.path = 'pending'; out.reason = 'compiling'; }
       else if (st === 'error') return F('inverse program failed to compile');
       else if (st === 'none') return F((info && info.reason) || 'no inverse program');
@@ -648,7 +647,7 @@
         if (res !== 'drawn') break;                             // drawn in the main pass, from here on
         preIds.add(s.id);
         invN++;
-        if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
+        if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); if (w.length) requestRender(...w); }
       }
     }
     GLR.begin(pane.pw, pane.ph);
@@ -659,7 +658,7 @@
     // the transform-feedback cache key includes the map mode and t, so any still frame may be cached; thumbnails
     // are kept as bitmaps, so they skip the map cache (GLR evaluates them into a scratch texture, as it does the
     // frames of a homotopy); a thumbnail never waits for a compile (a 250 ms stall
-    // right after adding a step): it is redrawn when the program is ready (renderThumb, GLR.onReady)
+    // right after adding a step): it is redrawn when the program is ready (GLR.onReady)
     const cache = opt.cache !== false && !opt.thin;
     const sync = false;
     let arcFn = null;
@@ -698,7 +697,7 @@
         lp = p.path;
         if (p.path === 'inverse' && invGate) {
           lp = invGate === 'pending' ? 'pending' : 'forward';
-          if (invGate === 'pending') { if (waitRole) { invWaiting.add(waitRole); invPendN++; } else thumbNotFinal = true; }
+          if (invGate === 'pending' && waitRole) { invWaiting.add(waitRole); invPendN++; }
         } else if (p.path === 'inverse') {
           const box = invBox(p.e, p.plan, s, live);
           const sc = box ? GLR.scissorOf(box, pane.view, pane.dpr, 4) : null;
@@ -717,11 +716,11 @@
             if (smLive) notePath(smRole, s.id, 'inverse');
             // the program landed (possibly inside this very call, without GLR.onReady): redraw the other panes that drew
             // a stand-in, and the thumbnails (one drawn forward meanwhile has a stale signature)
-            if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== waitRole); invWaiting.clear(); requestRender(...w, 'T'); }
+            if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== waitRole); invWaiting.clear(); if (w.length) requestRender(...w); }
             continue;
           }
           lp = res === 'pending' ? 'pending' : 'forward';
-          if (res === 'pending') { if (waitRole) { invWaiting.add(waitRole); invPendN++; } else thumbNotFinal = true; }
+          if (res === 'pending' && waitRole) { invWaiting.add(waitRole); invPendN++; }
           // a failed compile (silent: console only) draws forward from now on, with its fix-ups (SPEC 4.4, 10.4)
           if (res === 'error' && GLR.inverseStatus(S.alpha, 'flat') === 'error') {
             const k = (GLR.inverseInfo || {}).key || '';
@@ -869,7 +868,7 @@
     let ch = false;
     for (const st of S.steps) if (Constr.zpRenumber(st)) ch = true;
     if (!ch) { toast($t('The zeros and poles are numbered in order already.')); return; }
-    buildPipeline(); updateFocusUI(); commit(); requestRender('L', 'R', 'OL', 'OR');
+    chainRebuilt(); commit(); requestRender('L', 'R', 'OL', 'OR');
     undoToast($t('Zeros and poles renumbered.'));
   }
   // the number the next new point takes

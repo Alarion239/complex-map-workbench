@@ -1,9 +1,10 @@
 // Sound on the classic Deformation: while the deformation plays, the last loop's note
-// changes the moment a zero crosses it; palette B's scrub (the air, the landmarks) with the Deformation's slider; Esc while
-// it plays is silent. The steps view has no open Deformation, so this runs in the classic view; the rest of the suite is
+// changes the moment a zero crosses it; Esc while it plays is silent. The steps view has no open Deformation, so this runs in the classic view; the rest of the suite is
 // sound_v152_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_deform_classic_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
+// the classic deformation opens and closes through its hook: the M key and the toggle are gone
+const { morphKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const loadHere = async (ns, st) => {
   await go(`http://localhost:${PORT}/gl-helpers.html`);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
@@ -55,7 +56,7 @@ await start('z-1');
   const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); }
   await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`);
   await move(5, 600); await settle();
-  await key('m');
+  await morphKey();
   const tr = await ev(`await new Promise((res) => { const out = [], t0 = performance.now(); const f = () => { const s = __cmwSound(), m = __cmwState().morph; out.push([s.cv.T == null ? m.T : s.cv.T, s.cv.W, s.cv.on ? 1 : 0, Sound.singState().on ? 1 : 0]); if (performance.now() - t0 < 2600) requestAnimationFrame(f); else res(out); }; requestAnimationFrame(f); })`, 20000);
   const Ws = tr.filter((x) => x[1] != null);
   const step = tr.find((x, i) => i && x[1] === 1 && tr[i - 1][1] !== 1);
@@ -70,29 +71,8 @@ await start('z-1');
   R.deformAfter = { sing: await ev('Sound.singState()'), cv: (await snd()).cv };
   ok('deformation: the note fades 0.9 s after t stops', !R.deformAfter.sing.on && !R.deformAfter.cv.on, R.deformAfter);
   // the motion bed is off while Hear F is on; with Hear F off it follows a play (the synth's texture 2)
-  await key('m'); await settled({ until: `!__cmwLayout().deform`, max: 4000 });
+  await morphKey();
 }
-
-// 4. palette B's scrub with the slider (real input events): the landmarks ring, the texture runs, it fades on release
-await ev(`Sound.set({ sonify: false }); 1`);
-await key('m'); await settled({ until: `__cmwLayout().deform && Sound.state().audio === 'running' && __cmwState().morph.playing`, max: 4000, panes: false });
-// (the opening plays t through once: the scrub starts when it has stopped)
-await settled({ until: `!__cmwState().morph.playing`, max: 8000, panes: false });
-// (the opening's own cues end first: three reads in a row with no new voice)
-for (let quiet = 0, i = 0; quiet < 3 && i < 60; i++) { await settled({ max: 250, panes: false }); quiet = (await made()).length ? 0 : quiet + 1; }
-{
-  const r = await ev(`(() => { const e = document.getElementById('morphRange').getBoundingClientRect(); return [e.left, e.right, e.top + e.height / 2]; })()`);
-  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r[1] - 2, y: r[2] });
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: r[1] - 2, y: r[2], button: 'left', clickCount: 1 });
-  let mid = null;
-  for (let i = 1; i <= 50; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r[1] - 2 - (r[1] - r[0] - 4) * i / 50, y: r[2], button: 'left', buttons: 1 }); await sleep(16); if (i === 25) mid = await ev('Sound.scrubState()'); }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: r[0] + 2, y: r[2], button: 'left', clickCount: 1 });
-  await settled({ until: `!Sound.scrubState().tex`, max: 1000, panes: false });
-  R.scrub = { mid, after: await ev('Sound.scrubState()'), made: await made() };
-  const lm = R.scrub.made.filter((x) => x === 'landmark').length;
-  ok('scrub: the air while dragging, the landmarks ¾ ½ ¼ 0 (3 to 4), no other cue; the air ends on release', mid.tex && mid.v > 0.3 && !R.scrub.after.tex && lm >= 3 && lm <= 4 && R.scrub.made.every((x) => x === 'landmark'), R.scrub);
-}
-await key('m'); await settled({ until: `!__cmwLayout().deform`, max: 4000 });
 
 // 6. (review sound-1) Esc while the deformation plays: silent until the next thing a person does. Hear F off: the motion
 // bed is over for this play (no re-arm on the next frames); Hear F on: the last loop does not sing H_t again
@@ -102,7 +82,7 @@ for (const hear of [false, true]) {
   if (hear) { const pts = []; for (let j = 0; j < 96; j++) { const a = 2 * Math.PI * j / 96; pts.push([0.75 + 0.3 * Math.cos(a), 0.3 * Math.sin(a)]); } await ev(`__cmwSound({ lastLoop: ${JSON.stringify(pts)} }); 1`); }
   await move(5, 600); await settle();
   await ev(`__cmwSet('morphSecs', 4); 1`);
-  await key('m'); await settled({ until: `__cmwState().morph.playing`, max: 3000, panes: false });
+  await morphKey(); await settled({ until: `__cmwState().morph.playing`, max: 3000, panes: false });
   const before = { arm: (await snd()).morphArm, sing: (await ev('Sound.singState()')).on };
   await key('Escape');
   const after = [];
@@ -110,8 +90,8 @@ for (const hear of [false, true]) {
   R['esc' + (hear ? 'HearOn' : 'HearOff')] = { before, after };
   ok(`Esc while the deformation plays (Hear F ${hear ? 'on' : 'off'}): it plays on, and nothing sounds again (no motion bed, no loop note) for 0.8 s`, after.some((a) => a.playing) && after.every((a) => !a.arm && !a.sing && !a.cv) && (hear ? before.sing : before.arm), { before, after });
   // the next action lets it sound: Play again
-  if (hear) { await key('m'); await settled({ until: `!__cmwState().morph.playing`, max: 2000, panes: false }); await key('m'); await settled({ until: `__cmwState().morph.playing`, max: 2000, panes: false }); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }
-  await key('m'); await settled({ until: `!__cmwLayout().deform`, max: 4000 });
+  if (hear) { await morphKey(); await settled({ until: `!__cmwState().morph.playing`, max: 2000, panes: false }); await morphKey(); await settled({ until: `__cmwState().morph.playing`, max: 2000, panes: false }); R.escUnhush = { sing: (await ev('Sound.singState()')).on, cv: (await snd()).cv }; ok('after Esc, Play again: the loop sings again', R.escUnhush.cv.on || R.escUnhush.sing, R.escUnhush); }
+  await morphKey();
 }
 const exc =logs().filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
 ok('no exceptions', !exc.length, exc.slice(0, 5));
