@@ -509,7 +509,7 @@
     else if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
-    if ((S.outline || selected) && !artMode && !hideStrokes) {
+    if ((S.outline || selected) && !artMode && !hideStrokes && !(SV.on && SV.bare)) {
       const map0 = stageMap(leftStage());
       for (const s of S.shapes) {
         if (!outlineShown(s)) continue;
