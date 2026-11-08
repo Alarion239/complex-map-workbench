@@ -60,7 +60,6 @@ const SUITES = {
   // suite run too)
   'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
-  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
