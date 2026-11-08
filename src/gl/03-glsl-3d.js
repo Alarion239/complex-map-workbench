@@ -1393,7 +1393,9 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // (preKeyDepth, the 2D carried colour's order) as a share of its distance from the eye, so the point the 2D picture
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
-  // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
+  // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck. A layered draw (layered: a layer
+  // is one member, the layers are depth-tested against each other) keeps the rasterised depth, which the key would push behind
+  // the floor under the lowest layer
   const LAND_FS = (sheet, plain, lite, carry = false, layered = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
@@ -1511,7 +1513,7 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
   o = vec4(toSrgb(fogged(c, vPos)), 1.0);
-${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
+${carry && !layered ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;
   const FLOOR_VS = `
 uniform mat4 uMVP; uniform vec2 uExt; uniform float uFloorZ;
