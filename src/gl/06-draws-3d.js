@@ -294,16 +294,14 @@
     const sh = lay.sheet || {};
     return Object.assign({}, ex, sh.plan ? { map: sh.map, plan: sh.plan, prep: sh.prep, inv: sh.inv } : {}, { shift: sh.shift || null, more: [], member: lay.member, shifts: lay.shifts || [], layered: true });
   };
-    const LAND_COUNT_N = 24;   // the grid of the member count's pass
-  const landCount = { tex: null, zTex: null };
-  // the most members the glide's inverse has at a vertex of a coarse grid over the box (at least 1)
-  function landMembers(st) {
-    if (!landCount.tex) { landCount.tex = floatTex(); landCount.zTex = floatTex(); }
-    const c = st.carry, h0 = c.hT == null ? c.T : c.hT;
-    const q = Object.assign({}, layerExact(c.exact, { member: -1, sheet: { shift: null } }), { N: LAND_COUNT_N, box: st.box, hMode: 0, H: 1, mu: 1, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: landCount.tex, zTex: landCount.zTex });
-    landInverse(q);
-    return clamp(Math.round(q.counted || 1), 1, LAND_MEMBERS_MAX);
-  }
+  // the most members the glide's inverse has at a vertex: the product of the finite branch counts of its steps (a step with
+  // a finite family has that many preimages of every value), the largest over the glide's step sheets, at most
+  // LAND_MEMBERS_MAX. A member the walk does not reach leaves its layer empty (alpha 0), which every pass skips
+  const landMembers = (st) => {
+    const ex = st.carry.exact, plans = [ex.plan].concat((ex.more || []).map((m) => m.plan));
+    const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * (o.fam && o.fam.type === 'fin' ? o.fam.count : 1), 1)));
+    return clamp(Math.round(n) || 1, 1, LAND_MEMBERS_MAX);
+  };
   function landLayer(k, N) {
     let L = landLs[k - 1];
     if (L && L.N !== N) { for (const t of [L.tex1, L.tex2, L.zTex, ...(L.edges || [])]) if (t) gl.deleteTexture(t); L = landLs[k - 1] = null; }

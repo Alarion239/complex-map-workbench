@@ -773,7 +773,6 @@ void main() {
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
-  if (uMember < 0) { o = vec4(float(nb), 0.0, 0.0, 1.0); return; }
   if (uMember < nb) {
     vec2 z = bZ[uMember]; vec2 hv = carryHeight(z);
     // a member found on an earlier sheet is kept: the sheets are taken in order, the frame's own first, and the depth keys
@@ -860,15 +859,6 @@ void main() {
       gl.bindVertexArray(empty());
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.bindVertexArray(null);
-    }
-    // (st.member -1: the pass writes each vertex's member count, and the largest is st.counted)
-    if (st.member < 0) {
-      const px = new Float32Array(N * N * 4);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, st.tex, 0);
-      gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
-      st.counted = 0;
-      for (let i = 0; i < px.length; i += 4) st.counted = Math.max(st.counted, px[i]);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(vpX, vpY, fw, fh);
