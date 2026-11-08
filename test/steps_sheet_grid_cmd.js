@@ -12,6 +12,7 @@ const GROUP_GAP = 12, ROW_GAP = 8, GROUPS = 5;   // (px between groups, px betwe
 const MIN_TARGET = 44, MIN_FONT = 13, SCOPE_SEGMENTS = 2, FULL_WIDTH_SLACK = 12;   // (px; the segments; px a full-width control may stop short of its group)
 const NUM_CHOICES = 4;   // (the sectors n offers 8, 12, 16 and 24)
 const SLIDER_LINE = 44;   // (px: the slider's touch line)
+const CHOICE_TARGET = 48;   // (px: a colour-style choice)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
@@ -61,6 +62,14 @@ const slider = () => ev(`(() => {
   return { rowFree: pr.width - r(row).width, rngW: r(rng).width, rowW: r(row).width, rngH: r(rng).height, valRight: r(row).right - r(v).right, valLeftOfLabel: r(v).left < r(lab).right,
     tab: getComputedStyle(v).fontVariantNumeric, text: v.textContent, vt: rng.getAttribute('aria-valuetext') };
 })()`);
+// the sheet's controls: each visible control's kind and its name, and the targets that are too small (a checkbox is its label's target)
+const controls = () => ev(`(() => {
+  const sheet = document.querySelector('.ph-sheet.open'), vis = (e) => e.getClientRects().length > 0;
+  const cs = [...sheet.querySelectorAll('button, select, input, [role="radio"], [role="switch"], label.check')].filter((e) => vis(e) && !e.matches('.ph-grab') && !(e.matches('input[type="checkbox"]') && e.closest('label.check')));
+  const need = (e) => (e.closest('.sty-seg') ? ${CHOICE_TARGET} : ${MIN_TARGET});
+  return { list: cs.map((e) => e.tagName + '#' + (e.id || '') + '.' + (e.dataset.v || e.getAttribute('aria-label') || '')),
+    small: cs.filter((e) => e.getBoundingClientRect().height < need(e) - 0.5 || e.getBoundingClientRect().width < ${MIN_TARGET} - 0.5).map((e) => e.tagName + '#' + e.id + '.' + e.className + ' ' + Math.round(e.getBoundingClientRect().width) + 'x' + Math.round(e.getBoundingClientRect().height)) };
+})()`);
 const groups = () => ev(`(() => {
   const gs = [...document.querySelectorAll('.ph-sheet .ph-vopts > .ph-grp')], r = (e) => e.getBoundingClientRect();
   return { n: gs.length, labelled: gs.every((g) => g.firstElementChild.matches('h3.ph-gl') && g.firstElementChild.textContent.trim()),
@@ -78,6 +87,9 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang} 360: no word is cut and none takes more than two lines`, g && g.cut === 0 && g.lines <= MAX_LINES && g.inside, g);
   ok(`${lang} 360: one choice is marked (aria-checked), with a 2 px ring inside it`, g && g.on === 1 && g.ring, g);
   ok(`${lang} 360: the sheet is at most 60 % of the viewport`, g && g.sheetShare <= MAX_SHEET_SHARE, g);
+  const ctl = await controls();
+  info[lang + 'Controls'] = ctl;
+  ok(`${lang} 360: every control in the sheet is at least ${MIN_TARGET} px (a style choice ${CHOICE_TARGET})`, ctl.small.length === 0 && ctl.list.length > 0, ctl.small);
   const sc = await scope();
   info[lang + 'Scope'] = sc;
   ok(`${lang} 360: the scope is a full-width switch of two segments, 44 px tall, text at least 13 px, none cut`, !!sc && sc.n === SCOPE_SEGMENTS && sc.fullWidth <= FULL_WIDTH_SLACK && sc.minH >= MIN_TARGET && sc.minW >= MIN_TARGET && sc.font >= MIN_FONT && sc.cut === 0, sc);
@@ -104,7 +116,21 @@ ok('the n menu lists its four choices, each at least 44 px tall', menu.n === NUM
 await open(WIDE_PHONE, 'en', false);
 const g390 = await grid();
 ok('390: four to a row too', g390 && g390.perRow >= PER_ROW && g390.minW >= MIN_TILE, g390);
+ok('390: the sheet is at most 60 % of the viewport', g390 && g390.sheetShare <= MAX_SHEET_SHARE, g390);
+const c390 = await controls();
+ok(`390: every control in the sheet is at least ${MIN_TARGET} px (a style choice ${CHOICE_TARGET})`, c390.small.length === 0 && c390.list.length > 0, c390.small);
+// closing the sheet gives focus back to the button that opened it
+await ev(`document.querySelector('.ph-dsp').focus(); document.querySelector('.ph-dsp').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+await key('Escape');
+await settled({ floor: SHEET_FLOOR });
+const back = await ev(`({ open: !!document.querySelector('.ph-sheet.open'), focus: document.activeElement && (document.activeElement.className || document.activeElement.tagName) })`);
+ok('Escape closes the sheet and focus returns to the Display button', !back.open && /ph-dsp/.test(back.focus), back);
+await open(PHONE, 'en', false);
+const before = await controls();
 await open(PHONE, 'en', true);
+const after = await controls();
+ok('the sheet lists the same controls, in the same order, either side of the colour plane', before.list.length > 0 && JSON.stringify(before.list) === JSON.stringify(after.list), { before: before.list, after: after.list });
 const cur = await ev(`(() => { const l = document.querySelector('.ph-sheet label.check[aria-disabled="true"]'); return l && { cursor: getComputedStyle(l).cursor, opacity: getComputedStyle(l).opacity }; })()`);
 ok('a toggle that does not apply keeps the default cursor, dimmed', !!cur && cur.cursor === 'default' && +cur.opacity < DIMMED_BELOW, cur);
 return { pass: fails.length === 0, fails, info };
