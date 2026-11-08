@@ -8,7 +8,7 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const PHONE = 360, WIDE_PHONE = 390, PHONE_H = 780;   // (viewport widths, and the height, in px)
 const STYLES = 6, PER_ROW = 4, ROWS = 2, MAX_LINES = 2;   // (the grid at 360: its styles, a row, its rows, a word's lines)
 const MIN_TILE = 48, MAX_SHEET_SHARE = 0.6, DIMMED_BELOW = 0.5;   // (px, the sheet's share of the viewport, an opacity)
-const GROUP_GAP = 12, ROW_GAP = 8, GROUPS = 5;   // (px between groups, px between a group's rows, the groups the sheet has)
+const GROUP_GAP = 12, ROW_GAP = 8, GROUPS = 7;   // (px between groups, px between a group's rows, the groups the sheet has: scope, style, settings, opacity, overlays, regions, quality)
 const MIN_TARGET = 44, MIN_FONT = 13, SCOPE_SEGMENTS = 2, FULL_WIDTH_SLACK = 12;   // (px; the segments; px a full-width control may stop short of its group)
 const NUM_CHOICES = 4;   // (the sectors n offers 8, 12, 16 and 24)
 const SLIDER_LINE = 44;   // (px: the slider's touch line)
@@ -76,8 +76,10 @@ const groups = () => ev(`(() => {
   return { n: gs.length, labelled: gs.every((g) => g.firstElementChild.matches('h3.ph-h') && g.firstElementChild.textContent.trim()),
     caps: gs.every((g) => /small-caps/.test(getComputedStyle(g.firstElementChild).fontVariantCaps)),
     gaps: gs.slice(1).map((g, i) => Math.round(r(g).top - r(gs[i]).bottom)),
-    rowGap: gs.map((g) => { const k = g.children; return k.length > 2 ? Math.round(r(k[2]).top - r(k[1]).bottom) : null; }).filter((x) => x != null),
-    first: gs.map((g) => g.firstElementChild.textContent) };
+    rowGap: gs.flatMap((g) => { const k = g.children.length > 2 ? [...g.children] : g.children[1].matches('.field-col') ? [g.children[0], ...g.children[1].children] : []; const v = k.filter((e) => e.getClientRects().length); return v.length > 2 ? [Math.round(r(v[2]).top - r(v[1]).bottom)] : []; }),
+    first: gs.map((g) => g.firstElementChild.textContent),
+    labelLefts: [...new Set(gs.map((g) => Math.round(r(g.firstElementChild).left)))], rowLefts: [...new Set(gs.map((g) => Math.round(r(g.children[1]).left)))],
+    labelStyles: [...new Set(gs.map((g) => { const c = getComputedStyle(g.firstElementChild); return [c.fontSize, c.fontWeight, c.fontVariantCaps, c.letterSpacing, c.color].join('|'); }))].length };
 })()`);
 for (const lang of ['en', 'ru', 'it']) {
   await open(PHONE, lang, false);
@@ -104,6 +106,7 @@ for (const lang of ['en', 'ru', 'it']) {
   const gr = await groups();
   info[lang + 'Groups'] = gr;
   ok(`${lang} 360: the controls are in ${GROUPS} groups, each under a small-caps label`, gr.n === GROUPS && gr.labelled && gr.caps, gr);
+  ok(`${lang} 360: every group, the mesh quality's included, has one left edge for its label and its rows, and one label style`, /Quality|Качество|Qualità/.test(gr.first[GROUPS - 1]) && gr.labelLefts.length === 1 && gr.rowLefts.length === 1 && gr.labelStyles === 1, gr);
   ok(`${lang} 360: groups are ${GROUP_GAP} px apart and a group's rows ${ROW_GAP} px`, gr.gaps.every((x) => x === GROUP_GAP) && gr.rowGap.every((x) => x === ROW_GAP), gr);
 }
 await open(PHONE, 'en', false);
