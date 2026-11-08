@@ -830,7 +830,7 @@ void main() {
       if (!fbOk) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return 'error'; }
       P.warm = true;
       gl.useProgram(P.p);
-      bindInverse(P, Object.assign({}, sh, { look }), d, rec, look, INV_LAND);
+      bindInverse(P, Object.assign({}, st, sh, { look }), d, rec, look, INV_LAND);
       u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
       u1f(P, 'uHu', c.hu || 0);
       u1i(P, 'uLN', N);
