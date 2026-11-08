@@ -147,8 +147,6 @@
     syncViewControls();
     fitRightTitle();
     $('paneR').classList.toggle('no-rulers', !rImage());
-    $('rightFit').hidden = !rImage();
-    $('leftFit').hidden = false;
     buildRightFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();

@@ -3376,5 +3376,7 @@
  "Computed numerically: there is no f₊ and f₋ to show apart": "Calcolato numericamente: f₊ e f₋ non si possono mostrare separati",
  "F is not finite on the curve: its Cauchy integral is not defined": "F non è finita sulla curva: il suo integrale di Cauchy non è definito",
  "Cauchy: on z only": "Cauchy: solo su z",
- "No curve selected": "Nessuna curva selezionata"
+ "No curve selected": "Nessuna curva selezionata",
+  "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "Il Paesaggio non ha una sfera: scegli Piano o Sfera nel menu della superficie",
+  "Nothing to fit yet": "Ancora niente da adattare"
 }
