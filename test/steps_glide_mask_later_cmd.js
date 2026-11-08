@@ -25,10 +25,13 @@ const ST = {
   ],
   targets: [],
 };
-const CASES = [{ tag: 'zeta plus later-plane disc', us: [0.25, 0.5, 0.75] }];
+// (alpha: the sheets' opacity; 0.85 is the page's default, 1 is the opaque look)
+const CASES = [
+  { tag: 'zeta plus later-plane disc', us: [0.25, 0.5, 0.75], alpha: 1 },
+  { tag: 'zeta plus later-plane disc at the default sheet opacity', us: [0.25, 0.5, 0.75], alpha: 0.85 },
+];
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, DEFAULT_PORT])[1];
 const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const ready = () => settled({ max: SETTLE_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 // (at rest on plane i, its frame drawn)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: SETTLE_MAX_MS, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
@@ -38,7 +41,7 @@ await view(VIEW_W, VIEW_H, false, false);
 for (const c of CASES) {
   const r = info[c.tag] = {};
   try {
-    await load('mlater' + Date.now(), ST);
+    await load('mlater' + Date.now(), Object.assign({}, ST, { alpha: c.alpha }));
     await settled({ max: SETTLE_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && !!window.GLR && GLR.pendingLinks === 0' });
     await ev(`__cmwSet('morphPaths', false), __cmwSteps(${JSON.stringify({ scope: 'in', surf: 'plane' })}), 1`);
     await rest(0);
@@ -51,6 +54,7 @@ for (const c of CASES) {
       const settledP = await grab('P' + u);
       const diff = held && still && parked && built && settledP ? await compare('H' + u, 'P' + u) : null;
       r[u] = { held, still, parked, built, settledP, diff };
+      ok(`${c.tag}: the thread is held at u = ${u}`, held === true, r[u]);
       ok(`${c.tag}: the frame held at u = ${u} has the parked frame's pixels (at most ${SAME_FRAC * 100} % of them more than 32/255 apart)`, !!diff && diff.frac <= SAME_FRAC, r[u]);
       await rest(0);
     }
