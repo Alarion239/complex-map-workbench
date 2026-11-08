@@ -132,8 +132,7 @@
     ok(`the coverage check fails a frame with a hole of ${HOLE_N} places`, coverDiff(hole, covered).off > CELL_TOL, coverDiff(hole, covered));
     ok('the coverage check fails a wall filled across the cut', coverDiff(wall, covered).off > CELL_TOL, coverDiff(wall, covered));
   }
-  // A member is its preimage z (the drawn height and colour are the enumerator's only on the frame's own sheet, sheet 0; on a side
-  // sheet they follow that sheet's branch). The frame's z is float: Z_TOL of 1 + |z|.
+  // A member is its preimage z; its drawn height and colour are then compared. The frame's z is float: Z_TOL of 1 + |z|.
   const sameZ = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= Z_TOL * (1 + Math.hypot(b[0], b[1]));
   // sheets off at one place: the frame has one layer, the front member's; on the real axis (the cut) the front member of either side is accepted
   const frontSame = (have, wantAll, onCut) => have.length === 1 && (onCut ? wantAll : wantAll.slice(0, 1)).some((x) => sameZ(have[0].z, x.z));
@@ -206,10 +205,10 @@
         const same = sheets ? want.length === haveAll.length && want.every((m) => haveAll.some((l) => sameZ(l.z, m.z))) && haveAll.every((l) => want.some((m) => sameZ(l.z, m.z)))
           : frontSame(haveAll, wantAll, onCut);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
-        // (the frame's own sheet: the height and the colour of the members that are on it)
+        // (every member the layers match by z, on a side sheet or on the real axis too: the drawn height and the colour)
         want.forEach((m) => {
           const l = haveAll.find((x) => sameZ(x.z, m.z));
-          if (!l || m.sheet !== 0 || onCut) return;   // (on the real axis the member's side is either)
+          if (!l) return;
           if (Math.abs(l.h - m.h) > HEIGHT_TOL) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
           if (!l.f) { noF++; return; }
           const gap = phaseGap(l.f, m.f);
@@ -220,7 +219,7 @@
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
-      ok(`${t}: the drawn height of the members on the frame's own sheet within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
+      ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)})`);   // (a place is covered when the enumerator has a member there)
