@@ -45,6 +45,11 @@ const loadWait = [];
 // machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
 const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
 function vendorAnswer(p, sid) {
+  // (H.holdSheet: the Google Fonts stylesheet request, vendored or not, goes on after HOLD.ms)
+  if (HOLD.ms && /^https:\/\/fonts\.googleapis\.com\//.test(p.request.url)) { setTimeout(() => answerNow(p, sid), HOLD.ms); return; }
+  answerNow(p, sid);
+}
+function answerNow(p, sid) {
   let a;
   // (a vendored file that is not LOCK.json's: the request fails and the suite's log says why, never a silent stand-in)
   try { a = VENDOR && VENDOR.answer(p.request.url); } catch (e) { LOG.push({ t: 'EXC', m: `CMW_VENDOR: ${e.message}` }); console.error(e.message); send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }, sid).catch(() => {}); return; }
@@ -52,8 +57,18 @@ function vendorAnswer(p, sid) {
   send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, body: a.body.toString('base64'),
     responseHeaders: [{ name: 'content-type', value: a.type }, { name: 'access-control-allow-origin', value: '*' }, { name: 'cache-control', value: 'no-store' }] }, sid).catch(() => {});
 }
+// H.holdSheet(ms): the Google Fonts stylesheet request waits ms before it goes on (0 stops holding), for a page whose
+// faces arrive after first paint
+const HOLD = { ms: 0 };
 let S = null;
 const H = {};
+H.holdSheet = async (ms) => {
+  HOLD.ms = ms;
+  const patterns = (VENDOR ? VENDOR.PATTERNS : []).concat(['https://fonts.googleapis.com/*']);
+  await send('Fetch.enable', { patterns: patterns.map((urlPattern) => ({ urlPattern })) }, S);
+  // (a sheet from the browser's cache never reaches the hold)
+  await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
+};
 H.send = (m, p) => send(m, p, S);
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
