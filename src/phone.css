@@ -511,8 +511,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right) */
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span + .toast-act { margin-left: auto; }
-/* (the steps view's 10 s message: the words take a row, Retry, Cancel and the close button the row below, together at the right) */
-:root.ph #toastHost[data-placed="phone-plot"] .toast.toast-gate > span { flex-basis: 100%; }
+/* (the steps view's 10 s message on a portrait phone: the words take a row, Retry, Cancel and the close button the row below, together at the right; a landscape phone has the room for one row) */
+:root.ph:not(.ph-land) #toastHost[data-placed="phone-plot"] .toast.toast-gate > span { flex-basis: 100%; }
 
 .ph-ctx.under { visibility: hidden; }
 
