@@ -627,6 +627,8 @@
       const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
       mu = logLerp(ma, mb, carry.u);
     }
+    // (the height ruler's unit is of the median |value| over the shown planes' boxes, not of the scale the frame is fitted with)
+    const rulerMu = mu;
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
     // ones into stacked plates), so the height is nearly linear in the value and every turn keeps its pitch; the
@@ -814,7 +816,7 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
-    if (info && !artMode) draw3DLabels(pane, info, box);
+    if (info && !artMode) draw3DLabels(pane, info, box, carry ? rulerMu : medianAbs(box));
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.exactIn = carry && carry.exact ? { exact: carry.exact, F: svHeightF(0) } : null;   // (the inverse inputs the last carried frame drew from, and plane 0's map, as z is a point of plane 0: tests)
     render3D.carried = info && info.carried ? { path: info.exact === 'drawn' ? 'inverse' : 'mesh', exact: info.exact || null, u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, layers: info.layers || 1, landHoles: info.landHoles || 0, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
@@ -914,7 +916,7 @@
   // Labels of the landscape (spec 6.9), projected each frame: ticks on the two floor edges facing the camera, the
   // axis names, and a height ruler (values of the plotted quantity through the height map) on the back corner
   // that sits on the block's silhouette, so its labels never cover the relief.
-  function draw3DLabels(pane, info, box) {
+  function draw3DLabels(pane, info, box, mu) {
     const ctx = pane.ctx;
     const [ax, ay] = info.aspect || [1, 1];
     const z0 = info.floorZ, eye = info.eye;
@@ -1015,7 +1017,7 @@
     let vals;                                     // [value, label], in order of priority
     if (S.height === 'log' || !S.height) vals = [1, 10, 0.1, 100, 0.01].map((m) => [m, fmt(m)]);
     else {
-      const b = Axes.niceStep(medianAbs(box));
+      const b = Axes.niceStep(mu);
       vals = (S.height === 'abs' ? [1, 0, 4, 2, 10, 0.5] : [0, 1, -1, 4, -4, 2, -2]).map((m) => [m * b, fmt(m * b)]);
     }
     ctx.strokeStyle = TH.rulerTick;

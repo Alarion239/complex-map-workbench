@@ -31,6 +31,7 @@
   // the step sheets dk the glide draws are -SHEET_W..SHEET_W and M_MAX members m of a sheet are tried; a member whose turn lies within
   // EDGE_MARGIN (in Im) of its sheet's window edge is on that edge
   const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;
+  const TICK_PX = 2;   // (the screen y of a ruler label: the ends' scales are the parked plane's within SCALE_TOL, which moves a label a fraction of a pixel)
   const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
@@ -240,7 +241,7 @@
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
-    return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p, scale: __cmwLandScale() }; })()`);
+    return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p, scale: __cmwLandScale(), ticks: __cmwLandTicks() }; })()`);
   }
   // the places a frame is probed at: PROBES columns at cell centres and ROWS_SIDE rows on each side of the real axis, and a pair either side of the real axis (the
   // cut of the square root, the cube root and the logarithm) at each of CUT_X
@@ -438,6 +439,12 @@
       if (first || lastU) {
         const base = first ? p0.cover : p1.cover;
         ok(`${t}: at least the parked plane's surface pixels less ${COVER_TOL * 100} %`, cov.n >= (1 - COVER_TOL) * base, { n: cov.n, base });
+      }
+      // the height ruler's labels at the ends are the parked plane's: the same number, each within TICK_PX of the parked one's screen y
+      if (first || lastU) {
+        const ref = (first ? p0 : p1).ticks, got = await ev('__cmwLandTicks()');
+        ok(`${t}: the height ruler's tick labels are the parked plane's (${got && got.length} against ${ref && ref.length}; each within ${TICK_PX} px)`,
+          !!got && !!ref && got.length === ref.length && ref.every((y, i) => Math.abs(y - got[i]) <= TICK_PX), { got, ref });
       }
       // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
       {
