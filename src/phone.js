@@ -789,7 +789,7 @@ const Phone = (() => {
     const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg') ? 1 : k.matches('.fader-row') ? 3 : k.matches('.scrub, .field') ? 2 : 4);
     const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Opacity'), $t('Overlays')];
     return names.map((name, g) => [name, kids.filter((k) => of(k) === g)]).filter(([, ks]) => ks.length)
-      .map(([name, ks]) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-gl' }, name), ...ks));
+      .map(([name, ks]) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), ...ks));
   }
   function fillDisplay(side) {
     els.dispSide = side;

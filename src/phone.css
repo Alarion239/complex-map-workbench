@@ -336,7 +336,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-pill .ph-ic svg { width: 16px; height: 16px; display: block; }
 .ph-sb { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; }
 .ph-sb[hidden] { display: none; }
-.ph-h { margin: 12px 4px 4px; font: 600 12px/16px var(--f-ui); color: var(--muted); }
+.ph-h { margin: 12px 4px 4px; font: var(--t-label); font-variant-caps: all-small-caps; letter-spacing: .04em; color: var(--muted); }
 .ph-h[hidden] { display: none; }
 /* More tools: 60 px tiles */
 .ph-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; padding: 8px 0 4px; }
@@ -384,7 +384,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-vopts .fader-row.compact > .fval { grid-area: fv; font-variant-numeric: tabular-nums; text-align: right; }
 /* a group of the Display sheet: its small-caps label, then its rows 8 px apart; the groups are 12 px apart */
 :root.ph .ph-grp { display: flex; flex-direction: column; gap: var(--s-4); }
-:root.ph .ph-gl { margin: 0; font: var(--t-label); font-variant-caps: all-small-caps; letter-spacing: .04em; color: var(--muted); }
+:root.ph .ph-grp > .ph-h { margin: 0; }
 :root.ph .ph-vopts > * { position: static; max-width: 100%; }
 :root.ph .ph-vopts .seg { overflow-x: auto; }
 /* the colour style: a wrapping grid of choices, each a 48 px target with its glyph and its word under it (four to a row at
