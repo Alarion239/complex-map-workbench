@@ -1027,40 +1027,25 @@
   // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
   // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why) {
-    const m = svHomPaths(b, u), h = m.h;
-    if (!h) { why.r = m.why.r; return false; }
+    const h = svHomMemo && svHomMemo.b === b && svHomMemo.u === u ? svHomMemo.h : svInvPaths(b, u, 'flat', why);
+    if (!h) { if (svHomMemo && svHomMemo.b === b && svHomMemo.u === u) why.r = svHomMemo.why.r; return false; }
     const res = svDrawInverse(pane, h.list, h.paths, T, frame, u);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
-  }
-  // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
-  // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
-  // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
-  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
-  // come from the mask's pass (svStagedMask), which the colour layer does not draw
-  function svExactGlide(b, u) {
-    if (!GLR.inverseState) return false;
-    const h = svHomPaths(b, u).h;
-    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i) === 'ready');
   }
   // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
   // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
   // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
   // -> the place to draw instead of the thread's, or null (draw the thread's)
-  // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
+  // (the paths it builds are kept in svHomMemo for the frame's svCarryExactHom, which asks for the same b and u)
   let svHomMemo = null;
-  function svHomPaths(b, u) {
-    if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
-    return svHomMemo;
-  }
-  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths), as the carried colour draws it
-  const svInvState = (h, i) => { const p = h.paths[i]; return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }); };
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
-    const h = svHomPaths(g.b, g.u).h;
-    if (!h || !h.paths.some((p, i) => svInvState(h, i) === 'pending')) return null;
+    const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
+    svHomMemo = { b: g.b, u: g.u, h, why };
+    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1612,9 +1597,7 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
-    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
-    if (mask && svMask(pane, map, still ? a : undefined, {
+    if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
@@ -1628,16 +1611,15 @@
       // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
       // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
       // the CPU path (it is in cc already), the layers go one by one, the grid first
-      if (!mask && !frame.cc) {
+      if (!svMaskOn() && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
-        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
+        if (!bare) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
-        if (mask) svMask(pane, map, still ? a : undefined, { cc });
+        if (svMaskOn()) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
         svOutlines(pane, map, null, col);
@@ -1681,7 +1663,7 @@
   function svStagedOf() {
     const g = svBetween();
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
-    const h = svHomPaths(g.b, g.u).h;
+    const h = svHomMemo && svHomMemo.b === g.b && svHomMemo.u === g.u ? svHomMemo.h : svInvPaths(g.b, g.u, 'flat', { r: null });
     if (!h) return null;
     const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
     return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
