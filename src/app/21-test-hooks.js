@@ -383,6 +383,9 @@
     const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null, F = render3D.exactIn && render3D.exactIn.F;
     return g && F ? g.map((ls) => ls.map((l) => { const f = l.z ? F(C(l.z[0], l.z[1])) : null; return Object.assign({}, l, { f: f && CX.isFin(f) ? [f.re, f.im] : null }); })) : g;
   };
+  // the shown plane's map at a point z of plane 0 ([re, im] -> [re, im]), from the inverse inputs the last carried frame drew
+  // from; null when there are none
+  window.__cmwLandForward = (z) => { const F = render3D.exactIn && render3D.exactIn.F, f = F ? F(C(z[0], z[1])) : null; return f && CX.isFin(f) ? [f.re, f.im] : null; };
   // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
   // [{ z, f, h, member, sheet, D }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
   // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn

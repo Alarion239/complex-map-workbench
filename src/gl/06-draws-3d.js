@@ -319,6 +319,7 @@
       landC = { N, tex1: floatTex(), tex2: floatTex() };
     }
     const out = polar ? o : lay && lay.k ? landLayer(lay.k, N) : landC;
+    if (!polar) out.combo = lay && lay.shifts ? lay.shifts.slice() : [];   // (the forward shifts of the layer's sheet combo: landFrameVerts)
     // (All sheets: the layer is one step sheet's one member; the sheets are not merged)
     const ex = lay ? layerExact(c.exact, lay) : c.exact;
     if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
@@ -347,7 +348,7 @@
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
-        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
+        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, out.zTex);
         if (Pf) for (const tol of lyr ? CARRY_SHEET_TOLS.slice(0, 1) : CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
@@ -401,7 +402,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);  u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -417,20 +418,20 @@
     return out;
   }
   // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
-  // draws at its nearest grid vertex, [{ h, member }] (none where no layer is valid there)
+  // draws at its nearest grid vertex, [{ h, member, combo, w, z }] (none where no layer is valid there; combo the layer's forward shifts)
   function landFrameVerts(pts, box) {
     if (!landC || !landC.tex1) return null;
     const N = landC.N, fbo = gl.createFramebuffer();
     const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null }));
+    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null, combo: L.combo || [] }));
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return pts.map(([x, y]) => {
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i), out = [];
-      layers.forEach(({ px, pz }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], member, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
+      layers.forEach(({ px, pz, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
       return out;
     });
   }
@@ -1427,7 +1428,7 @@
       u1i(P, 'uN', hd.N);
       u4f(P, 'uBox', box.x0, box.y0, BW, BH);
       u2f(P, 'uAspect', aspect[0], aspect[1]);
-      u1f(P, 'uH', H);
+      u1f(P, 'uH', H); if (st.carry) u1f(P, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
       u1f(P, 'uFloorZ', floorZ);
       u1i(P, 'uMaterial', material);
       u3(P, 'uPlaster', C.plaster);
