@@ -266,7 +266,7 @@
     try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
   }
   const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
-  const CARRY_SHEET_TOL = 1e-3;   // the glide's image of a vertex's preimage is its place to this fraction of the place's size
+  const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
@@ -300,10 +300,10 @@
         const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex);
-        if (Pf) for (let i = 0; i < sheets.length; i++) {
+        if (Pf) for (const tol of CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
           use(Pf, Object.assign({}, c.map, { base: 0 }));
           if (datas[i]) gl.uniform4fv(Pf.loc.uChain, datas[i]);
-          stages(Pf); u1f(Pf, 'uCode', code(i)); u1f(Pf, 'uTol', CARRY_SHEET_TOL);
+          stages(Pf); u1f(Pf, 'uCode', code(i)); u1f(Pf, 'uTol', tol);
           gl.activeTexture(gl.TEXTURE15);
           runTF(Pf, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }

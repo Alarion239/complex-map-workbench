@@ -704,10 +704,10 @@ void main() {
 }
 `;
   // The exact glide's sheets: a vertex found by the inverse walk keeps the preimage z, but its step sheet is the one whose
-  // glide, applied to z, lands on the vertex's place (a walk accepts a member a little past its sheet's range, where the
-  // forward chain's principal branch is one sheet over). With the chain data of one sheet (uCode, written to the
-  // texel's w, 10 or more; the places of vertices not yet placed have w 1), a vertex not yet placed whose glide image
-  // is its place (to uTol of its size) takes that sheet's height
+  // glide, applied to z, lands on its place (a walk accepts a member a little past its sheet's range, where the forward
+  // chain's principal branch is one sheet over). With the chain data of one sheet (uCode), a vertex not yet placed
+  // whose glide image of z is within uTol of the place's size (|q - w| / (1 + |w|)) takes that sheet's height. The
+  // texel's w is 1 for a vertex not placed on a sheet, else uCode
   const LAND_CARRY_FIX_VS = `
 uniform int uN; uniform int uGs; uniform int uGt; uniform float uCode; uniform float uTol;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ;
@@ -728,7 +728,7 @@ void main() {
   // finite; uZ: the preimage of each place), as LAND_EDGE_VS finds a principal surface's: (t, height at the edge's
   // a end of the cut, at its b end, jump). The edge's preimages are joined by a chord and the height there bisected
   // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
-  // the edges whose two vertices are on the sheet uCode (texel w, LAND_CARRY_FIX_VS) are looked at, with that
+  // the edges whose two vertices are on the sheet uCode (the texel's w, LAND_CARRY_FIX_VS) are looked at, with that
   // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
   const LAND_CARRY_EDGE_VS = `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev;
