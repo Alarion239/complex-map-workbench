@@ -11,6 +11,8 @@
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const OUT = process.env.CMW_NEWT_AB_OUT || '';
+// (CMW_NEWT_AB_ONLY: a regex of the 'scene@x' records to take)
+const ONLY = process.env.CMW_NEWT_AB_ONLY ? new RegExp(process.env.CMW_NEWT_AB_ONLY) : null;
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (the places of a thread: x is the plane index plus the glide's u)
 const U = [0.25, 0.5, 0.75, 0.998];
@@ -66,11 +68,13 @@ const record = async (sc, x) => {
 const records = {};
 for (const sc of SCENES) {
   for (const x of sc.xs) {
-    const key = `${sc.name}@${x}`, a = await record(sc, x), b = await record(sc, x);
+    const key = `${sc.name}@${x}`;
+    if (ONLY && !ONLY.test(key)) continue;
+    const a = await record(sc, x), b = await record(sc, x);
     records[key] = a;
     const targets = Object.keys(a).filter((k) => k !== 'error');
     ok(`${key}: draws were read back`, targets.length > 0 && !a.error, a.error || targets.length);
-    ok(`${key}: a second load records the same hashes`, JSON.stringify(a) === JSON.stringify(b), { a, b });
+    ok(`${key}: a second load records the same hashes`, JSON.stringify(a) === JSON.stringify(b), Object.keys(a).filter((k) => !b[k] || a[k].h !== b[k].h));
     info[key] = targets.map((k) => k + (a[k].blank ? ' (blank)' : '')).join(' ');
   }
 }
