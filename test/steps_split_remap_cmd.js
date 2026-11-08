@@ -34,6 +34,8 @@ await open();
 await ev('__cmwSteps({ park: 1.5 })'); await until('Math.abs(__cmwSteps().x - 1.5) < 1e-6');
 const a = await pane(), s0 = await sv(); await shot('ssr-before');
 await split();
+// (the Undo toast closes after 6 s; the frames below take longer on a busy page: hold it as a pointer over it does)
+await ev(`document.querySelector('#toastHost .toast').dispatchEvent(new PointerEvent('pointerenter')); 1`);
 const s1 = await sv();
 ok('3 steps became 5', s1.planes.length === 6, s1);
 ok('parked: x 1.5 → 2.5', Math.abs(s1.x - 2.5) < 1e-9, [s0, s1]);

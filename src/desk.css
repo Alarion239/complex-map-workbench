@@ -581,6 +581,9 @@ label.check[aria-disabled="true"] { opacity: .4; cursor: default; }
 .sv-bandx[hidden] { display: none; }
 .sv-bandx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-play { font-size: 19px; }
+/* the wait before a glide: a 2 px ring around the button over a faint track, filling by --wait (0 to 1); it holds still when it hangs */
+.sv-play[data-wait], .sv-nav[data-wait] { position: relative; }
+.sv-play[data-wait]::after, .sv-nav[data-wait]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 2px; background: conic-gradient(var(--accent) 0 calc(var(--wait, 0) * 360deg), color-mix(in srgb, var(--accent) 25%, transparent) calc(var(--wait, 0) * 360deg) 360deg); -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
 .sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
 .sv-strip .sv-loop, .sv-strip .sv-paths { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 var(--s-5); }
