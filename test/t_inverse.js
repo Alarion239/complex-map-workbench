@@ -1126,6 +1126,42 @@ section('singularAfter (ζ after an injective plan)');
   }
 }
 
+// A side sheet's members are preimages under its own branch: every member the walk returns for sheet dk of a log or a root near
+// the start of its homotopy (t = .002, where the rotation of sheet dk is a small turn that carries members across the cut) maps
+// to its place under that sheet's forward map, and is sheet 0's member turned by e^(2 pi i dk beta) (beta = 1 / (1 - t) for the
+// log's z^(1-t), 1 / (1 + (1 / n - 1) t) for a root's z^s). Controls: the forward map of the neighbouring sheet dk + 1 and sheet 0's on every sheet reject members.
+{
+  const MISS_TOL = 1e-9, WALK_PIX = 1 / 60, PLACES = [40, 26], T_NEAR = 0.002;
+  const places = [];
+  for (let i = 0; i < PLACES[0]; i++) for (let j = 0; j < PLACES[1]; j++) places.push(C(-3 + 6 * (i + 0.5) / PLACES[0], -2 + 4 * (j + 0.5) / PLACES[1]));
+  const sheetOf = (b, st, t, dk) => {
+    const hk = Inverse.homOps(b, t, dk), plan = Inverse.planChain([st], [Inverse.homBuilt(b, hk)]);
+    return { hk, plan, prep: Inverse.prepare(plan, { win: WIN0, shape: H }), F: (z) => hk.ops.reduce((u, o) => o.fwd(u), z) };
+  };
+  const members = (sh, w) => Inverse.enumerate(sh.plan, sh.prep, w, WALK_PIX, { K: 16, B: 16 }).leaves.map((m) => m.z);
+  const miss = (F, z, w) => CX.abs(CX.sub(F(z), w));
+  for (const [type, params, beta] of [['log', { cut: 180, k: 0 }, 1 / (1 - T_NEAR)], ['root', { n: 3, cut: 180, k: 0 }, 1 / (1 + (1 / 3 - 1) * T_NEAR)]]) {
+    const st = St(type, params), b = Funcs.build(st), s0 = sheetOf(b, st, T_NEAR, 0);
+    for (const dk of [-3, -2, -1, 1, 2, 3]) {
+      const sd = sheetOf(b, st, T_NEAR, dk), sn = sheetOf(b, st, T_NEAR, dk + 1), turn = C(Math.cos(TAU * dk * beta), Math.sin(TAU * dk * beta));
+      let cnt = 0, own = 0, ratio = 0, nextBad = 0, zeroBad = 0;
+      for (const w of places) for (const z of members(sd, w)) {
+        cnt++;
+        if (miss(sd.F, z, w) > MISS_TOL) own++;
+        if (miss(sn.F, z, w) > MISS_TOL) nextBad++;
+        if (miss(s0.F, z, w) > MISS_TOL) zeroBad++;
+        if (miss(s0.F, CX.div(z, turn), w) > MISS_TOL) ratio++;
+      }
+      check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: every member maps to its place under the sheet's own forward map`, cnt > 0 && own === 0, { cnt, own });
+      // (the oracle holds where sheet 0's own walk reaches the turned place: a root's sheets differ by a turn of the value, not of z,
+      // and a log's sheet 3 turns members across sheet 0's cut)
+      if (type === 'log' && Math.abs(dk) < 3) check(`side sheet ${dk} of ${type} at t = ${T_NEAR}: each member is sheet 0's turned by e^(2 pi i dk beta)`, cnt > 0 && ratio === 0, { cnt, ratio });
+      check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): the neighbouring sheet's forward map rejects members`, nextBad > 0, { cnt, nextBad });
+      if (type === 'log' || dk % 3) check(`side sheet ${dk} of ${type} at t = ${T_NEAR} (control): sheet 0's forward map rejects members`, zeroBad > 0, { cnt, zeroBad });
+    }
+  }
+}
+
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
 // homotopy with no exact ops, and by Inverse.homOps' exact chain C^-1((Cz)^(1+t)) (MOB C, ROOTPOW 1 + t on the branch
 // arg Cz in (-pi/2, 3pi/2], MOB C^-1). The homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
