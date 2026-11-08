@@ -631,7 +631,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     regionUniforms(P, Object.assign({ pattern: 'solid' }, look, { dpr: st.dpr || 1 }), [0, 0]);
     if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
-      if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+      if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, st.chainData || cur.data);
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
@@ -783,7 +783,7 @@ void main() {
   const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
   let landSet = null;
   // GLR.landInverse(st) -> 'drawn' | 'pending' | 'error'; it writes st.tex (the places) and st.zTex (the preimages), N x N RGBA32F textures. st: drawInverse's map, plan, prep, inv,
-  // shape, more ([{plan, prep, inv}], the further sheets walked after it), plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
+  // shape, more ([{map, plan, prep, inv, shift: {vals, dk}}], the further sheets walked after it; shift: the step's values object and the sheet shift its branch takes), plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
   // carried colour's style, its s the plane z lies on) and heights {hT, hT2, hu}: the stages the height is of.
   function landInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok || !rtOK) return 'error';
@@ -798,7 +798,15 @@ void main() {
       if (pr.state !== 'ready') return 'error';
       const d = passData(sh.inv || st.inv || cur.info.inverse, sh.plan, sh.prep);
       if (!d.ok) return 'error';
-      progs.push({ P: pr.P, d });
+      // (a sheet's member continues the step's branch: the forward chain, which gives the member's height, is filled with the
+      // step's sheet k + dk)
+      let chainData = null;
+      if (sh.shift && sh.shift.vals && cur.info) {
+        const v = sh.shift.vals, k0 = v.k;
+        v.k = (k0 || 0) + sh.shift.dk;
+        try { chainData = cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
+      }
+      progs.push({ P: pr.P, d, chainData });
     }
     const N = st.N;
     if (!landSet) landSet = { fbo: gl.createFramebuffer(), size: new WeakMap(), scratch: null };
@@ -821,7 +829,7 @@ void main() {
     // (the passes alternate between the two target pairs, each reading the other's result; the last writes st's)
     const last = sheets.length - 1;
     for (let i = 0; i <= last; i++) {
-      const sh = sheets[i], { P, d } = progs[i], toSt = (last - i) % 2 === 0;
+      const sh = sheets[i], { P, d, chainData } = progs[i], toSt = (last - i) % 2 === 0;
       const dst = toSt ? st : landSet.scratch, src = toSt ? landSet.scratch : st;
       gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst.tex, 0);
@@ -830,7 +838,7 @@ void main() {
       if (!fbOk) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return 'error'; }
       P.warm = true;
       gl.useProgram(P.p);
-      bindInverse(P, Object.assign({}, st, sh, { look }), d, rec, look, INV_LAND);
+      bindInverse(P, Object.assign({}, st, sh, { look, chainData }), d, rec, look, INV_LAND);
       u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
       u1f(P, 'uHu', c.hu || 0);
       u1i(P, 'uLN', N);
