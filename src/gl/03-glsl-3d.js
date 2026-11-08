@@ -783,7 +783,7 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   // the corner's place xy, preimage z, height h and normal data nv
   vec2 cxy[3], cz[3]; float ch[3]; vec4 cnv[3];
   for (int kk = 0; kk < 3; kk++) {
-    if (!${clip ? 'true' : 'kk == k'}) continue;
+    if (!(${clip ? 'true' : 'kk == k'})) continue;
     ivec2 src = srcs[kk]; int x = xs[kk];
     vec4 t = texelFetch(uT1, src, 0);
     cnv[kk] = texelFetch(uT2, src, 0);
