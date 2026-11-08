@@ -98,6 +98,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 124px); }
 /* (a landscape phone's planes are narrow and its readout is one line above the key: it keeps the 72 px, or Russian's "1 / дел." is cut) */
 :root.ph.ph-land .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 72px); }
+/* (and its key stands below the readout's third line, which a long hint wraps to, and 6 px further from the lane, whose top button reaches 2 px into the gap) */
+:root.ph.ph-land .legend-chip { top: 100px; right: 66px; }
 /* the big plane's chip is tagged by the plane's one name, X (Y after a swap); the readout itself says
    z = … and w = F(z) = … (no doubled z) */
 :root.ph #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }

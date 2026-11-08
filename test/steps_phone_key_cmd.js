@@ -1,4 +1,5 @@
-// The steps view's per-plane key on a phone (412 x 860, 360 x 740 and 320 x 640 in English, 320 x 640 in Russian too, touch): example 1 with the thread parked at each plane
+// The steps view's per-plane key on a phone (portrait: 412 x 860, 360 x 740 and 320 x 640 in English, 320 x 640 in Russian; landscape:
+// 740 x 360 in English and 667 x 375 in Russian; touch): example 1 with the thread parked at each plane
 // and the colour plane T at each plane (the sweep of test/lib/plane_key_kit.js, which also checks the legend's kind and
 // caption against the laptop's key). On the phone the key is a folded glyph on the plane that a tap unfolds into the card (a
 // second tap folds it); the glyph and the card are each whole (inside the plane and the screen) and nothing else covers them
@@ -12,7 +13,7 @@ const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_key_kit.js'), 
 const fails = [], info = {};
 const PAD = 7;       // the hit area's reach beyond the 30 px glyph on each side (44 = 30 + 2 x 7), px
 const OUT = 21.5;    // how far out from the glyph's centre the hit probes go, px: inside the 44 px area (22 from the centre), outside a 42 px one
-const WIDTHS = [[412, 860, 'en'], [360, 740, 'en'], [320, 640, 'en'], [320, 640, 'ru']];   // width, height, language
+const WIDTHS = [[412, 860, 'en'], [360, 740, 'en'], [320, 640, 'en'], [320, 640, 'ru'], [740, 360, 'en'], [667, 375, 'ru']];   // width, height, language (the last two are landscape phones)
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the key element's rect, its plane's rect, the screen, and what is on top at its middle and near its corners
 const probe = (pad = 0) => ev(`(() => {
@@ -25,6 +26,8 @@ const probe = (pad = 0) => ev(`(() => {
   return { shown: true, collapsed: k.classList.contains('collapsed'), open: k.classList.contains('open'), w: r(b.width), h: r(b.height),
     inPlane: b.left >= q.left - 0.5 && b.right <= q.right + 0.5 && b.top >= q.top - 0.5 && b.bottom <= q.bottom + 0.5,
     onScreen: b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight, top: pts, vw: innerWidth,
+    // (the readout chip of the plane: the folded key stands clear of it)
+    readout: (() => { const ro = document.getElementById('leftReadout'); if (!ro || !ro.getClientRects().length) return null; const q3 = ro.getBoundingClientRect(); return q3.left < b.right && q3.right > b.left && q3.top < b.bottom && q3.bottom > b.top; })(),
     // (the 44 px hit area: the key on top at the centre and 21.5 px out from it on each side, the padded box clear of every other button)
     hit: [[0, 0], [-${OUT}, 0], [${OUT}, 0], [0, -${OUT}], [0, ${OUT}]].map(([dx, dy]) => onTop(b.left + b.width / 2 + dx, b.top + b.height / 2 + dy)),
     meets: [...document.querySelectorAll('button, [role="button"], a[href], input, select, summary')].filter((e) => e.getClientRects().length && !k.contains(e)).map((e) => { const q2 = e.getBoundingClientRect(); return { e, q2 }; })
@@ -34,12 +37,17 @@ for (const [w, h, lang] of WIDTHS) {
   await view(w, h, false, true);
   const nPl = await K.open('phonekey' + w + lang, PORT, lang);
   ok(`${w} ${lang}: the phone layout`, await ev('!!Phone._state().on'), null);
+  ok(`${w} ${lang}: ${w > h ? 'a landscape phone has' : 'a portrait phone has no'} ph-land`, (await ev("document.documentElement.classList.contains('ph-land')")) === (w > h), null);
   ok(`${w} ${lang}: example 1 has three planes`, nPl === 3, nPl);
+  // (the example's toast is a transient overlay on the plane, over a short landscape plane too: it is dismissed, as it times out on a real page, so the probe reads the key and the buttons)
+  await ev(`(document.querySelectorAll('.toast .toast-x, .toast-x').forEach((b) => b.click()), 1)`);
+  await settled({ until: `!document.querySelector('.toast')`, max: 5000 });
   await K.sweep(ok, info, nPl, async (name, lg) => {
     name = `${w} ${lang}, ${name}`;
     const pr = await probe(PAD);
     info[name] = { lg, pr };
     ok(`${name}: the folded key shows on the phone, whole, and nothing covers it`, pr.shown && pr.collapsed && pr.inPlane && pr.onScreen && pr.top.every((t) => t === ''), pr);
+    ok(`${name}: the folded key does not cover the readout chip`, !pr.readout, pr.readout);
     ok(`${name}: the folded key has a 44 px hit area: the key is on top at its centre and 21.5 px out from it on each side, and the padded box meets no other button`, pr.hit.every((t) => t === '') && pr.meets.length === 0, { hit: pr.hit, meets: pr.meets });
     // (a tap unfolds the card: it is as whole and as uncovered as the glyph, and larger than it)
     await ev(`(document.getElementById('leftLegend').click(), 1)`);
