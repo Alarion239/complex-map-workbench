@@ -3376,5 +3376,9 @@
  "Computed numerically: there is no f₊ and f₋ to show apart": "Calcolato numericamente: f₊ e f₋ non si possono mostrare separati",
  "F is not finite on the curve: its Cauchy integral is not defined": "F non è finita sulla curva: il suo integrale di Cauchy non è definito",
  "Cauchy: on z only": "Cauchy: solo su z",
- "No curve selected": "Nessuna curva selezionata"
+ "No curve selected": "Nessuna curva selezionata",
+ "Colour style": "Stile del colore",
+ "Style settings": "Impostazioni dello stile",
+ "Overlays": "Sovrapposizioni",
+ "Quality": "Qualità"
 }
