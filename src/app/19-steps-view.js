@@ -973,16 +973,25 @@
   const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
   // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
   // shape) keeps its own and draws every layer at it
-  // (the whole plane's carried colour with the sheets off is the front member's alone, as the parked planes are: the members
-  // behind it, the far preimages of a polynomial for one, do not show; a shape's own layers, and every layer with All sheets,
-  // show through at the slider's opacity)
-  const svCarryAlpha = (base, shape) => (base >= 1 ? (shape === SV_ALL && !S.sheets ? 1 : svOpacity()) : base);
-  const svCarryLook = (base, shape) => ({ alpha: svCarryAlpha(base, shape), alphaOwn: svCarryAlpha(base, shape), lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
+  // The opacity of a carried layer, and the opacity its buffer size is chosen for: base is the fill's own (1, or less for a
+  // pulled-back shape); glide is {b, u} for a frame of step b's glide at u. With the sheets off a glide frame of the whole
+  // plane starts as the colour plane T looks (the front member alone, opacity 1) and ends as a plane past T looks (the
+  // slider's opacity): from plane T it goes from 1 to the slider's, linear in u; from a plane before T it is 1, from a
+  // plane past T the slider's. A frame at rest, All sheets and a shape's own layers take the slider's.
+  const svCarryAlpha = (base, shape, glide, T) => {
+    if (base < 1) return { alpha: base, alphaOwn: base };
+    const slider = svOpacity();
+    if (shape !== SV_ALL || S.sheets || !glide) return { alpha: slider, alphaOwn: slider };
+    const a = glide.b - 1;
+    if (a < T) return { alpha: 1, alphaOwn: 1 };
+    return { alpha: a === T ? 1 + (slider - 1) * glide.u : slider, alphaOwn: slider };
+  };
+  const svCarryLook = (base, shape, glide, T) => Object.assign(svCarryAlpha(base, shape, glide, T), { lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
   // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
   // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
   // as the band's outer edge
-  const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf) => {
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape),
+  const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf, glide) => {
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape, glide, carry.T),
       carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
   };
   // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
@@ -1000,7 +1009,7 @@
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
   // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
   // (alphaOf, edgeOf: svInvArg's)
-  function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf) {
+  function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
     if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
@@ -1013,7 +1022,7 @@
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf), { nr }));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { b, u: t } : null), { nr }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -1029,7 +1038,7 @@
   function svCarryExactHom(pane, b, u, T, frame, why) {
     const h = svHomMemo && svHomMemo.b === b && svHomMemo.u === u ? svHomMemo.h : svInvPaths(b, u, 'flat', why);
     if (!h) { if (svHomMemo && svHomMemo.b === b && svHomMemo.u === u) why.r = svHomMemo.why.r; return false; }
-    const res = svDrawInverse(pane, h.list, h.paths, T, frame, u);
+    const res = svDrawInverse(pane, h.list, h.paths, T, frame, u, null, null, b);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
@@ -1045,7 +1054,7 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i]), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
+    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b: g.b, u: g.u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;

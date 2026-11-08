@@ -10,7 +10,7 @@
 // - ends: the first is plane 0's parked frame and the last plane 1's, pixel by pixel away from the colour lines
 //   (held_frames.js's sameAway: at least MIN_SAME pixels, at most SAME_FRAC of them more than LOOK_TOL apart, as
 //   steps_glide_look_cmd.js:54-55). The step's path moves a point by u |p(z) - z|: the ends are endFor's, the u at which
-//   the window's largest displacement is half a pixel;
+//   the window's largest displacement is a tenth of a pixel;
 // - members: at u = 0.5 the frame is the exact picture, held_frames.js's refOf (plane 0's parked frame pulled through
 //   H_u's inverse by Newton's method from a seed grid, away from the colour lines), at least MIN_COMPARED pixels, at most
 //   SAME_FRAC of them more than LOOK_TOL apart: a frame that misses a member of H_u over a pixel disagrees with it there;
@@ -27,7 +27,7 @@ const names = exampleNames();
 const { grab, sameAway, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_COMPARED = 1000;   // (steps_glide_look_cmd.js:54-55)
 // waits (ms) for a page to be ready, for the glide's frame at the slowest, and for the prestart's warm draw; the reference's sampling step (px); the displacement grid's points per side
-const READY_MS = 60000, FRAME_MS = 600000, WARM_MS = 120000, REF_STEP = 10, DISP_GRID = 41;
+const READY_MS = 60000, FRAME_MS = 600000, WARM_MS = 120000, REF_STEP = 10, DISP_GRID = 41, OPACITY = 0.85, OPACITY_LOW = 0.3;   // (the Opacity slider's default and a low value)
 const CASES = [
   { ex: 'Zeros of the zeta function' },
   { ex: 'Poles of the Gamma function' },
@@ -46,12 +46,12 @@ const at = async (x, max = FRAME_MS) => {
   return ev('(() => { const g = __cmwSteps().glide; return g ? { b: g.b, u: g.u, path: g.path, reason: g.reason } : null; })()');
 };
 // The end u of a polynomial step under Everywhere. H_u(z) - z = u (f(z) - z), so a point moves u |f(z) - z| along the glide, and
-// the window holds points where that is large (a polynomial of high degree): the frame at u is plane 0's within half a CSS
-// pixel only where u max |f(z) - z| <= HALF_PX, u over the window (the left pane's view, DISP_GRID x DISP_GRID points), from the glide's
-// H at the frame held now (at u0). The end is that u, at most END_MAX; at least END_MIN, below which 1 - end is not a
-// float32 the page's t can take: then the end is END_MIN and the check reports the displacement it leaves. Answers
+// the window holds points where that is large (a polynomial of high degree): the frame at u is plane 0's within a tenth of a CSS
+// pixel only where u max |f(z) - z| <= DISP_PX, u over the window (the left pane's view, DISP_GRID x DISP_GRID points), from the glide's
+// H at the frame held now (at u0). The end is that u, at most END_MAX; at least END_MIN, twice the page's SV_REST_U (below that u a thread is the plane
+// at rest, with no glide frame): then the end is END_MIN and the check reports the displacement it leaves. Answers
 // { end, disp: the largest displacement in CSS px at END_MIN's u }
-const END_MAX = 1e-4, END_MIN = 1e-6, HALF_PX = 0.5;
+const END_MAX = 1e-4, END_MIN = 2e-6, DISP_PX = 0.1;
 const endFor = (u0) => ev(`(() => {
   const g = __cmwSteps().glide, H = g.H, v = g.view, n = ${DISP_GRID}, hw = g.w / 2 / v.s, hh = g.h / 2 / v.s;
   let D = 0;
@@ -60,7 +60,7 @@ const endFor = (u0) => ev(`(() => {
     if (w && Number.isFinite(w.re) && Number.isFinite(w.im)) D = Math.max(D, Math.hypot(w.re - z.re, w.im - z.im));
   }
   const perU = D / ${u0} * v.s;   // CSS px of displacement per unit u
-  const want = perU > 0 ? ${HALF_PX} / perU : ${END_MAX};
+  const want = perU > 0 ? ${DISP_PX} / perU : ${END_MAX};
   const end = Math.min(${END_MAX}, Math.max(${END_MIN}, want));
   return { end, disp: +(perU * ${END_MIN}).toFixed(3), perU };
 })()`);
@@ -94,7 +94,7 @@ for (const c of CASES) {
   await at(0.5);
   const poly = await endFor(0.5);
   rec.poly = poly;
-  ok(`${c.ex}: the front member at u = ${poly.end} moves a point less than ${HALF_PX} CSS px (END_MIN = ${END_MIN} leaves ${poly.disp})`, poly.end > END_MIN || poly.disp <= HALF_PX, poly);
+  ok(`${c.ex}: the front member at u = ${poly.end} moves a point less than ${DISP_PX} CSS px (END_MIN = ${END_MIN} leaves ${poly.disp})`, poly.end > END_MIN || poly.disp <= DISP_PX, poly);
   for (const [u, ref] of [[poly.end, 'P0'], [1 - poly.end, 'P1']]) {
     const g = await at(u);
     const still = await grab('G' + u);
@@ -111,6 +111,34 @@ for (const c of CASES) {
     ok(`${c.ex} at u = 0.5: drawn by the inverse pass (Everywhere)`, !!g && g.path === 'inverse' && g.b === 1, g);
     ok(`${c.ex} at u = 0.5, sheets off: the exact picture's front member (at least ${MIN_COMPARED} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && !!r.ref && r.ref.n >= MIN_COMPARED && r.ref.over <= SAME_FRAC, { r, still });
   }
+  // the colour plane before the glide (plane 0), sheets off: plane 1 is past the colour plane and honours the Opacity slider, so
+  // the glide's opacity goes from 1 (plane 0's look) at its first end to the slider's at its last, and both ends are their
+  // parked planes; the control: at a slider of OPACITY_LOW the last end is the parked plane at that opacity, which differs from
+  // the one at OPACITY (the check would pass a frame that ignores the slider only if the two parked planes agreed)
+  await ev(`__cmwSet('alpha', ${OPACITY}), __cmwSteps({ T: 0 }), 1`);
+  await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
+  await park(0); const q0 = await grab('Q0');
+  await park(1); const q1 = await grab('Q1');
+  ok(`${c.ex}, colour plane 0: the parked frames are still`, q0 && q1, { q0, q1 });
+  for (const [u, ref] of [[poly.end, 'Q0'], [1 - poly.end, 'Q1']]) {
+    const g = await at(u);
+    const still = await grab('Z' + u);
+    const r = await sameAway('Z' + u, ref, LOOK_TOL, null);
+    rec[`T0 u ${u}`] = { g, still, r };
+    ok(`${c.ex}, colour plane 0, opacity ${OPACITY} at u = ${u}: the parked plane's frame (at least ${MIN_SAME} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, still && !!r && r.n >= MIN_SAME && r.over <= SAME_FRAC, { r, still });
+  }
+  await ev(`__cmwSet('alpha', ${OPACITY_LOW}), 1`);
+  await park(1); await grab('R1');
+  await at(0.5);   // (a frame at the same u is not redrawn when only the opacity changed)
+  {
+    const g = await at(1 - poly.end);
+    const still = await grab('ZL');
+    const r = await sameAway('ZL', 'R1', LOOK_TOL, null), d = await sameAway('R1', 'Q1', LOOK_TOL, null), e = await sameAway('ZL', 'Q1', LOOK_TOL, null);
+    rec['T0 low'] = { g, still, r, d, e };
+    ok(`${c.ex}, colour plane 0, opacity ${OPACITY_LOW} at the last end: the parked plane at that opacity`, still && !!r && r.n >= MIN_SAME && r.over <= SAME_FRAC, { r, still, glideVsOpacityParked: e });
+    ok(`${c.ex}, colour plane 0: the parked plane 1 at ${OPACITY_LOW} differs from that at ${OPACITY} (the control)`, !!d && d.over > SAME_FRAC, d);
+  }
+  await ev(`__cmwSet('alpha', ${OPACITY}), __cmwSteps({ T: 1 }), 1`);
   // the control: with All sheets the members behind the front one show through, so the frame at the first end is not plane 0's
   // (the check above would pass a frame that never draws them)
   await ev("__cmwSet('sheets', true), 1");
