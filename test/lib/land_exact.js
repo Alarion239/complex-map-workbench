@@ -28,7 +28,7 @@
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
-  const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;   // (EDGE_MARGIN: the distance, in turns of the window, under which a member is on its sheet's window edge and a layer there is either)
+  const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;   // (EDGE_MARGIN: the distance in Im of a member's turn under which it counts as on its sheet's window edge)
   // (   // (the step sheets dk the glide draws, -SHEET_W..SHEET_W; the members m of a sheet tried)
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
@@ -345,7 +345,7 @@
   }
   // a layer's match with the enumerator's members is ambiguous when more than one member fits its z and height: the check fails rather than pick one
   const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
-  const LAYER_PLACES = [[-1, 0.03], [0.3, 0.7], [3, 1], [-3, -2], [-6, 5.6]];
+  const LAYER_PLACES = [[0.3, 0.7], [3, 1], [-3, -2], [-6, 5.6], [2, -4]];   // (each at least 0.5 from every window edge at every glide u: the cut probe, on an edge, has its checks above)
   // the layers at w of the glide at u by the sheets' windows; shifted false: every sheet takes dk = 0's window (a control)
   const windowLayers = (w, u, shifted, withEdge = false) => {
     const sc = 1 - u, beta = 1 / sc, vr = 1 + sc * (w[0] - sc), vi = sc * w[1], arg = Math.atan2(vi, vr);
@@ -410,7 +410,7 @@
         LAYER_PLACES.forEach((w, i) => {
           const v = (at[i] && at[i][0] && at[i][0].w) || w;   // (the place the frame draws a probe at is its nearest grid vertex)
           const n = new Set((at[i] || []).map((l) => l.h.toFixed(2))).size, want = windowLayers(v, u, true, true);
-          if (want.edge) return;   // (a member on a window edge: the layer is either)
+          ok(`${t}: the place (${w}) is clear of every sheet's window edge`, !want.edge, want);
           ok(`${t}: the layers at (${w}) are the sheets whose window holds a member (${n} layers; ${want.n} by the windows)`, n === want.n, { n, want });
         });
       }
