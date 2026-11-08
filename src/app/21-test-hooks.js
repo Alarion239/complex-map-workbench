@@ -267,6 +267,26 @@
   // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
   // height, world units, within which an enumerated member is the one it draws)
   const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02, LAND_ENUM_SAME_Z = 1e-5, LAND_ENUM_NEAR = 2;
+  // the branch of a member's lifted coordinate when the enumerator gives none (the multivalued op follows a prefix): the turn of log P(z) by 2 pi k, |k| <= LAND_LAM_K,
+  // whose H is w within LAND_LAM_TOL, the nearest of them; null where none is (the member is then not a preimage of w on any branch, and H at z's principal log shows it)
+  const landLiftBranch = (sh, z, w) => {
+    const ops = sh.plan.ops, m = landMultiOp(sh);
+    if (m <= 0) return null;
+    try {
+      const l0 = CX.log(Inverse.fwdOps({ ops: ops.slice(0, m) }, z), ops[m].p.theta, ops[m].p.k);
+      let best = null, bd = Infinity;
+      for (let k = -LAND_LAM_K; k <= LAND_LAM_K; k++) {
+        const l = CX.add(l0, C(0, 2 * Math.PI * k)), v = Inverse.fwdOps({ ops: ops.slice(m + 1) }, landLiftOut(ops[m], l)), d = CX.isFin(v) ? CX.abs(CX.sub(v, w)) : Infinity;
+        if (d < bd) { bd = d; best = l; }
+      }
+      return best && bd <= LAND_LAM_TOL * (1 + CX.abs(w)) ? [best.re, best.im] : null;
+    } catch (e) { return null; }
+  };
+  // a plan's first multivalued op (a log or a power u^s): its index m, or -1. The ops before it are the prefix P (injective), and the lifted coordinate
+  // of a member is lam = log P(z) on the member's branch; the op's output is lam (a log) or e^(s lam) (a power)
+  const landMultiOp = (sh) => sh.plan.ops.findIndex((o) => o.kind === 'LOG' || o.kind === 'ROOTPOW');
+  const landLiftOut = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
+  const LAND_LAM_K = 2, LAND_LAM_TOL = 1e-6;   // (the turns of the argument tried either way, and the residual (relative to 1 + |w|) at which a branch holds)
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
@@ -459,7 +479,7 @@
         };
         if (r) r.entries.forEach((e, member) => {
           const f = Fs(e.z);
-          out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D, lvl: e.lvl, lam: e.lam ? [e.lam.re, e.lam.im] : null });
+          out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D, lvl: e.lvl, lam: e.lam ? [e.lam.re, e.lam.im] : landLiftBranch(sh, e.z, C(x, y)) });
         });
       });
       // the member the frame draws with sheets off: the first sheet's front member (the sheets are taken in order, the frame's own
@@ -470,8 +490,8 @@
   };
   // the frame's homotopy H_u at a point z of plane 0, per sheet (the sheets as __cmwLandEnum takes them): the forward ops of the plan the frame
   // inverts (Inverse.fwdOps), so H(z) is the w the frame draws z at. lam, the member's continued log coordinate (as __cmwLandEnum gives it), makes
-  // H the one the frame draws: the plan's first op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
-  // is on, and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
+  // H the one the frame draws: the plan's first multivalued op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
+  // is on (lam = log P(z), P the ops before it), and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
   // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H in z over HOM_DZ, or a thousandth of |z| where that is less (the plan's ops carry no
   // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]
   const HOM_DZ = 1e-6, HOM_CUT = 0.5;   // (HOM_CUT: the second difference of H over dz as a share of its first, at which H is taken to jump)
@@ -479,21 +499,24 @@
     const inp = render3D.exactIn;
     if (!inp) return null;
     const zc = C(z[0], z[1]), lc = lam ? C(lam[0], lam[1]) : null;
-    // (the first op's output from the lifted log coordinate; null when that op is neither)
-    const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
+    // (the plan's first multivalued op takes the lifted log coordinate in place of the principal log of its input; the ops after it follow)
     const at = (sh, p, l) => {
       try {
-        const o = sh.plan.ops[0], u = l && first(o, l), w = u ? Inverse.fwdOps({ ops: sh.plan.ops.slice(1) }, u) : Inverse.fwdOps(sh.plan, p);
+        const ops = sh.plan.ops, m = landMultiOp(sh), u = l && m >= 0 && landLiftOut(ops[m], l), w = u ? Inverse.fwdOps({ ops: ops.slice(m + 1) }, u) : Inverse.fwdOps(sh.plan, p);
         return CX.isFin(w) ? w : null;
       } catch (e) { return null; }
     };
-    // (d lam = dz / z at the continued log)
-    const lamAt = (p) => (lc ? CX.add(lc, CX.div(CX.sub(p, zc), zc)) : null);
+    // (the continued log coordinate at a point p near z: lam moves with log P(p) / P(z), P the prefix before the first multivalued op)
+    const lamAt = (sh, p) => {
+      if (!lc) return null;
+      const m = landMultiOp(sh), pre = (q) => Inverse.fwdOps({ ops: sh.plan.ops.slice(0, Math.max(m, 0)) }, q), r = CX.div(pre(p), pre(zc));
+      return CX.add(lc, C(Math.log(CX.abs(r)), Math.atan2(r.im, r.re)));
+    };
     return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => {
       // (the step is HOM_DZ, or a thousandth of |z| where z is smaller: a step larger than z samples another place)
       const dz = Math.min(HOM_DZ, 1e-3 * Math.hypot(z[0], z[1])) || HOM_DZ;
       const pa = C(z[0] + dz, z[1]), pb = C(z[0] - dz, z[1]);
-      const w = at(sh, zc, lc), a = at(sh, pa, lamAt(pa)), b = at(sh, pb, lamAt(pb));
+      const w = at(sh, zc, lc), a = at(sh, pa, lamAt(sh, pa)), b = at(sh, pb, lamAt(sh, pb));
       // (cut: the forward and the backward difference of H disagree: H jumps within dz of z, a cut of the map or a pole)
       const cut = !!(w && a && b) && Math.hypot(a.re - 2 * w.re + b.re, a.im - 2 * w.im + b.im) > HOM_CUT * (Math.hypot(a.re - b.re, a.im - b.im) + dz);
       return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * dz), (a.im - b.im) / (2 * dz)] : null, exactD: false, cut };
@@ -569,9 +592,7 @@
       if (s < 2 * W + Hh) return C(bx.x1 - (s - W - Hh), bx.y1);
       return C(bx.x0, bx.y1 - (s - 2 * W - Hh));
     };
-    const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
-    // (the index of a plan's first multivalued op, or -1: the ops before it are the prefix P, the lifted coordinate is log P(z))
-    const mOf = (sh) => sh.plan.ops.findIndex((o) => o.kind === 'LOG' || o.kind === 'ROOTPOW');
+    const first = landLiftOut, mOf = landMultiOp;
     const gAt = (sh, pt) => {
       const ops = sh.plan.ops, m = mOf(sh), u = pt.lam && m >= 0 && first(ops[m], pt.lam);
       const w = u ? Inverse.fwdOps({ ops: ops.slice(m + 1) }, u) : Inverse.fwdOps(sh.plan, pt.z);
