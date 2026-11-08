@@ -28,6 +28,7 @@
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
+  const END_SHEETS = 5;   // (the layers of a place beside the next plane's end: the log annulus's parked plane draws its 2W + 1 sheets there, each a layer)
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
@@ -343,6 +344,9 @@
   }
   // a layer's match with the enumerator's members is ambiguous when more than one member fits its z and height: the check fails rather than pick one
   const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
+  const missingSheets = (n) => n < END_SHEETS;
+  ok('the sheet-count check fails one layer where every sheet is expected', missingSheets(1), null);
+  ok('the sheet-count check passes every sheet', !missingSheets(END_SHEETS), null);
   ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
@@ -382,6 +386,12 @@
         const off = await layerGaps();
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         ok(`${t}: without the cut test two layers repeat a height (control; the closest are ${off.gap} apart)`, off.gap != null && off.gap < LAYER_GAP_MIN, off);
+      }
+      // near the next plane every sheet of the log is a layer at a place (the windows of the sheets are nearly whole turns there)
+      if (c.cutProbe && sheets && lastU) {
+        const at = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts([${JSON.stringify(c.cutProbe)}]))`))[0] || [];
+        const n = new Set(at.map((l) => l.h.toFixed(2))).size;
+        ok(`${t}: every sheet is a layer at the cut probe (${n} layers; at least ${END_SHEETS})`, n >= END_SHEETS, { n });
       }
       // the image at the ends
       if (first) ok(`${t}: plane z's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d0 <= SAME_FRAC, cov);
