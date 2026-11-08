@@ -367,6 +367,37 @@
     const pk = render3D.pick;
     return pk && pk.info ? { F: pk.F, height: (w) => pk.info.heightOf(landValue(w)), box: pk.box } : null;
   };
+  // the left pane's Landscape frame redrawn once as the relief alone on a transparent frame (the figure's coverage render, artRelief: no
+  // floor, plate, marks or labels), the same carry, view and camera: the alpha plane of the pane's canvas kept as window.__cmwLandRelief.cov
+  // (one byte a pixel, w x h; 255 where the relief covers the pixel), and the frame then drawn again as before. -> { w, h, n: covered pixels },
+  // or null with no Landscape frame
+  window.__cmwLandRelief = () => {
+    const cv = document.getElementById('canvasL');
+    if (!cv) return null;
+    const keep = { artMode, artRelief };
+    try {
+      artMode = true; artRelief = true;
+      // (the frame starts from a clear canvas: a transparent fill leaves what is drawn there)
+      paneL.ctx.setTransform(1, 0, 0, 1, 0, 0); paneL.ctx.clearRect(0, 0, cv.width, cv.height);
+      renderLeft();
+      const q = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, cov = new Uint8Array(cv.width * cv.height);
+      let n = 0;
+      for (let i = 0; i < cov.length; i++) { cov[i] = q[4 * i + 3]; if (cov[i] > 0) n++; }
+      Object.assign(window.__cmwLandRelief, { cov, w: cv.width, h: cv.height, land: artLand });
+      return { w: cv.width, h: cv.height, n };
+    } finally {
+      artMode = keep.artMode; artRelief = keep.artRelief;
+      renderLeft();
+    }
+  };
+  // the pane position (CSS px) of the point over (x, y) of the plane of the relief at height h, in the frame window.__cmwLandRelief last
+  // drew (its camera and box), null before it or where the point is behind the camera
+  window.__cmwLandProject = (x, y, h) => {
+    const L = window.__cmwLandRelief && window.__cmwLandRelief.land;
+    if (!L) return null;
+    const b = L.box, [ax, ay] = L.aspect;
+    return project(L, L.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
+  };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (v16.5 test/ux165_chain_cmd.js)
