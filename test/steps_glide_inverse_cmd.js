@@ -155,16 +155,28 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     return r;
   };
   // the held frame's test: plane z's parked frame, measured once the frames are parked
+  // (the page's bare hook strips the points and outlines from the carry core's frames only; plane z's parked frame is the
+  // classic core's and keeps them, so the held frame is drawn again with them, in the same held state, to be compared)
   const heldFrame = async () => {
+    const again = await ev(`(async () => { __cmwSteps({ bare: false }); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); window.__gi.f = __giGrab(); return __cmwSteps().hold || 0; })()`);
+    ok('the held frame is drawn again with its overlays while the hold lasts', again > 0, again);
     await park(0);
-    return ev(`(() => { const A = window.__gi.f, B = __giGrab(); let over = 0; for (let i = 0; i < A.d.length; i += 4) { let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > ${HELD_DIFF}) over++; } return over / (A.d.length / 4); })()`);
+    return heldOver();
   };
+  const heldOver = () => ev(`(() => { const A = window.__gi.f, B = __giGrab(); let over = 0; for (let i = 0; i < A.d.length; i += 4) { let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > ${HELD_DIFF}) over++; } return over / (A.d.length / 4); })()`);
   for (const x of [0.25, 0.5, 0.75]) {
     await load(ex, x);
     const r = await first(x, true);
     const over = await heldFrame();
     const held = over <= HELD_OVER, inv = !!r.g && r.g.path === 'inverse' && r.share >= FLOOR[x];
     info[`zeta scrub at once x ${x}`] = { r, over };
+    if (x === 0.5) {
+      // (control: the held frame is not plane w₁'s parked frame, so a mismatch over the frame fails the comparison)
+      await park(1);
+      const other = await heldOver();
+      info['zeta held vs plane w1'] = other;
+      ok(`the held frame differs from plane w₁'s parked frame on more than ${HELD_OVER * 10} of the pane (the comparison can fail)`, other > HELD_OVER * 10, other);
+    }
     ok(`zeta scrubbed at once to x = ${x}: the first frame is the held frame of plane z or the inverse pass's at least ${FLOOR[x]} of the pane`, held || inv, { r, over });
     if (x === 0.5) {
       // (the hold ends: once the tracks exist the frame at the finger is the inverse pass's, above the floor)
