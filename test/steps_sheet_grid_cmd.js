@@ -140,4 +140,15 @@ const after = await controls();
 ok('the sheet lists the same controls, in the same order, either side of the colour plane', before.list.length > 0 && JSON.stringify(before.list) === JSON.stringify(after.list), { before: before.list, after: after.list });
 const cur = await ev(`(() => { const l = document.querySelector('.ph-sheet label.check[aria-disabled="true"]'); return l && { cursor: getComputedStyle(l).cursor, opacity: getComputedStyle(l).opacity }; })()`);
 ok('a toggle that does not apply keeps the default cursor, dimmed', !!cur && cur.cursor === 'default' && +cur.opacity < DIMMED_BELOW, cur);
+// every slider the sheet shows says what its readout shows: its aria-valuetext is the readout's text
+const sliderTexts = () => ev(`(() => [...document.querySelectorAll('.ph-sheet input[type="range"]')].filter((i) => i.getClientRects().length).map((i) => {
+  const out = i.closest('.fader-row').querySelector('.fval');
+  return { id: i.id || i.className, text: out && out.textContent.trim(), said: i.getAttribute('aria-valuetext'), value: i.value };
+}))()`);
+await open(PHONE, 'en', false);
+const said = await sliderTexts();
+info.sliderTexts = said;
+ok('the sheet shows the opacity, grid step and mesh sliders', ['opacityRange', 'patScale', 'meshRange'].every((id) => said.some((x) => x.id.includes(id))), said);
+ok('each slider\'s aria-valuetext is its readout\'s text (opacity "85 %", grid step "×1", mesh "240")', said.length > 0 && said.every((x) => x.text && x.said === x.text), said);
+ok('the readout is not the raw slider position (the mesh slider\'s position is not 240)', said.some((x) => x.id === 'meshRange' && x.value !== x.text), said);
 return { pass: fails.length === 0, fails, info };
