@@ -2208,13 +2208,13 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="shapes" id="shapeList"></div>
         </div>
       </details>
-      <!-- the regions' display: their fill (the phase of z), grid lines and their step, chevrons and
+      <!-- the regions' display: their fill (the phase of the colour plane, named by its note), grid lines and their step, chevrons and
            opacity belong to the X → Y view and live in its Regions ▾ (the phone's Display sheet); the unit circle in every
            view's. Lent from here -->
       <div id="regionsHome" hidden>
         <div id="unitBox" class="field-col"><label class="check"><input type="checkbox" id="unitChk" checked><span>Unit circle</span></label></div>
         <div id="regionsBox" class="field-col">
-          <div class="lbl">Regions are coloured by the phase of z, carried by the map</div>
+          <div class="lbl"></div>
           <label class="check"><input type="checkbox" id="linesChk"><span>Grid lines on regions</span></label>
           <label class="fader-row"><span class="fl">Grid step</span><input type="range" id="patScale" min="-2" max="2" step="1" aria-label="Grid step"><span class="fval mono" id="patScaleVal"></span></label>
           <label class="check"><input type="checkbox" id="chevChk"><span>Orientation chevrons</span></label>
