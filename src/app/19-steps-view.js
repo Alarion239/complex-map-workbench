@@ -1026,12 +1026,13 @@
   }
   // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
   // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
-  // region, those of later planes too), so no mask from the regions' images is drawn under Inside regions (that mask's
-  // meshes, SphereMesh aside, lack parts of an unbounded region's image)
+  // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
+  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
+  // come from the mask's pass (svStagedMask), which the colour layer does not draw
   function svExactGlide(b, u) {
     if (!GLR.inverseState) return false;
     const h = svHomPaths(b, u).h;
-    return !!h && h.paths.every((p, i) => svInvState(h, i) === 'ready');
+    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i) === 'ready');
   }
   // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
   // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
