@@ -14,6 +14,8 @@
   let artGlobe = null;
   // (export review r3, video) the camera is recorded for every export render, also in the screen's light look
   let artCam = false;
+  // the art layer's coverage render of the Landscape: the relief alone, no floor plate, box or shadow
+  let artRelief = false;
   // (export review r3, editor-9) open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
   // sphere cannot dash): their lines are left out of the art layer
   let artSkip = null;

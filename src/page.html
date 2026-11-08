@@ -2,7 +2,8 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<!-- The font sheet loads without blocking the parser: a render-blocking stylesheet holds every inline script (the app's start-up) until it settles, so a stalled request would leave the page unstarted. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap" media="print" onload="this.media='all'">
 <script>
 /* i18n (notes/i18n/DESIGN.md 2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
@@ -238,14 +239,18 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 #shareBtn { order: 11; }
 #settingsBtn { order: 13; }
 .top .hw, .top .hc { display: none; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn):not([hidden]) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hw { display: inline; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc svg { width: 12px; height: 12px; }
-:root:not(.ph) .top :is(#themeBtn, #toggleLeft, #toggleRight) { display: none; }
-/* (hdrFit: where the header has no room for Share's word, e.g. Russian at 1280 and 1366 px, Share is its icon alone) */
-:root:not(.ph) .top.share-icon #shareBtn { width: 28px; padding: 0; justify-content: center; }
-:root:not(.ph) .top.share-icon #shareBtn :is(.hw, .hc) { display: none; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #themeBtn):not([hidden]) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #themeBtn) .hw { display: inline; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #themeBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #themeBtn) .hc svg { width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#toggleLeft, #toggleRight) { display: none; }
+/* (the words of Export, Share, Theme and Sound go together, never some of them: below 1100 px, and where hdrFit finds the header
+   has no room for them, e.g. Russian at 1100; each is then its icon alone, named by its aria-label and tip) */
+@media (max-width: 1099px) { :root:not(.ph) .top :is(#exportBtn, #shareBtn, #themeBtn):not([hidden]) { width: 28px; padding: 0; justify-content: center; } :root:not(.ph) .top :is(#exportBtn, #shareBtn, #themeBtn) :is(.hw, .hc) { display: none; } }
+:root:not(.ph) .top.hw-off :is(#exportBtn, #shareBtn, #themeBtn) { width: 28px; padding: 0; justify-content: center; }
+:root:not(.ph) .top.hw-off :is(#exportBtn, #shareBtn, #themeBtn) :is(.hw, .hc) { display: none; }
+:root:not(.ph) .top.hw-off .snd-btn .slbl { display: none; }
+:root:not(.ph) .top.hw-off .snd-btn { padding: 0 6px; }
 :root.ph .top :is(#shareBtn, #settingsBtn) { display: none !important; }
 .pop.opts-pop.set-pop { width: 320px; align-items: stretch; white-space: normal; max-height: calc(100vh - 64px); overflow-y: auto; }
 .set-pop > .seg { align-self: flex-start; }
@@ -349,11 +354,16 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .vsw .arr { font: var(--t-label); }
 .phbtn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
 .phbtn[aria-disabled="true"]:hover { color: var(--muted); }
-@media (max-width: 1279px) {
+/* (the view tabs' and Deformation's words: below 1024 px always; from 1024 px app.js hdrFit takes them away, after the example's name,
+   where the bar has no room for them) */
+@media (max-width: 1023px) {
   .top > .vsw > button > span, .top > .defbtn > span { display: none; }
   .top > .vsw > button { padding: 0 8px; }
   .top > .defbtn { padding: 0 8px; }
 }
+.top.tabs-off > .vsw > button > span, .top.tabs-off > .defbtn > span { display: none; }
+.top.tabs-off > .vsw > button { padding: 0 8px; }
+.top.tabs-off > .defbtn { padding: 0 8px; }
 .hdr-menu { display: contents; }
 .mlabel { display: none; }
 .menu-btn { max-width: 240px; gap: 4px; padding: 0 6px 0 8px; }
@@ -2082,14 +2092,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* the sound popover's engine line is mono in English; its Russian words are not («Звук: ещё не запущен») */
 :root[data-lang="ru"] #sndState { font-family: var(--f-ui); }
 /* Russian only (notes/i18n/ledger-2b.json) */
-/* at 1024-1199 px the examples button says «Примеры» (not a cut example name) and the command field «Поиск» */
+/* the command field's short label («Поиск»): app.js hdrFit shows it, in place of the full label, where that does not fit */
 .cmd-text .ct-s { display: none; }
-@media (min-width: 1024px) and (max-width: 1199px) {
-  :root[data-lang="ru"] .top #examplesBtn > .exlabel { display: none; }
-  :root[data-lang="ru"] .top #examplesBtn > .mlabel { display: inline; white-space: nowrap; }
-  :root[data-lang="ru"] .top #cmdBtn .ct-l { display: none; }
-  :root[data-lang="ru"] .top #cmdBtn .ct-s { display: inline; }
-}
 /* below 390 px «Прямо-угольник» and «Много-угольник» ran into each other: the bar keeps five tools and Polygon
    moves into «Ещё» (shown there, and in the bar while it is the active tool) */
 @media (max-width: 389px) { :root[data-lang="ru"] #secDraw:not(:has(.tool-more[open])) > .tools > .tool[data-tool="polygon"]:not(.on) { display: none; } }
@@ -2157,7 +2161,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
       <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
-      <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
+      <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span><span class="hw">Theme</span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
       <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default (notes/sound/README.md), it starts with the first click or key -->

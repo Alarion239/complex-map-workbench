@@ -688,7 +688,6 @@
  "Where {x} lands in the targets of {p} is shaded here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено.",
  "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено; кривые, которые она переводит в них, нарисованы здесь же.",
  "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
- "Scope": "Охват",
  "landscape": "рельеф",
  "Previous step alone": "Предыдущий шаг отдельно",
  "Next step alone": "Следующий шаг отдельно",
@@ -701,7 +700,15 @@
  "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её",
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
+ "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
   "How much the layers behind show through where the picture covers a point more than once.": "Насколько слои позади просвечивают там, где картина покрывает точку больше одного раза.",
   "The Landscape draws its sheets opaque; opacity applies to the plane.": "Рельеф рисует листы непрозрачными; прозрачность действует на плоскость.",
- "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Фазовый портрет функции %{choice}: цвет показывает $\\arg %{choice2}$.%{homDef}"
+ "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Фазовый портрет функции %{choice}: цвет показывает $\\arg %{choice2}$.%{homDef}",
+ "The Cauchy integral is drawn on z, where its curve lies: colour from z": "Интеграл Коши рисуется на z, где лежит его кривая: цвет от z",
+ "The Cauchy integral is drawn everywhere: its outside part is not cut to regions": "Интеграл Коши рисуется везде: его внешняя часть не обрезается областями",
+ "No pole inside the curve: F inside, 0 outside": "Внутри кривой нет полюса: F внутри, 0 снаружи",
+ "Computed numerically: there is no f₊ and f₋ to show apart": "Вычислено численно: f₊ и f₋ раздельно не показать",
+ "F is not finite on the curve: its Cauchy integral is not defined": "F не конечна на кривой: её интеграл Коши не определён",
+ "Cauchy: on z only": "Коши: только на z",
+ "No curve selected": "Кривая не выбрана"
 }

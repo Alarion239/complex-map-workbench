@@ -224,6 +224,7 @@
   function checkEl(id, checked, label, onchange, icon) {
     const inp = h('input', { type: 'checkbox', id, onchange: (e) => onchange(e.target.checked) });
     inp.checked = !!checked;
+    if (icon) inp.setAttribute('aria-label', label);   // (the icon form's word is hidden in the head: the name is the input's)
     if (!icon) return h('label', { class: 'check' }, inp, h('span', null, label));
     return h('label', { class: 'check ic-tg', 'data-tip': label }, inp, h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: icon }), h('span', { class: 'tg-l' }, label));
   }
@@ -241,6 +242,11 @@
       b.setAttribute('aria-label', d[1]);
       b.removeAttribute('title');
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
+      // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
+      if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
+        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
+      }
     }
     return el;
   }
@@ -310,11 +316,12 @@
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
   // (#247) on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
   // X's; a phone's Display sheet lends it itself
-  // (the steps view's Landscape surface is never a push plane: its pane holds no regions' display)
-  const pushHome = () => (SV.on ? SV.surf !== 'land' && svPaint() === 'push' : S.view.main === 'xy');
+  // (the steps view has one head and one colour panel on every plane: only classic's X → Y view moves the unit circle
+  // and the regions' button to Y's head)
+  const pushHome = () => !SV.on && S.view.main === 'xy';
   const unitSide = () => (pushHome() ? 'R' : 'L');
   // the regions' display (page.html's #regionsBox): the X → Y view's Regions pop-up, the steps view's ⋯ pop-up
-  const stepsRegions = () => SV.on && !pushHome();
+  const stepsRegions = () => SV.on;
   // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
   function unitHome(f) {
     const u = $('unitBox'), home = $('regionsHome');
@@ -329,6 +336,7 @@
       l.classList.add('ic-tg'); l.setAttribute('data-tip', $t('Unit circle'));
       const w = l.querySelector(':scope > span'); if (w) w.classList.add('tg-l');
       l.insertBefore(h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: ICONS.unit }), w);
+      const ui = l.querySelector('input'); if (ui) ui.setAttribute('aria-label', $t('Unit circle'));
     }
     return u;
   }
@@ -337,8 +345,6 @@
   // Deformation asked for it five times a side (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
   // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
   // microtask, force if any asked for it; nothing paints in between)
-  // (a formula note, the Cauchy sentence: the strip's layout and the ⋯ pop-up both order it apart from the controls)
-  const isFootNote = (/** @type {Element} */ e) => e.classList.contains('foot-note');
   const footDue = { L: 0, R: 0 };
   let footFlush = false;
   function layoutFootSide(side, force) {
@@ -381,8 +387,10 @@
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
     // and the toggles, so the plane's title keeps its room)
-    const unit = inHead ? unitKid(side) : null, isNote = (e) => isFootNote(e) || e.classList.contains('ovf');
-    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
+    // (the steps view's head is the same on every plane: the style row stays inline and every other control is behind ⋯,
+    // whatever the title's width, so no control comes and goes as the shown plane changes)
+    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf') || (SV.on && !e.classList.contains('seg'));
+    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit && !isNote(unit) ? [unit] : []), ...ft.kids.filter(isNote), ...(unit && isNote(unit) ? [unit] : [])] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
     // (#320: first a key of what the layout depends on that needs no layout read and no write: the head's and its key
@@ -494,39 +502,12 @@
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
   // opacity), lent while it is open)
   function patternBtn(side) {
-    const name = SV.on ? $t('Colouring') : $t('Regions');
+    const name = $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
     return b;
-  }
-  // the colouring's picker for a plane past the colour plane: whose colouring it is (with a way to its plane), the style
-  // row, the sectors or grid step the style takes, and the regions' grid lines. The steps view has one colouring, so
-  // every plane follows what is picked; the rows after the style row are made again when the style changes
-  function colourPop() {
-    const T = svT(), P = svPlanes(), p = svNameHtml(T);
-    const rows = h('div', { class: 'cp-rows' });
-    const fill = () => rows.replaceChildren(...colourScrubs(false, 'Pop'),
-      checkEl('linesChkPop', S.lines, $t('Grid lines on regions'), (v) => { setOpt('lines', v); requestRender('L', 'R', 'T'); drawLegend(); save(); }));
-    const style = styleSeg('dcSegPop');
-    for (const b of style.children) b.addEventListener('click', () => fill());
-    fill();
-    const el = h('div', { class: 'field-col cp-pop' },
-      h('div', { class: 'lbl', html: $t('Colouring of {p} (the colour plane)', { p }) }),
-      h('button', { type: 'button', class: 'btn small cp-go', onclick: () => { closePalette(); svGo(P.indexOf(T)); } }, h('span', { html: $t('Go to {p}', { p }) })),
-      style, rows);
-    return { el };
-  }
-  // a formula note (foot-note) describes the control before it in the strip. The strip's layout puts the notes last; in the
-  // pop-up a note stands directly under that control when it is behind ⋯ too, else at the pop-up's top, next to the
-  // control that stays in the head
-  function notesUnderControls(rest, kids) {
-    const notes = rest.filter(isFootNote);
-    if (!notes.length) return rest;
-    const out = rest.filter((e) => !notes.includes(e));
-    for (const note of notes) out.splice(out.indexOf(kids[kids.indexOf(note) - 1]) + 1, 0, note);
-    return out;
   }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
@@ -535,20 +516,16 @@
     // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
-    const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : notesUnderControls((head && ft.order ? ft.order : ft.kids).slice(ft.n), ft.kids);
-    // (the steps view's plane past the colour plane: the Regions button opens the colouring's picker, not the regions' display)
-    const colour = regionsOnly && SV.on ? colourPop() : null;
-    const regions = !colour && (regionsOnly || (head && stepsRegions())) ? $('regionsBox') : null;
+    const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
+    const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
     // (the steps view's Opacity slider is the one for S.alpha there: the regions' own row is left out)
     if (regions) /** @type {HTMLElement} */ ($('alphaRange').closest('.fader-row')).hidden = SV.on;
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
     const regionsHead = regions && !regionsOnly && rest.length
       ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
-    const kids = colour ? [...rest, colour.el] : regions ? [...rest, ...regionsHead, regions] : rest;
-    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : '') + (colour ? ' cp-wide' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
+    const kids = regions ? [...rest, ...regionsHead, regions] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
-    // (the colouring's picker grows to fit its style row, up to the plot pane's width less a margin each side, then wraps)
-    if (colour) { const pn = btn.closest('.pane'); if (pn) pop.style.maxWidth = Math.max(300, pn.clientWidth - 32) + 'px'; }
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -950,6 +927,12 @@
     if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
   }
+  // a control that does not apply on the shown plane: in place, with the one disabled look and its reason as the tip
+  function disableCtl(el, reason) {
+    svDisableWhy(el, reason);
+    const inp = el.querySelector('input');
+    if (inp) { inp.disabled = true; inp.setAttribute('aria-description', reason); }
+  }
   // the steps view's Opacity slider: svOpacity's range in whole percents, valuetext and the value beside it saying the
   // percent; setFillOpacity (S.alpha's one setter) keeps it and the regions' own slider at one value
   const opacityText = (v) => I18N.num(Math.round(v * 100)) + ' %';
@@ -983,14 +966,23 @@
           buildRightFoot(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
-    if (lPhase()) {
+    // the colour panel: the same controls on every plane of the steps view, before and after the colour plane; one that
+    // has no meaning on the shown plane stays in place, disabled, its reason the tip
+    if (lPhase() || (SV.on && !lLand())) {
       const land = lLand();
       if (!land) f.append(styleSeg());
       if (S.dc === 'cauchy' && lColor()) {
         const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
         // (#235: with poles inside the curve, which halves show; the words say what the picture is)
-        if (kind === 'split') f.append(seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')));
-        const noteHtml = !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+        // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
+        const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
+        const offZ = SV.on && svT() !== 0;
+        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
+        if (parts) {
+          if (partsWhy) for (const b of parts.querySelectorAll('button')) { b.disabled = true; b.dataset.tip = partsWhy; b.setAttribute('aria-description', partsWhy); }
+          f.append(parts);
+        }
+        const noteHtml = SV.on && svT() !== 0 ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
           : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
           : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
           : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
@@ -998,7 +990,11 @@
         f.append(h('span', { class: 'foot-note', html: noteHtml }));
       }
       f.append(...colourScrubs(land, ''));
-      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines));
+      if (lColor() || SV.on) {
+        const ol = checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines);
+        if (!lColor()) disableCtl(ol, $t('Outlines are drawn on the colour plane'));
+        f.append(ol);
+      }
     }
     if (lGlobe()) {
       f.append(checkEl('eqChkL', xView().eq, $t('Equator'), (v) => { xView().eq = v; requestRender('L'); save(); }), resetCamBtn(camL, CAML));
@@ -1097,7 +1093,8 @@
   const keyHex = (a) => '#' + keyRGB(a).map((x) => Math.round(255 * x).toString(16).padStart(2, '0')).join('');
   // the key as a CSS conic gradient: arg increasing counterclockwise from 1 (the folded legend chip, the header button)
   const keyConic = () => `conic-gradient(from 90deg, ${Array.from({ length: 25 }, (_, i) => keyHex(-i * 15 * DEG)).join(', ')})`;
-  const LEG = { W: 136, H: 72, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
+  // (Hc: the key's height when it is one line of text with no ring)
+  const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
@@ -1242,12 +1239,15 @@
     }
     if (!want) return;
     const st = legendState[side];
-    const { W, H: Hh, dpr } = LEG;
-    if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; st.drawn = ''; }
+    // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
+    const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    const { W, dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H;
+    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; st.drawn = ''; }
+    st.h = Hh;
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1267,7 +1267,7 @@
     if (img) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { cx, cy, R, sx, sy, sw, sh } = LEG;
-    if (legendNeedle != null) {
+    if (legendNeedle != null && !compact) {
       ctx.strokeStyle = TH.ink; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(legendNeedle) * R, cy - Math.sin(legendNeedle) * R); ctx.stroke();
     }
@@ -1284,7 +1284,7 @@
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
   function paintLegend(ctx, anyCut, kind, st) {
-    const { W, H: Hh } = LEG;
+    const W = LEG.W, Hh = st.h || LEG.H;
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
@@ -1343,20 +1343,25 @@
       if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
       return;
     }
+    // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
+    const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    st.ring = !cauchyOff;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
-    for (let i = 0; i < 360; i++) {
+    if (!cauchyOff) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
-    ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
-    // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
-    ctx.font = `italic 500 11px ${TH.math}`; ctx.fillStyle = TH.ink2;
-    ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
-    ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
-    ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
+    if (!cauchyOff) {
+      ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
+      // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
+      ctx.font = `italic 500 11px ${TH.math}`; ctx.fillStyle = TH.ink2;
+      ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
+      ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
+      ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
+    }
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
@@ -1364,10 +1369,11 @@
     const caption = (t) => {
       st.caption = t;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
-      let x = LEG.W - 8;
-      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width; }
+      // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
+      let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
+      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width * (cauchyOff ? 0.5 : 1); }
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, 62 + dy); x += ctx.measureText(p).width; }
+      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
     if (SV.on && svCarriedFrom() && !lPhase()) {
@@ -1396,6 +1402,8 @@
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
     if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
+    // (the steps view's Cauchy style with no picture on this plane: the reason, no bands that are not drawn)
+    if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
     // modulus strip
     st.strip = !(kind === 'color' && S.dc === 'classic');
     if (kind === 'color' && S.dc === 'classic') {
@@ -1422,6 +1430,7 @@
     }
     // (the steps view's Height key describes h(F), the same quantity on every plane)
     const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
@@ -1515,5 +1524,5 @@
   // (#385) the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
+    onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
   }

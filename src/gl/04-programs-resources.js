@@ -405,8 +405,17 @@ float wabs(vec2 w) {
   // transform feedback, the colour plot and the pull-backs, in modes 0 (a plane) and 1 (a step's homotopy))
   // (without the extension a link blocks: they are linked one at a time in idle time
   // instead, so the block lands before the first glide rather than in it)
+  // the [name, mode] programs prestartNames was asked for, per chain key (progStatus counts them: a caller's list
+  // is the one place a name is written); the chains before the last few are forgotten
+  const wanted = new Map();
+  function noteWanted(names, modes) {
+    let w = wanted.get(cur.key);
+    if (!w) { w = new Map(); wanted.set(cur.key, w); if (wanted.size > PROG_KEEP + 2) wanted.delete(wanted.keys().next().value); }
+    for (const n of names) for (const m of modes) w.set(n + '|' + m, [n, m]);
+  }
   function prestartNames(names, modes) {
     if (!ok || lost || sideMode || !cur.info) return 0;
+    noteWanted(names, modes);
     if (!pcExt) {
       const todo = [];
       for (const name of names) for (const m of modes) if (DEFS[name]) todo.push([name, m]);
@@ -429,6 +438,21 @@ float wabs(vec2 w) {
     }
     if (n) schedulePoll();
     return n;
+  }
+  // How far the current chain's programs that prestartNames was asked for have come: {done, total}. done: linked (or
+  // failed: nothing more will come of it); a program not started counts in total only. The chain's inverse programs
+  // (the exact images', started at their first use) that are still compiling are counted in total as well, so the
+  // answer is complete only when nothing of the chain is left linking
+  function progStatus() {
+    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
+    const w = wanted.get(cur.key), ids = [];
+    // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
+    if (!w) return { done: 0, total: 1 };
+    for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
+    const extra = [];
+    for (const e of progs.values()) if (e.inv && !e.side && e.key === cur.key && e.state === 'pending') extra.push(e.id);
+    const r = warmCount([['chain', ids]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
+    return { done: r.done, total: r.total };
   }
   // the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
