@@ -531,14 +531,12 @@
       const g = (t) => { const v = CX.sub(gAt(sh, f(t)), w); if (!CX.isFin(v)) throw new Error('nonfinite'); if (CX.abs(v) < WIND_D_ON * (1 + CX.abs(w))) on = true; return v; };
       const stack = [];
       for (let i = WIND_SEG0; i > 0; i--) stack.push([(i - 1) / WIND_SEG0, i / WIND_SEG0]);
-      let a0 = null;
       while (stack.length) {
         const [t0, t1] = stack.pop(), a = g(t0), b = g(t1), d = argd(a, b), tm = (t0 + t1) / 2, m = g(tm), d1 = argd(a, m), d2 = argd(m, b);
         const ok = Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
         if (ok) { sum += d; continue; }
         if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true };
         stack.push([tm, t1], [t0, tm]);
-        a0 = a;
       }
       return { sum, on, bad: false };
     };
@@ -574,7 +572,6 @@
           else if (!cross.length) pieces.push([[arc(0, Lp), Lp]]);
           else if (zeroIn) {
             const c0 = cross[0], rc = CX.abs(perim(c0.s)), eps = WIND_EPS_R * Math.hypot(W, Hh), lr = Math.log(rc), le = Math.log(eps);
-            const sg = (im) => (im > 0 ? 1 : 1);
             pieces.push([[(t) => { const z = perim(c0.s + Lp * t); const l = lamOf(sh, z); return { z, lam: l.im <= lo + 1e-9 && t > 1 - 1e-9 ? C(l.re, hi) : l }; }, Lp], [lip(lr, le, hi), lr - le], [(t) => { const im = hi + (lo - hi) * t; return { z: C(eps * Math.cos(im), eps * Math.sin(im)), lam: C(le, im) }; }, hi - lo], [lip(le, lr, lo), lr - le]]);
           } else {
             // (0 outside the box and the ray through it: each piece of the boundary between two crossings with the lip back along the ray)
