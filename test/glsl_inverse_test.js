@@ -247,7 +247,8 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
-  // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w) in index order
+  // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
+  // member its residual |H_t(z) - w| / (1 + |w|)
   async function nrMembers(o, steps, built, planBuilt, plan, prep, st0) {
     const NB = 2 + Inverse.NEWT_LADDER.length, G = o.grid, inv = GLChain.buildInverse(steps, planBuilt);
     inv.nr = { j: 0, targets: Math.ceil(NB / 2), main: MAIN_MEMBERS(NB) };
@@ -262,13 +263,13 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     let r;
     try { r = await untilCompiled(() => { const q = GLR.newtRoots(st); return q.state === 'drawn' ? 'drawn' : q.state === 'pending' ? 'pending' : q.state; }); } finally { gl.drawArrays = draw; }
     if (r !== 'drawn') return { error: r };
-    const op = Inverse.homOps(built[0], o.hom).ops.find((q) => q.kind === 'NEWT');
+    const op = Inverse.homOps(built[0], o.hom).ops.find((q) => q.kind === 'NEWT'), Hh = built[0].hom(o.hom);
     const out = [];
     for (let j = 0; j < G; j++) {
       for (let i = 0; i < G; i++) {
         const w = [o.win.x0 + (i + 0.5) * (o.win.x1 - o.win.x0) / G, o.win.y0 + (j + 0.5) * (o.win.y1 - o.win.y0) / G];
         const px = j * G + i, gpu = [];
-        for (let m = 0; m < NB; m++) { const b = reads[m >> 1], q = 4 * px + 2 * (m & 1); if (Math.abs(b[q]) < 1e37) gpu.push([b[q], b[q + 1], m]); }
+        for (let m = 0; m < NB; m++) { const b = reads[m >> 1], q = 4 * px + 2 * (m & 1); if (Math.abs(b[q]) < 1e37) gpu.push([b[q], b[q + 1], m, CX.abs(CX.sub(Hh(C(b[q], b[q + 1])), C(w[0], w[1]))) / (1 + Math.hypot(w[0], w[1]))]); }
         out.push({ w, gpu, cpu: op.pre(C(w[0], w[1])).map((m) => [m.u.re, m.u.im, m.m]) });
       }
     }
