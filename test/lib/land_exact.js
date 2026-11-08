@@ -4,7 +4,7 @@
 // H_u. The cases (Landscape of Im F, one pane and camera, each with Inside regions' sheets off or with All sheets):
 // the square root under a Möbius map, the logarithm of an annulus, a cube root, the Joukowski airfoil, Roots as preimages
 // and the partial sums of the exponential (the last two draw through the Newton's roots pass). Each is held at
-// u = END_U, 0.5 and 1 - END_U of the glide from the first plane to the second, where:
+// u = END_U, 0.002, 0.5, 0.998 and 1 - END_U of the glide from the first plane to the second, where:
 // - the path: the frame's record says 'inverse' (render3D.carried.path), not 'mesh';
 // - the geometry: at probe places w (a grid over the box and a pair either side of the real axis) the frame's per-vertex draw
 //   data (window.__cmwLandFrameVerts(pts): per place the layers the frame draws there, { h: height, f: F, member, w }) is the CPU
@@ -16,7 +16,7 @@
 //   reference has a preimage there), and at most CELL_TOL of them differ either way; at the ends also the surface pixels (saturation
 //   over 30, the measure of steps_land_cover_cmd.js's surface(), counted on the kit's kept pixels) are at least the parked plane's
 //   less COVER_TOL; negative controls: a hole, and a wall filled across the cut, fail the comparison;
-// - the image: u = END_U is plane z's parked frame and u = 1 - END_U the next plane's, at most SAME_FRAC of the pixels more
+// - the image: u below 0.5 is plane z's parked frame and u above it the next plane's, at most SAME_FRAC of the pixels more
 //   than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js).
 // An expression for eval in a command file of a CDP daemon (test/cdp_kit README), which sees its globals (fs, DIR, ev, go,
 // settled, loadView, view): `return await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'land_exact.js'), 'utf8'))(modes)`, with modes the
@@ -29,11 +29,10 @@
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
-  const GLIDE_U = [0.002, 0.5, 0.998];
-  // The end probes are END_U from the planes for every case: a polynomial's step runs its path several times as fast as the glide's u,
-  // and the height axis's scale is a log-lerp of the two planes' scales, so a correct frame at u = 0.002 or 0.998 differs from the parked
-  // plane by O(1 - u) (a 1 px silhouette and contour shift: the cube root is 0.6 % against SAME_FRAC); END_U is where that is below it.
-  const END_U = 1e-4;
+  const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
+  const GLIDE_U = [END_U, 0.002, 0.5, 0.998, 1 - END_U];
+  // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
+  // frame there matches the parked plane within SAME_FRAC; END_U is the ends of a polynomial's glide)
   const { grab, compare, DIFF_TOL, SAME_FRAC } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));   // (the look suite's constants)
   // the share of the parked plane's surface pixels a frame at an end may lack: it is the parked plane's within SAME_FRAC of its pixels,
   // so a surface pixel it lacks is one of those
@@ -183,7 +182,7 @@
     // the front member of sheets off, continued along u from the first probe: the place's root, per probe place
     let track = null, vfirst = null, prevU = null;
     for (const u0 of GLIDE_U) {
-      const u = u0 < 0.5 ? END_U : u0 > 0.5 ? 1 - END_U : u0, first = u0 === GLIDE_U[0], lastU = u0 === GLIDE_U[GLIDE_U.length - 1];
+      const u = u0, first = u0 < 0.5, lastU = u0 > 0.5;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       if (track) {
         for (let k = 1; k < TRACK_STEPS; k++) {
