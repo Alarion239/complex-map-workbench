@@ -16,6 +16,7 @@
 //   project(x, y, h): the half-resolution pixel [px, py] of the point (x, y, h) of the surface;
 //   mask(x, y): 0..1 (the Inside-regions mask) or null;   all: every member is drawn (All sheets), else the front one;
 //   layers(m): the drawn layers of a member [{ combo, h }] (All sheets' forward combos), default one layer of height m.h.
+//   sing(): optional, the plan's own singular points [{ sheet, z, w, kind }] (w: the place each is drawn at, null where H is not finite);
 //   count(w): optional, the completeness count at a place [{ ok, status }].
 // opts: { nx, ny, depth, <the named bounds below> and the controls' perturbations: seed, seam, branch }.
 //
@@ -402,15 +403,29 @@
           if (d > 0 && d < best) { best = d; pair = [ms[a], ms[b]]; }
         }
         if (!pair) { c.certWhy = 'no merging pair'; continue; }
-        const cert = certifyAt(pair, best, ms.filter((q) => q.sheet === pair[0].sheet));
+        // the plan's own singular point drawn in this cell (a branch point of a root or a logarithm: H is not analytic there, so
+        // there is no critical point of H' to find): a declared point whose place is in the cell certifies it
+        const cert = singularCert(c) || certifyAt(pair, best, ms.filter((q) => q.sheet === pair[0].sheet));
         if (!cert.ok) { c.certWhy = cert.why; continue; }
         // the location test: H(c) lies inside a cell of the suspect ones (the control moves it one cell), and then covers its neighbours
-        const wc = o.branch ? [cert.w[0] + o.branch * c.s * cellW, cert.w[1]] : cert.w;
+        const wc = o.branch && !cert.singular ? [cert.w[0] + o.branch * c.s * cellW, cert.w[1]] : cert.w;
         const holds = lv.branch.some((q) => { const a = wAt(q.i, q.j), b = wAt(q.i + q.s, q.j + q.s); return wc[0] >= a[0] && wc[0] <= b[0] && wc[1] >= a[1] && wc[1] <= b[1]; });
         if (holds) { cert.w = wc; certs.push(cert); c.certified = cert; }
         else c.certWhy = 'the critical point is not in a suspect cell';
         yield;
       }
+    }
+    let singList = null;
+    function singularCert(c) {
+      if (!frame.sing) return null;
+      if (singList === null) singList = frame.sing() || [];
+      const a = wAt(c.i, c.j), b = wAt(c.i + c.s, c.j + c.s), sh = o.branch ? o.branch * c.s * cellW : 0;
+      for (const q of singList) {
+        if (!q.w) continue;
+        const w = [q.w[0] + sh, q.w[1]];   // (the control moves the point one cell)
+        if (w[0] >= a[0] && w[0] <= b[0] && w[1] >= a[1] && w[1] <= b[1]) return { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: dist2(a, b), kantorovich: null, winding: null, inDisc: null };
+      }
+      return null;
     }
     function certifyAt(pair, sep, group) {
       const simple = certifySimple(pair, sep);

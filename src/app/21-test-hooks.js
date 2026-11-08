@@ -503,6 +503,23 @@
   // dropOne removes a member, hMin replaces WIND_H_MIN, onLip puts w on sheet 0's cut lip, nearContour puts w within WIND_NEAR of sheet 0's
   // boundary
   const WIND_ARG = Math.PI / 4, WIND_EPS_R = 1e-6, WIND_D_ON = 1e-9, WIND_H_MIN = 1e-12, WIND_CLOSE = 1e-6, WIND_PERIM = 4096, WIND_NEAR = 1e-4, WIND_SEG0 = 64, WIND_POLE_R = 1e-7, WIND_POLE_BIG = 1e3, WIND_ORDER_TOL = 0.05, WIND_ON_BAD = 1e-6, WIND_ARG_NOISE = 1e-8;
+  // the plan's own singular points (the branch points and undefined points of its steps, pulled back to plane 0: Inverse.singular) inside the
+  // box, per sheet of the frame, with the place w = H(z) each is drawn at (null where H is not finite there): [{ sheet, z, w, kind }]
+  window.__cmwLandSing = () => {
+    const inp = render3D.exactIn, bx = render3D.box;
+    if (!inp || !bx) return null;
+    const out = [];
+    [inp.exact].concat(inp.exact.more || []).forEach((sh, sheet) => {
+      let pts = [];
+      try { pts = Inverse.singular(sh.plan, bx, ['branch', 'undef'], 16); } catch (e) { pts = []; }
+      for (const q of pts) {
+        if (!(q.z.re >= bx.x0 && q.z.re <= bx.x1 && q.z.im >= bx.y0 && q.z.im <= bx.y1)) continue;
+        const h = window.__cmwLandHom([q.z.re, q.z.im]), r = h && h[sheet];
+        out.push({ sheet, z: [q.z.re, q.z.im], w: r && r.H ? r.H : null, kind: q.kind });
+      }
+    });
+    return out;
+  };
   window.__cmwLandWind = (wIn, opts = {}) => {
     const inp = render3D.exactIn, bx = render3D.box;
     if (!inp || !bx) return null;
