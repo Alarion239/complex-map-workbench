@@ -601,9 +601,13 @@ void main() {
   const LAND_CARRY_NRM_VS = `
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 uniform float uPatch;
+// uCuts 1 (the exact glide): the cuts of the grid's +x and +y edges (uE0, uE1, LAND_CARRY_EDGE_VS); a neighbour across one is not a neighbour
+uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uCuts;
 out vec4 tfOut;
 ` + LAND_AO + `
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
+// the edge from p along +x (d 0) or +y (d 1) holds a cut
+bool cutAt(int d, ivec2 p) { return uCuts > 0 && (d == 0 ? texelFetch(uE0, p, 0).w : texelFetch(uE1, p, 0).w) > 0.5; }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
 void main() {
@@ -613,7 +617,8 @@ void main() {
   vec4 c = T(p);
   if (c.w < 0.5) { tfOut = vec4(0.0, 0.0, 1.0, 1.0); return; }
   vec4 L = T(p - ivec2(1, 0)), R = T(p + ivec2(1, 0)), D = T(p - ivec2(0, 1)), U = T(p + ivec2(0, 1));
-  bool oL = p.x > 0 && near(c, L), oR = p.x < uN - 1 && near(c, R), oD = p.y > 0 && near(c, D), oU = p.y < uN - 1 && near(c, U);
+  bool oL = p.x > 0 && near(c, L) && !cutAt(0, p - ivec2(1, 0)), oR = p.x < uN - 1 && near(c, R) && !cutAt(0, p);
+  bool oD = p.y > 0 && near(c, D) && !cutAt(1, p - ivec2(0, 1)), oU = p.y < uN - 1 && near(c, U) && !cutAt(1, p);
   vec3 P0 = placeOf(c);
   vec3 dx = (oR ? placeOf(R) : P0) - (oL ? placeOf(L) : P0), dy = (oU ? placeOf(U) : P0) - (oD ? placeOf(D) : P0);
   vec3 n = cross(dx, dy);

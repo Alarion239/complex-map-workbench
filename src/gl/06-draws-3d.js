@@ -351,6 +351,9 @@
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
     u1f(P2, 'uStep', carryStep(mode, H, exact)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    const cutNrm = !polar && exact && landC.cuts === 1;
+    u1i(P2, 'uCuts', cutNrm ? 1 : 0);
+    if (cutNrm) for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
