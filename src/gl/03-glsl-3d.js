@@ -639,8 +639,6 @@ uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; unif
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
-// uCW: each vertex's colour value F (the exact glide, LAND_CARRY_COL_VS), which a triangle across two sheets is coloured from
-uniform highp sampler2D uCW;
 // uCuts 1 (the exact glide, whose cuts LAND_CARRY_EDGE_VS found into uE0, uE1, uE2): a triangle is drawn as LAND_VS draws
 // it, 9 vertices each (uPer 9); else 3
 uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
@@ -648,7 +646,7 @@ uniform int uCuts; uniform int uPer;
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
-flat out vec3 vEdge; flat out vec3 vBoxE; flat out float vUseW;
+flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
 vec4 edgeOf(ivec2 a, ivec2 b) {
@@ -661,7 +659,7 @@ vec4 edgeOf(ivec2 a, ivec2 b) {
 }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-  vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vUseW = 0.0;
+  vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
   int M = uN - 1;
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, sub = loc / 3, k = loc - 3 * sub, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % M, cell / M);
@@ -670,8 +668,6 @@ void main() {
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
-  // (a triangle across two sheets is coloured from its corners' colour values, each on its own sheet: the colour of an interpolated z would cross the sheets' cut)
-  vUseW = uZOn == 1 && (t0.w != t1.w || t1.w != t2.w) ? 1.0 : 0.0;
   if (uDrawCode > 0.0) {
     float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
     if (abs(cc - uDrawCode) > 0.5) return;
@@ -706,7 +702,6 @@ void main() {
     h = src == A ? e.y : e.z;
   }
   vZ = z;
-  if (uZOn == 1) vW = texelFetch(uCW, src, 0).xy;
   vPos = vec3(((xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -732,23 +727,6 @@ void main() {
   if (t.w < 0.5 || t.w > 5.0) return;
   vec2 z = texelFetch(uZ, p, 0).xy, q = mapPoint(z), h = carryHeight(z);
   if (h.y > 0.5 && cfin(q) && length(q - t.xy) <= uTol * (1.0 + length(t.xy))) tfOut = vec4(t.xy, h.x, uCode);
-}
-`;
-  // The exact glide's colour values: the vertices on the sheet uCode (the texel's w; 1 for a vertex on none) take F, the glide's
-  // chain on that sheet at their preimage; the others keep the value in uCW
-  const LAND_CARRY_COL_VS = `
-uniform int uN; uniform int uGs; uniform int uGt; uniform float uCode;
-uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uCW;
-out vec4 tfOut;
-` + CARRY_HEIGHT + `
-void main() {
-  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
-  gl_PointSize = 1.0;
-  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
-  vec4 t = texelFetch(uT1, p, 0);
-  tfOut = texelFetch(uCW, p, 0);
-  if (abs(t.w - uCode) > 0.5) return;
-  tfOut = vec4(chainRange(texelFetch(uZ, p, 0).xy, uGs, uGt), 0.0, 1.0);
 }
 `;
   // The exact glide's cuts: one texel per grid edge (+x, +y, diagonal; uDir) of the glide's grid (uT1: place, height,
@@ -1361,7 +1339,7 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps; flat in float vUseW;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
 ${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
@@ -1407,7 +1385,7 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
 void main() {
 ${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
-${lite ? `  vec2 w0 = ${carry ? 'vUseW > 0.5 ? vW : ' : ''}landW(vZ), w = w0;
+${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
