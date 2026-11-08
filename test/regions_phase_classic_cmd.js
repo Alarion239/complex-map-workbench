@@ -50,11 +50,13 @@ const ph = await ev(`(() => {
   return b && {
     ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => b.querySelector('#' + id)),
     swatches: b.querySelectorAll('.pat, [data-pat], canvas').length,
+    alphaShown: !!b.querySelector('#alphaRange') && b.querySelector('#alphaRange').getClientRects().length > 0,
     heads: hs,
   };
 })()`);
 ok("the phone's Display sheet: a Regions section with the regions' options, no swatch",
   ph && ph.ids.length === 4 && ph.swatches === 0 && ph.heads.includes('Regions'), ph);
+ok("the phone's Display sheet in the classic X → Y view keeps the regions' own opacity slider (the steps view hides it for its one Opacity)", !!ph && ph.alphaShown, ph);
 ok('the phone opens the saved Tiles as the phase', (await ev('__cmwRegions().pattern')) === 'phase', null);
 await ev(`Phone.close(true)`); await settle(300);
 // ---- 6. the tour: no Patterns step in Views

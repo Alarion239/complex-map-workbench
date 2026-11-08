@@ -76,14 +76,12 @@ const Phone = (() => {
     // Display: this view's options and the unit circle, then (in the X → Y view) the regions' display, lent from
     // page.html's #regionsHome (not a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
-    els.regions = h('div', { class: 'ph-regions' });
-    els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
     // the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
     els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
-    els.body.display.append(els.style, els.viewOpts, els.regionsH, els.regions);
+    els.body.display.append(els.style, els.viewOpts);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
@@ -619,7 +617,7 @@ const Phone = (() => {
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
     // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
-    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on') || els.viewOpts.querySelector('.sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -756,25 +754,57 @@ const Phone = (() => {
     els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
     els.style.setAttribute('aria-disabled', String(st.land));
   }
+  // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
+  // that style's settings, the Landscape's height (Height, Scale, View), the opacity, then the overlays (outlines and the unit
+  // circle); a group with no control shows no label
+  // each group: its label and the rows it holds, in the order they show; a row goes to the first group that has a predicate for it,
+  // and rows no group names go to the last (the overlays)
+  const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);
+  function displayGroups(kids) {
+    const groups = [
+      { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
+      { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
+      { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
+      { name: $t('Height'), rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
+      { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
+      { name: $t('Overlays'), rows: [] },
+    ];
+    const slot = (k) => { for (let g = 0; g < groups.length; g++) { const i = groups[g].rows.findIndex((m) => m(k)); if (i >= 0) return [g, i]; } return [groups.length - 1, 0]; };
+    const placed = kids.map((k) => [k, ...slot(k)]);
+    return groups.map((grp, g) => [grp, g, placed.filter((p) => p[1] === g).sort((x, y) => x[2] - y[2]).map((p) => p[0])]).filter(([, , ks]) => ks.length)
+      .map(([grp, g, ks]) => {
+        const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
+        // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
+        if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
+        return h('section', { class: 'ph-grp' }, head, ...ks);
+      });
+  }
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
-    if (reg) { A.regionsNote(); els.regions.append(reg); }
-    els.regionsH.hidden = !reg;
+    const tn = A.targetNote(), scope = A.scopeSeg();
+    // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
+    // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
+    const alpha = reg && $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row'));
+    if (alpha) alpha.hidden = !!scope;
+    if (reg) A.regionsNote();
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
-    if (mesh) els.body.display.append(mesh);
+    const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]),
+      ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
   function homeDisplay() {
     const home = $('regionsHome');
     if (!home) return;
     for (const id of ['unitBox', 'regionsBox']) { const b = $(id); if (b && b.parentNode !== home && els.body.display.contains(b)) home.append(b); }
+    const alpha = $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row')); if (alpha) alpha.hidden = false;
+    const mesh = $('meshGroup'), settings = $('settingsHome');
+    if (mesh && settings && els.body.display.contains(mesh)) settings.append(mesh);
   }
 
   // More (⋯): sound, theme, phase colours, language; examples, export, LaTeX, search, the tour and the guide

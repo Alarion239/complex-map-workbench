@@ -234,7 +234,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-pill .ph-ic svg { width: 16px; height: 16px; display: block; }
 .ph-sb { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; }
 .ph-sb[hidden] { display: none; }
-.ph-h { margin: 12px 4px 4px; font: 600 12px/16px var(--f-ui); color: var(--muted); }
+.ph-h { margin: 12px 4px 4px; font: var(--t-label); font-variant-caps: all-small-caps; letter-spacing: .04em; color: var(--muted); }
 .ph-h[hidden] { display: none; }
 /* More tools: 60 px tiles */
 .ph-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; padding: 8px 0 4px; }
@@ -269,7 +269,21 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph[data-lang="ru"] .ph-sheet #meshPresets > button { position: relative; top: auto; left: auto; right: auto; translate: none; padding-top: 6px; }
 :root.ph[data-lang="ru"] .ph-sheet #meshPresets > button::before { top: 0; }
 :root.ph[data-lang="ru"] .ph-sheet #meshPresets > button:is(:nth-child(2), :nth-child(3), :nth-child(4))::before { left: 50%; }
-:root.ph .ph-vopts { display: flex; flex-direction: column; gap: 8px; padding: 4px; }
+:root.ph .ph-vopts { display: flex; flex-direction: column; gap: var(--s-5); padding: 4px; }
+/* the scope switch: full width, 44 px, each segment's words wrapping to two lines (13 px at the least) rather than shrinking */
+:root.ph .ph-vopts .sv-sheet-scope { display: flex; width: 100%; height: auto; min-height: 44px; overflow: visible; }
+:root.ph .ph-vopts .sv-sheet-scope > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 4px 6px; font: 500 13px/16px var(--f-ui); white-space: normal; text-align: center; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
+/* a list of a few numbers (sectors, grid step): its label, then the choice button across the rest of the row, 44 px */
+:root.ph .ph-vopts .scrub { display: flex; align-items: center; gap: var(--s-4); width: 100%; height: auto; padding: 0; border: 0; }
+:root.ph .ph-vopts .scrub .sv-choice-num { flex: 1 1 auto; height: 44px; min-width: 0; justify-content: space-between; font-size: 15px; border: 1px solid var(--line); }
+/* a slider row: its label at the left and its value at the right (tabular figures), the slider across the row on a 44 px line */
+:root.ph .ph-vopts .fader-row.compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "fl fv" "rng rng"; width: 100%; gap: 0 var(--s-4); }
+:root.ph .ph-vopts .fader-row.compact > input[type="range"] { width: 100%; }
+:root.ph .ph-vopts .fader-row.ph-named > .fl { display: none; }
+:root.ph .ph-vopts .fader-row.compact > .fval { grid-area: fv; font-variant-numeric: tabular-nums; text-align: right; }
+/* a group of the Display sheet: its small-caps label, then its rows 8 px apart; the groups are 12 px apart */
+:root.ph .ph-grp { display: flex; flex-direction: column; gap: var(--s-4); }
+:root.ph .ph-grp > .ph-h { margin: 0; }
 :root.ph .ph-vopts > * { position: static; max-width: 100%; }
 :root.ph .ph-vopts .seg { overflow-x: auto; }
 /* the colour style: a wrapping grid of choices, each a 48 px target with its glyph and its word under it (four to a row at
