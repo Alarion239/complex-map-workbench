@@ -11,7 +11,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return c
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const quiet = () => settled({
   floor: 400, max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  // ready.ready also comes for a place parked between two planes, which counts as moving
+  until: "window.__cmwSteps && __cmwSteps().ready.ready && !(window.__cmwSphere && __cmwSphere().running)",
 });
 // (the left pane's pixels in a saturated colour: the phase portrait's, not the globe's paper or its grey marks)
 const coloured = () => ev(`(() => {
