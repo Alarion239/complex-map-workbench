@@ -26,16 +26,16 @@
     await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: 15000 });
     return this.legend();
   },
-  // what the key shows on the surface (plane, sphere, land) with T at plane T and the thread at plane i: on a plane up to T the
-  // style's key, past T the hue ring with the plane its colour is carried from, on the Landscape the height key
+  // what the key shows on the surface (plane, sphere, land) with T at plane T and the thread at plane i: on plane T the style's
+  // key, on every other plane the hue ring with the plane its colour is carried from, on the Landscape the height key
   // (in another language than English only the kind is checked: the captions are translated)
   expectKey: function (ok, name, surf, T, i, lg) {
     if (this.lang && this.lang !== 'en') {
-      const kind = surf === 'land' ? '3d' : surf === 'sphere' && i <= T ? 'sphere' : 'color';
+      const kind = surf === 'land' ? '3d' : surf === 'sphere' && i === T ? 'sphere' : 'color';
       ok(`${name}: the key's kind`, lg.kind === kind && !!lg.caption, lg);
     } else if (surf === 'land') ok(`${name}: the height key`, lg.kind === '3d' && lg.caption === 'height log |F|', lg);
-    else if (i > T) ok(`${name}: the hue ring, colour carried from ${this.PLANE[T]}`, lg.kind === 'color' && lg.caption === `colour carried from ${this.PLANE[T]}`, lg);
-    else ok(`${name}: the style's key, no carried line`, lg.kind === (surf === 'sphere' ? 'sphere' : 'color') && /^arg and \|/.test(lg.caption || ''), lg);
+    else if (i !== T) ok(`${name}: the hue ring, colour carried from ${this.PLANE[T]}`, lg.kind === 'color' && lg.caption === `colour carried from ${this.PLANE[T]}`, lg);
+    else ok(`${name}: T's own key, no carried line`, lg.kind === (surf === 'sphere' ? 'sphere' : 'color') && /^arg and \|/.test(lg.caption || ''), lg);
   },
   // every surface, place of T and plane: park, check the key, then `more(name, lg)` for what a suite adds
   sweep: async function (ok, info, nPl, more) {

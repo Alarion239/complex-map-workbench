@@ -1,7 +1,7 @@
 // The steps view's key on each surface, read from the pane's legend (__cmwLegend: kind and caption) with the thread parked at each
-// plane of example 1, for each place of T (the colour plane). The pane draws its own key: on a plane up to T the style's key, named
-// after the map its colour is read from; on a plane past T the hue ring with the line saying which plane its colour is carried
-// from; on the Landscape the height key, whatever T is. The classic views' key under the image (keyUnder) has no steps
+// plane of example 1, for each place of T (the colour plane). The pane draws its own key: on plane T the style's key, named
+// after the map its colour is read from; on every other plane, before T and past it, the hue ring with the line saying which
+// plane its colour is carried from; on the Landscape the height key, whatever T is. The classic views' key under the image (keyUnder) has no steps
 // counterpart; this key is what a reader reads a colour by. The key follows T in the frame it moves in.
 // A command file for a CDP daemon:  <runner> test/steps_plane_key_cmd.js
 const fails = [], info = {};
