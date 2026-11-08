@@ -29,7 +29,8 @@
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
-  const GLIDE_U = [END_U, 0.002, 0.5, 0.998, 1 - END_U];
+  const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
+  const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
   // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
   // frame there matches the parked plane within SAME_FRAC; END_U is the ends of a polynomial's glide)
   const { grab, compare, DIFF_TOL, SAME_FRAC } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));   // (the look suite's constants)
@@ -130,6 +131,17 @@
     ok(`the coverage check fails a frame with a hole of ${HOLE_N} places`, coverDiff(hole, covered).off > CELL_TOL, coverDiff(hole, covered));
     ok('the coverage check fails a wall filled across the cut', coverDiff(wall, covered).off > CELL_TOL, coverDiff(wall, covered));
   }
+  // sheets off at one place: the frame has one layer, at the front member's height; on the real axis (the cut) the front member of
+  // either side is accepted
+  const frontSame = (have, wantAll, onCut) => have.length === 1 && (onCut ? wantAll : wantAll.slice(0, 1)).some((x) => Math.abs(have[0] - x.h) <= HEIGHT_TOL);
+  {
+    const two = [{ h: 0.3 }, { h: -0.3 }];
+    ok('the front check accepts the front member', frontSame([0.3], two, false), null);
+    ok('the front check fails the other member off the real axis', !frontSame([-0.3], two, false), null);
+    ok('the front check accepts the other side of the cut on the real axis', frontSame([-0.3], two, true), null);
+    ok('the front check fails a height of no member, on the real axis too', !frontSame([0.9], two, true), null);
+    ok('the front check fails two layers', !frontSame([0.3, 0.3], two, false), null);
+  }
   // the colour of a member: the angle between two values of F, or null where either is near 0
   const phaseGap = (a, b) => {
     if (Math.hypot(a[0], a[1]) < F_ABS_MIN || Math.hypot(b[0], b[1]) < F_ABS_MIN) return null;
@@ -146,7 +158,7 @@
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     for (const u0 of GLIDE_U) {
-      const u = u0, first = u0 < 0.5, lastU = u0 > 0.5;   // (first: a probe near plane z, lastU: near the next plane)
+      const u = u0, first = u0 < GLIDE_MID, lastU = u0 > GLIDE_MID;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
       const still = await grab('cur');
@@ -190,7 +202,7 @@
         n++;
         const hs = (a) => a.map((x) => x.h).sort((x, y) => x - y), wh = hs(want), hh = hs(haveAll);
         const same = sheets ? wh.length === hh.length && wh.every((h, k) => Math.abs(h - hh[k]) <= HEIGHT_TOL)
-          : hh.length === 1 && (onCut ? wantAll.some((x) => Math.abs(hh[0] - x.h) <= HEIGHT_TOL) : Math.abs(hh[0] - wh[0]) <= HEIGHT_TOL);
+          : frontSame(hh, wantAll, onCut);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: wh, have: hh }); return; }
         // (the member's colour: the layers sorted by height pair up with the reference's members)
         const wo = want.slice().sort((x, y) => x.h - y.h), ho = haveAll.slice().sort((x, y) => x.h - y.h);
