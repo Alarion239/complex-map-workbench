@@ -90,7 +90,7 @@ ok('no closed curve: the key says so, no bands', lg2.caption === 'No curve selec
 // past the colour plane the hue ring's line names the integral and the plane its colour is carried from, whole in the key's
 // room (KEY_LINES lines of the chip beside the wheel), in each language
 const KEY_LINES = 4;
-const READOUT_GAP = 8, NARROW_KEY = 136;
+const READOUT_GAP = 8, NARROW_KEY = 136, READOUT_MARGIN = 28;   // READOUT_MARGIN: the readout's reserve beside the key's width
 const OLD_KEY_ROOM = 50;   // the room right of the wheel in the 136 px legend
 const FILLER_WORDS = 400;  // enough words to fill the readout's room
 const LANGS = [['en', /^Cauchy integral carried from z$/], ['ru', /^интеграл Коши, перенесён из z$/], ['it', /^integrale di Cauchy trasportato da z$/]];
@@ -107,16 +107,15 @@ for (const [lang, re] of LANGS) {
   ok(`T = z, thread at plane 1, ${lang}: control: the caption matches no other language's line`, LANGS.filter(([l, r]) => l !== lang && r.test(lgc.caption || '')).length === 0, lgc);
   ok(`T = z, thread at plane 1, ${lang}: control: the caption is wrapped (fewer lines than words)`, lgc.lines < (lgc.caption || '').split(' ').length, lgc);
   if (lang !== 'en') ok(`T = z, thread at plane 1, ${lang}: control: the widest word is wider than the ${OLD_KEY_ROOM} px the 136 px legend left`, lgc.widest > OLD_KEY_ROOM, lgc);
-  // the readout, made long enough to fill its room, keeps READOUT_GAP clear of the key; with the reserve of a narrower key it
+  // the readout, made long enough to fill its room, keeps READOUT_GAP clear of the key; with the reserve of the narrower key it
   // would not (the control)
   const gaps = JSON.parse(await ev(`(() => {
     const pl = document.querySelector('.plot:has(> .legend-chip:not([hidden]))'), r = pl.querySelector(':scope > .chip.readout'), k = pl.querySelector(':scope > .legend-chip');
     r.textContent = 'x '.repeat(${FILLER_WORDS});
     const gap = () => Math.round(k.getBoundingClientRect().left - r.getBoundingClientRect().right), own = gap();
-    const keep = pl.style.getPropertyValue('--lg-w');
-    pl.style.setProperty('--lg-w', '${NARROW_KEY}px');
+    r.style.maxWidth = 'calc(100% - ${NARROW_KEY + READOUT_MARGIN}px)';
     const narrow = gap();
-    pl.style.setProperty('--lg-w', keep);
+    r.style.maxWidth = '';
     return JSON.stringify({ own, narrow });
   })()`));
   ok(`T = z, thread at plane 1, ${lang}: the readout ends at least ${READOUT_GAP} px short of the key`, gaps.own >= READOUT_GAP, gaps);

@@ -1244,7 +1244,7 @@
     // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
     const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     const { dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H, W = SV.on && kind === 'color' && svCarriedFrom() && !lPhase() ? LEG.Wk : LEG.W;
-    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.style.width = W + 'px'; const plot = cv.closest('.plot'); if (plot) plot.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
+    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; cv.closest('.legend-chip').parentNode.style.setProperty('--lg-w', W + 'px'); st.drawn = ''; }
     st.h = Hh; st.w = W;
     const img = kind === 'image';
     const k = rightStage();
@@ -1378,7 +1378,7 @@
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (SV.on && svCarriedFrom() && !lPhase()) {
+    if (st.w === LEG.Wk) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
@@ -1391,7 +1391,7 @@
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
       st.caption = words.join(' '); st.lines = lines.length;
-      st.room = maxW; st.widest = Math.max(...words.map((w) => { ctx.font = ui; return ctx.measureText(w).width; }));
+      st.room = maxW; st.words = words; st.ui = ui;
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;

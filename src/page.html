@@ -595,7 +595,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .chip.readout.copied, .chip.readout.copied .rv, .chip.readout.copied .rk { color: var(--accent); }
 .chip.readout:hover { border-color: var(--ink-2); }
 .legend-chip { position: absolute; z-index: 10; top: 8px; right: 8px; padding: 0; line-height: 0; cursor: pointer; overflow: hidden; }
-.legend-chip > canvas { display: block; width: 136px; height: 72px; }
+.legend-chip > canvas { display: block; width: var(--lg-w, 136px); height: 72px; }
 .legend-chip.collapsed { padding: 3px; }
 .legend-chip.collapsed > canvas, .legend-chip.collapsed > .key-sw { display: none; }
 /* the folded chip (touch phones): a glyph of its key, a tap unfolds it */
