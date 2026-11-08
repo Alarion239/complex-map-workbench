@@ -163,16 +163,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   #examplesBtn { flex-shrink: 1; min-width: 0; }
   #examplesBtn > .mlabel, #examplesBtn > .ic-slot { flex-shrink: 0; }
 }
-@media (min-width: 1024px) and (max-width: 1279px) {
-  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
-  .top .cmd-field .cmd-text { display: none; }
-}
-@media (min-width: 1280px) and (max-width: 1439px) {
-  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
-  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
-}
-/* (app.js hdrFit: where the search's words would be cut, its short label, else its icon and
-   shortcut alone) */
+/* (app.js hdrFit: the words of Export, Share, Theme and Sound fold first; where the search's words would still be cut, its
+   short label, else its icon and shortcut alone) */
 :root:not(.ph) .top.cmd-short #cmdBtn .ct-l { display: none; }
 :root:not(.ph) .top.cmd-short #cmdBtn .ct-s { display: inline; }
 :root:not(.ph) .top.cmd-cut .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
@@ -395,9 +387,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   :root:not(.ph) .top #examplesBtn > .exlabel.stale, :root:not(.ph) .top #examplesBtn > .exlabel:empty { display: none; }
 }
 .examples .ex-item.ex-new { border-bottom: 1px solid var(--line); }
-@media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* Italian too: the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
-@media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
+/* (app.js hdrFit: the example's name gives way, after the words of Export, Share, Theme and Sound, where the bar has no room for it) */
+:root:not(.ph) .top.ex-off #examplesBtn > .exlabel { display: none; }
 /* in the X → Y view each pane head's pattern button: the pattern's swatch, its pop-up the regions'
    display (page.html #regionsHome) */
 .pane-head .pat-btn { height: 26px; padding: 0 3px 0 5px; gap: 2px; }
@@ -579,7 +570,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-empty[hidden] { display: none; }
 .sv-choice[aria-disabled="true"], .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"], .sv-thumb[aria-disabled="true"] { opacity: .4; }
 .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"] { cursor: default; }
-label.check[aria-disabled="true"] { opacity: .4; cursor: not-allowed; }
+label.check[aria-disabled="true"] { opacity: .4; cursor: default; }
 .sv-plane.sv-skip { opacity: .4; }
 @media (pointer: coarse) { .sv-wholemap { height: 44px; width: 44px; border-radius: 22px; } .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }
 /* play along the thread: the band of the range, its clear button, the loop toggle, a touch's hold */

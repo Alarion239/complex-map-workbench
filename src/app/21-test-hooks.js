@@ -355,7 +355,7 @@
     const pk = render3D.pick, b = pk && pk.box;
     if (!pk || !pk.info) return null;
     const w = pk.F(C(x, y)), [ax, ay] = pk.info.aspect;
-    const h = pk.info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));
+    const h = pk.info.heightOf(landValue(w));
     return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
