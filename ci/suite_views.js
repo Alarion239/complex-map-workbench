@@ -50,6 +50,7 @@ const VIEWS = {
   'steps_link_migrate_cmd.js': steps({ pin: true }),
   'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
+  'steps_cut_read_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
