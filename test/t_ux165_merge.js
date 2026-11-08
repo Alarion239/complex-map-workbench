@@ -30,12 +30,11 @@ const ents = Object.entries(MERGE_RU).filter(([k]) => !k.startsWith('_'));
 ok('the merge\'s table: every entry has en and ru', ents.length >= 6 && ents.every(([, v]) => v.en && v.ru), ents.length);
 ok('the merge\'s table: every string is in the shipped table', ents.every(([, v]) => TABLE[keyOf(v)] === v.ru), ents.filter(([, v]) => TABLE[keyOf(v)] !== v.ru).map(([k]) => k));
 
-// ---- learn UX97 + chain UX81: one Alt+←/→ branch in chainKey (the same key, built twice)
-const ck = fnBody(APP, 'chainKey');
-// (#595: the Alt+arrow reading is stepEditKey's, once, for the chain's cards and the steps view's chips; chainKey moves through it)
+// ---- the thread's keys: one Alt+←/→ branch (the Alt+arrow reading is stepEditKey's, once; the thread's chips
+// read it)
 const sk = fnBody(APP, 'stepEditKey');
-ok('chainKey: one Alt+arrow branch, through stepEditKey and moveCard', (sk.match(/[^!]e\.altKey && /g) || []).length === 1 && (ck.match(/[^!]e\.altKey && /g) || []).length === 0 && /stepEditKey\(e\)/.test(ck) && /moveCard\(k, ed\.move\)/.test(ck), { sk: sk.slice(0, 200), ck: ck.slice(0, 300) });
-ok('a card\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move left'\), icon: 'chevL', key: touchUI\(\) \? '' : 'Alt ←'/.test(APP) && /label: \$t\('Move right'\), icon: 'chevR', key: touchUI\(\) \? '' : 'Alt →'/.test(APP));
+ok('stepEditKey: one Alt+arrow branch, read by the thread\'s chips', (sk.match(/[^!]e\.altKey && /g) || []).length === 1 && /const ed = stepEditKey\(e\)/.test(APP), { sk: sk.slice(0, 200) });
+ok('a step\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move left'\), icon: 'chevL', key: touchUI\(\) \? '' : 'Alt ←'/.test(APP) && /label: \$t\('Move right'\), icon: 'chevR', key: touchUI\(\) \? '' : 'Alt →'/.test(APP));
 ok('menu keys (⌘D, ⌘], ⌘[) are empty on a touch screen (phone UX17)', /const modK = \(k\) => \(touchUI\(\) \? '' :/.test(APP));
 
 // ---- chain UX71 wording + learn UX71 Stop

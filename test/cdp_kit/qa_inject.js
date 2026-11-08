@@ -3,10 +3,9 @@ window.__qa = {
   key: () => 'complex-map-workbench-v1:' + new URLSearchParams(location.search).get('ns'),
   state: () => JSON.parse(localStorage.getItem(__qa.key()) || 'null'),
   put: (o) => { localStorage.setItem(__qa.key(), JSON.stringify(Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, o))); },
-  // (the lamps live on the F tile at the end of the chain; the old Guarantees panel's when there is no tile)
-  lamps: () => [...document.querySelectorAll(document.querySelector('#pipeline .ftile .lamp') ? '#pipeline .ftile .lamp' : '#propsPanel .lamp')].map((l) => (l.classList.contains('on') ? '●' : '○') + l.dataset.lamp + (l.querySelector('.lampq') && l.querySelector('.lampq').textContent ? '(' + l.querySelector('.lampq').textContent + ')' : '')).join(' '),
+  // (the lamps of the Inspector's Guarantees)
+  lamps: () => [...document.querySelectorAll('#propsPanel .lamp')].map((l) => (l.classList.contains('on') ? '●' : '○') + l.dataset.lamp + (l.querySelector('.lampq') && l.querySelector('.lampq').textContent ? '(' + l.querySelector('.lampq').textContent + ')' : '')).join(' '),
   warns: () => [...document.querySelectorAll('#propsPanel .warn, #propsPanel [class*=warn]')].map((e) => e.textContent.trim()).filter(Boolean).slice(0, 4),
-  cards: () => [...document.querySelectorAll('.pipeline .card')].map((c) => c.getAttribute('aria-label') + (c.classList.contains('focus') ? '*' : '') + (c.querySelector('.err, .card-err') ? ' ERR:' + c.querySelector('.err, .card-err').textContent : '')),
   modeBtn: (name) => [...document.querySelectorAll('button,[role=radio]')].find((b) => (b.getAttribute('aria-label') || b.title || '') === name),
   toasts: () => [...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()),
   vis: (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; },
