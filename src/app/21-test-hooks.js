@@ -267,6 +267,7 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
+  window.__cmwLandFrameVerts = (pts) => (render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null);
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 

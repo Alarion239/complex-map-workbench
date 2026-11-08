@@ -300,6 +300,23 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
   }
+  // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
+  // draws at its nearest grid vertex, [{ h, member }] (none where no layer is valid there)
+  function landFrameVerts(pts, box) {
+    if (!landC || !landC.tex1) return null;
+    const N = landC.N, fbo = gl.createFramebuffer(), px = new Float32Array(N * N * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.tex1, 0);
+    gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo);
+    return pts.map(([x, y]) => {
+      const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
+      if (i < 0 || j < 0 || i >= N || j >= N) return [];
+      const k = 4 * (j * N + i);
+      return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0 }] : [];
+    });
+  }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
