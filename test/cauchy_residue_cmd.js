@@ -96,8 +96,8 @@ await ev(`(() => { const o = document.querySelector('#leftFoot .opts-btn:not(.pa
 await ev('__cmwCauchyOpt("both", false)'); await settle(400);
 await open(CIRCLE, custom('z^{2}'));
 const SV = await ev(`typeof __cmwSteps === 'function' && !!__cmwSteps().on`);
-// (the run's label: ci/browser.js pins the page to the steps view for the steps run, window.__cmwPinView; each run is in the view it names)
-const RUN_STEPS = (await ev('window.__cmwPinView')) === 'steps';
+// (the run's label: ci/browser.js pins the page to the classic view for the classic run, window.__cmwPinView; each run is in the view it names)
+const RUN_STEPS = (await ev('window.__cmwPinView')) !== 'classic';
 ok('the run is in the view its label names (steps: the steps view, classic: the classic view)', SV === RUN_STEPS, { SV, RUN_STEPS });
 const A3 = await optsText();
 ok('A2 with no pole inside no choice (steps: the control is there, disabled; classic: absent) and the old note ("F inside, 0 outside")', (SV ? A3.segId && A3.off : !A3.segId) && /inside, 0 outside/.test(A3.text), A3);
