@@ -16,10 +16,9 @@ const files = ['src/gl/05-frames-2d-draws.js', ...fs.readdirSync(path.join(ROOT,
 let checks = 0, failed = 0;
 for (const f of files) {
   const s = read(f);
-  // (the array literals passed to prestartNames / prestart, and those in prestartCarry's body)
+  // (the array literals passed to prestartNames / prestart, and those in carryNames's body, the names prestartCarry starts)
   const lists = [...s.matchAll(/prestart(?:Names)?\(\s*(\[[^\]]*\])/g)].map((m) => m[1]);
-  const pc = s.indexOf('function prestartCarry()');
-  if (pc >= 0) {
+  for (const pc of ['function carryNames()'].map((n) => s.indexOf(n)).filter((i) => i >= 0)) {
     let i = s.indexOf('{', pc), depth = 0;
     const b0 = i;
     for (; i < s.length; i++) { if (s[i] === '{') depth++; else if (s[i] === '}' && --depth === 0) break; }
