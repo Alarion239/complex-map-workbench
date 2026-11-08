@@ -37,6 +37,8 @@
   // the share of the parked plane's surface pixels a frame at an end may lack: it is the parked plane's within SAME_FRAC of its pixels,
   // so a surface pixel it lacks is one of those
   const COVER_TOL = SAME_FRAC;
+  // the near end whose frame has member seams (Newton), where the seam control runs
+  const SEAM_U = 0.002;
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
@@ -67,7 +69,7 @@
     { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil' },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
-    { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
+    { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential', seamControl: true },
   ];
   // the page's helpers: the surface pixels of the left pane, and the CPU reference's members at places w: the enumerator's preimages
   // (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame inverts) without the repeats of one z, each
@@ -392,6 +394,18 @@
       r[u].raster = rk;
       ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
+    }
+    // the member seams: with the edge pass's seam test off (the page's carry probe noSeam) the same frame at the near end draws wall facets across
+    // the seams between members and its relief is off the exact map's by more than the bound: the case tells the two apart
+    if (c.seamControl && !sheets) {
+      await setU(SEAM_U);
+      await ev(`__svCarryProbe = __svCarryProbeSettings.noSeam; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      await grab('seamoff');
+      await ev('window.__cmwLandRelief ? __cmwLandRelief() : null');
+      const off = JSON.parse(await ev(`JSON.stringify(__lxRaster(${sheets}, ${JSON.stringify(REF)}))`));
+      await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS });
+      r.seamControl = off;
+      ok(`${name}: u=${SEAM_U}: with the seam test off the relief is off the exact map's by more than ${RASTER_TOL * 100} % (${off ? off.extra : '?'} extra): the case tells the two apart`, !!off && !off.capped && off.off > RASTER_TOL, off);
     }
     // the glide's sheet pass (the image test that gives each vertex its step sheet's height) is what keeps the frame near the next plane's
     // parked one at the far end: with it off (the page's carry probe noFix) the same frame differs from the parked plane by more than the tolerance

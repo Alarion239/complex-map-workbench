@@ -308,9 +308,9 @@
           runTF(Pf, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }
         for (let i = 0; i < sheets.length; i++) {
-          use(P3, c.map);
+          use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i));
+          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', carryProbe.noSeam ? 0 : 1);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
