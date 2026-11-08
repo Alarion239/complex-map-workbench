@@ -13,9 +13,17 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // the steps view's state as the test hooks read it: the place (x, T), the colour plane's scope and surface, the chain's planes,
 // the selected step, the deformation range and whether the deformation is open
 const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.on, x: s.x, T: s.T, scope: s.scope, surf: s.surf, planes: s.planes, sel: s.sel, homRange: s.homRange, range: s.range, solo: s.solo, main: s.main, view: c.view, morphOpen: c.morph.open }; })()`;
+// (a place between two planes counts as moving, so a view opened there is ready once its hook has the planes: parked)
 const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
+const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().ready.ready";
+const OPEN_MS = 30000;
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
-const openAt = async (url) => { await go(url); await settled({ max: 30000, until: READY }); };
+// (the state is read through the hooks: a pane still refining its Landscape does not hold the wait)
+const openAt = async (url, parked) => {
+  await go(url);
+  const w = await settled({ max: OPEN_MS, only: true, until: parked ? READY_PARKED : READY });
+  ok(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, w.ok, w);
+};
 // A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
 // settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
 // 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read. Any
@@ -68,7 +76,7 @@ for (const [name, st, want] of CASES) {
   // the save is written by the classic view (a classic-era save), then the steps view opens it: the view the classic page reads is the
   // state's own, and the steps view adopts its equivalent (Views.svOf)
   await loadView('classic', ns, st);
-  await settled({ max: 15000, until: "typeof __cmwState === 'function'" });
+  await settled({ max: 15000, only: true, until: "typeof __cmwState === 'function'" });   // (the hook alone: a pane still refining does not hold it)
   const asLoaded = await ev('__cmwState().view');   // (the classic view's picture of the save)
   info[name + ' (as loaded)'] = asLoaded;
   if (name in LOADED_MAIN) { const L = LOADED_MAIN[name]; ok(name + ': the saved view is loaded as ' + L.main, asLoaded && asLoaded.main === L.main && (!L.side || asLoaded[L.side].surf === L.surf), asLoaded); }
@@ -118,7 +126,7 @@ n++;
   const ns = 'lmig' + n + Date.now();
   const key = JSON.stringify('complex-map-workbench-v1:' + ns);
   const fig = { ...LINK_STATE, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, figMorph: { T: 1.5 } };
-  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`, true);
   const got = await ev(READ);
   info['link with figCam and figMorph'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], k === 'x' ? 1.5 : LINK_WANT[k]), { k, want: LINK_WANT[k], got });
