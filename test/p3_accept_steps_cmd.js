@@ -204,10 +204,10 @@ for (const [at, cam, cls, tag, what] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2
 // z^i at plane 1 (checker pattern), forcing the disc forward leaves H on the exact pass; the globe's regions are the exact
 // pass's and the disc's mesh together, and the frame matches the all-exact frame to within MIXED_DIFF of the pane's pixels
 // (the bound of p3_accept_cmd.js's mixed-paths case)
-const MIXED_DIFF = 0.005;
+const FILL_ALPHA = 0.85, MIXED_DIFF = 0.005;
 const MIXED_DISC = { id: 's2', kind: 'disc', c: [0.5, 1.5], r: 0.4 };
 await globe('p3accm', [H, MIXED_DISC], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -0.35, yaw: -0.9, dist: 8 });
-await ev('__cmwSet("pattern", "checker"); __cmwSet("alpha", 0.85); 1'); await wait();
+await ev(`__cmwSet("pattern", "checker"); __cmwSet("alpha", ${FILL_ALPHA}); 1`); await wait();
 R.mixedExact = await paths();
 await grab('L'); await ev('window.__p3Mx = window.__p3grab.L; 1');
 await ev('__cmwForceForward(["s2"]); 1'); await wait();
@@ -225,14 +225,23 @@ await ev('__cmwForceForward([]); 1'); await wait();
 // ---- the all-mesh frame against the all-exact one (both shapes forced forward): the carried globe is drawn on the unit
 // sphere, so the line work (silhouette, graticule, region rims) lands on the same pixels as the exact pass's
 const MESH_DIFF = 0.005;
+// the negative control: the all-exact frame against itself after a camera yaw of CONTROL_YAW moves every line of the frame
+// by about a pixel, so the same measure reads more than MESH_DIFF (the bound is tight enough to see a line off its pixels)
+const CONTROL_YAW = 0.004;
 await globe('p3accr', [H, MIXED_DISC], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -0.35, yaw: -0.9, dist: 8 });
-await ev('__cmwSet("pattern", "checker"); __cmwSet("alpha", 0.85); 1'); await wait();
+await ev(`__cmwSet("pattern", "checker"); __cmwSet("alpha", ${FILL_ALPHA}); 1`); await wait();
 await grab('L'); await ev('window.__p3Ex = window.__p3grab.L; 1');
 await ev('__cmwForceForward(["s1", "s2"]); 1'); await wait();
 await grab('L');
-R.meshDiff = await ev(`(() => { const A = window.__p3Ex, B = window.__p3grab.L; let d = 0, n = 0; for (let k = 0; k < A.length; k += 4) { n++; if (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2]) > ${FILL_DIFF}) d++; } return { d, n, share: d / n }; })()`);
+const DIFF_SHARE = `(() => { const A = window.__p3Ex, B = window.__p3grab.L; let d = 0, n = 0; for (let k = 0; k < A.length; k += 4) { n++; if (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2]) > ${FILL_DIFF}) d++; } return { d, n, share: d / n }; })()`;
+R.meshDiff = await ev(DIFF_SHARE);
 ok(`all-mesh frame: within ${100 * MESH_DIFF} % of the all-exact frame`, R.meshDiff.share <= MESH_DIFF, R.meshDiff);
 await shot('p3s_allmesh');
+await ev('__cmwForceForward([]); 1'); await wait();
+await ev(`__cmwCam("L", ${JSON.stringify({ pitch: -0.35, yaw: -0.9 + CONTROL_YAW, dist: 8 })}); 1`); await wait();
+await grab('L');
+R.controlDiff = await ev(DIFF_SHARE);
+ok(`all-mesh frame: the measure sees a line shift (control: the exact frame yawed by ${CONTROL_YAW}, over ${100 * MESH_DIFF} %)`, R.controlDiff.share > MESH_DIFF, R.controlDiff);
 await ev('__cmwForceForward([]); 1'); await wait();
 
 return { pass: fails.length === 0, fails, results: R };
