@@ -565,9 +565,9 @@
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
-  // fills (the fills alone, no strokes: a mask of the regions, #440)}
+  // fills (the fills alone, no strokes: a mask of the regions, #440), skip (a predicate: the shapes left out)}
   function drawScene(pane, map, role, opt = {}) {
-    const list = S.shapes.filter((s) => s.visible !== false);
+    const list = S.shapes.filter((s) => s.visible !== false && !(opt.skip && opt.skip(s)));
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
     // area shape takes its path in list order (inverse and forward passes interleave, so list order holds across paths)
     const m0 = normalizeMap(map);
