@@ -949,6 +949,8 @@
     if (!list || !list.length) { why.r = hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
     if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
+    // (with exact images off a plane at rest is drawn on the carried meshes, so a glide stays on them and ends on the parked frame)
+    if (hom && S.exactImages === false) { why.r = 'exact images off'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     const singAt = () => svSheetKeyAt(b, u).sing;
     // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation)
