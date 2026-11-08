@@ -136,16 +136,16 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared');
   ok('the zeta and the squared examples are found', ex >= 0 && sq >= 0, names.length);
   const SHARE = `(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`;
-  const load = async (example) => {
+  // (the example, the view's settings and the scrub to x in one page call: no idle moment makes tracks in between)
+  const load = async (example, x) => {
     await go(`${BASE}/test.html?ns=gh${Date.now()}&lang=en&view=steps`);
     await ready();
     await ev(HELP);
-    await ev(`__cmwExample(${example}), 1`);
-    await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
+    await ev(`__cmwExample(${example}), __cmwSteps({ bare: true, scope: 'in', x: ${x} }), 1`);
   };
   // the first frame after the scrub to x: the page's canvas then, its share, and the thread's record
-  const first = async (x) => {
-    await ev(`__cmwSteps({ x: ${x} }), 1`);
+  const first = async (x, scrubbed) => {
+    if (!scrubbed) await ev(`__cmwSteps({ x: ${x} }), 1`);
     await settled({ max: FIRST_MS, until: `(() => { const s = __cmwSteps(), g = s.glide; return !!s.hold || (!!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < 1e-9); })()` });
     const r = await ev(`(() => { const s = __cmwSteps(), g = s.glide; window.__gi.f = __giGrab(); return { hold: s.hold || 0, ready: s.ready.ready, g: g && { u: g.u, path: g.path }, share: ${SHARE} }; })()`);
     return r;
@@ -156,8 +156,8 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     return ev(`(() => { const A = window.__gi.f, B = __giGrab(); let over = 0; for (let i = 0; i < A.d.length; i += 4) { let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > ${HELD_DIFF}) over++; } return over / (A.d.length / 4); })()`);
   };
   for (const x of [0.25, 0.5, 0.75]) {
-    await load(ex);
-    const r = await first(x);
+    await load(ex, x);
+    const r = await first(x, true);
     const over = await heldFrame();
     const held = over <= HELD_OVER, inv = !!r.g && r.g.path === 'inverse' && r.share >= FLOOR[x];
     info[`zeta scrub at once x ${x}`] = { r, over };
@@ -178,8 +178,8 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     }
   }
   // a glide with an exact inverse needs no tracks: never held
-  await load(sq);
-  const r3 = await first(0.5);
+  await load(sq, 0.5);
+  const r3 = await first(0.5, true);
   info['squared scrub at once'] = r3;
   ok('z squared scrubbed at once after load: never held, drawn by the inverse pass', !r3.hold && !!r3.g && r3.g.path === 'inverse', r3);
 }
