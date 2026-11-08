@@ -28,7 +28,8 @@
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
-  const END_SHEETS = 5;   // (the layers of a place beside the next plane's end: the log annulus's parked plane draws its 2W + 1 sheets there, each a layer)
+  const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;   // (EDGE_MARGIN: the distance, in turns of the window, under which a member is on its sheet's window edge and a layer there is either)
+  // (   // (the step sheets dk the glide draws, -SHEET_W..SHEET_W; the members m of a sheet tried)
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
@@ -344,9 +345,23 @@
   }
   // a layer's match with the enumerator's members is ambiguous when more than one member fits its z and height: the check fails rather than pick one
   const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
-  const missingSheets = (n) => n < END_SHEETS;
-  ok('the sheet-count check fails one layer where every sheet is expected', missingSheets(1), null);
-  ok('the sheet-count check passes every sheet', !missingSheets(END_SHEETS), null);
+  const LAYER_PLACES = [[-1, 0.03], [0.3, 0.7], [3, 1], [-3, -2], [-6, 5.6]];
+  // the layers at w of the glide at u by the sheets' windows; shifted false: every sheet takes dk = 0's window (a control)
+  const windowLayers = (w, u, shifted, withEdge = false) => {
+    const sc = 1 - u, beta = 1 / sc, vr = 1 + sc * (w[0] - sc), vi = sc * w[1], arg = Math.atan2(vi, vr);
+    let n = 0, edge = false;
+    for (let dk = -SHEET_W; dk <= SHEET_W; dk++) {
+      const d = shifted ? dk : 0, lo = Math.PI - 2 * Math.PI + 2 * Math.PI * d, hi = Math.PI + 2 * Math.PI * d;
+      let has = false;
+      for (let m = -M_MAX; m <= M_MAX; m++) { const im = beta * (arg + 2 * Math.PI * m); if (im > lo && im <= hi) has = true; if (Math.abs(im - lo) < EDGE_MARGIN || Math.abs(im - hi) < EDGE_MARGIN) edge = true; }
+      if (has) n++;
+    }
+    return withEdge ? { n, edge } : n;
+  };
+  ok('the window count is one layer near the next plane at the probe places', LAYER_PLACES.every((w) => windowLayers(w, 0.998, true) === 1), null);
+  ok('the window count holds fewer than every sheet at the middle (the alternating layers)', LAYER_PLACES.some((w) => windowLayers(w, 0.5, true) < 2 * SHEET_W + 1), null);
+  ok('the window count fails a draw of every sheet at every place (control)', LAYER_PLACES.some((w) => windowLayers(w, 0.998, true) !== 2 * SHEET_W + 1), null);
+  ok('the window count fails the same window for every sheet (control)', LAYER_PLACES.some((w) => windowLayers(w, 0.5, false) !== windowLayers(w, 0.5, true)), null);
   ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
@@ -387,11 +402,17 @@
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         ok(`${t}: without the cut test two layers repeat a height (control; the closest are ${off.gap} apart)`, off.gap != null && off.gap < LAYER_GAP_MIN, off);
       }
-      // near the next plane every sheet of the log is a layer at a place (the windows of the sheets are nearly whole turns there)
-      if (c.cutProbe && sheets && lastU) {
-        const at = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts([${JSON.stringify(c.cutProbe)}]))`))[0] || [];
-        const n = new Set(at.map((l) => l.h.toFixed(2))).size;
-        ok(`${t}: every sheet is a layer at the cut probe (${n} layers; at least ${END_SHEETS})`, n >= END_SHEETS, { n });
+      // the layers of a place are the log's sheets that hold a member there: sheet dk is z^s on its branch k + dk, s = 1 - u, whose
+      // members at w are exp(beta (Log v + 2 pi i m)), v = 1 + s (w - s), beta = 1 / s, one for each m whose turn lies in the sheet's
+      // window of 2 pi shifted by 2 pi dk; the windows tile the plane near the next plane (one layer at a place) and half-cover it at the middle
+      if (c.cutProbe && sheets) {
+        const at = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(LAYER_PLACES)}))`));
+        LAYER_PLACES.forEach((w, i) => {
+          const v = (at[i] && at[i][0] && at[i][0].w) || w;   // (the place the frame draws a probe at is its nearest grid vertex)
+          const n = new Set((at[i] || []).map((l) => l.h.toFixed(2))).size, want = windowLayers(v, u, true, true);
+          if (want.edge) return;   // (a member on a window edge: the layer is either)
+          ok(`${t}: the layers at (${w}) are the sheets whose window holds a member (${n} layers; ${want.n} by the windows)`, n === want.n, { n, want });
+        });
       }
       // the image at the ends
       if (first) ok(`${t}: plane z's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d0 <= SAME_FRAC, cov);

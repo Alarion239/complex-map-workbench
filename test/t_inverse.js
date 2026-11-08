@@ -1091,6 +1091,14 @@ section('singularAfter (ζ after an injective plan)');
     const f = (d) => { let w = z; for (const o of Inverse.homOps(b, t, d).ops) w = o.fwd(w); return w; };
     return { w0: f(0), wd: f(dk) };
   };
+  // the op's branch is the step's k + dk at every t (the log's u below 1e-6 and the rest included)
+  for (const [type, params] of [['log', { cut: 180, k: 1 }], ['root', { n: 5, cut: 180, k: 1 }]]) {
+    const b = Funcs.build(St(type, params)), k0 = Inverse.homOps(b, 1, 0).ops[0].p.k;
+    for (const t of [0.5, 1 - 1e-7, 1]) for (const dk of [-2, -1, 0, 1, 2]) {
+      const o = Inverse.homOps(b, t, dk).ops.find((q) => q.kind === 'LOG' || q.kind === 'ROOTPOW');
+      check(`homOps ${type} at t = ${t}, dk = ${dk}: its op is on branch k + dk`, !!o && o.p.k === k0 + dk, o && o.p.k);
+    }
+  }
   const z = C(0.3, 0.2);
   for (const t of [1, 1.5, 1 - 1e-7]) {
     const tol = t >= 1 ? SHIFT_TOL : NEAR_REST_TOL;
