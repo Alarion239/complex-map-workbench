@@ -37,7 +37,7 @@
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
   const CONT_STEP = 0.02;   // (the continuity probe's two frames: u - CONT_STEP / 2 and u + CONT_STEP / 2)
   const CONT_AT = [0.25, GLIDE_MID, 0.75];
-  const CONT_LIPSCHITZ = 8;   // (the largest change of a layer's height at a place, in block heights, per unit of u)
+  const CONT_LIPSCHITZ = 1;   // (the largest change of a layer's height at a place, in block heights, per unit of u)
   const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
   // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
   // frame there matches the parked plane within SAME_FRAC; END_U is the ends of a polynomial's glide)
@@ -445,9 +445,10 @@
         const layerH = async (x) => { await setU(x); return JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(LAYER_PLACES)}))`)).map((a) => (a || []).map((l) => l.h)); };
         const jump = async (x) => {
           const a = await layerH(x - CONT_STEP / 2), b = await layerH(x + CONT_STEP / 2);
-          let worst = 0;
-          a.forEach((la, i) => la.forEach((h) => { const d = Math.min(...(b[i] || [Infinity]).map((g) => Math.abs(g - h))); if (Number.isFinite(d)) worst = Math.max(worst, d); }));
-          return worst / CONT_STEP / H;
+          const ds = [];
+          a.forEach((la, i) => la.forEach((h) => { const d = Math.min(...(b[i] || [Infinity]).map((g) => Math.abs(g - h))); if (Number.isFinite(d)) ds.push(d); }));
+          ds.sort((p, q) => p - q);
+          return ds.length ? ds[ds.length >> 1] / CONT_STEP / H : 0;   // (the median layer: a window edge moves a few layers to others, which is not the height function's jump)
         };
         const worst = {};
         for (const x of CONT_AT) worst[x] = await jump(x);
