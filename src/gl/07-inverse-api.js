@@ -757,26 +757,30 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // ---- the Landscape's exact heights (drawLandscape's inverse path) ----
   // INV_LAND: the inverse program's variant that reads one front member per grid vertex instead of shading a pixel. Pixel
   // (i, j) of an N x N target is the shown plane's point w of vertex (i, j) over the box uLBox; the walk finds the front
-  // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, 0, 1), with the height of the stages (uGs, uGt] at z (blended over
-  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
+  // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, its depth key, 1), with the height of the stages (uGs, uGt] at z (blended over
+  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels unless this pass's member is in front of that one by more than the tie band.
   const INV_LAND_MAIN = `
 uniform vec4 uLBox; uniform int uLN; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
 layout(location = 1) out vec4 oZ;
 void main() {
   vec2 g = floor(gl_FragCoord.xy);
-  if (uUsePrev) {
-    vec4 pa = texelFetch(uPrevA, ivec2(g), 0);
-    if (pa.w > 0.5) { o = pa; oZ = texelFetch(uPrevZ, ivec2(g), 0); return; }
-  }
+  vec4 pa = vec4(0.0), pz = vec4(0.0);
+  if (uUsePrev) { pa = texelFetch(uPrevA, ivec2(g), 0); pz = texelFetch(uPrevZ, ivec2(g), 0); }
+  bool had = pa.w > 0.5;
   vec2 w = uLBox.xy + g / float(uLN - 1) * uLBox.zw;
   ixDwX = vec2(uLBox.z / float(uLN - 1), 0.0); ixDwY = vec2(0.0, uLBox.w / float(uLN - 1));
   ixPix = ixDwX.x;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(w);
   o = vec4(0.0); oZ = vec4(0.0);
-  if (nb < 1) return;
-  vec2 z = bZ[0], hv = carryHeight(z);
-  if (hv.y > 0.5 && !(abs(hv.x) > 3e38)) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, 0.0, 1.0); }
+  if (nb >= 1) {
+    vec2 z = bZ[0]; vec2 hv = carryHeight(z);
+    // a member found on an earlier sheet is kept unless this sheet's is in front of it by more than the tie band: the sheets
+    // tie in the order they are walked
+    bool take = !had || pz.z - bD[0] > ixTieBand(min(bD[0], pz.z));
+    if (hv.y > 0.5 && !(abs(hv.x) > 3e38) && take) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, bD[0], 1.0); return; }
+  }
+  if (had) { o = pa; oZ = pz; }
 }
 `;
   const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
@@ -788,7 +792,7 @@ void main() {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok || !rtOK) return 'error';
     const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
     if (!rec || !rec.ok) return 'error';
-    // the sheets in order: a vertex takes the first sheet whose walk finds a member there
+    // the sheets in order: a vertex takes the front member over the sheets' walks, a tie going to the earlier sheet
     const sheets = [st].concat((st.more || []).filter((m) => m && m.plan && m.prep && m.prep.ok));
     const progs = [];
     for (const sh of sheets) {
