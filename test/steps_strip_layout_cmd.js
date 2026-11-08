@@ -31,6 +31,7 @@ const open = async (w, h, mobile, lang, chain) => {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps`);
   await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail') && !!document.querySelector('#svStrip .sv-fchip')" });
+  await ev(fs.readFileSync(DIR + '/../lib/layout.js', 'utf8'));
 };
 const EPS = 0.5;   // (CSS px: boxes within this of touching do not overlap)
 const measure = () => ev(`(() => {
@@ -49,7 +50,8 @@ const measure = () => ev(`(() => {
   const planes = [...rail.querySelectorAll('.sv-plane')].filter(vis).map(box), wraps = [...rail.querySelectorAll('.sv-fwrap')].filter(vis).map(box), xi = Math.round(__cmwSteps().x);
   const curPlane = planes[xi] || null, curPill = wraps[Math.min(xi, wraps.length - 1)] || null, farPlane = planes[xi + 1] || null, whole = (b) => !!b && b.l >= rb.l - ${EPS} && b.r <= rb.r + ${EPS};
   const farEdge = farPlane ? Math.min(farPlane.r, rb.r) - Math.max(farPlane.l, rb.l) : null, fadeR = rail.classList.contains('fade-r');
-  const hits = [...rail.querySelectorAll('.sv-fchip, .sv-more')].filter(vis).map(box), overlap = hits.some((a, i) => hits.some((b, k) => k > i && a.l < b.r - ${EPS} && b.l < a.r - ${EPS} && a.t < b.b - ${EPS} && b.t < a.b - ${EPS}));
+  // (the ring sits on its plane by design: pointer-events none)
+  const overlap = __layout.noOverlap(strip).map((v) => v.el + ' / ' + v.other).filter((d) => !/sv-thumb/.test(d));
   const unit = { l: track.l, r: Math.max(track.r, fb ? fb.r : 0) };
   const left = others.filter((o) => o.r <= rb.l + ${EPS}).reduce((a, o) => Math.max(a, o.r), -Infinity), right = others.filter((o) => o.l >= rb.r - ${EPS}).reduce((a, o) => Math.min(a, o.l), Infinity);
   return { ph, clear: top - body.b, meet, off: tc - pc, gapL: rb.l - left, gapR: right - rb.r, scrolls: rail.scrollWidth > rail.clientWidth + 1, railW: rb.r - rb.l,
@@ -63,7 +65,7 @@ for (const lang of ['en', 'ru', 'it']) for (const chain of ['log', 'root', 'two'
   ok(`${tag}: the rail's elements are clear of the ruler (≥ ${m.ph ? 6 : 8} px)`, m.clear >= (m.ph ? 6 : 8) - 0.01, m.clear);
   ok(`${tag}: the ring is on the first plane's dot (parked on z)`, Math.abs(m.ringOff) <= 1, m.ringOff);
   ok(`${tag}: the rail meets no other control of the bar`, m.meet.length === 0, m.meet);
-  if (m.ph) ok(`${tag}: no two chips or ⋯ overlap`, !m.overlap, m);
+  if (m.ph) ok(`${tag}: no two controls of the strip overlap`, m.overlap.length === 0, m.overlap);
   if (one) {
     ok(`${tag}: a one-step chain has no F chip`, !m.fShown, m);
     if (!m.ph) ok(`${tag}: a one-step thread does not scroll`, !m.scrolls, m);

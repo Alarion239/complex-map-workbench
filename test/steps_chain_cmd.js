@@ -281,16 +281,15 @@ await open(360, 700, true);
 await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(700);
 const end = await ev(`(() => { const ps = [...document.querySelectorAll('#svStrip .sv-plane')], l = ps[ps.length - 1], b = l.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(); return { n: ps.length, ok: l === at || l.contains(at), at: at && (at.className || at.tagName), overlap: !(a.left >= b.right || a.right <= b.left), add: a.width }; })()`);
 ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok && !end.overlap, end);
-// every step's chip and its ⋯ are two 44 px targets that overlap neither each other nor the next step's, on a phone from 320 to 390 px, in English, Russian and Italian
+// every step's chip and its ⋯ are 44 px targets on a phone from 320 to 390 px, in English, Russian and Italian (that they overlap nothing is steps_strip_layout's)
 for (const [w, lang] of [[320, 'en'], [360, 'en'], [360, 'ru'], [360, 'it'], [390, 'en']]) {
   await view(w, 740, false, true);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}more${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
   const t = await ev(`(() => { const R = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }, boxes = [];
     for (const wr of document.querySelectorAll('#svStrip .sv-fwrap')) boxes.push(['chip', R(wr.querySelector('.sv-fchip'))], ['more', R(wr.querySelector('.sv-more'))]);
     const small = boxes.filter(([, b]) => b[2] - b[0] < 44 - 0.5 || b[3] - b[1] < 44 - 0.5).map(([n, b]) => n + ' ' + Math.round(b[2] - b[0]) + 'x' + Math.round(b[3] - b[1]));
-    const over = []; for (let i = 0; i < boxes.length; i++) for (let k = i + 1; k < boxes.length; k++) { const a = boxes[i][1], b = boxes[k][1]; if (a[0] < b[2] - 0.5 && b[0] < a[2] - 0.5 && a[1] < b[3] - 0.5 && b[1] < a[3] - 0.5) over.push(boxes[i][0] + '/' + boxes[k][0]); }
-    return { n: boxes.length, small, over }; })()`);
-  ok(`${w} ${lang}: every step's chip and ⋯ are 44 px targets and overlap nothing`, t.n >= 4 && t.small.length === 0 && t.over.length === 0, t);
+    return { n: boxes.length, small }; })()`);
+  ok(`${w} ${lang}: every step's chip and ⋯ are 44 px targets`, t.n >= 4 && t.small.length === 0, t);
 }
 // shown alone on a 360 px phone: the step's own planes stay in view, and a long press on the disabled Add gives its reason
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
