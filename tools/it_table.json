@@ -3409,7 +3409,6 @@
  "Where {x} lands in the targets of {p} is shaded here.": "Qui è ombreggiata la zona dove {x} cade nei bersagli di {p}.",
  "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Qui è ombreggiata la zona dove {x} cade nei bersagli di {p}; sono disegnate anche le curve che la funzione manda su di essi.",
  "Add a step to make a video": "Aggiungi un passo per fare un video",
- "Scope": "Ambito",
  "landscape": "paesaggio",
  "Previous step alone": "Passo precedente da solo",
  "Next step alone": "Passo successivo da solo",
