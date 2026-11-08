@@ -48,7 +48,7 @@
   // cells: their corners within jump pixels, a larger jump is a cut's wall), at most cap places
   // looked up; the masks agree within slack half-resolution pixels (the frame's edge pixels and the projected points' rounding), and
   // at most RASTER_TOL of the reference's pixels are unmatched either way
-  const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1 }, RASTER_TOL = SAME_FRAC;
+  const REF = { nx: 40, ny: 34, depth: 5, step: 0.75, jump: 3, cap: 600000, slack: 1, drawn: 0.5 }, RASTER_TOL = SAME_FRAC;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -82,7 +82,7 @@
   // pane at its drawn height (window.__cmwLandProject); the half-resolution pixels those points land on are the surface the exact map
   // draws. A cell of the lattice is refined where its corners are not all covered or all uncovered, and where it is not a facet (the
   // projection of its centre is more than step half-resolution pixels from the corners' mean, or the corners' members do not pair up),
-  // down to depth halvings; a facet is filled as two triangles; cap bounds the places looked up, and a mask that reaches it is reported incomplete. The frame's own mask is the relief
+  // down to depth halvings; a facet is filled as two triangles; cap bounds the places looked up and drawn is the mask value from which a place is drawn as relief; a mask that reaches cap, or that has cells left after depth halvings, is reported incomplete. The frame's own mask is the relief
   // alone on a transparent frame (window.__cmwLandRelief), cut into the same pixels (a pixel is covered when half of its canvas
   // pixels are). Answers { n (reference pixels), extra, missing, off, places (looked up), capped, w, h } or null with no inverse path.
   window.__lxRaster = (sheets, g) => {
@@ -102,7 +102,7 @@
       if (!e) return false;
       need.forEach(([i, j], k) => {
         // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
-        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < 0.5 ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
+        const mk = __cmwLandMask(...xy(i, j)), ms = mk !== null && mk < g.drawn ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)), pts = [];
         for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2]); }
         cache.set(key(i, j), pts);
       });
@@ -126,7 +126,7 @@
     // projection of its centre is within g.step half-resolution pixels of the corners' mean: the facet's two triangles are filled
     let work = [];
     for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) work.push([i * S, j * S, S]);
-    for (let guard = 0; work.length && guard < 64; guard++) {
+    for (let round = 0; work.length && round <= g.depth; round++) {
       const corners = (c) => [[c[0], c[1]], [c[0] + c[2], c[1]], [c[0], c[1] + c[2]], [c[0] + c[2], c[1] + c[2]]];
       const centre = (c) => [c[0] + c[2] / 2, c[1] + c[2] / 2];
       if (!look(work.flatMap(corners))) { capped = true; break; }
@@ -151,6 +151,7 @@
       }
       work = next;
     }
+    if (work.length) capped = true;   // the halvings are spent with cells still to refine
     const cov = window.__cmwLandRelief.cov, w = window.__cmwLandRelief.w, frame = new Uint8Array(W2 * H2);
     for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
       let n = 0, t = 0;
