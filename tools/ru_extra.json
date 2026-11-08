@@ -688,7 +688,6 @@
  "Where {x} lands in the targets of {p} is shaded here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено.",
  "Where {x} lands in the targets of {p} is shaded here; the curves it maps onto them are drawn here.": "Там, где %{x} попадает в цели %{p}, здесь закрашено; кривые, которые она переводит в них, нарисованы здесь же.",
  "Add a step to make a video": "Добавьте шаг, чтобы сделать видео",
- "Scope": "Охват",
  "landscape": "рельеф",
  "Previous step alone": "Предыдущий шаг отдельно",
  "Next step alone": "Следующий шаг отдельно",
@@ -707,6 +706,9 @@
  "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Фазовый портрет функции %{choice}: цвет показывает $\\arg %{choice2}$.%{homDef}",
  "The Cauchy integral is drawn on z, where its curve lies: colour from z": "Интеграл Коши рисуется на z, где лежит его кривая: цвет от z",
  "The Cauchy integral is drawn everywhere: its outside part is not cut to regions": "Интеграл Коши рисуется везде: его внешняя часть не обрезается областями",
+ "No pole inside the curve: F inside, 0 outside": "Внутри кривой нет полюса: F внутри, 0 снаружи",
+ "Computed numerically: there is no f₊ and f₋ to show apart": "Вычислено численно: f₊ и f₋ раздельно не показать",
+ "F is not finite on the curve: its Cauchy integral is not defined": "F не конечна на кривой: её интеграл Коши не определён",
  "Cauchy: on z only": "Коши: только на z",
  "No curve selected": "Кривая не выбрана"
 }
