@@ -24,7 +24,8 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  // ready.ready also comes for a place parked between two planes, which counts as moving
+  until: "window.__cmwSteps && __cmwSteps().ready.ready && !(window.__cmwSphere && __cmwSphere().running)",
 });
 // (the left pane's colour at the globe's point (x, y) of the plane, read from the canvas; null off the pane)
 const pixelAt = (x, y) => ev(`(() => {
