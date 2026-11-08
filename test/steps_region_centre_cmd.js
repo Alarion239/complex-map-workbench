@@ -10,8 +10,9 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-// (TOL levels of 255 per channel and FRAC of the pixels: the rasterization bounds, the measured floor of the centre read on the
-// four chains; the centroid read puts several per cent of the pixels over TOL, CONTROL_MIN_FRAC the share a wrong T must reach)
+// (TOL levels of 255 per channel and FRAC of the pixels: rasterization bounds above the centre read's measured floor on the four
+// chains, 1 level and no pixel over TOL; the centroid read measures 47 to 127 levels with 4.6 to 13.5 % of the pixels over TOL.
+// CONTROL_MIN_FRAC: the share the plot at the wrong T must put over TOL, 95 % or more measured)
 const TOL = 6, FRAC = 0.002, CONTROL_MIN_FRAC = 0.05;
 // (W x H the canvas in px, s px per unit, R the disc's radius; the disc's pixels within EDGE_MARGIN_PX of its boundary are left
 // out; MIN_PIXELS the least pixel count inside it; MESH_RES the mesh's cells across; the frames wait for the programs to link:
