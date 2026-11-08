@@ -785,11 +785,17 @@ const Phone = (() => {
   }
   // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
   // that style's settings, the opacity, then the overlays (outlines and the unit circle); a group with no control shows no label
+  const OPACITY_GROUP = 3;
   function displayGroups(kids) {
     const of = (k) => (k.matches('.sv-sheet-scope') ? 0 : k.matches('.sty-seg') ? 1 : k.matches('.fader-row') ? 3 : k.matches('.scrub, .field') ? 2 : 4);
     const names = [$t('Where colour shows'), $t('Colour style'), $t('Style settings'), $t('Opacity'), $t('Overlays')];
-    return names.map((name, g) => [name, kids.filter((k) => of(k) === g)]).filter(([, ks]) => ks.length)
-      .map(([name, ks]) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-gl' }, name), ...ks));
+    return names.map((name, g) => [name, g, kids.filter((k) => of(k) === g)]).filter(([, , ks]) => ks.length)
+      .map(([name, g, ks]) => {
+        const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, name);
+        // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
+        if (g === OPACITY_GROUP) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
+        return h('section', { class: 'ph-grp' }, head, ...ks);
+      });
   }
   function fillDisplay(side) {
     els.dispSide = side;
