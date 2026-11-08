@@ -2537,30 +2537,43 @@ ${newtCoreFns(P, H)}bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
 vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
-// the members: 0, which this program does not walk (its root is none), 1, the pole's (a step with a simple pole: Newton from the
-// root the pole puts over w, InvOps.opNewt's pole) or none, then one member per seed of the ladder, each landed by Newton
-// at t and dropped when it equals an earlier member
+// the members: 0, walked from w (a stored root of the NEWT roots pass where there is one: kept when it hits w), 1, the pole's
+// (a step with a simple pole: Newton from the root the pole puts over w, InvOps.opNewt's pole) or the one deflated by member 0,
+// then one member per seed of the ladder, each landed by Newton at t; a member equal to an earlier one is dropped
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
-  ${P}_k[0] = false; ${P}_r[0] = vec2(0.0);
   vec4 an = uInv[${c}];
   bool anch = an.y >= an.w;
   vec2 lo = anch ? vec2(an.z, an.w) : vec2(w.x / (1.0 - t), w.y / (1.0 - t) - ${Inverse.NEWT_SPAN.toFixed(1)});
   float span = anch ? an.y - an.w : ${(2 * Inverse.NEWT_SPAN).toFixed(1)};
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
-  for (int m = 1; m < ${NB}; m++) {
-    vec2 v = vec2(0.0), ug;
+  for (int m = 0; m < ${NB}; m++) {
+    vec2 v = vec2(0.0), ug, dz = vec2(0.0);
     bool okv = false;
-    if (m == 1) {
+    int mode = ${NM.LAND};
+    if (m == 0) {
+      v = w; okv = true; mode = ${NM.WALK};
+${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
+      if (uNrRead == 1 && w == ixPixW) {
+        v = texelFetch(uNrTex0, ixNrTexel, 0).zw;
+        okv = abs(v.x) < ${NEWT_FINITE};
+        mode = ${NM.CHECK};
+      }
+#endif
+` : ''}    } else if (m == 1) {
 ${pole ? `      vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
       vec2 d = w - (1.0 - t) * pa.xy - t * pb.xy;
       if (dot(d, d) > 0.0) { v = pa.xy + t * cdiv(pa.zw, d); okv = true; }
-` : ''}    } else {
+` : `      okv = ${P}_k[0];
+      v = 2.0 * w - ${P}_r[0];
+      dz = ${P}_r[0];
+      mode = ${NM.DEFL};
+`}    } else {
       v = lo + vec2(0.0, span * lad[m - 2]);
       okv = true;
     }
-    if (okv) okv = ${P}_run(v, w, t, ${NM.LAND}, 0, 1, vec2(0.0), ug);
+    if (okv) okv = ${P}_run(v, w, t, mode, 0, 1, dz, ug);
     for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
     ${P}_r[m] = v; ${P}_k[m] = okv;
   }
