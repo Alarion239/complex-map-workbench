@@ -373,8 +373,18 @@
     packRecs([SV_ALL], true);
     const p = invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
     if (p.path !== 'inverse' || p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && o.p.back))) return null;
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1 };
+    // A log or root step has a sheet per branch: the sheets beside the step's own follow, nearest first, and a vertex
+    // takes the first that has a member there
+    const more = [];
+    if (p.plan.ops.some((o) => (o.kind === 'ROOTPOW' || o.kind === 'LOG') && o.p && Number.isFinite(o.p.k))) {
+      for (let j = 1; j <= SV_LAND_SHEETS; j++) for (const dk of [j, -j]) {
+        const q = invHomPath(SV_ALL, 0, b, u, null, dk);
+        if (q.path === 'inverse') more.push({ plan: q.plan, prep: q.prep, inv: q.inv });
+      }
+    }
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1 };
   }
+  const SV_LAND_SHEETS = 4;
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();

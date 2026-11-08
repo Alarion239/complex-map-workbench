@@ -759,12 +759,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // INV_LAND: the inverse program's variant that reads one front member per grid vertex instead of shading a pixel. Pixel
   // (i, j) of an N x N target is the shown plane's point w of vertex (i, j) over the box uLBox; the walk finds the front
   // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, 0, 1), with the height of the stages (uGs, uGt] at z (blended over
-  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite.
+  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
   const INV_LAND_MAIN = `
-uniform vec4 uLBox; uniform int uLN;
+uniform vec4 uLBox; uniform int uLN; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
 layout(location = 1) out vec4 oZ;
 void main() {
   vec2 g = floor(gl_FragCoord.xy);
+  if (uUsePrev) {
+    vec4 pa = texelFetch(uPrevA, ivec2(g), 0);
+    if (pa.w > 0.5) { o = pa; oZ = texelFetch(uPrevZ, ivec2(g), 0); return; }
+  }
   vec2 w = uLBox.xy + g / float(uLN - 1) * uLBox.zw;
   ixDwX = vec2(uLBox.z / float(uLN - 1), 0.0); ixDwY = vec2(0.0, uLBox.w / float(uLN - 1));
   ixPix = ixDwX.x;
@@ -779,54 +783,74 @@ void main() {
   const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
   let landSet = null;
   // GLR.landInverse(st) -> 'drawn' | 'pending' | 'error'; it writes st.tex (the places) and st.zTex (the preimages), N x N RGBA32F textures. st: drawInverse's map, plan, prep, inv,
-  // shape, plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
+  // shape, more ([{plan, prep, inv}], the further sheets walked after it), plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
   // carried colour's style, its s the plane z lies on) and heights {hT, hT2, hu}: the stages the height is of.
   function landInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok || !rtOK) return 'error';
     const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
     if (!rec || !rec.ok) return 'error';
-    const pr = /** @type {any} */ (invProgram(3, false, true, INV_LAND, st.inv));
-    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
-    if (pr.state !== 'ready') return 'error';
-    const P = pr.P, inv = st.inv || cur.info.inverse, d = passData(inv, st.plan, st.prep);
-    if (!d.ok) return 'error';
-    P.warm = true;
+    // the sheets in order: a vertex takes the first sheet whose walk finds a member there
+    const sheets = [st].concat((st.more || []).filter((m) => m && m.plan && m.prep && m.prep.ok));
+    const progs = [];
+    for (const sh of sheets) {
+      const pr = /** @type {any} */ (invProgram(3, false, true, INV_LAND, sh.inv || st.inv));
+      if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
+      if (pr.state !== 'ready') return 'error';
+      const d = passData(sh.inv || st.inv || cur.info.inverse, sh.plan, sh.prep);
+      if (!d.ok) return 'error';
+      progs.push({ P: pr.P, d });
+    }
     const N = st.N;
-    if (!landSet) landSet = { fbo: gl.createFramebuffer(), size: new WeakMap() };
+    if (!landSet) landSet = { fbo: gl.createFramebuffer(), size: new WeakMap(), scratch: null };
+    if (!landSet.scratch) {
+      const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return t; };
+      landSet.scratch = { tex: mk(), zTex: mk() };
+    }
     // (the targets' storage, once per size: a texture the caller made with floatTex has none until a pass writes it)
-    for (const t of [st.tex, st.zTex]) {
+    for (const t of [st.tex, st.zTex, landSet.scratch.tex, landSet.scratch.zTex]) {
       if (landSet.size.get(t) === N) continue;
       gl.activeTexture(gl.TEXTURE15);
       gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N, N, 0, gl.RGBA, gl.FLOAT, null);
       landSet.size.set(t, N);
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, st.tex, 0);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, st.zTex, 0);
-    const fbOk = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (!fbOk) return 'error';
     flushHalf();
-    gl.useProgram(P.p);
     const look = { alpha: 1, alphaOwn: 1, lastOpaque: true, pattern: 'carry', cell: 1, lines: false };
     const c = st.heights;
-    bindInverse(P, Object.assign({}, st, { look }), d, rec, look, INV_LAND);
-    u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
-    u1f(P, 'uHu', c.hu || 0);
-    u1i(P, 'uLN', N);
-    u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
-    u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', 0);
-    u4f(P, 'uVp', 0, 0, N, N);
-    u2f(P, 'uCenter', 0, 0); u2f(P, 'uCenterLo', 0, 0); u2f(P, 'uInvScale', 1, 1);
     const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
-    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
-    gl.viewport(0, 0, N, N);
-    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
-    gl.bindVertexArray(empty());
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.bindVertexArray(null);
+    // (the passes alternate between the two target pairs, each reading the other's result; the last writes st's)
+    const last = sheets.length - 1;
+    for (let i = 0; i <= last; i++) {
+      const sh = sheets[i], { P, d } = progs[i], toSt = (last - i) % 2 === 0;
+      const dst = toSt ? st : landSet.scratch, src = toSt ? landSet.scratch : st;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst.tex, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, dst.zTex, 0);
+      const fbOk = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      if (!fbOk) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return 'error'; }
+      P.warm = true;
+      gl.useProgram(P.p);
+      bindInverse(P, Object.assign({}, sh, { look }), d, rec, look, INV_LAND);
+      u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
+      u1f(P, 'uHu', c.hu || 0);
+      u1i(P, 'uLN', N);
+      u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
+      u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', 0);
+      u4f(P, 'uVp', 0, 0, N, N);
+      u2f(P, 'uCenter', 0, 0); u2f(P, 'uCenterLo', 0, 0); u2f(P, 'uInvScale', 1, 1);
+      u1i(P, 'uUsePrev', i > 0 ? 1 : 0); u1i(P, 'uPrevA', 12); u1i(P, 'uPrevZ', 13);
+      if (i > 0) {
+        gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+        gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, src.zTex);
+        gl.activeTexture(gl.TEXTURE15);
+      }
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.viewport(0, 0, N, N);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
+      gl.bindVertexArray(empty());
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(null);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(vpX, vpY, fw, fh);
     if (scOn) gl.enable(gl.SCISSOR_TEST);
