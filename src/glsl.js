@@ -2504,12 +2504,12 @@ ${seeded ? '' : pole ? `  vec2 v1;
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
-vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
+${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
+vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
-  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
+  if (${P}_has0 && ${P}_w0 == w) { u = ${P}_u0; return ${P}_ok0; }
   bool ok = ${P}_m0(w, t, u);
-  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
+  ${P}_has0 = true; ${P}_w0 = w; ${P}_u0 = u; ${P}_ok0 = ok;
   return ok;
 }
 // member 1: Newton deflated by member 0's u, from 2w - u
