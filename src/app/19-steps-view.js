@@ -869,14 +869,26 @@
   }
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
+  // (the glide held by svLinkHold for its missing tracks comes first)
+  let svHoldB = 0;
   function svPolesLeft() {
     const n = nSteps();
+    for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
     for (let b = 1; b <= n; b++) {
       if (derivIn(b - 1, b)) continue;
       const P = svPoleTracks(b, clipWin);
       if (P.k <= SV_POLE_K) return P;
     }
     return null;
+  }
+  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse plan has a
+  // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
+  // (svSheetKeyAt) exist
+  function svTracksMissing(b) {
+    const plan = invPlan(0, b);
+    if (!(plan && plan.ok && plan.ops.some((o) => o.kind === 'NEWT'))) return false;
+    const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
+    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
   // the plane (svRingAhead), SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time
@@ -894,7 +906,7 @@
       try {
         while (left() > 0) {
           const P = svPolesLeft();
-          if (P) svPoleMake(P, left(), 'idle');
+          if (P) { svPoleMake(P, left(), 'idle'); if (P.k > SV_POLE_K && svHoldB === P.b) { svHoldB = 0; requestRender('L'); } }
           else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
         }
         if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
@@ -1045,7 +1057,10 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
+    const linking = !!h && h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending');
+    svHoldB = !linking && svTracksMissing(g.b) ? g.b : 0;
+    if (svHoldB) svPolesWatch();
+    if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
