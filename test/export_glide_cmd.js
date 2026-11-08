@@ -148,6 +148,21 @@ for (const T of ['null', 0]) {
   }
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
+// the glide's label words are the pane's readout: a frame's label, then the pane parked at the same place says it too
+{
+  const lb = JSON.parse(await ev(`await (async () => { try {
+    const g = __cmwFig.glide(), vopt = { size: '1280x720', fps: 30, secs: 2, ends: 'once' };
+    const r = await __cmwFig.makeVideo({ video: vopt, keepForCheck: true }), chk = await __cmwFig.videoCheck(5, 192, 108);
+    return JSON.stringify({ lo: g.lo, t: chk && chk.t, label: chk && chk.label, frames: r.frames });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 600) }); } })()`, 600000));
+  ok('a glide frame reports the label it drew', !lb.err && typeof lb.label === 'string' && lb.label.length > 0, lb);
+  if (!lb.err && lb.label) {
+    await ev(`(__cmwSteps({ x: ${lb.lo + lb.t} }), 1)`);
+    await settled({ until: `Math.abs(__cmwSteps().x - ${lb.lo + lb.t}) < 1e-6 && !!document.querySelector('[role=slider][aria-valuetext]')`, max: 15000 });
+    const said = await ev(`document.querySelector('[role=slider][aria-valuetext]').getAttribute('aria-valuetext')`);
+    ok('the pane parked where the frame stands says the frame\'s label', typeof said === 'string' && said.startsWith(lb.label), { said, lb });
+  }
+}
 // the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
 // key says where the colour is carried from, the pane is not in Phase and the still is the plane picture, which has no key
 for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
