@@ -960,8 +960,9 @@
     const paths = list.map((x) => {
       if (hom) return shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, u, singAt)) : invHomPath(x, 0, b, u, singAt);
       const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
-      // (only a step with no exact inverse falls back: a path still compiling or forced forward stays as it is)
-      if (p.path !== 'forward' || p.reason === 'forced forward') return p;
+      // (only a step with no exact inverse falls back: the exact images off, a path still compiling or forced forward stay as they are)
+      const m = normalizeMap(stageMap(b));
+      if (p.path !== 'forward' || invPlan(m.a || 0, m.b || 0).ok) return p;
       const q = shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, 1, restHom)) : invHomPath(x, 0, b, 1, restHom);
       return q.path === 'inverse' ? q : p;
     });
