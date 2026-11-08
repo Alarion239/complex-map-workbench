@@ -377,8 +377,8 @@
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p, r1 = cell * 8) => [p.re, p.im, cell * 1e-4, r1];
-    // (a height pole in the far patches takes a patch of its far cell's size and half the spacing to its neighbour, the spike's tail, short of the neighbour)
-    const far = (p) => Math.max(cell * 8, Math.min(svFarCell(src, Math.hypot(p.re - cx, p.im - cy)) + p.sp / 2, 0.95 * p.sp));
+    // (a height pole in the far patches takes a patch of its far cell's size and half the spacing to its neighbour, the spike's tail, at most LAND_HEIGHT_PATCH_SPAN of the spacing: the patch covers the pole's own half of the way to its neighbour, and neighbouring patches overlap by little, so each pixel is shaded about once)
+    const far = (p) => Math.max(cell * 8, Math.min(svFarCell(src, Math.hypot(p.re - cx, p.im - cy)) + p.sp / 2, LAND_HEIGHT_PATCH_SPAN * p.sp));
     return near.map((p) => patch(p)).concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8, F, box).map((p) => patch(p, far(p))) : []);
   }
   // The poles of the height map hF (plane s to the height plane) outside the carried box src, within LAND_HEIGHT_REACH
@@ -388,7 +388,7 @@
   // patch of its own like the glide map's poles (svLandPatches); one whose image is not in the block is never seen. hF
   // does not move with the glide, so the candidates (the LAND_HEIGHT_CANDIDATES nearest) are searched once per plane s
   // and box (hKey names hF); F, which does, picks among them each frame
-  const LAND_HEIGHT_POLES = 40, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, svLandHeightMemo = { key: '', poles: [] };
+  const LAND_HEIGHT_POLES = 40, LAND_HEIGHT_GRID = 128, LAND_HEIGHT_REACH = 16, LAND_HEIGHT_CANDIDATES = 64, LAND_HEIGHT_PATCH_SPAN = 0.6, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach, F, box) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
     const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2;

@@ -34,7 +34,7 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await hold(u);
   const tag = `held at u = ${u}`;
   const c = info[u] = {
-    carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar }) => ({ u, s, polar }))(__cmwLandCarry() || {}))')),
+    carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar, src }) => ({ u, s, polar, src }))(__cmwLandCarry() || {}))')),
     err: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000)),
     whole: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000)),
     poles: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000)),
@@ -53,6 +53,13 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
     ok(`${tag}: a pole patch about 3πi and -3πi`, at(3 * Math.PI) && at(-3 * Math.PI), c.carried);
     ok(`${tag}: counting the pole patches' discs too, cells are off by more than ${TOL}`, !!c.whole && c.whole[0].bad > 0, c.whole && c.whole[0]);
     ok(`${tag}: counting the pole patches' discs too, the outer ring's cells are off by more than ${TOL}`, !!c.whole && c.whole.length > 1 && c.whole[1].bad > 0, c.whole && c.whole[1]);
+    // (the pole patches of the height map: one per pole of the lattice, each shading about its pole's own half of the way to its
+    // neighbour, so a pixel is shaded about once; the patches of the glide map's poles, of eight cells, are not counted)
+    const P = c.carried.polar || [], sw = c.carried.src.x1 - c.carried.src.x0, cellMax = sw / 255;
+    const sp = (p) => Math.min(...P.filter((q) => q !== p).map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])));
+    const lat = P.filter((p) => p[3] > 8 * cellMax * 1.01);
+    ok(`${tag}: a patch for each pole of the height map's lattice (3πi to 27πi, both signs), none dropped`, [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27].every((k) => at(k * Math.PI) && at(-k * Math.PI)) && lat.length >= 26, { n: P.length, lat: lat.length });
+    ok(`${tag}: no patch of the lattice reaches past 0.6 of its spacing to the next (the discs' summed area is bounded)`, lat.length > 0 && lat.every((p) => p[3] <= 0.6 * sp(p) + 1e-9), lat.map((p) => [p[1], p[3], sp(p)]));
     ok(`${tag}: inside each pole patch, at its own resolution, no cell off by more than ${TOL}`, !!c.poles && c.poles.length >= 6 && c.poles.every((q) => q.cells > 100 && q.bad === 0), c.poles);
   }
   ok(`${tag}: the carried frame covers its block`, !!c.covered && c.covered.bare === 0, c.covered);
