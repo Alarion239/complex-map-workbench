@@ -9,12 +9,12 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, readRegions, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
 await view(1440, 900, false, false);
 // ---- 1. a saved state with an old pattern opens with the phase; its grid step and grid lines stay
 for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch', 0.5, true], ['sphere', 4, false], ['solid', 1, true], ['polar', 0.25, true]]) {
   await openSaved(`rgph-${pattern}-${Date.now() % 1000000}`, STATE({ pattern, patternScale, lines }));
-  const r = await ev('__cmwRegions()');
+  const r = await readRegions(`saved pattern ${pattern}`);
   ok(`saved pattern ${pattern}: opens as the phase, grid step ×${patternScale} and grid lines ${lines ? 'on' : 'off'} kept`, r && r.pattern === 'phase' && r.patternScale === patternScale && r.lines === lines, r);
 }
 // ---- 2. a link with an old pattern: the same
@@ -27,14 +27,14 @@ for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch',
   ok('a link encodes', typeof payload === 'string' && /^\d\./.test(payload), payload);
   await nav(`${U}/gl-helpers.html`); await sleep(300);
   await nav(`${U}/test.html?ns=rgph-l1-${Date.now() % 1000000}#cmw=${payload}`);
-  for (let i = 0; i < 100; i++) { await sleep(200); try { if ((await ev(`typeof __cmwRegions === 'function' && !location.hash && __cmwShapes().shapes.length === 1`)) === true) break; } catch (e) { /* the page reloads */ } }
+  // (the link opens by a reload that drops the hash: the page is ready once it is gone and the figure is in)
+  const r = await readRegions('the link with the Checker', `!location.hash && __cmwShapes().shapes.length === 1`);
   await settle(800);
-  const r = await ev('__cmwRegions()');
   ok('a link with the Checker opens as the phase, grid step ×2 and grid lines off kept', r && r.pattern === 'phase' && r.patternScale === 2 && r.lines === false, r);
 }
 // ---- 3. the new figure's fill is the phase, with grid lines
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
-info.fresh = await ev('__cmwRegions()');
+info.fresh = await readRegions('a state with no pattern');
 ok('a state with no pattern: the phase', info.fresh.pattern === 'phase', info.fresh);
 // ---- 4. the steps head's ⋯ pop-up holds the regions' display: grid lines, their step, chevrons and opacity, no swatch
 ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
