@@ -213,7 +213,7 @@ for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
     const body = document.querySelector('.ph-sheet .ph-body:not([hidden])') || document.querySelector('.ph-sheet'), s = document.getElementById('dcSeg'); if (!s) return null;
     const sb = s.closest('.ph-sheet, .ph-sb').getBoundingClientRect();
     const first = [...s.closest('.ph-vopts').parentElement.children].find((e) => e.getClientRects().length && !e.matches('.ph-h[hidden]'));
-    return { first: first === s.closest('.ph-vopts'), firstIsSeg: s.closest('.ph-vopts').firstElementChild === s, titles: [...document.querySelectorAll('.ph-sheet h3')].filter((e) => e.getClientRects().length).map((e) => e.textContent),
+    return { first: first === s.closest('.ph-vopts'), firstIsSeg: s.closest('.ph-vopts').querySelector(':scope > .ph-grp > :not(h3)') === s, titles: [...document.querySelectorAll('.ph-sheet h3')].filter((e) => e.getClientRects().length).map((e) => e.textContent),
       chip: !!document.querySelector('.ph-style') && document.querySelector('.ph-style').getClientRects().length > 0,
       btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, cut: n && n.scrollWidth > n.clientWidth + 1, broken: brokenWords(n) }; }) };
   })()`);
@@ -248,7 +248,7 @@ for (const lang of ['', 'ru']) {
     ${BROKEN}
     const s = document.getElementById('dcSeg'), v = s && s.closest('.ph-vopts'); if (!v) return { seg: s && (s.parentElement.id || s.parentElement.className) };
     const sb = s.closest('.ph-sheet, .ph-sb').getBoundingClientRect();
-    return { firstIsSeg: v.firstElementChild === s, ids: [...v.querySelectorAll('input, select')].map((i) => i.id),
+    return { firstIsSeg: v.querySelector(':scope > .ph-grp > :not(h3)') === s, ids: [...v.querySelectorAll('input, select')].map((i) => i.id),
       btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, broken: brokenWords(n) }; }) };
   })()`);
   ok(`${tag}: the Phase plane's Display sheet starts with the six styles, then its toggles`, sh && sh.firstIsSeg && sh.btns && sh.btns.length === 6 && ['outlineChk', 'unitChk'].every((id) => sh.ids.includes(id)), sh);
