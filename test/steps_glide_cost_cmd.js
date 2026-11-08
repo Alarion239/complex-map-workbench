@@ -207,6 +207,10 @@ async function hold(x, links = true) {
   }
   const idle = await settled({ max: 30000, until: '!__cmwSvKey().busy' });
   ok('before the scrubs: the idle job ends (the outer ring\'s sizes and meshes made)', idle.ok, idle);
+  // (a scrub crosses every glide of the chain: with the idle job ended, the outer ring's sizes of all of them are made,
+  // so that no frame of a scrub makes one and builds its mesh)
+  const made = await ev('__cmwSvRingMade()');
+  ok('before the scrubs: the outer ring\'s sizes of every glide are made, not only those next to the thread', made.glides > 1 && made.left === 0, made);
   // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
   await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svCarryRegions'], '__svAlloc');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a

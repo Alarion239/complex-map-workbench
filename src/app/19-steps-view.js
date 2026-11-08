@@ -1344,14 +1344,17 @@
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
-  // first glide finds them made)
+  // first glide finds them made). Those two glides first, then every other glide of the chain (a scrub crosses them
+  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room, so that no mesh
+  // made for a far glide drops one of the glides next to the thread
   function svRingNext() {
     if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
     if (!L || !L.includes(SV_ALL)) return null;
     // (the view the frames between planes draw in: svRenderMoving sets the pane's view to S.srcView)
-    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView;
-    for (const j of [i - 1, i]) {
+    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView, order = [i - 1, i];
+    if (svPolarRes.size < SV_POLAR_KEEP) for (let j = 0; j + 1 < P.length; j++) if (j !== i - 1 && j !== i) order.push(j);
+    for (const j of order) {
       if (j < 0 || j + 1 >= P.length) continue;
       const g = svBetween(j + 0.5, null);
       for (let q = 0; q <= 20; q++) {
