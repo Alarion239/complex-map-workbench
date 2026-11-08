@@ -500,10 +500,14 @@
     // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
     const hv = typeof homView === 'function' ? homView() : null;
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
-    const cst = { map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    const cst = { map: hv ? hv.map : S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
-    if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
-    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
+    // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
+    // curve selected, the plane is paper with its reason)
+    const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
+    if (cauchyWhy) paper(pane);
+    else if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -531,7 +535,8 @@
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
     if (pane === paneL) { updatePre('L', pane, k); drawPre(pane, 'L', k); }
-    if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
+    if (cauchyWhy) paneNote(pane, cauchyWhy);
+    else if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');
     return handles;
@@ -541,6 +546,7 @@
   // (r = 1 at the corners)
   function backdrop(pane) {
     const ctx = pane.ctx;
+    if (artRelief) return; // the coverage render: a transparent backdrop, so the alpha is the relief's coverage
     if (figMode) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pane.w, pane.h); return; } // print: plain paper
     const g = ctx.createLinearGradient(0, 0, 0, pane.h);
     g.addColorStop(0, TH.landTop); g.addColorStop(1, TH.landBottom);
@@ -601,7 +607,7 @@
     return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
   }
   function render3D(pane, carry) {
-    pane.begin(TH.plane);
+    pane.begin(artRelief ? 'rgba(255,255,255,0)' : TH.plane);
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
     const box = carry ? carryBox(carry) : landBox();
@@ -640,7 +646,7 @@
       const mu0 = mu;
       const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
       const zAt = zAtIn(box);
-      const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
+      const hOf = (w) => (w ? landValue(w) : NaN);
       const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq.join(',')}`;
       // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
       const scaleOf = (fmK, bx) => {
@@ -773,7 +779,7 @@
       map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
-      motion: !offRender && interacting(), full: offRender || figMode,
+      motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
       colors: {
         floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
         shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
@@ -786,7 +792,7 @@
     });
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
+    if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
@@ -815,6 +821,26 @@
     const a = m && m.cut ? landMaskAlpha(m, z.re, z.im, true, px) : null;
     return a !== null && a < 0.5;
   }
+  // the value the Landscape's height reads of the height map's image w: its real or imaginary part, else its modulus
+  function landValue(w) { return S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w); }
+  // the relief of a Landscape as a function of the world point p = [x, y, z] over its block (info: the frame's, box: the window
+  // of its plane, mask: the Inside-regions mask or null, F: the height map): toZ(p) the point of the plane under p, and hAt(p)
+  // the relief's height there: below the floor off the region a cut surface shows, top where the value is not finite
+  function landHeightField(info, box, mask, F) {
+    const [ax, ay] = info.aspect || [1, 1];
+    const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
+    const top = Math.abs(info.top || 1) * 1.3, z0 = info.floorZ;
+    // (the mask's pixels, read once for the ray's samples)
+    const mpx = mask && mask.cut ? mask.cv.getContext('2d').getImageData(0, 0, mask.cv.width, mask.cv.height).data : null;
+    const hAt = (p) => {
+      if (landOffRegion(mask, toZ(p), mpx)) return z0 - 1;
+      const w = F(toZ(p));
+      if (!CX.isFin(w)) return top;
+      const hh = info.heightOf(landValue(w));
+      return Number.isFinite(hh) ? hh : top;
+    };
+    return { toZ, hAt, top, z0 };
+  }
   // the point of X under pane pixel (x, y) of the landscape (its probe: the needle from the floor to (z, h(z)) and the
   // readout): the first crossing of the pointer's ray with the relief (the principal branch, marched then bisected),
   // else the floor of the block; null off the block
@@ -830,17 +856,7 @@
     const th = Math.tan((c.fov || 28 * DEG) / 2), nx = (2 * x / pk.w - 1) * th * pk.w / pk.h, ny = (1 - 2 * y / pk.h) * th;
     const d = nrm([0, 1, 2].map((k) => f[k] + nx * r[k] + ny * u[k]));
     const at = (t) => [e[0] + t * d[0], e[1] + t * d[1], e[2] + t * d[2]];
-    const toZ = (p) => C(box.x0 + (p[0] / ax / 2 + 0.5) * (box.x1 - box.x0), box.y0 + (p[1] / ay / 2 + 0.5) * (box.y1 - box.y0));
-    const top = Math.abs(info.top || 1) * 1.3, z0 = info.floorZ;
-    // (the mask's pixels, read once for the ray's samples)
-    const mpx = pk.mask && pk.mask.cut ? pk.mask.cv.getContext('2d').getImageData(0, 0, pk.mask.cv.width, pk.mask.cv.height).data : null;
-    const hAt = (p) => {
-      if (landOffRegion(pk.mask, toZ(p), mpx)) return z0 - 1;
-      const w = pk.F(toZ(p));
-      if (!CX.isFin(w)) return top;
-      const hh = info.heightOf(S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w));
-      return Number.isFinite(hh) ? hh : top;
-    };
+    const { toZ, hAt, top, z0 } = landHeightField(info, box, pk.mask, pk.F);
     // the ray's segment inside the block |x| <= ax, |y| <= ay, floor <= z <= top
     let t0 = 0, t1 = Infinity;
     for (const [k, lo, hi] of [[0, -ax, ax], [1, -ay, ay], [2, z0, top]]) {
@@ -1346,6 +1362,16 @@
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
+  // The fill opacity, S.alpha: the one setter of the regions' Opacity slider (#alphaRange) and the steps view's colour
+  // popover (the .sv-opacity ranges, which show it in whole percents), each kept at the value
+  function setFillOpacity(v) {
+    setOpt('alpha', v);
+    const r = /** @type {HTMLInputElement} */ ($('alphaRange'));
+    r.value = String(S.alpha); paintFader(r);
+    $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
+    for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
+    requestRender('L', 'R', 'T'); save();
+  }
   function setupViewControls() {
     // the view controls: the top bar's view switch (merged-views.md) and the panes' Plane | Sphere radios (U4)
     const vsw = $('viewSwitch');
@@ -1373,7 +1399,7 @@
     $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R', 'T'); drawLegend(); save(); });   // (#363: Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
     $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('alpha', +tg.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(tg); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => setFillOpacity(+/** @type {HTMLInputElement} */ (e.target).value));
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
     $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));

@@ -29,12 +29,13 @@
       prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
       moveStep: (k, d) => moveStep(k, d), toggleTransport: () => toggleTransport(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
-      regionsView: () => S.view.main === 'xy' || SV.on,   // the views that hold the regions' display
+      regionsView: () => SV.on || S.view.main === 'xy',   // the views that hold the regions' display
+      // (the steps view's Display sheet is the colour panel: it names the shown plane)
+      displayTitle: () => (SV.on ? `${$t('Colour')} · ${svName(svStage())}` : ''),
       targetNote: () => (SV.on ? svTargetNote() : null),   // what the shown plane draws or shades from shapes on later planes: the Display sheet's first line
-      colourPick: () => (SV.on && S.view.main === 'xy' ? colourPop().el : null),   // a plane past the colour plane: the colouring's picker for the regions' display
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
-      theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
+      theme: () => curTheme, setTheme: pickTheme,
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
       styleState: () => ({ ...styleState(), svg: STYLE_SVG[S.dc] || '' }), styleMenu: (a, done) => openMenu(a, styleItems(done)),

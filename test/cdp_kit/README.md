@@ -12,8 +12,8 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
 3. Run a command file: `test/<you>_cdp/q.sh /path/to/cmd.js` prints the JSON result. The file is the BODY of an async
    function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `nav(url)`,
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
-   `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt)`,
-   `clickSel(css)`, `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
+   `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt, rel)` (rel `{ x, y, moves }`: the release point and how many of the n moves are sent),
+   `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
    `loadView(view, ns, state, { lang })` (the same, with the app's first load in 'classic' or 'steps' whatever the pin is; with no
    view, in the pinned view), `seed(ns, state)` (only the saved state, written from the helper page), `isSteps()` (whether the page
    shows the steps view),

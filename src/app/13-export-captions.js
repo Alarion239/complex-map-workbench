@@ -289,15 +289,19 @@
     const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
     return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
   }
+  // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
+  const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in
+  function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > MIN_PANE_PX ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
   // the shown plane's paths figure: the paths of the step that leads to it. {i, m, Fat, z, end} (Fat(t): z -> the thread's
-  // place i - 1 + t), or {why} when there is none ('first': plane 0; 'deriv': a d/dz step), null off the plane surface
+  // place i - 1 + t; surf: the surface the plane is shown on), or {why} when there is none ('first': plane 0; 'deriv': a d/dz
+  // step), null on the Landscape
   function svPathsFig() {
     const P = svPlanes(), i = Math.round(SV.g.x);
-    if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
+    if (!SV.on || (SV.surf !== 'plane' && SV.surf !== 'sphere') || P.length < 2) return null;
     if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
     const src = svPathsSeg(P, i - 1, i, i);
-    return { i, m: 1, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
+    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
@@ -344,6 +348,7 @@
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
+    svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
     // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
     // plane the line saying where the colour is carried from; and the plane's name for the axis title
@@ -369,7 +374,7 @@
     homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
     morphLen,
     // L0: the z-plane's window (the shapes' own plane, also at a focused step)
-    screenBox: (side) => { if (side !== 'L0') return viewBoxOf(side); const v = S.srcView, w = effW('L'), hh = paneL.h > 20 ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; },
+    screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(side),
     // a pane's view (centre, px per unit), for the export window of an unbounded set (independent of the pane's size)
     viewOf: (side) => { const v = side === 'L0' ? S.srcView : side === 'L' ? leftView() : V.right; return { cx: v.cx, cy: v.cy, s: v.s }; },
     landBox: () => landBox(),
@@ -417,6 +422,7 @@
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
+      get artRelief() { return artRelief; }, set artRelief(v) { artRelief = v; },
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },

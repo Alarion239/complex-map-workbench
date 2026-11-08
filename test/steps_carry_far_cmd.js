@@ -1,3 +1,4 @@
+// (Set to 100 % opacity: the front point's colour alone is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's carried colour mid-glide, Everywhere, where the glide pulls points from past the camera's window into
 // the view, and the sheet key at t (the glide map's poles at t beside plane b's points, __cmwSvKey(b, t)), against the
 // exact colour pulled back pixel by pixel as steps_carry_inregion_cmd.js reads it, the reference zoomed out for points
@@ -131,7 +132,7 @@ const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await goOk(`http://localhost:${PORT}/test.html?view=steps&ns=cfar${Date.now()}`);
 await ready();
-await setup("__cmwSet('morphPaths', false), 1");
+await setup("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
 await setup(`__cmwExample(${EX}); 1`);
 await wait();
 {
@@ -155,7 +156,7 @@ await wait();
   await setup(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await goOk(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
-  await setup("__cmwSet('morphPaths', false), 1");
+  await setup("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   const P = await paneOf(), pts = grid(P, 44, 30, 0.9);
   await steps({ scope: 'all', surf: 'plane', park: 0.5 });
