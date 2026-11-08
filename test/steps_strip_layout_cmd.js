@@ -180,10 +180,12 @@ for (const chain of ['two', 'three', 'four']) {
     ok(`${chain}: the margin does not change during or after a glide`, seen.every((v) => v === m0), { m0, seen });
   }
 }
+// phone widths at which a selection is checked
+const SELECT_WIDTHS = [390, 360];
 // a selection on a phone brings the step's chip whole into the rail, each selection in turn, and a later jump of the ring is followed by the
 // rail: the ring is in the rail's view on the plane it parks on
-{
-  await open(390, 740, true, 'en', 'four');
+for (const w of SELECT_WIDTHS) {
+  await open(w, 740, true, 'en', 'four');
   const chipIn = (k) => ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="${k}"]'), r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), b = c.getBoundingClientRect(); return b.left >= r.left - ${EPS} && b.right <= r.right + ${EPS}; })()`);
   const ringIn = () => ev(`(() => { const t = document.querySelector('#svStrip .sv-thumb').getBoundingClientRect(), r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(); return t.left >= r.left - ${EPS} && t.right <= r.right + ${EPS}; })()`);
   const select = async (plane, k) => {
@@ -198,13 +200,13 @@ for (const chain of ['two', 'three', 'four']) {
   await ev("__cmwSteps({ go: 1, now: true }); 1"); await still({ floor: SETTLE_FLOOR });
   res.ringOnPlane1 = await ringIn();
   res.state = await ev("(() => { const r = document.querySelector('#svStrip .sv-rail'), t = document.querySelector('#svStrip .sv-thumb').getBoundingClientRect(), rb = r.getBoundingClientRect(); return { sl: r.scrollLeft, sw: r.scrollWidth, cw: r.clientWidth, tl: Math.round(t.left - rb.left), tr: Math.round(t.right - rb.left), x: __cmwSteps().x, moving: __cmwSteps().moving }; })()");
-  ok('390 en four: a selection brings the step\'s chip whole into the rail, the second one too', res.chip2 && res.chip3, res);
-  ok('390 en four: after two selections a jump to plane 1 leaves the ring in the rail\'s view', res.ringOnPlane1, res);
+  ok(`${w} en four: a selection brings the step's chip whole into the rail, the second one too`, res.chip2 && res.chip3, res);
+  ok(`${w} en four: after two selections a jump to plane 1 leaves the ring in the rail's view`, res.ringOnPlane1, res);
   // a lone selection then a jump behaves the same
-  await open(390, 740, true, 'en', 'four');
+  await open(w, 740, true, 'en', 'four');
   await select(3, 3);
   await ev("__cmwSteps({ go: 1, now: true }); 1"); await still({ floor: SETTLE_FLOOR });
-  ok('390 en four: after one selection a jump to plane 1 leaves the ring in the rail\'s view', await ringIn(), null);
+  ok(`${w} en four: after one selection a jump to plane 1 leaves the ring in the rail's view`, await ringIn(), null);
 }
 info.checks = 'steps view: the thread bar at 1920/1440/1280/1024 and 390/360, en and ru: clear of the ruler, meets no control, centred on the pane (laptop) or in its rail (phone)';
 return { pass: fails.length === 0, fails, info };
