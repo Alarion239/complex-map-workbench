@@ -473,6 +473,11 @@ html:not(.ph) .ph-only { display: none !important; }
    (its top would be −64, header and close button gone); its cap gives the same room up, so it shrinks from the bottom like the others (portrait: in landscape
    it is a side panel with a top of its own) */
 :root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { max-height: calc(100dvh - 48px - var(--ph-row) - var(--ph-safe-b) - 56px); }
+/* the More sheet in portrait keeps its height with a message: the message sits at the sheet's bottom edge, over its list, and the list's
+   bottom inset is the message's height and a gap, so that every control scrolls clear of it; no control moves when it shows */
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { bottom: 0; padding-bottom: var(--ph-safe-b); max-height: calc(100dvh - 48px); }
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] > .ph-sb { padding-bottom: calc(var(--ph-toast-h, 56px) + 8px); }
+:root.ph:not(.ph-land):has(.ph-sheet[data-k="more"].open) #toastHost { bottom: calc(var(--ph-safe-b) + 8px); }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
 .ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }

@@ -902,7 +902,12 @@
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
     // the tool row, which the planes and the sheet give up)
     if (phone) {
-      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      if (document.documentElement.classList.contains('ph-sheet-on')) {
+        clear();   // (a sheet ends above the message's own row)
+        // (the More sheet in portrait is not lifted: the message sits at its bottom edge over its list, and the list's inset takes the message's height)
+        if (host.firstElementChild && !document.documentElement.classList.contains('ph-land') && document.querySelector('.ph-sheet[data-k="more"].open')) toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        return;
+      }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
       if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
       host.setAttribute('data-placed', 'phone-plot');
@@ -991,6 +996,7 @@
     t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
     sp.style.whiteSpace = ''; t.style.flexWrap = '';
+    placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
   }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
