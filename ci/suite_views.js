@@ -61,6 +61,7 @@ const VIEWS = {
   'steps_inregions_pending_cmd.js': steps(),
   'steps_integrate_cmd.js': steps(),
   'steps_numbers_cmd.js': steps(),
+  'steps_examples_cmd.js': steps(),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_poles_cmd.js': steps(),
