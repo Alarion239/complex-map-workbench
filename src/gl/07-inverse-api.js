@@ -144,12 +144,23 @@
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
   }
   function invCarryFns() {
-    return DCOLOR.replace('uniform float uDpr;', '') + `
-uniform int uGs; uniform int uGt; uniform bool uGan;
+    return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
+uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
+` + CARRY_W + `
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
-  if (uGs >= uGt) return dcolorD(z, dX, dY);
-  vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
+  bool cz = uCT >= 0;
+  if (!cz && uGs >= uGt) return dcolorD(z, dX, dY);
+  vec2 w = carryW(z), wx = carryW(z + dX) - w;
+  if (cz) {
+    // the Cauchy integral at z and z + dX (the winding number of z for both), its footprint down from the one across (it is analytic on each side of the curve)
+    vec2 zr = z - uEdgeO, c0, c1;
+    int wn = cauchyWind(zr);
+    if (!cauchyShown(wn) || !cauchyVal(z, zr, wn, w, c0)) return cauchyGrey();
+    if (!cauchyVal(z + dX, zr + dX, wn, w + wx, c1)) c1 = c0;
+    vec2 cx = c1 - c0;
+    return dcolorD(c0, cx, dot(dX, dX) > 0.0 ? cmul(cdiv(cx, dX), dY) : vec2(0.0));
+  }
   return dcolorD(w, wx, uGan && dot(dX, dX) > 0.0 ? cmul(cdiv(wx, dX), dY) : chainRange(z + dY, uGs, uGt) - w);
 }
 `;
@@ -676,6 +687,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
+      carryCauchy(P, st.carry);
       bindLut(P);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
@@ -953,7 +965,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
