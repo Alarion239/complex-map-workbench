@@ -1418,8 +1418,8 @@
       u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);
       if (landC && landC.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex); }
       if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
-      // (where the carried places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance. The exact
-      // glide has one layer on each place, so nothing is ordered there, and a key's push of the depth would only put a layer behind the floor plate)
+      // (the sheet key orders the points of the carried mesh where its places fold onto one spot: LAND_FS's carry; 10 % of the distance.
+      // The exact glide draws one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key)
       keyUniforms(Pc, landC && landC.exact ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
