@@ -268,18 +268,22 @@
   // height, world units, within which an enumerated member is the one it draws)
   const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02, LAND_ENUM_SAME_Z = 1e-5, LAND_ENUM_NEAR = 2;
   // the branch of a member's lifted coordinate when the enumerator gives none (the multivalued op follows a prefix): the turn of log P(z) by 2 pi k, |k| <= LAND_LAM_K,
-  // whose H is w within LAND_LAM_TOL, the nearest of them; null where none is (the member is then not a preimage of w on any branch, and H at z's principal log shows it)
+  // whose H is w within LAND_LAM_TOL. Turns that give the same H (a power with a rational exponent repeats after a few turns) are told apart by the sheet's window
+  // (lo, hi] of the op's argument: the turn inside it, else the least turn outside it (a member of the range ramp). null where no turn matches (the member is then not
+  // a preimage of w on any branch, and H at z's principal log shows it)
   const landLiftBranch = (sh, z, w) => {
     const ops = sh.plan.ops, m = landMultiOp(sh);
     if (m <= 0) return null;
     try {
-      const l0 = CX.log(Inverse.fwdOps({ ops: ops.slice(0, m) }, z), ops[m].p.theta, ops[m].p.k);
-      let best = null, bd = Infinity;
-      for (let k = -LAND_LAM_K; k <= LAND_LAM_K; k++) {
-        const l = CX.add(l0, C(0, 2 * Math.PI * k)), v = Inverse.fwdOps({ ops: ops.slice(m + 1) }, landLiftOut(ops[m], l)), d = CX.isFin(v) ? CX.abs(CX.sub(v, w)) : Infinity;
-        if (d < bd) { bd = d; best = l; }
+      const o = ops[m], l0 = CX.log(Inverse.fwdOps({ ops: ops.slice(0, m) }, z), o.p.theta, o.p.k), tol = LAND_LAM_TOL * (1 + CX.abs(w));
+      let best = null, inside = false;
+      for (let a = 0; a <= LAND_LAM_K; a++) for (const k of a ? [a, -a] : [0]) {
+        const l = CX.add(l0, C(0, 2 * Math.PI * k)), v = Inverse.fwdOps({ ops: ops.slice(m + 1) }, landLiftOut(o, l));
+        if (!(CX.isFin(v) && CX.abs(CX.sub(v, w)) <= tol)) continue;
+        const win = l.im > o.p.lo && l.im <= o.p.hi;
+        if (win && !inside) { best = l; inside = true; } else if (!best) best = l;
       }
-      return best && bd <= LAND_LAM_TOL * (1 + CX.abs(w)) ? [best.re, best.im] : null;
+      return best ? [best.re, best.im] : null;
     } catch (e) { return null; }
   };
   // a plan's first multivalued op (a log or a power u^s): its index m, or -1. The ops before it are the prefix P (injective), and the lifted coordinate
