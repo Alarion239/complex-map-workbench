@@ -49,6 +49,18 @@ ok('Tiles after Plaster: D.phase is true, the choice is Tiles, the picture is co
 await press('phase');
 const plain = await read();
 ok('Plain: D.phase is true and the choice is Plain', plain.phase === true && plain.checked === 'phase' && plain.coloured > 0, plain);
+// the Landscape's key stays its height key under Plaster, at plane 0 and at a plane past the colour plane (where a carried wheel would
+// otherwise be named), and under Tiles as the control
+const legend = () => ev('(() => { const l = __cmwLegend(); const b = document.getElementById("leftLegend"); return { kind: l.kind, caption: l.caption, shown: !!b && !b.hidden }; })()');
+const CARRIED = /carried/;
+for (const [name, colouring, at] of [['Tiles', 'tiles', 1], ['Plaster', 'plaster', 0], ['Plaster', 'plaster', 1]]) {
+  await press(colouring);
+  await ev(`(__cmwSteps({ T: 0, go: ${at}, now: true }), 1)`); await still();
+  const lg = await legend();
+  ok(`${name} at plane ${at}: the key is the Landscape's height key, shown`, lg.kind === '3d' && lg.shown, lg);
+  ok(`${name} at plane ${at}: and it does not name a carried colour`, !CARRIED.test(lg.caption || ''), lg);
+}
+await press('plaster');
 // the cold-load cases: a saved state whose view is the Landscape with Plaster keeps it; one whose view has no D entry, or has D.phase
 // true, opens coloured, with no error
 const loadSavedView = async (tag, viewState) => {

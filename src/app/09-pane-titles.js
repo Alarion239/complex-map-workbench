@@ -954,9 +954,11 @@
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
+    // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
+    if (lLand()) return '3d';
     // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
     if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
-    return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
+    return lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
@@ -1229,7 +1231,7 @@
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (SV.on && svCarriedFrom() && !lPhase()) {
+    if (kind === 'color' && SV.on && svCarriedFrom() && !lPhase()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
