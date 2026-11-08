@@ -702,7 +702,10 @@ void main() {
     h = src == A ? e.y : e.z;
   }
   vZ = z;
-  vZc = uZOn == 1 ? texelFetch(uZ, A, 0).xy : z;
+  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
+  // the cut separates from the first piece's)
+  ivec2 anchor = (J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A;
+  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : z;
   vPos = vec3(((xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
