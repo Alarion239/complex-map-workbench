@@ -73,8 +73,8 @@
     const order = (p, q) => (tie(p.D, q.D) ? (p.z[1] !== q.z[1] ? q.z[1] - p.z[1] : q.z[0] - p.z[0]) : p.D - q.D);
     return e.map((ms) => {
       const own = ms.filter((m) => m.sheet === 0), use = (own.length ? own : ms).slice().sort(order), o = [];
-      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h, sheet: m.sheet });
-      for (const m of ms) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.f, h: m.h, sheet: m.sheet });
+      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
+      for (const m of ms) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet });
       return o;
     });
   };
@@ -149,6 +149,20 @@
     if (Math.hypot(a[0], a[1]) < F_ABS_MIN || Math.hypot(b[0], b[1]) < F_ABS_MIN) return null;
     return Math.abs(Math.atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]));
   };
+  // a layer against its member: the drawn height within HEIGHT_TOL, and the colour (arg F) within PHASE_TOL where |F| is not near 0
+  // (a layer or a member without F is counted as missing)
+  const layerGap = (l, m) => {
+    const o = { h: Math.abs(l.h - m.h) > HEIGHT_TOL, noF: !l.f || !m.f, ph: false, phN: false };
+    if (!o.noF) { const g = phaseGap(l.f, m.f); o.phN = g !== null; o.ph = g !== null && g > PHASE_TOL; }
+    return o;
+  };
+  {
+    const m = { h: 0.3, f: [1, 1] }, a = Math.PI / 4 + 2 * PHASE_TOL;
+    ok('the layer check passes a layer equal to its member', (() => { const g = layerGap({ h: 0.3, f: [2, 2] }, m); return !g.h && !g.ph && !g.noF && g.phN; })(), null);
+    ok('the layer check fails a height off by twice the tolerance', layerGap({ h: 0.3 + 2 * HEIGHT_TOL, f: [1, 1] }, m).h, null);
+    ok('the layer check fails a colour off by twice the tolerance', layerGap({ h: 0.3, f: [Math.cos(a), Math.sin(a)] }, m).ph, null);
+    ok('the layer check counts a layer without F', layerGap({ h: 0.3 }, m).noF, null);
+  }
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   await view(VIEW_W, VIEW_H, false, false);
   for (const c of CASES) for (const sheets of MODES) {
@@ -209,12 +223,11 @@
         want.forEach((m) => {
           const l = haveAll.find((x) => sameZ(x.z, m.z));
           if (!l) return;
-          if (Math.abs(l.h - m.h) > HEIGHT_TOL) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
-          if (!l.f) { noF++; return; }
-          const gap = phaseGap(l.f, m.f);
-          if (gap === null) return;
-          phN++;
-          if (gap > PHASE_TOL) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
+          const g = layerGap(l, m);
+          if (g.h) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
+          if (g.noF) { noF++; return; }
+          if (g.phN) phN++;
+          if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
