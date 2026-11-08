@@ -831,7 +831,10 @@ void main() {
     if (tq.w > 5.0 && tq.w < uCode + 0.1) { za = texelFetch(uZ, q, 0).xy; found = true; break; }
   }
   if (!found) return;
+  cxs0_out = false;
   vec2 h = carryHeightA(za, texelFetch(uZ, p, 0).xy);
+  // (a continuation onto a branch outside the sheets' window is a surface the parked frame does not draw)
+  if (cxs0_out) return;
   if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode);
 }
 `;
