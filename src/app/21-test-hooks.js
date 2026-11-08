@@ -393,6 +393,19 @@
   // the shown plane's map at a point z of plane 0 ([re, im] -> [re, im]), from the inverse inputs the last carried frame drew
   // from; null when there are none
   window.__cmwLandForward = (z) => { const F = render3D.exactIn && render3D.exactIn.F, f = F ? F(C(z[0], z[1])) : null; return f && CX.isFin(f) ? [f.re, f.im] : null; };
+  // the parked All-sheets reference at a point z of plane 0 ([re, im]): per forward combo of the colour map's distinct sheets
+  // (sheetUniqOf, window S.sheetW) [{ combo, z, f, h }], f the sheet's value at z (Funcs.sheetEval, as the parked frame draws it)
+  // and h its height at the last frame's scale; [] with no frame or no sheets
+  window.__cmwLandRefSheets = (z) => {
+    const hOf = render3D.frameHeight, ex = render3D.exactIn, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    if (!hOf || !ex || typeof Funcs.sheetEval !== 'function') return [];
+    const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]);
+    return sheetUniqOf(fm, W).map((combo) => {
+      let f = null;
+      try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, zc, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+      return { combo, z: [z[0], z[1]], f: f && CX.isFin(f) ? [f.re, f.im] : null, h: f && CX.isFin(f) ? hOf(landValue(f)) : null };
+    });
+  };
   // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
   // [{ z, f, h, member, sheet, D, front? }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
   // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn
