@@ -207,6 +207,8 @@ const SOFTWARE = {
 const KNOWN = {
   // the float32 grid walk of member 0 fails or lands elsewhere where the float64 one succeeds, at 140 of the 1600 grid points (#1396)
   'newt_member0_cmd.js': [{ re: /at u = 0\.5: the GPU's member 0 is the CPU's/, why: 'the float32 walk of member 0 does not reach the float64 one at 140 of 1600 points (#1396)' }],
+  // (the same walk on the zeta example's frame: at u = 0.5 the GPU has no member 0 at one of the suite's pixels, w = 0.0875 + 25.3125 i, where the float64 one finds one; #1396)
+  'steps_zeta_member0_cmd.js': [{ re: /zeta at u = 0\.5: the GPU's member 0 is present/, why: 'the float32 walk of member 0 does not reach the float64 one at one of the suite\'s pixels (#1396)' }],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)

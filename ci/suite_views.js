@@ -104,6 +104,7 @@ const VIEWS = {
   'steps_paths_caption_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
+  'steps_zeta_member0_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),

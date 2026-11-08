@@ -436,3 +436,51 @@
   /** @type {any} */ (window).__cmwKeys = () => ({ alpha: S.alpha, meshN: S.meshN, nextId: S.nextId, shapeIds: S.shapes.map((s) => s.id), targetIds: S.targets.map((t) => t.id), shapeCi: S.shapes.map((s) => s.ci), shapeColor: S.shapes.map((s) => s.color || null), v3: !!S.v3, v4: !!S.v4, v5: !!S.v5, v6: !!S.v6, focus: S.focus });
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });
   window.__cmwState = () => ({ cam: { yaw: cam.yaw, pitch: cam.pitch, d: cam.dist / CAM3.dist, tx: cam.tx, ty: cam.ty }, camL: { yaw: camL.yaw, pitch: camL.pitch, d: camL.dist / CAML.dist, tx: camL.tx, ty: camL.ty }, mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // A probe of the members the steps view's NEWT roots pass computes (GLR.newtRoots). __cmwNewtProbe() puts it on: each
+  // pass then keeps its frame's st. __cmwNewtProbe(pts) draws a pass of that st again with a main that writes member 0 of
+  // the NEWT op as the op's _roots lists it (its k[0], r[0]: the program the page compiles, with the page's chain data),
+  // reads that target back and gives, for each [fx, fy] (fractions of the pass's width and height from the left and
+  // bottom), the pixel's w, the GPU's member 0 there and the CPU's, Inverse's op.pre(w) member 0 of the plan's NEWT op:
+  // [{w, gpu: [re, im] | null, cpu: [re, im] | null, t}]; null while its program compiles, [] before a pass was seen. The
+  // extra pass is keyed apart from the page's own, so a frame's pass never takes it for the previous frame's
+  {
+    let last = null, on = false;
+    const NONE_MIN = 1e37;
+    /** @type {any} */ (window).__cmwNewtProbe = (pts) => {
+      const gl = GLR.gl;
+      if (!on) {
+        on = true;
+        const orig = GLR.newtRoots;
+        GLR.newtRoots = function (st) { const r = orig.apply(this, arguments); if (r && r.state === 'drawn' && !st.probe) last = { st, orig }; return r; };
+      }
+      if (!pts) return null;
+      if (!last) return [];
+      const { st, orig } = last, nr = st.inv.nr, c = +/uInv\[(\d+)\]\.x/.exec(nr.main)[1], P = `ix${nr.j}`;
+      const main = `
+void main() {
+  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
+  vec2 w = uCenter + (f * uInvScale + uCenterLo);
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+  ${P}_roots(w, uInv[${c}].x);
+  o = vec4(${P}_k[0] ? ${P}_r[0] : vec2(3.0e38), 0.0, 0.0);
+}
+`;
+      const W = Math.round(st.pw), H = Math.round(st.ph), draw = gl.drawArrays;
+      let buf = null;
+      gl.drawArrays = function (...a) { draw.apply(this, a); gl.readBuffer(gl.COLOR_ATTACHMENT0); buf = new Float32Array(4 * W * H); gl.readPixels(0, 0, W, H, gl.RGBA, gl.FLOAT, buf); };
+      let r;
+      try { r = orig.call(GLR, Object.assign({}, st, { probe: true, inv: Object.assign({}, st.inv, { key: st.inv.key + '|probe', nr: { j: nr.j, targets: 1, main } }) })); } finally { gl.drawArrays = draw; }
+      if (r.state === 'pending') return null;
+      if (r.state !== 'drawn' || !buf) return [];
+      const v = st.view, k = 1 / (v.s * st.dpr), op = st.plan.ops.find((o) => o.kind === 'NEWT');
+      return pts.map(([fx, fy]) => {
+        const i = Math.min(W - 1, Math.floor(fx * W)), j = Math.min(H - 1, Math.floor(fy * H)), q = 4 * (j * W + i);
+        const w = { re: v.cx + (i + 0.5 - W / 2) * k, im: v.cy + (j + 0.5 - H / 2) * k };
+        const m0 = op && op.pre(w).find((m) => m.m === 0);
+        return { w: [w.re, w.im], gpu: Math.abs(buf[q]) < NONE_MIN ? [buf[q], buf[q + 1]] : null, cpu: m0 ? [m0.u.re, m0.u.im] : null, t: st.t };
+      });
+    };
+  }
+  // TEMP-DEBUG-HOOK
