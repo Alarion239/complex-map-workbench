@@ -38,6 +38,8 @@
   // The cut's seam: parked draws the cut as one continuous surface with no dark line, so the pixels of a near-end frame that differ from
   // the next plane's parked frame form no run of connected pixels as long as a seam. The rim's anti-aliasing dots are runs of at most 27.
   const SEAM_RUN = 40;
+  const SEAM_U = [1 - 1e-5];   // (the glide's u of the seam's darker-than-parked measure besides the end probe: the nearest to plane 1)
+  const LUMA = [0.299, 0.587, 0.114];
   const TICK_H_TOL = 1e-9;   // (a label's world height against the frame's own height function of its value: the same float computation)
   const TICK_SCALE_ERR = 1.6e-3;   // (the scale error the own-scale check must see: the gap the near ends have against the parked plane at .998)
   const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
@@ -450,9 +452,13 @@
       }
       // the cut's seam: the longest run of connected pixels (8-neighbours) more than DIFF_TOL from the next plane's parked frame
       if (u === 1 - END_U && c.seam && sheets) {
-        const longest = async (a, b) => ev(`(() => {
+        const longest = async (a, b, dark) => ev(`(() => {
           const A = window.__heldPx.${a}, B = window.__heldPx.${b}, W = document.getElementById('canvasL').width, n = A.length / 4, on = new Uint8Array(n);
-          for (let q = 0; q < n; q++) { const i = 4 * q; on[q] = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${DIFF_TOL} ? 1 : 0; }
+          const L = (X, i) => ${LUMA[0]} * X[i] + ${LUMA[1]} * X[i + 1] + ${LUMA[2]} * X[i + 2];
+          for (let q = 0; q < n; q++) {
+            const i = 4 * q;
+            on[q] = (${!!dark} ? L(B, i) - L(A, i) : Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]))) > ${DIFF_TOL} ? 1 : 0;
+          }
           let best = 0; const st = [];
           for (let q0 = 0; q0 < n; q0++) {
             if (on[q0] !== 1) continue;
@@ -471,6 +477,15 @@
         const run = await longest('cur', 'P1'), ctl = await longest('P0', 'P1');
         ok(`${t}: no seam along the cut: the longest run of pixels over ${DIFF_TOL} from the next plane's parked frame is ${run} (at most ${SEAM_RUN})`, run <= SEAM_RUN, { run });
         ok(`${t}: the seam measure sees a different frame (control; plane z's parked frame against the next plane's: a run of ${ctl})`, ctl > SEAM_RUN, { ctl });
+        // the darker-than-parked run, nearer to plane 1: parked draws no dark line along the cut
+        const darkCtl = await longest('P0', 'P1', true);
+        ok(`${t}: the darker-than-parked measure sees a different frame (control; plane z's parked frame against the next plane's: a run of ${darkCtl})`, darkCtl > SEAM_RUN, { darkCtl });
+        for (const su of SEAM_U) {
+          await setU(su); await grab('sm');
+          const dr = await longest('sm', 'P1', true);
+          ok(`${name}, u=${su}: no seam darker than the next plane's parked frame along the cut: the longest run is ${dr} (at most ${SEAM_RUN})`, dr <= SEAM_RUN, { dr });
+        }
+        await setU(u);
       }
       // the height ruler's labels: at every u each label sits at the frame's OWN height of its value; at the ends the same labels as the parked
       // plane's, each within TICK_PX of its screen y (rasterization only; the end frames' real scale gap is not absorbed: it is checked by the own height)
