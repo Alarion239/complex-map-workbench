@@ -646,7 +646,7 @@ uniform int uCuts; uniform int uPer;
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
-flat out vec3 vEdge; flat out vec3 vBoxE;
+flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc;
 ` + CARRY_Z + `
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
 vec4 edgeOf(ivec2 a, ivec2 b) {
@@ -659,7 +659,7 @@ vec4 edgeOf(ivec2 a, ivec2 b) {
 }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-  vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
+  vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
   int M = uN - 1;
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, sub = loc / 3, k = loc - 3 * sub, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % M, cell / M);
@@ -702,6 +702,7 @@ void main() {
     h = src == A ? e.y : e.z;
   }
   vZ = z;
+  vZc = uZOn == 1 ? texelFetch(uZ, A, 0).xy : z;
   vPos = vec3(((xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -1341,7 +1342,7 @@ in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc; uniform int uZOn; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, 0) : chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
