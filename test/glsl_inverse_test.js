@@ -268,8 +268,8 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       for (let i = 0; i < G; i++) {
         const w = [o.win.x0 + (i + 0.5) * (o.win.x1 - o.win.x0) / G, o.win.y0 + (j + 0.5) * (o.win.y1 - o.win.y0) / G];
         const px = j * G + i, gpu = [];
-        for (let m = 0; m < NB; m++) { const b = reads[m >> 1], q = 4 * px + 2 * (m & 1); if (Math.abs(b[q]) < 1e37) gpu.push([b[q], b[q + 1]]); }
-        out.push({ w, gpu, cpu: op.pre(C(w[0], w[1])).map((m) => [m.u.re, m.u.im]) });
+        for (let m = 0; m < NB; m++) { const b = reads[m >> 1], q = 4 * px + 2 * (m & 1); if (Math.abs(b[q]) < 1e37) gpu.push([b[q], b[q + 1], m]); }
+        out.push({ w, gpu, cpu: op.pre(C(w[0], w[1])).map((m) => [m.u.re, m.u.im, m.m]) });
       }
     }
     return out;
