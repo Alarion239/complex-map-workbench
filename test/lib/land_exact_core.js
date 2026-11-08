@@ -44,7 +44,7 @@
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
-    NEWT_TOL: 1e-10,        // |H(z) - w| of a converged correction, relative to 1 + |w|
+    NEWT_TOL: 1e-8,         // |H(z) - w| of a converged correction, relative to 1 + |w| (the forward map's own rounding is about 2e-10)
     SING_REACH: 8,          // leaf cells around a declared singular point's own cell that its certificate covers: the surface is not
                             // smooth there at any depth the lattice reaches (infinite slope), the pixels are decided by rays
     SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
