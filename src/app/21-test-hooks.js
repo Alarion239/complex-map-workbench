@@ -474,7 +474,7 @@
   // is on, and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
   // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H in z over HOM_DZ, or a thousandth of |z| where that is less (the plan's ops carry no
   // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]
-  const HOM_DZ = 1e-6;
+  const HOM_DZ = 1e-6, HOM_CUT = 0.5;   // (HOM_CUT: the second difference of H over dz as a share of its first, at which H is taken to jump)
   window.__cmwLandHom = (z, lam) => {
     const inp = render3D.exactIn;
     if (!inp) return null;
@@ -494,7 +494,9 @@
       const dz = Math.min(HOM_DZ, 1e-3 * Math.hypot(z[0], z[1])) || HOM_DZ;
       const pa = C(z[0] + dz, z[1]), pb = C(z[0] - dz, z[1]);
       const w = at(sh, zc, lc), a = at(sh, pa, lamAt(pa)), b = at(sh, pb, lamAt(pb));
-      return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * dz), (a.im - b.im) / (2 * dz)] : null, exactD: false };
+      // (cut: the forward and the backward difference of H disagree: H jumps within dz of z, a cut of the map or a pole)
+      const cut = !!(w && a && b) && Math.hypot(a.re - 2 * w.re + b.re, a.im - 2 * w.im + b.im) > HOM_CUT * (Math.hypot(a.re - b.re, a.im - b.im) + dz);
+      return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * dz), (a.im - b.im) / (2 * dz)] : null, exactD: false, cut };
     });
   };
   // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of

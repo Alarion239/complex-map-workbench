@@ -12,7 +12,7 @@
 // The frame (what the page's hooks provide; the node check passes a synthetic one):
 //   box: { x0, x1, y0, y1 }, the places w the lattice covers;   W2, H2: the size of px;
 //   enumAt(ws): per place the enumerator's members [{ z: [re, im], lam: [re, im] | null, h, sheet, front? }];
-//   hom(z, lam): per sheet { H: [re, im] | null, dH: [re, im] | null }, the map the frame draws z at (the preimage's forward map);
+//   hom(z, lam): per sheet { H: [re, im] | null, dH: [re, im] | null, cut }, cut: H jumps within the derivative's step of z; the map the frame draws z at (the preimage's forward map);
 //   project(x, y, h): the half-resolution pixel [px, py] of the point (x, y, h) of the surface;
 //   mask(x, y): 0..1 (the Inside-regions mask) or null;   all: every member is drawn (All sheets), else the front one;
 //   layers(m): the drawn layers of a member [{ combo, h }] (All sheets' forward combos), default one layer of height m.h.
@@ -131,13 +131,15 @@
     }
     const vert = (i, j) => verts.get(i * (NYF + 1) + j);
     // ---- identity: continuation of every member of a place along the segment to another place
-    const Hof = (m, z, lam) => { const r = frame.hom(z, lam)[m.sheet]; return r && fin(r.H) && fin(r.dH) ? r : null; };
-    let newtWhy = '';   // why the last Newton correction gave up (for the failure's text)
+    let hofCut = false;   // the last Hof call found H jumping beside z
+    const Hof = (m, z, lam) => { const r = frame.hom(z, lam)[m.sheet]; hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null; };
+    let newtWhy = '', newtCut = false;   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
       let d1 = null, d2 = null;
       const hist = [];
       for (let it = 0; it < o.NEWT_ITER; it++) {
         const r = Hof(m, z, lam);
+        if (r && r.cut) { newtCut = true; newtWhy = 'H jumps beside the iterate'; return null; }
         if (!r) { newtWhy = 'H or dH not finite at iteration ' + it + ' (z ' + z[0].toExponential(2) + ',' + z[1].toExponential(2) + ')'; return null; }
         const res = csub(r.H, w);
         hist.push(cabs(res).toExponential(1));
@@ -189,6 +191,7 @@
         const pre = [];
         for (let k = 0; k < from.length; k++) {
           const r = Hof(from[k], zs[k], lams[k]);
+          if (r && r.cut) return { ok: false, cut: true, why: 'H jumps beside a member at t=' + t.toExponential(2), steps };
           if (!r) { pre.push(null); continue; }
           pre.push(cadd(zs[k], cdiv(cscale(dw, tn - t), r.dH)));
         }
@@ -201,7 +204,7 @@
           if (step >= o.CONT_NEAR * near && step > 0) { good = false; last = 'step ' + step.toExponential(2) + ' vs near ' + near.toExponential(2); break; }
           const lam0 = lams[k] ? cadd(lams[k], relLog(zs[k], pre[k])) : null;
           const nw = newton(from[k], pre[k], lam0, w);
-          if (!nw) { good = false; last = 'newton did not converge: ' + newtWhy; break; }
+          if (!nw) { if (newtCut) { newtCut = false; return { ok: false, cut: true, why: 'H jumps beside an iterate at t=' + t.toExponential(2), steps }; } good = false; last = 'newton did not converge: ' + newtWhy; break; }
           if (nw.ratio > o.CONT_RATIO) { good = false; last = 'newton ratio ' + nw.ratio.toExponential(2); break; }
           if (dist2(nw.z, pre[k]) >= o.CONT_NEAR * Math.max(near, step * 4)) { good = false; last = 'correction ' + dist2(nw.z, pre[k]).toExponential(2); break; }
           next.push(nw.z); nl.push(nw.lam);
