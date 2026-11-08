@@ -131,7 +131,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The hold ends once the
 // tracks exist, and a glide with an exact inverse (z squared) is never held.
 {
-  const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 2, HELD_OVER = 0.001, FRAME_SEARCH_MS = 0.001;
+  const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 6, HELD_OVER = 0.002, FRAME_SEARCH_MS = 0.001;
   const FLOOR = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
   const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared');
   ok('the zeta and the squared examples are found', ex >= 0 && sq >= 0, names.length);

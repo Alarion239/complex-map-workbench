@@ -881,12 +881,11 @@
     }
     return null;
   }
-  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse plan has a
+  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
   // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
   // (svSheetKeyAt) exist
-  function svTracksMissing(b) {
-    const plan = invPlan(0, b);
-    if (!(plan && plan.ok && plan.ops.some((o) => o.kind === 'NEWT'))) return false;
+  function svTracksMissing(b, h) {
+    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
     const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
@@ -1058,7 +1057,7 @@
     const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
     svHomMemo = { b: g.b, u: g.u, h, why };
     const linking = !!h && h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending');
-    svHoldB = !linking && svTracksMissing(g.b) ? g.b : 0;
+    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
