@@ -27,4 +27,5 @@ import { GLChain } from './glsl.js';
 import { Region } from './region.js';
 import { Constr } from './constr.js';
 import { Palette } from './palette.js';
+import { Inverse } from './inverse.js';
 export { GLR };
