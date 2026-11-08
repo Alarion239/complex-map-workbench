@@ -951,6 +951,8 @@
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the Landscape's key under Plaster: the height and the contours, with no hue
+  const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
@@ -1077,7 +1079,7 @@
       if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
     // (the chip's glyph is the hue wheel; the Landscape under Plaster paints no hue, so its glyph keeps the neutral ink)
-    const hueless = kind === '3d' && !lPhase();
+    const hueless = plasterKey(kind);
     if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette() || box.dataset.hueless !== String(hueless))) {
       box.dataset.kind = kind; box.dataset.pal = GLR.palette(); box.dataset.hueless = String(hueless);
       if (hueless) box.style.removeProperty('--wheel'); else box.style.setProperty('--wheel', keyConic());
@@ -1104,7 +1106,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1203,7 +1205,7 @@
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
     const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
-    const noRing = cauchyOff || (kind === '3d' && !lPhase());
+    const noRing = cauchyOff || plasterKey(kind);
     st.ring = !noRing;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;

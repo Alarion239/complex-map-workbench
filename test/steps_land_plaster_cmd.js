@@ -51,10 +51,11 @@ const plain = await read();
 ok('Plain: D.phase is true and the choice is Plain', plain.phase === true && plain.checked === 'phase' && plain.coloured > 0, plain);
 // the Landscape's key stays its height key under Plaster, at plane 0 and at a plane past the colour plane (where a carried wheel would
 // otherwise be named), and under Tiles as the control
-// (ring: the key draws the hue ring; glyph: the chip's glyph is the hue wheel, a conic gradient, and the neutral ink under Plaster)
-const legend = () => ev('(() => { const l = __cmwLegend(); const b = document.getElementById("leftLegend"); return { kind: l.kind, caption: l.caption, ring: l.ring, shown: !!b && !b.hidden, glyph: b ? getComputedStyle(b, "::before").backgroundImage : null }; })()');
+// (ring: the key draws the hue ring; coloured: the key canvas's own coloured pixels; glyph: the chip's glyph is the hue wheel, a conic gradient, and the neutral ink under Plaster)
+const legend = () => ev(`(() => { const l = __cmwLegend(); const b = document.getElementById("leftLegend"); const cv = document.getElementById("legendCanvasL"), d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; let px = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${COLOURED}) px++; return { kind: l.kind, caption: l.caption, ring: l.ring, shown: !!b && !b.hidden, glyph: b ? getComputedStyle(b, "::before").backgroundImage : null, coloured: px }; })()`);
 const CARRIED = /carried/;
-for (const [name, colouring, at] of [['Tiles', 'tiles', 1], ['Plaster', 'plaster', 0], ['Plaster', 'plaster', 1]]) {
+let keyPx = 0;   // the key canvas's coloured pixels under Tiles
+for (const [name, colouring, at] of [['Tiles', 'tiles', 1], ['Plaster', 'plaster', 1], ['Plaster', 'plaster', 0]]) {
   await press(colouring);
   await ev(`(__cmwSteps({ T: 0, go: ${at}, now: true }), 1)`); await still();
   const lg = await legend();
@@ -63,6 +64,9 @@ for (const [name, colouring, at] of [['Tiles', 'tiles', 1], ['Plaster', 'plaster
   const hue = colouring === 'tiles';
   ok(`${name} at plane ${at}: the key ${hue ? 'draws' : 'does not draw'} the hue ring`, lg.ring === hue, lg);
   ok(`${name} at plane ${at}: the chip's glyph is ${hue ? 'the hue wheel' : 'neutral'}`, /conic-gradient/.test(lg.glyph || '') === hue, lg);
+  // (the canvas's own pixels, in the same page: the key drawn under Tiles is drawn again when the colouring changes)
+  if (hue) keyPx = lg.coloured;
+  else ok(`${name} at plane ${at}: the key's pixels hold no hue (${lg.coloured} coloured, ${keyPx} under Tiles)`, keyPx > 0 && lg.coloured <= keyPx * PLASTER_SHARE, { lg, keyPx });
 }
 await press('plaster');
 // the cold-load cases: a saved state whose view is the Landscape with Plaster keeps it; one whose view has no D entry, or has D.phase
