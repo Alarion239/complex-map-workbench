@@ -2,7 +2,8 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<!-- The font sheet loads without blocking the parser: a render-blocking stylesheet holds every inline script (the app's start-up) until it settles, so a stalled request would leave the page unstarted. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap" media="print" onload="this.media='all'">
 <script>
 /* i18n (notes/i18n/DESIGN.md 2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
@@ -696,6 +697,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .opts-pop .fader-row.compact input[type="range"] { width: 120px; }
 .options .fader-row.compact, .fader-row.compact { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; }
 .fader-row.compact input[type="range"] { width: 88px; }
+.fader-row.is-disabled { opacity: 0.4; cursor: default; }
+.fader-row.is-disabled input[type="range"] { cursor: default; }
 /* morph transport: spans the plot bottom from 8px left to 48px right. On a narrow plate the
    controls wrap under the scrubber (play, scrubber, t readout first) rather than running under the view stack. */
 .options.transport, .options:has(> .transport) {
