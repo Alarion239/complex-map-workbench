@@ -2166,12 +2166,17 @@ void ixAncTan(vec2 w) {
   };
   // a polynomial NEWT op's degree (InvOps.opNewt with deg: its members are every root of H_t(u) = w), or 0
   const newtDeg = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.deg) || 0;
-  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn, or a polynomial one's coefficients two to a cell
+  // a NEWT op's pole {p, res, reg} (InvOps.opNewt's pole: member 1 starts from the root the pole puts over w), or null; its
+  // cells follow the op's t: (p, res), (reg)
+  const newtPole = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.pole) || null;
+  const IX_NEWT_POLE_CELLS = 2;
+  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn, or a polynomial one's coefficients two to a cell,
+  // or its pole's
   const ixSlots = (o) => {
     const D = newtDeg(o);
     if (D) return IX_SLOTS.NEWT + Math.ceil((D + 1) / 2);
     const bk = o.kind === 'NEWT' && newtBack(o);
-    return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0);
+    return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0) + (newtPole(o) ? IX_NEWT_POLE_CELLS : 0);
   };
   // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, an unseeded one 2 + the ladder's, a polynomial one its degree
   const ixFinMax = (o) => {
@@ -2218,13 +2223,24 @@ bool ${P}_polish(inout vec2 u, vec2 w, float t) {
   }
   return ok;
 }
+bool ${P}_settle(inout vec2 u, vec2 w, float t) { return ${P}_polish(u, w, t) && ${P}_hit(u, w, t); }
+bool ${P}_land(inout vec2 u, vec2 w, float t) {
+  bool ok = true;
+  for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
+    if (!ok) break;
+    vec2 p = u;
+    ok = ${P}_step(u, w, t);
+    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
+  }
+  return ok && ${P}_settle(u, w, t);
+}
 bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
   bool ok = true;
   for (int k = 1; k <= ${Inverse.NEWT_K}; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
   ug = ok ? u : vec2(${IX_NR_NONE});
   if (ok) ok = ${P}_step(u, w, t);
-  return ok && ${P}_polish(u, w, t) && ${P}_hit(u, w, t);
+  return ok && ${P}_settle(u, w, t);
 }
 bool ${P}_walk0(vec2 w, float t, out vec2 u) {
   vec2 ug;
@@ -2279,7 +2295,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v;
     bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
-    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    okv = okv && ${P}_settle(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
   }
@@ -2396,7 +2412,7 @@ ${fetch('uNrPrev')}
   }
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
-    bool ok = i < de && ixFin(v) && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    bool ok = i < de && ixFin(v) && ${P}_settle(v, w, t);
     for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
@@ -2433,7 +2449,7 @@ ${Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
   // root at its last grid stage kp (uNrPrev0.xy, uNrPrev1.x) when kp is at most this frame's k0, else from w (the root
   // found is the full walk's either way); o = (the root at k0, member 0), o1 = (k0, 0, member 1: deflated, an op with
   // no seeding ops), IX_NR_NONE where none
-  function newtGridMain(j, c, seeded) {
+  function newtGridMain(j, c, seeded, pole) {
     const P = `ix${j}`, K = Inverse.NEWT_K, NONE = `vec2(${IX_NR_NONE})`;
     return `
 void main() {
@@ -2455,7 +2471,9 @@ void main() {
   o = vec4(ug, ok ? u : ${NONE});
 #if IX_NR_N >= 2
   vec2 v = ${NONE};
-${seeded ? '' : `  vec2 v1;
+${seeded ? '' : pole ? `  vec2 v1;
+  if (${P}_pole2(w, t, ok, u, v1)) v = v1;
+` : `  vec2 v1;
   if (ok && ${P}_defl(w, t, u, v1)) v = v1;
 `}  o1 = vec4(float(k0), 0.0, v);
 #endif
@@ -2484,7 +2502,7 @@ ${seeded ? '' : `  vec2 v1;
         if (D) return newtPolyFns(o, j, c, D, H, rd);
         const bk = newtBack(o);
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
-        const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL;
+        const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
         return `vec2 chainHom(int i, vec2 z, float t);
 ${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
 vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
@@ -2506,7 +2524,18 @@ bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
   }
   return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
 }
-vec2 ${P}_r[${NB}];
+${pole ? `// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
+// hits w and, when member 0 exists (k0), differs from it
+bool ${P}_pole2(vec2 w, float t, bool k0, vec2 u, out vec2 v) {
+  vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
+  vec2 d = w - (1.0 - t) * pa.xy - t * pb.xy;
+  v = vec2(0.0);
+  if (!(dot(d, d) > 0.0)) return false;
+  v = pa.xy + t * cdiv(pa.zw, d);
+  bool okv = ${P}_land(v, w, t);
+  return okv && !(k0 && cx_abs(v - u) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(u)));
+}
+` : ''}vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
@@ -2514,7 +2543,7 @@ void ${P}_roots(vec2 w, float t) {
   vec2 u, v = vec2(0.0);
   ${P}_k[0] = ${P}_root(w, t, u);
   ${P}_r[0] = u;
-  ${P}_k[1] = ${P}_k[0] && ${P}_defl(w, t, u, v);
+  ${P}_k[1] = ${pole ? `${P}_pole2(w, t, ${P}_k[0], u, v)` : `${P}_k[0] && ${P}_defl(w, t, u, v)`};
   ${P}_r[1] = v;
   vec4 an = uInv[${c}];
   bool anch = an.y >= an.w;
@@ -2523,14 +2552,7 @@ void ${P}_roots(vec2 w, float t) {
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
   for (int i = 0; i < ${NL}; i++) {
     vec2 v = lo + vec2(0.0, span * lad[i]);
-    bool okv = true;
-    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
-      if (!okv) break;
-      vec2 p = v;
-      okv = ${P}_step(v, w, t);
-      if (okv && cx_abs(v - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(v))) break;
-    }
-    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    bool okv = ${P}_land(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
   }
@@ -2796,6 +2818,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         put(c, p.t, p.anchor ? p.anchor.y1 : -1, p.anchor ? p.anchor.re : 0, p.anchor ? p.anchor.y0 : 0);
         let cell = c + IX_SLOTS.NEWT;
         for (const q of p.back || []) { invOpValues(q, put, cell); cell += IX_SLOTS[q.kind] || 0; }
+        if (p.pole) { put(cell, p.pole.p.re, p.pole.p.im, p.pole.res.re, p.pole.res.im); put(cell + 1, p.pole.reg.re, p.pole.reg.im, 0, 0); }
         break;
       }
       case 'QUAD': put(c, p.a.re, p.a.im, p.b.re, p.b.im); put(c + 1, p.c.re, p.c.im, 0, 0); break;
@@ -2852,7 +2875,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       // targets; another's member 0 on the grid and member 1, two)
       const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
-        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq)) };
+        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
