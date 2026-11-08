@@ -83,6 +83,7 @@
     const cells = { facet: 0, boundary: 0, branch: 0, empty: 0, splits: 0, rays: 0, places: 0 };
     const certs = [], failures = [];
     const fail = (f) => { if (failures.length < 64) failures.push(f); };
+    const tick = () => { if (frame.progress) frame.progress(cells, failures); };
     const FINE = 1 << o.CELL_DEPTH_MAX;                       // lattice steps of the finest cell, per initial cell
     const NXF = o.nx * FINE, NYF = o.ny * FINE;
     const wAt = (i, j) => [box.x0 + i * (box.x1 - box.x0) / NXF, box.y0 + j * (box.y1 - box.y0) / NYF];
@@ -99,7 +100,7 @@
         const e = frame.enumAt(ws);
         part.forEach(([i, j], k) => verts.set(i * (NYF + 1) + j, mkVert(ws[k], e[k] || [])));
         places += part.length; cells.places = places;
-        yield;
+        tick(); yield;
       }
     }
     // a place's record: all members (for identity) and which are drawn, with their layers' pixels
@@ -346,7 +347,7 @@
           if (q.every((x) => x)) { fill(l.P, q[0].P, q[1].P); fill(q[0].P, q[1].P, q[2].P); }
         });
       });
-      if (++spun % 64 === 0) yield;
+      if (++spun % 64 === 0) { tick(); yield; }
     }
     if (leaves.branch.length) yield* certifyBranches(leaves);
     yield* boundaryRays(leaves.boundary.concat(leaves.branch.filter((c) => c.certified)));
