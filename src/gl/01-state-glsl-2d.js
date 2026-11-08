@@ -738,7 +738,10 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // - D is capped at KEY_DMAX = 63 (a point that far behind is behind every point that matters), so s <= KEY_SMAX
   //   = 2^14 ln 64 (about 2^16.1) and the depth is linear in [0, 1): a step spans about 2^7.9 of the 24-bit depth buffer's levels,
   //   which keep the tie order apart.
-  const PRE_KEY_DECL = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
+  // uPeelOn = 1 (the carried colour's layers, GLR.carryLayers): only the fragments behind the previous layer's key, which
+  // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
+  const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
+  const PRE_KEY_DECL = `${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
 const float KEY_STEPS = 16384.0;
 const float KEY_DMAX = 63.0;
 const float KEY_SMAX = 68141.0;
@@ -752,7 +755,7 @@ float preKeyDepth(vec2 sa, bool stepped) {
   return x / (KEY_SMAX + 1.0);
 }
 `;
-  const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n';
+  const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
@@ -1304,8 +1307,10 @@ void main() {
   // torn across a cut meets the other side is the cut's image, pixel for pixel; the depth, the sheet key of the
   // fragment's source point, then lets the colour program draw only the fragment kept in front. One chain (mapPoint),
   // none of the colour's: a fragment stage with two inlined chains links many times slower
-  const CARRY_MASK_FS = `
-centroid in vec2 vP; in vec2 vW;
+  // (key: the depth is the sheet key of the fragment's source point, as CARRY_FS's with a key, for the carried colour's
+  // layers: GLR.carryLayers)
+  const CARRY_MASK_FS = (key) => `
+${key ? PRE_KEY_DECL : ''}centroid in vec2 vP; in vec2 vW;
 flat in float vWTol; flat in float vTorn;
 out vec4 o;
 void main() {
@@ -1313,7 +1318,7 @@ void main() {
     vec2 dw = mapPoint(vP) - vW;
     if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;
   }
-  o = vec4(0.0);
+${key ? '  vec2 sa = vP;\n' + PRE_KEY : ''}  o = vec4(0.0);
 }
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the

@@ -14,6 +14,8 @@
   let artGlobe = null;
   // (export review r3, video) the camera is recorded for every export render, also in the screen's light look
   let artCam = false;
+  // the art layer's coverage render of the Landscape: the relief alone, no floor plate, box or shadow
+  let artRelief = false;
   // (export review r3, editor-9) open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
   // sphere cannot dash): their lines are left out of the art layer
   let artSkip = null;
@@ -142,6 +144,13 @@
     }
     e.box = box; e.boxCoarse = coarse;
     return box;
+  }
+  // the w-box that scissors the globe pass of a bounded shape s on inverse path p (gl.js globeScissorOf): invBox's, or the
+  // shape's own box through the identity (stage 0); null for an unbounded shape or a box that cannot be promised
+  function globeImageBox(p, s, budget) {
+    if (!shapeBounded(s)) return null;
+    if (p.plan.ops.length) return invBox(p.e, p.plan, s, budget);
+    try { return Region.bboxOf(s); } catch (err) { return null; }
   }
   // ---- the cost guard (SPEC 10.12): the GPU time of each live pane's frame against a fixed 60 Hz budget (the user's
   // rule: "60 fps is enough"; the display's refresh plays no part). When a pane's motion frames stay over it, their
