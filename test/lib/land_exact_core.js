@@ -433,7 +433,13 @@
       }
     }
     function* certifyPass(lv) {
+      issueSingular(lv);
       for (const c of lv.branch) {
+        const ctr0 = wAt(c.i + c.s / 2, c.j + c.s / 2), diag0 = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)), known0 = certs.find((q) => dist2(q.w, ctr0) <= q.rImage + diag0);
+        if (known0) c.certified = known0;
+      }
+      for (const c of lv.branch) {
+        if (c.certified) continue;
         const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2), diag = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
         const known = certs.find((q) => dist2(q.w, ctr) <= q.rImage + diag);
         if (known) { c.certified = known; continue; }
@@ -448,26 +454,31 @@
         if (!pair) { c.certWhy = 'no merging pair'; continue; }
         // the plan's own singular point drawn in this cell (a branch point of a root or a logarithm: H is not analytic there, so
         // there is no critical point of H' to find): a declared point whose place is in the cell certifies it
-        const cert = singularCert(c) || certifyAt(pair, best, ms.filter((q) => q.sheet === pair[0].sheet));
+        const cert = certifyAt(pair, best, ms.filter((q) => q.sheet === pair[0].sheet));
         if (!cert.ok) { c.certWhy = cert.why; continue; }
         // the location test: H(c) lies inside a cell of the suspect ones (the control moves it one cell), and then covers its neighbours
-        const wc = o.branch && !cert.singular ? [cert.w[0] + o.branch * c.s * cellW, cert.w[1]] : cert.w;
+        const wc = o.branch ? [cert.w[0] + o.branch * c.s * cellW, cert.w[1]] : cert.w;
         const holds = lv.branch.some((q) => { const a = wAt(q.i, q.j), b = wAt(q.i + q.s, q.j + q.s); return wc[0] >= a[0] && wc[0] <= b[0] && wc[1] >= a[1] && wc[1] <= b[1]; });
         if (holds) { cert.w = wc; certs.push(cert); c.certified = cert; }
         else c.certWhy = 'the critical point is not in a suspect cell';
         yield;
       }
     }
-    function singularCert(c) {
-      if (!frame.sing) return null;
+    // a declared singular point of the plan (a branch point of the colour map or the end of the lift: H or the height is not smooth there, so
+    // there is no critical point of H' to find) certifies the suspect cells within its reach: where a suspect cell lies within SING_REACH
+    // leaf cells of the place it is drawn at. The control displaces the point beyond that reach, so that the cells are not covered.
+    function issueSingular(lv) {
+      if (!frame.sing) return;
       if (singList === null) singList = frame.sing() || [];
-      const a = wAt(c.i, c.j), b = wAt(c.i + c.s, c.j + c.s), sh = o.branch ? o.branch * c.s * cellW : 0;
+      const reach = o.SING_REACH * cellW, shift = o.branch ? o.branch * 2 * reach : 0;
       for (const q of singList) {
         if (!q.w) continue;
-        const w = [q.w[0] + sh, q.w[1]];   // (the control moves the point one cell)
-        if (w[0] >= a[0] && w[0] <= b[0] && w[1] >= a[1] && w[1] <= b[1]) return { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: o.SING_REACH * c.s * cellW, kantorovich: null, winding: null, inDisc: null };
+        const w = [q.w[0] + shift, q.w[1]];
+        const near = lv.branch.some((c) => dist2(w, mid2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s))) <= reach + dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)));
+        if (!near) continue;
+        if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w }); continue; }
+        certs.push({ ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: reach, kantorovich: null, winding: null, inDisc: null });
       }
-      return null;
     }
     function certifyAt(pair, sep, group) {
       const simple = certifySimple(pair, sep);
