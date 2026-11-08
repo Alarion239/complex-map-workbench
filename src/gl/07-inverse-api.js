@@ -805,12 +805,7 @@ void main() {
       if (!d.ok) return 'error';
       // (a sheet's member continues the step's branch: the forward chain, which gives the member's height, is filled with the
       // step's sheet k + dk)
-      let chainData = null;
-      if (sh.shift && sh.shift.vals && cur.info) {
-        const v = sh.shift.vals, k0 = v.k;
-        v.k = (k0 || 0) + sh.shift.dk;
-        try { chainData = cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
-      }
+      const chainData = chainWith((sh.shift && sh.shift.vals ? [sh.shift] : []).concat(st.shifts || []));
       progs.push({ P: pr.P, d, chainData });
     }
     const N = st.N;

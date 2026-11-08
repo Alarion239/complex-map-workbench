@@ -382,10 +382,33 @@
         if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk } });
       }
     }
-    // All sheets: one layer per member of the inverse (GLR counts them)
-    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets };
+    // All sheets: the step's own sheets are layers of their own (those that are distinct branches of the step: its k mod n for n
+    // sheets, within the window for a log), none when the step is single-valued
+    if (S.sheets) {
+      const e = Funcs.sheetSteps(S.steps, built).find((x) => x.k === b && !x.node), seen = new Set([0]), W = Math.max(1, Math.min(4, S.sheetW || 2));
+      const keep = (m) => {
+        const key = e && (e.n > 0 ? ((m.shift.dk % e.n) + e.n) % e.n : Math.abs(m.shift.dk) <= W ? m.shift.dk : null);
+        if (key == null || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      };
+      more.splice(0, more.length, ...more.filter(keep));
+    }
+    // All sheets: a layer per member of the inverse (GLR counts them) for each forward sheet: the combinations of the branches
+    // of the multivalued steps past step b (a step's k moved by dk, the principal branch first), up to LAND_LAYERS_MAX
+    let fwd = [[]];
+    if (S.sheets) {
+      const W = Math.max(1, Math.min(4, S.sheetW || 2)), top = Math.max(svT(), svHT(0), svHT(b));
+      for (const e of Funcs.sheetSteps(S.steps, built)) {
+        const bb = built[e.k - 1];
+        if (e.k <= b || e.k > top || e.node || !bb || !bb.vals || !['root', 'powa', 'log'].includes(bb.def && bb.def.id)) continue;
+        const dks = e.n > 0 ? Array.from({ length: e.n }, (_, i) => i) : [0].concat(...Array.from({ length: W }, (_, i) => [i + 1, -(i + 1)]));
+        fwd = fwd.flatMap((c) => dks.map((dk) => (dk ? c.concat([{ vals: bb.vals, dk }]) : c)));
+      }
+    }
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, fwd: fwd.slice(0, SV_LAND_LAYERS) };
   }
-  const SV_LAND_SHEETS = 4;
+  const SV_LAND_SHEETS = 4, SV_LAND_LAYERS = 24;   // (the sheets' limit, SHEET_MAX)
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();

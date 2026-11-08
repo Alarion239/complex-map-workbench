@@ -259,12 +259,15 @@
   const carryStep = (mode, H, exact) => (mode >= 2 && !exact ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // the step sheets' chain data: the chain's, with the step's sheet k moved by shift.dk (null: the chain's own)
-  function sheetChainData(shift) {
-    if (!shift || !shift.vals || !cur.info) return null;
-    const v = shift.vals, k0 = v.k;
-    v.k = (k0 || 0) + shift.dk;
-    try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
+  // the chain's data with the branches of steps moved: shifts [{vals, dk}], each step's k by dk (null: no shift)
+  function chainWith(shifts) {
+    if (!shifts.length || !cur.info) return null;
+    const k0 = shifts.map((sh) => sh.vals.k);
+    for (const sh of shifts) sh.vals.k = (sh.vals.k || 0) + sh.dk;
+    try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { for (let i = shifts.length - 1; i >= 0; i--) shifts[i].vals.k = k0[i]; }
   }
+  // (a step sheet's chain data: its own shift, then the layer's forward shifts)
+  const sheetChainData = (shift, more = []) => chainWith((shift && shift.vals ? [shift] : []).concat(more));
   const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
@@ -275,14 +278,17 @@
   let landActive = [];   // the layers the last carried frame drew: landC, then landLs's that are exact
   // the inverse inputs of layer lay { member }: the glide's own, walked for its member-th member at each vertex (the step's
   // sheets merged as for the front member)
-  const layerExact = (ex, lay) => Object.assign({}, ex, { member: lay.member, layered: true });
+  const layerExact = (ex, lay) => {
+    const sh = lay.sheet || {};
+    return Object.assign({}, ex, sh.plan ? { map: sh.map, plan: sh.plan, prep: sh.prep, inv: sh.inv } : {}, { shift: sh.shift || null, more: [], member: lay.member, shifts: lay.shifts || [], layered: true });
+  };
     const LAND_COUNT_N = 24;   // the grid of the member count's pass
   const landCount = { tex: null, zTex: null };
   // the most members the glide's inverse has at a vertex of a coarse grid over the box (at least 1)
   function landMembers(st) {
     if (!landCount.tex) { landCount.tex = floatTex(); landCount.zTex = floatTex(); }
     const c = st.carry, h0 = c.hT == null ? c.T : c.hT;
-    const q = Object.assign({}, layerExact(c.exact, { member: -1 }), { N: LAND_COUNT_N, box: st.box, hMode: 0, H: 1, mu: 1, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: landCount.tex, zTex: landCount.zTex });
+    const q = Object.assign({}, layerExact(c.exact, { member: -1, sheet: { shift: null } }), { N: LAND_COUNT_N, box: st.box, hMode: 0, H: 1, mu: 1, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: landCount.tex, zTex: landCount.zTex });
     landInverse(q);
     return clamp(Math.round(q.counted || 1), 1, LAND_MEMBERS_MAX);
   }
@@ -317,11 +323,11 @@
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
       // have compiled; until then the cells are drawn whole
       out.cuts = 0; out.datas = null;
-      const sheets = exact ? [{ shift: null }].concat(ex.more || []) : [];
+      const sheets = exact ? [{ shift: ex.shift || null }].concat(ex.more || []) : [];
       const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
       if (P3 && (Pf || sheets.length === 1)) {
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
-        const datas = sheets.map((sh) => sheetChainData(sh.shift));
+        const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
         const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
@@ -359,6 +365,7 @@
         }
         out.cuts = 1;
         out.datas = Pf ? datas : null;
+        out.chain = Pf ? null : datas[0];
       }
     }
     if (!polar) out.exact = exact;
@@ -1354,14 +1361,15 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
     // its own first would stall the GPU process once for them and once more for the sheets')
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, layered ? { k: 0, member: 0 } : null) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, layered ? { k: 0, member: 0, sheet: { shift: null } } : null) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (All sheets: every member of the glide's inverse is a layer of its own, the first being landC; a layer a pass cannot
     // draw is left out)
     landActive = [landC];
     if (layered && hd && landC && landC.exact) {
-      const M = landMembers(st);
-      for (let k = 1; k < M; k++) {
-        const L = carryHeights(st, N, mode, H, mu, aspect, null, null, { k, member: k });
+      const M = landMembers(st), specs = [];
+      for (const sheet of [{ shift: null }].concat(st.carry.exact.more || [])) for (const shifts of st.carry.exact.fwd || [[]]) for (let member = 0; member < M; member++) specs.push({ sheet, shifts, member });
+      for (let k = 1; k < specs.length; k++) {
+        const L = carryHeights(st, N, mode, H, mu, aspect, null, null, Object.assign({ k }, specs[k]));
         if (L.exact) landActive.push(L);
       }
     }
@@ -1471,12 +1479,15 @@
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
         const datas = cutDraw ? L.datas : null;
+        // (a layer of one sheet: its chain data, the forward sheet's)
+        const own = !datas && !!L.chain;
+        if (own) gl.uniform4fv(Pc.loc.uChain, L.chain);
         for (let i = 0; i < (datas ? datas.length : 1); i++) {
           if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
           u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
           gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
         }
-        if (datas) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
+        if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
       }
       u1f(Pc, 'uDrawCode', 0);
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
