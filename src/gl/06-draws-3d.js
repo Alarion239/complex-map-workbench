@@ -299,6 +299,11 @@
   // the most members the glide's inverse has at a vertex: the product of the finite branch counts of its steps (a step with
   // a finite family has that many preimages of every value), the largest over the glide's step sheets, at most
   // LAND_MEMBERS_MAX. A member the walk does not reach leaves its layer empty (alpha 0), which every pass skips
+  // the height mix of a frame (modes 8, 9: st.mix = {mu2, beta, endLin}: the second end's scale, the weight of its height, which ends are linear),
+  // its uniforms, and the height cap of the mesh (modes 4, 5 and 8, 9 keep heights up to 1e4 H: the block clips them)
+  const mixOf = (st) => st.mix || { mu2: 0, beta: 0, endLin: 0 };
+  const clipOf = (m) => (m === 4 || m === 5 || m >= 8 ? 1e4 : 0);
+  const mixU = (P, st, mu) => { const mix = mixOf(st); u1f(P, 'uMu2', mix.mu2 > 0 ? mix.mu2 : mu); u1f(P, 'uMix', mix.beta); u1i(P, 'uEndLin', mix.endLin); };
   const landMembers = (st) => {
     const ex = st.carry.exact, plans = [ex.plan].concat((ex.more || []).map((m) => m.plan));
     const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * (o.fam && o.fam.type === 'fin' ? o.fam.count : 1), 1)));
@@ -330,7 +335,7 @@
     if (ex && (!polar || (lay && ex.layered))) {
       if (!out.zTex) out.zTex = floatTex();
       const h0 = c.hT == null ? c.T : c.hT;
-      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, mix, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, polar }));
+      const r = landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, mix: mixOf(st), heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, polar }));
       exact = r === 'drawn';
       c.exactState = r;
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
@@ -348,7 +353,7 @@
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
-        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); mixU(P); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', clipOf(mode)); };
+        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); mixU(P, st, mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', clipOf(mode)); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
         gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, out.zTex);
         if (Pf && !carryProbe.noFix) for (const tol of lyr ? CARRY_SHEET_TOLS.slice(0, 1) : CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
@@ -413,7 +418,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); mixU(P1); u1f(P1, 'uHClip', clipOf(mode));
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); mixU(P1, st, mu); u1f(P1, 'uHClip', clipOf(mode));
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -1329,10 +1334,7 @@
     const { aspect, H, floorZ, Mx } = landGeom(box, st.scale);
     const modeName = st.heightMode || 'log';
     const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7, reMix: 8, imMix: 9 }[modeName] ?? 0;
-    // (modes 8, 9: st.mix = {mu2, beta, endLin}: the second end's scale, the weight of its height, which ends are linear)
-    const mix = st.mix || { mu2: 0, beta: 0, endLin: 0 };
-    const clipOf = (m) => (m === 4 || m === 5 || m >= 8 ? 1e4 : 0);
-    const mixU = (P) => { u1f(P, 'uMu2', mix.mu2 > 0 ? mix.mu2 : st.mu > 0 ? st.mu : 1); u1f(P, 'uMix', mix.beta); u1i(P, 'uEndLin', mix.endLin); };
+    const mix = mixOf(st);
     const mu = st.mu > 0 ? st.mu : 1;
     const N = clamp(Math.round(st.cells || 256), 32, 512);
     const dpr = st.dpr || Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
@@ -1451,7 +1453,7 @@
       u1i(P, 'uN', hd.N);
       u4f(P, 'uBox', box.x0, box.y0, BW, BH);
       u2f(P, 'uAspect', aspect[0], aspect[1]);
-      u1f(P, 'uH', H); if (st.carry) { u1f(P, 'uHClip', clipOf(mode)); mixU(P); }
+      u1f(P, 'uH', H); if (st.carry) { u1f(P, 'uHClip', clipOf(mode)); mixU(P, st, mu); }
       u1f(P, 'uFloorZ', floorZ);
       u1i(P, 'uMaterial', material);
       u3(P, 'uPlaster', C.plaster);
