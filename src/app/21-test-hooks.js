@@ -519,6 +519,37 @@
         const h = window.__cmwLandHom([q.z.re, q.z.im]), r = h && h[sheet];
         out.push({ sheet, z: [q.z.re, q.z.im], w: r && r.H ? r.H : null, kind: q.kind });
       }
+      // (the colour map F, plane 0's chain to the plane the height reads: its branch and undefined points, pulled back to plane 0, are where the
+      // drawn height is not smooth, each drawn at the place the frame's homotopy takes it to)
+      if (sheet === 0) {
+        let pf = [];
+        try { pf = Inverse.singular(Inverse.planChain(S.steps, built, 0, svHT(0)), bx, ['branch', 'undef'], 16); } catch (e) { pf = []; }
+        for (const q of pf) {
+          if (!(q.z.re >= bx.x0 && q.z.re <= bx.x1 && q.z.im >= bx.y0 && q.z.im <= bx.y1)) continue;
+          const h = window.__cmwLandHom([q.z.re, q.z.im]), r = h && h[0];
+          out.push({ sheet, z: [q.z.re, q.z.im], w: r && r.H ? r.H : null, kind: 'F ' + q.kind });
+        }
+      }
+      // (a plan whose first multivalued op is a log or a power is drawn in the lifted coordinate, where it has no branch point: the
+      // points that its prefix, a Moebius or affine map, takes to 0 and to infinity are where the lift runs off, and the remaining ops'
+      // value at the op's output 0 or infinity is the place each is drawn at)
+      const ops = sh.plan.ops, mi = ops.findIndex((o) => o.kind === 'LOG' || o.kind === 'ROOTPOW');
+      if (mi >= 0) {
+        let M = [CX.ONE, CX.ZERO, CX.ZERO, CX.ONE], ok = true;
+        for (const o of ops.slice(0, mi)) {
+          const A = o.kind === 'MOB' ? o.p.m : o.kind === 'AFF' ? [o.p.a, o.p.b, CX.ZERO, CX.ONE] : null;
+          if (!A) { ok = false; break; }
+          M = [CX.add(CX.mul(A[0], M[0]), CX.mul(A[1], M[2])), CX.add(CX.mul(A[0], M[1]), CX.mul(A[1], M[3])), CX.add(CX.mul(A[2], M[0]), CX.mul(A[3], M[2])), CX.add(CX.mul(A[2], M[1]), CX.mul(A[3], M[3]))];
+        }
+        const rest = { ops: ops.slice(mi + 1) };
+        const ends = ok ? [[CX.abs(M[0]) < 1e-14 ? null : CX.neg(CX.div(M[1], M[0])), CX.ZERO, 'zero'], [CX.abs(M[2]) < 1e-14 ? null : CX.neg(CX.div(M[3], M[2])), CX.INF, 'infinity']] : [];
+        for (const [z, u, kind] of ends) {
+          if (!z || !CX.isFin(z) || !(z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1)) continue;
+          let w = null;
+          try { w = Inverse.fwdOps(rest, u); } catch (e) { w = null; }
+          out.push({ sheet, z: [z.re, z.im], w: w && CX.isFin(w) ? [w.re, w.im] : null, kind: 'lift ' + kind });
+        }
+      }
     });
     return out;
   };
