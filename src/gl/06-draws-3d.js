@@ -1450,7 +1450,7 @@
       const datas = cutDraw ? landC.datas : null;
       u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
       for (let i = 0; i < (datas ? datas.length : 1); i++) {
-        if (datas) u1i(Pc, 'uSheetCombo', landC.combos[i]);
+        if (datas) u1i(Pc, 'uSheetCombo', landC.combos[i] + (carryProbe.comboShift | 0));
         u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
         gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
       }
