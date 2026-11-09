@@ -8,7 +8,7 @@
 // most EDGE_MAX_SHARE of the compared pixels may be (measured 8.5 % and 8.1 %: the rings, the sectors and the seam), and with
 // every pixel an edge the cap fails (a control). The edge pixels are compared apart (the ruler ruling's one pixel of rasterization):
 // each passes when some pixel of the parked frame's 3 x 3 around it is within TOL levels of the glide's; at most SAME_FRAC of them
-// may fail; the controls are the parked plane against itself (none fails) and against itself shifted EDGE_SHIFT_PX px (the measure must fail), which hold whatever the glide draws. The colour layer alone (strokes hidden, bare).
+// may fail; the controls are the parked plane against itself (none fails) and against itself shifted EDGE_SHIFT_PX px (the measure must fail), which hold whatever the glide draws. The glide frame draws the same layers as the parked plane (the grid, the axes; strokes hidden).
 // Chains, each at both ends of its last step:
 // - Square root alone: the glide is the inverse pass's (glide.path 'inverse');
 // - the cubic z^3 - 3z, then the Square root: the exact renderer inverts no cubic, so the glide is the carried meshes' (glide.path 'mesh').
@@ -47,7 +47,7 @@ const openChain = async (c) => {
 // the glide frame at gx against the parked plane px: {n, over, max, drawn, drawnOver, edgeShare, edgeFail, edgeFailShifted, path} (drawn: the pixels the glide draws, of n; edgeShare: the share of the pixels not paper in both frames that are left out as edges; edgeFail: the share of those edge pixels with no pixel of the parked 3 x 3 within TOL of the glide's, and the same with the glide frame shifted EDGE_SHIFT_PX px)
 const measure = async (c, gx, px, edgeLevels = EDGE_LEVELS) => {
   await openChain(c);
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); __cmwSteps({ park: ${px} }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ park: ${px} }); 1`);
   await settled({ max: 20000 }); ok(`${c.label}: the parked plane ${px} is drawn`, await grab('parked'), null);
   await ev(`__cmwSteps({ x: ${gx} }); 1`);
   await settled({ max: 20000 }); ok(`${c.label}: the glide frame at ${gx} is drawn`, await grab('glide'), null);
