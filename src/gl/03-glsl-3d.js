@@ -722,6 +722,8 @@ uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2
 uniform int uCuts; uniform int uPer;
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
+// uOwnOn 1: uOwnT holds, for each cell of the box's grid, whether another layer draws each of its two triangles (LAND_CARRY_RING_VS, uOutZ 2)
+uniform highp sampler2D uOwnT; uniform int uOwnOn;
 // the box's triangles whose centre is within uHoles[i].z of uHoles[i].xy are left out (uNHoles of them): polar patches draw there
 uniform vec4 uHoles[4]; uniform int uNHoles;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
@@ -751,6 +753,7 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) return;
   bool o0 = t0.w < uDrawCode0 + 0.1, o1 = t1.w < uDrawCode0 + 0.1, o2 = t2.w < uDrawCode0 + 0.1;
   if (!(o0 || o1 || o2)) return;
+  if (uOwnOn == 1 && texelFetch(uOwnT, ivec2(cell % M, cell / M), 0)[hf] > 0.5) return;
   vZc = texelFetch(uZ, o0 ? V0 : (o1 ? V1 : V2), 0).xy;` : ''}
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (uPolar.w <= 0.0) {
@@ -1074,10 +1077,33 @@ vec4 ringZ(int j, ivec2 p) {
 ${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRZ[${i}], p, 0);`).join('\n')}
   return vec4(0.0);
 }
+// uOutZ 2: for each cell of layer uK's grid, whether a lower layer draws each of its two triangles: one with all three corners
+// own or continued, one of them own, whose preimages are the layer's there, the same piece of the surface (a continued corner holds its
+// source's preimage exactly)
+bool ringHas(int j, ivec2 a, ivec2 b, ivec2 c) {
+  vec3 w = vec3(ringT(j, a).w, ringT(j, b).w, ringT(j, c).w);
+  // (placed on the layer, one at least its own: the draw's own rule)
+  if (min(w.x, min(w.y, w.z)) < 5.0 || min(w.x, min(w.y, w.z)) > uCode + 0.1) return false;
+  vec2 d0 = ringZ(j, a).xy - ringZ(uK, a).xy, d1 = ringZ(j, b).xy - ringZ(uK, b).xy, d2 = ringZ(j, c).xy - ringZ(uK, c).xy;
+  float tol = ${SEAM_ABS} * (1.0 + length(ringZ(uK, a).xy));
+  return max(max(length(d0), length(d1)), length(d2)) <= tol;
+}
+vec4 ringOwn(ivec2 p) {
+  if (p.x >= uN - 1 || p.y >= uN - 1) return vec4(0.0);
+  ivec2 v1 = p + ivec2(1, 0), v2 = p + ivec2(1, 1), v3 = p + ivec2(0, 1);
+  float d0 = 0.0, d1 = 0.0;
+  for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
+    if (j >= uK) break;
+    if (ringHas(j, p, v1, v2)) d0 = 1.0;
+    if (ringHas(j, p, v2, v3)) d1 = 1.0;
+  }
+  return vec4(d0, d1, 0.0, 1.0);
+}
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  if (uOutZ == 2) { tfOut = ringOwn(p); return; }
   vec4 t = ringT(uK, p), z0 = ringZ(uK, p);
   tfOut = uOutZ == 1 ? z0 : t;
   if (t.w >= 5.0) return;
@@ -1109,7 +1135,7 @@ void main() {
   vec2 h = carryHeightA(zA, zj);
   if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { ringWhy(tfOut, 4); return; }
   if (uGuard == 1 && abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 5); return; }
-  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, h.x, uContCode);
+  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, hj, uContCode);
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:

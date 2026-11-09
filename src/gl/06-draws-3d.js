@@ -498,6 +498,21 @@
         runTF(P, empty(), gl.POINTS, N * N, 0, bytes, tex, N, N, gl.RGBA32F, gl.RGBA);
       }
     }
+    // (then, on every layer's final texels, the triangles another layer draws)
+    for (let k = 0; k < n; k++) {
+      const L = landActive[k];
+      if (!L.ownTex) L.ownTex = floatTex();
+      use(P, c.map);
+      u1i(P, 'uN', N); u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uOutZ', 2);
+      gl.uniform1iv(P.loc.uRT1, Array.from({ length: RING_LAYERS_MAX }, (_, j) => 2 * j)); gl.uniform1iv(P.loc.uRZ, Array.from({ length: RING_LAYERS_MAX }, (_, j) => 2 * j + 1));
+      for (let j = 0; j < RING_LAYERS_MAX; j++) {
+        const Lj = landActive[Math.min(j, n - 1)];
+        gl.activeTexture(gl.TEXTURE0 + 2 * j); gl.bindTexture(gl.TEXTURE_2D, Lj.tex1);
+        gl.activeTexture(gl.TEXTURE0 + 2 * j + 1); gl.bindTexture(gl.TEXTURE_2D, Lj.zTex);
+      }
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(P, empty(), gl.POINTS, N * N, 0, bytes, L.ownTex, N, N, gl.RGBA32F, gl.RGBA);
+    }
   }
   // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
   // draws at its nearest grid vertex, [{ h, member, combo, w, z }] (none where no layer is valid there; combo the layer's forward shifts)
@@ -1711,7 +1726,10 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+        gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, L.ownTex || null);
+        u1i(Pc, 'uOwnOn', contDraw && L.ownTex && !carryProbe.noOwn ? 1 : 0);
         drawCarryGrid(L, hd.N);
+        u1i(Pc, 'uOwnOn', 0);
         // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
         if (L.pp && L.pp.length) {
           gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 4);
