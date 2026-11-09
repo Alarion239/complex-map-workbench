@@ -551,12 +551,12 @@
   // completeness of the members is the winding of H_u - w around the leaves of the box (anchored continuation, so no cut of a plan enters).
   // SCN: CERT, the relative |H_u(z) - w| a member is within (LAND_ENUM_Z_TOL's value: the candidate's z is as exact as the frame's); TIE, how
   // much nearer the best surface must be than the next, or the surface is ambiguous; ARG, the largest argument a winding step turns;
-  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; MIN_STEP, the smallest step of an edge
+  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; LEAF_MAX, the leaves after which no leaf is cut further; SPLIT and JIT, the share of a leaf its cut falls at and the shift of the first grid's inner lines (a cut that is not the middle keeps a branch point off a leaf's edge); SHRINK, the rings a branch leaf's values are also read on (each half the one before); LIP, the factor its range is widened by over the largest difference of neighbouring samples; MIN_STEP, the smallest step of an edge
   // (a unit edge; the control raises it to 1); CLOSE, the relative distance within which a closed contour returns to its first value; ON, the relative |H_u - w| that
   // puts w on a contour; NEAR, the relative gap of a value from w that the control calls near; REL, the largest relative change of a
   // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
   // grid; SAME_Z, the relative distance under which two candidates are one z
-  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 7, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
+  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
   let sceneMemo = null;
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
@@ -637,15 +637,16 @@
     };
     const cut = (r, d) => {
       const ok = closed(r);
-      if (ok || d >= SCN.DEPTH_MAX) {
+      if (ok || d >= SCN.DEPTH_MAX || out.length >= SCN.LEAF_MAX) {
         out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
         return;
       }
-      const mx = (r.x0 + r.x1) / 2, my = (r.y0 + r.y1) / 2;
+      const mx = r.x0 + (r.x1 - r.x0) * SCN.SPLIT, my = r.y0 + (r.y1 - r.y0) * SCN.SPLIT;
       for (const [x0, x1] of [[r.x0, mx], [mx, r.x1]]) for (const [y0, y1] of [[r.y0, my], [my, r.y1]]) cut({ x0, x1, y0, y1 }, d + 1);
     };
+    const line = (i) => (i === 0 ? 0 : i === n0 ? 1 : i / n0 + SCN.JIT);
     for (let j = 0; j < n0; j++) for (let i = 0; i < n0; i++) {
-      cut({ x0: b.x0 + (b.x1 - b.x0) * i / n0, x1: b.x0 + (b.x1 - b.x0) * (i + 1) / n0, y0: b.y0 + (b.y1 - b.y0) * j / n0, y1: b.y0 + (b.y1 - b.y0) * (j + 1) / n0 }, SCN.DEPTH0);
+      cut({ x0: b.x0 + (b.x1 - b.x0) * line(i), x1: b.x0 + (b.x1 - b.x0) * line(i + 1), y0: b.y0 + (b.y1 - b.y0) * line(j), y1: b.y0 + (b.y1 - b.y0) * line(j + 1) }, SCN.DEPTH0);
     }
     return (sc.leaves = out);
   };
@@ -668,7 +669,8 @@
   // frame's own sheet first) [{ z, f, h, k, own, rank, front, miss }]. own: the member is on the frame's own sheet at its own cell (zc = z);
   // front marks the one member the frame draws with sheets off: the own-sheet member nearest the camera, or with none the nearest sheet's.
   // window.__cmwLandRejected is the number of candidates of the last call that no surface certified. Null when the frame has no scene
-  window.__cmwLandMembers = (pts) => {
+  window.__cmwLandMembers = (pts) => { try { return window.__cmwLandMembers0(pts); } catch (e) { return { err: String(e && e.stack || e).slice(0, 400) }; } };
+  window.__cmwLandMembers0 = (pts) => {
     const sc = sceneOf(), ens = window.__cmwLandEnum(pts), fl = render3D.floor, bx = render3D.box;
     if (!sc || !ens || !fl || !fl.info) return null;
     const info = fl.info, depth = (m) => {
@@ -722,7 +724,8 @@
   // count is undefined there) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
   // opts: noPoles omits P, dropOne removes a member, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
-  window.__cmwLandWind = (wIn, opts = {}) => {
+  window.__cmwLandWind = (wIn, opts = {}) => { const t0 = performance.now(); try { const r = window.__cmwLandWind0(wIn, opts); if (r) r[0].ms = Math.round(performance.now() - t0); return r; } catch (e) { return [{ err: String(e && e.stack || e).slice(0, 400), ok: false }]; } };
+  window.__cmwLandWind0 = (wIn, opts = {}) => {
     const sc = sceneOf();
     if (!sc) return null;
     const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
@@ -738,14 +741,26 @@
     for (const l of leaves) {
       if (!l.closed) {
         branchLeaves++;
+        // (the values of every surface at the leaf's rim and on SHRINK rings each half the one before about its centre, and the largest
+        // difference of neighbouring samples: the range the leaf's values are within, widened by LIP times that difference)
         const vals = [];
-        const rim = [C(l.x0, l.y0), C(l.x1, l.y0), C(l.x1, l.y1), C(l.x0, l.y1)];
-        for (let e = 0; e < 4; e++) for (let s = 0; s < SCN.SEG; s++) {
-          const z = C(rim[e].re + (rim[(e + 1) % 4].re - rim[e].re) * s / SCN.SEG, rim[e].im + (rim[(e + 1) % 4].im - rim[e].im) * s / SCN.SEG);
-          for (let k = 0; k < sc.K; k++) { const v = sc.g(k, z, z); if (v) vals.push(v); }
+        let step = 0;
+        for (let q = 0; q <= SCN.SHRINK; q++) {
+          const f = Math.pow(0.5, q), hx = (l.x1 - l.x0) / 2 * f, hy = (l.y1 - l.y0) / 2 * f;
+          const rim = [C(l.c.re - hx, l.c.im - hy), C(l.c.re + hx, l.c.im - hy), C(l.c.re + hx, l.c.im + hy), C(l.c.re - hx, l.c.im + hy)];
+          for (let k = 0; k < sc.K; k++) {
+            let prev = null;
+            for (let e = 0; e < 4; e++) for (let t = 0; t < SCN.SEG; t++) {
+              const z = C(rim[e].re + (rim[(e + 1) % 4].re - rim[e].re) * t / SCN.SEG, rim[e].im + (rim[(e + 1) % 4].im - rim[e].im) * t / SCN.SEG), v = sc.g(k, z, z);
+              if (!v) continue;
+              vals.push(v);
+              if (prev) step = Math.max(step, CX.abs(CX.sub(v, prev)));
+              prev = v;
+            }
+          }
         }
         const mean = vals.reduce((a, v) => CX.add(a, v), C(0, 0)), vc = C(mean.re / vals.length, mean.im / vals.length);
-        const spread = vals.reduce((a, v) => Math.max(a, CX.abs(CX.sub(v, vc))), 0);
+        const spread = vals.reduce((a, v) => Math.max(a, CX.abs(CX.sub(v, vc))), 0) + SCN.LIP * step;
         if (l.poles.length || !(CX.abs(CX.sub(w, vc)) > spread * (1 + SCN.NEAR))) status = status === 'ok' ? 'unresolved' : status;
         continue;
       }
