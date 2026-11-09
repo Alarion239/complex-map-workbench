@@ -11,6 +11,8 @@ await load('xtp' + Date.now(), {});
 const base = await ev('location.origin');
 // the images of a figure's SVG, each as a GX x GY grid of RGB means (base64), so two figures' pictures can be compared
 const GX = 48, GY = 32;
+// a box or the key's right edge may overshoot the figure's size by this much (SVG units) to count as inside it
+const FIT_SLACK = 0.01;
 const PAGE_GRID = `window.__grid = async (svg) => { const out = [], re = /<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g; let m;
   while ((m = re.exec(svg))) { const im = new Image(); im.src = m[1]; await im.decode(); const cv = document.createElement('canvas'); cv.width = ${GX}; cv.height = ${GY};
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, ${GX}, ${GY}); out.push(Array.from(g.getImageData(0, 0, ${GX}, ${GY}).data).filter((v, i) => i % 4 < 3)); }
@@ -67,16 +69,20 @@ for (const c of CASES) {
 }
 
 // a To plane past the colour plane brings the pane's key: the hue ring and the line saying where the colour is carried from,
-// in a column right of the second picture, inside the figure; a To plane that is the colour plane has none
-for (const to of [1, 2]) {
-  await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: ${to}, now: true }), 1)`);
-  await settled({ until: `__cmwSteps().i === ${to} && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000 });
+// in a column right of the second picture, inside the figure; a To plane that is the colour plane (T at the last plane,
+// where each plane is coloured by its own map) has none
+const nPlanes = planes;
+for (const [T, to] of [[0, 1], [0, 2], [nPlanes - 1, 1], [nPlanes - 1, 2]]) {
+  await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${to}, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === ${to} && !__cmwSteps().moving && __cmwSteps().T === ${T}`, max: 15000 });
   const wk = JSON.parse(await ev(`JSON.stringify(__cmwFig.svKey(${to}))`));
   const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: to });
   const carried = wk && wk.carried ? wk.carried.text : null;
-  ok(`to plane ${to}: the figure's key line is ${carried ? 'the pane\'s' : 'absent'}`, r && r.info && (r.info.keyLine || null) === carried, { carried, got: r && r.info && r.info.keyLine });
-  ok(`to plane ${to}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<clipPath id="[^"]*-key"/.test(r.svg) === !!carried, null);
-  info[`key to ${to}`] = carried; ok(`to plane ${to}: a carried key is exercised`, to === 1 ? !!carried : true, carried);
+  const tag = `T ${T}, to plane ${to}`;
+  ok(`${tag}: the figure's key line is ${carried ? 'the pane\'s' : 'absent'}`, r && r.info && (r.info.keyLine || null) === carried, { carried, got: r && r.info && r.info.keyLine });
+  ok(`${tag}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<clipPath id="[^"]*-key"/.test(r.svg) === !!carried, null);
+  info[`key ${tag}`] = carried;
+  ok(`${tag}: a carried key is ${T === 0 ? 'present' : 'absent'}`, !!carried === (T === 0), carried);
 }
 // the key's words are inside the figure in every language (the Italian line is the widest)
 for (const lang of ['en', 'ru', 'it']) {
@@ -84,7 +90,7 @@ for (const lang of ['en', 'ru', 'it']) {
   await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
   await settled({ until: `__cmwSteps().i === 1 && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000 });
   const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: 1 });
-  ok(`${lang}: the key stands in the figure and ends inside its width`, r && r.info && !!r.info.keyLine && r.info.keyR > 0 && r.info.keyR <= r.info.W + 0.01, r && r.info && { keyLine: r.info.keyLine, keyR: r.info.keyR, W: r.info.W });
+  ok(`${lang}: the key stands in the figure and ends inside its width`, r && r.info && !!r.info.keyLine && r.info.keyR > 0 && r.info.keyR <= r.info.W + FIT_SLACK, r && r.info && { keyLine: r.info.keyLine, keyR: r.info.keyR, W: r.info.W });
 }
 // the default planes follow the thread: example 18 has z and ζ's values only
 await ready(18);
