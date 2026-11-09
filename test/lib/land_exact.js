@@ -108,6 +108,10 @@
   const STEP_MAX = 400;   // at most this many raster steps a frame (STEP_MS each): more is a reference that never finishes, and fails
   const SHALLOW = { depth: 1, depthMax: 2 }, LEVELS_CTL = 2;   // the controls' settings: a lattice too coarse to be converged, and too few levels to judge every cell
   const STEP_MS = 15000;   // a raster step's time in the page: a CDP call stays well under its limit
+  // (Ruling C) where the glide is next to a plane (u = END_U, 0.002, 0.998, 1 - END_U) the frame is judged against the exact reference at its own u,
+  // far tighter than the 0.02 and 2 degrees of the rest: NEAR_TOL is the largest difference of a drawn height (world units) and of a colour's
+  // argument (radians) from the reference's; a frame drawn at the wrong u (reversed, frozen) is told apart by it
+  const NEAR_U = [END_U, 0.002, 0.998, 1 - END_U], NEAR_TOL = 0.005, REVERSED_FROM = 0.002;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -410,9 +414,9 @@
   };
   // a layer against its member: the drawn height within HEIGHT_TOL, and the colour (arg F) within PHASE_TOL where |F| is not near 0
   // (a layer or a member without F is counted as missing)
-  const layerGap = (l, m) => {
-    const o = { h: Math.abs(l.h - m.h) > HEIGHT_TOL, noF: !l.f || !m.f, ph: false, phN: false };
-    if (!o.noF) { const g = phaseGap(l.f, m.f); o.phN = g !== null; o.ph = g !== null && g > PHASE_TOL; }
+  const layerGap = (l, m, tol = { h: HEIGHT_TOL, ph: PHASE_TOL }) => {
+    const o = { h: Math.abs(l.h - m.h) > tol.h, noF: !l.f || !m.f, ph: false, phN: false };
+    if (!o.noF) { const g = phaseGap(l.f, m.f); o.phN = g !== null; o.ph = g !== null && g > tol.ph; }
     return o;
   };
   {
@@ -426,6 +430,7 @@
   // the raster's controls, on synthetic masks through the page's comparison: equal masks, one a pixel off (inside slack) pass; a hole of
   // CTL_HOLE_R, a wall of CTL_WALL_W pixels and a mask CTL_SHIFT pixels off fail
   const CTL = { w: 200, h: 160, r: 60, holeR: 8, wallW: 6, shift: 4 };
+  const HIST = {};   // (per case and u: the drawn and the reference's height of the first layer at each probe place, for the wrong-u controls)
   let rcDone = false;
   async function rasterControls() {
     const o = await ev(`(() => {
@@ -865,7 +870,7 @@
         want.forEach((m) => {
           const l = haveAll.filter((x) => sameZ(x.z, m.z)).sort((p, q) => Math.abs(p.h - m.h) - Math.abs(q.h - m.h))[0];   // (the layer at its z nearest in height: sheets of a step share z)
           if (!l) return;
-          const g = layerGap(l, m);
+          const g = layerGap(l, m, NEAR_U.includes(u) ? { h: NEAR_TOL, ph: NEAR_TOL } : undefined);
           if (g.h) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
           if (g.noF) { noF++; return; }
           if (g.phN) phN++;
@@ -873,9 +878,28 @@
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
+      // (Ruling C controls) a frame drawn at the wrong u is told apart by NEAR_TOL: the frame at REVERSED_FROM against the reference at 1 - REVERSED_FROM
+      // (u reversed), and against the reference at the glide's middle (u frozen there), each more than NEAR_TOL off at some place
+      if (u === 1 - REVERSED_FROM && HIST[name][REVERSED_FROM] && HIST[name][GLIDE_MID]) {
+        const worst = (from, to) => from.reduce((a2, h, i) => (h.have !== null && to[i] && to[i].want !== null ? Math.max(a2, Math.abs(h.have - to[i].want)) : a2), 0);
+        const rev = worst(HIST[name][REVERSED_FROM], HIST[name][u]), froz = worst(HIST[name][REVERSED_FROM], HIST[name][GLIDE_MID]);
+        ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
+        ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
+      }
+      // (the sheets' combo one off: the colour at the near probes leaves NEAR_TOL)
+      if (NEAR_U.includes(u) && u >= REVERSED_FROM && u <= 1 - REVERSED_FROM && COMBO_CONTROL.includes(c.tag)) {
+        let nPh = 0;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const sh = await hook(pts);
+          (sh || []).forEach((hv, i) => (ref[i] || []).slice(0, 1).forEach((m) => { (hv || []).filter((x) => sameZ(x.z, m.z)).forEach((l) => { const g = phaseGap(l.f, m.f); if (g !== null && g > NEAR_TOL) nPh++; }); }));
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
+        ok(`${t}: the control: with every sheet's combo one off the colour leaves ${NEAR_TOL} rad at ${nPh} members`, nPh > 0, { nPh });
+      }
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
-      ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
+      ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
