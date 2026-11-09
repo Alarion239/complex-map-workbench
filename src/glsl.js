@@ -2202,9 +2202,11 @@ void ixAncTan(vec2 w) {
   // or a BACK of NEWT_K stages, POL; or DEFL's NEWT_DEF steps) in single steps
   const newtRunMax = () => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF);
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
-  // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _run, the only place
+  // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, the only place
   // that evaluates H_t at a Newton iterate (a shader compiler inlines every call, so a program's size follows the
-  // number of such places): one loop of single steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
+  // number of such places; the arithmetic stays in this function, since written inline in _run's loop the compiled
+  // float result differs in the last bits): one step of H_t at u, the CHECK test (held: u hits w), a plain step
+  // or the DEFL step deflated by the root dz; _run, one loop of such steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
   // step is capped at a quarter of 1 + |u|, a polish step (POL, LAD) stops the phase when it moves u by at most
   // NEWT_STEP_TOL (1 + |u|); DEFL steps Newton's method deflated by the root dz. Member 0's walk is InvOps.opNewt's
   // fixed grid: the stages k / NEWT_K from ks + 1 up to k0 = floor(NEWT_K t), ug the root at k0 (IX_NR_NONE when the
@@ -2214,6 +2216,23 @@ void ixAncTan(vec2 w) {
   const newtCoreFns = (P, H) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
+bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
+  vec2 hu = ${H('u', 't')};
+  held = ixFin(u) && cx_abs(hu - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
+  if (chk) return true;
+  vec2 d = ${P}_fd(u, hu, t);
+  if (defl) {
+    vec2 g = cdiv(d, hu - w) - cinv(u - dz);
+    if (!(dot(g, g) > 0.0)) return false;
+    u -= cinv(g);
+    return ixFin(u);
+  }
+  if (!(dot(d, d) > 0.0)) return false;
+  vec2 st = cdiv(hu - w, d);
+  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
+  u -= sl > mx ? st * (mx / sl) : st;
+  return ixFin(u);
+}
 bool ${P}_run(inout vec2 u, vec2 w, float t, int mode, int ks, int kb, vec2 dz, out vec2 ug) {
   ug = vec2(${IX_NR_NONE});
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
@@ -2230,26 +2249,14 @@ bool ${P}_run(inout vec2 u, vec2 w, float t, int mode, int ks, int kb, vec2 dz, 
     if (ph == ${NP.DONE}) break;
     float tk = ph == ${NP.GRID} ? float(n) / ${Inverse.NEWT_K}.0 : ph == ${NP.BACK} ? 1.0 - (1.0 - t) * float(n) / float(kb) : t;
     vec2 p = u;
-    vec2 hu = ${H('u', 'tk')};
+    bool held;
+    bool sok = ${P}_step(u, w, tk, dz, ph == ${NP.DEFL}, ph == ${NP.CHECK}, held);
     if (ph == ${NP.CHECK}) {
-      if (ixFin(u) && cx_abs(hu - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w))) { chk = true; break; }
+      if (held) { chk = true; break; }
       u = w; ph = ${NP.GRID}; n = 1;
       continue;
     }
-    vec2 d = ${P}_fd(u, hu, tk);
-    if (ph == ${NP.DEFL}) {
-      vec2 g = cdiv(d, hu - w) - cinv(u - dz);
-      if (!(dot(g, g) > 0.0)) { ok = false; break; }
-      u -= cinv(g);
-      if (!ixFin(u)) { ok = false; break; }
-      n++;
-      continue;
-    }
-    if (!(dot(d, d) > 0.0)) { ok = false; break; }
-    vec2 st = cdiv(hu - w, d);
-    float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
-    u -= sl > mx ? st * (mx / sl) : st;
-    if (!ixFin(u)) { ok = false; break; }
+    if (!sok) { ok = false; break; }
     n++;
     if ((ph == ${NP.LAD} || ph == ${NP.POL}) && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) n = ${newtRunMax()};
   }
