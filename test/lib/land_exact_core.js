@@ -42,6 +42,7 @@
     CURV_FLOOR: 0.05,       // full-resolution pixels: a second difference below this is rounding
     CONT_STEP_MIN: 1e-12,   // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
     CUT_JUMP: 1e-3,         // a step floor where H's linear prediction is off by more than this (relative to 1 + |H|) is a cut of H, not a branch point
+    CONT_STEPS_MAX: 40000,  // steps a continuation may take: a glide near its start has members a spiral's pitch apart (about 1e-3 of |z| at u = 1e-4), and a step is a share of that
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
@@ -224,7 +225,7 @@
             return { ok: false, why: 'step floor at t=' + t.toExponential(2) + ': ' + last, steps };
           }
         }
-        if (steps > 4000) return { ok: false, why: 'steps' };
+        if (steps > o.CONT_STEPS_MAX) return { ok: false, why: 'steps' };
       }
       return { ok: true, z: zs, lam: lams, steps };
     }
