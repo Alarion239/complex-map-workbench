@@ -1635,9 +1635,9 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
-        if (carryProbe.classPlain && clipC && !contDraw && exact) {
+        if (!carryProbe.classOff && clipC && exact) {
           // (the cells' classes against the block: the plain draw of the cells inside it)
-          const Pk = program('landCarryClass'), PcI = program('landCarryI', st.carry.map);
+          const Pk = program('landCarryClass'), PcI = program(contDraw ? 'landCarryLI' : 'landCarryI', st.carry.map);
           if (Pk && PcI) {
             if (!L.clsTex) L.clsTex = floatTex();
             use(Pk);
@@ -1647,8 +1647,7 @@
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, cutDraw ? L.edges[d] : L.tex1); }
             gl.activeTexture(gl.TEXTURE15);
-            if (!(carryProbe.classReuse && L.clsDone)) runTF(Pk, empty(), gl.POINTS, hd.N * hd.N, 0, hd.N * hd.N * 16, L.clsTex, hd.N, hd.N, gl.RGBA32F, gl.RGBA);
-            L.clsDone = true;
+            runTF(Pk, empty(), gl.POINTS, hd.N * hd.N, 0, hd.N * hd.N * 16, L.clsTex, hd.N, hd.N, gl.RGBA32F, gl.RGBA);
             use(Pc, st.carry.map);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
@@ -1662,6 +1661,7 @@
               gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
             }
             u1i(Pc, 'uZOn', 1); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+            if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
             drawCarryGrid(L, hd.N);
             fan = LAND_CLIP_CORNERS - 2; Pc = Pc0; use(Pc, st.carry.map);
             if (!carryProbe.classNoMix) {

@@ -229,6 +229,7 @@
     landClassRows: { chain: false, vs: () => LAND_CLASS_ROWS_VS, fs: () => TF_FS, tf: true },
     landClassBase: { chain: false, vs: () => LAND_CLASS_BASE_VS, fs: () => TF_FS, tf: true },
     landClassList: { chain: false, vs: () => LAND_CLASS_LIST_VS, fs: () => TF_FS, tf: true },
+    landCarryLI: { chain: true, vs: () => LAND_CARRY_VS(true, false, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true, true) },
     landCarryC: { chain: true, vs: () => LAND_CARRY_VS(false, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, false, true) },
     landCarryLC: { chain: true, vs: () => LAND_CARRY_VS(true, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
