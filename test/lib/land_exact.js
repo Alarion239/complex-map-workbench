@@ -70,7 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
+  const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -427,6 +427,15 @@
     ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
   }
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
+  // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
+  const withProbe = async (probe, u, read) => {
+    try {
+      await ev(`window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, ${JSON.stringify(probe)}); 1`);
+      await setU(MID_U[1] === u ? MID_U[0] : MID_U[1]); await setU(u);
+      await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+      return await read();
+    } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
+  };
   await view(VIEW_W, VIEW_H, false, false);
   for (const c of CASES) for (const sheets of MODES) {
     const name = `${c.tag}, ${sheets ? 'All sheets' : 'sheets off'}`;
@@ -494,7 +503,8 @@
         const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
         ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
       }
-      // where the edge pass puts a cut on an edge is the step's own cut, to the bisection's resolution: the preimage of each flagged edge's cut is
+      // where the edge pass puts a cut on an edge is the step's own cut (the reference of these frames inside the glide, where no parked plane
+      // exists: the scene's cut of the one step, the negative real axis of its input), to the bisection's resolution: the preimage of each flagged edge's cut is
       // within 2^-(steps - 1) of the edge's chord from the cut (the negative real axis of plane z)
       if ((CUT_ROWS[c.tag] || []).includes(u)) {
         const ct = await ev('__lx.cutT()');
@@ -502,12 +512,7 @@
         r[u].cut = ct;   // (atEnd: the flagged edges whose cut is at an end of the chord, the vertex itself, which are counted here and not judged)
         ok(`${t}: the cuts the edge pass finds are the step's own (${ct ? ct.n : '?'} flagged edges, over 0, with the cut inside the chord, and ${ct ? ct.atEnd : '?'} at an end of it; the worst is ${ct ? ct.worst.toExponential(2) : '?'} of the chord from the cut, at most ${tol.toExponential(2)})`, !!ct && ct.n > 0 && ct.worst <= tol, ct);
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
-        let ctlC;
-        try {
-          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1] === u ? MID_U[0] : MID_U[1]); await setU(u);
-          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
-          ctlC = await ev('__lx.cutT()');
-        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
+        const ctlC = await withProbe({ midCut: true }, u, () => ev('__lx.cutT()'));
         ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
       }
       // the geometry
@@ -611,12 +616,7 @@
       if (c.tag === 'cube root' && u === MID_U[0]) {
         // the control: with every cross-sheet edge taken as continuous (probe noCross) the whole triangles across the cuts between sheets
         // come back as slivers, and the relief check fails
-        let ctl;
-        try {
-          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { noCross: true }); 1"); await setU(MID_U[1]); await setU(u);
-          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
-          ctl = (await refine(sheets, REF)).rk;
-        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); }
+        const ctl = await withProbe({ noCross: true }, u, async () => (await refine(sheets, REF)).rk);
         ok(`${t}: control: with every cross-sheet edge taken as continuous the relief is over ${RASTER_TOL * 100} % off (${ctl ? ctl.extra : '?'} extra, ${ctl ? ctl.missing : '?'} missing of ${ctl ? ctl.n : '?'})`, !!ctl && ctl.off > RASTER_TOL, { ctl });
       }
       if (/Roots as preimages/.test(t) && u === 0.002) {

@@ -784,6 +784,8 @@ vec2 seamCont(vec2 z0, vec2 wa, vec2 wb, out vec2 zMid) {
   }
   return z;
 }
+// where on its edge a bisection puts the cut (uMidOn 1, a test switch: the middle)
+float cutShare(float lo, float hi) { return uMidOn == 1 ? 0.5 : 0.5 * (lo + hi); }
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -823,7 +825,7 @@ void main() {
       if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
       if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
     }
-    float tc = uMidOn == 1 ? 0.5 : 0.5 * (lo + hi);
+    float tc = cutShare(lo, hi);
     tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;
   }
@@ -847,7 +849,7 @@ void main() {
   }
   float big = 1e3 * max(uMu, 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
-  if (jump) { tfOut = vec4(uMidOn == 1 ? 0.5 : 0.5 * (lo + hi), hLo, hHi, 1.0); return; }
+  if (jump) { tfOut = vec4(cutShare(lo, hi), hLo, hHi, 1.0); return; }
   // a member seam (uSeam 1): neither end's preimage carried along the edge's place reaches the other's, so the two
   // places hold different members of the glide's inverse and the edge is a cut between them, whatever the chord of
   // their preimages shows; each bank's height at the middle of the edge is its own member's there
