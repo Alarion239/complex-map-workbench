@@ -621,16 +621,24 @@
       if (id === 'powa') { const a = st.vals.alpha, ex = C(1 + (a.re - 1) * map.t, a.im * map.t); return !(ex.re > 0); }
       return false;
     }) ? 'log' : 'algebraic';
-    // The input of each branch step with its node at 0 (log, root, powa): { f, poles }, f(k, zc, z) is the map's steps before that step applied to z on
-    // surface k from the cell centred at zc, poles the input's poles (svPolesIn on the map of the steps before it). The branch point of the step is where this input is 0; the leaf's loop winds it exactly when the
-    // branch point is inside, whatever the size of the step's cut jump
-    const inputs = pcs.filter((e) => { const st = built[e.k - 1], id = st && st.def && st.def.id; return id === 'log' || id === 'root' || id === 'powa'; })
-      .filter((e, i, a) => a.findIndex((x) => x.k === e.k) === i)
-      .map((e) => {
-        let ip = [];
-        try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
-        return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? f : null; } catch (er) { return null; } } };
-      });
+    // The input of each branch step: { poles, f }, f(k, zc, z) the map's steps before that step applied to z on surface k from the cell centred at zc,
+    // minus the step's branch point (0 for log, root, powa and a power with a cut of its own on the integer exponent at 0 < t < 1; the centre of
+    // a (z - c)^n path), poles the input's poles (svPolesIn on the map of the steps before it). The branch point is where f is 0; the leaf's loop winds it
+    // exactly when the branch point is inside, whatever the size of the step's cut jump
+    const bpts = pcs.filter((e) => { const st = built[e.k - 1], id = st && st.def && st.def.id; return id === 'log' || id === 'root' || id === 'powa'; }).map((e) => ({ k: e.k, node: C(0, 0) }));
+    if (map.t > 0 && map.t < 1) {
+      for (let k = 1; k <= S.steps.length; k++) {
+        const bb = built[k - 1];
+        if (!live(k) || Funcs.sheetMapHow(map, k) !== 2) continue;
+        if (bb.def && bb.def.id === 'pown' && (bb.vals.n >= 0 || map.t < 0.5)) bpts.push({ k, node: C(0, 0) });
+        else if (bb.nat && bb.nat.kind === 'pow' && bb.natData) bpts.push({ k, node: bb.natData.c });
+      }
+    }
+    const inputs = bpts.filter((e, i, a) => a.findIndex((x) => x.k === e.k && CX.abs(CX.sub(x.node, e.node)) === 0) === i).map((e) => {
+      let ip = [];
+      try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
+      return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? CX.sub(f, e.node) : null; } catch (er) { return null; } } };
+    });
     return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, box: bx, poles, cut, kindScene, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
