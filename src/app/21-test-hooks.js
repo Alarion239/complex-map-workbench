@@ -634,12 +634,30 @@
         else if (bb.nat && bb.nat.kind === 'pow' && bb.natData) bpts.push({ k, node: bb.natData.c });
       }
     }
+    // The global cut of a power path inside a recognised formula (a chain of steps, at 0 < t < 1 the step the time falls in runs its own path, the
+    // principal power z^(1 + (n - 1)s)): the negative real axis of that step's argument, a ray from its centre along -x when the step is the formula's
+    // first and no live step comes before the formula. rays[]: { x, y } the ray's end, also a branch point; rayBlind: such a path lies where its argument
+    // is not the z-plane, so its cut is a curve this scene does not read
+    const rays = [];
+    let rayBlind = false;
+    if (map.t > 0 && map.t < 1) {
+      for (let k = 1; k <= S.steps.length; k++) {
+        const bb = built[k - 1];
+        if (!live(k) || Funcs.sheetMapHow(map, k) !== 2 || !(bb.def && bb.def.id === 'custom' && bb.rec)) continue;
+        const subs = bb.rec.built, x = map.t * subs.length, j = Math.min(subs.length - 1, Math.floor(x)), sb = subs[j];
+        if (!(x - j > 0) || !sb) continue;
+        const pw = sb.nat && sb.nat.kind === 'pow' && sb.natData ? sb.natData.c : sb.def && sb.def.id === 'pown' ? C(0, 0) : null;
+        if (!pw) continue;
+        if (j > 0 || Array.from({ length: k - 1 }, (_, i) => i + 1).some(live)) rayBlind = true;
+        else { rays.push({ x: pw.re, y: pw.im }); bpts.push({ k, node: pw }); }
+      }
+    }
     const inputs = bpts.filter((e, i, a) => a.findIndex((x) => x.k === e.k && CX.abs(CX.sub(x.node, e.node)) === 0) === i).map((e) => {
       let ip = [];
       try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
       return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? CX.sub(f, e.node) : null; } catch (er) { return null; } } };
     });
-    return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, box: bx, poles, cut, kindScene, leaves: null });
+    return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, rays, rayBlind, box: bx, poles, cut, kindScene, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
@@ -792,10 +810,21 @@
       const far = Math.max(...[[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]].map(([x, y]) => Math.hypot(x, y)));
       return Math.hypot(nx, ny) < sc.cut.R && sc.cut.R < far;
     };
+    // (the global cut of a custom power path runs through the rectangle: its parts above and below the ray, each closed on its own, are the leaf's
+    // parts; the ray's end inside the rectangle, or a part that does not close, cuts the rectangle further)
+    const rayParts = (r) => {
+      if (sc.noTest && sc.noTest.noRay) return null;
+      const ry = sc.rays.find((q) => q.y > r.y0 && q.y < r.y1 && r.x0 < q.x);
+      if (!ry) return null;
+      if (r.x1 > ry.x) return 'split';
+      const parts = [{ x0: r.x0, x1: r.x1, y0: ry.y, y1: r.y1 }, { x0: r.x0, x1: r.x1, y0: r.y0, y1: ry.y }];
+      return parts.every((q) => leafState(sc, q, sc.noTest) === 'closed') ? parts : 'split';
+    };
     const cut = (r, d) => {
-      const x = crosses(r), two = x ? cutLeaf(sc, r) : null, st = x ? 'branch' : leafState(sc, r, sc.noTest), ok = st === 'closed';
+      const rp = rayParts(r), x = crosses(r), two = x ? cutLeaf(sc, r) : null;
+      const st = x || rp ? 'branch' : leafState(sc, r, sc.noTest), ok = st === 'closed' || Array.isArray(rp);
       if (ok || two || d >= SCN.DEPTH_MAX || out.length >= SCN.LEAF_MAX) {
-        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, crossed: st === 'crossed', two, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
+        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, crossed: st === 'crossed', two, parts: Array.isArray(rp) ? rp : null, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
         return;
       }
       const mx = r.x0 + (r.x1 - r.x0) * SCN.SPLIT, my = r.y0 + (r.y1 - r.y0) * SCN.SPLIT;
@@ -918,13 +947,13 @@
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
   // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, cutLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
-  // opts: noInputs cuts the leaves without the winding of the branch steps' inputs, noPoleTest without the test for a pole in a closed leaf, noDedupe counts coincident surfaces each, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
+  // opts: noRay cuts no leaf at the cut of a custom power path, noInputs cuts the leaves without the winding of the branch steps' inputs, noPoleTest without the test for a pole in a closed leaf, noDedupe counts coincident surfaces each, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => {
     const sc0 = sceneOf();
     if (!sc0) return null;
     // (noInputs: the leaves are cut by the continuity of the surfaces alone, so a leaf that holds a branch point with a tiny cut jump counts as closed)
-    const sc = opts.noInputs || opts.noPoleTest || opts.noDedupe ? Object.assign({}, sc0, { noTest: { noInputs: !!opts.noInputs, noPoleTest: !!opts.noPoleTest }, ks: opts.noDedupe ? Array.from({ length: sc0.K }, (_, k) => k) : sc0.ks, leaves: null }) : sc0;
+    const sc = opts.noInputs || opts.noPoleTest || opts.noDedupe || opts.noRay ? Object.assign({}, sc0, { noTest: { noInputs: !!opts.noInputs, noPoleTest: !!opts.noPoleTest, noRay: !!opts.noRay }, ks: opts.noDedupe ? Array.from({ length: sc0.K }, (_, k) => k) : sc0.ks, leaves: null }) : sc0;
     const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
     let w = wIn ? C(wIn[0], wIn[1]) : null;
     if (opts.onContour || opts.nearContour) {
@@ -936,7 +965,10 @@
     let status = 'ok', N = 0, P = 0, branchLeaves = 0, bad = 0;
     const tally = [];
     const minStep = opts.nearContour ? 1 : SCN.MIN_STEP;
-    for (const l of leaves) {
+    // (a leaf the cut of a custom power path runs through is counted as its parts, each a closed leaf of its own)
+    const units = leaves.flatMap((l) => (l.parts ? l.parts.map((q) => Object.assign({ c: C((q.x0 + q.x1) / 2, (q.y0 + q.y1) / 2), closed: true, two: null, poles: l.poles.filter((p) => p.re >= q.x0 && p.re < q.x1 && p.im >= q.y0 && p.im < q.y1) }, q)) : [l]));
+    if (sc.rayBlind) status = 'unresolved';
+    for (const l of units) {
       if (l.two) {
         // (a leaf the circle crosses: each part's loops walked with its own side's formula; the parts' windings and poles add up)
         const loopsTwo = opts.cutDelta ? cutLoops(sc.cut.R + opts.cutDelta, l) || l.two : l.two, relc = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
