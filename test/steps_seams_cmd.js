@@ -18,6 +18,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
+const CUT_BANKS = 2;   // (the two banks of a ray cut, the solid one and the dashed one: what the frame draws of Square root's cut)
 const ready = () => settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof __cmwHideStrokes === "function"' });
 // the left pane drawn: two reads of its pixels 100 ms apart agree (the glide's meshes are made in idle moments after
 // the page is settled, and each lands in a later frame)
@@ -229,8 +230,13 @@ const park = async (x, scope) => {
     await ev('__cmwHideStrokes(true); 1'); await settled({ max: 20000 });
     info.cutCurves = JSON.parse(hiddenCuts).length;
     info.cutCurvesShown = JSON.parse(shownCuts).length;
-    ok('cracks: Square root, parked half-way, strokes hidden: the cut curves drawn are those drawn with the strokes shown (the same banks)', hiddenCuts === shownCuts, { hidden: info.cutCurves, shown: info.cutCurvesShown });
-    ok('cracks: the reference draws a cut (a frame that drops the cut must differ from it)', info.cutCurvesShown > 0 && JSON.stringify([]) !== shownCuts, { shown: info.cutCurvesShown });
+    // (the same-banks comparison, and its controls, which run on what the frame drew: a frame that drops the cut, or one of its two banks, is not the reference)
+    const sameCuts = (a, b) => a === b;
+    const dropBank = (key) => JSON.stringify(JSON.parse(key).slice(1));
+    ok('cracks: Square root, parked half-way, strokes hidden: the cut curves drawn are those drawn with the strokes shown (the same count and the same banks)', sameCuts(hiddenCuts, shownCuts), { hidden: info.cutCurves, shown: info.cutCurvesShown });
+    ok('cracks: the reference draws the cut\'s two banks', info.cutCurvesShown === CUT_BANKS, { shown: info.cutCurvesShown });
+    ok('cracks: the control: a frame that drops the cut differs from the reference', !sameCuts('[]', shownCuts), { shown: info.cutCurvesShown });
+    ok('cracks: the control: a frame that drops one bank differs from the reference', !sameCuts(dropBank(hiddenCuts), shownCuts), { dropped: JSON.parse(dropBank(hiddenCuts)).length, shown: info.cutCurvesShown });
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
