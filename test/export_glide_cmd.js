@@ -25,9 +25,10 @@ const CONTROL_ZOOM = 1.1, CONTROL_SHIFT = 0.1;
 const CMP_W = 320;
 // a globe still's panel and the pane's canvas on the screen agree in width over height to this (css px rounding)
 const ASPECT_TOL = 0.02;
-// the drawn picture's box in the frame's crop is the still's in width and height, and its centre is the still's, to this
-// share of the crop's side
+// the frame's crop registers with the still at a zoom within this of 1 and a shift (a share of the crop's side) within this of 0
 const SCALE_TOL = 0.02;
+// the scan that finds it: a step of REG_STEP, REG_SPAN steps each way (a zoom of 1 - 0.06 to 1 + 0.06)
+const REG_STEP = 0.01, REG_SPAN = 6;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -105,16 +106,10 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
       const gs = still.getContext('2d'); gs.fillStyle = '#fff'; gs.fillRect(0, 0, w, h);
       gs.drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
       const c = gs.getImageData(0, 0, w, h).data;
-      // the box (as shares of the canvas's width and height) of the pixels that are not paper
-      const drawnBox = (d) => {
-        let x0 = w, x1 = -1, y0 = h, y1 = -1;
-        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = 4 * (j * w + i); if (${RGB_MAX} - d[q] - d[q + 1] - d[q + 2] > ${DRAWN}) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; } }
-        return x1 < 0 ? null : { x0: x0 / w, x1: (x1 + 1) / w, y0: y0 / h, y1: (y1 + 1) / h };
-      };
-      const cmp = (img, picW, H, zoom, dx) => {
+      const cmp = (img, picW, H, zoom, dx, dy = 0) => {
         let sx = picW / 2 - H * asp / 2, sy = 0, cw = H * asp, ch = H;
         if (cr) { const rw = H * cr.asp; sx = picW / 2 - rw / 2 + cr.x0 * rw; sy = cr.y0 * H; cw = (cr.x1 - cr.x0) * rw; ch = (cr.y1 - cr.y0) * H; }
-        const mx = sx + cw / 2 + dx * cw, my = sy + ch / 2;
+        const mx = sx + cw / 2 + dx * cw, my = sy + ch / 2 + dy * ch;
         cw /= zoom; ch /= zoom;
         const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
         const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
@@ -122,13 +117,19 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
         const a = g.getImageData(0, 0, w, h).data;
         let sum = 0, n = 0;
         for (let i = 0; i < a.length; i += 4) { if (${RGB_MAX} - c[i] - c[i + 1] - c[i + 2] <= ${DRAWN}) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
-        return { mad: n ? sum / (n * 3) : null, n: n / (w * h), box: drawnBox(a) };
+        return { mad: n ? sum / (n * 3) : null, n: n / (w * h) };
       };
       const picW = Math.round(chk.pic * dv.width), H = dv.height;
       // (the pane's canvas on the screen, measured here and not through the figure: its width over height is the still's panel's
       // for a globe)
       const pc = [...document.querySelectorAll('#plotL canvas')].map((e) => e.getBoundingClientRect()).sort((p, q) => q.width * q.height - p.width * p.height)[0];
-      three = { stillBox: drawnBox(c), first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, ${CONTROL_ZOOM}, 0), shift: cmp(dv, picW, H, 1, ${CONTROL_SHIFT}), asp: +asp.toFixed(3), dom: pc ? +(pc.width / pc.height).toFixed(3) : null };
+      // the zoom and the shift that bring the frame's crop closest to the still: a scan in steps of REG_STEP over REG_SPAN
+      // (the frame carries the screen's ground and shadow, so the pictures are registered by their difference over the pixels the
+      // still draws, not by their outlines)
+      const best = (vals, f) => vals.reduce((m, v) => { const r = f(v).mad; return r != null && r < m.mad ? { v, mad: r } : m; }, { v: 0, mad: Infinity }).v;
+      const steps = Array.from({ length: 2 * ${REG_SPAN} + 1 }, (_, i) => +((i - ${REG_SPAN}) * ${REG_STEP}).toFixed(4));
+      const bz = best(steps.map((d) => 1 + d), (z) => cmp(dv, picW, H, z, 0)), bx = best(steps, (d) => cmp(dv, picW, H, bz, d)), by = best(steps, (d) => cmp(dv, picW, H, bz, bx, d));
+      three = { reg: { zoom: bz, dx: bx, dy: by }, first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, ${CONTROL_ZOOM}, 0), shift: cmp(dv, picW, H, 1, ${CONTROL_SHIFT}), asp: +asp.toFixed(3), dom: pc ? +(pc.width / pc.height).toFixed(3) : null };
     }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
     // draws what the pane draws: no level curves of its own
@@ -142,14 +143,12 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   if (surf !== 'plane') {
     const t3 = fp && fp.three, bound = surf === 'sphere' ? SPHERE_BOUND : LAND_BOUND;
     ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > STILL_DRAWN_MIN && t3.first.mad < bound, fp);
-    // the frame's crop carries the picture at the still's scale and place: the drawn box's width and height agree to SCALE_TOL, and
-    // so do the centres (a camera fitted a little nearer than the still's, or a window rounded differently, shows here and the
-    // mean difference above lets it through)
+    // the frame's crop carries the picture at the still's scale and place: the zoom and the shift that register it with the still
+    // are within SCALE_TOL of none (a camera fitted a little nearer than the still's, or a window rounded differently, shows
+    // here and the mean difference above lets it through)
     if (surf === 'land') {
-      const sb = t3 && t3.stillBox, fb = t3 && t3.first.box;
-      const rel = (a, b) => Math.abs(a / b - 1);
-      const sc = sb && fb ? { w: rel(fb.x1 - fb.x0, sb.x1 - sb.x0), h: rel(fb.y1 - fb.y0, sb.y1 - sb.y0), cx: Math.abs((fb.x0 + fb.x1) / 2 - (sb.x0 + sb.x1) / 2), cy: Math.abs((fb.y0 + fb.y1) / 2 - (sb.y0 + sb.y1) / 2) } : null;
-      ok(`${tag}: the drawn picture in the first frame's crop is the still's in size and place (within ${SCALE_TOL})`, !!sc && Math.max(sc.w, sc.h, sc.cx, sc.cy) < SCALE_TOL, { sc, sb, fb });
+      const g = t3 && t3.reg;
+      ok(`${tag}: the first frame's crop registers with the still at no zoom and no shift (within ${SCALE_TOL})`, !!g && Math.abs(g.zoom - 1) <= SCALE_TOL + 1e-9 && Math.abs(g.dx) <= SCALE_TOL + 1e-9 && Math.abs(g.dy) <= SCALE_TOL + 1e-9, { reg: g });
     }
     // the still's shape is checked against the pane's own size, not against the figure's path that the frame also takes
     if (surf === 'sphere') ok(`${tag}: the globe still's panel has the pane's width over height (${t3 && t3.dom})`, !!t3 && t3.dom != null && Math.abs(t3.asp - t3.dom) < ASPECT_TOL, fp);
