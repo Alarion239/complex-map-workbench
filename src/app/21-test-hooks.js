@@ -610,12 +610,16 @@
       if (id === 'powa') { const a = st.vals.alpha, ex = C(1 + (a.re - 1) * map.t, a.im * map.t); return !(ex.re > 0); }
       return false;
     }) ? 'log' : 'algebraic';
-    // The input of each branch step with its node at 0 (log, root, powa): input(k, zc, z) is the map's steps before that step applied to z on
-    // surface k from the cell centred at zc. The branch point of the step is where this input is 0; the leaf's loop winds it exactly when the
+    // The input of each branch step with its node at 0 (log, root, powa): { f, poles }, f(k, zc, z) is the map's steps before that step applied to z on
+    // surface k from the cell centred at zc, poles the input's poles (svPolesIn on the map of the steps before it). The branch point of the step is where this input is 0; the leaf's loop winds it exactly when the
     // branch point is inside, whatever the size of the step's cut jump
     const inputs = pcs.filter((e) => { const st = built[e.k - 1], id = st && st.def && st.def.id; return id === 'log' || id === 'root' || id === 'powa'; })
       .filter((e, i, a) => a.findIndex((x) => x.k === e.k) === i)
-      .map((e) => (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? f : null; } catch (er) { return null; } });
+      .map((e) => {
+        let ip = [];
+        try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
+        return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? f : null; } catch (er) { return null; } } };
+      });
     return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, box: bx, poles, cut, kindScene, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
@@ -712,34 +716,52 @@
     }
     return loops;
   };
+  // the state of a rectangle r as a leaf of the scene: 'closed' (every surface's value runs round r's loop in steps of at most REL, no branch step's
+  // input winds round 0 or comes near it, and r holds no pole of a branch step's input: the winding of H_u - w then counts the pairs in r), 'crossed' (a branch
+  // step's input runs round the loop with winding 0 yet reaches the ray opposite its value at the centre, where the anchored surface jumps: not a
+  // leaf that can be counted) or 'branch'. opts.noInputs and opts.noPoleTest leave the inputs, and the poles, out of the test
+  const leafState = (sc, r, opts = {}) => {
+    const c = C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
+    let crossed = false;
+    for (const k of sc.ks) {
+      const g = (z) => sc.g(k, c, z), vc = g(c);
+      if (!vc) return 'branch';
+      const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
+      for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return 'branch';
+      if (opts.noInputs) continue;
+      for (const inp of sc.inputs) {
+        const u = (z) => inp.f(k, c, z), u0 = u(c);
+        if (!u0) return 'branch';
+        // (the turn of the input's argument from its value at the centre, summed along the loop: its end is the winding, and |turn| reaching
+        // pi means the loop meets the ray opposite the centre's value, the local cut)
+        let sum = 0, turn = 0, reach = 0;
+        const ctl = (v, nv) => {
+          if (!(CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv)))) return false;
+          turn += argd(v, nv);
+          reach = Math.max(reach, Math.abs(turn));
+          return true;
+        };
+        const first = u(rectLoop(r)[0](0));
+        if (!first) return 'branch';
+        turn = argd(u0, first);
+        for (const f of rectLoop(r)) {
+          const wd = windOpen(u, f, C(0, 0), ctl);
+          if (wd.bad || wd.on) return 'branch';
+          sum += wd.sum;
+        }
+        if (Math.abs(sum) > Math.PI) return 'branch';
+        if (reach >= Math.PI) crossed = true;
+      }
+    }
+    // (a pole of a branch step's input is inside: the winding of the input counts its zeros less its poles)
+    if (!opts.noPoleTest && sc.inputs.some((inp) => inp.poles.some((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1))) return 'branch';
+    return crossed ? 'crossed' : 'closed';
+  };
   // the leaves of the box: a quadtree cut until the continuation of every surface round a leaf returns to its own value (no branch point
   // inside), at most DEPTH_MAX deep; a leaf that still does not close is a branch leaf. [{ x0, x1, y0, y1, c, closed, poles }]
   const sceneLeaves = (sc) => {
     if (sc.leaves) return sc.leaves;
     const out = [], b = sc.box, n0 = 1 << SCN.DEPTH0;
-    // (a leaf is closed when every surface's value on the cell centred at the leaf's centre runs round its loop in steps of at most REL of its
-    // distance from the value at the centre (a constant offset hides nothing): no cut of the cell, no branch point, inside)
-    const closed = (r) => {
-      const c = C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
-      for (const k of sc.ks) {
-        const g = (z) => sc.g(k, c, z), vc = g(c);
-        if (!vc) return false;
-        const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
-        for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return false;
-        // (no branch step's input winds round 0 along the loop and none passes through it: the branch point is outside)
-        for (const inp of sc.inputs) {
-          const u = (z) => inp(k, c, z);
-          let sum = 0;
-          for (const f of rectLoop(r)) {
-            const wd = windOpen(u, f, C(0, 0), (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv)));
-            if (wd.bad || wd.on) return false;
-            sum += wd.sum;
-          }
-          if (Math.abs(sum) > Math.PI) return false;
-        }
-      }
-      return true;
-    };
     // (the circle of H_u's own cut crosses the rectangle: the leaf is a cut leaf whatever the size of the jump)
     const crosses = (r) => {
       if (!sc.cut) return false;
@@ -748,9 +770,9 @@
       return Math.hypot(nx, ny) < sc.cut.R && sc.cut.R < far;
     };
     const cut = (r, d) => {
-      const x = crosses(r), two = x ? cutLeaf(sc, r) : null, ok = !x && closed(r);
+      const x = crosses(r), two = x ? cutLeaf(sc, r) : null, st = x ? 'branch' : leafState(sc, r, sc.noTest), ok = st === 'closed';
       if (ok || two || d >= SCN.DEPTH_MAX || out.length >= SCN.LEAF_MAX) {
-        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, two, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
+        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, crossed: st === 'crossed', two, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
         return;
       }
       const mx = r.x0 + (r.x1 - r.x0) * SCN.SPLIT, my = r.y0 + (r.y1 - r.y0) * SCN.SPLIT;
@@ -840,14 +862,19 @@
     }
     return out;
   };
-  // the scene's plane record: the plane s the glide's carry is built on (svCarryFrom: the earlier of plane a and the colour plane, or plane 0
-  // when a d/dz step or All sheets lies in the way) and the box its parked frame draws, [x0, x1, y0, y1] from the steps view's own view of
+  // the scene's plane record: the plane s the glide's carry is built on (the earlier of plane a and the colour plane, or plane 0 when a d/dz step
+  // or All sheets lies in the way) and the box its parked frame draws, [x0, x1, y0, y1] from the steps view's own view of
   // that plane (leftView(s)); { s, box }. pl overrides s (for a control that reads another plane's box)
   window.__cmwLandPlane = (pl) => {
-    const g = svBetween(), T0 = svT(), e = g.b == null ? g.a : g.b;
-    const s = pl != null ? pl : svCarryFrom(Math.min(g.a, T0), [e, T0, svHT(g.a), svHT(e)]), v = leftView(s), b = v && landBox(v);
+    const g = svBetween(), T0 = svT(), e = g.b == null ? g.a : g.b, s0 = Math.min(g.a, T0);
+    // (the plane the carry is built on: s0, or plane 0 when All sheets draws a multivalued chain or a d/dz step lies between s0 and a plane the frame reads)
+    const s = pl != null ? pl : S.sheets && multiSheet() || [e, T0, svHT(g.a), svHT(e)].some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0, v = leftView(s), b = v && landBox(v);
     return b ? { s, box: [b.x0, b.x1, b.y0, b.y1] } : null;
   };
+  // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
+  window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
+  // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest (leafState)
+  window.__cmwLandLeafState = (x0, x1, y0, y1, opts) => { const sc = sceneOf(); return sc ? leafState(sc, { x0, x1, y0, y1 }, opts || {}) : null; };
   // the scene's singular points over the frame's box: { poles: [[re, im]], branch: [[re, im]] }, the poles the steps view finds on the glide's
   // map and the centres of the leaves no surface closes round (a branch point inside) with their kind, [re, im, 'algebraic' | 'log']
   window.__cmwLandSing = () => {
@@ -860,13 +887,13 @@
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
   // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, cutLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
-  // opts: noInputs cuts the leaves without the winding of the branch steps' inputs, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
+  // opts: noInputs cuts the leaves without the winding of the branch steps' inputs, noPoleTest without the test for a pole in a closed leaf, noDedupe counts coincident surfaces each, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => {
     const sc0 = sceneOf();
     if (!sc0) return null;
     // (noInputs: the leaves are cut by the continuity of the surfaces alone, so a leaf that holds a branch point with a tiny cut jump counts as closed)
-    const sc = opts.noInputs ? Object.assign({}, sc0, { inputs: [], leaves: null }) : sc0;
+    const sc = opts.noInputs || opts.noPoleTest || opts.noDedupe ? Object.assign({}, sc0, { noTest: { noInputs: !!opts.noInputs, noPoleTest: !!opts.noPoleTest }, ks: opts.noDedupe ? Array.from({ length: sc0.K }, (_, k) => k) : sc0.ks, leaves: null }) : sc0;
     const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
     let w = wIn ? C(wIn[0], wIn[1]) : null;
     if (opts.onContour || opts.nearContour) {
@@ -908,6 +935,8 @@
       }
       if (!l.closed) {
         branchLeaves++;
+        // (a leaf whose input meets the local cut with winding 0 is not one the count can use)
+        if (l.crossed) { status = status === 'ok' ? 'unresolved' : status; continue; }
         // (the values of every surface at the leaf's rim and on SHRINK rings each half the one before about its centre, and the largest
         // difference of neighbouring samples: the range the leaf's values are within, widened by LIP times that difference)
         const vals = [];

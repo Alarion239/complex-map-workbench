@@ -117,14 +117,14 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
-    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true },
+    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true, surfaces: 2, polePair: [[-0.5, 0.5], [-1.5, 1.5]] },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
     { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
     { tag: 'log of an annulus', logControl: true, steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
     // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
     // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
     { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
-    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true, clipControls: true },
+    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true, clipControls: true, surfaces: 3 },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', cutControl: true },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
     { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
@@ -268,7 +268,7 @@
       return hs ? Math.min(Infinity, ...hs.filter((h) => h.H).map((h) => Math.hypot(h.H[0] - m.w[0] - shift, h.H[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])))) : Infinity;
     });
     const bad = ms.map((m, i) => [i, d[i]]).filter(([, x]) => x > window.__lxHomTol);
-    return { worst: d.reduce((a, b) => Math.max(a, b), 0), nBad: bad.length, sample: bad.slice(0, 4).map(([i, x]) => ({ z: ms[i].z, w: ms[i].w, miss: x })) };
+    return { worst: d.reduce((a, b) => Math.max(a, b), 0), nBad: bad.length, sample: bad.slice(0, 4).map(([i, x]) => ({ z: ms[i].z, w: ms[i].w, miss: x, bySheet: (__cmwLandHom(ms[i].z) || []).filter((h) => h.H).map((h) => [h.sheet, Math.hypot(h.H[0] - ms[i].w[0] - shift, h.H[1] - ms[i].w[1]) / (1 + Math.hypot(ms[i].w[0], ms[i].w[1]))]) })) };
   };
   window.__lxPick = null;
   // the members expanded by the forward combos refsOf(z) gives ([{ combo, z, f, h }] per z): a member with more than one combo is that many
@@ -773,6 +773,27 @@
               const lw = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
               // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is huge there and the shrinking rim's values do not converge, so the count must say branchLog or kindDisagree, never ok)
               ok(`${t}: the control: the branch leaf at 0 is reported (${r0 ? r0.branchLeaves : '?'} leaves, status ${r0 ? r0.status : '?'})`, !!r0 && r0.branchLeaves > 0 && (u < 1 - 2 * END_U || r0.status === 'branchLog' || r0.status === 'kindDisagree'), { lw });
+            }
+            if (c.surfaces) {
+              // (the surfaces that are distinct functions: a repeated sheet is counted once, and no distinct one is dropped)
+              const sf = await ev(`__cmwLandSurfaces()`);
+              ok(`${t}: the distinct surfaces are ${c.surfaces} of ${sf ? sf.K : '?'}`, !!sf && sf.distinct === c.surfaces, { sf });
+              // (the box holds the branch point: the leaf is reported; the leaves the continuity alone would have closed are counted beside it)
+              const sn = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), bl = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noInputs: true })`);
+              ok(`${t}: the branch leaf is reported (${sn && sn[0] ? sn[0].branchLeaves : '?'} leaves; ${bl && bl[0] ? bl[0].branchLeaves : '?'} by the continuity alone)`, !!sn && !!sn[0] && sn[0].branchLeaves > 0, { sn, bl });
+            }
+            if (c.polePair) {
+              // (a leaf that holds a zero and a pole of a step's input winds it 0 times: it is a branch leaf; the test left out calls it closed)
+              const [xr, yr] = c.polePair;
+              const withP = await ev(`__cmwLandLeafState(${xr[0]}, ${xr[1]}, ${yr[0]}, ${yr[1]})`), noP = await ev(`__cmwLandLeafState(${xr[0]}, ${xr[1]}, ${yr[0]}, ${yr[1]}, { noPoleTest: true })`);
+              ok(`${t}: the control: a leaf with a zero and a pole of the root's input is a branch leaf (${withP}), and closed without the pole test (${noP})`, withP === 'branch' && noP === 'closed', { withP, noP });
+            }
+            if (c.logControl) {
+              // (the surfaces counted as digits: where the log path repeats a sheet, the count reads two for one member)
+              if (u === GLIDE_MID) {
+                const dd = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noDedupe: true })`);
+                ok(`${t}: the control: coincident surfaces counted each break the count at u = ${GLIDE_MID}`, !!dd && dd.some((q) => !q.ok), { dd });
+              }
             }
             if (c.logControl) {
               // (a leaf that holds the branch point 0 is closed by the continuity of the surfaces alone when the cut's jump there is small: the
