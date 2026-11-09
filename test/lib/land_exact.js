@@ -95,7 +95,7 @@
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
   const WIND_PLACES = 12;   // (places counted per frame)
-  const HOM_DZ = 1e-6, HOM_CUT = 0.5, DOM_EPS = 1e-9;   // (the step of the frame's homotopy, the second-to-first difference share at which H jumps, the slack of a box's edge)
+  const DOM_EPS = 1e-9;   // (the slack of a box's edge)
   const CUT_DELTA = 0.5;   // (the control's shift of the cut circle's radius)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
@@ -180,16 +180,8 @@
       box: L.box, W2: Math.ceil(cv.width / 2), H2: Math.ceil(cv.height / 2), all: !!sheets,
       // (the members are the scene's: candidates the scene's surfaces certify, labelled by surface; no lifted coordinate is carried, each surface's H is read at the cell centred at z)
       enumAt: (ws) => { const e = __cmwLandMembers(ws); if (!e) throw new Error('no scene'); return e.map((ms) => ms.map((m) => ({ z: m.z, lam: null, h: m.h, sheet: m.k, front: m.front === true }))); },
-      // (cut: the second difference of H over three cells, centred at z - dz, z and z + dz, is over a share HOM_CUT of the first: H jumps beside z, a cut of the surface or a pole)
-      hom: (z, lam, sheet) => {
-        const dz = Math.min(${HOM_DZ}, 1e-3 * Math.hypot(z[0], z[1])) || ${HOM_DZ}, h0 = __cmwLandHom(z), hp = __cmwLandHom([z[0] + dz, z[1]]), hm = __cmwLandHom([z[0] - dz, z[1]]);
-        if (!h0) return [];
-        const out = [];
-        out[sheet] = Object.assign({}, h0[sheet]);
-        const w = h0[sheet].H, a = hp && hp[sheet].H, b = hm && hm[sheet].H;
-        out[sheet].cut = !!(w && a && b) && Math.hypot(a[0] - 2 * w[0] + b[0], a[1] - 2 * w[1] + b[1]) > ${HOM_CUT} * (Math.hypot(a[0] - b[0], a[1] - b[1]) + dz);
-        return out;
-      },
+      // (H and dH of the surface at the cell centred at z; a jump of H beside z is the core's own: its prediction check, CUT_JUMP)
+      hom: (z, lam, sheet) => { const h0 = __cmwLandHom(z); return h0 ? (() => { const out = []; out[sheet] = h0[sheet]; return out; })() : []; },
       project: (x, y, h) => { const q = __cmwLandProject(x, y, h); return q && Number.isFinite(q[0] + q[1]) ? [q[0] * dpr / 2, q[1] * dpr / 2] : null; },
       mask: (x, y) => __cmwLandMask(x, y),
       // (the scene's branch points, each at the place every surface draws it: a pole is not a place and is left out)
