@@ -76,6 +76,7 @@
   const END_Z_TOL = 1e-3;   // an edge end's z is the frame's float32 inverse: a member of the enumerator is at it within this share of 1 + |z|
   const MONO_MATCH = 1e-4;   // a tracked member has arrived at a member when their distance (in lam) is within this share of 1 + |lam|: Newton's certificate is 1e-5 of H
   const SYN_ARM = 0.5, SYN_ANGLE = 0.7;   // the made-up edge through a branch value: half its length in grid cells, and its direction (radians): along no grid line, so no vertex of it is on the branch value's row or column
+  const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
   const MONO_FAR = 8;   // grid cells: a member set the enumerator does not complete is counted and certified this far from the place, and continued in
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
   const MONO_STEPS_MAX = 4000, MONO_MIN_DT = 1e-9;   // the tracker's steps along one path, and the smallest share of a segment a step may take (past them the path is unresolved, a red)
@@ -88,14 +89,6 @@
     if (s.type === 'mobius') return [];
     if (s.type !== 'root' && s.type !== 'log') throw new Error('branchPoints: no branch points are defined for the step type ' + s.type);
     if (i > 0) throw new Error('branchPoints: the forward chain before step ' + i + ' is not defined');
-    return [[0, 0]];
-  });
-  // The places of the branch values of a scene's steps (the images of the branch points, in the first step's output plane): the root's is 0; the
-  // logarithm's is at infinity, no place of the grid; a Möbius map has none. Another type throws, like branchPoints.
-  const branchValues = (steps) => steps.flatMap((s, i) => {
-    if (s.type === 'mobius' || s.type === 'log') return [];
-    if (s.type !== 'root') throw new Error('branchValues: no branch values are defined for the step type ' + s.type);
-    if (i > 0) throw new Error('branchValues: the forward chain before step ' + i + ' is not defined');
     return [[0, 0]];
   });
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
@@ -164,7 +157,13 @@
         pend.push(e);
       }
       window.__lxPend = pend; window.__lxGrid = h; window.__lxSheetCode = r.seam.sheetCode;
-      return { n: out.n, onCut: out.onCut, pending: pend.length, h };
+      // the branch value of the branch point z = 0: the frame's homotopy at the log coordinate -BRANCH_LAM (z = e^-BRANCH_LAM, which is 0 to float64), and whether it
+      // is inside the places the frame's edges span (null: not finite)
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const e of r.edges) for (const [x, y] of [[e[7], e[8]], [e[9], e[10]]]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const hb = window.__cmwLandHom([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
+      const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
+      return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class: 'seam' (continuing its first end's member along the edge's place segment lands on a member other than the second
     // end's), 'branch' (the monodromy of the members round one of the four cells at its vertex has a cycle holding both ends' members, so a branch value
@@ -755,7 +754,9 @@
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a certified member seam (${cc.seam}) or a certified branch cell (${cc.branch} edges in ${cc.cells} cells); ${cc.falseN} are none and ${cc.unresolved} unresolved`, cc.falseN === 0 && cc.unresolved === 0, cc);
         // the certified branch cells are at most those the scene's branch points can touch
-        ok(`${t}: the certified branch cells (${cc.cells}) are at most ${BRANCH_CELLS_PER_POINT} for each of the ${brPts.length} branch points`, cc.cells <= BRANCH_CELLS_PER_POINT * brPts.length, cc);
+        // a branch is certified only where the branch value is one of the places the frame draws: elsewhere the edges' certificate sets are seams only
+        cc.wb = prep.wb; cc.inPlace = prep.inPlace; cc.region = prep.region;
+        ok(`${t}: the branch value ${JSON.stringify(prep.wb)} ${prep.inPlace ? 'is' : 'is not'} in the places the frame spans; the certified branch cells (${cc.cells}) are ${prep.inPlace ? 'at most ' + BRANCH_CELLS_PER_POINT * brPts.length + ' for the ' + brPts.length + ' branch points' : 'none'}`, prep.inPlace ? cc.cells <= BRANCH_CELLS_PER_POINT * brPts.length : cc.branch === 0, cc);
         // the controls, each of which must fail the certificate: a made-up edge between one member's two places is none; a wrong second member and loops
         // moved MONO_DISPLACE cells away (in some direction every loop is then a trivial one) do not certify a branch edge
         const ctlA = await ev(`__lx.certEdge(0, { same: ${JSON.stringify(SAME_PLACE)} })`);
@@ -770,8 +771,8 @@
         ok(`${t}: control: a wrong second member certifies none of the ${bIdx.length} branch edges (${nSwap} are none)`, nSwap === bIdx.length, { nSwap });
         ok(`${t}: control: loops moved ${MONO_DISPLACE} cells away do not all certify any of the ${bIdx.length} branch edges (${nDisp})`, nDisp === bIdx.length, { nDisp });
         // the cell that holds a branch value of the scene (the root's 0): a made-up edge there must certify a branch, which the wrong-member, displaced-loop and
-        // no-separation-check controls must each break; a scene whose branch values have no place on the grid (the logarithm's, at infinity) certifies none
-        const bvs = branchValues(c.steps);
+        // no-separation-check controls must each break; a row whose branch value (the frame's homotopy at the branch point, read by certPrep) is no place of the frame certifies none
+        const bvs = prep.inPlace ? [prep.wb] : [];
         if (!bvs.length) ok(`${t}: the scene's branch values have no place on the grid, so no real edge certifies a branch (${cc.branch})`, cc.branch === 0, cc);
         for (const bv of bvs) {
           const syn = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)} })`), synSw = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, swapB: true })`);
