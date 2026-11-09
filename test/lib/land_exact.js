@@ -78,7 +78,7 @@
   const SYN_ARM = 0.5;   // the made-up edge through a branch value: half its length in grid cells (its direction runs from the branch value toward the centre of the places the frame spans, so both its ends are in them)
   const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
   const STRIP_TOL = 1e-9;   // radians: a member whose log coordinate's imaginary part is this far outside its sheet's window (lo, hi] of the first op (__cmwLandWin) is a range-ramp member the scene's count (a winding inside the window) leaves out; the enumerator's own level test (lvl >= 0, src/inverse.js) is the same rule
-  const CTL_NA = { seam: ['log of an annulus@0.5', 'log of an annulus@0.75'], ramp: ['log of an annulus@0.75'] };   // the rows (case tag @ u) where a control has nothing to run on, so it is listed and checked: a row off the list that cannot run fails, and so does a row on it that can
+  const CTL_NA = { seam: { 'log of an annulus@0.5': 'no seam edge in the row (its one edge is a false cut)', 'log of an annulus@0.75': 'no seam edge in the row (its edges are false cuts or unresolved)' }, ramp: { 'log of an annulus@0.75': 'no place of the lattice holds a range-ramp member inside the box' } };   // the rows (case tag @ u) where a control has nothing to run on, so it is listed and checked: a row off the list that cannot run fails, and so does a row on it that can
   const RAMP_LATTICE = 40;   // places on a side of the lattice the ramp-member control searches
   const LOOP_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];   // the directions the displaced control moves its loops: each of the eight neighbours of the vertex
   const CELL_QUANT = 8;   // a branch cell is named by its lower-left corner in eighths of a grid cell
@@ -170,7 +170,7 @@
       const hb = window.__cmwLandHom([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
       window.__lxRegion = [x0, x1, y0, y1];
-      window.__lxWin = window.__cmwLandWin() || [];
+      window.__lxWin = window.__cmwLandWin() || []; window.__lxNoWin = 0;
       return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class: 'seam' (continuing its first end's member along the edge's place segment lands on a member other than the second
@@ -240,7 +240,11 @@
       };
       // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within STRIP_TOL; a member with no
       // log coordinate falls back to the enumerator's level; opt.countRamp counts the ramp members too: the control that the count catches them)
-      const inWin = (m) => !m.lam || !window.__lxWin.length || (m.sheets || [m.sheet]).some((sh) => { const q = window.__lxWin[sh]; return !q || q.lo === null || (m.lam[1] > q.lo - ${STRIP_TOL} && m.lam[1] <= q.hi + ${STRIP_TOL}); });
+      const noData = (m) => !m.lam || !(m.sheets || [m.sheet]).some((sh) => window.__lxWin[sh] && window.__lxWin[sh].lo !== null);
+      const inWin = (m) => {
+        if (noData(m)) { window.__lxNoWin = (window.__lxNoWin || 0) + 1; return true; }   // (no window data for the member: counted, and reported per row)
+        return (m.sheets || [m.sheet]).some((sh) => { const q = window.__lxWin[sh]; return q && q.lo !== null && m.lam[1] > q.lo - ${STRIP_TOL} && m.lam[1] <= q.hi + ${STRIP_TOL}; });
+      };
       const counted = (set) => set.filter((m) => cabs(m.z) >= ${COUNT_R_MIN} && inBox(m) && (inWin(m) || !!(opt && opt.countRamp))).length;
       const membersN = (w) => {
         const n = countAt(w), out = listAt(w);
@@ -709,6 +713,7 @@
     ok(`the raster check fails a wall of ${CTL.wallW} pixels`, o.wall > RASTER_TOL, o);
     ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
   }
+  const bit = { empty: 0, ramp: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
   const withProbe = async (probe, u, read) => {
@@ -803,6 +808,7 @@
         for (let k = 0; k < prep.pending; k++) certs.push(await ev(`__lx.certEdge(${k}, {})`));
         const cls = (x) => certs.filter((q) => q.cls === x).length, cells = new Set(certs.filter((q) => q.cls === 'branch').map((q) => q.cell.join(',')));
         const cc = { onCut: prep.onCut, seam: cls('seam'), branch: cls('branch'), falseN: cls('false'), unresolved: cls('unresolved'), cells: cells.size, why: certs.filter((q) => q.why).map((q) => q.why), fails: certs.filter((q) => q.fail).slice(0, 3).map((q) => q.fail) };
+        cc.noWin = await ev('window.__lxNoWin');   // (members counted for want of window data: reported per row)
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a certified member seam (${cc.seam}) or a certified branch cell (${cc.branch} edges in ${cc.cells} cells); ${cc.falseN} are none and ${cc.unresolved} unresolved`, cc.falseN === 0 && cc.unresolved === 0, cc);
         // the certified branch cells are at most those the scene's branch points can touch
@@ -826,16 +832,17 @@
         // the scene's count (the winding inside each sheet's window) disagree with the members, so some edge becomes unresolved; and a branch edge read with no loops
         // is not certified
         const kSeam = certs.findIndex((q) => q.cls === 'seam');
-        if (kSeam >= 0) { const eb = await ev(`__lx.certEdge(${kSeam}, { emptyB: true })`); ok(`${t}: control: a seam edge whose second end has no certified member is unresolved (${eb.cls})`, eb.cls === 'unresolved', eb); }
+        if (kSeam >= 0) { const eb = await ev(`__lx.certEdge(${kSeam}, { emptyB: true })`); if (eb.cls === 'unresolved') bit.empty++; ok(`${t}: control: a seam edge whose second end has no certified member is unresolved (${eb.cls})`, eb.cls === 'unresolved', eb); }
         r[u].noSeam = kSeam < 0;
-        if (kSeam < 0) ok(`${t}: control: this row has no seam edge to empty the second end of, as the row's list expects (${certs.length} edges)`, CTL_NA.seam.includes(`${c.tag}@${u}`) && certs.every((q) => q.cls !== 'seam'), { n: certs.length });
-        else ok(`${t}: control: a row with a seam edge is not on the list of rows that have none`, !CTL_NA.seam.includes(`${c.tag}@${u}`), { n: certs.length });
+        if (kSeam < 0) ok(`${t}: control: this row has no seam edge to empty the second end of, as the row's list expects (${certs.length} edges)`, (`${c.tag}@${u}` in CTL_NA.seam) && certs.every((q) => q.cls !== 'seam'), { n: certs.length });
+        else ok(`${t}: control: a row with a seam edge is not on the list of rows that have none`, !(`${c.tag}@${u}` in CTL_NA.seam), { n: certs.length });
         const rp = await ev(`__lx.rampPlace(${RAMP_LATTICE})`);
         if (rp) {
-          ok(`${t}: control: a row with a ramp place is not on the list of rows that have none`, !CTL_NA.ramp.includes(`${c.tag}@${u}`), { rp });
+          ok(`${t}: control: a row with a ramp place is not on the list of rows that have none`, !(`${c.tag}@${u}` in CTL_NA.ramp), { rp });
           const cOff = await ev(`__lx.certEdge(0, { countAt: ${JSON.stringify(rp)} })`), cOn = await ev(`__lx.certEdge(0, { countAt: ${JSON.stringify(rp)}, countRamp: true })`);
+          if (cOff.n === cOff.N && cOn.n !== cOn.N) bit.ramp++;
           ok(`${t}: control: at a place with a range-ramp member (${JSON.stringify(rp)}) the certified members match the scene's count (${cOff.n} of ${cOff.N}) and with the ramp members counted they do not (${cOn.n})`, cOff.n === cOff.N && cOn.n !== cOn.N, { cOff, cOn });
-        } else ok(`${t}: control: no place of a ${RAMP_LATTICE} x ${RAMP_LATTICE} lattice holds a range-ramp member, as the row's list expects`, CTL_NA.ramp.includes(`${c.tag}@${u}`), null);
+        } else ok(`${t}: control: no place of a ${RAMP_LATTICE} x ${RAMP_LATTICE} lattice holds a range-ramp member, as the row's list expects`, (`${c.tag}@${u}` in CTL_NA.ramp), null);
         r[u].noRamp = !rp;
         // the cell that holds a branch value of the scene (the root's 0): a made-up edge there must certify a branch, which the wrong-member, displaced-loop and
         // no-separation-check controls must each break; a row whose branch value (the frame's homotopy at the branch point, read by certPrep) is no place of the frame certifies none
@@ -971,5 +978,7 @@
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
   }
+  ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
+  ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
   return { pass: !fails.length, fails, info };
 })
