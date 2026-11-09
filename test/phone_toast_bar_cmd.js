@@ -41,7 +41,9 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'en'], [740, 360, 'en']
   ok(`${at}: two lines at most`, g.lines <= 2, g.lines);
   ok(`${at}: its words are not cut`, g.cut <= 0, g.cut);
   // a short drag keeps it, a swipe down dismisses it
-  const x = Math.round((g.toast.l + g.toast.r) / 2), y = Math.round((g.toast.t + g.toast.b) / 2);
+  // (the drag starts at the message's first line, away from its buttons: the browser snaps a touch near a button to that button)
+  const words = await ev(`${R('#toastHost .toast > span')}`);
+  const x = Math.round(words.l + 8), y = Math.round(g.toast.t + 4);
   await touch(x, y, y + 12);
   await settled({ max: 3000, panes: false, until: SETTLED });
   ok(`${at}: a short drag keeps it`, await ev(`!!${T}`), null);

@@ -110,9 +110,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .viewstack button { pointer-events: auto; }
 /* a pressed stack key reads as the phone's other pressed keys do */
 :root.ph .viewstack .vbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-/* the steps view's stack keeps its place while a message or the context bar shows: the message stops short of it */
+/* the steps view's stack rides up only above the context bar: a message stops short of it instead */
 :root.ph.sv { --ph-stack-w: 62px; }
-:root.ph.sv .viewstack { --ph-lift: 0px; }
+:root.ph.sv .viewstack { --ph-lift: var(--ph-lift-ctx); }
 :root.ph.sv #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-stack-w)); }
 :root.ph.sv.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + var(--ph-stack-w) + env(safe-area-inset-right, 0px)); }
 /* a short landscape plane cannot hold the five keys in one column: Display stays top right, Fit view and Sphere keep the bottom right, and the zoom keys take a column to their left at the same bottom */
@@ -469,9 +469,9 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the context bar overlays the bottom of the planes, above the chain bar (or the steps strip) and slides out from behind it:
    nothing else on the screen moves for it. A toast still takes its row (the planes give it room) */
 /* (the controls floating at the planes' foot (Fit view, the Sphere and Display keys, the inset) ride up with the bar while it is open) */
-:root.ph { --ph-cbelow: var(--ph-chain); --ph-lift: 0px; }
-:root.ph:has(.ph-ctx.in:not(.under)) { --ph-lift: 56px; }
-:root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-lift: 104px; }
+:root.ph { --ph-cbelow: var(--ph-chain); --ph-lift: 0px; --ph-lift-ctx: 0px; }
+:root.ph:has(.ph-ctx.in:not(.under)) { --ph-lift: 56px; --ph-lift-ctx: 56px; }
+:root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-lift: 104px; --ph-lift-ctx: 104px; }
 :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
 :root.ph.sv { --ph-cbelow: 62px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
