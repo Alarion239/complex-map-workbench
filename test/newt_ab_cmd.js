@@ -5,7 +5,7 @@
 // float target as float32; a one-row target, a table upload, is left out) and hashed over its raw bits; the record of a
 // scene is the last hash of each target (the NEWT roots pass's targets, the carried colour targets) and the hash of the
 // left canvas's pixels once the scene has settled.
-// Without CMW_NEWT_AB_OUT it checks that a scene's record is the same on two loads and that its targets are not blank;
+// Without CMW_NEWT_AB_OUT it checks that a scene's record is the same on two loads and that it read targets back (a blank target is marked '(blank)' in the info, not failed: a scene may draw a target that stays empty);
 // with it, it also writes the records there, as JSON.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -55,18 +55,23 @@ const HOOK = `(() => {
   return 1;
 })()`;
 const stateOf = (sc) => ({ shapes: [sc.shape], steps: [sc.step], rightMode: 'image', srcView: sc.view });
-const ready = () => settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwP === "function" && !!window.GLR' });
+// (waits: the page's load, the glide's settle, and the pause after the hook is installed or the glide has settled, which lets
+// the last software-rendered frames finish; the glide's place is reached when u is within GLIDE_U_TOL)
+const LOAD_MAX_MS = 60000, GLIDE_MAX_MS = 90000, FRAMES_PAUSE_MS = 2500, GLIDE_U_TOL = 1e-9;
+// (a scene is loaded LOADS_PER_SCENE times, a third only when the first two disagree: a software renderer's frame count varies)
+const LOADS_PER_SCENE = 2;
+const ready = () => settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwP === "function" && !!window.GLR' });
 // the record of a scene at thread place x, from a fresh page load
 const record = async (sc, x) => {
   await view(1440, 900, false);
   await loadView('steps', `ab${Date.now()}`, stateOf(sc));
   await ready();
   await ev(HOOK);
-  await sleep(2500);
+  await sleep(FRAMES_PAUSE_MS);
   await ev('Object.keys(window.__ab.rec).forEach((k) => delete window.__ab.rec[k]), window.__ab.st.on = true, 1');
   await ev(`__cmwSteps({ ${x === Math.floor(x) ? 'park' : 'x'}: ${x} }), 1`);
-  await settled({ max: 90000, until: `__cmwSteps().x === ${x} || (__cmwSteps().glide && Math.abs(${Math.floor(x)} + __cmwSteps().glide.u - ${x}) < 1e-9)` });
-  await sleep(2500);
+  await settled({ max: GLIDE_MAX_MS, until: `__cmwSteps().x === ${x} || (__cmwSteps().glide && Math.abs(${Math.floor(x)} + __cmwSteps().glide.u - ${x}) < ${GLIDE_U_TOL})` });
+  await sleep(FRAMES_PAUSE_MS);
   const r = await ev(`(() => { const cv = document.querySelector('#canvasL'), c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } window.__ab.rec['canvasL|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; return JSON.stringify(window.__ab.rec); })()`);
   return typeof r === 'string' ? JSON.parse(r) : r;
 };
@@ -76,9 +81,11 @@ for (const sc of SCENES) {
     const key = `${sc.name}@${x}`;
     if (ONLY && !ONLY.test(key)) continue;
     let a = await record(sc, x), b = await record(sc, x);
+    let loads = LOADS_PER_SCENE;
     // (a load that disagrees with both of two others is the odd one out: the frame count of a software renderer's run varies)
     if (JSON.stringify(a) !== JSON.stringify(b)) {
       const c = await record(sc, x);
+      loads++;
       if (JSON.stringify(c) === JSON.stringify(a)) b = c;
       else if (JSON.stringify(c) === JSON.stringify(b)) a = b;
     }
@@ -94,6 +101,7 @@ for (const sc of SCENES) {
     const targets = Object.keys(a).filter((k) => k !== 'error');
     ok(`${key}: draws were read back`, targets.length > 0 && !a.error, a.error || targets.length);
     ok(`${key}: a second load records the same hashes`, JSON.stringify(a) === JSON.stringify(b), Object.keys(a).filter((k) => !b[k] || a[k].h !== b[k].h));
+    if (loads > LOADS_PER_SCENE) info[key + ' loads'] = loads;
     info[key] = targets.map((k) => k + (a[k].blank ? ' (blank)' : '')).join(' ');
   }
 }

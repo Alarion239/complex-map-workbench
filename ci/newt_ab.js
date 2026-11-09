@@ -78,7 +78,7 @@ try {
   const ab = diff(A.rec, B.rec), ac = C ? diff(A.rec, C.rec) : null;
   console.log(`A/B: ${ab.n} targets compared, ${ab.d.length} differ${ab.d.length ? ': ' + ab.d.slice(0, 20).join('; ') : ''}`);
   if (ac) console.log(`control: ${ac.d.length} of ${ac.n} targets differ from the base${ac.d.length ? '' : ' (the comparison cannot see a change)'}`);
-  if (ab.d.length || (ac && !ac.d.length) || !A.ok || !B.ok) code = 1;
+  if (ab.d.length || !ab.n || (ac && !ac.d.length) || !A.ok || !B.ok) code = 1;
   console.log(code ? 'FAIL' : ac ? 'PASS: 0 differing bits, and the control is seen' : 'PASS: 0 differing bits (no control run)');
 } catch (e) {
   console.log('FAIL ' + e.message);

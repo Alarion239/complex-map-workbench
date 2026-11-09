@@ -68,10 +68,13 @@ for (const [name, type, bound, boundPass] of CASES) {
   check(`${name}: the inverse program reaches at most ${bound} H evaluations per member (reaches ${prog})`, prog <= bound, prog);
   const nr = reach(bodies(inv.lib + inv.nr.main, 'ix0'))('main');
   check(`${name}: the roots pass reaches at most ${boundPass} H evaluations per pixel (reaches ${nr})`, nr <= boundPass, nr);
-  // negative control: a second _run call site in _roots must show in the count, past the bound
+  // negative control: a second _run call site must show in the count, past the bound: in the member function (the program) and in the NR pass's main
   const dup = inv.lib.replace(/^(.*= ix0_run\(.*)$/m, '$1\n$1');
   const more = reach(bodies(dup, 'ix0'))('ix0_one_b');
-  check(`${name}: a second _run call site is counted (reaches ${more}, past ${bound})`, dup !== inv.lib && more > bound, more);
+  check(`${name}: a second _run call site is counted in the member function (reaches ${more}, past ${bound})`, dup !== inv.lib && more > bound, more);
+  const nrSrc = inv.lib + inv.nr.main, dupNr = nrSrc.replace(/^(.*= ix0_run\(.*)$/gm, '$1\n$1');
+  const moreNr = reach(bodies(dupNr, 'ix0'))('main');
+  check(`${name}: a second _run call site is counted in the NR pass (reaches ${moreNr}, past ${boundPass})`, dupNr !== nrSrc && moreNr > boundPass, moreNr);
   console.log(`${name}: program ${prog}, roots pass ${nr} H evaluations (bounds ${bound}, ${boundPass})`);
 }
 console.log(bad ? `${bad} failed` : 'all passed');
