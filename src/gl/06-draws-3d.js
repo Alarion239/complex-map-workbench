@@ -1483,7 +1483,7 @@
     gl.depthFunc(gl.LEQUAL);
     for (const o of st.outlines || []) {
       if (!o || !o.res) continue;
-      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: 1.25 * dpr, color: col3(o.color, C.modLine), alpha: below ? 0.45 : 1, fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
+      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: (o.width || 1.25) * dpr, color: col3(o.color, C.modLine), alpha: below ? 0.45 : 1, fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
     }
     // unit level: the plane h(|F| = 1)
     if (st.unitLevel) {

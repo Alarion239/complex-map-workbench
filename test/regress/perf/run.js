@@ -736,7 +736,7 @@ async function morphOpenUnit() {
 // slices); also the edit's longest task overall (a chain change also links programs), how many went over 100 ms, how
 // long the cards took to be fresh, and whether every card is drawn
 const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
-const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
+const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; if (!c) return null; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
 // a CPU profile -> {ms, link, sync, longest}: the time in samples whose stack holds fn, and the longest run of
 // consecutive such samples
 // (link: the part of ms in a program link, the link status read that waits for it; sync: the part in a GPU read-back,
@@ -904,7 +904,7 @@ async function svFirstGlideUnit() {
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
 }
-// [#1157] the steps view's prestart re-runs after every chain edit, in idle time: a step is added and the pane is
+// the steps view's prestart re-runs after every chain edit, in idle time: a step is added and the pane is
 // dragged (n moves, 16 ms apart) while svReady() still counts work to do; then a power step is added and its n typed
 // (digits 80 ms apart) in the same state. Each window's frames are judged by the same frame_ms rule as every other
 // frame p95 (the reference and the tolerance are the unit's, none is new or loosened); the longest of them and the work
@@ -1350,7 +1350,7 @@ async function cardsStartupUnit() {
       const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
       first.push(f.length ? f[0][6] : null);
       allDrawn = allDrawn && ok;
-      if (i === 0) detail(`${pre}.cards`, await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`));
+      if (i === 0) detail(`${pre}.cards`, await B.ev(`typeof __cmwCards === 'function' ? (__cmwCards().cards || []).length : 0`));
     }
     put(`${pre}.first_frame_ms`, 'oneshot_ms', 'ms', first);
     put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });

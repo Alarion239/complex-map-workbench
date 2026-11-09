@@ -25,7 +25,7 @@ const loaded = async (pause, ms = 30000) => {
   await settled({ max: pause });
   for (const t0 = Date.now(); Date.now() - t0 < ms; await sleep(200)) {
     let ok = false;
-    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* navigating */ }
+    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#svStrip .sv-add')`); } catch (e) { /* navigating */ }
     if (ok) break;
   }
   await settle(0);

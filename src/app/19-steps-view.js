@@ -9,8 +9,8 @@
   // The view reuses the app's views: a plane at or before the colour plane is Phase (or Landscape), one after it X → Y, always on
   // the left pane alone (solo 'L'); leftStage() is the shown plane, focusMap() the map into the colour plane.
   const SV = {
-    // (or a host page that sets window.cmwView = 'steps' before the app starts: the prototype's published page)
-    on: (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })(),
+    // (the steps view is the default; ?view=classic, or a host page that sets window.cmwView = 'classic' before the app starts, opens the classic views)
+    on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
@@ -22,7 +22,7 @@
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
     anim: null,      // the glide to a plane: {from, to, t0, ms}, eased in and out over a fixed time (no spring tail)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
-    footT: -1,       // the colour plane the style row was last built for
+    footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
@@ -349,13 +349,14 @@
   // (s, T]), or in no colour while the nearer plane is plain (svPlain; T is then s). key: from z's
   // plane to a later one, the 2D carried colour's sheet key of the plane the frame goes to (svSheetKey), so where the
   // places fold the point in front is the one the 2D picture shows; else null. vs, va, vb: the views of s, a and b.
-  // rest: the plane at rest the frame is (the probe picks on its relief), else null
+  // rest: the plane at rest the frame is (the probe picks on its relief), else null. zmap: the same map from z's plane, the
+  // map the shapes' outlines are drawn under, so the floor's lines are carried as the surface is
   function svLandCarry(mapOf, a, b, u, rest = null) {
     const T0 = svT(), e = b == null ? a : b, hT = svHT(a), hT2 = svHT(e), plain = svPlain(u < 0.5 ? a : e);
     const s = svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
     const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: hT };
     const key = !plain && s === 0 && e > 0 ? svSheetKey(e) : null;
-    return { map: mapOf(s), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
+    return { map: mapOf(s), zmap: mapOf(0), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
   }
   // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
   // when it is coloured from T and its heights are of that map too; else plane k's points (k at or before T) or T's
@@ -948,7 +949,8 @@
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
   // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
-  // the first reason unless every shape takes that path
+  // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
+  // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
@@ -960,6 +962,10 @@
     let whole = null;
     const paths = list.map((x) => (!hom ? pathOf(x, stageMap(b), 'L', kind, { recs, budget: false })
       : shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, u, singAt)) : invHomPath(x, 0, b, u, singAt)));
+    const part = why.rest && !hom && !list.includes(SV_ALL);
+    if (part) {
+      for (let i = list.length - 1; i >= 0; i--) if (paths[i].path !== 'inverse') { why.rest.unshift(list[i]); list.splice(i, 1); paths.splice(i, 1); }
+    }
     const no = paths.find((p) => p.path !== 'inverse');
     if (no) { why.r = no.reason; return null; }
     // (Everywhere asks for the front one of all of H_t's points over w. A homotopy inverted by Newton finds them all only
@@ -1791,10 +1797,17 @@
   // the regions' colour on the globe per pixel through the inverse pass, as drawSphere's regions draw records: between
   // two planes, step b's homotopy at u (svCarryExactHom's records); at rest on plane b past the colour plane (u null),
   // the map into b (svCarryExact's). A point of the plane shown is walked back to plane 0 and coloured as the colour
-  // plane colours it. Null when a region has no inverse plan
-  function svGlobeCarryInv(pane, b, u, T) {
-    const h = svInvPaths(b, u, 'globe', { r: null }), carry = svCarryStyle(T);
-    return h && h.list.map((x, i) => ({ inv: svInvArg(pane, h.paths[i], x, carry), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
+  // plane colours it. Null when the frame cannot take the pass; a region with no inverse plan makes it null too, unless rest
+  // is an array (at rest): those shapes are put in it and the list holds the others (possibly none)
+  function svGlobeCarryInv(pane, b, u, T, rest) {
+    const h = svInvPaths(b, u, 'globe', { r: null, rest }), carry = svCarryStyle(T);
+    return h && h.list.map((x, i) => ({ inv: Object.assign(svInvArg(pane, h.paths[i], x, carry), { globeBox: u == null ? svGlobeBox(h.paths[i], x) : null }), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
+  }
+  // the w-box of a bounded shape's image on plane b at rest (the carried colour is drawn only where the shape's points land),
+  // which scissors its pass (gl.js globeScissorOf); null for an unbounded shape, a shape of a later plane or a box that cannot
+  // be promised
+  function svGlobeBox(p, x) {
+    return shapeStage(x) ? null : globeImageBox(p, x, false);
   }
   // the carried mesh of plane a's globe (drawSphere's st.carried): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
@@ -1805,14 +1818,21 @@
     return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svCarryKey(pane, src, a) });
   }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
-  // homotopy), or by the carried mesh where a region has no inverse plan, with the plane's shapes and what the globe draws
-  // over them at rest (leftGlobeOver). Null when neither can draw: the caller draws the regions' exact images instead
+  // homotopy), by the carried mesh where a region has no inverse plan (kept inside those regions alone when others take
+  // the exact pass), with the plane's shapes and what the globe draws over them at rest (leftGlobeOver). Null when
+  // neither can draw: the caller draws the regions' exact images instead
   function svGlobeRest(pane, k) {
-    const T = svT(), inv = svGlobeCarryInv(pane, k, null, T);
-    const mesh = inv ? null : svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k });
+    const T = svT(), fwd = [], inv = svGlobeCarryInv(pane, k, null, T, fwd);
+    const mesh = !inv || fwd.length ? svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
     if (!inv && !mesh) return null;
-    const info = sphereView(pane, camL, CAML, Object.assign({ imageMode: false, stage: k, plane: !!xView().eq, role: 'L', carryRegions: inv, carried: mesh }, leftGlobeOver()));
-    if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
+    if (inv && fwd.length && !mesh) return null;
+    const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' };
+    const info = sphereView(pane, camL, CAML, Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver()));
+    let meshed = !!(info && info.carried) && !inv;
+    // (the mesh over the exact pass's globe, kept inside the regions that take it)
+    if (info && inv && fwd.length) meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
+    const exact = !!inv && inv.length > 0;
+    if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
   function svSphereMoving(pane) {
@@ -2148,8 +2168,10 @@
     if (!SV.on || !SV.els) return;
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
-    // (the Cauchy parts in the style row read the colour plane: the row is built again when it moves)
-    if (SV.footT !== T) { SV.footT = T; if (S.dc === 'cauchy') buildRightFoot(); }
+    // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
+    // built again when either changes)
+    const footKey = S.dc === 'cauchy' ? T + '|' + (cauchyKind() || {}).kind : T;
+    if (SV.footT !== footKey) { SV.footT = footKey; if (S.dc === 'cauchy') buildRightFoot(); }
     const x = SV.g.x, at = Math.round(x), parked = svParked();
     const ph = document.documentElement.classList.contains('ph');
     const sig = [k, T, SV.scope, svNoRegions() ? 1 : 0, SV.surf, at, parked ? x.toFixed(3) : '', svMoving() ? 1 : 0,
@@ -2796,7 +2818,7 @@
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
       // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
       // #448; the classic key handler's exclusions, 14-interaction.js): only the thread's own keys pass)
-      if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
+      if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
       if ((e.shiftKey || onRail) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault(); e.stopImmediatePropagation();
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
@@ -3528,7 +3550,7 @@
         try { r = run(); } finally { SV.quiet = false; }
         if (!SV.want) SV.own = false;
         else if (it.id === 'insert' || it.id === 'replace') svWatchPalette();
-        // (what the item says: an element it shows; the chain's own return is a hidden card)
+        // (what the item says: an element it shows)
         if (r instanceof Element && r.getClientRects().length) return r;
         if (it.id === 'dup') return svEl(k + 1, 'chip');
         // (a palette, a toast's Undo…: the keyboard goes to the chip unless a layer took it)
@@ -3546,7 +3568,7 @@
     setTimeout(() => { if (SV.els) SV.els.live.textContent = msg; }, 30);
     return true;
   }
-  // open step k in the Inspector; on a phone its sheet (a card's tap does it there, the thread's chip is not a card)
+  // open step k in the Inspector; on a phone its sheet too
   function svInspect(k) {
     inspectStep(k);
     if (document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined' && Phone.open) Phone.open('edit');
@@ -3580,6 +3602,132 @@
       if (deaf) { e.stopPropagation(); e.preventDefault(); }
     };
     for (const type of ['pointerup', 'click', 'mouseup']) pop.addEventListener(type, eat, true);
+  }
+  // (stepMenuItems is the list, each item with an id; the steps view's thread orders them its own way, svStepMenu)
+  function stepMenuItems(anchor, k, opt) {
+    const st = S.steps[k - 1], d = defOf(st);
+    // (Replace… first: the palette, ready to replace this step)
+    const items = /** @type {any[]} */ ([{ id: 'replace', label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
+    // (the Inspector's menu also holds Inverse and Bypass)
+    if (opt && opt.full) {
+      const b0 = built[k - 1];
+      if (!isDerivStep(st, b0)) items.push({ id: 'inverse', label: b0 && b0.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why'), disabled: !b0 || !!b0.error, run: () => inverseAction(k) });
+      items.push({ id: 'bypass', label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
+    }
+    items.push(
+      // (the keys a focused chip takes, Alt+← / Alt+→; none on a touch screen)
+      { id: 'moveL', label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
+      { id: 'moveR', label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      { id: 'dup', label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
+      { id: 'insert', label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
+      { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
+      { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
+    // (which steps the deformation deforms, SPEC 6.5)
+    if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
+    // ([issue #6] Repeat × N)
+    if (!isDerivStep(st, built[k - 1])) {
+      const rk = repeatItems(k);
+      // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
+      if (opt && opt.thread && rk.length === 1) items.push({ id: 'repeat', label: $t('Repeat…'), run: rk[0].run });
+      else if (opt && opt.thread && repeatOf(k)) items.push({ id: 'repeat', label: rk[0].label, run: rk[0].run }, { id: 'repeatEnd', label: rk[1].label, run: rk[1].run });
+      else if (rk.length) items.push({ id: 'repeat', label: $t('Repeat'), kids: rk });
+    }
+    if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
+    const bk = built[k - 1];
+    // a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
+    if (st.type === 'custom') {
+      const sp = Funcs.splitSteps(st, bk), no = sp.kind === 'none' || !!sp.blocked;
+      items.push({ label: sp.kind === 'one' ? $t('Replace with “{name}”', { name: Funcs.DEFS[sp.steps[0].type].label }) : $t('Split into steps'), disabled: no, tip: no ? Funcs.splitReason(sp) : null, run: () => splitStep(k) });
+    }
+    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
+    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
+    if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
+    items.push('sep', { id: 'remove', label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
+    return items;
+  }
+  const REPEAT_TYPE_SETTLE_MS = 400;
+  function repeatField(getK) {
+    const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
+    // (typed for the step it was typed on: a chain or example switch within the settle delay must not take the N)
+    let settle = 0, typedFor = null;
+    const apply = () => {
+      clearTimeout(settle);
+      const t = inp.value.trim(), st = typedFor || S.steps[getK() - 1];
+      typedFor = null;
+      if (!st || !st.repeat || S.steps.indexOf(st) < 0) return;
+      const rp = repeatFromText(st, t);
+      if (!rp) return;
+      st.repeat = rp;
+      chainChanged(false);
+      repeatMoved(S.steps.indexOf(st) + 1, rp);
+    };
+    // (while text is being typed the field is the viewer's: repeatShowAll leaves it alone)
+    inp.addEventListener('input', () => { inp.dataset.typing = '1'; clearTimeout(settle); typedFor = S.steps[getK() - 1] || null; settle = setTimeout(apply, REPEAT_TYPE_SETTLE_MS); });
+    inp.addEventListener('change', () => { delete inp.dataset.typing; apply(); repeatShowAll(); commit(); });
+    inp.addEventListener('blur', () => { delete inp.dataset.typing; });
+    // (the arrow keys step a typed N, as a number field does)
+    inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      delete inp.dataset.typing; clearTimeout(settle);
+      repeatStep(getK(), e.key === 'ArrowUp' ? 1 : -1);
+    });
+    repFields.push({ inp, getK });
+    return inp;
+  }
+  // a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
+  // same function, so the planes do not change; one commit, undone by Undo
+  function splitStep(k) {
+    const st = S.steps[k - 1], b = built[k - 1];
+    const sp = st && st.type === 'custom' ? Funcs.splitSteps(st, b) : null;
+    if (!sp || sp.kind === 'none' || sp.blocked) { sndError(); toast(Funcs.splitReason(sp).replace(/\.?$/, '.')); return null; }
+    const news = sp.steps.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: st.on !== false }));
+    const n = news.length;
+    // the deformation (open on the whole chain): the formula's unit [j, j+1) becomes [j, j+n), its own sub-steps
+    let T1 = null;
+    // (all at once: one t for every step, kept as it is; the movie runs the new steps together)
+    if (morph.open && S.focus === 0) { const j = morphRange().steps.indexOf(k); T1 = S.homAll ? morph.T : j >= 0 ? Funcs.splitMorphT(morph.T, j, n) : morph.T; }
+    // the formula shown alone (the palette's flow focuses a new step): the first new step alone is only part of it. With
+    // no other step, F is the formula: show F, so the planes stay the same; otherwise the toast says what is shown
+    const alone = S.focus === k, only = S.steps.length === 1;
+    // (the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
+    const hr = S.homRange ? HR.resolve(S, true) : null;
+    if (SV.on) svSplitEdit(k, n);
+    spliceSteps(k - 1, 1, ...news);
+    if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
+    if (S.focus > k) setFocusStep(S.focus + n - 1);
+    else if (alone && only) setFocusStep(0);
+    chainChanged(true);
+    if (!SV.on || S.focus) setFocus(S.focus);   // (the steps view's planes share one camera: with no focus, a split does not fit it again)
+    setSel(k);
+    if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
+    commit();
+    soundCue('stepAdd');
+    tourEmit('formula-split', { k, n });
+    requestRender('P');
+    const shown = alone && !only && n > 1 ? ' ' + (document.documentElement.classList.contains('ph') ? $t('Showing f{k} alone.', { k: sub(k) }) : $t('Showing f{k} alone; › shows the next step.', { k: sub(k) })) : '';
+    undoToast((n === 1 ? $t('f{k} is now the step “{name}”.', { k: sub(k), name: Funcs.DEFS[news[0].type].label })
+      : $t('Split f{k} into f{k}–f{k2}: {chain}.', { k: sub(k), k2: sub(k + n - 1), chain: sp.names.join(' → ') })) + shown);
+    // (true: split; null is a refusal)
+    return true;
+  }
+  function setMorphPaths(on) {
+    if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
+    setOpt('morphPaths', !!on);
+    const b = $('pathsBtn');
+    if (b) syncPathsBtn(b, !!on, b.disabled);
+    requestRender('R'); drawLegend(); save();
+    tourEmit('paths-toggled', { on: !!on });
+  }
+  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
+  function setHomAll(all) {
+    const before = morphLen();
+    setOpt('homAll', !!all);
+    const after = morphLen();
+    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
+    else if (!morph.open) morph.T = after;
+    scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
+    tourEmit('order-changed', { all: !!S.homAll });
   }
   function svStepMenu(anchor, k, lp) {
     if (!S.steps[k - 1]) return null;
@@ -3669,7 +3817,7 @@
   function svChipBtn(cls, attrs, fk, name) {
     return h('button', Object.assign({ type: 'button', class: cls }, attrs), h('span', { class: 'sv-fk', html: fk }), h('span', { class: 'sv-fn' }, name));
   }
-  // a step's chip: its pill (the chip opens the step, ⋯ its menu), with the card's keys
+  // a step's chip: its pill (the chip opens the step, ⋯ its menu), with the step's keys
   function svStepEl(k) {
     const st = S.steps[k - 1], d = defOf(st), off = st.on === false, name = cardName(st, d);
     const chip = svChipBtn('sv-fchip', { 'data-tip': `${name} · ${$t('Edit step {k}', { k })}`,

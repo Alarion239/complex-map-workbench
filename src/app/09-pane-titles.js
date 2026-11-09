@@ -100,7 +100,7 @@
     // (one title for the merged plane and the merged globe)
     // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
     // carry the "Y · " tag)
-    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && bracketWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
+    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && rangeWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
     else if (S.focus === 0) {
       // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
@@ -150,15 +150,11 @@
     $('rightFit').hidden = !rImage();
     $('leftFit').hidden = false;
     buildRightFoot();
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.card'))) c.classList.toggle('focus', +c.dataset.k === S.focus);
-    syncSel();
-    $('viewAllBtn').setAttribute('aria-pressed', String(S.focus === 0));
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
     updateToolHint();
     updateLeds();
     drawLegend();
-    updateBracket();   // (v16: the deformation's bracket shows with the transport on the whole chain)
   }
   // segmented controls: mark the selected segment and move the sliding thumb
   // the sliding marker of the segmented controls is placed for every control that changed in one pass at the next
@@ -520,6 +516,7 @@
     const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
     // (the steps view's Opacity slider is the one for S.alpha there: the regions' own row is left out)
     if (regions) /** @type {HTMLElement} */ ($('alphaRange').closest('.fader-row')).hidden = SV.on;
+    if (regions) regionsNote();
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
     const regionsHead = regions && !regionsOnly && rest.length
       ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
@@ -740,7 +737,7 @@
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
-  function buildRightFoot() { buildFoot('L'); buildFoot('R'); buildDock(); setReadouts(probe); }
+  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); }
   // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
   const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
   function buildFoot(side) {
@@ -772,116 +769,6 @@
     ft.kids = [...f.children]; layoutFootSide('R', true);
     drawLegend();
   }
-  // the deformation transport (spec 6.11; merged-views.md: docked at the bottom of the view's panel, under the plot):
-  // play, the scrubber with a tick per step, t, speed, the path, Loop and Paths; x turns the deformation off
-  // the phone's Steps picker: which steps deform, as the button names it
-  function stepsLabel() {
-    const r = homRangeOk();
-    return r ? $t('Steps {f1}–{f2}', { f1: fUni(r.a), f2: fUni(r.b) }) : $t('Every step');
-  }
-  function buildDock() {
-    const side = S.view.main === 'xy' ? 'R' : 'L';
-    for (const sd of ['L', 'R']) {
-      const d = $(sd === 'L' ? 'tdockL' : 'tdockR');
-      if (!d) continue;
-      const on = morph.open && sd === side;
-      if (d.hidden === on) d.hidden = !on;
-      if (!on) { if (d.firstChild) d.replaceChildren(); continue; }
-      d.replaceChildren();
-      const f = d;
-
-      // the deformation transport (spec 6.11), in every view: play, the scrubber with a tick per step (one for all
-      // steps at once), t, speed, the order of the steps (two or more), Loop and the Paths toggle (P); × closes it
-      // and the view returns to t = end
-      const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
-      const play = h('button', { class: 'icon-btn play', id: 'morphPlay', 'data-tip': (morph.playing ? $t('Pause') : $t('Play')) + '  K', 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
-      const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': $t('Deformation time'),
-        onchange: () => sndScrubEnd(), onpointerup: () => sndScrubEnd(),
-        // (v16.2: the readout follows a paused scrub in every view; in Landscape or Phase alone Y's pane, whose render
-        // called syncTransport, is not drawn, so it kept the last played t)
-        oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; sndScrub(morph.T, v); morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); syncTransport(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
-      const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
-      if (allAtOnce()) {
-        const ks = morphRange().steps;
-        ticks.append(h('span', { class: 'ttick', style: 'left:50%', html: $t('<i>f</i>{x}, …, <i>f</i>{x2} at once', { x: sub(ks[0]), x2: sub(ks[ks.length - 1]) }) }));
-      } else morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
-      // the order of the steps (two or more): one after another (t in [0, m]) or all at once (t in [0, 1])
-      let order = null;
-      if (nSt > 1) {
-        order = selectEl('homOrderSel', allAtOnce() ? 'all' : 'steps', [['steps', $t('One after another')], ['all', $t('All at once')]], (v) => setHomAll(v === 'all'), $t('Deformation: the steps one after another or all at once'));
-        if (hasD) { order.disabled = true; order.value = 'steps'; order.dataset.tip = $t('d/dz is not a map: its step deforms on its own, so the steps run one after another'); }
-      }
-      // (v16, SPEC 6.6: with a bracket's pre or post, "f₁ →" and "→ f₄" around the scrubber, and the transport says so)
-      const rp = S.focus === 0 ? rangeParts() : null;
-      let scrub;
-      if (rp && (rp.pre.length || rp.post.length)) {
-        const ks = morphRange().steps;
-        const preTip = rp.pre.length ? $tn('{list} is applied first, in full', '{list} are applied first, in full', rp.pre.length, { list: stepRuns(rp.pre) }) : '';
-        const postTip = rp.post.length ? $tn('{list} is applied last, in full', '{list} are applied last, in full', rp.post.length, { list: stepRuns(rp.post) }) : '';
-        scrub = h('div', { class: 'tscrub tfixed' },
-          rp.pre.length ? h('span', { class: 'tfix tpre', 'data-tip': preTip, html: `${stepRuns(rp.pre, true)} →` }) : null,
-          h('div', { class: 'trail' }, rng, ticks),
-          rp.post.length ? h('span', { class: 'tfix tpost', 'data-tip': postTip, html: `→ ${stepRuns(rp.post, true)}` }) : null);
-        d.setAttribute('aria-description', [$tn('Deforming step {list}.', 'Deforming steps {list}.', ks.length, { list: stepRuns(ks) }), preTip && preTip + '.', postTip && postTip + '.'].filter(Boolean).join(' '));
-        // (a phone: the labels are left out once the range input would be under 120 px wide; the bracket above says the
-        // same. syncTransport checks it on the frames that follow; never shown again until the dock is rebuilt, so the
-        // scrubber does not flip between two widths)
-        if (brPhone()) {
-          scrub.dataset.fit = '1';
-          let nf = 0;
-          const tick = () => { if (!scrub.isConnected || !scrub.dataset.fit || ++nf > 40) return; const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } else requestAnimationFrame(tick); };
-          requestAnimationFrame(tick);
-        }
-      } else { scrub = h('div', { class: 'tscrub' }, rng, ticks); d.removeAttribute('aria-description'); }
-      // (v16, SPEC 6.7: the phone's Display sheet row, Deformed steps [f_a]–[f_b]; built but hidden on desktop)
-      let trow = null;
-      if (S.focus === 0 && activeSteps().length >= 2) {
-        const n = nSteps(), r = homRangeOk() || { a: 1, b: n }, dd = HR.lastDeriv();
-        // (review v16 user-4: each choice names its step, 'f₁ Exponential', and the row says where the deformation
-        // starts, as the desktop menu's key slot does)
-        const optName = (k) => { const st = S.steps[k - 1], d = st && Funcs.DEFS[st.type]; try { return st && d ? cardName(st, d) : ''; } catch (e) { return ''; } };
-        const opt = (k, dis) => { const nm = optName(k); const o = h('option', { value: String(k) }, nm ? `${fUni(k)} ${nm}` : fUni(k)); if (dis) o.disabled = true; return o; };
-        const sa = h('select', { class: 'sel', 'aria-label': $t('First deformed step'), onchange: (e) => { const a = +e.target.value, cur = homRangeOk() || { a: 1, b: nSteps() }; setHomRange({ a, b: Math.max(a, cur.b) }); } }, ...Array.from({ length: n }, (_, i) => opt(i + 1, false)));
-        const sb = h('select', { class: 'sel', 'aria-label': $t('Last deformed step'), onchange: (e) => { const b = +e.target.value, cur = homRangeOk() || { a: 1, b: nSteps() }; setHomRange({ a: Math.min(cur.a, b), b }); } }, ...Array.from({ length: n }, (_, i) => opt(i + 1, i + 1 < dd)));
-        sa.value = String(r.a); sb.value = String(r.b);
-        trow = h('div', { class: 'trange' }, h('span', { class: 'tr-label' }, $t('Deformed steps')), h('span', { class: 'tr-sels' }, sa, h('span', { class: 'tr-dash', 'aria-hidden': 'true' }, '–'), sb),
-          h('span', { class: 'tr-from', html: $t('from {v}', { v: subTags(rangeStart('html')) }) }),
-          dd > 1 ? h('span', { class: 'tr-note' }, $t('A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.')) : null);
-      }
-      const tread = h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout());
-      const speed = seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { setOpt('morphSecs', +v); save(); }, $t('Speed'));
-      const loop = checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { setOpt('loop', v); save(); sndToggleCue(!!v); });
-      // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
-      const paths = side === 'R' ? [pathsToggle(hasD)] : [];
-      // a phone: two rows (the scrubber the full width with the readout on its handle; below it play, the speed, Paths
-      // and the Steps picker, which holds the range, the order and Loop, and ×)
-      let kids;
-      if (brPhone()) {
-        const pick = h('div', { class: 'tpick', id: 'stepsPick', hidden: true }, ...(trow ? [trow] : []), ...(order ? [order] : []), loop);
-        const open = h('button', { class: 'tsteps', id: 'stepsBtn', type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': 'stepsPick', onclick: () => { pick.hidden = !pick.hidden; open.setAttribute('aria-expanded', String(!pick.hidden)); } }, stepsLabel());
-        scrub.append(tread);
-        kids = [play, scrub, speed, ...paths, open, pick];
-      } else kids = [play, scrub, tread, speed, ...(order ? [order] : []), loop, ...paths, ...(trow ? [trow] : [])];
-      f.append(...kids,
-        h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
-      paintFader(rng);
-      watchFader(rng);
-      // ([v16.5 fix regress-1] a row too tight for the readout in words: the short form, measured once here, where the
-      // dock is laid out anyway)
-      { const lab = /** @type {HTMLElement | null} */ (f.querySelector('#morphLabel')), tc = f.querySelector('.tclose');
-        if (lab && tc && play.getClientRects().length && tc.getBoundingClientRect().top > play.getBoundingClientRect().bottom - 4) { lab.dataset.short = '1'; setText(lab, morphReadout(true)); } }
-      // (v16: a phone's transport labels, measured once the dock is laid out: here, then on the next frames and renders)
-      if (scrub.dataset.fit) { const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } }
-    }
-  }
-  // the Paths toggle of the deformation (key P while the deformation shows in X → Y; the palette): the live paths
-  // t -> H_t(z) on the merged plane and globe, remembered in the saved state, and the figure's default
-  // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
-  function pathsToggle(hasD = morphHasDeriv()) {
-    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
-    syncPathsBtn(b, S.morphPaths !== false, hasD);
-    return b;
-  }
   // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
   // press does; off, with the reason, when there are no paths to draw (noPaths: a d/dz)
   function syncPathsBtn(b, on, noPaths) {
@@ -893,24 +780,6 @@
     // (a disabled button gets no pointer events, so its reason is also its description)
     const desc = noPaths ? tip : '';
     if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
-  }
-  function setMorphPaths(on) {
-    if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
-    setOpt('morphPaths', !!on);
-    const b = $('pathsBtn');
-    if (b) syncPathsBtn(b, !!on, b.disabled);
-    requestRender('R'); drawLegend(); save();
-    tourEmit('paths-toggled', { on: !!on });
-  }
-  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
-  function setHomAll(all) {
-    const before = morphLen();
-    setOpt('homAll', !!all);
-    const after = morphLen();
-    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
-    else if (!morph.open) morph.T = after;
-    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
-    tourEmit('order-changed', { all: !!S.homAll });
   }
   const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
@@ -1035,7 +904,7 @@
     morph.T = parked != null ? Math.min(parked, morphLen()) : still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
     morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
-    setPlayIcon();
+    
     soundFunctionChanged(); sndRelayout();
     if (draft && draft.target) draft = null;
     // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
@@ -1055,28 +924,12 @@
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
     morph.open = false; morph.playing = false; morph.seg = null; snd.morphArm = false;
     morph.T = morphLen();
-    syncPlaying();
     soundFunctionChanged(); sndRelayout();
     if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
     applyLayout();
     if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R');
     tourEmit('deformation-toggled', { on: false });
-  }
-  const toggleTransport = () => (morph.open ? closeTransport() : openTransport());
-  function setPlayIcon() {
-    const b = $('morphPlay');
-    if (!b) return;
-    b.innerHTML = morph.playing ? ICONS.pause : ICONS.play;
-    // (v16.5 UX104: the tooltip reads data-tip, which a title set later never reached, so it kept saying Pause; the
-    // tooltip is written itself, with the key)
-    const lab = morph.playing ? $t('Pause') : $t('Play');
-    b.removeAttribute('title');
-    b.setAttribute('data-tip', lab + '  K');
-    b.setAttribute('aria-label', lab);
-    // (v16.1: paused, the scrubber shows T exactly; while playing syncTransport moves it in half-pixel steps)
-    const sl = !morph.playing ? $('morphRange') : null;
-    if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
   let legendNeedle = null, legendMod = null;
   const WHEEL_STOPS = ['#F58C7E', '#EA9853', '#CFA93E', '#A5B953', '#6EC580', '#27C8AF', '#1CC3D8', '#53B8F7', '#8EAAFD', '#B99BF5', '#DB8FD6', '#F089AC'];
@@ -1467,7 +1320,7 @@
       glide.set(morph.T);
     } else if (morph.playing || !glide.moving() || glide.x !== morph.T) {
       // (Play, the scrubber or a tick moved T last: the glide starts from where T is now)
-      if (morph.playing) { morph.playing = false; snd.morphArm = false; setPlayIcon(); }
+      if (morph.playing) { morph.playing = false; snd.morphArm = false; }
       glide.set(morph.T);
     }
     glide.nudge(d, morphLen());
@@ -1501,15 +1354,7 @@
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
   const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
-  // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
-  function morphTick(d) {
-    const m = morphLen(), T = morph.T, eps = 1e-6;
-    let to = d > 0 ? Math.floor(T + eps) + 1 : Math.ceil(T - eps) - 1;
-    to = Math.max(0, Math.min(m, to));
-    if (morph.playing) { morph.playing = false; snd.morphArm = false; }
-    morph.T = to; morph.seg = null; morph.u = 0; morph.hold = 0;
-    setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R', 'L');
-  }
+
   function togglePlay() {
     morph.playing = !morph.playing;
     morph.last = 0;
@@ -1517,12 +1362,11 @@
     if (morph.playing && morph.T >= morphLen()) morph.T = 0;
     morph.seg = null; morph.hold = 0;
     if (morph.playing) sndMorphStart(); else snd.morphArm = false;
-    setPlayIcon();
     requestRender('R');
   }
 
   // (#385) the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
-    onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
+    onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R'); });
   }

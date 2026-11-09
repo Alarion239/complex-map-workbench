@@ -98,7 +98,8 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // the left pane that is not paper (every channel above INK_PAPER) at u = 0.25, 0.5, 0.75 stays above the floors, each
 // above what a ladder seeded about w / (1 - t) draws (a third to a half of it)
 {
-  const INK_PAPER = 240, floor = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
+  // (FRAME_MS: a software renderer takes minutes over a zeta frame)
+  const INK_PAPER = 240, FRAME_MS = 600000, floor = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
   const ex = names.indexOf('Zeros of the zeta function');
   ok('the zeta example is found', ex >= 0, names.length);
   await go(`${BASE}/test.html?ns=gz${Date.now()}&lang=en&view=steps`);
@@ -109,10 +110,20 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   // frames are measured once the prestart is done)
   await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
   for (const x of [0.25, 0.5, 0.75]) {
-    const g = await at(x, 'inverse', 600000);
+    const g = await at(x, 'inverse', FRAME_MS);
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta x ${x}`] = { g, share };
     ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });
+  }
+  // (the source window moved to where the strip's image near its pole z = 1 lies, Im -2.8 to 13.8: most of the true image there
+  // is the pole's, which the ladder's seeds do not reach; the pole member draws it)
+  const POLE_FLOOR = { 0.5: 0.4, 0.75: 0.4 };
+  await ev("__cmwSet('srcView', { cx: 0.5, cy: 5.5, s: 40 }), 1");
+  for (const x of [0.5, 0.75]) {
+    const g = await at(x, 'inverse', FRAME_MS);
+    const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
+    info[`zeta pole window x ${x}`] = { g, share };
+    ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share });
   }
 }
 // ---- the NEWT roots pass reads no GL state back ----

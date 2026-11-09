@@ -21,11 +21,12 @@
     undo: svgI('<path d="M5.5 3.5l-3 3 3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H6"/>'),
     redo: svgI('<path d="M10.5 3.5l3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7H10"/>'),
     theme: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M8 2.25a5.75 5.75 0 0 1 0 11.5z" fill="currentColor" stroke="none"/>'),
+    themeLight: svgI('<circle cx="8" cy="8" r="2.75"/><path d="M8 1.5v1.75M8 12.75v1.75M1.5 8h1.75M12.75 8h1.75M3.4 3.4l1.25 1.25M11.35 11.35l1.25 1.25M3.4 12.6l1.25-1.25M11.35 4.65l1.25-1.25"/>'),
+    themeDark: svgI('<path d="M13 9.4A5.5 5.5 0 0 1 6.6 3 5.5 5.5 0 1 0 13 9.4z"/>'),
     bypass: svgI('<path d="M1.5 11h3.5M11 11h3.5M5 11C5 5 11 5 11 11"/><rect x="6.5" y="9.5" width="3" height="3"/>'),
     play: svgI('<path d="M5 3.5v9l7.5-4.5z"/>', true),
     pause: svgI('<rect x="4.5" y="3.5" width="2.25" height="9"/><rect x="9.25" y="3.5" width="2.25" height="9"/>', true),
     search: svgI('<circle cx="7" cy="7" r="4.25"/><path d="M10.25 10.25l3.25 3.25"/>'),
-    grip: svgI('<circle cx="6" cy="4" r="1"/><circle cx="10" cy="4" r="1"/><circle cx="6" cy="8" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="6" cy="12" r="1"/><circle cx="10" cy="12" r="1"/>', true),
     panelL: svgI('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6 2.5v11"/>'),
     panelR: svgI('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/>'),
     // reset view: a circular arrow turning back (an ellipse with a dot read as the visibility eye)
@@ -182,7 +183,7 @@
       axis: hx('--axis', '#2E3D47'), label: hx('--axis-label', hx('--label', '#4A606C')), rulerTick: hx('--ruler-tick', '#3E4C56'),
       cut: hx('--cut', '#CC3311'), pole: hx('--pole', '#A0153E'), zero: hx('--zero', '#121A20'), probe: hx('--probe', '#121A20'), halo: hx('--halo', plane), fov: hx('--fov', '#2E3D47'),
       dcLine: hx('--dc-line', '#FFFFFF'), dcCasing: hx('--dc-casing', '#0B1114'),
-      landTop: hx('--land-top', '#F5F8F9'), landBottom: hx('--land-bottom', '#DCE4E7'), landFloor: hx('--land-floor', '#FAFCFC'), landBox: hx('--land-box', '#B3BEC4'),
+      landTop: hx('--land-top', '#F5F8F9'), landBottom: hx('--land-bottom', '#DCE4E7'), landFloor: hx('--land-floor', '#FAFCFC'), landBox: hx('--land-box', '#B3BEC4'), landFootprint: hx('--land-footprint', '#6B7E87'),
       landMod: hx('--land-mod-line', '#18232A'), landArg: hx('--land-arg-line', '#FFFFFF'), plaster: hx('--plaster', '#ECEEEC'), landShadow: hx('--land-shadow', '#2E3D47'),
       hemiSky: hx('--hemi-sky', '#E6EEF4'), hemiGround: hx('--hemi-ground', '#8C9296'),
       stretchShrink: hx('--stretch-shrink', '#2E69B2'), stretchGrow: hx('--stretch-grow', '#D79628'), stretchMid: hx('--stretch-mid', '#E9F0F2'),
@@ -369,7 +370,7 @@
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
-    HR.resolve(S, true); buildDock(); updateBracket();
+    HR.resolve(S, true);
     updateUndo(); exLabelSync(); save(); histSay();
   }
   // [v16.5 UX14, UX15] an open polygon's points and a construction's own picks are undone first, one at a time
@@ -398,27 +399,34 @@
   }
   let saveT = 0, storageWarned = false;
   let figureSwap = false;   // v15: a link or a scene was written for the reload that opens it (nothing else is saved)
-  // ([v16.5 check app-1, app-2] the header search's words are never cut: where its field is too narrow for them (an
-  // example's name beside Examples, Italian's longer label, "Ctrl K"), it shows its short label (Russian, Italian) when
-  // that fits, else its icon and shortcut alone (named by its aria-label and tooltip), and the example's name takes the
-  // room. Measured in a frame when the header's width, the example's name or the fonts change; a phone has no field)
+  // (no word of the bar is cut: where it does not fit, words give way one level at a time, in this
+  // order, until it does: the words of Export, Share, Theme and Sound (together), an open example's name, the view tabs' and
+  // Deformation's words, the search's full label, its short label (Russian, Italian), then its icon and shortcut alone (named
+  // by its aria-label and tooltip). Measured in a frame when the header's width, the example's name or the fonts change; a
+  // phone has no field)
   let hdrFitRaf = 0;
   function hdrFit() {
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'share-icon');
+    const LEVELS = ['hw-off', 'ex-off', 'tabs-off', 'cmd-short', 'cmd-cut'];
+    top.classList.remove(...LEVELS);
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
-    const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
-    if (cut()) {
-      if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
-      if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
+    const ex = $('examplesBtn'), exName = ex && ex.querySelector('.exlabel');
+    const clipped = (/** @type {Element | null} */ e) => !!e && e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 0.5;
+    // (a name longer than Examples' own width cap ends in an ellipsis by design; one cut for want of room does not fit)
+    const capped = () => !!ex && ex.offsetWidth >= parseFloat(getComputedStyle(ex).maxWidth) - 1;
+    const fits = () => !(top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1) || clipped(t) || (clipped(exName) && !capped()));
+    // (each word gives way only where the bar does not fit, in this order: the words of Export, Share, Theme and Sound, together;
+    // an open example's name; the view tabs' and Deformation's words; the search's full label, its short label, its icon alone)
+    for (const level of LEVELS) {
+      if (fits()) break;
+      if (level === 'cmd-short' && !f.querySelector('.ct-s')) continue;
+      top.classList.add(level);
+      if (level === 'cmd-short' && fits()) break;
+      if (level === 'cmd-short') top.classList.remove(level);
     }
-    // ([v17 D5] Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
-    const ex = $('examplesBtn');
-    const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    if (tight()) top.classList.add('share-icon');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
   // Runs fn when the faces have settled and again after each later face load: the font sheet applies after first paint, and

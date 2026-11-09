@@ -1,6 +1,4 @@
-// The classic views' part of the language checks (i18n_cmd.js is the steps view's): on a Russian layout (ЙЦУКЕН) the
-// Deformation's keys work through e.code (Ь → the Deformation, З → its Paths), the digit keys pick the X → Y, Phase and
-// Landscape views, С → the Circle tool, and the logarithm's example names its Landscape window of sheets in Russian. A command file for a CDP
+// The classic views' part of the language checks (i18n_cmd.js is the steps view's): on a Russian layout (ЙЦУКЕН) С → the Circle tool, and the logarithm's example names its Landscape window of sheets in Russian. A command file for a CDP
 // daemon (test/cdp_kit README); prints { pass, of, fails }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -14,7 +12,7 @@ const loaded = async (pause, ms = 30000) => {
   await settled({ max: pause });
   for (const t0 = Date.now(); Date.now() - t0 < ms; await sleep(200)) {
     let ok = false;
-    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* navigating */ }
+    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && typeof __cmwP === 'function'`); } catch (e) { /* navigating */ }
     if (ok) break;
   }
   await settle(0);
@@ -26,15 +24,6 @@ const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k
 const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
 await press('с', 'KeyC'); check('ЙЦУКЕН С (KeyC) → Circle', (await tool()) === 'circle');
 await press('м', 'KeyV');
-const morph = `!!document.getElementById('morphPlay')`;
-await press('ь', 'KeyM'); await until(morph); check('ЙЦУКЕН Ь (KeyM) → deformation on', await ev(morph));
-const paths = `(document.getElementById('pathsBtn') || {}).getAttribute ? document.getElementById('pathsBtn').getAttribute('aria-pressed') : null`;
-const p0 = await ev(paths);
-await press('з', 'KeyP'); await until(`${paths} !== ${JSON.stringify(p0)}`); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) in the deformation → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
-await press('з', 'KeyP'); await until(`${paths} === ${JSON.stringify(p0)}`);
-await press('ь', 'KeyM'); await until(`!(${morph})`); check('ЙЦУКЕН Ь again → deformation off', !(await ev(morph)));
-await press('2', 'Digit2'); await until(`__cmwState().view.main === 'phase'`); check('digit 2 → Phase', (await ev(`__cmwState().view.main`)) === 'phase');
-await press('1', 'Digit1'); await until(`__cmwState().view.main === 'xy'`); check('digit 1 → X → Y', (await ev(`__cmwState().view.main`)) === 'xy');
 // text fields keep their letters: this check runs in i18n_cmd.js under the steps view (standards-ok: its steps-view twin is there, with the steps view's keys)
 // the logarithm's example and its Landscape title say which sheets, in Russian
 await nav(`${U}?ns=i18nc-log-${Date.now()}&lang=ru`); await loaded(3500);

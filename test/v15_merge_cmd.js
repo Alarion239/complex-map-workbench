@@ -44,12 +44,10 @@ const typeIn = async (sel, text) => {
   await settle(400);
   return true;
 };
-// (selecting a step: its card in the classic chain, its chip in the steps view's thread; the Inspector then edits it)
+// (selecting a step: its chip in the thread; the Inspector then edits it. A toast covers the thread until it goes)
 const selStep = async (k) => {
-  const steps = await ev(`document.documentElement.classList.contains('sv')`);
-  // (a toast covers the thread until it goes)
-  if (steps) await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
-  await clickSel(steps ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`);
+  await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
+  await clickSel(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`);
 };
 const ns = 'v15m' + Date.now();
 // (the zeros and poles first: their marks show on X with the whole chain)
