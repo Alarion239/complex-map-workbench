@@ -188,16 +188,17 @@
         return out;
       };
       const sepOf = (set, i) => { let d = Infinity; set.forEach((m, j) => { if (j !== i) d = Math.min(d, cabs(csub(m.z, set[i].z))); }); return d; };
+      let fail = null;   // (why the last path failed: the segment, the share of it, the member Newton lost or the separation check)
       const track = (set, pts) => {
         let cur = set, steps = 0;
         for (let s = 0; s + 1 < pts.length; s++) {
           let t0 = 0, dt = 1;
           while (t0 < 1) {
-            if (++steps > ${MONO_STEPS_MAX}) return null;
+            if (++steps > ${MONO_STEPS_MAX}) { fail = { s, t0, why: 'steps' }; return null; }
             const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m) => newton(m, w));
             let good = nx.every(Boolean);
             if (good && sepOn) good = nx.every((m, i) => cabs(csub(m.z, cur[i].z)) <= ${MONO_SEP} * sepOf(nx, i));
-            if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) return null; }
+            if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = { s, t0, why: nx.every(Boolean) ? 'sep' : 'newton ' + nx.findIndex((m) => !m) + ' of ' + nx.length }; return null; } }
           }
         }
         return cur;
@@ -219,9 +220,9 @@
       }
       // the branch point: the cells at the vertex, as loops based at its place
       const setV = membersAt(wv), iv = nearest(setV, zv), setO = membersAt(wo), io = nearest(setO, zo);
-      if (iv.i < 0 || io.i < 0) return { cls: 'unresolved', why: 'members' };
+      if (iv.i < 0 || io.i < 0) return { cls: 'unresolved', why: 'members', sets: [setV.length, setO.length, iv.i, io.i] };
       const trO = track(setO, [wo, wv]);
-      if (!trO) return { cls: 'unresolved', why: 'edge' };
+      if (!trO) return { cls: 'unresolved', why: 'edge', fail };
       const ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i].z).i;
       const loop = (c0, sx, sy) => [wv, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, wv];
       const cyc = (pts) => {
@@ -247,7 +248,7 @@
         if (!q) { unres = true; continue; }
         if (q.hit) return { cls: 'branch', cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * 8), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * 8)] };
       }
-      return { cls: unres ? 'unresolved' : 'false', why: unres ? 'loop' : null };
+      return { cls: unres ? 'unresolved' : 'false', why: unres ? 'loop' : null, fail };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -657,7 +658,7 @@
         const certs = [];
         for (let k = 0; k < prep.pending; k++) certs.push(await ev(`__lx.certEdge(${k}, {})`));
         const cls = (x) => certs.filter((q) => q.cls === x).length, cells = new Set(certs.filter((q) => q.cls === 'branch').map((q) => q.cell.join(',')));
-        const cc = { onCut: prep.onCut, seam: cls('seam'), branch: cls('branch'), falseN: cls('false'), unresolved: cls('unresolved'), cells: cells.size, why: certs.filter((q) => q.why).map((q) => q.why) };
+        const cc = { onCut: prep.onCut, seam: cls('seam'), branch: cls('branch'), falseN: cls('false'), unresolved: cls('unresolved'), cells: cells.size, why: certs.filter((q) => q.why).map((q) => q.why), fails: certs.filter((q) => q.fail).slice(0, 3).map((q) => q.fail) };
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a certified member seam (${cc.seam}) or a certified branch cell (${cc.branch} edges in ${cc.cells} cells); ${cc.falseN} are none and ${cc.unresolved} unresolved`, cc.falseN === 0 && cc.unresolved === 0, cc);
         // the certified branch cells are at most those the scene's branch points can touch
