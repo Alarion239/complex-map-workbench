@@ -78,7 +78,12 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   // the frames (by the check's name) that draw triangles with an open middle, and how many cells: their fill is not done
-  const MEDIAL_KNOWN = {};
+  const MEDIAL_KNOWN = {
+    'log of an annulus, sheets off, u=0.5': 1, 'log of an annulus, sheets off, u=0.75': 3,
+    'cube root, sheets off, u=0.25': 82, 'cube root, sheets off, u=0.998': 1, 'cube root, sheets off, u=0.9999': 1,
+    'Joukowski airfoil, sheets off, u=0.5': 23, 'Joukowski airfoil, sheets off, u=0.75': 16,
+    'Partial sums of the exponential (Newton), sheets off, u=0.25': 2, 'Partial sums of the exponential (Newton), sheets off, u=0.5': 2, 'Partial sums of the exponential (Newton), sheets off, u=0.75': 3,
+  };
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
