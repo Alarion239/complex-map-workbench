@@ -1284,10 +1284,10 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // The certified early stop of the orbit: the walk back from w_n takes φ(w_n) = w_n √(1 + c/w_n²), whose relative error
         // is below 2^{1-n} |c| / |w_n|² (and that is the relative error of H after the n square roots, 2^{-n} times it), so the
         // orbit ends at the first n with 2^{1-n} |c| / |w_n|² <= DH_STOP_TOL. The bound holds, and w_n escapes, where
-        // |w_n|² > 8 and |w_n|² >= 8 |c| (then |w_{n+1}| >= 7/8 |w_n|², past 10⁴ within DH_STOP_STEPS more steps), and the stop
+        // |w_n| >= max(2, |c|) and |w_n|² >= 8 |c| (then |w_{n+1}| >= 7/8 |w_n|², past 10⁴ within DH_STOP_STEPS more steps), and the stop
         // needs k + DH_STOP_STEPS <= N so the escape test of N steps (the blank band) is the same. Squared, with no square root
-        const DH_STOP_TOL = +NEWT_HIT_F / 16, DH_STOP_STEPS = 6;
-        const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
+        const DH_STOP_STEPS = 6;
+        const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
         // H and H' in one walk (the dual derivative): forward dw_{k+1} = 2 w_k dw_k + dc (dc = dc/dz: 1 for Φ_M, where c = z, 0 for φ_c),
         // dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j divides dp by 2 p_{j+1}: the
         // product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The value is computed as H alone is
@@ -2196,6 +2196,8 @@ void ixAncTan(vec2 w) {
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
+  // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops early charges it in its hit test
+  const DH_STOP_TOL = +NEWT_HIT_F / 16;
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
@@ -2251,7 +2253,8 @@ void ixAncTan(vec2 w) {
   // that evaluates H_t at a Newton iterate (a shader compiler inlines every call, so a program's size follows the
   // number of such places; the arithmetic stays in this function, since written inline in _run's loop the compiled
   // float result differs in the last bits): one step of H_t at u, the CHECK test (held: u hits w), a plain step
-  // or the DEFL step deflated by the root dz; _run, one loop of such steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
+  // or the DEFL step deflated by the root dz (a step whose H stops its orbit early, HD: its hit test adds the stop's bound
+  // DH_STOP_TOL (1 + |H|) to the distance, so a hit certifies |H - w| <= NEWT_HIT_F (1 + |w|) for the full orbit); _run, one loop of such steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
   // step is capped at a quarter of 1 + |u|, a polish step (POL, LAD) stops the phase when it moves u by at most
   // NEWT_STEP_TOL (1 + |u|); DEFL steps Newton's method deflated by the root dz. Member 0's walk is InvOps.opNewt's
   // fixed grid: the stages k / NEWT_K from ks + 1 up to k0 = floor(NEWT_K t), ug the root at k0 (IX_NR_NONE when the
@@ -2264,12 +2267,13 @@ void ixAncTan(vec2 w) {
   // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
   // there
   const newtCoreFns = (P, H, ray, HD) => `vec2 ${P}_d(vec2 u, float t) { ${HD ? `vec2 d; ${HD('u', 't', 'd')}; return d;` : `float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h);`} }
-bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
-${HD ? '' : `vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
+bool ${P}_hit(vec2 u, vec2 w, float t) { ${HD ? `vec2 h = ${H('u', 't')}; return ixFin(u) && cx_abs(h - w) + ${DH_STOP_TOL} * (1.0 + cx_abs(h)) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));` : `return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));`} }
+${HD ? `vec2 ${P}_dc = vec2(0.0);
+` : ''}${HD ? '' : `vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 `}bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
   ${HD ? `vec2 d, hu = ${HD('u', 't', 'd')};` : `vec2 hu = ${H('u', 't')};`}
-  held = ixFin(u) && cx_abs(hu - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
-  if (chk) return true;
+  held = ixFin(u) && cx_abs(hu - w) ${HD ? `+ ${DH_STOP_TOL} * (1.0 + cx_abs(hu)) ` : ''}<= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
+  if (chk) { ${HD ? `${P}_dc = d; ` : ''}return true; }
   ${HD ? '' : `vec2 d = ${P}_fd(u, hu, t);`}
   if (defl) {
     vec2 g = cdiv(d, hu - w) - cinv(u - dz);
@@ -2367,10 +2371,14 @@ bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
 vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
-void ${P}_roots(vec2 w, float t) {
+${bk.dual ? `// the derivative at member 0's root when the stored root's CHECK held: the same walk of H gave H and H' there
+vec2 ${P}_dd = vec2(0.0);
+bool ${P}_dk = false;
+` : ''}void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
-  int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
+${bk.dual ? `  ${P}_dk = false;
+` : ''}  int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
   for (int m = 0; m < ${NB}; m++) {
     vec2 v = w, ug;
     bool okv = true;
@@ -2384,7 +2392,8 @@ ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
     }
 #endif
 ` : ''}    if (okv) okv = ${P}_run(v, w, t, mode, 0, kb, vec2(0.0), ug);
-    for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
+${bk.dual ? `    if (m == 0 && okv && mode == ${NM.CHECK}) { ${P}_dd = ${P}_dc; ${P}_dk = true; }
+` : ''}    for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
     ${P}_r[m] = v; ${P}_k[m] = okv;
   }
 }
@@ -2395,7 +2404,9 @@ bool ${P}_one_b(inout Lf L, int b) {
   ${P}_roots(w, t);
   if (!${P}_k[b]) return false;
   vec2 u = ${P}_r[b];
-  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
+${bk.dual ? `  vec2 d;
+  if (b == 0 && ${P}_dk) d = ${P}_dd; else d = ${P}_d(u, t);
+  return ixApply(L, u, cinv(d), ${NOR});` : `  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});`}
 }
 `;
   }
@@ -2539,7 +2550,7 @@ ${Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
   // root at its last grid stage kp (uNrPrev0.xy, uNrPrev1.x) when kp is at most this frame's k0, else from w (the root
   // found is the full walk's either way); o = (the root at k0, member 0), o1 = (k0, 0, member 1: deflated, an op with
   // no seeding ops), IX_NR_NONE where none
-  function newtGridMain(j, c, seeded, pole) {
+  function newtGridMain(j, c, seeded, pole, single) {
     const P = `ix${j}`, K = Inverse.NEWT_K, NONE = `vec2(${IX_NR_NONE})`;
     return `
 void main() {
@@ -2564,7 +2575,25 @@ void main() {
 #endif
   bool ok = false;
   vec2 v = ${NONE};
-  for (int m = 0; m < mem; m++) {
+${single ? `  // a step with at most one root over a w (Inverse.singleRoot) has no other member, and the previous frame's root, polished at this
+  // t, is the root where it hits w: the walk is the second attempt of one loop (one _run call site), and a warm hit keeps no
+  // stage root for a resume
+  vec2 x = u, ugm = ${NONE};
+  int mode = ${NM.WALK}, kst = ks;
+  bool warm = false;
+#if IX_NR_N >= 2
+  if (uNrPrevOn == 1) {
+    vec2 xw = texelFetch(uNrPrev0, ixNrTexel, 0).zw;
+    if (abs(xw.x) < ${NEWT_FINITE}) { x = xw; mode = ${NM.SETTLE}; kst = 0; warm = true; }
+  }
+#endif
+  for (int at = 0; at < 2; at++) {
+    ok = ${P}_run(x, w, t, mode, kst, 1, vec2(0.0), ugm);
+    if (ok || !warm) break;
+    x = u; mode = ${NM.WALK}; kst = ks; warm = false;
+  }
+  ug = ugm; u = x;
+` : `  for (int m = 0; m < mem; m++) {
     vec2 x = u, ugm;
     bool okm = true;
     int mode = ${NM.WALK}, kst = ks;
@@ -2587,7 +2616,7 @@ ${seeded ? '' : pole ? `      vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${
 ${pole ? `      if (okm && !(ok && cx_abs(x - u) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(u)))) v = x;
 ` : '      if (okm) v = x;\n'}    }
   }
-  o = vec4(ug, ok ? u : ${NONE});
+`}  o = vec4(ug, ok ? u : ${NONE});
 #if IX_NR_N >= 2
   o1 = vec4(float(k0), 0.0, v);
 #endif
@@ -2981,7 +3010,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       // targets; another's member 0 on the grid and member 1, two)
       const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
-        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
+        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq), !!(newtBack(nq) || {}).single) };
       txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);

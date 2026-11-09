@@ -22,7 +22,7 @@
   };
   let seed = 20241109;
   const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  const CHAINS = [{ name: 'dh', params: {}, c: null }, { name: 'bottcher c = 0.3+0.6i', type: 'bottcher', params: { c: '0.3+0.6i' }, c: [0.3, 0.6] }];
+  const CHAINS = [{ name: 'dh', params: {}, c: null }, { name: 'bottcher c = 0.3+0.6i', type: 'bottcher', params: { c: '0.3+0.6i' }, c: [0.3, 0.6] }, { name: 'bottcher c = -1', type: 'bottcher', params: { c: '-1' }, c: [-1, 0] }];
   const plane = [];
   for (let i = 0; i < 64; i++) for (let j = 0; j < 64; j++) plane.push([f(-2.6 + 3.8 * (i + 0.5) / 64), f(-1.6 + 3.2 * (j + 0.5) / 64)]);
   const rings = [];
@@ -78,6 +78,7 @@ void main() {
   const vao = gl.createVertexArray();
   const swap = (s, from, to, what) => { if (!(from instanceof RegExp ? from.test(s) : s.includes(from))) throw new Error(`pattern not found: ${what}`); return s.replace(from, to); };
   const STOP_LINE = /    if \(float\(k\) \+ 6\.0 <= [^\n]*\n/;
+  const PRE_RE = /w2 > 8\.0 && c2 <= w2 && 64\.0 \* c2 <= w2 \* w2 && /;
   const TOL_RE = /(<= )([0-9.]+e-[0-9]+)( \* w2 \* w2)/;
   try {
     for (const ch of CHAINS) {
@@ -87,8 +88,9 @@ void main() {
       const EARLY = gc.source;
       const FULL = swap(EARLY, STOP_LINE, '', 'the stop line');
       const LOOSE = swap(EARLY, TOL_RE, (m, a, v, b) => a + (+v * 1e6).toExponential(6) + b, 'the stop tolerance');   // (squared bound: 1000 times the bound)
+      const NOPRE = swap(EARLY, PRE_RE, '', 'the stop precondition');
       const uvec = new Float32Array(4 * gc.slots); gc.fill(uvec);
-      const progs = { EARLY: compile(EARLY), FULL: compile(FULL), LOOSE: compile(LOOSE) };
+      const progs = { EARLY: compile(EARLY), FULL: compile(FULL), LOOSE: compile(LOOSE), NOPRE: compile(NOPRE) };
       const run = (prog, zs) => {
         const nz = zs.length, d = new Float32Array(4 * nz);
         zs.forEach((z, i) => { d[4 * i] = z[0]; d[4 * i + 1] = z[1]; });
@@ -111,7 +113,7 @@ void main() {
       if (ch.c) ch.rho = CX.dhCritRho(CX.C(ch.c[0], ch.c[1]), NMAX);
       const sets = { plane, rings, boundary: boundary(ch.c) };
       for (const [name, zs] of Object.entries(sets)) {
-        const a = run(progs.EARLY, zs), b = run(progs.FULL, zs), l = run(progs.LOOSE, zs);
+        const a = run(progs.EARLY, zs), b = run(progs.FULL, zs), l = run(progs.LOOSE, zs), np = run(progs.NOPRE, zs);
         const cmp = (x) => {
           let worst = 0, nanDiff = 0, differ = 0, over = 0;
           for (let i = 0; i < zs.length; i++) {
@@ -133,13 +135,14 @@ void main() {
           return { worstOverTol: worst / TOL, nanDiff, differ, over };
         };
         R.rows.push({ chain: ch.name, set: name, points: zs.length, early: cmp(a) });
-        R.controls.push({ chain: ch.name, set: name, loose: cmp(l) });
+        R.controls.push({ chain: ch.name, set: name, loose: cmp(l), noPrecondition: cmp(np) });
       }
     }
     R.ok = !R.errors.length
       && R.rows.every((r) => r.early.over === 0 && r.early.nanDiff === 0)
       && R.rows.some((r) => r.early.differ > 0)
-      && R.controls.some((c) => c.loose.over > 0);
+      && R.controls.some((c) => c.loose.over > 0)
+      && R.controls.some((c) => c.noPrecondition.nanDiff > 0 || c.noPrecondition.over > 0);
   } catch (err) { R.errors.push(String(err && err.stack || err)); }
   R.done = true;
 })();
