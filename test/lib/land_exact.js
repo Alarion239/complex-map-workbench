@@ -116,7 +116,7 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
-    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true },
+    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
     { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
     { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
@@ -740,6 +740,21 @@
         const mr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0)`), mv = await ev(`__lxHomMiss(${JSON.stringify(ms)}, ${HOM_SHIFT})`), miss = mr.worst, moved = mv.worst;
         ok(`${t}: every enumerated member (${ms.length}) maps to its place under the frame's homotopy (window.__cmwLandHom) within ${HOM_TOL}`, ms.length > 0 && miss <= HOM_TOL, { miss, nBad: mr.nBad, n: ms.length, sample: mr.sample });
         ok(`${t}: the control: the places moved by ${HOM_SHIFT} are not matched by the homotopy (miss ${moved})`, moved > HOM_TOL, { moved });
+        // the plan read by the reference corrupted (the output of its last op moved, on every sheet): its members are preimages under the shortened plan, not
+        // under the scene, so the homotopy check must flag them; a reference that takes its homotopy from the plan answers the corrupted plan
+        // consistently and flags nothing
+        if (c.corruptPlan) {
+          const applied = await ev(`__cmwLandCorruptPlan('shiftOut')`);
+          ok(`${t}: the control's corrupted plan applies`, applied === true, { applied });
+          if (applied === true) {
+            try {
+              const bad = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`), ms2 = [];
+              bad.forEach((l, i) => l.forEach((m) => { if (m.z && ms2.length < HOM_MAX) ms2.push({ z: m.z, lam: m.lam || null, lvl: m.lvl, sheet: m.sheet || 0, member: m.member, w: vpts[i] }); }));
+              const mc = await ev(`__lxHomMiss(${JSON.stringify(ms2)}, 0)`);
+              ok(`${t}: the control: a plan whose last op's output is moved is flagged by the homotopy check (${ms2.length} members, miss ${mc.worst})`, ms2.length > 0 && mc.worst > HOM_TOL, { n: ms2.length, miss: mc.worst, nBad: mc.nBad });
+            } finally { await ev(`__cmwLandCorruptPlan('restore')`); }
+          }
+        }
         // (a member of the range ramp, lvl < 0, is outside its sheet's window: H is exact at its lam, and the principal log of z is another
         // branch. Every member is within the ramp; the principal evaluation and a ramp of 0 must each flag the members that are outside)
         const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length;

@@ -492,6 +492,41 @@
       return out;
     });
   };
+  // Corrupts the plan the CPU reference reads (the frame itself is already drawn from the true one): 'shiftOut' moves the output of the
+  // plan's last op by PLAN_SHIFT on every sheet, in the op's forward map, its preimage rule and its pole test alike, and prepares the plan the
+  // way the page does, so Inverse.enumerate and Inverse.fwdOps agree with each other and disagree with the scene; 'restore' puts the true plan and
+  // preparation back. True when it applied, false otherwise (no frame from the inverse path, a corruption already in place, or a last op whose
+  // preimages are neither listed by pre nor a log family)
+  const PLAN_SHIFT = 0.25;
+  let planKept = null;
+  window.__cmwLandCorruptPlan = (kind) => {
+    const inp = render3D.exactIn;
+    if (kind === 'restore') {
+      if (planKept) planKept.forEach((k) => { k.sh.plan = k.plan; k.sh.prep = k.prep; });
+      planKept = null;
+      return true;
+    }
+    if (!inp || planKept || kind !== 'shiftOut') return false;
+    const sheets = [inp.exact].concat(inp.exact.more || []), d = C(PLAN_SHIFT, 0), back = (w) => CX.sub(w, d);
+    const moved = (o) => {
+      const c = Object.assign({}, o, { fwd: (u) => CX.add(o.fwd(u), d), infAt: o.infAt && ((w) => o.infAt(back(w))) });
+      if (o.fam && o.fam.type === 'log') c.fam = Object.assign({}, o.fam, { L0: (w) => o.fam.L0(back(w)), member: (w, m, l0) => o.fam.member(back(w), m, l0) });
+      else if (!o.fam && o.pre) c.pre = (w) => o.pre(back(w));
+      else return null;
+      return c;
+    };
+    const next = sheets.map((sh) => {
+      const last = sh.plan.ops[sh.plan.ops.length - 1], m = last && moved(last);
+      return m ? Object.assign({}, sh.plan, { ops: sh.plan.ops.slice(0, -1).concat(m) }) : null;
+    });
+    if (next.some((p) => !p)) return false;
+    planKept = sheets.map((sh) => ({ sh, plan: sh.plan, prep: sh.prep }));
+    sheets.forEach((sh, i) => {
+      sh.plan = next[i];
+      sh.prep = Inverse.prepare(next[i], { win: clipWin, shape: SV_ALL, sing: Inverse.keySing(next[i], clipWin) });
+    });
+    return true;
+  };
   // the frame's homotopy H_u at a point z of plane 0, per sheet (the sheets as __cmwLandEnum takes them): the forward ops of the plan the frame
   // inverts (Inverse.fwdOps), so H(z) is the w the frame draws z at. lam, the member's continued log coordinate (as __cmwLandEnum gives it), makes
   // H the one the frame draws: the plan's first op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
