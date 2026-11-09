@@ -71,6 +71,12 @@
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
   const MONO_CERT = 1e-5, MONO_NEWT_MAX = 12;   // a member of H_u = w: Newton's method on H, its residual within this share of 1 + |w| (H stalls at 5e-10 to 1e-6 on the far sheets and near a branch value: float64 in a large log coordinate; the design allows 1.5e-3), in at most this many steps
+  const MONO_DLAM = 1e-3;   // the step of the central difference of H in the log coordinate (H's own evaluation is exact in it)
+  const COUNT_R_MIN = 1e-6;   // the scene's count (__cmwLandWind) leaves out the members within this distance of the origin of plane z (its WIND_EPS_R); members that near are tracked but not counted
+  const END_Z_TOL = 1e-3;   // an edge end's z is the frame's float32 inverse: a member of the enumerator is at it within this share of 1 + |z|
+  const MONO_MATCH = 1e-4;   // a tracked member has arrived at a member when their distance (in lam) is within this share of 1 + |lam|: Newton's certificate is 1e-5 of H
+  const SYN_ARM = 0.5, SYN_ANGLE = 0.7;   // the made-up edge through a branch value: half its length in grid cells, and its direction (radians): along no grid line, so no vertex of it is on the branch value's row or column
+  const MONO_FAR = 8;   // grid cells: a member set the enumerator does not complete is counted and certified this far from the place, and continued in
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
   const MONO_STEPS_MAX = 4000, MONO_MIN_DT = 1e-9;   // the tracker's steps along one path, and the smallest share of a segment a step may take (past them the path is unresolved, a red)
   const BRANCH_CELLS_PER_POINT = 4;   // the most cells of a grid one point can touch
@@ -171,23 +177,25 @@
       const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
       const clog = (a) => [Math.log(cabs(a)), Math.atan2(a[1], a[0])], mix = (a, b, t) => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       const sepOn = !(opt && opt.sep === false), h = window.__lxGrid;
-      const hom = (z, lam, sh) => { const q = window.__cmwLandHom(z, lam); const o = q && q[sh]; return o && o.H && o.dH ? o : null; };
+      // H on a sheet at a member's log coordinate lam (z = e^lam): a member is solved and tracked in lam, where H is smooth at a branch value and a far
+      // sheet's z is not large; a member with no log coordinate is solved in z
+      const expc = (l) => { const e = Math.exp(l[0]); return [e * Math.cos(l[1]), e * Math.sin(l[1])]; };
+      const homAt = (z, lam, sh) => { const q = window.__cmwLandHom(z, lam); const o = q && q[sh]; return o && o.H ? o : null; };
       let nfail = null;   // (why the last Newton solve gave up: the step, the residual or the missing homotopy value)
       const newton = (m, w) => {
         let z = m.z, lam = m.lam;
         for (let i = 0; i < ${MONO_NEWT_MAX}; i++) {
-          const o = hom(z, lam, m.sheet);
+          const o = homAt(z, lam, m.sheet);
           if (!o) { nfail = { i, why: 'hom', sheet: m.sheet }; return null; }
           const res = csub(o.H, w);
-          if (cabs(res) <= ${MONO_CERT} * (1 + cabs(w))) return { z, lam, sheet: m.sheet };
-          // (with a log coordinate the step is taken in it, dH/dlam = z dH/dz: smooth where z -> 0 at a branch value, where dH/dz is not; without, in z)
+          if (cabs(res) <= ${MONO_CERT} * (1 + cabs(w))) return { z, lam, sheet: m.sheet, lvl: m.lvl };
           if (lam) {
-            const dl = cdiv(res, [o.dH[0] * z[0] - o.dH[1] * z[1], o.dH[0] * z[1] + o.dH[1] * z[0]]);
+            const pl = csub(lam, [-${MONO_DLAM}, 0]), ml = csub(lam, [${MONO_DLAM}, 0]), a = homAt(expc(pl), pl, m.sheet), b = homAt(expc(ml), ml, m.sheet);
+            if (!a || !b) { nfail = { i, why: 'dlam-hom' }; return null; }
+            const d = [(a.H[0] - b.H[0]) / (2 * ${MONO_DLAM}), (a.H[1] - b.H[1]) / (2 * ${MONO_DLAM})], dl = cdiv(res, d);
             if (!(cabs(dl) < 1e30)) { nfail = { i, why: 'dlam' }; return null; }
-            const ex = Math.exp(-dl[0]);
-            lam = csub(lam, dl);
-            z = [ex * (z[0] * Math.cos(dl[1]) + z[1] * Math.sin(dl[1])), ex * (z[1] * Math.cos(dl[1]) - z[0] * Math.sin(dl[1]))];
-            nfail = { i, res: cabs(res), dz: cabs(dl), sheet: m.sheet };
+            lam = csub(lam, dl); z = expc(lam);
+            nfail = { i, res: cabs(res), dl: cabs(dl), sheet: m.sheet };
             continue;
           }
           const dz = cdiv(res, o.dH);
@@ -200,16 +208,37 @@
       // (the glide's sheets an edge's ends hold: sheet i has the code sheetCode + i; an end on no sheet takes the other's)
       const shOf = (c, o) => Math.max(0, Math.round((c > 5 ? c : o) - window.__lxSheetCode));
       let want = [0];
-      const membersAt = (w) => {
+      // the distance of two members: in lam where both have one (two members of different sheets can share a z and differ by turns in lam), else in z
+      const dist = (p, q) => (p.lam && q.lam ? cabs(csub(p.lam, q.lam)) : cabs(csub(p.z, q.z)));
+      // the members of the wanted sheets at w as many as the scene's count says (__cmwLandWind: the winding count N of each sheet's H - w); where the enumerator
+      // finds fewer (near a branch value) the set is the one MONO_FAR cells away, counted likewise, continued to w in the log coordinate
+      const countAt = (w) => { const q = window.__cmwLandWind(w); return q ? q.reduce((n, r) => n + (want.includes(r.sheet) ? (r.status === 'ok' ? r.N : NaN) : 0), 0) : NaN; };
+      // (the count N is of the members inside the frame's box in plane z: the set holds the members outside it too, and the enumerator's ramp members (level below 0, outside their sheet's window), a flagged edge's own member can be one)
+      const box = (() => { const b = window.__cmwLandCarry(true); return b && { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 }; })();
+      const inBox = (m) => !box || (m.z[0] >= box.x0 && m.z[0] <= box.x1 && m.z[1] >= box.y0 && m.z[1] <= box.y1);
+      const listAt = (w) => {
         const out = [];
         for (const e of (window.__cmwLandEnum([w]) || [[]])[0]) {
           if (!want.includes(e.sheet)) continue;   // (the sheets the edge's ends hold; the others only crowd the separation check)
-          const m = newton({ z: e.z, lam: e.lam, sheet: e.sheet }, w);
-          if (m && !out.some((q) => q.sheet === m.sheet && cabs(csub(q.z, m.z)) <= 1e-7 * (1 + cabs(m.z)))) out.push(m);
+          const m = newton({ z: e.z, lam: e.lam, sheet: e.sheet, lvl: e.lvl }, w);
+          if (m && !out.some((q) => q.sheet === m.sheet && dist(q, m) <= 1e-7 * (1 + cabs(m.lam || m.z)))) out.push(m);
         }
         return out;
       };
-      const sepOf = (set, i) => { let d = Infinity; set.forEach((m, j) => { if (j !== i) d = Math.min(d, cabs(csub(m.z, set[i].z))); }); return d; };
+      const counted = (set) => set.filter((m) => cabs(m.z) >= ${COUNT_R_MIN} && inBox(m) && !(m.lvl < 0)).length;
+      const membersN = (w) => {
+        const n = countAt(w), out = listAt(w);
+        if (counted(out) === n) return out;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const wf = [w[0] + dx * ${MONO_FAR} * h, w[1] + dy * ${MONO_FAR} * h], sf = listAt(wf);
+          if (counted(sf) !== countAt(wf)) continue;
+          const tr = track(sf, [wf, w]);
+          if (tr && counted(tr) === n) return tr;
+        }
+        return null;
+      };
+      const membersAt = (w) => membersN(w) || [];   // (none: the set could not be counted and certified, which the callers report as unresolved)
+      const sepOf = (set, i) => { let d = Infinity; set.forEach((m, j) => { if (j !== i && m.sheet === set[i].sheet) d = Math.min(d, dist(m, set[i])); }); return d; };   // (members of one sheet only: a member solves its own sheet's H, so it can only swap with one of that sheet)
       let fail = null;   // (why the last path failed: the segment, the share of it, the member Newton lost or the separation check)
       const track = (set, pts) => {
         let cur = set, steps = 0;
@@ -219,21 +248,25 @@
             if (++steps > ${MONO_STEPS_MAX}) { fail = { s, t0, why: 'steps' }; return null; }
             const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m) => newton(m, w));
             let good = nx.every(Boolean);
-            if (good && sepOn) good = nx.every((m, i) => cabs(csub(m.z, cur[i].z)) <= ${MONO_SEP} * sepOf(nx, i));
+            if (good && sepOn) good = nx.every((m, i) => dist(m, cur[i]) <= ${MONO_SEP} * sepOf(nx, i));
             if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = { s, t0, why: nx.every(Boolean) ? 'sep' : 'newton ' + nx.findIndex((m) => !m) + ' of ' + nx.length, nfail }; return null; } }
           }
         }
         return cur;
       };
       // (the member of a set nearest z on the sheet: two members of different sheets are two members even where their z coincide)
-      const nearest = (set, z, sheet) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = m.sheet === sheet ? cabs(csub(m.z, z)) : Infinity; if (q < d) { d = q; b = i; } }); return { i: b, d }; };
+      const nearest = (set, z, sheet) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = m.sheet === sheet ? (z.lam ? dist(m, z) : cabs(csub(m.z, z.z || z))) : Infinity; if (q < d) { d = q; b = i; } }); return { i: b, d }; };
       let e = window.__lxPend[k];
       if (opt && opt.syn) {
-        // (a made-up edge in the cell that holds the branch value bv: the first member at the cell's corner, the second the continuation of another member from the next corner along x)
-        const wv0 = [opt.syn[0] - h / 2, opt.syn[1] - h / 2], wo0 = [wv0[0] + h, wv0[1]], set0 = membersAt(wv0), tr = set0.length > 1 ? track(set0, [wv0, wo0]) : null;
-        if (!tr) return { cls: 'unresolved', why: 'syn', n: set0.length, fail };
-        const code = window.__lxSheetCode + set0[0].sheet;
-        e = [set0[0].z[0], set0[0].z[1], tr[1].z[0], tr[1].z[1], 0, code, code, wv0[0], wv0[1], wo0[0], wo0[1]];
+        // (a made-up edge through the branch value bv, from one side of it to the other (so the track along it cannot complete, as for a real edge at a branch
+        // value): its ends are the vertices bv +- SYN_ARM cells in a direction no grid line has, the first end's member the first of the sheets with a member in
+        // the box there, the second end's the next one at the other vertex; the sheets taken are those the scene counts a member of at the first vertex)
+        const wv0 = [opt.syn[0] + Math.cos(${SYN_ANGLE}) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(${SYN_ANGLE}) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
+        want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
+        const set0 = membersAt(wv0), setB0 = membersAt(wo0);
+        if (set0.length < 2 || setB0.length < 2) return { cls: 'unresolved', why: 'syn', n: [set0.length, setB0.length], want, fail };
+        const code = window.__lxSheetCode + set0[0].sheet, code1 = window.__lxSheetCode + setB0[1].sheet;
+        e = [set0[0].z[0], set0[0].z[1], setB0[1].z[0], setB0[1].z[1], 0, code, code1, wv0[0], wv0[1], wo0[0], wo0[1]];
       }
       if (opt && opt.same) {
         const w0 = opt.same, w1 = [w0[0] + h, w0[1]], set0 = membersAt(w0), tr = set0.length ? track(set0, [w0, w1]) : null;
@@ -241,16 +274,23 @@
         e = [set0[0].z[0], set0[0].z[1], tr[0].z[0], tr[0].z[1], 0, 1, 1, w0[0], w0[1], w1[0], w1[1]];
       }
       const [ax, ay, bx, by, t, ca, cb, wax, way, wbx, wby] = e;
-      want = [...new Set([shOf(ca, cb), shOf(cb, ca)])];
+      // (an end's sheet: the page's label where a member of that sheet is at the end's z, else the lowest sheet whose member is there; a label that no member
+      // backs is not a certificate. Sheets of equal z (a root's sheets differing by turns) are told apart by the label)
+      const sheetAt = (w, z, label) => {
+        const at = (window.__cmwLandEnum([w]) || [[]])[0].filter((e) => cabs(csub(e.z, z)) <= ${END_Z_TOL} * (1 + cabs(z))).map((e) => e.sheet);
+        return at.includes(label) || !at.length ? label : at[0];
+      };
+      const lA = shOf(ca, cb), lB = shOf(cb, ca), sA = sheetAt([wax, way], [ax, ay], lA), sB = sheetAt([wbx, wby], [bx, by], lB);
+      want = [...new Set([sA, sB])];
       const atA = t < 0.5, zv = atA ? [ax, ay] : [bx, by], wv = atA ? [wax, way] : [wbx, wby], zo = atA ? [bx, by] : [ax, ay], wo = atA ? [wbx, wby] : [wax, way];
       // the seam: the first end's member continued along the edge to the second end's place, by a completed track with its sheet kept by continuity; it is a
       // seam when it arrives at a member of that place other than the second end's (found by its z among the members there, whatever label the page gave it)
-      const shA = shOf(ca, cb), shB = shOf(cb, ca), setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA);
+      const shA = sA, shB = sB, setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA);
       const trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
       if (trA) {
         const setB = membersAt([wbx, wby]), anyB = (() => { let b = -1, d = Infinity; setB.forEach((m, i) => { const q = cabs(csub(m.z, [bx, by])); if (q < d) { d = q; b = i; } }); return b; })();
         const c = trA[ia.i];
-        if (anyB < 0 || c.sheet !== setB[anyB].sheet || cabs(csub(c.z, setB[anyB].z)) > ${MONO_SEP} * sepOf(setB, anyB)) return { cls: 'seam' };
+        if (anyB < 0 || c.sheet !== setB[anyB].sheet || dist(c, setB[anyB]) > ${MONO_SEP} * sepOf(setB, anyB)) return { cls: 'seam' };
       }
       // the branch value: the monodromy of the members round the cells at the vertex (based loops), and where a track fails round the 2 x 2 ring there
       const shV = atA ? shA : shB, shO = atA ? shB : shA, setV = membersAt(wv), iv = nearest(setV, zv, shV), setO = membersAt(wo), io = nearest(setO, zo, shO);
@@ -262,13 +302,26 @@
         if (trO) break;
       }
       if (!trO) return { cls: 'unresolved', why: 'edge', fail };
-      const ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i].z, trO[io.i].sheet).i;
+      // (the other end's member at the vertex: the one the vertex's set holds there, or, where the enumerator leaves it out (a member of the range ramp), the
+      // carried member itself, a certified root of its sheet's H, joined to the set so that the loops move it too)
+      let ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i], trO[io.i].sheet).i;
+      if (ib === -1) { setV.push(trO[io.i]); ib = setV.length - 1; }
       const loop = (c0, sx, sy) => [wv, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, wv];
       const ring = [wv, [wv[0] + h, wv[1]], [wv[0] + h, wv[1] + h], [wv[0] - h, wv[1] + h], [wv[0] - h, wv[1] - h], [wv[0] + h, wv[1] - h], [wv[0] + h, wv[1]], wv];
       const cyc = (pts) => {
         const tr = track(setV, pts);
         if (!tr) return null;
-        const perm = tr.map((m) => nearest(setV, m.z, m.sheet).i);
+        // (where a tracked member arrived: at the member of its own sheet there when that is within MONO_MATCH, else at the member of another sheet at the same
+        // position (sheets whose members coincide are one surface point), else nowhere)
+        const where = (m) => {
+          const own = nearest(setV, m, m.sheet);
+          if (own.i >= 0 && own.d <= ${MONO_MATCH} * (1 + cabs(m.lam || m.z))) return own.i;
+          let b = -1, d = Infinity;
+          setV.forEach((q, j) => { const x = cabs(csub(q.z, m.z)); if (x < d) { d = x; b = j; } });
+          return b >= 0 && d <= ${MONO_MATCH} * (1 + cabs(m.z)) ? b : -1;
+        };
+        const perm = tr.map(where);
+        if (perm.includes(-1)) return null;
         if (new Set(perm).size !== perm.length) return null;
         let c = perm[iv.i], hit = false;
         for (let g = 0; c !== iv.i && g <= perm.length; g++) { if (c === ib) hit = true; c = perm[c]; }
