@@ -53,6 +53,7 @@
   const REF = { nx: 40, ny: 34, slack: 1 };
   const RASTER_TOL = SAME_FRAC;
   const STEP_MAX = 1200;   // at most this many raster steps a frame (STEP_MS each): more is a reference that never finishes, and fails
+  const SEAM_MIN_HITS = 50, SEAM_DIFF_SHARE = 0.2;
   const CTL_DEPTH = 1;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002 needs 2 halvings; at 1 it is over its bound at the cap)
   const STEP_MS = 5000;   // a raster step's time in the page: a CDP call (20 s) stays under its limit with the core's longest unyielding stretch (CONT_MS) after it
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
@@ -112,8 +113,13 @@
       frame[y * W2 + x] = t && 2 * n >= t ? 1 : 0;
     }
     window.__lxMasks = { ref: r.px, frame, W2, H2 };
+    // (a control's reference against the last uncontrolled one: the pixels that differ)
+    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.CELL_DEPTH_MAX !== undefined;
+    let diff = 0;
+    if (!ctl) window.__lxBaseRef = r.px;
+    else if (window.__lxBaseRef && window.__lxBaseRef.length === r.px.length) for (let i = 0; i < r.px.length; i++) if (window.__lxBaseRef[i] !== r.px[i]) diff++;
     const res = window.__lxCompare(r.px, frame, W2, H2, g.slack, r.failures.length > 0);
-    return Object.assign(res, { cells: r.cells, certs: r.certs, failures: r.failures });
+    return Object.assign(res, { cells: r.cells, certs: r.certs, failures: r.failures, diff });
   }
   // the raster in steps of at most ms milliseconds a call (a CDP call that runs too long fails): start, then step until done
   window.__lxRasterStart = (sheets, g) => { window.__lxRun = lxRaster(sheets, g); return 1; };
@@ -451,13 +457,15 @@
       };
       if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH}`, { CELL_DEPTH_MAX: CTL_DEPTH }, (c) => c.failures.some((f) => f.kind === 'cellDepth'));
       if (/Newton/.test(t) && u === END_U) await control('the nearest root taken as identity', { seed: true }, (c) => c.failures.length > 0 || c.off > RASTER_TOL);
-      if (rk && rk.cells.hits > 2 * RASTER_TOL * rk.n && !controlsDone.seam) { controlsDone.seam = 1; await control('a seam moved one cell', { seam: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
+      // (the rays decide fewer pixels than the tolerance in these frames: the seam control is armed where they decide at least SEAM_MIN_HITS, and fails the reference when the
+      // moved seam changes at least SEAM_DIFF_SHARE of them)
+      if (rk && rk.cells.hits >= SEAM_MIN_HITS && !controlsDone.seam) { controlsDone.seam = 1; await control('a seam moved one cell', { seam: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL || c.diff >= SEAM_DIFF_SHARE * rk.cells.hits); }
       if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone.apex) { controlsDone.apex = 1; await control('a pixel at a branch point decided with no height comparison', { apexOld: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
       if (rk && rk.certs.length > 0 && !controlsDone.branch) { controlsDone.branch = 1; await control('a branch point moved one cell', { branch: 1 }, (c) => c.failures.some((f) => f.kind === 'branch' || f.kind === 'cellDepth')); }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
   }
-  ok('the seam control ran: some frame had pixels only the rays decide (more than twice the tolerance)', !!controlsDone.seam, controlsDone);
+  ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
   ok('the branch-point height control ran: the cube root at the glide\'s middle', !!controlsDone.apex, controlsDone);
   return { pass: !fails.length, fails, info };

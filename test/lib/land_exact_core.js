@@ -160,7 +160,12 @@
     }
     // the move of a member's continued log coordinate from z to a point z2 beside it: the frame's own (log of the ratio of the prefix's values, the ops before the plan's
     // first multivalued op), else that of z itself
-    const relLog = frame.lamStep || ((z, z2) => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; });
+    class LamUndefined extends Error {}
+    const relLog = (z, z2) => {
+      const r = frame.lamStep ? frame.lamStep(z, z2) : (() => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; })();
+      if (!r || !fin(r)) throw new LamUndefined('step from ' + z[0].toExponential(2) + ',' + z[1].toExponential(2) + ' to ' + z2[0].toExponential(2) + ',' + z2[1].toExponential(2));
+      return r;
+    };
     // the member of place vb that the carried point z of a member m is: the nearest of m's own sheet (the same z repeats on
     // sheets beside the frame's own, as different surfaces), within MATCH_TOL; -1 when none
     const matchIn = (vb, m, z) => {
@@ -189,6 +194,12 @@
     }
     // all members of `from` carried from place wA to place wB in lockstep: { ok, z[], lam[] } or { ok: false, why }
     function track(from, wA, wB) {
+      try { return trackRaw(from, wA, wB); } catch (e) {
+        if (!(e instanceof LamUndefined)) throw e;
+        return { ok: false, why: 'the lifted coordinate is undefined (' + e.message + ')' };
+      }
+    }
+    function trackRaw(from, wA, wB) {
       const t0 = Date.now();
       let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0, last = '', kf = -1, pf = null;
       const dw = csub(wB, wA);
@@ -524,9 +535,16 @@
       }
     }
     function certifyAt(pair, sep, group) {
-      const simple = certifySimple(pair, sep);
-      if (simple.ok || !simple.degenerate) return simple;
-      return certifyCluster(pair, sep, group, simple);
+      // (a point where the prefix before the plan's multivalued op is zero or infinite has no lifted coordinate: the frame's step answers null, and the certificate
+      // cannot be proved there, which fails the cell by name)
+      try {
+        const simple = certifySimple(pair, sep);
+        if (simple.ok || !simple.degenerate) return simple;
+        return certifyCluster(pair, sep, group, simple);
+      } catch (e) {
+        if (!(e instanceof LamUndefined)) throw e;
+        return { ok: false, why: 'the lifted coordinate is undefined (' + e.message + ')' };
+      }
     }
     // a critical point of H that is not simple (H' has a zero of order m >= 2 there, as for a cube): the argument principle on a circle
     // counts the zeros of H' (m of them), their centroid is the point c, a circle a CERT_TIGHT share as wide holds all m, and the winding
