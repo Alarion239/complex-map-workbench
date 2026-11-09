@@ -496,9 +496,13 @@
         const w = [q.w[0] + shift, q.w[1]];
         const near = lv.branch.some((c) => dist2(w, mid2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s))) <= reach + dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)));
         if (!near) continue;
-        if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w }); continue; }
-        const cert = { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: reach, kantorovich: null, winding: null, inDisc: null };
-        certs.push(cert);
+        // (one certificate a place: the same point declared on each sheet of the frame, or at each level, is one)
+        let cert = certs.find((c) => c.singular === q.kind && dist2(c.w, w) <= o.SING_PX * wPx);
+        if (!cert) {
+          if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w }); continue; }
+          cert = { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: reach, kantorovich: null, winding: null, inDisc: null };
+          certs.push(cert);
+        }
         // the cells within reach, and the cells of the same kind that touch them (within SING_ADJ leaf cells) up to SING_REACH_MAX leaf
         // cells from the point: the neighbourhood where the surface is not smooth at the depth the lattice reaches
         const cdist = (c) => dist2(w, mid2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)));
