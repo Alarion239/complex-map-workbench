@@ -209,7 +209,8 @@
         }
         return cur;
       };
-      const nearest = (set, z) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = cabs(csub(m.z, z)); if (q < d) { d = q; b = i; } }); return { i: b, d }; };
+      // (the member of a set nearest z on the sheet: two members of different sheets are two members even where their z coincide)
+      const nearest = (set, z, sheet) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = m.sheet === sheet ? cabs(csub(m.z, z)) : Infinity; if (q < d) { d = q; b = i; } }); return { i: b, d }; };
       let e = window.__lxPend[k];
       if (opt && opt.same) {
         const w0 = opt.same, w1 = [w0[0] + h, w0[1]], set0 = membersAt(w0), tr = set0.length ? track(set0, [w0, w1]) : null;
@@ -220,22 +221,23 @@
       want = [...new Set([shOf(ca, cb), shOf(cb, ca)])];
       const atA = t < 0.5, zv = atA ? [ax, ay] : [bx, by], wv = atA ? [wax, way] : [wbx, wby], zo = atA ? [bx, by] : [ax, ay], wo = atA ? [wbx, wby] : [wax, way];
       // the seam: the first end's member continued along the edge to the second end's place
-      const setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay]), trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
+      const shA = shOf(ca, cb), shB = shOf(cb, ca), setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA), trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
       if (trA) {
-        const za1 = trA[ia.i].z;
-        if (cabs(csub(za1, [bx, by])) > ${MONO_SEP} * sepOf(trA, ia.i)) return { cls: 'seam' };
+        // (continued to the second end's place the first end's member is that end's member only on its own sheet and at its z)
+        const za1 = trA[ia.i];
+        if (shA !== shB || cabs(csub(za1.z, [bx, by])) > ${MONO_SEP} * sepOf(trA, ia.i)) return { cls: 'seam' };
       }
       // the branch point: the cells at the vertex, as loops based at its place
-      const setV = membersAt(wv), iv = nearest(setV, zv), setO = membersAt(wo), io = nearest(setO, zo);
+      const shV = atA ? shA : shB, shO = atA ? shB : shA, setV = membersAt(wv), iv = nearest(setV, zv, shV), setO = membersAt(wo), io = nearest(setO, zo, shO);
       if (iv.i < 0 || io.i < 0) return { cls: 'unresolved', why: 'members', sets: [setV.length, setO.length, iv.i, io.i] };
       const trO = track(setO, [wo, wv]);
       if (!trO) return { cls: 'unresolved', why: 'edge', fail };
-      const ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i].z).i;
+      const ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i].z, trO[io.i].sheet).i;
       const loop = (c0, sx, sy) => [wv, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, wv];
       const cyc = (pts) => {
         const tr = track(setV, pts);
         if (!tr) return null;
-        const perm = tr.map((m) => nearest(setV, m.z).i);
+        const perm = tr.map((m) => nearest(setV, m.z, m.sheet).i);
         if (new Set(perm).size !== perm.length) return null;
         let c = perm[iv.i], hit = false;
         for (let g = 0; c !== iv.i && g <= perm.length; g++) { if (c === ib) hit = true; c = perm[c]; }
