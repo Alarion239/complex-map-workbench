@@ -259,89 +259,191 @@
   const carryStep = (mode, H, exact) => (mode >= 2 && !exact ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // the step sheets' chain data: the chain's, with the step's sheet k moved by shift.dk (null: the chain's own)
-  function sheetChainData(shift) {
-    if (!shift || !shift.vals || !cur.info) return null;
-    const v = shift.vals, k0 = v.k;
-    v.k = (k0 || 0) + shift.dk;
-    try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
+  // the chain's data with the branches of steps moved: shifts [{vals, dk}], each step's k by dk (null: no shift)
+  function chainWith(shifts) {
+    if (!shifts.length || !cur.info) return null;
+    const k0 = shifts.map((sh) => sh.vals.k);
+    for (const sh of shifts) sh.vals.k = (sh.vals.k || 0) + sh.dk;
+    try { return cur.info.fillNow(new Float32Array(cur.data.length)); } finally { for (let i = shifts.length - 1; i >= 0; i--) shifts[i].vals.k = k0[i]; }
   }
-  const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
+  // (a step sheet's chain data: its own shift, then the layer's forward shifts)
+  const sheetChainData = (shift, more = []) => chainWith((shift && shift.vals ? [shift] : []).concat(more));
+  const CARRY_CONT_CODE = 10.25;   // a vertex continued onto the layer's branch past its range (LAND_CARRY_CONT_VS)
+  // the sheet number (chainSheetRange's combo) of the branch each multivalued step has at the point it is continued from
+  // (digit 0 of a finite step, the window's centre for a log or an irrational power), for the steps up to stage top
+  const ownCombo = (W, top, shifts) => {
+    const steps = cur.info && cur.info.sheets && Array.isArray(cur.info.sheets.steps) ? cur.info.sheets.steps.filter((e) => e && e.k >= 1 && e.k <= top).sort((p, q) => p.k - q.k) : [];
+    let c = 0, m = 1;
+    for (const e of steps) {
+      const dk = shifts.filter((x) => x && x.k === e.k).reduce((a, x) => a + x.dk, 0), r = e.n > 0 ? e.n : 2 * W + 1;
+      c += (e.n > 0 ? ((dk % e.n) + e.n) % e.n : W + dk) * m; m *= r;
+    }
+    return c;
+  };
+  // The sheet combo of a glide's sheet (sheet.dk more than the step's own, the step of stage sheet.k): the mixed-radix number
+  // chainSheetRange reads, lowest digit first, one digit for each multivalued step in chain order. A bounded step (n sheets) reads
+  // its digit as the sheet, an unbounded one (a window of 2 W + 1) as the digit less W, so the digit is W + dk there and
+  // dk mod n here, and W where the step keeps its own sheet
+  function carrySheetCombo(shift, W) {
+    const info = cur.info;
+    if (!info || !info.sheets || !Array.isArray(info.sheets.steps)) return 0;
+    let combo = 0, radix = 1;
+    for (const s of info.sheets.steps.filter((x) => x && x.k >= 1).sort((p, q) => p.k - q.k)) {
+      const off = shift && shift.k === s.k ? shift.dk : 0, n = s.n > 0 ? s.n : 2 * W + 1;
+      combo += (s.n > 0 ? ((off % s.n) + s.n) % s.n : W + off) * radix;
+      radix *= n;
+    }
+    return combo;
+  }
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
-  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
-  function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
+  // The All sheets' layers past the first (member k >= 1 of the glide's inverse, drawn with the first's programs): each its
+  // own places, preimages, normals and edges, kept between frames; layer 0 is landC
+  const landLs = [];
+  const LAND_CUT_NEAR = 1e-3, LAND_CUT_FAR = 2, LAND_HOLES_MAX = 4, LAND_HOLE_CELLS = 8, LAND_POLAR_N = 65;   // polar patches about a layer's branch points: at most, the patch's reach in cells, its grid
+  let landHoles = [];   // the last carried frame's patches [x, y, r0, r1]
+  const LAND_MEMBERS_MAX = 8;   // the walk's largest B
+  let landActive = [];   // the layers the last carried frame drew: landC, then landLs's that are exact
+  // the inverse inputs of layer lay { member }: the glide's own, walked for its member-th member at each vertex (the step's
+  // sheets merged as for the front member)
+  const layerExact = (ex, lay) => {
+    const sh = lay.sheet || {};
+    return Object.assign({}, ex, sh.plan ? { map: sh.map, plan: sh.plan, prep: sh.prep, inv: sh.inv } : {}, { shift: sh.shift || null, more: [], member: lay.member, shifts: lay.shifts || [], layered: true });
+  };
+  // the most members the glide's inverse has at a vertex: the product of the finite branch counts of its steps (a step with
+  // a finite family has that many preimages of every value), the largest over the glide's step sheets, at most
+  // LAND_MEMBERS_MAX. A member the walk does not reach leaves its layer empty (alpha 0), which every pass skips
+  // the height mix of a frame (modes 8, 9: st.mix = {mu2, beta, endLin}: the second end's scale, the weight of its height, which ends are linear),
+  // its uniforms, and the height cap of the mesh (modes 4, 5 and 8, 9 keep heights up to 1e4 H: the block clips them)
+  const mixOf = (st) => st.mix || { mu2: 0, beta: 0, endLin: 0 };
+  const clipOf = (m) => (m === 4 || m === 5 || m >= 8 ? 1e4 : 0);
+  const mixU = (P, st, mu) => { const mix = mixOf(st); u1f(P, 'uMu2', mix.mu2 > 0 ? mix.mu2 : mu); u1f(P, 'uMix', mix.beta); u1i(P, 'uEndLin', mix.endLin); };
+  const landMembers = (st) => {
+    const ex = st.carry.exact, plans = [ex.plan].concat((ex.more || []).map((m) => m.plan));
+    const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * (o.fam && o.fam.type === 'fin' ? o.fam.count : 1), 1)));
+    return clamp(Math.round(n) || 1, 1, LAND_MEMBERS_MAX);
+  };
+  function landLayer(k, N) {
+    let L = landLs[k - 1];
+    if (L && L.N !== N) { for (const t of [L.tex1, L.tex2, L.zTex, ...(L.edges || [])]) if (t) gl.deleteTexture(t); L = landLs[k - 1] = null; }
+    return L || (landLs[k - 1] = { N, tex1: floatTex(), tex2: floatTex(), zTex: floatTex() });
+  }
+  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC; member:
+  // the All sheets' layer, which is landLayer(member))
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o, lay = null) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
     if (!polar && (!landC || landC.N !== N)) {
       if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
       landC = { N, tex1: floatTex(), tex2: floatTex() };
     }
-    const out = polar ? o : landC;
+    const out = polar ? o : lay && lay.k ? landLayer(lay.k, N) : landC;
+    // (the layered glide's layers are drawn in two stages, so that the ring sees every layer's places: stage 'A' walks, fixes and
+    // continues the layer, stage 'B' finds its edges and normals)
+    const stA = !polar && !!lay && lay.stage === 'A', stB = !polar && !!lay && lay.stage === 'B';
+    if (!polar) out.combo = lay && lay.shifts ? lay.shifts.slice() : [];   // (the forward shifts of the layer's sheet combo: landFrameVerts)
+    // (All sheets: the layer is one step sheet's one member; the sheets are not merged)
+    const ex = lay ? layerExact(c.exact, lay) : c.exact;
     if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     // c.exact (the glide's inverse inputs, GLR.landInverse): the places and preimages are the shown plane's grid walked
     // backwards through the glide's map, not plane s's grid carried forward; a pass that cannot draw leaves this
     // frame to the carried grid
     let exact = false;
-    if (c.exact && !polar) {
-      if (!landC.zTex) landC.zTex = floatTex();
+    if (ex && (!polar || (lay && ex.layered))) {
+      if (!out.zTex) out.zTex = floatTex();
       const h0 = c.hT == null ? c.T : c.hT;
-      const r = landInverse(Object.assign({}, c.exact, { N, box: b, hMode: mode, H, mu, heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: landC.zTex }));
+      const r = stB ? 'drawn' : landInverse(Object.assign({}, ex, { N, box: b, hMode: mode, H, mu, mix: mixOf(st), heights: { hT: h0, hT2: c.hT2 == null ? h0 : c.hT2, hu: c.u || 0 }, tex: out.tex1, zTex: out.zTex, polar }));
       exact = r === 'drawn';
       c.exactState = r;
       // the glide's sheets (LAND_CARRY_FIX_VS), then its real cuts (LAND_CARRY_EDGE_VS) sheet by sheet, once their programs
       // have compiled; until then the cells are drawn whole
-      landC.cuts = 0; landC.datas = null;
-      const sheets = exact ? [{ shift: null }].concat(c.exact.more || []) : [];
-      const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
-      if (P3 && (Pf || sheets.length === 1)) {
-        if (!landC.edges) landC.edges = [floatTex(), floatTex(), floatTex()];
-        const datas = sheets.map((sh) => sheetChainData(sh.shift));
+      out.cuts = 0; out.datas = null; out.cont = false;
+      const sheets = exact ? [{ shift: ex.shift || null }].concat(ex.more || []) : [];
+      // (layered: a layer is one branch, whose cuts are continued from its own vertices: the fix pass always, then the
+      // continuation pass, the edges with the cuts anchored at an own end)
+      const lyr = !!ex.layered && sheets.length === 1;
+      const Pf = sheets.length > 1 || lyr ? program('landCarryFix', c.map) : null, P3 = exact ? program(lyr ? 'landCarryEdgeL' : 'landCarryEdge', c.map) : null;
+      const Pn = lyr ? program('landCarryCont', c.map) : null;
+      out.own = ownCombo(ex.sheetW || 2, Math.max(h0, c.hT2 == null ? h0 : c.hT2, c.T), [ex.shift].concat(ex.shifts || []));
+      const own = (P) => { u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', out.own); };
+      if (sheets.length > CARRY_SHEETS_MAX) throw new Error('the glide has ' + sheets.length + ' sheets; the cross-sheet edge test reads at most ' + CARRY_SHEETS_MAX);
+      if (P3 && (Pf || sheets.length === 1) && (!lyr || Pn)) {
+        if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
+        const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
+        const sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
+        const combos = sheets.map((sh) => carrySheetCombo(sh.shift, sheetW));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
-        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
+        const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); mixU(P, st, mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', clipOf(mode)); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
-        gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex);
-        if (Pf && !carryProbe.noFix) for (const tol of CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
+        gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, out.zTex);
+        if (Pf && !stB && !carryProbe.noFix) for (const tol of lyr ? CARRY_SHEET_TOLS.slice(0, 1) : CARRY_SHEET_TOLS) for (let i = 0; i < sheets.length; i++) {
           use(Pf, Object.assign({}, c.map, { base: 0 }));
           if (datas[i]) gl.uniform4fv(Pf.loc.uChain, datas[i]);
           stages(Pf); u1f(Pf, 'uCode', code(i)); u1f(Pf, 'uTol', tol);
           gl.activeTexture(gl.TEXTURE15);
           runTF(Pf, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }
-        for (let i = 0; i < sheets.length; i++) {
+        if (lyr && !stB) {
+          use(Pn, c.map);
+          if (datas[0]) gl.uniform4fv(Pn.loc.uChain, datas[0]);
+          stages(Pn); own(Pn); u1f(Pn, 'uCode', code(0)); u1f(Pn, 'uContCode', CARRY_CONT_CODE);
+          // (the step's cut leaving each branch point of the z-plane: a continuation is not taken across its image under the
+          // layer's own map)
+          const cuts = new Float32Array(12);
+          let nc = 0;
+          for (const [, , cut] of (c.exact.hole || []).slice(0, LAND_HOLES_MAX)) {
+            if (!cut || carryProbe.noRay) continue;
+            cuts.set(cut, 3 * nc++);
+          }
+          gl.uniform3fv(Pn.loc.uCutZ, cuts); u1i(Pn, 'uCutN', nc);
+          u2f(Pn, 'uCutRad', LAND_CUT_NEAR * (b.x1 - b.x0), LAND_CUT_FAR * (b.x1 - b.x0));
+          gl.activeTexture(gl.TEXTURE15);
+          runTF(Pn, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
+        }
+        for (let i = 0; i < (stA ? 0 : sheets.length); i++) {
           use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', carryProbe.noSeam ? 0 : 1);
+          stages(P3); if (lyr) own(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', lyr || carryProbe.noSeam ? 0 : 1); u1i(P3, 'uMidOn', carryProbe.midCut ? 1 : 0);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
             // (a later sheet's pass keeps the edges the earlier passes found: an edge is on one sheet only)
             u1i(P3, 'uUsePrev', i > 0 ? 1 : 0);
-            gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]);
+            gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, out.edges[d]);
             gl.activeTexture(gl.TEXTURE15);
-            runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+            runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, out.edges[d], N, N, gl.RGBA32F, gl.RGBA);
           }
         }
-        // (the edges between two sheets, last: the earlier passes' edges stay)
-        if (Pf) {
+        // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
+        if (Pf && !lyr) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uMidOn', carryProbe.midCut ? 1 : 0); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
+          gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
-            gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]);
+            gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, out.edges[d]);
             gl.activeTexture(gl.TEXTURE15);
-            runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+            runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, out.edges[d], N, N, gl.RGBA32F, gl.RGBA);
           }
         }
-        landC.cuts = 1;
-        landC.datas = Pf ? datas : null;
+        out.cuts = stA ? 0 : 1;
+        out.cont = lyr;
+        out.datas = Pf ? datas : null;
+        out.chain = Pf ? null : datas[0];
+        out.sheetW = sheetW;
+        out.combos = combos;
       }
     }
-    if (!polar) landC.exact = exact;
+    if (!polar || (lay && ex && ex.layered)) out.exact = exact;
+    if (polar && lay && !exact) return out;
+    if (stA && exact) return out;
+    if (lay && lay.k && !exact) return out;
     if (!exact) {
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); mixU(P1, st, mu); u1f(P1, 'uHClip', clipOf(mode));
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -355,28 +457,142 @@
     u1i(P2, 'uCuts', cutNrm ? 1 : 0);
     if (cutNrm) for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
+    u1i(P2, 'uCuts', exact && out.cuts ? 1 : 0);
+    if (exact && out.cuts) for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, out.edges[d]); }
     gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
   }
+  // The cross-layer continuation of the layered glide's layers (LAND_CARRY_RING_VS): each layer's texels and preimages
+  // are read by the pass of every layer, so the layers are all placed first
+  function landRing(st, N, mode, H, mu, aspect) {
+    const c = st.carry, b = st.box, bytes = N * N * 16, n = landActive.length;
+    if (n < 2) return;
+    if (n > RING_LAYERS_MAX) throw new Error('the glide has ' + n + ' layers; the cross-layer pass reads at most ' + RING_LAYERS_MAX);
+    const P = program('landCarryRing', c.map);
+    if (!P) return;
+    const h0 = c.hT == null ? c.T : c.hT;
+    for (let k = 0; k < n; k++) {
+      const L = landActive[k], ex = layerExact(c.exact, L.spec);
+      use(P, c.map);
+      const sheets = [{ shift: ex.shift || null }];
+      const datas = sheetChainData(sheets[0].shift, ex.shifts || []);
+      if (datas) gl.uniform4fv(P.loc.uChain, datas);
+      u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); mixU(P, st, mu);
+      u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0);
+      u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', L.own);
+      u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1i(P, 'uGuard', carryProbe.noGuard ? 0 : 1); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
+      const units = [];
+      for (let j = 0; j < RING_LAYERS_MAX; j++) {
+        const Lj = landActive[Math.min(j, n - 1)];
+        gl.activeTexture(gl.TEXTURE0 + 2 * j); gl.bindTexture(gl.TEXTURE_2D, Lj.tex1);
+        gl.activeTexture(gl.TEXTURE0 + 2 * j + 1); gl.bindTexture(gl.TEXTURE_2D, Lj.zTex);
+        units.push(j);
+      }
+      gl.uniform1iv(P.loc.uRT1, units.map((j) => 2 * j)); gl.uniform1iv(P.loc.uRZ, units.map((j) => 2 * j + 1));
+      // (both outputs are decided on the texels as they were: the preimages first, then the texels)
+      for (const [outZ, tex] of [[1, L.zTex], [0, L.tex1]]) {
+        u1i(P, 'uOutZ', outZ);
+        gl.activeTexture(gl.TEXTURE15);
+        runTF(P, empty(), gl.POINTS, N * N, 0, bytes, tex, N, N, gl.RGBA32F, gl.RGBA);
+      }
+    }
+  }
   // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
-  // draws at its nearest grid vertex, [{ h, member }] (none where no layer is valid there)
+  // draws at its nearest grid vertex, [{ h, member, combo, w, z }] (none where no layer is valid there; combo the layer's forward shifts)
   function landFrameVerts(pts, box) {
     if (!landC || !landC.tex1) return null;
-    const N = landC.N, fbo = gl.createFramebuffer(), px = new Float32Array(N * N * 4);
+    const N = landC.N, fbo = gl.createFramebuffer();
+    const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.tex1, 0);
-    gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
-    const pz = landC.exact && landC.zTex ? new Float32Array(N * N * 4) : null;
-    if (pz) { gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.zTex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, pz); }
+    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null, pe: L.exact && L.edges ? L.edges.map(read) : null, combo: L.combo || [] }));
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return pts.map(([x, y]) => {
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
-      const k = 4 * (j * N + i);
-      return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }] : [];
+      const k = 4 * (j * N + i), out = [];
+      layers.forEach(({ px, pz, pe, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
+      return out;
     });
+  }
+  // The last carried frame's seam vertices (tests), per layer of landActive: the texels placed on the layer ({ own }), the
+  // ones the cross-layer pass continued ({ cont }) and the ones it left off a layer beside an own vertex ({ miss }, the first
+  // SEAM_MISS_LIST of them as [column, row])
+  const SEAM_MISS_LIST = 8;
+  function landSeamMiss() {
+    if (!landActive.length || !landC || !landC.tex1) return null;
+    const N = landC.N, fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
+    const out = landActive.map((L) => {
+      const px = read(L.tex1), r = { own: 0, cont: 0, miss: 0, why: {}, list: [] };
+      const w = (x, y) => px[4 * (y * N + x) + 3];
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const v = w(x, y);
+        if (v < 0) r.why[-v] = (r.why[-v] || 0) + 1;
+        if (v > 5 && v < CARRY_CONT_CODE - 0.1) { r.own++; continue; }
+        if (v >= CARRY_CONT_CODE - 0.1) { r.cont++; continue; }
+        let near = false;
+        for (let j = 0; j < 9 && !near; j++) {
+          const qx = x + (j % 3) - 1, qy = y + Math.floor(j / 3) - 1;
+          if (j !== 4 && qx >= 0 && qy >= 0 && qx < N && qy < N) { const u = w(qx, qy); near = u > 5 && u < CARRY_CONT_CODE - 0.1; }
+        }
+        if (near) { r.miss++; if (r.list.length < SEAM_MISS_LIST) r.list.push([x, y]); }
+      }
+      return r;
+    });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo);
+    return out;
+  }
+  // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
+  // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels
+  function landEdgeCounts() {
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    const count = (G, N) => {
+      if (!G || !G.edges || !G.tex1) return null;
+      const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
+      const t = read(G.tex1), w = [];
+      let jumps = 0;
+      const rows = {};
+      G.edges.forEach((tex, d) => { const e = read(tex); for (let k = 0; k < N * N; k++) if (e[4 * k + 3] > 0.5) { jumps++; const key = d + ':' + Math.floor(k / N); rows[key] = (rows[key] || 0) + 1; if (w.length < 6) w.push([t[4 * k], t[4 * k + 1]]); } });
+      return { n: N, jumps, w, rows };
+    };
+    const out = (landActive.length ? landActive : [landC]).map((L) => ({ cuts: !!(L.exact && L.cuts), box: count(L, L.N), pp: (L.pp || []).map((o) => count(o, LAND_POLAR_N)) }));
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo);
+    return out;
+  }
+  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t]] }, the preimages of the edge's two ends (a, then b along
+  // +x, +y or the diagonal) and the share t of the chord a -> b at which the cut was found; null without cuts
+  function landCutEdges() {
+    if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.zTex) return null;
+    const N = landC.N, Z = lwRead(landC.zTex, N, N), out = [];
+    if (!Z) return null;
+    landC.edges.forEach((tex, d) => {
+      const E = lwRead(tex, N, N);
+      if (!E) return;
+      const dx = d === 1 ? 0 : 1, dy = d === 0 ? 0 : 1;
+      for (let j = 0; j < N - dy; j++) for (let i = 0; i < N - dx; i++) {
+        const k = 4 * (j * N + i), w = E[k + 3];
+        if (!(w > 0.5 && w < 1.5)) continue;
+        const m = 4 * ((j + dy) * N + i + dx);
+        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k]]);
+      }
+    });
+    return { steps: CARRY_EDGE_STEPS, edges: out };
+  }
+  // The last exact carried frame's grid edges that are crossed twice (a branch point on the edge: the edge pass's w 2), whose triangles
+  // the draw leaves out, over every layer (tests); null without cuts
+  function landDrops() {
+    const Ls = (landActive.length ? landActive : [landC]).filter((L) => L && L.exact && L.cuts && L.edges);
+    if (!Ls.length) return null;
+    let n = 0;
+    for (const L of Ls) for (const t of L.edges) { const px = lwRead(t, L.N, L.N); if (!px) return null; for (let k = 3; k < px.length; k += 4) if (px[k] > 1.5) n++; }
+    return n;
   }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
@@ -1031,7 +1247,7 @@
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
-    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1f(P1, 'uHClip', clipOf(mode));
     u1i(P1, 'uPass', 0);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
@@ -1129,7 +1345,7 @@
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1f(P1, 'uHClip', clipOf(mode));
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
     u1i(P1, 'uLat', move ? 0 : 1);
     // (the textures are made before the heights are bound: floatTex binds its new texture on the active unit, and the
@@ -1260,7 +1476,8 @@
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
     const { aspect, H, floorZ, Mx } = landGeom(box, st.scale);
     const modeName = st.heightMode || 'log';
-    const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[modeName] ?? 0;
+    const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7, reMix: 8, imMix: 9 }[modeName] ?? 0;
+    const mix = mixOf(st);
     const mu = st.mu > 0 ? st.mu : 1;
     const N = clamp(Math.round(st.cells || 256), 32, 512);
     const dpr = st.dpr || Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
@@ -1270,6 +1487,7 @@
     const heightOf = (v) => {
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
+      if (mode >= 8) { const g = (x, m, lin) => (lin ? Math.max(-1.25, Math.min(1.25, x / m)) : (2 / Math.PI) * Math.atan(x / m)); return H * ((1 - mix.beta) * g(v, mu, mix.endLin & 1) + mix.beta * g(v, mix.mu2 > 0 ? mix.mu2 : mu, mix.endLin & 2)); }
       if (mode >= 6) { const x = v / mu, a = Math.abs(x), c = 0.5 / Math.PI; return H * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
       if (mode >= 4) return H * Math.max(-1.25, Math.min(1.25, v / mu));
       return H * (2 / Math.PI) * Math.atan(v / mu);
@@ -1277,7 +1495,9 @@
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
-    const sp = st.sheets && (!st.carry || program('landCarryPlace', st.carry.map)) ? sheetPlan(st.map, st.sheets.W, st.sheets.end, st.sheets.uniq) : null;
+    // (All sheets of an exact glide: one layer per member of the inverse, below)
+    const layered = !!(st.carry && st.carry.exact && st.carry.exact.layered);
+    const sp = st.sheets && !layered && (!st.carry || program('landCarryPlace', st.carry.map)) ? sheetPlan(st.map, st.sheets.W, st.sheets.end, st.sheets.uniq) : null;
     // A step card's Landscape (st.card) waits for the pane's: its programs start once the pane has drawn this chain's
     // surface, and are taken into use once they have settled (compiled alongside the pane's All sheets, they would slow
     // its link, and their first draws in later frames would stall the GPU process again)
@@ -1329,7 +1549,27 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
     // its own first would stall the GPU process once for them and once more for the sheets')
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect, null, null, layered ? { k: 0, member: 0, sheet: { shift: null }, stage: 'A' } : null) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (All sheets: every member of the glide's inverse is a layer of its own, the first being landC; a layer a pass cannot
+    // draw is left out)
+    landActive = [landC]; landHoles = [];
+    if (layered && hd && landC && landC.exact) {
+      const M = landMembers(st), specs = [];
+      for (const sheet of [{ shift: null }].concat(st.carry.exact.more || [])) for (const shifts of st.carry.exact.fwd || [[]]) for (let member = 0; member < M; member++) specs.push({ sheet, shifts, member });
+      for (let k = 1; k < specs.length; k++) {
+        const L = carryHeights(st, N, mode, H, mu, aspect, null, null, Object.assign({ k, stage: 'A' }, specs[k]));
+        if (L.exact) { L.spec = specs[k]; landActive.push(L); }
+      }
+      landC.spec = specs[0];
+      if (!carryProbe.noRing) landRing(st, N, mode, H, mu, aspect);
+      for (const L of landActive) carryHeights(st, N, mode, H, mu, aspect, null, null, Object.assign({ k: landActive.indexOf(L), stage: 'B' }, L.spec));
+      // (a polar patch of every layer about each branch point of the glide's inverse in view, where the box's cell holding
+      // the point spans a whole turn of the helicoid: the box's triangles about it are left out)
+      const bx = st.box, cell = (bx.x1 - bx.x0) / (N - 1), r1 = cell * LAND_HOLE_CELLS, ext = r1;
+      landHoles = (st.carry.exact.hole || []).filter(([x, y]) => x > bx.x0 - ext && x < bx.x1 + ext && y > bx.y0 - ext && y < bx.y1 + ext).slice(0, LAND_HOLES_MAX);
+      landHoles = landHoles.map(([x, y]) => [x, y, cell * 1e-4, r1]);
+      for (const L of landActive) L.pp = landHoles.map((pl, i) => carryHeights(st, LAND_POLAR_N, mode, H, mu, aspect, pl, (L.pp && L.pp[i]) || {}, Object.assign({ k: 0 }, L.spec)));
+    }
     // (the glide's inverse pass: 'drawn', 'pending' or 'error' when st.carry.exact asked for it)
     info.exact = st.carry && st.carry.exact ? st.carry.exactState || null : null;
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
@@ -1358,7 +1598,7 @@
       u1i(P, 'uN', hd.N);
       u4f(P, 'uBox', box.x0, box.y0, BW, BH);
       u2f(P, 'uAspect', aspect[0], aspect[1]);
-      u1f(P, 'uH', H);
+      u1f(P, 'uH', H); if (st.carry) { u1f(P, 'uHClip', clipOf(mode)); mixU(P, st, mu); }
       u1f(P, 'uFloorZ', floorZ);
       u1i(P, 'uMaterial', material);
       u3(P, 'uPlaster', C.plaster);
@@ -1407,19 +1647,24 @@
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
-      const Pc = program('landCarry', st.carry.map);
+      const contDraw = !!(landC && landC.cont);
+      // (the layered draw of linear heights runs the layers past the block and clips them there exactly: LAND_CLIP; clipOff is a probe's control)
+      const clipC = contDraw && clipOf(mode) > 0 && !carryProbe.clipOff;
+      const fan = clipC ? 3 : 1;
+      const Pc = program(clipC ? 'landCarryLC' : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
+      if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
+      u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
-      const cutDraw = !!(landC && landC.exact && landC.cuts);
-      u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);
-      if (landC && landC.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, landC.zTex); }
-      if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
+      u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
-      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
+      // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
+      // a key's push of the depth would only put a layer behind the floor plate)
+      keyUniforms(Pc, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -1428,23 +1673,61 @@
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
       gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-      // (the glide's sheets, one draw each with that sheet's chain data: its colour is of the sheet's branch)
-      const datas = cutDraw ? landC.datas : null;
-      u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
-      for (let i = 0; i < (datas ? datas.length : 1); i++) {
-        if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
-        u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
-        gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * (hd.N - 1) * (hd.N - 1));
+      // (each layer: its places, preimages and edges; the glide's sheets, one draw each with that sheet's chain data, its
+      // colour being of the sheet's branch)
+      // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
+      const drawCarryGrid = (G, n) => {
+        const cutDraw = !!(G.exact && G.cuts);
+        u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.tex2);
+        if (G.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, G.zTex); }
+        if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, G.edges[d]); }
+        const datas = cutDraw ? G.datas : null;
+        // (a layer of one sheet: its chain data, the forward sheet's)
+        const own = !datas && !!G.chain;
+        if (own) gl.uniform4fv(Pc.loc.uChain, G.chain);
+        if (datas && !G.cont) u1i(Pc, 'uSheetW', G.sheetW || 0);
+        for (let i = 0; i < (datas ? datas.length : 1); i++) {
+          // (a layered draw takes each sheet's chain data; the exact glide's single layer reads the sheet's combo)
+          if (datas && G.cont) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
+          if (datas && !G.cont) u1i(Pc, 'uSheetCombo', G.combos[i] + (carryProbe.comboShift | 0));
+          u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
+          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
+        }
+        if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
+      };
+      {
+        const hv = new Float32Array(16);
+        landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
+        gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
       }
-      if (datas) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
+      for (const L of landActive.length ? landActive : [landC]) {
+        const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
+        u1i(Pc, 'uZOn', exact ? 1 : 0);
+        if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
+        u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
+        if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
+        if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+        drawCarryGrid(L, hd.N);
+        // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
+        if (L.pp && L.pp.length) {
+          gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 4);
+          L.pp.forEach((o, i) => { if (!o.exact) return; u4f(Pc, 'uPolar', ...landHoles[i]); u1i(Pc, 'uZOn', 1); if (contDraw) u1i(Pc, 'uOwn', o.own + (carryProbe.comboShift | 0)); drawCarryGrid(o, LAND_POLAR_N); });
+          u4f(Pc, 'uPolar', 0, 0, 0, 0);
+          gl.disable(gl.POLYGON_OFFSET_FILL);
+        }
+      }
       u1f(Pc, 'uDrawCode', 0);
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', 3); u1i(Pc, 'uCuts', 0);
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', 3 * fan); u1i(Pc, 'uCuts', 0);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * fan * (p.N - 1) * (p.N - 1));
       };
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
       for (const p of pp) drawPatch(p);
@@ -1452,6 +1735,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
+      info.layers = landActive.length; info.landHoles = landHoles.length;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)

@@ -1613,7 +1613,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       const sOf = (s0) => `${s0} + floor((${rc.y} - carg(p.xy)) / (2.0 * CX_PI))`;
       return {
         rads: [rc.x],
-        apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
+        apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; float az = carg(p.zw), k = s + floor((th - az) / (2.0 * CX_PI)) - floor((${rc.y} - az) / (2.0 * CX_PI)); if (${rc.x} < 0.5) { cxs0_dk = k; if (abs(k) > float(uSheetW)) cxs0_out = true; } p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
         homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); }`,
         fn: '',
         write(put) {
@@ -1728,7 +1728,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
 
     const slots = A.slots;
-    let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\n`;
+    let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\nfloat cxs0_dk = 0.0; bool cxs0_out = false;   // (the last sheet step's branch digit off its centre, and whether it left the window: set by the sheets' steps, read by the carry's continuation)\n`;
     for (const { P, plan } of maps) {
       if (plan.pre) src += plan.pre;
       src += `vec2 ${P}_f(vec2 z) {\n  ${plan.f}\n}\n`;

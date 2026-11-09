@@ -15,8 +15,13 @@
 //   reference has a preimage there), and at most CELL_TOL of them differ either way; at the ends also the surface pixels (saturation
 //   over 30, the measure of steps_land_cover_cmd.js's surface(), counted on the kit's kept pixels) are at least the parked plane's
 //   less COVER_TOL; negative controls: a hole, and a wall filled across the cut, fail the comparison;
-// - the image: u below 0.5 is plane z's parked frame and u above it the next plane's, at most SAME_FRAC of the pixels more
-//   than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js).
+// - the image at the end probes (u = END_U and 1 - END_U): u below 0.5 is plane z's parked frame and u above it the next plane's, at most
+//   SAME_FRAC of the pixels more than DIFF_TOL apart (the exact images' tolerance, steps_sm_standin_cmd.js). At the other probes
+//   (0.002, 0.998) a glide is not at rest, so the frame is judged by the exact reference at its own u (the relief raster and the
+//   members, above), and its distance to the parked plane must fall as u goes to the plane (Ruling C of the exact Landscape work, #1342).
+// The exact reference (members, heights, coverage) is the CPU: Inverse.enumerate (src/inverse.js, the CPU twin of the GPU walk) and the
+// forward chain's own evaluation (Funcs.sheetEval). It shares with the GPU inverse path (INV_LAND_MAIN and the carry shaders) the chain's
+// plan and prep data and the frame's camera and height function that put a member on the screen, and no GLSL and no part of the walk.
 // An expression for eval in a command file of a CDP daemon (test/cdp_kit README), which sees its globals (fs, DIR, ev, go,
 // settled, loadView, view): `return await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'land_exact.js'), 'utf8'))(modes)`, with modes the
 // Inside regions' sheets settings to run, [false] (sheets off) or [true] (All sheets). Answers {pass, fails, info}.
@@ -28,23 +33,70 @@
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
   const LOAD_MAX_MS = 60000;
+  // the step sheets dk the glide draws are -SHEET_W..SHEET_W and M_MAX members m of a sheet are tried; a member whose turn lies within
+  // EDGE_MARGIN (in Im) of its sheet's window edge is on that edge
+  const SHEET_W = 2, M_MAX = 8, EDGE_MARGIN = 0.1;
+  // A ruler label's screen y is a float, drawn with the glyphs snapped to the pixel grid: at most half a pixel in each of two frames. The end
+  // frame's real scale gap against the parked plane (1.6e-4 of the ruler's length at 1 - END_U, a few hundredths of a pixel) adds to that, so
+  // two frames' labels are at most TICK_PX = 1 px apart; the gap itself is not absorbed here: the own-height check below sees it.
+  const TICK_PX = 1;
+  // The cut's seam: parked draws the cut as one continuous surface with no dark line, so the pixels of a near-end frame that differ from
+  // the next plane's parked frame form no run of connected pixels as long as a seam. The rim's anti-aliasing dots are runs of at most 27.
+  const SEAM_RUN = 40;
+  const SEAM_U = [1 - 1e-5];   // (the glide's u of the seam's darker-than-parked measure besides the end probe: the nearest to plane 1)
+  const LUMA = [0.299, 0.587, 0.114];
+  // The frame's own seam: a sample on the cut curve is dark when its pixel is SEAM_DARK_TOL (a quarter of DIFF_TOL: a broken seam is
+  // shaded 8 to 16 levels below its banks, under DIFF_TOL) below the frame's pixels SEAM_SIDE_PX to both sides of the curve. A sound seam has none.
+  // The curve's end at the origin is left out: the sample there is the surface's own dark corner, one pixel at each layer. Fewer than
+  // SEAM_MIN_SAMPLES samples is no measurement.
+  const SEAM_DARK_TOL = 8, SEAM_DARK_MAX = 0, SEAM_MIN_SAMPLES = 100, SEAM_END_PX = 4;
+  const SEAM_SIDE_PX = 3;   // (the seam measure compares a seam pixel with the frame's own pixels this far to either side of the cut curve)
+  const REL_FLOOR = 1e-9;   // (a relative difference is against at least this: a reference of 0 has no scale)
+  const relDiff = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), REL_FLOOR);
+  const TICK_H_TOL = 1e-9;   // (a label's world height against the frame's own height function of its value: the same float computation)
+  const TICK_SCALE_ERR = 1.6e-3;   // (the scale error the own-scale check must see: the gap the near ends have against the parked plane at .998)
+  const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
+  const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
+  const PLANE_BOX_TOL = 1e-9;   // (the scene's plane box and the drawn box are the same numbers read twice)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
+  const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view: the camera the end frames are also compared in, where a missing piece of the surface shows against the pale floor
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
-  const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
-  // (the probes at 0.002 and 0.998 are the far-end check: the height axis's scale is eased between the two planes' scales, so a correct
-  // frame there matches the parked plane within SAME_FRAC; END_U is the ends of a polynomial's glide)
+  const CONT_STEP = 0.02;   // (the continuity probe's two frames: u - CONT_STEP / 2 and u + CONT_STEP / 2)
+  const MID_U = [0.25, 0.75];   // (probes inside the glide: no parked plane to compare with, so the exact map alone judges them)
+  const CONT_AT = [0.25, GLIDE_MID, 0.75];
+  const CONT_LIPSCHITZ = 1;   // (the largest change of a layer's height at a place, in block heights, per unit of u)
+  const CLIP_CONTROL_U = 0.998;   // (the glide's u of the block clip's controls: the tower's cut shows in the image at once)
+  const GLIDE_U = [END_U, 0.002, MID_U[0], GLIDE_MID, MID_U[1], 0.998, 1 - END_U];
+  const SEAM_AT = [1 - END_U, 0.998, 1 - 1e-5];   // (the glide's u of the frame's own seam measure)
+  // (the probes at 0.002 and 0.998 are the far-end check: judged by the exact reference at their own u, not by the parked plane, below
+  // (Ruling C); END_U is the ends of a polynomial's glide)
   const { grab, compare, DIFF_TOL, SAME_FRAC } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));   // (the look suite's constants)
   // the share of the parked plane's surface pixels a frame at an end may lack: it is the parked plane's within SAME_FRAC of its pixels,
   // so a surface pixel it lacks is one of those
   const COVER_TOL = SAME_FRAC;
+  // A glide leaves a plane at a nonzero rate: the height scale mu = logLerp(ma, mb, u) falls at about -2.35 per unit u in ln(mu) for
+  // Roots (-0.47 % at u = 0.002), and the points move along the glide by about u |F - z|. A frame at 0.002 or 0.998 is therefore not
+  // the parked plane: it is compared with the exact reference at its own u (the relief raster and the members, below), and the distance
+  // to the parked plane is checked to fall to it: at END_U it is within SAME_FRAC (the end probes), and it never rises as u falls
+  // (each step of REST_STEPS times END_U from the plane may drop by at most MONO_SLACK, a tenth of SAME_FRAC: the jitter measured between
+  // two renders of one frame is 2e-4)
+  const REST_STEPS = [1, 3, 10, 20], MONO_SLACK = SAME_FRAC / 10, REST_RISE_MIN = 2 * MONO_SLACK;
+  // The end frames in the Top view: at most HUE_OFF_MAX coloured pixels with a hue HUE_OFF_DEG or more from the parked plane's.
+  // The floor is what a frame within float precision of the parked plane (u = 1e-5 and 0.99999) shows against it: 0 to 9 pixels on
+  // the cases without a hue-shifted row, 23 on the Joukowski airfoil, the largest; a hue-shifted row at a sheet boundary is
+  // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
+  // planes' parked frames are far over it (the control in each case).
+  const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
+  const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
-  const WIND_HMIN_FAR = 0.5, WIND_NOISE_CTL = 1e-2;   // (a step floor too coarse for any piece of the contour; a noise floor over the argument's small real steps: the stretches below it add nothing to the total)
-  const WIND_PLACES = 12, WIND_HMIN_CTL = 0.1;   // (places counted per frame; the control's step floor, as a fraction of a piece)
+  const WIND_PLACES = 12;   // (places counted per frame)
+  const HOM_DZ = 1e-6, HOM_CUT = 0.5, DOM_EPS = 1e-9;   // (the step of the frame's homotopy, the second-to-first difference share at which H jumps, the slack of a box's edge)
+  const CUT_DELTA = 0.5;   // (the control's shift of the cut circle's radius)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
   // the exact image reference (test/lib/land_exact_core.js, one implementation for every suite): the box's lattice of nx x ny cells, each
@@ -65,6 +117,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -73,10 +126,15 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
-    { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
-    { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN },
-    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [] },
-    { tag: 'Joukowski airfoil', example: 'Joukowski airfoil' },
+    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true },
+    // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
+    { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
+    { tag: 'log of an annulus', logControl: true, steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
+    // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
+    // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
+    { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
+    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true, clipControls: true, surfaces: 3 },
+    { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', cutControl: true },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
     { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
   ];
@@ -84,6 +142,30 @@
   // (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame inverts) without the repeats of one z, each
   // { z, f, h } (null when the frame was not drawn by the inverse path); the front member (sheets off) is the first
   const HELP = `window.__lx = {
+    // the pixels where both frames are coloured (saturation over SAT_MIN) and their hues are more than HUE_OFF_DEG apart: a row the
+    // colour of the wrong branch draws across a sheet boundary shows here, a shifted contour line (the same hue, lighter or darker) does not
+    hueOff: (a, b) => {
+      const x = window.__heldPx[a], y = window.__heldPx[b], hue = (d, i) => { const r = d[i], g = d[i + 1], bl = d[i + 2], mx = Math.max(r, g, bl), mn = Math.min(r, g, bl); if (mx - mn <= ${SAT_MIN}) return -1; const h = mx === r ? (g - bl) / (mx - mn) : (mx === g ? 2 + (bl - r) / (mx - mn) : 4 + (r - g) / (mx - mn)); return (h * 60 + 360) % 360; };
+      let n = 0;
+      for (let i = 0; i < x.length; i += 4) { const p = hue(x, i), q = hue(y, i); if (p >= 0 && q >= 0) { const d = Math.abs(p - q); if (Math.min(d, 360 - d) > ${HUE_OFF_DEG}) n++; } }
+      return n;
+    },
+    // where the cut was found on each flagged edge, against the step's own cut (the negative real axis of its input plane, which is plane
+    // z here): the worst distance of a crossing's preimage z* = a + t (b - a) to the ray, in shares of the edge's chord |b - a|, over the edges whose
+    // crossing is inside the chord (n), and how many sit at an end of it (atEnd: the vertex itself is taken as the cut)
+    cutT: () => {
+      const r = window.__cmwLandCutEdges();
+      if (!r) return null;
+      const tol = Math.pow(2, 1 - r.steps);
+      let worst = 0, atEnd = 0, n = 0;
+      for (const [ax, ay, bx, by, t] of r.edges) {
+        if (t < tol || t > 1 - tol) { atEnd++; continue; }
+        n++;
+        const x = ax + t * (bx - ax), y = ay + t * (by - ay), chord = Math.hypot(bx - ax, by - ay);
+        worst = Math.max(worst, (x < 0 ? Math.abs(y) : Math.hypot(x, y)) / chord);
+      }
+      return { n, atEnd, worst, steps: r.steps };
+    },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
   // The exact image reference as a coverage mask at half the canvas's resolution (test/lib/land_exact_core.js): the frame it judges is
@@ -96,13 +178,25 @@
     const dpr = cv.width / cv.getBoundingClientRect().width;
     return {
       box: L.box, W2: Math.ceil(cv.width / 2), H2: Math.ceil(cv.height / 2), all: !!sheets,
-      enumAt: (ws) => { const e = __cmwLandEnum(ws); if (!e) throw new Error('no inverse path'); return e.map((ms) => ms.map((m) => ({ z: m.z, lam: m.lam, h: m.h, sheet: m.sheet, front: m.front === true }))); },
-      hom: (z, lam, sheet) => __cmwLandHom(z, lam, sheet) || [],
+      // (the members are the scene's: candidates the scene's surfaces certify, labelled by surface; no lifted coordinate is carried, each surface's H is read at the cell centred at z)
+      enumAt: (ws) => { const e = __cmwLandMembers(ws); if (!e) throw new Error('no scene'); return e.map((ms) => ms.map((m) => ({ z: m.z, lam: null, h: m.h, sheet: m.k, front: m.front === true }))); },
+      // (cut: the second difference of H over three cells, centred at z - dz, z and z + dz, is over a share HOM_CUT of the first: H jumps beside z, a cut of the surface or a pole)
+      hom: (z, lam, sheet) => {
+        const dz = Math.min(${HOM_DZ}, 1e-3 * Math.hypot(z[0], z[1])) || ${HOM_DZ}, h0 = __cmwLandHom(z), hp = __cmwLandHom([z[0] + dz, z[1]]), hm = __cmwLandHom([z[0] - dz, z[1]]);
+        if (!h0) return [];
+        const out = [];
+        out[sheet] = Object.assign({}, h0[sheet]);
+        const w = h0[sheet].H, a = hp && hp[sheet].H, b = hm && hm[sheet].H;
+        out[sheet].cut = !!(w && a && b) && Math.hypot(a[0] - 2 * w[0] + b[0], a[1] - 2 * w[1] + b[1]) > ${HOM_CUT} * (Math.hypot(a[0] - b[0], a[1] - b[1]) + dz);
+        return out;
+      },
       project: (x, y, h) => { const q = __cmwLandProject(x, y, h); return q && Number.isFinite(q[0] + q[1]) ? [q[0] * dpr / 2, q[1] * dpr / 2] : null; },
       mask: (x, y) => __cmwLandMask(x, y),
-      lamStep: (z, z2) => __cmwLandLamStep(z, z2),
-      sing: () => __cmwLandSing(),
+      // (the scene's branch points, each at the place every surface draws it: a pole is not a place and is left out)
+      sing: () => { const s = __cmwLandSing(); if (!s) return []; const o = []; for (const q of s.branch) { const hs = __cmwLandHom([q[0], q[1]]) || []; for (const h of hs) o.push({ sheet: h.sheet, z: [q[0], q[1]], w: h.H, kind: q[2] }); } return o; },
       count: (w, opt) => __cmwLandWind(w, opt || {}),
+      // (the preimage lies on the carried surface: the plane record's box, read from the scene, never from the carry; opts.domainOff at the core ignores this)
+      domain: (z) => { const p = __cmwLandPlane(); return !p || (z[0] >= p.box[0] - ${DOM_EPS} && z[0] <= p.box[1] + ${DOM_EPS} && z[1] >= p.box[2] - ${DOM_EPS} && z[1] <= p.box[3] + ${DOM_EPS}); },
       progress: (c, f) => { window.__lxProgress = { cells: Object.assign({}, c), failures: f.length }; },
       // (All sheets: a member a layer per forward combo, as the frame draws it)
       layers: sheets && typeof __cmwLandRefSheets === 'function' ? (m) => { const rs = __cmwLandRefSheets(m.z).filter((r) => r.f && r.h !== null); return rs.length > 1 ? rs.map((r) => ({ combo: String(r.combo), h: r.h })) : [{ combo: '', h: m.h }]; } : null,
@@ -147,47 +241,36 @@
     for (let i = 0; i < ref.length; i++) { if (ref[i]) { n++; if (!gf[i]) missing++; } if (frame[i] && !gr[i]) extra++; }
     return { n, extra, missing, off: n ? (extra + missing) / n : 1, capped: !!capped, w: W2, h: H2 };
   };
-  // the largest |H(z) - w| over the members (each { z, lam, sheet, w }) by the frame's homotopy (window.__cmwLandHom, at the member's continued
-  // log coordinate lam): 0 when each member is a preimage of its place; Infinity when the hook has no value there. shift moves every w by that
-  // much, principal evaluates H at z's principal log instead of at lam (the controls)
-  window.__lxHomMiss = (ms, shift, principal) => {
+  // the largest relative |H(z) - w| over the members (each { z, w }), each at the surface of the scene's homotopy (window.__cmwLandHom, the cell
+  // centred at z) nearest its place: 0 when each member is a preimage of its place; Infinity when the hook has no value there. shift moves every w
+  // by that much (the control)
+  window.__lxHomMiss = (ms, shift) => {
     const d = ms.map((m) => {
-      const hs = typeof __cmwLandHom === 'function' ? __cmwLandHom(m.z, principal ? null : m.lam) : null, e = hs && hs[m.sheet] && hs[m.sheet].H;
-      return e ? Math.hypot(e[0] - m.w[0] - shift, e[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])) : Infinity;
+      const hs = typeof __cmwLandHom === 'function' ? __cmwLandHom(m.z) : null;
+      return hs ? Math.min(Infinity, ...hs.filter((h) => h.H).map((h) => Math.hypot(h.H[0] - m.w[0] - shift, h.H[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])))) : Infinity;
     });
     const bad = ms.map((m, i) => [i, d[i]]).filter(([, x]) => x > window.__lxHomTol);
-    return { worst: d.reduce((a, b) => Math.max(a, b), 0), nBad: bad.length, sample: bad.slice(0, 4).map(([i, x]) => {
-      // (the sheet whose homotopy maps the member to its place, when it is not the one it is labelled with: a label mismatch, not a wrong member)
-      const hs = __cmwLandHom(ms[i].z, ms[i].lam) || [], per = hs.map((h) => (h.H ? Math.hypot(h.H[0] - ms[i].w[0], h.H[1] - ms[i].w[1]) / (1 + Math.hypot(ms[i].w[0], ms[i].w[1])) : Infinity));
-      const best = per.reduce((a, v, k) => (v < per[a] ? k : a), 0);
-      return { sheet: ms[i].sheet, member: ms[i].member, z: ms[i].z, lam: ms[i].lam, lvl: ms[i].lvl, w: ms[i].w, miss: x, bestSheet: best, bestMiss: per[best] };
-    }) };
+    return { worst: d.reduce((a, b) => Math.max(a, b), 0), nBad: bad.length, sample: bad.slice(0, 4).map(([i, x]) => ({ z: ms[i].z, w: ms[i].w, miss: x, bySheet: (__cmwLandHom(ms[i].z) || []).filter((h) => h.H).map((h) => [h.sheet, Math.hypot(h.H[0] - ms[i].w[0] - shift, h.H[1] - ms[i].w[1]) / (1 + Math.hypot(ms[i].w[0], ms[i].w[1]))]) })) };
   };
   window.__lxPick = null;
   // the members expanded by the forward combos refsOf(z) gives ([{ combo, z, f, h }] per z): a member with more than one combo is that many
   // layers, the others stay as they are
   window.__lxExpand = (o, refsOf) => o.flatMap((m) => {
     const rs = refsOf(m.z).filter((r) => r.f && r.h !== null);
-    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, combo: r.combo, lam: m.lam, lvl: m.lvl })) : [m];
+    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, src: m.src, combo: r.combo })) : [m];
   });
   window.__lxEnum = (pts, sheets) => {
-    const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
+    const e = typeof __cmwLandMembers === 'function' ? __cmwLandMembers(pts) : null;
     if (!e) return null;
-    // (the front member first: the hook marks it, front: true, one per place; a place with members and none marked is counted in
-    // window.__lxNoFront, which the suite fails on, and is not ordered by any rule here. The same z repeats on sheets that differ by
-    // a multiple of n, so a z listed again is dropped.)
-    window.__lxNoFront = 0;
+    // (the front member first: the hook marks the one the frame draws with sheets off. All sheets: a member of a chain with a multivalued
+    // step past plane 0 is drawn once per forward combo of the colour map's distinct sheets, the parked frame's own: window.__cmwLandRefSheets(z),
+    // each { combo, z, f, h }; a chain without one has the member alone)
     return e.map((ms) => {
-      const best = ms.find((m) => m.front);
-      if (ms.length && !best) window.__lxNoFront++;
-      const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
-      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z} && Math.abs(x.h - m.h) <= ${HEIGHT_TOL})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet, lam: m.lam, lvl: m.lvl });
-      // (All sheets: a member of a chain with a multivalued step past plane 0 is drawn once per forward combo of the colour map's distinct
-      // sheets, the parked frame's own: window.__cmwLandRefSheets(z), each { combo, z, f, h }; a chain without one has the member alone)
+      const o = ms.map((m) => ({ z: m.z, f: m.f, h: m.h, sheet: m.k, member: m.member, src: m.src }));
       return sheets && typeof __cmwLandRefSheets === 'function' ? window.__lxExpand(o, __cmwLandRefSheets) : o;
     });
   };
-  1`;
+    1`;
   async function load(c, sheets) {
     const ns = 'landexact' + Date.now();
     if (c.example) {
@@ -217,7 +300,7 @@
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
-    return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p }; })()`);
+    return ev(`(() => { const p = __cmwLandPick(); if (p && ${k} === 0) window.__lxPick = p; return { still: ${still}, cover: __lx.cover(${JSON.stringify(tag)}), pick: !!p, scale: __cmwLandScale(), ticks: __cmwLandTicks() }; })()`);
   }
   // the places a frame is probed at: PROBES columns at cell centres and ROWS_SIDE rows on each side of the real axis, and a pair either side of the real axis (the
   // cut of the square root, the cube root and the logarithm) at each of CUT_X
@@ -327,9 +410,31 @@
     ok(`the raster check fails a wall of ${CTL.wallW} pixels`, o.wall > RASTER_TOL, o);
     ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
   }
+  // a layer's match with the enumerator's members is ambiguous when more than one member fits its z and height: the check fails rather than pick one
+  const ambiguous = (ls) => ls.filter((l) => l.matches > 1).length;
+  const LAYER_PLACES = [[0.3, 0.7], [3, 1], [-3, -2], [-6, 5.6], [2, -4]];   // (each at least 0.5 from every window edge at every glide u: the cut probe, on an edge, has its checks above)
+  // the layers at w of the glide at u by the sheets' windows; shifted false: every sheet takes dk = 0's window (a control)
+  const windowLayers = (w, u, shifted, withEdge = false) => {
+    const sc = 1 - u, beta = 1 / sc, vr = 1 + sc * (w[0] - sc), vi = sc * w[1], arg = Math.atan2(vi, vr);
+    let n = 0, edge = false;
+    for (let dk = -SHEET_W; dk <= SHEET_W; dk++) {
+      const d = shifted ? dk : 0, lo = Math.PI - 2 * Math.PI + 2 * Math.PI * d, hi = Math.PI + 2 * Math.PI * d;
+      let has = false;
+      for (let m = -M_MAX; m <= M_MAX; m++) { const im = beta * (arg + 2 * Math.PI * m); if (im > lo && im <= hi) has = true; if (Math.abs(im - lo) < EDGE_MARGIN || Math.abs(im - hi) < EDGE_MARGIN) edge = true; }
+      if (has) n++;
+    }
+    return withEdge ? { n, edge } : n;
+  };
+  ok('the window count is one layer near the next plane at the probe places', LAYER_PLACES.every((w) => windowLayers(w, 0.998, true) === 1), null);
+  ok('the window count holds fewer than every sheet at the middle (the alternating layers)', LAYER_PLACES.some((w) => windowLayers(w, 0.5, true) < 2 * SHEET_W + 1), null);
+  ok('the window count fails a draw of every sheet at every place (control)', LAYER_PLACES.some((w) => windowLayers(w, 0.998, true) !== 2 * SHEET_W + 1), null);
+  ok('the window count fails the same window for every sheet (control)', LAYER_PLACES.some((w) => windowLayers(w, 0.5, false) !== windowLayers(w, 0.5, true)), null);
+  ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
+  ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   await view(VIEW_W, VIEW_H, false, false);
-  for (const c of CASES) for (const sheets of MODES) {
+  // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
+  for (const c of CASES.filter((x) => !process.env.CMW_ONLY || x.tag === process.env.CMW_ONLY)) for (const sheets of MODES) {
     const name = `${c.tag}, ${sheets ? 'All sheets' : 'sheets off'}`;
     const r = info[name] = {};
     await load(c, sheets);
@@ -337,25 +442,256 @@
     const last = 1;   // (the glide from plane 0 to plane 1)
     const p0 = await park(0, 'P0'), p1 = await park(last, 'P1');
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
+    // the parked end planes again in the Top view
+    const cam0 = await ev("__cmwCam('L')");
+    await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`);
+    const p0T = await park(0, 'P0T'), p1T = await park(last, 'P1T');
+    await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`);
+    ok(`${name}: the parked frames are still in the Top view`, p0T.still && p1T.still, { p0T, p1T });
+    const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
+    ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     for (const u0 of GLIDE_U) {
-      const u = u0, first = u0 < GLIDE_MID, lastU = u0 > GLIDE_MID;   // (first: a probe near plane z, lastU: near the next plane)
+      const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
       const still = await grab('cur');
-      const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u }; })()');
+      const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u, holes: c.landHoles }; })()');
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
       r[u] = { carry, cov, p0: p0.cover, p1: p1.cover };
       ok(`${t}: a still, carried frame`, cov.still && !!carry, { carry, still: cov.still });
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
+      // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
+      // repeats another layer's height there; the probe's noRay (no anchor is refused for lying across the cut) brings the repeat back
+      if (c.cutProbe && sheets && u === CUT_PROBE_U) {
+        const layerGaps = async () => {
+          const at = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts([${JSON.stringify(c.cutProbe)}]))`))[0] || [];
+          const hs = at.map((l) => l.h).sort((p, q) => p - q);
+          return { n: hs.length, gap: hs.length > 1 ? Math.min(...hs.slice(1).map((h, i) => h - hs[i])) : null };
+        };
+        const g = await layerGaps();
+        ok(`${t}: the layers beside the cut hold distinct heights (the closest are ${g.gap} apart; at least ${LAYER_GAP_MIN})`, g.n > 1 && g.gap >= LAYER_GAP_MIN, g);
+        ok(`${t}: the branch point has a polar patch in every layer`, carry && carry.holes >= 1, carry);
+        await ev(`__svCarryProbe = __svCarryProbeSettings.noRay; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const off = await layerGaps();
+        await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        ok(`${t}: without the cut test two layers repeat a height (control; the closest are ${off.gap} apart)`, off.gap != null && off.gap < LAYER_GAP_MIN, off);
+      }
+      // the layers of a place are the log's sheets that hold a member there: sheet dk is z^s on its branch k + dk, s = 1 - u, whose
+      // members at w are exp(beta (Log v + 2 pi i m)), v = 1 + s (w - s), beta = 1 / s, one for each m whose turn lies in the sheet's
+      // window of 2 pi shifted by 2 pi dk; the windows tile the plane near the next plane (one layer at a place) and half-cover it at the middle
+      if (c.cutProbe && sheets) {
+        const at = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(LAYER_PLACES)}))`));
+        LAYER_PLACES.forEach((w, i) => {
+          const v = (at[i] && at[i][0] && at[i][0].w) || w;   // (the place the frame draws a probe at is its nearest grid vertex)
+          const n = new Set((at[i] || []).map((l) => l.h.toFixed(2))).size, want = windowLayers(v, u, true, true);
+          ok(`${t}: the place (${w}) is clear of every sheet's window edge`, !want.edge, want);
+          ok(`${t}: the layers at (${w}) are the sheets whose window holds a member (${n} layers; ${want.n} by the windows)`, n === want.n, { n, want });
+        });
+      }
       // the image at the ends
-      if (first) ok(`${t}: plane z's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d0 <= SAME_FRAC, cov);
-      if (lastU) ok(`${t}: the next plane's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d1 <= SAME_FRAC, cov);
+      if (first && u <= END_U) ok(`${t}: plane z's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d0 <= SAME_FRAC, cov);
+      if (lastU && u >= 1 - END_U) ok(`${t}: the next plane's parked frame (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, cov.d1 <= SAME_FRAC, cov);
+      // the layers run past the block (a pole's tower) and are cut at its top and bottom exactly as the parked sheets are: without that cut, or with
+      // the crossing taken linearly where the parked clip's is in 1 / h, the next plane's frame is not matched (controls)
+      if (c.clipControls && sheets && lastU && u === CLIP_CONTROL_U) {
+        for (const [probe, what] of [['clipOff', 'without the block clip'], ['clipLinear', 'with linear crossings only']]) {
+          await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          await grab('cc');
+          const dc = (await compare('cc', 'P1')).frac;
+          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: ${what} the next plane's parked frame is not matched (control; ${dc} of pixels over ${DIFF_TOL})`, dc > SAME_FRAC, { dc });
+        }
+      }
+      // the end frames in the Top view, against the parked plane there
+      if (first || lastU) {
+        await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const stillT = await grab('curT');
+        const dT = (await compare('curT', first ? 'P0T' : 'P1T')).frac;
+        await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const hueN = await ev(`__lx.hueOff('curT', ${first ? "'P0T'" : "'P1T'"})`);
+        r[u].top = { still: stillT, d: dT, hueN };
+        ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
+        if (lastU && COMBO_CONTROL.includes(c.tag) && !r.comboControl) {
+          // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
+          let ctl;
+          try {
+            await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
+            await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await grab('ctlT');
+            ctl = await ev("__lx.hueOff('ctlT', 'P1T')");
+          } finally {
+            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          }
+          r.comboControl = ctl;
+          ok(`${t}: control: with every sheet's combo one off the Top view's hue is over ${HUE_OFF_MAX} pixels off (${ctl} are)`, ctl > HUE_OFF_MAX, { ctl });
+        }
+        // (the parked plane is the reference at the end probes only, as above)
+        if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
+      }
       // the surface pixels at the ends
       if (first || lastU) {
         const base = first ? p0.cover : p1.cover;
         ok(`${t}: at least the parked plane's surface pixels less ${COVER_TOL * 100} %`, cov.n >= (1 - COVER_TOL) * base, { n: cov.n, base });
+      }
+      // the cut's seam: the longest run of connected pixels (8-neighbours) more than DIFF_TOL from the next plane's parked frame
+      if (u === 1 - END_U && c.seam && sheets) {
+        const longest = async (a, b, dark) => ev(`(() => {
+          const A = window.__heldPx.${a}, B = window.__heldPx.${b}, W = document.getElementById('canvasL').width, n = A.length / 4, on = new Uint8Array(n);
+          const L = (X, i) => ${LUMA[0]} * X[i] + ${LUMA[1]} * X[i + 1] + ${LUMA[2]} * X[i + 2];
+          for (let q = 0; q < n; q++) {
+            const i = 4 * q;
+            on[q] = (${!!dark} ? L(B, i) - L(A, i) : Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]))) > ${DIFF_TOL} ? 1 : 0;
+          }
+          let best = 0; const st = [];
+          for (let q0 = 0; q0 < n; q0++) {
+            if (on[q0] !== 1) continue;
+            let len = 0; st.push(q0); on[q0] = 2;
+            while (st.length) {
+              const q = st.pop(); len++; const x = q % W;
+              for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                const xx = x + dx, r = q + dy * W + dx;
+                if (xx >= 0 && xx < W && r >= 0 && r < n && on[r] === 1) { on[r] = 2; st.push(r); }
+              }
+            }
+            if (len > best) best = len;
+          }
+          return best;
+        })()`);
+        const run = await longest('cur', 'P1'), ctl = await longest('P0', 'P1');
+        ok(`${t}: no seam along the cut: the longest run of pixels over ${DIFF_TOL} from the next plane's parked frame is ${run} (at most ${SEAM_RUN})`, run <= SEAM_RUN, { run });
+        ok(`${t}: the seam measure sees a different frame (control; plane z's parked frame against the next plane's: a run of ${ctl})`, ctl > SEAM_RUN, { ctl });
+        // the frame's own seam: the cut ray (Re w < 0, Im w = 0) projected through the frame's own camera at each layer's height; a
+        // sample is dark where its pixel is darker than the frame's own pixels SEAM_SIDE_PX to both sides of the curve by more than
+        // SEAM_DARK_TOL. A broken seam is a scatter of such samples (no long run), so they are counted
+        const ownSeam = (tag) => ev(`(() => {
+          const L = window.__cmwLandRelief && window.__cmwLandRelief.land, A = window.__heldPx.${tag};
+          if (!L || !A) return null;
+          const b = L.box, cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, dpr = W / cv.getBoundingClientRect().width, NS = W;
+          const pts = []; for (let i = 0; i < NS; i++) pts.push([b.x0 + (i + 0.5) / NS * Math.min(-b.x0, b.x1 - b.x0), 0]);
+          const g = __cmwLandFrameVerts(pts); if (!g) return null;
+          const endX = ${SEAM_END_PX} * (b.x1 - b.x0) / W;
+          const luma = (x, y) => { const i = 4 * (Math.round(y) * W + Math.round(x)); return ${LUMA[0]} * A[i] + ${LUMA[1]} * A[i + 1] + ${LUMA[2]} * A[i + 2]; };
+          const inside = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
+          const dx = (pts[1][0] - pts[0][0]) / 2;
+          let dark = 0, nl = 0;
+          for (let i = 0; i < NS; i++) {
+            for (const l of g[i] || []) {
+              if (!l || !(l.h === l.h) || !l.w || Math.abs(l.w[0]) < endX) continue;
+              const q = __cmwLandProject(l.w[0], l.w[1], l.h), qa = __cmwLandProject(l.w[0] - dx, l.w[1], l.h), qb = __cmwLandProject(l.w[0] + dx, l.w[1], l.h);
+              if (!q || !qa || !qb) continue;
+              const x = q[0] * dpr, y = q[1] * dpr, tx = (qb[0] - qa[0]) * dpr, ty = (qb[1] - qa[1]) * dpr, tn = Math.hypot(tx, ty);
+              if (!(tn > 0)) continue;
+              const nx = -ty / tn * ${SEAM_SIDE_PX}, ny = tx / tn * ${SEAM_SIDE_PX};
+              if (!inside(x, y) || !inside(x + nx, y + ny) || !inside(x - nx, y - ny)) continue;
+              nl++;
+              const c = luma(x, y);
+              if (c < luma(x + nx, y + ny) - ${SEAM_DARK_TOL} && c < luma(x - nx, y - ny) - ${SEAM_DARK_TOL}) dark++;
+            }
+          }
+          return { dark, samples: nl };
+        })()`);
+        for (const su of SEAM_AT) {
+          if (su !== u) { await setU(su); await grab('sm'); }
+          const os = await ownSeam(su === u ? 'cur' : 'sm');
+          ok(`${name}, u=${su}: the cut's seam is no darker than the frame's own pixels beside it: ${os && os.dark} of ${os && os.samples} samples (at most ${SEAM_DARK_MAX})`, !!os && os.samples > SEAM_MIN_SAMPLES && os.dark <= SEAM_DARK_MAX, { os });
+        }
+        // the parked plane 1's pixels along the same curve (control: the camera and the scale at SEAM_AT's last u are plane 1's to a hundredth of
+        // a pixel, and parked's cut ink is as pale as its banks, so the measure does not flag it)
+        const pk = await ownSeam('P1');
+        ok(`${name}: the parked plane 1's cut is no darker than its own pixels beside it (control): ${pk && pk.dark} of ${pk && pk.samples} samples (at most ${SEAM_DARK_MAX})`, !!pk && pk.samples > SEAM_MIN_SAMPLES && pk.dark <= SEAM_DARK_MAX, { pk });
+        await setU(u);
+        // the darker-than-parked run, nearer to plane 1: parked draws no dark line along the cut
+        const darkCtl = await longest('P0', 'P1', true);
+        ok(`${t}: the darker-than-parked measure sees a different frame (control; plane z's parked frame against the next plane's: a run of ${darkCtl})`, darkCtl > SEAM_RUN, { darkCtl });
+        for (const su of SEAM_U) {
+          await setU(su); await grab('sm');
+          const dr = await longest('sm', 'P1', true);
+          ok(`${name}, u=${su}: no seam darker than the next plane's parked frame along the cut: the longest run is ${dr} (at most ${SEAM_RUN})`, dr <= SEAM_RUN, { dr });
+        }
+        await setU(u);
+      }
+      // the height ruler's labels: at every u each label sits at the frame's OWN height of its value; at the ends the same labels as the parked
+      // plane's, each within TICK_PX of its screen y (rasterization only; the end frames' real scale gap is not absorbed: it is checked by the own height)
+      {
+        const ownTicks = async () => {
+          const marks = await ev('__cmwLandTickMarks()');
+          const own = JSON.parse(await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`));
+          const nz = marks.map((m, i) => i).filter((i) => own[i]);   // (a label at height 0 has no scale)
+          return { marks, own, nz, bad: nz.filter((i) => !(relDiff(marks[i].hz, own[i]) <= TICK_H_TOL)) };
+        };
+        const o = await ownTicks();
+        ok(`${t}: the height ruler's ${o.marks.length} labels sit at the frame's own height of their value`, o.marks.length > 0 && !o.bad.length, o);
+        if (lastU && u === 1 - END_U) {
+          await ev(`__svCarryProbe = { rulerScale: ${1 + TICK_SCALE_ERR} }; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const e = await ownTicks();
+          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: a ${TICK_SCALE_ERR} scale error in the labels' heights fails the own-height check (control; ${e.bad.length} of ${e.nz.length} labels off)`, e.nz.length > 0 && e.bad.length === e.nz.length, e);
+        }
+      }
+      if (first || lastU) {
+        const ref = (first ? p0 : p1).ticks, got = await ev('__cmwLandTicks()');
+        ok(`${t}: the height ruler's tick labels are the parked plane's (${got && got.length} against ${ref && ref.length}; each within ${TICK_PX} px)`,
+          !!got && !!ref && got.length === ref.length && ref.every((y, i) => Math.abs(y - got[i]) <= TICK_PX), { got, ref });
+      }
+      // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
+      {
+        const sc = await ev('__cmwLandScale()'), ref = first ? p0.scale : p1.scale;
+        if (u === END_U || u === 1 - END_U) {
+          ok(`${t}: the frame's scale and boost are the parked plane's (mu ${sc && sc.mu} against ${ref && ref.mu}, boost ${sc && sc.boost} against ${ref && ref.boost}; within ${SCALE_TOL})`,
+            !!sc && !!ref && relDiff(sc.mu, ref.mu) <= SCALE_TOL && relDiff(sc.boost, ref.boost) <= SCALE_TOL, { sc, ref });
+        } else if (u === GLIDE_MID && sc && ref) {
+          ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, relDiff(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
+        }
+      }
+      // the height function moves continuously from plane z's to the next plane's: the layers' heights at a place change by at most
+      // CONT_LIPSCHITZ block heights per unit u; a height function that switches at the middle jumps (control)
+      if (sheets && c.cutProbe && u === 1 - END_U) {
+        const H = (await ev('__cmwLandScale()')).lscale || 1;
+        const layerH = async (x) => { await setU(x); return JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(LAYER_PLACES)}))`)).map((a) => (a || []).map((l) => l.h)); };
+        const jump = async (x) => {
+          const a = await layerH(x - CONT_STEP / 2), b = await layerH(x + CONT_STEP / 2);
+          const ds = [];
+          a.forEach((la, i) => la.forEach((h) => { const d = Math.min(...(b[i] || [Infinity]).map((g) => Math.abs(g - h))); if (Number.isFinite(d)) ds.push(d); }));
+          ds.sort((p, q) => p - q);
+          return ds.length ? ds[ds.length >> 1] / CONT_STEP / H : 0;   // (the median layer: a window edge moves a few layers to others, which is not the height function's jump)
+        };
+        const worst = {};
+        for (const x of CONT_AT) worst[x] = await jump(x);
+        ok(`${t}: the layers' heights change at most ${CONT_LIPSCHITZ} block heights per unit u at ${CONT_AT.join(', ')} (${JSON.stringify(worst)})`, CONT_AT.every((x) => worst[x] <= CONT_LIPSCHITZ), worst);
+        await ev(`__svCarryProbe = __svCarryProbeSettings.mixSwitch; 1`); await settled({ max: LOAD_MAX_MS });
+        const sw = await jump(GLIDE_MID);
+        await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS });
+        ok(`${t}: a height function that switches at the middle jumps at it (control; ${sw} block heights per unit u)`, sw > CONT_LIPSCHITZ, { sw });
+        await setU(u);
+        // the weight frozen at plane z's height leaves the next plane's frame unmatched (control)
+        await ev(`__svCarryProbe = __svCarryProbeSettings.mixBeta0; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        await grab('b0');
+        const d1b = (await compare('b0', 'P1')).frac;
+        await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        ok(`${t}: the weight frozen at plane z's height fails the next plane's parked frame (control; ${d1b} of pixels over ${DIFF_TOL})`, d1b > SAME_FRAC, { d1b });
+      }
+      // no edge of the frame is crossed twice (a branch point on an edge drops its triangles)
+      {
+        const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
+        ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
+      }
+      // where the edge pass puts a cut on an edge is the step's own cut, to the bisection's resolution: the preimage of each flagged edge's cut is
+      // within 2^-(steps - 1) of the edge's chord from the cut (the negative real axis of plane z)
+      if ((CUT_ROWS[c.tag] || []).includes(u)) {
+        const ct = await ev('__lx.cutT()');
+        const tol = ct ? Math.pow(2, 1 - ct.steps) : 0;
+        r[u].cut = ct;   // (atEnd: the flagged edges whose cut is at an end of the chord, the vertex itself, which are counted here and not judged)
+        ok(`${t}: the cuts the edge pass finds are the step's own (${ct ? ct.n : '?'} flagged edges, over 0, with the cut inside the chord, and ${ct ? ct.atEnd : '?'} at an end of it; the worst is ${ct ? ct.worst.toExponential(2) : '?'} of the chord from the cut, at most ${tol.toExponential(2)})`, !!ct && ct.n > 0 && ct.worst <= tol, ct);
+        // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
+        let ctlC;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1] === u ? MID_U[0] : MID_U[1]); await setU(u);
+          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+          ctlC = await ev('__lx.cutT()');
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
+        ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
@@ -368,77 +704,103 @@
       const at1 = (g, q) => q.map((p, i) => (g && g[i] && g[i][0] && g[i][0].w) || p);
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
       const ref = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
-      const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
       ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
       if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
-      ok(`${t}: the hook marks the front member (front: true) at every place that has members; ${noFront} places without (the front member is the page's, never ordered here)`, noFront === 0, { noFront });
       {
         const ms = [];
-        ref.forEach((l, i) => l.forEach((m) => { if (m.z && ms.length < HOM_MAX) ms.push({ z: m.z, lam: m.lam || null, lvl: m.lvl, sheet: m.sheet || 0, member: m.member, w: vpts[i] }); }));
+        ref.forEach((l, i) => l.forEach((m) => { if (m.z && ms.length < HOM_MAX) ms.push({ z: m.z, w: vpts[i] }); }));
         await ev(`window.__lxHomTol = ${HOM_TOL}; 1`);
         const mr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0)`), mv = await ev(`__lxHomMiss(${JSON.stringify(ms)}, ${HOM_SHIFT})`), miss = mr.worst, moved = mv.worst;
         ok(`${t}: every enumerated member (${ms.length}) maps to its place under the frame's homotopy (window.__cmwLandHom) within ${HOM_TOL}`, ms.length > 0 && miss <= HOM_TOL, { miss, nBad: mr.nBad, n: ms.length, sample: mr.sample });
         ok(`${t}: the control: the places moved by ${HOM_SHIFT} are not matched by the homotopy (miss ${moved})`, moved > HOM_TOL, { moved });
-        // (a member of the range ramp, lvl < 0, is outside its sheet's window: H is exact at its lam, and the principal log of z is another
-        // branch. Every member is within the ramp; the principal evaluation and a ramp of 0 must each flag the members that are outside)
-        const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length;
-        const out = ms.filter((m) => !(m.lvl >= -ramp)).length;
-        ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
+        // the plan read by the candidate generator corrupted (the output of its last op moved, on every sheet): its candidates are preimages under
+        // the shortened plan, not under the scene, so the scene must refuse them: candidates are rejected, the members that are left are fewer than
+        // the winding counts, and the case fails. A reference that took its homotopy from the plan would answer the corrupted plan consistently
+        const idxW = []; ref.forEach((l, i) => { if (l.length) idxW.push(i); });
+        const pickWind = idxW.filter((_, j) => j % Math.max(1, Math.ceil(idxW.length / WIND_PLACES)) === 0).slice(0, WIND_PLACES);
+        if (c.corruptPlan) {
+          const applied = await ev(`__cmwLandCorruptPlan('shiftOut')`);
+          ok(`${t}: the control's corrupted plan applies`, applied === true, { applied });
+          if (applied === true) {
+            try {
+              const bad = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`), rejected = await ev('window.__cmwLandRejected');
+              const have = bad.reduce((n, l) => n + l.length, 0), want = ref.reduce((n, l) => n + l.length, 0);
+              let notOk = 0, nW = 0;
+              for (const i of pickWind) { const wr = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, {})`); for (const r of wr || []) { nW++; if (!r.ok) notOk++; } }
+              ok(`${t}: the control: a corrupted plan's candidates are rejected by the scene (${rejected} rejected; ${have} members left of ${want})`, rejected > 0 && have < want, { rejected, have, want });
+              ok(`${t}: the control: with a corrupted plan the completeness count fails (${notOk} of ${nW} counts)`, notOk > 0, { notOk, nW });
+            } finally { await ev(`__cmwLandCorruptPlan('restore')`); }
+          }
+        }
         // the completeness count: for probe places with members, the winding of the homotopy around each sheet's region (plus the plan's poles) equals the
         // members found there on every sheet; controls: a member removed, the poles omitted, a place on a cut lip, a step floor that cannot resolve a place near the boundary
         {
-          const idx = []; ref.forEach((l, i) => { if (l.length) idx.push(i); });
-          const pick = idx.filter((_, j) => j % Math.max(1, Math.ceil(idx.length / WIND_PLACES)) === 0).slice(0, WIND_PLACES);
+          const pick = pickWind;
           let nBadW = 0, nChecked = 0; const badW = [];
           for (const i of pick) {
             const wr = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, {})`);
             for (const r of wr || []) { nChecked++; if (!r.ok) { nBadW++; if (badW.length < 4) badW.push(Object.assign({ place: vpts[i] }, r)); } }
           }
-          ok(`${t}: the completeness count: the winding of the homotopy plus the poles equals the members found, on every sheet of ${pick.length} places (${nChecked} sheet counts)`, nChecked > 0 && nBadW === 0, { nBadW, nChecked, badW });
+          ok(`${t}: the completeness count: the winding of the scene's homotopy plus the poles equals the certified members, over the leaves of the box at ${pick.length} places (${nChecked} counts)`, nChecked > 0 && nBadW === 0, { nBadW, nChecked, badW });
           if (pick.length) {
             const i0 = pick[0];
+            // (the scene's plane record: the box of the plane the carry is built on, read from the steps view's own view of it, is the box the parked frame draws)
+            const pl = await ev(`(() => { const p = __cmwLandPlane(), b = __cmwLandCarry(true); return { p, b }; })()`);
+            ok(`${t}: the scene's plane box equals the box the frame draws`, !!pl && !!pl.p && !!pl.b && ['x0', 'x1', 'y0', 'y1'].every((k, i) => Math.abs(pl.p.box[i] - pl.b[k]) <= PLANE_BOX_TOL * (1 + Math.abs(pl.b[k]))), { pl });
             const drop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { dropOne: true })`);
             ok(`${t}: the control: one member removed breaks the count`, !!drop && drop.some((r) => !r.ok), { drop });
-            const lipR = await ev(`__cmwLandWind(null, { onLip: true })`);
-            // (a place on sheet 0's lip is a root on its contour: that sheet reports 'onContour' and never a count; a plan with no cut reports 'noCut')
-            const noCut = !!lipR && lipR.every((r) => r.status === 'noCut'), exact = !!lipR && lipR[0].status === 'onContour';
-            ok(`${t}: the control: a place on a cut lip is reported as on the contour, never counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipR && (noCut || exact), { lipR: lipR && lipR.slice(0, 3) });
-            const near = await ev(`__cmwLandWind(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
+            const lipR = await ev(`__cmwLandWind(null, { onContour: true })`);
+            // (a place whose value is on a leaf's contour has a winding that is undefined: the count must say so, never give a count)
+            ok(`${t}: the control: a place on a leaf contour is not counted`, !!lipR && lipR.every((r) => r.status === 'onContour'), { lipR });
+            const near = await ev(`__cmwLandWind(null, { nearContour: true })`);
             ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!near && near.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near });
+            if (c.logControl) {
+              const lw = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
+              // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is huge there and the shrinking rim's values do not converge, so the count must say branchLog or kindDisagree, never ok)
+              ok(`${t}: the control: the branch leaf at 0 is reported (${r0 ? r0.branchLeaves : '?'} leaves, status ${r0 ? r0.status : '?'})`, !!r0 && r0.branchLeaves > 0 && (u < 1 - 2 * END_U || r0.status === 'branchLog' || r0.status === 'kindDisagree'), { lw });
+            }
+            if (c.surfaces) {
+              // (the surfaces that are distinct functions: a repeated sheet is counted once, and no distinct one is dropped)
+              const sf = await ev(`__cmwLandSurfaces()`);
+              ok(`${t}: the distinct surfaces are ${c.surfaces} of ${sf ? sf.K : '?'}`, !!sf && sf.distinct === c.surfaces, { sf });
+              // (the box holds the branch point: the leaf is reported; the leaves the continuity alone would have closed are counted beside it)
+              const sn = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), bl = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noInputs: true })`);
+              ok(`${t}: the branch leaf is reported (${sn && sn[0] ? sn[0].branchLeaves : '?'} leaves; ${bl && bl[0] ? bl[0].branchLeaves : '?'} by the continuity alone)`, !!sn && !!sn[0] && sn[0].branchLeaves > 0, { sn, bl });
+            }
+            if (c.logControl) {
+              // (the surfaces counted as digits: where the log path repeats a sheet, the count reads two for one member)
+              if (u === GLIDE_MID) {
+                const dd = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noDedupe: true })`);
+                ok(`${t}: the control: coincident surfaces counted each break the count at u = ${GLIDE_MID}`, !!dd && dd.some((q) => !q.ok), { dd });
+              }
+            }
+            if (c.logControl) {
+              // (a leaf that holds the branch point 0 is closed by the continuity of the surfaces alone when the cut's jump there is small: the
+              // leaves cut without the winding of the step's input count it closed, so no branch leaf is reported, while the scene reports it)
+              const seen = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), blind = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noInputs: true })`);
+              const nSeen = seen && seen[0] ? seen[0].branchLeaves : -1, nBlind = blind && blind[0] ? blind[0].branchLeaves : -1;
+              // (past the glide's middle the log path's cut jump is large and the surfaces' continuity sees the branch point too: the control is for the small jumps)
+              if (u <= GLIDE_MID) ok(`${t}: the control: the branch leaf is found by the winding of the step's input, and a count that does not use it misses it (${nSeen} leaves, ${nBlind} without)`, nSeen > 0 && nBlind === 0, { seen, blind });
+            }
+            if (c.cutControl) {
+              // (the part of H_u inside the circle |z| = 1 and the part outside are different formulas: a count that takes the circle's radius moved by CUT_DELTA
+              // counts the wrong region for each, and must differ from the certified members at some place)
+              const base = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), nCut = base && base[0] ? base[0].cutLeaves : 0;
+              if (u === GLIDE_MID) ok(`${t}: the circle's cut is walked as two parts at u = ${u} (${nCut} leaves cross it)`, nCut > 0, { base });
+              if (nCut > 0 && u === GLIDE_MID) {
+                let nBadC = 0;
+                for (const i of pick) { const wr = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, { cutDelta: ${CUT_DELTA} })`); if (wr && wr.some((r) => !r.ok)) nBadC++; }
+                ok(`${t}: the control: at u = ${GLIDE_MID}, where the formulas inside and outside differ, the cut circle's radius moved by ${CUT_DELTA} breaks the count (${nBadC} of ${pick.length} places)`, nBadC > 0, { nBadC });
+              }
+            }
             const nop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
             const poleCase = !!withP && withP.some((r) => r.P > 0);
             if (poleCase) ok(`${t}: the control: the poles omitted break the count`, !!nop && nop.some((r) => !r.ok), { nop });
-            // the step floor away from the contour: a stop with |G - w| / (1 + |w|) over the bound is 'unresolved', never 'onContour' and never a count; and a noise
-            // floor over the real turns of the argument drops them, so the total is no integer and the count fails. Each is read at the frame's places until one
-            // bites (a place whose pieces all step finely enough passes the first, one without a real turn the second); one frame in the suite must show each
-            for (const i of pick) {
-              if (!controlsDone.far) {
-                const far = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, { hMin: ${WIND_HMIN_FAR} })`);
-                if (far && far.some((r) => r.status === 'unresolved')) {
-                  controlsDone.far = 1;
-                  ok(`${t}: the control: a step floor away from the contour is unresolved, not on the contour and not counted`, !far.some((r) => r.status === 'onContour' || r.ok), { far: far.slice(0, 3) });
-                }
-              }
-              if (!controlsDone.noise) {
-                const plain = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, {})`), noisy = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, { noise: ${WIND_NOISE_CTL} })`);
-                if (plain && noisy && plain.every((r) => r.ok) && noisy.some((r) => !r.ok)) { controlsDone.noise = 1; ok(`${t}: the control: a noise floor of ${WIND_NOISE_CTL} over the real turns breaks the count`, true, { noisy: noisy.slice(0, 3) }); }
-              }
-            }
-            if (!controlsDone.fixtures) {
-              controlsDone.fixtures = 1;
-              const fx = await ev("[__cmwLandWindFixture('poleOnly'), __cmwLandWindFixture('cutCrossing')]");
-              ok('the fixture: a prefix whose only pole is inside the box is an unsupported contour (the exact status)', !!fx && !!fx[0] && fx[0].status === 'error: unsupported contour: only the pole of the prefix is inside the box' && !fx[0].ok, { fx });
-              ok('the fixture: a prefix with its pole inside the box and the cut crossing is an unsupported contour (the exact status)', !!fx && !!fx[1] && fx[1].status === 'error: unsupported contour: the pole of the prefix inside the box with a cut crossing' && !fx[1].ok, { fx });
-            }
           }
-        }
-        if (nRamp) {
-          const pr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`), tight = ms.filter((m) => !(m.lvl >= 0)).length;
-          ok(`${t}: the control: the principal-branch homotopy flags the ramp members (miss ${pr.worst}); a ramp of 0 flags ${tight}`, pr.worst > HOM_TOL && tight === nRamp, { principal: pr.worst, tight, nRamp });
         }
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
@@ -497,11 +859,34 @@
       if (rk && rk.certs.length > 0 && !controlsDone.branch) { controlsDone.branch = 1; await control('a branch point moved one cell', { branch: 1 }, (c) => c.failures.some((f) => f.kind === 'branch' || f.kind === 'cellDepth')); }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
+    // the distance to rest falls as u goes to 0 (and as it goes to 1, for the next plane): per end, d(k) for k in REST_STEPS from the plane
+    const restOk = (d) => d[0] <= SAME_FRAC && d.every((x, i) => i === 0 || x >= d[i - 1] - MONO_SLACK);
+    for (const [end, ref] of [['plane z', 'P0'], ['the next plane', 'P1']]) {
+      const d = [];
+      for (const k of REST_STEPS) {
+        await setU(ref === 'P0' ? k * END_U : 1 - k * END_U); await grab('rs');
+        d.push((await compare('rs', ref)).frac);
+      }
+      const rise = d[d.length - 1] - d[0], rev = d.slice().reverse();
+      ok(`${name}: the distance to ${end}'s parked frame falls as u goes to it: ${d.map((x) => x.toFixed(4)).join(', ')} at ${REST_STEPS.join(', ')} x ${END_U} (within ${SAME_FRAC} at the first, no rise past ${MONO_SLACK})`, restOk(d), { d });
+      // (control: the same distances in the reverse order of u fail it, where they rise by more than REST_RISE_MIN: the cases that stay at the render's floor have no order to reverse)
+      ok(`${name}: the distances to ${end}'s parked frame in the reverse order of u fail the check (control; rise ${rise.toFixed(4)})`, rise <= REST_RISE_MIN || !restOk(rev), { d });
+    }
+    // the glide's sheet pass (the image test that gives each vertex its step sheet's height) is what keeps the frame near the next plane's
+    // parked one at the far end: with it off (the page's carry probe noFix) the same frame differs from the parked plane by more than the tolerance
+    if (c.fixControl && !sheets) {
+      await setU(1 - END_U);
+      const on = await grab('fixon'), dOn = (await compare('fixon', 'P1')).frac;
+      await ev(`__svCarryProbe = __svCarryProbeSettings.noFix; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      const off = await grab('fixoff'), dOff = (await compare('fixoff', 'P1')).frac;
+      await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS });
+      r.fixControl = { dOn, dOff };
+      ok(`${name}: u=${1 - END_U}: with the sheet pass the frame is the next plane's parked frame (at most ${SAME_FRAC * 100} %)`, on && dOn <= SAME_FRAC, r.fixControl);
+      ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
+    }
   }
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
-  ok('the step-floor control ran: some place has a step floor away from the contour that is unresolved', !!controlsDone.far, controlsDone);
-  ok('the noise-floor control ran: some place has a real turn of the argument that a noise floor drops', !!controlsDone.noise, controlsDone);
   for (const scope of COUNT_SCOPES) ok(`the completeness-count control ran: some frame had a count read at ${COUNT_WHERE[scope]}`, !!controlsDone['count:' + scope], controlsDone);
   ok('the branch-point height control ran: the cube root at the glide\'s middle', !!controlsDone.apex, controlsDone);
   return { pass: !fails.length, fails, info };
