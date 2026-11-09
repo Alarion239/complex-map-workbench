@@ -71,7 +71,7 @@
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
   const BRANCH_NEAR = 2;   // grid scales: a flagged vertex this close to a branch point of the step (the case's branch list, in the step's input plane: z = 0 for the root and the logarithm, whose place is 0 or infinite) is in a cell the branch point drops
-  const BRANCH_RING = 4;   // chords: the flagged edges this close to a vertex set the grid's scale there (the largest of their chords); the scale is local because the grid is refined toward the branch point
+  const BRANCH_RING = 4;   // chords: the flagged edges this close to a vertex, and themselves at a branch point, set the grid's scale there (the largest of their chords); the scale is local because the grid is refined toward the branch point
   // The branch points of a scene's steps, in the plane of the glided step's input (the first step's, so the chain before it is the identity): the root's
   // and the logarithm's are 0, a Möbius map has none; any other type throws, so a new step type is classed here before a row can use it.
   const branchPoints = (steps) => steps.flatMap((s, i) => {
@@ -138,7 +138,9 @@
       const mix = (a, b, t) => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       const Hz = (z, sh) => { const h = window.__cmwLandHom(z); return h && h[sh] && h[sh].H && h[sh].dH ? h[sh] : null; };
       const cont = (z0, wa, wb, sh) => { let z = z0; for (let k = 1; k <= r.seam.cont; k++) { const target = mix(wa, wb, k / r.seam.cont); for (let i = 0; i < r.seam.pol; i++) { const h = Hz(z, sh); if (!h || !(cabs(h.dH) > 0)) return z; z = csub(z, cdiv(csub(h.H, target), h.dH)); } } return z; };
-      const scaleAt = (v, chord) => { let m = chord; for (const e of r.edges) { const c = Math.hypot(e[2] - e[0], e[3] - e[1]); if (c > m && Math.min(Math.hypot(e[0] - v[0], e[1] - v[1]), Math.hypot(e[2] - v[0], e[3] - v[1])) <= ring * c) m = c; } return m; };
+      const dBranch = (p) => Math.min(...branchPts.map((b) => cabs(csub(p, b))));
+      // (the grid's scale at v: the largest chord among the flagged edges near v that are themselves at a branch point, so a coarse edge elsewhere lends no reach)
+      const scaleAt = (v, chord) => { let m = chord; for (const e of r.edges) { const c = Math.hypot(e[2] - e[0], e[3] - e[1]); if (c <= m) continue; const da = Math.hypot(e[0] - v[0], e[1] - v[1]), db = Math.hypot(e[2] - v[0], e[3] - v[1]); if (Math.min(da, db) <= ring * c && dBranch(da < db ? [e[0], e[1]] : [e[2], e[3]]) <= near * c) m = c; } return m; };
       for (const [ax, ay, bx, by, t, ca, cb] of r.edges) {
         if (!(t < tol || t > 1 - tol)) continue;
         const za = [ax, ay], zb = [bx, by], chord = cabs(csub(zb, za)), v = t > 0.5 ? zb : za;
@@ -154,7 +156,7 @@
           }
         }
         if (seam) { out.seam++; continue; }
-        const dBr = Math.min(...branchPts.map((b) => cabs(csub(v, b)))), sc = scaleAt(v, chord);
+        const dBr = dBranch(v), sc = scaleAt(v, chord);
         if (dBr <= near * sc) { out.branch++; out.branchWorst = Math.max(out.branchWorst, dBr / sc); } else { out.falseN++; if (out.falseList.length < 5) out.falseList.push([ax, ay, bx, by, t, ca, cb, dBr, chord, sc]); }
       }
       return out;
