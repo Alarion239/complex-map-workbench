@@ -1054,10 +1054,10 @@ void main() {
   // layer whose own preimage at the vertex is nearest A's. It is that member when the two preimages are no farther apart
   // than the glide's derivative at A allows for the distance of the two places (the seam test's criterion, SEAM_FAR), and
   // the continuation of A's branch to it has the height that layer draws there (RING_GUARD). The vertex takes the place
-  // of the grid, that preimage and that height, texel w uContCode. uOutZ 0 writes the texel, 1 the preimage.
+  // of the grid, that preimage and that layer's height (so the two layers' copies of a surface piece coincide exactly), texel w uContCode (uHOff: a probe's offset of it, in H). uOutZ 0 writes the texel, 1 the preimage.
   const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
   const LAND_CARRY_RING_VS = `
-uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard;
+uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard; uniform float uHOff;
 uniform int uGs; uniform int uGt;
 uniform highp sampler2D uRT1[${RING_LAYERS_MAX}]; uniform highp sampler2D uRZ[${RING_LAYERS_MAX}];
 out vec4 tfOut;
@@ -1109,7 +1109,7 @@ void main() {
   vec2 h = carryHeightA(zA, zj);
   if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { ringWhy(tfOut, 4); return; }
   if (uGuard == 1 && abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 5); return; }
-  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, h.x, uContCode);
+  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, hj + uHOff * uH, uContCode);
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:

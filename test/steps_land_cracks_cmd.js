@@ -52,6 +52,29 @@ window.__lxCtl = (holes, step) => {
 1`;
 // the cross-layer pass's controls, each at a u of the case: with it off the cracks return (cube root); the guard refuses
 // continuations onto a surface the frame does not draw there, and without it none is refused (log)
+// the draw order of the layers does not show: a triangle that two layers both draw is the same geometry in both, so the frame
+// with the layers drawn in reverse differs from the frame in order in at most SEAM_ORDER_MAX pixels (over ORDER_TOL of 255 in a channel);
+// the control offsets the continued heights, so the two copies differ and the order shows
+const SEAM_ORDER_MAX = 0, ORDER_TOL = 32, ORDER_HOFF = 0.5, ORDER_CONTROL = 'log of an annulus, Top';   // (the control runs where two layers overlap in the view: the Top view of the log)
+const ORDER_AT = { 'cube root, isometric': [0.5, 0.75], 'log of an annulus, isometric': [0.5], 'log of an annulus, Top': [0.75] };
+const ORDER = `window.__lxPix = () => { const c = document.getElementById('canvasL'); return c.getContext('2d').getImageData(0, 0, c.width, c.height).data; };
+window.__lxKeep = () => { window.__lxA = __lxPix(); return 1; };
+window.__lxDiff = () => { const a = window.__lxA, b = __lxPix(); let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])) > ${ORDER_TOL}) n++; return n; };
+1`;
+const orderCheck = async (c, view_, u) => {
+  const redraw = async (probe) => { await ev(`GLR.carryProbes(${JSON.stringify(probe)}); 1`); await ev(`__cmwSteps({ x: ${u} + 0.01 }); 1`); await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
+  await ev(ORDER);
+  await redraw({}); await ev('__lxKeep()');
+  await redraw({ reverseLayers: true });
+  const n = await ev('__lxDiff()');
+  ok(`${c.tag}, ${view_}, u=${u}: the layers drawn in reverse order differ from the frame in order in at most ${SEAM_ORDER_MAX} pixels (${n})`, n !== null && n <= SEAM_ORDER_MAX, { n });
+  if (`${c.tag}, ${view_}` !== ORDER_CONTROL) { await redraw({}); return; }
+  await redraw({ ringHOff: ORDER_HOFF }); await ev('__lxKeep()');
+  await redraw({ ringHOff: ORDER_HOFF, reverseLayers: true });
+  const m = await ev('__lxDiff()');
+  ok(`${c.tag}, ${view_}, u=${u}: control: with the continued heights offset the order shows (${m} pixels)`, m !== null && m > SEAM_ORDER_MAX, { m });
+  await redraw({});
+};
 const CONTROLS = { 'cube root': { u: 0.5 }, 'log of an annulus': { u: 0.25 } };
 const SEAM = `window.__lxSeam = () => { const m = __cmwLandSeamMiss(); const sum = (k) => m.reduce((a, L) => a + (L.why[k] || 0), 0); return { refused: sum(5), cont: m.reduce((a, L) => a + L.cont, 0) }; };
 window.__lxProbe = (p) => { GLR.carryProbes(Object.assign({ ringWhy: true }, p)); return 1; };
@@ -104,6 +127,10 @@ for (const c of CASES) {
       ok(`${c.tag}, ${view_}, u=${u}: the frame has at most ${CRACK_MAX} cracks along its seams (${n})`, n !== null && n <= CRACK_MAX, { n });
     }
     if (view_ === 'isometric' && CONTROLS[c.tag]) await controls(c);
+    for (const u of ORDER_AT[`${c.tag}, ${view_}`] || []) {
+      await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: LOAD_MAX_MS });
+      await orderCheck(c, view_, u);
+    }
   }
 }
 return { pass: fails.length === 0, fails, info };

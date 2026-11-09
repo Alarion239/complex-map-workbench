@@ -482,7 +482,7 @@
       u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0);
       u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', L.own);
       u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1i(P, 'uGuard', carryProbe.noGuard ? 0 : 1); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
+      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1i(P, 'uGuard', carryProbe.noGuard ? 0 : 1); u1f(P, 'uHOff', carryProbe.ringHOff || 0); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
       const units = [];
       for (let j = 0; j < RING_LAYERS_MAX; j++) {
         const Lj = landActive[Math.min(j, n - 1)];
@@ -1702,7 +1702,8 @@
         landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
         gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
       }
-      for (const L of landActive.length ? landActive : [landC]) {
+      const drawn = landActive.length ? landActive : [landC];
+      for (const L of carryProbe.reverseLayers ? drawn.slice().reverse() : drawn) {
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
         if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
