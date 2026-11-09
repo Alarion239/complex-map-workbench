@@ -179,6 +179,27 @@ H.settled = async (o = {}) => {
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
   return r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
 };
+// H.reloaded(old, readyExpr, { limitMs }): waits for the page a reload brings: a document other than the one that began at
+// old (its performance.timeOrigin, read before the reload was asked for), loaded, with readyExpr (an expression, default
+// true) true. A call the reload cuts off fails with the page-gone error (GONE); that error, and only that one, is the cue to
+// ask again of the new page, any other error is thrown. After limitMs (RELOAD_LIMIT_MS by default) it throws, naming
+// the parts still missing (newDocument, loaded, ready).
+const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
+H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {}) => {
+  const t0 = Date.now();
+  let parts = null;
+  for (;;) {
+    try {
+      const r = await H.ev(`({ newDocument: performance.timeOrigin !== ${old}, loaded: document.readyState === 'complete', ready: !!(${readyExpr}) })`);
+      if (r && r.newDocument !== undefined) { parts = r; if (r.newDocument && r.loaded && r.ready) return true; }
+    } catch (e) { if (!GONE.test(String((e && e.message) || e))) throw e; }
+    if (Date.now() - t0 > limitMs) {
+      const missing = parts ? Object.keys(parts).filter((k) => !parts[k]) : ['any answer'];
+      throw new Error(`the page did not finish reloading within ${limitMs} ms (missing: ${missing.join(', ')}; ready: ${readyExpr})`);
+    }
+    await sleep(RELOAD_POLL_MS);
+  }
+};
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
   const r = await send('Page.captureScreenshot', p, S);
