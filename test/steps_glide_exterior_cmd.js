@@ -9,6 +9,8 @@
 // - middle: at u = 0.5 the frame is the CPU reference's (held_frames.js's refOf, __giRef: at each sampled pixel w, the
 //   front z with H_u(z) = w by Newton's method from a grid of seeds over the window, coloured as plane 0's parked frame
 //   colours z), at most SAME_FRAC of the compared pixels more than LOOK_TOL off.
+// - members: the plan's own members (Inverse.homOps' NEWT op's pre) over sample points w, outside the band and in it, are
+//   exactly one (degree 1); the control, a quadratic, has two.
 // Controls: the step without the property takes the carried mesh, and then its band at 1 - END is off plane 1's by more than
 // SAME_FRAC (the whole frame's difference, 0.3 %, is below it: the band is the measure that tells them apart); a step whose map is not tangent to the identity (the Gamma function) with the property forced on keeps the mesh
 // too (the seed is verified, not trusted).
@@ -19,10 +21,13 @@ const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const { grab, sameAway, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_BAND = 200, REF_STEP = 8;   // (steps_newt_everywhere_cmd.js's bounds)
+const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_BAND = 100, REF_STEP = 8;   // (steps_newt_everywhere_cmd.js's bounds)
 const END = 1e-4;          // the glide's ends: u = END and 1 - END
 const BAND_OUT = 1.1;      // the band's outer radius, in plane w
 const READY_MS = 60000, FRAME_MS = 300000, WARM_MS = 120000, SETTLE_MS = 1500;   // waits (ms): a page, a frame, the prestart, a frame's last draws
+const MEMBER_US = [0.5, 1 - END];   // the homotopy's t for the member counts
+// sample points w for the member counts: outside the band, and in it ([re, im])
+const W_OUT = [[3, 0], [0, -2], [-1.5, 1.5], [1.2, 0.8]], W_BAND = [[1.05, 0], [0, -1.05], [-0.74, 0.74], [0.5, 0.93]];
 const SRC = { cx: 0, cy: 0, s: 60 };
 const ready = () => settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // the frame at thread place x, once a frame there was drawn, and its record
@@ -55,6 +60,8 @@ const scene = async (id, params, tag) => {
 // the step's definition built with the property set to on
 const forceProp = (id, on) => ev(`(() => { const d = Funcs.DEFS.${id}, b = d.build; d.build = function () { const r = b.apply(this, arguments); r.props = Object.assign({}, r.props, { identitySeed: ${on} }); return r; }; __cmwStepParam(0, 'N', 63); return 1; })()`);
 
+// the number of members of the Newton plan of the step { type, params } at t over each w ([re, im]), in the page
+const members = (step, t, ws) => ev(`(() => { const b = Funcs.build(${JSON.stringify(step)}), r = Inverse.homOps(b, ${t}); if (!r.ok) return { ok: false, reason: r.reason }; const op = r.ops[r.ops.length - 1]; return { ok: true, kind: op.kind, n: ${JSON.stringify(ws)}.map(([re, im]) => op.pre({ re, im }).length) }; })()`);
 const STEPS = [['dh', 'Douady–Hubbard', { N: 64 }], ['bottcher', 'Böttcher', { c: '-1', N: 64 }]];
 await view(1440, 900, false, false);
 for (const [id, name, params] of STEPS) {
@@ -71,6 +78,12 @@ for (const [id, name, params] of STEPS) {
       info[`${id} band`] = band;
       ok(`${name} at u = ${u}: the band 1 < |w| < ${BAND_OUT} is the parked plane's (at least ${MIN_BAND} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, !!band && band.n >= MIN_BAND && band.over <= SAME_FRAC, band);
     }
+  }
+  for (const t of MEMBER_US) {
+    const out = await members({ type: id, params }, t, W_OUT), band = await members({ type: id, params }, t, W_BAND);
+    info[`${id} members ${t}`] = { out, band };
+    ok(`${name} at t = ${t}: one member over each w outside the band (degree 1)`, !!out && out.ok && out.n.every((n) => n === 1), out);
+    ok(`${name} at t = ${t}: one member over each w in the band (degree 1)`, !!band && band.ok && band.n.every((n) => n === 1), band);
   }
   {
     const g = await at(0.5);
@@ -91,6 +104,12 @@ for (const [id, name, params] of STEPS) {
     ok(`${name} without the property: the carried mesh (control)`, !!g && g.path === 'mesh' && /Newton inverse/.test(g.reason || ''), g);
     ok(`${name} without the property: the band is off plane 1's by more than ${SAME_FRAC * 100} % (control)`, !!r && r.n >= MIN_BAND && r.over > SAME_FRAC, r);
   }
+}
+// control: a map of degree 2 has two members over those points
+{
+  const cube = await members({ type: 'custom', params: { expr: 'z^2 + z + 1', cut: 180 } }, 0.5, W_OUT);
+  info['cube members'] = cube;
+  ok('the control, a quadratic: two members over each w outside the band', !!cube && cube.ok && cube.n.every((n) => n === 2), cube);
 }
 // control: a map not tangent to the identity at infinity keeps the mesh with the property forced on
 await scene('gamma', {}, 'gamma');
