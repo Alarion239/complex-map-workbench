@@ -555,8 +555,8 @@
   // (a unit edge; the control raises it to 1); CLOSE, the relative distance within which a closed contour returns to its first value; ON, the relative |H_u - w| that
   // puts w on a contour; NEAR, the relative gap of a value from w that the control calls near; REL, the largest relative change of a
   // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
-  // grid; SAME_Z, the relative distance under which two candidates are one z
-  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
+  // grid; SAME_Z, the relative distance under which two candidates are one z; SAME_V and SAME_PTS, the relative difference of two surfaces' values under which they are one at each of SAME_PTS squared places of the box
+  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5, SAME_V: 1e-9, SAME_PTS: 3 };
   let sceneMemo = null;
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
@@ -581,6 +581,16 @@
     const g = (k, zc, z) => {
       try { const f = Funcs.sheetMapEval(S.steps, built, map, zc, z, k, W); return CX.isFin(f) ? f : null; } catch (e) { return null; }
     };
+    // The distinct surfaces: digits that give the same function (a rational path exponent repeats a sheet) count once, the one nearest the
+    // frame's own sheet standing for them; two are the same when their values agree at SAME_PTS places of the box, each read on its own cell
+    const same = (a, b) => CX.abs(CX.sub(a, b)) <= SCN.SAME_V * (1 + CX.abs(a));
+    const probe = [];
+    for (let j = 0; j < SCN.SAME_PTS; j++) for (let i = 0; i < SCN.SAME_PTS; i++) probe.push(C(bx.x0 + (bx.x1 - bx.x0) * (i + 0.5) / SCN.SAME_PTS, bx.y0 + (bx.y1 - bx.y0) * (j + 0.5) / SCN.SAME_PTS));
+    const vals = Array.from({ length: K }, (_, k) => probe.map((z) => g(k, z, z)));
+    const ks = [];
+    Array.from({ length: K }, (_, k) => k).sort((a, b) => rank(a) - rank(b) || a - b).forEach((k) => {
+      if (!ks.some((q) => vals[q].every((v, i) => (v && vals[k][i] ? same(v, vals[k][i]) : v === vals[k][i])))) ks.push(k);
+    });
     let poles = [];
     try { poles = svDrain(svPolesIn(cpuMap(map), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || []; } catch (e) { poles = []; }
     // The cut of H_u itself: a step with a Joukowski path, alone and last in the map (its input is the z-plane), takes its disk's formula inside
@@ -600,7 +610,13 @@
       if (id === 'powa') { const a = st.vals.alpha, ex = C(1 + (a.re - 1) * map.t, a.im * map.t); return !(ex.re > 0); }
       return false;
     }) ? 'log' : 'algebraic';
-    return (sceneMemo = { key, map, W, K, own, rank, g, box: bx, poles, cut, kindScene, leaves: null });
+    // The input of each branch step with its node at 0 (log, root, powa): input(k, zc, z) is the map's steps before that step applied to z on
+    // surface k from the cell centred at zc. The branch point of the step is where this input is 0; the leaf's loop winds it exactly when the
+    // branch point is inside, whatever the size of the step's cut jump
+    const inputs = pcs.filter((e) => { const st = built[e.k - 1], id = st && st.def && st.def.id; return id === 'log' || id === 'root' || id === 'powa'; })
+      .filter((e, i, a) => a.findIndex((x) => x.k === e.k) === i)
+      .map((e) => (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? f : null; } catch (er) { return null; } });
+    return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, box: bx, poles, cut, kindScene, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
@@ -705,11 +721,22 @@
     // distance from the value at the centre (a constant offset hides nothing): no cut of the cell, no branch point, inside)
     const closed = (r) => {
       const c = C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
-      for (let k = 0; k < sc.K; k++) {
+      for (const k of sc.ks) {
         const g = (z) => sc.g(k, c, z), vc = g(c);
         if (!vc) return false;
         const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
         for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return false;
+        // (no branch step's input winds round 0 along the loop and none passes through it: the branch point is outside)
+        for (const inp of sc.inputs) {
+          const u = (z) => inp(k, c, z);
+          let sum = 0;
+          for (const f of rectLoop(r)) {
+            const wd = windOpen(u, f, C(0, 0), (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv)));
+            if (wd.bad || wd.on) return false;
+            sum += wd.sum;
+          }
+          if (Math.abs(sum) > Math.PI) return false;
+        }
       }
       return true;
     };
@@ -744,7 +771,7 @@
     const at = (q, k) => { const f = Math.pow(0.5, q); return sc.g(k, C(l.c.re - (l.x1 - l.x0) / 2 * f, l.c.im - (l.y1 - l.y0) / 2 * f), C(l.c.re - (l.x1 - l.x0) / 2 * f, l.c.im - (l.y1 - l.y0) / 2 * f)); };
     const h = SCN.SHRINK / 2;
     l.kind = 'algebraic';
-    for (let k = 0; k < sc.K; k++) {
+    for (const k of sc.ks) {
       const a = at(0, k), b = at(h, k), c = at(SCN.SHRINK, k);
       if (!a || !b || !c) { l.kind = 'log'; break; }
       const d1 = CX.abs(CX.sub(b, a)), d2 = CX.abs(CX.sub(c, b));
@@ -758,7 +785,7 @@
   // the surfaces of H_u at z on the cell centred at zc, nearest w first: [{ k, miss }], miss the relative |H_u(z) - w|
   const sceneMiss = (sc, w, zc, z) => {
     const out = [];
-    for (let k = 0; k < sc.K; k++) {
+    for (const k of sc.ks) {
       const h = sc.g(k, zc, z);
       if (h) out.push({ k, miss: CX.abs(CX.sub(h, w)) / (1 + CX.abs(w)) });
     }
@@ -813,6 +840,14 @@
     }
     return out;
   };
+  // the scene's plane record: the plane s the glide's carry is built on (svCarryFrom: the earlier of plane a and the colour plane, or plane 0
+  // when a d/dz step or All sheets lies in the way) and the box its parked frame draws, [x0, x1, y0, y1] from the steps view's own view of
+  // that plane (leftView(s)); { s, box }. pl overrides s (for a control that reads another plane's box)
+  window.__cmwLandPlane = (pl) => {
+    const g = svBetween(), T0 = svT(), e = g.b == null ? g.a : g.b;
+    const s = pl != null ? pl : svCarryFrom(Math.min(g.a, T0), [e, T0, svHT(g.a), svHT(e)]), v = leftView(s), b = v && landBox(v);
+    return b ? { s, box: [b.x0, b.x1, b.y0, b.y1] } : null;
+  };
   // the scene's singular points over the frame's box: { poles: [[re, im]], branch: [[re, im]] }, the poles the steps view finds on the glide's
   // map and the centres of the leaves no surface closes round (a branch point inside) with their kind, [re, im, 'algebraic' | 'log']
   window.__cmwLandSing = () => {
@@ -825,11 +860,13 @@
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
   // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, cutLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
-  // opts: noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
+  // opts: noInputs cuts the leaves without the winding of the branch steps' inputs, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => {
-    const sc = sceneOf();
-    if (!sc) return null;
+    const sc0 = sceneOf();
+    if (!sc0) return null;
+    // (noInputs: the leaves are cut by the continuity of the surfaces alone, so a leaf that holds a branch point with a tiny cut jump counts as closed)
+    const sc = opts.noInputs ? Object.assign({}, sc0, { inputs: [], leaves: null }) : sc0;
     const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
     let w = wIn ? C(wIn[0], wIn[1]) : null;
     if (opts.onContour || opts.nearContour) {
@@ -878,7 +915,7 @@
         for (let q = 0; q <= SCN.SHRINK; q++) {
           const f = Math.pow(0.5, q), hx = (l.x1 - l.x0) / 2 * f, hy = (l.y1 - l.y0) / 2 * f;
           const rim = [C(l.c.re - hx, l.c.im - hy), C(l.c.re + hx, l.c.im - hy), C(l.c.re + hx, l.c.im + hy), C(l.c.re - hx, l.c.im + hy)];
-          for (let k = 0; k < sc.K; k++) {
+          for (const k of sc.ks) {
             let prev = null;
             for (let e = 0; e < 4; e++) for (let t = 0; t < SCN.SEG; t++) {
               const z = C(rim[e].re + (rim[(e + 1) % 4].re - rim[e].re) * t / SCN.SEG, rim[e].im + (rim[(e + 1) % 4].im - rim[e].im) * t / SCN.SEG), v = sc.g(k, z, z);
@@ -896,7 +933,7 @@
         else if (l.poles.length || !(CX.abs(CX.sub(w, vc)) > spread * (1 + SCN.NEAR))) status = status === 'ok' ? 'unresolved' : status;
         continue;
       }
-      for (let k = 0; k < sc.K; k++) {
+      for (const k of sc.ks) {
         let sum = 0, on = false, loopOk = true;
         const g = (z) => sc.g(k, l.c, z), vc = g(l.c) || C(0, 0), ctl = (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG && CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
         for (const f of rectLoop(l)) {
