@@ -18,8 +18,9 @@
 //   mask(x, y): 0..1 (the Inside-regions mask) or null;   all: every member is drawn (All sheets), else the front one;
 //   layers(m): the drawn layers of a member [{ combo, h }] (All sheets' forward combos), default one layer of height m.h.
 //   sing(): optional, the plan's own singular points [{ sheet, z, w, kind }] (w: the place each is drawn at, null where H is not finite);
+//   domain(z, sheet): optional, whether the preimage z lies on the carried surface (the plane's surface over its source box; one outside it is not drawn), default every z;
 //   count(w, { dropOne }): optional, the completeness count at a place, per sheet [{ sheet, N, P, members, ok, status }] (dropOne: a member removed, a control);
-// opts: { nx, ny, depth, <the named bounds below> and the controls' perturbations: seed, seam, branch, apexOld, countDrop }.
+// opts: { nx, ny, depth, <the named bounds below> and the controls' perturbations: seed, seam, branch, apexOld, countDrop, domainOff }.
 //
 // How a cell is judged (each cell of the lattice either proves its image is within E_SAFE / 2 pixels, or goes to the boundary
 // method, or to a branch certificate, or fails loudly):
@@ -137,7 +138,10 @@
       }
     }
     // a place's record: all members (for identity) and which are drawn, with their layers' pixels
-    function mkVert(w, ms) {
+    // (frame.domain(z, sheet): whether the preimage z is on the carried surface: it is the plane's surface over its source box, and a preimage outside it is clipped by the
+    // frame's draw, so the reference keeps only the members inside; opts.domainOff ignores it, a control)
+    function mkVert(w, ms0) {
+      const ms = frame.domain && !o.domainOff ? ms0.filter((m) => frame.domain(m.z, m.sheet || 0)) : ms0;
       const mk = frame.mask ? frame.mask(w[0], w[1]) : null, masked = mk !== null && mk < 0.5;
       const all = ms.map((m, idx) => {
         const drawn = !masked && Number.isFinite(m.h) && (frame.all || m.front === true);

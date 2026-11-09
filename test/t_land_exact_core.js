@@ -52,5 +52,12 @@ for (const scope of ['stride', 'boundary', 'critical']) {
   const c = go(countFrame, { countDrop: scope });
   ok(`the control: a member removed from the ${scope} counts fails a ${scope} count and no other`, c.failures.length > 0 && c.failures.every((f) => f.kind === 'count' && f.scope === scope), c.failures.slice(0, 2));
 }
+// (the carried surface's domain: the members outside it are not drawn; with the domain ignored the reference draws more, the control)
+const DOMAIN_R = 0.3;
+const inDomain = (z) => Math.hypot(z[0], z[1]) <= DOMAIN_R;
+const clipped = go(frameOf({ domain: inDomain }), {}), unclipped = go(frameOf({ domain: inDomain }), { domainOff: true });
+const count = (r) => r.px.reduce((a, b) => a + b, 0);
+ok('the reference keeps only the members inside the carried surface\'s domain', count(clipped) > 0 && count(clipped) < count(base) / 2, { clipped: count(clipped), all: count(base) });
+ok('the control: with the domain ignored the reference draws the members outside it too', count(unclipped) === count(base), { unclipped: count(unclipped), all: count(base) });
 if (fails) { console.log(fails + ' failed'); process.exit(1); }
 console.log('ok');
