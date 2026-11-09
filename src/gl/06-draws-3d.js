@@ -1664,6 +1664,13 @@
       u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
       u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
+      if (contDraw) {
+        // (the step's cut leaving each branch point of the z-plane: the layered draw's colour anchor keeps off it)
+        const cuts = new Float32Array(12);
+        let nc = 0;
+        for (const [, , cut] of (st.carry.exact.hole || []).slice(0, LAND_HOLES_MAX)) { if (cut) cuts.set(cut, 3 * nc++); }
+        window.__cutN = [nc, Array.from(cuts)]; gl.uniform3fv(Pc.loc.uCutZ, cuts); u1i(Pc, 'uCutN', nc); u1i(Pc, 'uAnchorFirst', carryProbe.firstOwnAnchor ? 1 : 0);
+      }
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
       // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
       // a key's push of the depth would only put a layer behind the floor plate)

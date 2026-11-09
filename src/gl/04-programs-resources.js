@@ -1447,7 +1447,7 @@ float wabs(vec2 w) {
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
   // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid), rulerScale (a factor on the height ruler's labels' heights),
   // comboShift (an integer added to each sheet's combo in the exact carried draw: the sheets' colour control), noCross (the exact glide's
-  // cross-sheet edge test finds every such edge continuous), midCut (the exact glide's edge pass puts every cut at the middle of its edge); reverseLayers (the layered glide draws its layers in reverse order), ringHOff (the cross-layer pass's continued heights offset by that share of H), {} otherwise
+  // cross-sheet edge test finds every such edge continuous), midCut (the exact glide's edge pass puts every cut at the middle of its edge); reverseLayers (the layered glide draws its layers in reverse order), firstOwnAnchor (the layered draw anchors a triangle's colour at its first own corner), ringHOff (the cross-layer pass's continued heights offset by that share of H), {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

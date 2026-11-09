@@ -720,6 +720,19 @@ uniform highp sampler2D uZ; uniform int uZOn;
 // it, 9 vertices each (uPer 9); else 3
 uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
 uniform int uCuts; uniform int uPer;
+// (layered: the step's cut leaving each of uCutN branch points of the z-plane, (re, im, angle), and the colour anchor's rule)
+uniform vec3 uCutZ[4]; uniform int uCutN; uniform int uAnchorFirst;
+// the distance of z from the nearest of the step's cuts (rays leaving the branch points of the z-plane); large with none
+float cutDist(vec2 z) {
+  float m = 1e30;
+  for (int h = 0; h < 4; h++) {
+    if (h >= uCutN) break;
+    vec2 o = uCutZ[h].xy, d = vec2(cos(uCutZ[h].z), sin(uCutZ[h].z)), r = z - o;
+    float along = dot(r, d);
+    m = min(m, along <= 0.0 ? length(r) : abs(r.x * d.y - r.y * d.x));
+  }
+  return m;
+}
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
 // the box's triangles whose centre is within uHoles[i].z of uHoles[i].xy are left out (uNHoles of them): polar patches draw there
@@ -751,7 +764,25 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) return;
   bool o0 = t0.w < uDrawCode0 + 0.1, o1 = t1.w < uDrawCode0 + 0.1, o2 = t2.w < uDrawCode0 + 0.1;
   if (!(o0 || o1 || o2)) return;
-  vZc = texelFetch(uZ, o0 ? V0 : (o1 ? V1 : V2), 0).xy;` : ''}
+  {
+    // (the colour anchor: the own corner farthest from the cut, else the layer's continued corner farthest from it; its branch
+    // is then not decided by a rounding sign, which a corner on the cut's row has. uAnchorFirst 1: the first own corner)
+    vec2 zc3[3] = vec2[3](texelFetch(uZ, V0, 0).xy, texelFetch(uZ, V1, 0).xy, texelFetch(uZ, V2, 0).xy);
+    bool own3[3] = bool[3](o0, o1, o2);
+    int ai = o0 ? 0 : (o1 ? 1 : 2);
+    if (uAnchorFirst != 1 && uCutN > 0) {
+      float far = -1.0;
+      for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; i < 3; i++) {
+          if (own3[i] != (pass == 0)) continue;
+          float d = cutDist(zc3[i]) / (1.0 + length(zc3[i]));
+          if (d > far) { far = d; ai = i; }
+        }
+        if (far > ${ANCHOR_ON_CUT}) break;
+      }
+    }
+    vZc = zc3[ai];
+  }` : ''}
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (uPolar.w <= 0.0) {
     vec2 ctr = (t0.xy + t1.xy + t2.xy) / 3.0;
@@ -1055,6 +1086,8 @@ void main() {
   // than the glide's derivative at A allows for the distance of the two places (the seam test's criterion, SEAM_FAR), and
   // the continuation of A's branch to it has the height that layer draws there (RING_GUARD). The vertex takes the place
   // of the grid, that preimage and that layer's height (so the two layers' copies of a surface piece coincide exactly), texel w uContCode (uHOff: a probe's offset of it, in H). uOutZ 0 writes the texel, 1 the preimage.
+  // a corner whose distance from the cut, relative to 1 + |z|, is under this (a few float32 roundings) is on the cut
+  const ANCHOR_ON_CUT = '8e-6';
   const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
   const LAND_CARRY_RING_VS = `
 uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard; uniform float uHOff;
