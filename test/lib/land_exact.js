@@ -53,7 +53,7 @@
   const REF = { nx: 40, ny: 34, slack: 1 };
   const RASTER_TOL = SAME_FRAC;
   const STEP_MAX = 400;   // at most this many raster steps a frame (STEP_MS each): more is a reference that never finishes, and fails
-  const CTL_DEPTH = 4;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002)
+  const CTL_DEPTH = 1;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002 needs 2 halvings; at 1 it is over its bound at the cap)
   const STEP_MS = 15000;   // a raster step's time in the page: a CDP call stays well under its limit
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
