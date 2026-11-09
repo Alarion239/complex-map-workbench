@@ -408,12 +408,22 @@
             const nop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
             const poleCase = !!withP && withP.some((r) => r.P > 0);
             if (poleCase) ok(`${t}: the control: the poles omitted break the count`, !!nop && nop.some((r) => !r.ok), { nop });
-            // the step floor away from the contour: a stop with |G - w| / (1 + |w|) over the bound is 'unresolved', never 'onContour' and never a count
-            const far = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { hMin: ${WIND_HMIN_FAR} })`);
-            ok(`${t}: the control: a step floor away from the contour is unresolved, not on the contour and not counted`, !!far && far.some((r) => r.status === 'unresolved') && !far.some((r) => r.status === 'onContour'), { far: far && far.slice(0, 3) });
-            // a noise floor over the real turns of the argument drops them, and the total is no integer: the count fails
-            const noisy = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noise: ${WIND_NOISE_CTL} })`), plain = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
-            if (plain && plain.some((r) => r.N > 0)) ok(`${t}: the control: a noise floor of ${WIND_NOISE_CTL} over the real turns breaks the count`, !!noisy && noisy.some((r) => !r.ok), { noisy: noisy && noisy.slice(0, 3) });
+            // the step floor away from the contour: a stop with |G - w| / (1 + |w|) over the bound is 'unresolved', never 'onContour' and never a count; and a noise
+            // floor over the real turns of the argument drops them, so the total is no integer and the count fails. Each is read at the frame's places until one
+            // bites (a place whose pieces all step finely enough passes the first, one without a real turn the second); one frame in the suite must show each
+            for (const i of pick) {
+              if (!controlsDone.far) {
+                const far = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, { hMin: ${WIND_HMIN_FAR} })`);
+                if (far && far.some((r) => r.status === 'unresolved')) {
+                  controlsDone.far = 1;
+                  ok(`${t}: the control: a step floor away from the contour is unresolved, not on the contour and not counted`, !far.some((r) => r.status === 'onContour' || r.ok), { far: far.slice(0, 3) });
+                }
+              }
+              if (!controlsDone.noise) {
+                const plain = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, {})`), noisy = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, { noise: ${WIND_NOISE_CTL} })`);
+                if (plain && noisy && plain.every((r) => r.ok) && noisy.some((r) => !r.ok)) { controlsDone.noise = 1; ok(`${t}: the control: a noise floor of ${WIND_NOISE_CTL} over the real turns breaks the count`, true, { noisy: noisy.slice(0, 3) }); }
+              }
+            }
             if (!controlsDone.fixtures) {
               controlsDone.fixtures = 1;
               const fx = await ev("[__cmwLandWindFixture('poleOnly'), __cmwLandWindFixture('cutCrossing')]");
@@ -482,6 +492,8 @@
   }
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
+  ok('the step-floor control ran: some place has a step floor away from the contour that is unresolved', !!controlsDone.far, controlsDone);
+  ok('the noise-floor control ran: some place has a real turn of the argument that a noise floor drops', !!controlsDone.noise, controlsDone);
   ok('the completeness-count control ran: some frame had a count read at a cell', !!controlsDone.count, controlsDone);
   ok('the branch-point height control ran: the cube root at the glide\'s middle', !!controlsDone.apex, controlsDone);
   return { pass: !fails.length, fails, info };
