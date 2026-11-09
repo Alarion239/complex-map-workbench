@@ -85,7 +85,9 @@ async function judged(tag, at) {
   if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   await ev('__cmwSteps({ bare: false }), 1');
   info[tag] = { j, g, x: state.x, T: state.T };
-  ok(`${tag}: coloured from z`, state.T === 0, info[tag]);
+  // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
+  const x = at.hold != null ? at.hold : at.park;
+  ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(state.x - x) < (at.hold != null ? 0.01 : 1e-9) && state.T === 0, info[tag]);
   ok(`${tag}: the frame is the exact picture (the judge passes)`, j.pass, info[tag]);
   // negative control: the cross-fade of the two planes' parked frames at the same u is not the exact picture
   const xt = at.hold != null ? at.hold : at.park, u = xt - Math.floor(xt);
