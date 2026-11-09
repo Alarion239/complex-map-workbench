@@ -393,12 +393,12 @@
       return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }] : [];
     });
   }
-  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t]] }, the preimages of the edge's two ends (a, then b along
-  // +x, +y or the diagonal) and the share t of the chord a -> b at which the cut was found; null without cuts
+  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t, codeA, codeB]] }, the preimages of the edge's two ends (a, then b along
+  // +x, +y or the diagonal), the share t of the chord a -> b at which the cut was found, and the ends' sheet codes (texel w); null without cuts
   function landCutEdges() {
     if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.zTex) return null;
-    const N = landC.N, Z = lwRead(landC.zTex, N, N), out = [];
-    if (!Z) return null;
+    const N = landC.N, Z = lwRead(landC.zTex, N, N), T = lwRead(landC.tex1, N, N), out = [];
+    if (!Z || !T) return null;
     landC.edges.forEach((tex, d) => {
       const E = lwRead(tex, N, N);
       if (!E) return;
@@ -407,7 +407,7 @@
         const k = 4 * (j * N + i), w = E[k + 3];
         if (!(w > 0.5 && w < 1.5)) continue;
         const m = 4 * ((j + dy) * N + i + dx);
-        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k]]);
+        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k], T[k + 3], T[m + 3]]);
       }
     });
     return { steps: CARRY_EDGE_STEPS, edges: out };
