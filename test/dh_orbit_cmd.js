@@ -7,7 +7,7 @@
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const WAIT_MS = 600000;
+const WAIT_MS = 600000, SETS = 3;   // the sets of points: z, z + h, z + ih
 await nav(`http://localhost:${PORT}/glsl-dh-orbit.html`);
 let r = null;
 for (let t = 0; t < WAIT_MS; t += 500) {
@@ -18,6 +18,8 @@ info.renderer = r && r.renderer;
 info.rows = r && r.rows;
 info.controls = r && r.controls;
 ok('the page finished', !!r, null);
+ok("the page's own verdict is ok", !!r && r.ok === true, r && r.ok);
+ok('every set has a row and a control', !!r && r.rows.length === SETS && r.controls.length === SETS, r && [r.rows.length, r.controls.length]);
 ok('the page reported no errors', !!r && !r.errors.length, r && r.errors);
 ok('the orbit in variables equals the array form bit for bit at every point', !!r && r.rows.length > 0 && r.rows.every((x) => x.arrayVsRegistersDiffer === 0), r && r.rows);
 ok('control: the recomputation off by one step differs', !!r && r.controls.length > 0 && r.controls.every((c) => c.skewedRecomputeDiffers > 0), r && r.controls);
