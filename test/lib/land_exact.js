@@ -75,8 +75,9 @@
   const COUNT_R_MIN = 1e-6;   // the scene's count (__cmwLandWind) leaves out the members within this distance of the origin of plane z (its WIND_EPS_R); members that near are tracked but not counted
   const END_Z_TOL = 1e-3;   // an edge end's z is the frame's float32 inverse: a member of the enumerator is at it within this share of 1 + |z|
   const LAMBDA_SAME = 1e-4;   // two certified roots are one member when their log coordinates agree within this share of 1 + |lam| (whatever sheets list them): Newton's certificate is 1e-5 of H, and distinct members of a set are far apart in lam
-  const SYN_ARM = 0.5, SYN_ANGLE = 0.7;   // the made-up edge through a branch value: half its length in grid cells, and its direction (radians): along no grid line, so no vertex of it is on the branch value's row or column
+  const SYN_ARM = 0.5;   // the made-up edge through a branch value: half its length in grid cells (its direction runs from the branch value toward the centre of the places the frame spans, so both its ends are in them)
   const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
+  const ORBIT_EXTRA = 2;   // the roots of an orbit added for a loop's image are at most the scene's member count here plus this many (past it the loop is unresolved)
   const MONO_FAR = 8;   // grid cells: a member set the enumerator does not complete is counted and certified this far from the place, and continued in
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
   const MONO_STEPS_MAX = 4000, MONO_MIN_DT = 1e-9;   // the tracker's steps along one path, and the smallest share of a segment a step may take (past them the path is unresolved, a red)
@@ -163,6 +164,7 @@
       for (const e of r.edges) for (const [x, y] of [[e[7], e[8]], [e[9], e[10]]]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       const hb = window.__cmwLandHom([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
+      window.__lxRegion = [x0, x1, y0, y1];
       return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class: 'seam' (continuing its first end's member along the edge's place segment lands on a member other than the second
@@ -181,8 +183,8 @@
       const expc = (l) => { const e = Math.exp(l[0]); return [e * Math.cos(l[1]), e * Math.sin(l[1])]; };
       const homAt = (z, lam, sh) => { const q = window.__cmwLandHom(z, lam); const o = q && q[sh]; return o && o.H ? o : null; };
       let nfail = null;   // (why the last Newton solve gave up: the step, the residual or the missing homotopy value)
-      const newton = (m, w) => {
-        let z = m.z, lam = m.lam;
+      const newton = (m, w, inZ) => {
+        let z = m.z, lam = inZ ? null : m.lam;   // (inZ: the member is continued in z, where steps near a branch value may swap members)
         for (let i = 0; i < ${MONO_NEWT_MAX}; i++) {
           const o = homAt(z, lam, m.sheet);
           if (!o) { nfail = { i, why: 'hom', sheet: m.sheet }; return null; }
@@ -251,7 +253,7 @@
           let t0 = 0, dt = 1;
           while (t0 < 1) {
             if (++steps > ${MONO_STEPS_MAX}) { fail = { s, t0, why: 'steps' }; return null; }
-            const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m) => newton(m, w));
+            const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m) => newton(m, w, opt && opt.zchart));
             let good = nx.every(Boolean);
             if (good && sepOn) good = nx.every((m, i) => dist(m, cur[i]) <= ${MONO_SEP} * sepOf(nx, i));
             if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = { s, t0, why: nx.every(Boolean) ? 'sep' : 'newton ' + nx.findIndex((m) => !m) + ' of ' + nx.length, nfail }; return null; } }
@@ -264,9 +266,9 @@
       let e = window.__lxPend[k];
       if (opt && opt.syn) {
         // (a made-up edge through the branch value bv, from one side of it to the other (so the track along it cannot complete, as for a real edge at a branch
-        // value): its ends are the vertices bv +- SYN_ARM cells in a direction no grid line has, the first end's member the first of the sheets with a member in
+        // value): its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the sheets with a member in
         // the box there, the second end's the next one at the other vertex; the sheets taken are those the scene counts a member of at the first vertex)
-        const wv0 = [opt.syn[0] + Math.cos(${SYN_ANGLE}) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(${SYN_ANGLE}) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
+        const rg = window.__lxRegion, ang = Math.atan2((rg[2] + rg[3]) / 2 - opt.syn[1], (rg[0] + rg[1]) / 2 - opt.syn[0]), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
         want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
         const set0 = membersAt(wv0), setB0 = membersAt(wo0);
         if (set0.length < 2 || setB0.length < 2) return { cls: 'unresolved', why: 'syn', n: [set0.length, setB0.length], want, fail };
@@ -321,6 +323,7 @@
       const cyc = (pts) => {
         const tr = track(setV, pts);
         if (!tr) return null;
+        iv.lam0 = tr[iv.i].lam && setV[iv.i].lam ? csub(tr[iv.i].lam, setV[iv.i].lam) : null;   // (the shift of a's log coordinate round the loop)
         let c = iv.i, hit = false, lost = false;
         for (let g = 0; g <= setV.length; g++) {
           const n = (() => { let b = -1, d = Infinity; setV.forEach((q, j) => { const x = dist(q, tr[c]); if (x < d) { d = x; b = j; } }); return d <= ${LAMBDA_SAME} * (1 + cabs(tr[c].lam || tr[c].z)) ? b : -1; })();
@@ -329,7 +332,7 @@
           if (n === iv.i) break;
           c = n;
         }
-        return { hit, lost };
+        return { hit, lost, shift: iv.lam0 };
       };
       // (the two ends hold one member, the same root whatever sheets the page gave them: no cut, no branch)
       if (ib === iv.i) return { cls: 'false', why: 'one member', dl: dist(setV[iv.i], trO[io.i]) };
@@ -341,14 +344,30 @@
         }
         return { cls: 'displaced', loops: n };
       }
+      // (the orbit of a: where a loop carries a to a member the set does not list, the roots a + k T, T the shift of its log coordinate round the loop, are certified
+      // on the scene's H at the vertex and added, at most ORBIT_MAX of them: the loop is then read on the larger set, past the cap it stays unresolved)
+      const orbitMax = Math.round(countAt(wv)) + ${ORBIT_EXTRA};
+      let enlarged = false;
+      const enlarge = (T) => {
+        if (enlarged || !T || !(cabs(T) > 0)) return false;
+        enlarged = true;
+        let added = 0;
+        for (let k = 1; added < orbitMax && k <= orbitMax; k++) for (const sg of [1, -1]) {
+          const lam = [setV[iv.i].lam[0] + sg * k * T[0], setV[iv.i].lam[1] + sg * k * T[1]];
+          const m = newton({ z: expc(lam), lam, sheet: setV[iv.i].sheet, sheets: setV[iv.i].sheets, lvl: setV[iv.i].lvl }, wv);
+          if (m && !setV.some((x) => dist(x, m) <= ${LAMBDA_SAME} * (1 + cabs(m.lam)))) { setV.push(m); added++; }
+        }
+        return added > 0;
+      };
+      const read = (pts) => { let q = cyc(pts); if (q && q.lost && enlarge(q.shift)) q = cyc(pts); return q; };
       let unres = false;
       for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-        const q = cyc(loop(wv, sx, sy));
+        const q = read(loop(wv, sx, sy));
         if (!q) { unres = true; continue; }
         if (q.lost) unres = true;
         if (q.hit) return { cls: 'branch', cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * 8), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * 8)] };
       }
-      if (unres) { const q = cyc(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * 8), Math.round(wv[1] / h * 8), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', fail }; }
+      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * 8), Math.round(wv[1] / h * 8), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', fail }; }
       return { cls: 'false' };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
@@ -784,11 +803,12 @@
         if (!bvs.length) ok(`${t}: the scene's branch values have no place on the grid, so no real edge certifies a branch (${cc.branch})`, cc.branch === 0, cc);
         for (const bv of bvs) {
           const syn = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)} })`), synSw = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, swapB: true })`);
-          const synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`), synSep = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, sep: false })`);
+          const synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`);
+          const synZ = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true })`), synZoff = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true, sep: false })`);
           ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls})`, syn.cls === 'branch', syn);
           ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
           ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of 8 still certify)`, synDp.cls === 'displaced' && synDp.loops < 8, synDp);
-          ok(`${t}: control: without the separation check the verdict changes (${synSep.cls})`, synSep.cls !== syn.cls, synSep);
+          ok(`${t}: control: in the z chart (steps near the branch value swap members) the verdict without the separation check (${synZoff.cls}) differs from the one with it (${synZ.cls})`, synZoff.cls !== synZ.cls, { synZ, synZoff });
         }
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
         const ctlC = await withProbe({ midCut: true }, u, () => ev('__lx.cutT()'));
