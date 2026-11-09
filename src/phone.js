@@ -23,6 +23,8 @@ const Phone = (() => {
   let anim = 0;                        // the sheet's opening or closing timer
   const homes = [];                    // [el, placeholder] of the moved elements
   const els = {};
+  const STACK_H = 238;   // the key stack's height in one column: five 44 px keys, the groups' 1 px borders and their 6 px gaps, px
+  const STACK_TOP = 8;   // the room the stack leaves above itself, px
   let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
   const MQP = '(max-width: 767px)';
@@ -120,6 +122,10 @@ const Phone = (() => {
       // Display heads the plane's own key stack (Zoom in, Zoom out, Fit view, Sphere); Both is the only key of the column apart from it
       plot.querySelector('.viewstack').prepend(h('div', { class: 'vgroup ph-only' }, dsp));
       plot.append(h('div', { class: 'ph-col ph-only' }, bt));
+      // a plot too short for the five keys in one column gets .ph-short, which puts the zoom keys in a second column
+      const stack = plot.querySelector('.viewstack');
+      const fitStack = () => { const room = plot.clientHeight - parseFloat(getComputedStyle(stack).bottom) - STACK_TOP; plot.classList.toggle('ph-short', room > 0 && room < STACK_H); };
+      new ResizeObserver(fitStack).observe(plot);
       els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
         h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));

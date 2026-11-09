@@ -115,14 +115,12 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .viewstack { --ph-lift: var(--ph-lift-ctx); }
 :root.ph.sv #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-stack-w)); }
 :root.ph.sv.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + var(--ph-stack-w) + env(safe-area-inset-right, 0px)); }
-/* a short landscape plane cannot hold the five keys in one column: Display stays top right, Fit view and Sphere keep the bottom right, and the zoom keys take a column to their left at the same bottom */
-@media (max-height: 380px) {
-  :root.ph.sv { --ph-stack-w: 116px; }
-  :root.ph .viewstack { display: grid; grid-template-columns: auto auto; align-items: end; justify-items: end; column-gap: 6px; }
-  :root.ph .viewstack > .vgroup:nth-child(1) { grid-column: 2; grid-row: 1; }
-  :root.ph .viewstack > .vgroup:nth-child(2) { grid-column: 1; grid-row: 2; }
-  :root.ph .viewstack > .vgroup:nth-child(3) { grid-column: 2; grid-row: 2; }
-}
+/* a plot too short for the five keys in one column (phone.js sets .ph-short): Display stays top right, Fit view and Sphere keep the bottom right, and the zoom keys take a column to their left at the same bottom */
+:root.ph .plot.ph-short > .viewstack { display: grid; grid-template-columns: auto auto; align-items: end; justify-items: end; column-gap: 6px; }
+:root.ph .plot.ph-short > .viewstack > .vgroup:nth-child(1) { grid-column: 2; grid-row: 1; }
+:root.ph .plot.ph-short > .viewstack > .vgroup:nth-child(2) { grid-column: 1; grid-row: 2; }
+:root.ph .plot.ph-short > .viewstack > .vgroup:nth-child(3) { grid-column: 2; grid-row: 2; }
+:root.ph.sv:has(#plotL.ph-short) { --ph-stack-w: 116px; }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
