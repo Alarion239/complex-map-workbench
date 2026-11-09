@@ -307,6 +307,7 @@
       landC.cuts = 0; landC.datas = null;
       const sheets = exact ? [{ shift: null }].concat(c.exact.more || []) : [];
       const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
+      if (sheets.length > CARRY_SHEETS_MAX) throw new Error('the glide has ' + sheets.length + ' sheets; the cross-sheet edge test reads at most ' + CARRY_SHEETS_MAX);
       if (P3 && (Pf || sheets.length === 1)) {
         if (!landC.edges) landC.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift));

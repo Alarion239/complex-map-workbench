@@ -798,8 +798,8 @@ void main() {
   // one first) is carried along the edge from that end's preimage to the other's, by the anchored chain, and read against
   // the other end's own value there: its sheet's at its preimage, or its place where it is on none. The edge is
   // continuous where they agree (the sheets' labels change at cuts of their own, not of the map). Where they do not, it
-  // crosses a cut, which lies between the two places; mid-way. A carried value that is not finite (a branch point on
-  // the edge) leaves the edge crossed twice, which drops the triangles that hold it)
+  // crosses a cut, which is bisected along the chord of the preimages. A carried value that is not finite (a branch point on
+  // the edge), or a sheet code outside the combos, leaves the edge crossed twice, which drops the triangles that hold it)
   if (uCode < 0.0) {
     if (uCrossOn == 0) return;
     bool pa = a.w > 5.0, pb = b.w > 5.0;
@@ -808,6 +808,7 @@ void main() {
     // (from the placed end; both placed: from a)
     bool fwd = pa;
     int cf = int((fwd ? a.w : b.w) + 0.5) - ${CARRY_SHEET_CODE}, ct = int((fwd ? b.w : a.w) + 0.5) - ${CARRY_SHEET_CODE};
+    if (cf < 0 || cf >= ${CARRY_SHEETS_MAX} || ((fwd ? pb : pa) && (ct < 0 || ct >= ${CARRY_SHEETS_MAX}))) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
     vec2 zf = fwd ? zp : zq, zt = fwd ? zq : zp;
     vec2 cv = chainSheetRange(zf, zt, uGs, uGt, uSheetCombos[cf]);
     vec2 own = (fwd ? pb : pa) ? chainSheetRange(zt, zt, uGs, uGt, uSheetCombos[ct]) : (fwd ? b.xy : a.xy);
