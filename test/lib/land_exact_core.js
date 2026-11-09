@@ -481,11 +481,12 @@
         if (known) { c.certified = known; continue; }
         if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w: ctr }); c.certWhy = 'certMax'; continue; }
         const ms = c.vs.flatMap((v) => v.all);
+        // (the merging pair: two members of one place that are nearest each other; a member at two corners of the cell is one member, not a pair)
         let pair = null, best = Infinity;
-        for (let a = 0; a < ms.length; a++) for (let b = a + 1; b < ms.length; b++) {
-          if (ms[a].sheet !== ms[b].sheet) continue;
-          const d = dist2(ms[a].z, ms[b].z);
-          if (d > 0 && d < best) { best = d; pair = [ms[a], ms[b]]; }
+        for (const v of c.vs) for (let a = 0; a < v.all.length; a++) for (let b = a + 1; b < v.all.length; b++) {
+          if (v.all[a].sheet !== v.all[b].sheet) continue;
+          const d = dist2(v.all[a].z, v.all[b].z);
+          if (d > 0 && d < best) { best = d; pair = [v.all[a], v.all[b]]; }
         }
         if (!pair) { c.certWhy = 'no merging pair'; continue; }
         // the plan's own singular point drawn in this cell (a branch point of a root or a logarithm: H is not analytic there, so
@@ -496,7 +497,15 @@
         const wc = o.branch ? [cert.w[0] + o.branch * c.s * cellW, cert.w[1]] : cert.w;
         const holds = lv.branch.some((q) => { const a = wAt(q.i, q.j), b = wAt(q.i + q.s, q.j + q.s); return wc[0] >= a[0] && wc[0] <= b[0] && wc[1] >= a[1] && wc[1] <= b[1]; });
         if (holds) { cert.w = wc; certs.push(cert); c.certified = cert; }
-        else c.certWhy = 'the critical point is not in a suspect cell';
+        else {
+          // (how far the critical value is from the nearest suspect cell, in leaf cells)
+          let nearest = Infinity;
+          for (const q of lv.branch) {
+            const a = wAt(q.i, q.j), b = wAt(q.i + q.s, q.j + q.s);
+            nearest = Math.min(nearest, Math.hypot(Math.max(a[0] - wc[0], 0, wc[0] - b[0]), Math.max(a[1] - wc[1], 0, wc[1] - b[1])) / cellW);
+          }
+          c.certWhy = 'the critical point is not in a suspect cell (its value ' + wc[0].toExponential(4) + ',' + wc[1].toExponential(4) + ' is ' + nearest.toFixed(2) + ' leaf cells from the nearest)';
+        }
         yield;
       }
     }
