@@ -131,16 +131,17 @@
     // test: neither end's preimage, carried along the edge's place by Newton's method on the homotopy, reaches the other's, and the preimages are
     // farther apart than the map's derivative allows one member), branch (the vertex is within near grid scales of the step's branch point, z = 0, judged in the preimage because the
     // logarithm's branch point has no place: the cells that hold it are dropped and counted), or false (a cut drawn where there is neither a cut nor a seam)
-    cutClasses: (near, ring, branchPts, fake) => {
-      const r0 = window.__cmwLandCutEdges(), r = fake ? Object.assign({}, r0, { edges: r0.edges.concat(fake) }) : r0, tol = Math.pow(2, 1 - r.steps), out = { onCut: 0, seam: 0, branch: 0, falseN: 0, falseList: [], branchWorst: 0 };
+    cutClasses: (near, ring, branchPts, only, lend) => {
+      const r0 = window.__cmwLandCutEdges(), r = only ? Object.assign({}, r0, { edges: only }) : r0, tol = Math.pow(2, 1 - r.steps), out = { onCut: 0, seam: 0, branch: 0, falseN: 0, falseList: [], branchWorst: 0 };
       const cabs = (a) => Math.hypot(a[0], a[1]), csub = (a, b) => [a[0] - b[0], a[1] - b[1]], cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
       const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
       const mix = (a, b, t) => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       const Hz = (z, sh) => { const h = window.__cmwLandHom(z); return h && h[sh] && h[sh].H && h[sh].dH ? h[sh] : null; };
       const cont = (z0, wa, wb, sh) => { let z = z0; for (let k = 1; k <= r.seam.cont; k++) { const target = mix(wa, wb, k / r.seam.cont); for (let i = 0; i < r.seam.pol; i++) { const h = Hz(z, sh); if (!h || !(cabs(h.dH) > 0)) return z; z = csub(z, cdiv(csub(h.H, target), h.dH)); } } return z; };
       const dBranch = (p) => Math.min(...branchPts.map((b) => cabs(csub(p, b))));
-      // (the grid's scale at v: the largest chord among the flagged edges near v that are themselves at a branch point, so a coarse edge elsewhere lends no reach)
-      const scaleAt = (v, chord) => { let m = chord; for (const e of r.edges) { const c = Math.hypot(e[2] - e[0], e[3] - e[1]); if (c <= m) continue; const da = Math.hypot(e[0] - v[0], e[1] - v[1]), db = Math.hypot(e[2] - v[0], e[3] - v[1]); if (Math.min(da, db) <= ring * c && dBranch(da < db ? [e[0], e[1]] : [e[2], e[3]]) <= near * c) m = c; } return m; };
+      // (the grid's scale at v: the largest chord c among the flagged edges within ring chords of v that are themselves at a branch point, within near of c of it, so a coarse edge
+      // elsewhere lends no reach; a branch vertex is then within (ring + near) of that chord of a branch point; lend lends every neighbour's chord, for the control that shows the restriction is needed)
+      const scaleAt = (v, chord) => { let m = chord; for (const e of r.edges) { const c = Math.hypot(e[2] - e[0], e[3] - e[1]); if (c <= m) continue; const da = Math.hypot(e[0] - v[0], e[1] - v[1]), db = Math.hypot(e[2] - v[0], e[3] - v[1]); if (Math.min(da, db) <= ring * c && (lend || dBranch(da < db ? [e[0], e[1]] : [e[2], e[3]]) <= near * c)) m = c; } return m; };
       for (const [ax, ay, bx, by, t, ca, cb] of r.edges) {
         if (!(t < tol || t > 1 - tol)) continue;
         const za = [ax, ay], zb = [bx, by], chord = cabs(csub(zb, za)), v = t > 0.5 ? zb : za;
@@ -567,9 +568,12 @@
         const cc = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, ${JSON.stringify(brPts)})`);
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a member seam (${cc.seam}) or at its branch point (${cc.branch}, the farthest at ${cc.branchWorst.toExponential(2)} grid scales); ${cc.falseN} are none`, cc.falseN === 0, cc);
-        // the control: a flagged edge off the cut, away from the branch point, in one member is none, and the assertion goes red
-        const ctlB = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, ${JSON.stringify(brPts)}, [[0.5, 0.5, 0.5001, 0.5, 0, 1, 1, 0, 0, 0, 0]])`);
-        ok(`${t}: control: one more flagged edge, away from the branch point, off the cut and in one member, is one more none (${cc.falseN} to ${ctlB.falseN})`, ctlB.falseN === cc.falseN + 1, ctlB);
+        // the control: flagged edges that are none (a vertex 1.2 from the branch point, off the cut, in one member) are counted as none, so the assertion over the real edges would
+        // go red on one; a coarse flagged edge near it that is not at a branch point (its chord 0.7 reaches the vertex only if every neighbour lends its chord) does not hide it
+        const synth = [[1.2, 0.1, 1.2001, 0.1, 0, 1, 1], [3, 0, 3, 0.7, 0.5, 1, 1]];
+        const ctlB = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, ${JSON.stringify(brPts)}, ${JSON.stringify(synth)}, false)`);
+        const ctlL = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, ${JSON.stringify(brPts)}, ${JSON.stringify(synth)}, true)`);
+        ok(`${t}: control: a flagged edge away from the branch point, off the cut and in one member is none (${ctlB.falseN}), and a coarse edge away from it hides it only when every neighbour lends its chord (${ctlL.falseN})`, ctlB.falseN === 1 && ctlL.falseN === 0, { ctlB, ctlL });
         // the control: with no reach the branch cells are none, so the class is what clears them
         const ctlR = await ev(`__lx.cutClasses(0, ${BRANCH_RING}, ${JSON.stringify(brPts)})`);
         ok(`${t}: control: with no reach the ${cc.branch} branch cells are none (${ctlR.falseN})`, ctlR.falseN === cc.falseN + cc.branch, ctlR);
