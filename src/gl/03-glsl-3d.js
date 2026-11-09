@@ -704,8 +704,11 @@ void main() {
   if (x > 0) {
     ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
     vec4 e = edgeOf(F, E);
-    xy = mix(texelFetch(uT1, F, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
-    z = mix(texelFetch(uZ, F, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+    // (from the edge's first vertex, as edgeOf reads it, so the triangle across the edge computes the same crossing bit for bit)
+    ivec2 dE = E - F; bool rv = dE.x < 0 || dE.y < 0;
+    ivec2 eo = rv ? E : F, eo2 = rv ? F : E; float te = rv ? 1.0 - e.x : e.x;
+    xy = mix(texelFetch(uT1, eo, 0).xy, texelFetch(uT1, eo2, 0).xy, te);
+    z = mix(texelFetch(uZ, eo, 0).xy, texelFetch(uZ, eo2, 0).xy, te);
     h = src == F ? e.y : e.z;
   }
   vZ = z;
