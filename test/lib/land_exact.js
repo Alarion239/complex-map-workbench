@@ -43,7 +43,7 @@
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
-  const WIND_HMIN_FAR = 0.5, WIND_NOISE_CTL = 1e-2;   // (a step floor too coarse for any piece of the contour; a noise floor over the argument's small real turns)
+  const WIND_HMIN_FAR = 0.5, WIND_NOISE_CTL = 1e-2;   // (a step floor too coarse for any piece of the contour; a noise floor over the argument's small real steps: the stretches below it add nothing to the total)
   const WIND_PLACES = 12, WIND_HMIN_CTL = 0.1;   // (places counted per frame; the control's step floor, as a fraction of a piece)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;

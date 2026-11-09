@@ -623,6 +623,7 @@
         const [t0, t1] = stack.pop(), a = g(t0), b = g(t1), d = argd(a, b), tm = (t0 + t1) / 2, m = g(tm), d1 = argd(a, m), d2 = argd(m, b);
         const flat = Math.abs(d) < noise && Math.abs(d1) < noise && Math.abs(d2) < noise;   // (the evaluation's own rounding, not a turn of the argument)
         const ok = flat || Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
+        if (flat) continue;   // (a stretch whose argument moves by rounding noise alone is no turn: it adds nothing to the total)
         if (ok) { sum += d; continue; }
         if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true, minD };
         stack.push([tm, t1], [t0, tm]);
