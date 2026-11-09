@@ -13,6 +13,10 @@ const base = await ev('location.origin');
 const GX = 48, GY = 32;
 // a box or the key's right edge may overshoot the figure's size by this much (SVG units) to count as inside it
 const FIT_SLACK = 0.01;
+// pt a label's text may sit from its glyph box (position, width, and the box's top and bottom)
+const GLYPH_SLACK_PT = 2;
+// ms for the page to settle and for a figure build plus its PDF
+const BUILD_TIMEOUT_MS = 120000;
 const PAGE_GRID = `window.__grid = async (svg) => { const out = [], re = /<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g; let m;
   while ((m = re.exec(svg))) { const im = new Image(); im.src = m[1]; await im.decode(); const cv = document.createElement('canvas'); cv.width = ${GX}; cv.height = ${GY};
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, ${GX}, ${GY}); out.push(Array.from(g.getImageData(0, 0, ${GX}, ${GY}).data).filter((v, i) => i % 4 < 3)); }
@@ -21,7 +25,7 @@ const SPEC = { 'F': 'F', 'f_{2}': 'f₂', '\\sqrt{z}': '√z', '\\sqrt{z+1}': '�
 const build = async (opts) => {
   await ev(`window.__xtp = null; (async () => { const f = await Figure.build(${JSON.stringify(opts)}); if (!f) return { none: true };
     return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, keyLine: f.info.keyLine, W: f.W, keyR: Math.max(0, ...f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => b.x1)), boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
-  await settled({ until: 'window.__xtp != null', max: 120000, panes: false });
+  await settled({ until: 'window.__xtp != null', max: BUILD_TIMEOUT_MS, panes: false });
   return ev('window.__xtp');
 };
 const grids = async (svg) => { await ev(PAGE_GRID); await ev(`window.__xtpg = null; window.__grid(${JSON.stringify(svg)}).then((g) => { window.__xtpg = g; }); 1`); await settled({ until: 'window.__xtpg != null', max: 30000, panes: false }); return ev('window.__xtpg'); };
@@ -101,7 +105,7 @@ ok('example 18: Fit frames each plane, and the caption says so', r18 && r18.info
 const r18s = await build({ svPic: 'two', crop: 'screen' });
 ok('example 18: As on screen keeps the camera window, with no note', r18s && r18s.info && !r18s.info.ownWin && !/own window/.test(r18s.cap), r18s && r18s.cap);
 
-// the labels carry text (#1015): an invisible <text> over each label's glyph box (within 2 px), in the SVG; the same words,
+// the labels carry text (#1015): an invisible <text> over each label's glyph box (within GLYPH_SLACK_PT), in the SVG; the same words,
 // invisible, in the PDF's text layer, in reading order
 await ready(1);
 const tl = JSON.parse(await ev(`await (async () => { try {
@@ -109,7 +113,7 @@ const tl = JSON.parse(await ev(`await (async () => { try {
   const buf = new Uint8Array(await (await Figure.pdf(f)).arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
   const els = [...new DOMParser().parseFromString(f.svg, 'image/svg+xml').querySelectorAll('g.cmw-text > text')].map((t) => ({ text: t.textContent, x: +t.getAttribute('x'), y: +t.getAttribute('y'), fs: +t.getAttribute('font-size'), len: +t.getAttribute('textLength'), op: t.getAttribute('fill-opacity') }));
   return JSON.stringify({ els, boxes: f.boxes, pdf: btoa(bin) });
-} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, 120000));
+} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS));
 ok('the two-plane figure builds with its text layer', !tl.err && tl.els.length >= 3, tl.err || tl.els);
 if (!tl.err) {
   const words = tl.els.map((t) => t.text);
@@ -117,12 +121,12 @@ if (!tl.err) {
   ok('the figure\'s title is not a text of the layer (it is the <title>)', !words.some((w) => /joined by/.test(w)), words);
   ok('every text is invisible', tl.els.every((t) => t.op === '0'), tl.els);
   const pl = JSON.parse(await ev(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\sqrt{z}', '\\\\sqrt{z+1}', '\\\\sqrt[3]{z}', '\\\\sqrt[n]{z}', '\\\\sqrt2', '\\\\frac{1}{z^{2}}', '\\\\frac{1}{e^{-z}+1}', '\\\\frac{1}{\\\\sqrt{z}}', '\\\\frac{\\\\pi}{2}', '\\\\text{colour carried from }w_{2}'].map((t) => [t, __cmwFig.XD.plain(t)])))`));
-  const WANT = { '\\arg H_{t}': 'arg H_t'.replace('_t', '_t'), '\\sin z': 'sin z', '\\zeta(z)': 'ζ(z)', '\\bar z': 'z\u0304', '\\frac{1}{z}': '1/z', '\\frac{z+1}{z-1}': '(z+1)/(z-1)', 'z \\le 1': 'z ≤ 1', '\\operatorname{Re} z': 'Re z', 'f_{2}': 'f₂', '\\text{colour carried from }w_{2}': 'colour carried from w₂' };
-  ok('XD.plain reads TeX as people read it', Object.entries(WANT).every(([k, v]) => k.includes('H_{t}') ? /^arg H/.test(pl[k]) : pl[k] === v), pl);
+  const WANT = { '\\arg H_{t}': 'arg H_t', '\\sin z': 'sin z', '\\zeta(z)': 'ζ(z)', '\\bar z': 'z\u0304', '\\frac{1}{z}': '1/z', '\\frac{z+1}{z-1}': '(z+1)/(z-1)', 'z \\le 1': 'z ≤ 1', '\\operatorname{Re} z': 'Re z', 'f_{2}': 'f₂', '\\text{colour carried from }w_{2}': 'colour carried from w₂' };
+  ok('XD.plain reads TeX as people read it', Object.entries(WANT).every(([k, v]) => pl[k] === v), pl);
   ok('a key\'s ring marks (1, i, -1, -i) carry no text', !words.includes('1') && !words.includes('i') && !words.includes('-1'), words);
-  const near = (t) => tl.boxes.some((b) => Math.abs(b.x0 - t.x) <= 2 && Math.abs((b.x1 - b.x0) - t.len) <= 2 && b.y0 - 2 <= t.y && t.y <= b.y1 + 2);
+  const near = (t) => tl.boxes.some((b) => Math.abs(b.x0 - t.x) <= GLYPH_SLACK_PT && Math.abs((b.x1 - b.x0) - t.len) <= GLYPH_SLACK_PT && b.y0 - GLYPH_SLACK_PT <= t.y && t.y <= b.y1 + GLYPH_SLACK_PT);
   const labels = tl.els.filter((t) => t.len > 0);
-  ok('each label\'s text lies within 2 pt of its glyph box', labels.length >= 3 && labels.every(near), labels.filter((t) => !near(t)));
+  ok('each label\'s text lies within the glyph slack of its glyph box', labels.length >= 3 && labels.every(near), labels.filter((t) => !near(t)));
   // the PDF's text layer in content-stream order, which is reading order: the strings shown in render mode 3 (invisible)
   const zlib = await import('node:zlib'), pdf = Buffer.from(tl.pdf, 'base64'), shown = [];
   for (const m of pdf.toString('latin1').matchAll(/stream\r?\n/g)) {
