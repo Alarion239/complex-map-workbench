@@ -20,7 +20,8 @@ const SHORT_PLOT = 260;      // px: below this plot height five 44 px keys with 
 const SETTLE_POLL_MS = 100;  // ms between reads while the stack's boxes settle (its 150 ms ease after a message)
 const SETTLE_MAX_MS = 3000;  // ms: the longest the stack may take to come to rest
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
-const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';
+const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';   // the key's tooltip and note
+const NO_SPHERE_TOAST = { en: 'The Landscape has no sphere. Use the surface menu.', ru: 'В Рельефе нет сферы. Смените поверхность в меню.' };   // the phone's message: two lines at the narrowest width
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
 const LABELS = { en: ['Display options', 'Zoom in', 'Zoom out', 'Fit view', 'Sphere'] };
 const open = async (w, h, lang) => {
@@ -33,7 +34,8 @@ const open = async (w, h, lang) => {
   await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
 };
 // the shown keys of plane L's column in document order: label, state, reason note, box, the topmost element at the centre
-const column = () => ev(`(() => [...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((b) => b.getClientRects().length).map((b) => {
+const SHOWN_KEYS = "[...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)";
+const column = () => ev(`(() => ${SHOWN_KEYS}.map((b) => {
   const d = b.getAttribute('aria-describedby'), n = d && document.getElementById(d), r = b.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
   return { label: b.getAttribute('aria-label'), cls: b.className, disabled: b.getAttribute('aria-disabled'), pressed: b.getAttribute('aria-pressed'), note: n ? n.textContent : null,
     box: [r.left, r.top, r.width, r.height], top: t === b || b.contains(t) };
@@ -54,7 +56,7 @@ const atRest = async () => {
   return prev;
 };
 const accent = () => ev(`(() => { const d = document.createElement('i'); d.style.background = 'var(--accent)'; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })()`);
-const sphereBg = () => ev(`getComputedStyle([...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)[4]).backgroundColor`);
+const sphereBg = () => ev(`getComputedStyle(${SHOWN_KEYS}[4]).backgroundColor`);
 const others = () => ev(`(() => [...document.querySelectorAll('#paneL .pane-head, .ruler, .ruler-corner, #svStrip, #plotL > .legend-chip:not([hidden]), #toastHost .toast')].filter((e) => e.getClientRects().length)
   .map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.className, box: [r.left, r.top, r.width, r.height] }; }))()`);
 const meets = (a, b) => a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1];
@@ -106,20 +108,23 @@ for (const lang of LANGS) {
     ok(`${tag}: the column stays put when the legend chip ${hadChip ? 'shows' : 'hides'}`, hadChip !== null && same(flipped, chipless), { hadChip, a: chipless.map((k) => k.box), b: flipped.map((k) => k.box) });
     // one press path: tapping Sphere switches the view's surface and the key follows
     await ev(`(__cmwSteps({ surf: 'plane' }), 1)`); await still();
-    await ev(`(() => { const b = [...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)[4]; b.click(); return 1; })()`); await still();
+    await ev(`(() => { ${SHOWN_KEYS}[4].click(); return 1; })()`); await still();
     const after = await ev(`__cmwSteps().surf`), pr = (await column())[4];
     ok(`${tag}: a tap on Sphere makes the surface the sphere and the key shows pressed`, after === 'sphere' && pr && pr.pressed === 'true', { after, pr });
     // a tap on a disabled Sphere shows its reason as the toast
     await ev(`(__cmwSteps({ surf: 'land' }), 1)`); await still();
-    await ev(`(() => { const b = [...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)[4]; b.click(); return 1; })()`);
+    await ev(`(() => { ${SHOWN_KEYS}[4].click(); return 1; })()`);
     await settled({ until: "!!document.querySelector('#toastHost .toast')", max: 3000 });
     const toast = await ev(`(document.querySelector('#toastHost .toast') || {}).textContent || ''`);
-    ok(`${tag}: a tap on the disabled Sphere shows its reason as the toast`, toast.length > 0 && (lang !== 'en' || toast.includes(NO_SPHERE_ON_LAND)), toast);
+    ok(`${tag}: a tap on the disabled Sphere shows its reason, short, as the toast`, toast === NO_SPHERE_TOAST[lang], toast);
+    ok(`${tag}: the disabled Sphere keeps the full reason as its tooltip`, lang !== 'en' || (await ev(`${SHOWN_KEYS}[4].title`)) === NO_SPHERE_ON_LAND, null);
     // while the message shows the stack stays where it was, inside the plot, and the message meets no key
-    await atRest();
-    const withToast = await column(), tp = await plot(), tb = (await others()).filter((e) => /toast/.test(e.id));
+    const withToast = await atRest(), tp = await plot(), tb = (await others()).filter((e) => /toast/.test(e.id));
     ok(`${tag}: the stack keeps its place while a message shows`, same(withToast, boxes.land), { land: boxes.land.map((k) => k.box), withToast: withToast.map((k) => k.box) });
     ok(`${tag}: and stays inside the plot`, withToast.every((k) => inside(k.box, tp)), { plot: tp, boxes: withToast.map((k) => k.box) });
+    // the reason reads in full: no line is clipped and no ellipsis shows
+    const words = await ev(`(() => { const e = document.querySelector('#toastHost .toast > span'); return e ? { clipped: e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1, text: e.textContent } : null; })()`);
+    ok(`${tag}: the message's words are not clipped or truncated`, !!words && !words.clipped, words);
     ok(`${tag}: and the message meets no key`, tb.length > 0 && !withToast.some((k) => tb.some((e) => meets(k.box, e.box))), { toast: tb, keys: withToast.map((k) => k.box) });
   }
 }
