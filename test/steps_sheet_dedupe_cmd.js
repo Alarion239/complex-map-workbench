@@ -12,7 +12,8 @@ await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
-const drawn = () => ev('JSON.stringify((__cmwLandSheets().drawn) || null)').then((c) => JSON.parse(c));
+// (the sheets drawn: K of the sheet mesh, or, in a glide drawn by the exact inverse, one layer for each of its sheets: the carried frame's layers)
+const drawn = () => ev('JSON.stringify((__cmwLandSheets().drawn) || (() => { const c = __cmwLandCarry(); return c && c.path === "inverse" ? { K: c.layers } : null; })())').then((c) => JSON.parse(c));
 const open = async (steps) => {
   const ns = 'sheetdedupe' + Date.now();
   await loadView('steps', ns, { shapes: [], steps, sheets: true, height: 'im' });
