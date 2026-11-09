@@ -120,7 +120,7 @@
     { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
     { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
-    { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
+    { tag: 'log of an annulus', logControl: true, steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
     // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
     // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
     { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
@@ -770,6 +770,11 @@
             ok(`${t}: the control: a place on a leaf contour is not counted`, !!lipR && lipR.every((r) => r.status === 'onContour'), { lipR });
             const near = await evx(`__cmwLandWind(null, { nearContour: true })`);
             ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!near && near.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near });
+            if (c.logControl) {
+              const lw = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
+              // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is unbounded there, so the count must say branchLog, never ok)
+              ok(`${t}: the control: the branch leaf at 0 is reported (${r0 ? r0.branchLeaves : '?'} leaves, status ${r0 ? r0.status : '?'})`, !!r0 && r0.branchLeaves > 0 && (u < 1 - 2 * END_U || r0.status === 'branchLog'), { lw });
+            }
             const nop = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
             const poleCase = !!withP && withP.some((r) => r.P > 0);
             if (poleCase) ok(`${t}: the control: the poles omitted break the count`, !!nop && nop.some((r) => !r.ok), { nop });

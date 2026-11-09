@@ -551,12 +551,12 @@
   // completeness of the members is the winding of H_u - w around the leaves of the box (anchored continuation, so no cut of a plan enters).
   // SCN: CERT, the relative |H_u(z) - w| a member is within (LAND_ENUM_Z_TOL's value: the candidate's z is as exact as the frame's); TIE, how
   // much nearer the best surface must be than the next, or the surface is ambiguous; ARG, the largest argument a winding step turns;
-  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; LEAF_MAX, the leaves after which no leaf is cut further; SPLIT and JIT, the share of a leaf its cut falls at and the shift of the first grid's inner lines (a cut that is not the middle keeps a branch point off a leaf's edge); SHRINK, the rings a branch leaf's values are also read on (each half the one before); LIP, the factor its range is widened by over the largest difference of neighbouring samples; MIN_STEP, the smallest step of an edge
+  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; LEAF_MAX, the leaves after which no leaf is cut further; SPLIT and JIT, the share of a leaf its cut falls at and the shift of the first grid's inner lines (a cut that is not the middle keeps a branch point off a leaf's edge); SHRINK, the rings a branch leaf's values are also read on (each half the one before); LIP, the factor its range is widened by over the largest difference of neighbouring samples; CONV, the largest share of the first half of those rings' change that the second half may still change a value by for the branch to be algebraic (finite, converging); MIN_STEP, the smallest step of an edge
   // (a unit edge; the control raises it to 1); CLOSE, the relative distance within which a closed contour returns to its first value; ON, the relative |H_u - w| that
   // puts w on a contour; NEAR, the relative gap of a value from w that the control calls near; REL, the largest relative change of a
   // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
   // grid; SAME_Z, the relative distance under which two candidates are one z
-  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
+  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
   let sceneMemo = null;
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
@@ -650,6 +650,22 @@
     }
     return (sc.leaves = out);
   };
+  // the kind of a branch leaf's point, from the scene: 'algebraic' when every surface's value at a fixed rim point converges as the rim shrinks
+  // about the leaf's centre (the change over the second half of the SHRINK rings is at most CONV times the first half's: roots, powers), 'log'
+  // when some value keeps changing (a log, a power's log, a pole of a later step: G unbounded there)
+  const leafKind = (sc, l) => {
+    if (l.kind) return l.kind;
+    const at = (q, k) => { const f = Math.pow(0.5, q); return sc.g(k, C(l.c.re - (l.x1 - l.x0) / 2 * f, l.c.im - (l.y1 - l.y0) / 2 * f), C(l.c.re - (l.x1 - l.x0) / 2 * f, l.c.im - (l.y1 - l.y0) / 2 * f)); };
+    const h = SCN.SHRINK / 2;
+    l.kind = 'algebraic';
+    for (let k = 0; k < sc.K; k++) {
+      const a = at(0, k), b = at(h, k), c = at(SCN.SHRINK, k);
+      if (!a || !b || !c) { l.kind = 'log'; break; }
+      const d1 = CX.abs(CX.sub(b, a)), d2 = CX.abs(CX.sub(c, b));
+      if (d2 > SCN.CONV * d1 && d2 > SCN.CLOSE * cmax(c)) { l.kind = 'log'; break; }
+    }
+    return l.kind;
+  };
   const leafOf = (sc, z) => sceneLeaves(sc).find((l) => z.re >= l.x0 && z.re <= l.x1 && z.im >= l.y0 && z.im <= l.y1) || null;
   // the surfaces of H_u at z on the cell centred at zc, nearest w first: [{ k, miss }], miss the relative |H_u(z) - w|
   const sceneMiss = (sc, w, zc, z) => {
@@ -711,17 +727,17 @@
     return out;
   };
   // the scene's singular points over the frame's box: { poles: [[re, im]], branch: [[re, im]] }, the poles the steps view finds on the glide's
-  // map and the centres of the leaves no surface closes round (a branch point inside)
+  // map and the centres of the leaves no surface closes round (a branch point inside) with their kind, [re, im, 'algebraic' | 'log']
   window.__cmwLandSing = () => {
     const sc = sceneOf();
-    return sc ? { poles: sc.poles.map((p) => [p.re, p.im]), branch: sceneLeaves(sc).filter((l) => !l.closed).map((l) => [l.c.re, l.c.im]) } : null;
+    return sc ? { poles: sc.poles.map((p) => [p.re, p.im]), branch: sceneLeaves(sc).filter((l) => !l.closed).map((l) => [l.c.re, l.c.im, leafKind(sc, l)]) } : null;
   };
   // the completeness count of the frame's reference at one place w (plane 0's map value): over the leaves of the box, the pairs (z, surface)
   // the winding of H_u - w counts (the sum over surfaces of the winding round the leaf plus its poles, each by its order) against the pairs the
   // certified members make in it. A leaf no surface closes round (a branch point) holds no pair when w is farther from the mean of its boundary
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
   // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
-  // count is undefined there) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
+  // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
   // opts: noPoles omits P, dropOne removes a member, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => { const t0 = performance.now(); try { const r = window.__cmwLandWind0(wIn, opts); if (r) r[0].ms = Math.round(performance.now() - t0); return r; } catch (e) { return [{ err: String(e && e.stack || e).slice(0, 400), ok: false }]; } };
@@ -761,7 +777,8 @@
         }
         const mean = vals.reduce((a, v) => CX.add(a, v), C(0, 0)), vc = C(mean.re / vals.length, mean.im / vals.length);
         const spread = vals.reduce((a, v) => Math.max(a, CX.abs(CX.sub(v, vc))), 0) + SCN.LIP * step;
-        if (l.poles.length || !(CX.abs(CX.sub(w, vc)) > spread * (1 + SCN.NEAR))) status = status === 'ok' ? 'unresolved' : status;
+        if (leafKind(sc, l) === 'log') status = status === 'onContour' ? status : 'branchLog';
+        else if (l.poles.length || !(CX.abs(CX.sub(w, vc)) > spread * (1 + SCN.NEAR))) status = status === 'ok' ? 'unresolved' : status;
         continue;
       }
       for (let k = 0; k < sc.K; k++) {
