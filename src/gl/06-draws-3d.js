@@ -1547,11 +1547,12 @@
       // (the exact single layer and the layered draw of linear heights are clipped at the block's sides, and the layered one at its top and bottom
       // too, where the layers run on past it: LAND_CLIP; clipOff is a probe's control)
       const clipC = (contDraw ? clipOf(mode) > 0 : !!(landC && landC.exact)) && !carryProbe.clipOff;
-      const fan = clipC ? LAND_CLIP_CORNERS - 2 : 1;
+      let fan = clipC ? LAND_CLIP_CORNERS - 2 : 1;
       const Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
+      if (clipC) { u1i(Pc, 'uFanN', fan); u1i(Pc, 'uClsMode', 0); }
       u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
@@ -1612,6 +1613,30 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+        if (carryProbe.classPlain && clipC && !contDraw && exact) {
+          // (the cells' classes against the block: the plain draw of the cells inside it)
+          const Pk = program('landCarryClass');
+          if (Pk) {
+            if (!L.clsTex) L.clsTex = floatTex();
+            use(Pk);
+            u1i(Pk, 'uN', hd.N); u4f(Pk, 'uBox', box.x0, box.y0, BW, BH); u2f(Pk, 'uAspect', aspect[0], aspect[1]);
+            u2f(Pk, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
+            u1f(Pk, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pk, 'uCuts', cutDraw ? 1 : 0);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+            for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, cutDraw ? L.edges[d] : L.tex1); }
+            gl.activeTexture(gl.TEXTURE15);
+            runTF(Pk, empty(), gl.POINTS, hd.N * hd.N, 0, hd.N * hd.N * 16, L.clsTex, hd.N, hd.N, gl.RGBA32F, gl.RGBA);
+            use(Pc, st.carry.map);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+            gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
+            if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
+            if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+            gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
+            fan = 1; u1i(Pc, 'uFanN', 1); u1i(Pc, 'uClsMode', 1); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+            drawCarryGrid(L, hd.N);
+            fan = LAND_CLIP_CORNERS - 2; u1i(Pc, 'uFanN', fan); u1i(Pc, 'uClsMode', 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
+          }
+        } else
         drawCarryGrid(L, hd.N);
         // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
         if (L.pp && L.pp.length) {

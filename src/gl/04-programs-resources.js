@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uZ: 13,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uZ: 13, uCls: 16,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
   // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
@@ -224,6 +224,7 @@
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS(), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landCarryL: { chain: true, vs: () => LAND_CARRY_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true) },
+    landCarryClass: { chain: false, vs: () => LAND_CARRY_CLASS_VS, fs: () => TF_FS, tf: true },
     landCarryC: { chain: true, vs: () => LAND_CARRY_VS(false, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, false, true) },
     landCarryLC: { chain: true, vs: () => LAND_CARRY_VS(true, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
