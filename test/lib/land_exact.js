@@ -70,7 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  const MONO_CERT = 1e-7, MONO_NEWT_MAX = 12;   // a member of H_u = w: Newton's method on H, its residual within this share of 1 + |w| (the far sheets' H stalls near 5e-10: float64 in a large log coordinate), in at most this many steps
+  const MONO_CERT = 1e-5, MONO_NEWT_MAX = 12;   // a member of H_u = w: Newton's method on H, its residual within this share of 1 + |w| (H stalls at 5e-10 to 1e-6 on the far sheets and near a branch value: float64 in a large log coordinate; the design allows 1.5e-3), in at most this many steps
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
   const MONO_STEPS_MAX = 4000, MONO_MIN_DT = 1e-9;   // the tracker's steps along one path, and the smallest share of a segment a step may take (past them the path is unresolved, a red)
   const BRANCH_CELLS_PER_POINT = 4;   // the most cells of a grid one point can touch
@@ -231,7 +231,7 @@
       if (opt && opt.syn) {
         // (a made-up edge in the cell that holds the branch value bv: the first member at the cell's corner, the second the continuation of another member from the next corner along x)
         const wv0 = [opt.syn[0] - h / 2, opt.syn[1] - h / 2], wo0 = [wv0[0] + h, wv0[1]], set0 = membersAt(wv0), tr = set0.length > 1 ? track(set0, [wv0, wo0]) : null;
-        if (!tr) return { cls: 'unresolved', why: 'syn' };
+        if (!tr) return { cls: 'unresolved', why: 'syn', n: set0.length, fail };
         const code = window.__lxSheetCode + set0[0].sheet;
         e = [set0[0].z[0], set0[0].z[1], tr[1].z[0], tr[1].z[1], 0, code, code, wv0[0], wv0[1], wo0[0], wo0[1]];
       }
