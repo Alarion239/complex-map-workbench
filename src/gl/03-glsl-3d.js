@@ -738,14 +738,20 @@ void main() {
   // a end of the cut, at its b end, jump). The edge's preimages are joined by a chord and the height there bisected
   // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
   // the edges whose two vertices are on the sheet uCode (the texel's w, LAND_CARRY_FIX_VS) are looked at, with that
-  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
+  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none. The edges whose ends are on
+  // different sheets, or on none, have their own test (uCode -1)
   // The member-seam test of the exact glide's edge pass: the places of an edge are carried SEAM_NEWT_CONT equal steps of the place
   // by SEAM_NEWT_POL Newton iterations each; the preimages are one member when the carried one is within SEAM_REL of their
   // distance (plus SEAM_ABS, relative to |z|) of the other; an edge whose preimages are within SEAM_FAR times the
   // distance one member's derivative gives them is one member and is not tested
+  // the place a sheet carried along a cross-sheet edge may miss the far end's by, relative to 1 + |w| (the tests' hook tolerance)
+  const CROSS_REL = '1.5e-3';
+  // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i; the cross-sheet edge test reads the combos of at most CARRY_SHEETS_MAX sheets
+  const CARRY_SHEET_CODE = 10, CARRY_SHEETS_MAX = 16;
   const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
+uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + `
@@ -781,10 +787,25 @@ void main() {
   ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
   if (q.x >= uN || q.y >= uN) return;
   vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
-  // (uCode -1: an edge between two sheets, whose vertices' heights step: the sheets' domains meet at a cut, which
-  // lies between the two places; mid-way)
+  // (uCode -1: an edge whose ends are not on one sheet: on two sheets, or on one and on none. The sheet of one end (a placed
+  // one first) is carried along the edge from that end's preimage to the other's, by the anchored chain, and read against
+  // the other end's own value there: its sheet's at its preimage, or its place where it is on none. The edge is
+  // continuous where they agree (the sheets' labels change at cuts of their own, not of the map). Where they do not, it
+  // crosses a cut, which lies between the two places; mid-way. A carried value that is not finite (a branch point on
+  // the edge) leaves the edge crossed twice, which drops the triangles that hold it)
   if (uCode < 0.0) {
-    if (a.w > 5.0 && b.w > 5.0 && abs(a.w - b.w) > 0.5 && abs(b.z - a.z) > 0.02 * uH) tfOut = vec4(0.5, a.z, b.z, 1.0);
+    if (uCrossOn == 0) return;
+    bool pa = a.w > 5.0, pb = b.w > 5.0;
+    if ((!pa && !pb) || (pa && pb && abs(a.w - b.w) < 0.5)) return;
+    vec2 zp = texelFetch(uZ, p, 0).xy, zq = texelFetch(uZ, q, 0).xy;
+    // (from the placed end; both placed: from a)
+    bool fwd = pa;
+    int cf = int((fwd ? a.w : b.w) + 0.5) - ${CARRY_SHEET_CODE}, ct = int((fwd ? b.w : a.w) + 0.5) - ${CARRY_SHEET_CODE};
+    vec2 zf = fwd ? zp : zq, zt = fwd ? zq : zp;
+    vec2 cv = chainSheetRange(zf, zt, uGs, uGt, uSheetCombos[cf]);
+    vec2 own = (fwd ? pb : pa) ? chainSheetRange(zt, zt, uGs, uGt, uSheetCombos[ct]) : (fwd ? b.xy : a.xy);
+    if (!cfin(cv) || !cfin(own)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+    if (length(cv - own) > ${CROSS_REL} * (length(own) + 1.0)) tfOut = vec4(0.5, a.z, b.z, 1.0);
     return;
   }
   if (abs(a.w - uCode) > 0.5 || abs(b.w - uCode) > 0.5) return;

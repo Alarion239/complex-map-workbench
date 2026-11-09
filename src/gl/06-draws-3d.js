@@ -280,7 +280,6 @@
     }
     return combo;
   }
-  const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
@@ -311,6 +310,8 @@
       if (P3 && (Pf || sheets.length === 1)) {
         if (!landC.edges) landC.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift));
+        const sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
+        const combos = sheets.map((sh) => carrySheetCombo(sh.shift, sheetW));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
         const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
@@ -336,9 +337,11 @@
             runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, landC.edges[d], N, N, gl.RGBA32F, gl.RGBA);
           }
         }
-        // (the edges between two sheets, last: the earlier passes' edges stay)
+        // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
         if (Pf) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1);
+          gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]);
@@ -348,8 +351,8 @@
         }
         landC.cuts = 1;
         landC.datas = Pf ? datas : null;
-        landC.sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
-        landC.combos = sheets.map((sh) => carrySheetCombo(sh.shift, landC.sheetW));
+        landC.sheetW = sheetW;
+        landC.combos = combos;
       }
     }
     if (!polar) landC.exact = exact;
@@ -380,14 +383,8 @@
   // draws at its nearest grid vertex, [{ h, member }] (none where no layer is valid there)
   function landFrameVerts(pts, box) {
     if (!landC || !landC.tex1) return null;
-    const N = landC.N, fbo = gl.createFramebuffer(), px = new Float32Array(N * N * 4);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.tex1, 0);
-    gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
-    const pz = landC.exact && landC.zTex ? new Float32Array(N * N * 4) : null;
-    if (pz) { gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, landC.zTex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, pz); }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.deleteFramebuffer(fbo);
+    const N = landC.N, px = lwRead(landC.tex1, N, N), pz = landC.exact && landC.zTex ? lwRead(landC.zTex, N, N) : null;
+    if (!px) return null;
     return pts.map(([x, y]) => {
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
