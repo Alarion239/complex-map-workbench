@@ -82,6 +82,19 @@ for (const [u, p, exact, mostly] of ROWS) {
   if (mostly && accounted(r.mem)) ok(`the frame at ${u}: the memberless pixels are mostly the ${mostly === 'hatch' ? "departure's hatch" : "destination's paint"}`, mostly === 'hatch' ? r.mem.hatch > r.mem.rest : r.mem.rest > r.mem.hatch, r.mem);
   if (u === 0.5) {
     ok(`the frame at ${u}: the hook samples at least ${MIN_SAMPLES} destination-painted pixels, each certified by a plan or an enumerator`, r.samples >= MIN_SAMPLES && Object.keys(r.certs).every((k) => CERTS.includes(k)), r);
+    // the samples' w is the place plane p shows at (x, y), within one pixel's width in w (__cmwPlaceAt(plane, x, y) -> [re, im], the plane's
+    // own view read back); so plane p's pixel at (x, y) is the destination's paint at w. A sample read against plane 0's view must fail it
+    // whenever the two planes' places differ (the control)
+    const places = await ev(`(() => {
+      const S = ${JSON.stringify(r.mem && r.mem.samples || [])};
+      if (typeof __cmwPlaceAt !== 'function') return 'no hook';
+      const agree = (pl) => S.every((m) => { const a = __cmwPlaceAt(pl, m.x, m.y), b = __cmwPlaceAt(pl, m.x + 1, m.y); return Math.hypot(m.w[0] - a[0], m.w[1] - a[1]) <= Math.hypot(b[0] - a[0], b[1] - a[1]); });
+      const same = S.every((m) => { const a = __cmwPlaceAt(0, m.x, m.y), b = __cmwPlaceAt(1, m.x, m.y), c = __cmwPlaceAt(1, m.x + 1, m.y); return Math.hypot(a[0] - b[0], a[1] - b[1]) <= Math.hypot(c[0] - b[0], c[1] - b[1]); });
+      return { n: S.length, onPlane: agree(${p}), onOther: agree(${1 - p}), same };
+    })()`);
+    info['samples against the places'] = places;
+    ok(`the frame at ${u}: every sample's w is plane ${p}'s place at its pixel within one pixel's width (__cmwPlaceAt)`, !!places && places !== 'no hook' && places.n >= MIN_SAMPLES && places.onPlane === true, places);
+    ok(`control: the samples read against plane ${1 - p}'s places fail that check whenever the two planes' places differ`, !!places && places !== 'no hook' && (places.same ? places.onOther === true : places.onOther === false), places);
     ok(`the frame at ${u}: the sampled destination-painted pixels are plane ${p}'s own pixel there (at most ${SAME_FRAC * 100} % more than ${TOL} levels off)`, r.sampleOff !== null && r.sampleOff <= SAME_FRAC, r);
     continue;
   }
