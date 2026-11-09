@@ -1444,7 +1444,8 @@ float wabs(vec2 w) {
   }
   const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid), rulerScale (a factor on the height ruler's labels' heights); {} otherwise
+  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid), rulerScale (a factor on the height ruler's labels' heights),
+  // comboShift (an integer added to each sheet's combo in the exact carried draw: the sheets' colour control); {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

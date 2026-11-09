@@ -280,6 +280,21 @@
     }
     return c;
   };
+  // The sheet combo of a glide's sheet (sheet.dk more than the step's own, the step of stage sheet.k): the mixed-radix number
+  // chainSheetRange reads, lowest digit first, one digit for each multivalued step in chain order. A bounded step (n sheets) reads
+  // its digit as the sheet, an unbounded one (a window of 2 W + 1) as the digit less W, so the digit is W + dk there and
+  // dk mod n here, and W where the step keeps its own sheet
+  function carrySheetCombo(shift, W) {
+    const info = cur.info;
+    if (!info || !info.sheets || !Array.isArray(info.sheets.steps)) return 0;
+    let combo = 0, radix = 1;
+    for (const s of info.sheets.steps.filter((x) => x && x.k >= 1).sort((p, q) => p.k - q.k)) {
+      const off = shift && shift.k === s.k ? shift.dk : 0, n = s.n > 0 ? s.n : 2 * W + 1;
+      combo += (s.n > 0 ? ((off % s.n) + s.n) % s.n : W + off) * radix;
+      radix *= n;
+    }
+    return combo;
+  }
   const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
@@ -381,9 +396,9 @@
           runTF(Pn, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
         }
         for (let i = 0; i < sheets.length; i++) {
-          use(P3, c.map);
+          use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); if (lyr) own(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i));
+          stages(P3); if (lyr) own(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', lyr || carryProbe.noSeam ? 0 : 1);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
@@ -408,6 +423,8 @@
         out.cont = lyr;
         out.datas = Pf ? datas : null;
         out.chain = Pf ? null : datas[0];
+        out.sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
+        out.combos = sheets.map((sh) => carrySheetCombo(sh.shift, out.sheetW));
       }
     }
     if (!polar || (lay && ex && ex.layered)) out.exact = exact;
@@ -428,6 +445,9 @@
     u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
     u1f(P2, 'uStep', carryStep(mode, H, exact)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    const cutNrm = !polar && exact && landC.cuts === 1;
+    u1i(P2, 'uCuts', cutNrm ? 1 : 0);
+    if (cutNrm) for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, landC.edges[d]); }
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
     u1i(P2, 'uCuts', exact && out.cuts ? 1 : 0);
     if (exact && out.cuts) for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, out.edges[d]); }
@@ -1538,7 +1558,9 @@
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
       u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
-      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
+      // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
+      // a key's push of the depth would only put a layer behind the floor plate)
+      keyUniforms(Pc, landC && landC.exact && !landActive.length ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -1561,8 +1583,11 @@
         // (a layer of one sheet: its chain data, the forward sheet's)
         const own = !datas && !!G.chain;
         if (own) gl.uniform4fv(Pc.loc.uChain, G.chain);
+        if (datas && !G.cont) u1i(Pc, 'uSheetW', G.sheetW || 0);
         for (let i = 0; i < (datas ? datas.length : 1); i++) {
-          if (datas) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
+          // (a layered draw takes each sheet's chain data; the exact glide's single layer reads the sheet's combo)
+          if (datas && G.cont) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
+          if (datas && !G.cont) u1i(Pc, 'uSheetCombo', G.combos[i] + (carryProbe.comboShift | 0));
           u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
           gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
         }
@@ -1576,7 +1601,7 @@
       for (const L of landActive.length ? landActive : [landC]) {
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
-        if (contDraw) u1i(Pc, 'uOwn', L.own);
+        if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
         u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
@@ -1586,7 +1611,7 @@
         // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
         if (L.pp && L.pp.length) {
           gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 4);
-          L.pp.forEach((o, i) => { if (!o.exact) return; u4f(Pc, 'uPolar', ...landHoles[i]); u1i(Pc, 'uZOn', 1); if (contDraw) u1i(Pc, 'uOwn', o.own); drawCarryGrid(o, LAND_POLAR_N); });
+          L.pp.forEach((o, i) => { if (!o.exact) return; u4f(Pc, 'uPolar', ...landHoles[i]); u1i(Pc, 'uZOn', 1); if (contDraw) u1i(Pc, 'uOwn', o.own + (carryProbe.comboShift | 0)); drawCarryGrid(o, LAND_POLAR_N); });
           u4f(Pc, 'uPolar', 0, 0, 0, 0);
           gl.disable(gl.POLYGON_OFFSET_FILL);
         }

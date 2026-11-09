@@ -428,13 +428,15 @@
     return out;
   }
   const SV_LAND_SHEETS = 4, SV_LAND_LAYERS = 24;   // (the sheets' limit, SHEET_MAX)
+  // Test-only (__cmwLandMeshOnly): a glide frame draws its carried mesh and never the exact inverse, the path a plane at rest still uses
+  let svLandMeshOnly = false;
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
     if (!g.all && (g.u <= 1e-6 || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u });
     const c = svLandCarry(mapOf, g.a, g.b, g.u);
-    if (!g.all && !c.plain) c.exact = svLandExact(g.b, g.u, g.F);
+    if (!g.all && !c.plain && !svLandMeshOnly) c.exact = svLandExact(g.b, g.u, g.F);
     render3D(pane, c);
     return true;
   }

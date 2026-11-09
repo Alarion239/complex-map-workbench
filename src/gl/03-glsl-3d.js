@@ -725,8 +725,7 @@ uniform float uDrawCode; uniform float uDrawCode0;
 // the box's triangles whose centre is within uHoles[i].z of uHoles[i].xy are left out (uNHoles of them): polar patches draw there
 uniform vec4 uHoles[4]; uniform int uNHoles;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
-flat out vec3 vEdge; flat out vec3 vBoxE;
-${L ? 'flat out vec2 vZc;' : ''}
+flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc;
 ` + CARRY_Z + `
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
 vec4 edgeOf(ivec2 a, ivec2 b) {
@@ -739,7 +738,7 @@ vec4 edgeOf(ivec2 a, ivec2 b) {
 }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-  vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0);
+  vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
   int M = uN - 1;
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
 ${clip ? '  // (clip: each sub-triangle is a fan of up to 3 triangles of the block-clipped polygon, 9 vertices)\n  int sub = loc / 9, fan = (loc - 9 * sub) / 3, k = loc - 9 * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
@@ -817,6 +816,10 @@ ${clip ? `  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
   vNor = Nn[vi]; vAO = QA[vi].z;` : `  vZ = cz[k];
   vPos = vec3(((cxy[k] - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, ch[k]);
   vNor = cnv[k].xyz; vAO = cnv[k].w;`}
+${L ? '' : `  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
+  // the cut separates from the first piece's)
+  ivec2 anchor = (J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A;
+  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;`}
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
@@ -848,8 +851,13 @@ void main() {
   // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
   // the edges whose two vertices are on the sheet uCode (the texel's w, LAND_CARRY_FIX_VS) are looked at, with that
   // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
+  // The member-seam test of the exact glide's edge pass: the places of an edge are carried SEAM_NEWT_CONT equal steps of the place
+  // by SEAM_NEWT_POL Newton iterations each; the preimages are one member when the carried one is within SEAM_REL of their
+  // distance (plus SEAM_ABS, relative to |z|) of the other; an edge whose preimages are within SEAM_FAR times the
+  // distance one member's derivative gives them is one member and is not tested
+  const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = (L = false) => `
-uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev;
+uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + (L ? CARRY_HEIGHT_ANCHORED + `
@@ -862,6 +870,28 @@ vec2 edgeW(vec2 z) { return eFixed ? chainRange(z, uGs, uGt) : carryWA(eZc, z, u
 vec2 edgeH(vec2 z) { return carryHeight(z); }
 vec2 edgeW(vec2 z) { return chainRange(z, uGs, uGt); }
 `) + `
+// the preimage of the place w nearest z on the glide's own map (Newton's method with a central-difference derivative)
+vec2 seamNewt(vec2 z, vec2 w) {
+  for (int i = 0; i < ${SEAM_NEWT_POL}; i++) {
+    float h = 1e-6 * (1.0 + length(z));
+    vec2 q = mapPoint(z), d = (mapPoint(z + vec2(h, 0.0)) - mapPoint(z - vec2(h, 0.0))) / (2.0 * h);
+    float dd = dot(d, d);
+    if (!(dd > 0.0) || !cfin(q)) return z;
+    vec2 r = q - w;
+    z -= vec2(r.x * d.x + r.y * d.y, r.y * d.x - r.x * d.y) / dd;
+  }
+  return z;
+}
+// the preimage z0 of the place wa carried to the place wb in ${SEAM_NEWT_CONT} equal steps of the place; zMid: the first step's end
+vec2 seamCont(vec2 z0, vec2 wa, vec2 wb, out vec2 zMid) {
+  vec2 z = z0;
+  zMid = z0;
+  for (int k = 1; k <= ${SEAM_NEWT_CONT}; k++) {
+    z = seamNewt(z, mix(wa, wb, float(k) / float(${SEAM_NEWT_CONT})));
+    if (k == 1) zMid = z;
+  }
+  return z;
+}
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -907,7 +937,22 @@ ${L ? `  // (the continuation from the own end does not give the other end's hei
   }
   float big = 1e3 * max(max(uMu, uMu2), 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
-  if (jump) tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0);
+  if (jump) { tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0); return; }
+  // a member seam (uSeam 1): neither end's preimage carried along the edge's place reaches the other's, so the two
+  // places hold different members of the glide's inverse and the edge is a cut between them, whatever the chord of
+  // their preimages shows; each bank's height at the middle of the edge is its own member's there
+  if (uSeam == 1) {
+    float hd = 1e-6 * (1.0 + length(z0));
+    vec2 dM = (mapPoint(z0 + vec2(hd, 0.0)) - mapPoint(z0 - vec2(hd, 0.0))) / (2.0 * hd);
+    vec2 zA, zB, zA1 = seamCont(z0, a.xy, b.xy, zA), zB1 = seamCont(z1, b.xy, a.xy, zB);
+    float reach = ${SEAM_REL} * length(z1 - z0) + ${SEAM_ABS} * (1.0 + length(z1));
+    // (preimages no farther apart than the member's own derivative allows are one member)
+    if (length(z1 - z0) * length(dM) > ${SEAM_FAR} * length(b.xy - a.xy) && length(zA1 - z1) > reach && length(zB1 - z0) > reach) {
+      vec2 hA = carryHeight(zA), hB = carryHeight(zB);
+      tfOut = vec4(0.5, hA.y > 0.5 ? hA.x : a.z, hB.y > 0.5 ? hB.x : b.z, 1.0);
+      return;
+    }
+  }
 }
 `;
   // The layered glide's continuation of a layer past the range of its branch: a vertex the walk placed with a preimage z
@@ -1455,7 +1500,7 @@ in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'vec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
