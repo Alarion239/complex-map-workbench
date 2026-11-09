@@ -1292,8 +1292,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j divides dp by 2 p_{j+1}: the
         // product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The value is computed as H alone is
         const dc = jc ? 'vec2(0.0)' : 'vec2(1.0, 0.0)';
-        const pre = `vec2 ${P}_fd(vec2 z, out vec2 d) {
+        const pre = `vec2 ${P}_fd(vec2 z, out vec2 d, out float tail) {
   d = vec2(cx_nan());
+  tail = 0.0;
   vec2 orb[${NM + 1}];
   vec2 c = ${jc ? jc.v : 'z'}, w = z, dw = vec2(1.0, 0.0);
   int n = -1;
@@ -1301,7 +1302,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     orb[k] = w;
     float w2 = dot(w, w), c2 = dot(c, c);
     if (w2 > 1e8) { n = k; break; }
-    if (${DH_STOP}) { n = k; break; }
+    if (${DH_STOP}) { n = k; tail = sqrt(c2 * exp2(2.0 - 2.0 * float(k))) / w2; break; }
     if (float(k) >= ${nn.x}) break;
     dw = 2.0 * cmul(w, dw) + ${dc};
     w = cmul(w, w) + c;
@@ -1317,20 +1318,23 @@ vec2 cx_binom(vec2 a, vec2 b) {
     pr = cmul(pr, 2.0 * p);
   }
   ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}d = cdiv(dp, pr);
+  tail *= cx_abs(p);
   return p;
 }
 `;
         return {
           sig: [type],
           pre,
-          f: `vec2 d;\n  return ${P}_fd(z, d);`,
+          f: `vec2 d;\n  float tail;\n  return ${P}_fd(z, d, tail);`,
           h: LIN(P),
           // H_t = (1 - t) z + t f at t = 0 and 1 as LIN and withOne write it, with H_t' = (1 - t) + t f'
           hd: `d = vec2(1.0, 0.0);
+  tail = 0.0;
   if (t == 0.0) return z;
-  vec2 df, w = ${P}_fd(z, df);
+  vec2 df, w = ${P}_fd(z, df, tail);
   if (t == 1.0) { d = df; return w; }
   d = vec2(1.0 - t, 0.0) + t * df;
+  tail *= t;
   return z * (1.0 - t) + w * t;`,
           write(put) { put(nn.c, v.N, jc ? b.dh.rho : 0); if (jc) putC(put, jc, v.c); },
         };
@@ -1765,7 +1769,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // at t = 1 every homotopy equals the map itself (exactly so on the CPU up to float64 rounding)
       const h = withOne(P, plan);
       src += `vec2 ${P}_h(vec2 z, float t) {\n  ${h}\n}\n`;
-      if (plan.hd) src += `vec2 ${P}_hd(vec2 z, float t, out vec2 d) {\n  ${plan.hd}\n}\n`;
+      if (plan.hd) src += `vec2 ${P}_hd(vec2 z, float t, out vec2 d, out float tail) {\n  ${plan.hd}\n}\n`;
     }
     // a d/dz step is not a map of w: chainStep and chainHom give NaN there (callers mix chainStage(k - 1) and
     // chainStage(k) instead)
@@ -1780,8 +1784,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // chainHomD(i, z, t, d): H_t(z) and its derivative d for the steps that write both (plan.hd: the Newton kit's dual
     // derivative), NaN for the others
     if (maps.some(({ plan }) => plan.hd)) {
-      src += 'vec2 chainHomD(int i, vec2 z, float t, out vec2 d) {\n  d = vec2(cx_nan());\n';
-      for (const { P, k, plan } of maps) if (plan.hd) src += `  if (i == ${k}) return ${P}_hd(z, t, d);\n`;
+      src += 'vec2 chainHomD(int i, vec2 z, float t, out vec2 d, out float tail) {\n  d = vec2(cx_nan());\n  tail = 0.0;\n';
+      for (const { P, k, plan } of maps) if (plan.hd) src += `  if (i == ${k}) return ${P}_hd(z, t, d, tail);\n`;
       src += '  return vec2(cx_nan());\n}\n';
     }
     // chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
@@ -2253,8 +2257,9 @@ void ixAncTan(vec2 w) {
   // that evaluates H_t at a Newton iterate (a shader compiler inlines every call, so a program's size follows the
   // number of such places; the arithmetic stays in this function, since written inline in _run's loop the compiled
   // float result differs in the last bits): one step of H_t at u, the CHECK test (held: u hits w), a plain step
-  // or the DEFL step deflated by the root dz (a step whose H stops its orbit early, HD: its hit test adds the stop's bound
-  // DH_STOP_TOL (1 + |H|) to the distance, so a hit certifies |H - w| <= NEWT_HIT_F (1 + |w|) for the full orbit); _run, one loop of such steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
+  // or the DEFL step deflated by the root dz (HD, a step that writes H' with H: chainHomD also gives the bound
+  // tl on the error its orbit's early stop left in H, 0 for a full orbit, and the hit test adds tl to the distance,
+  // so a hit certifies |H - w| <= NEWT_HIT_F (1 + |w|) for the full orbit); _run, one loop of such steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
   // step is capped at a quarter of 1 + |u|, a polish step (POL, LAD) stops the phase when it moves u by at most
   // NEWT_STEP_TOL (1 + |u|); DEFL steps Newton's method deflated by the root dz. Member 0's walk is InvOps.opNewt's
   // fixed grid: the stages k / NEWT_K from ks + 1 up to k0 = floor(NEWT_K t), ug the root at k0 (IX_NR_NONE when the
@@ -2266,13 +2271,13 @@ void ixAncTan(vec2 w) {
   // stages bound the second pass. _run's result is true when the schedule ran to its end and the
   // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
   // there
-  const newtCoreFns = (P, H, ray, HD) => `vec2 ${P}_d(vec2 u, float t) { ${HD ? `vec2 d; ${HD('u', 't', 'd')}; return d;` : `float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h);`} }
-bool ${P}_hit(vec2 u, vec2 w, float t) { ${HD ? `vec2 h = ${H('u', 't')}; return ixFin(u) && cx_abs(h - w) + ${DH_STOP_TOL} * (1.0 + cx_abs(h)) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));` : `return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));`} }
+  const newtCoreFns = (P, H, ray, HD) => `vec2 ${P}_d(vec2 u, float t) { ${HD ? `vec2 d; float tl; ${HD('u', 't', 'd', 'tl')}; return d;` : `float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h);`} }
+bool ${P}_hit(vec2 u, vec2 w, float t) { ${HD ? `vec2 d, h; float tl; h = ${HD('u', 't', 'd', 'tl')}; return ixFin(u) && cx_abs(h - w) + tl <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));` : `return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));`} }
 ${HD ? `vec2 ${P}_dc = vec2(0.0);
 ` : ''}${HD ? '' : `vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 `}bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
-  ${HD ? `vec2 d, hu = ${HD('u', 't', 'd')};` : `vec2 hu = ${H('u', 't')};`}
-  held = ixFin(u) && cx_abs(hu - w) ${HD ? `+ ${DH_STOP_TOL} * (1.0 + cx_abs(hu)) ` : ''}<= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
+  ${HD ? `vec2 d, hu; float tl; hu = ${HD('u', 't', 'd', 'tl')};` : `vec2 hu = ${H('u', 't')};`}
+  held = ixFin(u) && cx_abs(hu - w) ${HD ? '+ tl ' : ''}<= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
   if (chk) { ${HD ? `${P}_dc = d; ` : ''}return true; }
   ${HD ? '' : `vec2 d = ${P}_fd(u, hu, t);`}
   if (defl) {
@@ -2361,7 +2366,7 @@ ${ray ? `  if (good || !rayLeft) return good;
       else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
     }
     return `vec2 chainHom(int i, vec2 z, float t);
-${bk.dual ? 'vec2 chainHomD(int i, vec2 z, float t, out vec2 d);\n' : ''}${fns}${newtCoreFns(P, H, bk.ray, bk.dual ? (u, t, d) => `chainHomD(${o.step}, ${u}, ${t}, ${d})` : null)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
+${bk.dual ? 'vec2 chainHomD(int i, vec2 z, float t, out vec2 d, out float tail);\n' : ''}${fns}${newtCoreFns(P, H, bk.ray, bk.dual ? (u, t, d, tl) => `chainHomD(${o.step}, ${u}, ${t}, ${d}, ${tl})` : null)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
   Lf S = ixStart(w);
 ${seedSteps.join('\n')}
   u = S.u;

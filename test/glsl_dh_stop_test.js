@@ -56,7 +56,17 @@ void main() {
   vec2 w = chainStep(1, texelFetch(uPts, ivec2(gl_FragCoord.xy), 0).xy);
   o = vec4(w, 0.0, 1.0);
 }`;
-  const compile = (chainSrc) => {
+  // H_1 and the bound on its early stop's error as the Newton kit's hit test reads them (chainHomD): (H, tail)
+  const MAIN_TAIL = `
+uniform highp sampler2D uPts;
+out vec4 o;
+void main() {
+  vec2 d;
+  float tail;
+  vec2 w = chainHomD(1, texelFetch(uPts, ivec2(gl_FragCoord.xy), 0).xy, 1.0, d, tail);
+  o = vec4(w, tail, 1.0);
+}`;
+  const compile = (chainSrc, main = MAIN) => {
     const mk = (type, s) => {
       const sh = gl.createShader(type); gl.shaderSource(sh, s); gl.compileShader(sh);
       if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
@@ -64,7 +74,7 @@ void main() {
     };
     const p = gl.createProgram();
     gl.attachShader(p, mk(gl.VERTEX_SHADER, VS));
-    gl.attachShader(p, mk(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\n' + chainSrc + '\n' + MAIN));
+    gl.attachShader(p, mk(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\n' + chainSrc + '\n' + main));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     return p;
@@ -90,7 +100,7 @@ void main() {
       const LOOSE = swap(EARLY, TOL_RE, (m, a, v, b) => a + (+v * 1e6).toExponential(6) + b, 'the stop tolerance');   // (squared bound: 1000 times the bound)
       const NOPRE = swap(EARLY, PRE_RE, '', 'the stop precondition');
       const uvec = new Float32Array(4 * gc.slots); gc.fill(uvec);
-      const progs = { EARLY: compile(EARLY), FULL: compile(FULL), LOOSE: compile(LOOSE), NOPRE: compile(NOPRE) };
+      const progs = { EARLY: compile(EARLY), FULL: compile(FULL), LOOSE: compile(LOOSE), NOPRE: compile(NOPRE), TAIL_EARLY: compile(EARLY, MAIN_TAIL), TAIL_FULL: compile(FULL, MAIN_TAIL) };
       const run = (prog, zs) => {
         const nz = zs.length, d = new Float32Array(4 * nz);
         zs.forEach((z, i) => { d[4 * i] = z[0]; d[4 * i + 1] = z[1]; });
@@ -134,13 +144,25 @@ void main() {
           }
           return { worstOverTol: worst / TOL, nanDiff, differ, over };
         };
-        R.rows.push({ chain: ch.name, set: name, points: zs.length, early: cmp(a) });
+        // the hit test's charge: 0 for the full orbit, within the certificate (tail <= TOL (1 + |H|)) where the stop fired, and
+        // H bit for bit the full orbit's where it did not
+        const te = run(progs.TAIL_EARLY, zs), tf = run(progs.TAIL_FULL, zs);
+        let fullCharged = 0, overCharge = 0, charged = 0, uncharged = 0, unchargedDiffer = 0;
+        for (let i = 0; i < zs.length; i++) {
+          const h = Math.hypot(te[4 * i], te[4 * i + 1]), tl = te[4 * i + 2];
+          if (tf[4 * i + 2] !== 0) fullCharged++;
+          if (h !== h) continue;   // (a NaN H never hits, whatever its tail)
+          if (!(tl >= 0)) { overCharge++; continue; }
+          if (tl > 0) { charged++; if (!(tl <= TOL * (1 + h))) overCharge++; } else { uncharged++; if (te[4 * i] !== tf[4 * i] || te[4 * i + 1] !== tf[4 * i + 1]) unchargedDiffer++; }
+        }
+        R.rows.push({ chain: ch.name, set: name, points: zs.length, early: cmp(a), charge: { fullCharged, overCharge, charged, uncharged, unchargedDiffer } });
         R.controls.push({ chain: ch.name, set: name, loose: cmp(l), noPrecondition: cmp(np) });
       }
     }
     R.ok = !R.errors.length
       && R.rows.every((r) => r.early.over === 0 && r.early.nanDiff === 0)
-      && R.rows.some((r) => r.early.differ > 0)
+      && R.rows.every((r) => r.charge.fullCharged === 0 && r.charge.overCharge === 0 && r.charge.unchargedDiffer === 0)
+      && R.rows.some((r) => r.early.differ > 0 && r.charge.charged > 0)
       && R.controls.some((c) => c.loose.over > 0)
       && R.controls.some((c) => c.noPrecondition.nanDiff > 0 || c.noPrecondition.over > 0);
   } catch (err) { R.errors.push(String(err && err.stack || err)); }
