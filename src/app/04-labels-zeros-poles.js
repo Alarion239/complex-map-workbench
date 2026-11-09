@@ -520,22 +520,36 @@
   let carriedCuts = [];
   const CUT_COINCIDE_PX = 1;   // screen px: samples of a cut's two banks this close are one point
   // the hatches of a cut's closed side along the screen polyline pts (null where it breaks), as drawCuts hatches a ray: a stroke every 7 px of arc length from 8 px on,
-  // 5 px long, turned toward the clockwise side
+  // 5 px long, turned toward the clockwise side. Only the stretch of each segment inside the pane and HATCH_PAD px around it is stroked (a bank runs tens of thousands of px
+  // out), the strokes keeping their place on the arc
+  const HATCH_PAD = 20;
   function hatchCurve(pane, pts) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.strokeStyle = TH.cut; ctx.globalAlpha = 1; ctx.lineWidth = 1.25; ctx.setLineDash([]);
     ctx.beginPath();
-    let t = 8, run = 0;
+    let run = 0;
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
-      if (!a || !b) { run = 0; t = 8; continue; }
+      if (!a || !b) { run = 0; continue; }
       const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
       if (!(L > 0)) continue;
-      const ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L, nx = -uy, ny = ux;
-      for (; t - run < L; t += 7) {
-        const k = t - run, px = a[0] + ux * k, py = a[1] + uy * k;
-        ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54);
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      // (the parameter range of the segment inside the padded pane, by slabs)
+      let lo = 0, hi = 1;
+      for (const [p0, d, size] of [[a[0], dx, pane.w], [a[1], dy, pane.h]]) {
+        if (d === 0) { if (p0 < -HATCH_PAD || p0 > size + HATCH_PAD) hi = -1; continue; }
+        const t0 = (-HATCH_PAD - p0) / d, t1 = (size + HATCH_PAD - p0) / d;
+        lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+      }
+      if (hi >= lo) {
+        const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+        // (the first stroke at or after the visible stretch's start: the strokes are at arc lengths 8 + 7 n)
+        for (let t = 8 + 7 * Math.max(0, Math.ceil((run + lo * L - 8) / 7)); t - run < hi * L; t += 7) {
+          if (t - run < 0) continue;
+          const k = t - run, px = a[0] + ux * k, py = a[1] + uy * k;
+          ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54);
+        }
       }
       run += L;
     }
