@@ -1273,21 +1273,22 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       case 'zeta':
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
-      // Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
-      // uniform; neither loop unrolls), then back by the square root nearest each orbit point. float32 holds
+      // Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ (N ≤ 64, a uniform; neither loop unrolls), its
+      // first DH_REG points kept in variables, then back by the square root nearest each orbit point (a point past the
+      // first DH_REG is the orbit recomputed from z by the same steps: an array indexed by n - j would be local memory). float32 holds
       // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform. (The escape test on |w|²
       // and the roots by length(), whose argument stays below 10⁸ here, not by cx_abs and csqrtp: 1.7 times faster on
       // SwiftShader; the root keeps csqrtp's form, with no cancellation)
       case 'dh': case 'bottcher': {
         const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
-        const NM = Funcs.DH_NMAX;
+        const NM = Funcs.DH_NMAX, DH_REG = 8, R = Array.from({ length: DH_REG }, (_, i) => `o${i}`);
         return {
           sig: [type],
-          f: `vec2 orb[${NM + 1}];
+          f: `vec2 ${R.join(', ')};
   vec2 c = ${jc ? jc.v : 'z'}, w = z;
   int n = -1;
   for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
-    orb[k] = w;
+    ${R.map((o, i) => `if (k == ${i}) ${o} = w;`).join(' else ')}
     if (dot(w, w) > 1e8) { n = k; break; }
     if (float(k) >= ${nn.x}) break;
     w = cmul(w, w) + c;
@@ -1297,7 +1298,10 @@ vec2 cx_binom(vec2 a, vec2 b) {
   for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
     if (j > n) break;
     float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
-    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o = orb[n - j];
+    int q = n - j;
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o;
+    if (q < ${DH_REG}) { o = ${R.map((o, i) => (i < DH_REG - 1 ? `q == ${i} ? ${o} : ` : o)).join('')}; }
+    else { o = z; for (int i = 0; i < q; i++) o = cmul(o, o) + c; }
     p = dot(r, o) >= 0.0 ? r : -r;
   }
   ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;`,
