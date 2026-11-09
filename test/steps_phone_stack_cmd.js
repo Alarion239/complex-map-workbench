@@ -15,6 +15,7 @@ const SIZES = [[360, 640], [390, 844], [740, 360], [844, 390]];   // width, heig
 const LANGS = ['en', 'ru'];
 const SURFACES = ['plane', 'sphere', 'land'];
 const MIN_KEY = 44;          // px: the smallest touch target
+const GROUP_GAP = 8;         // px: between a key and the next group's key in the one-column stack
 const SHORT_PLOT = 260;      // px: below this plot height five 44 px keys with their gaps do not fit one column
 const UNUSED_MIN = 44;          // px: the smallest touch target
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
@@ -40,6 +41,8 @@ const column = () => ev(`(() => [...document.querySelectorAll('#plotL button.ph-
 // the plot's box: every key lies inside it (a key above its top edge is clipped)
 const plot = () => ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
 const inside = (b, p) => b[0] >= p[0] - POS_TOLERANCE && b[1] >= p[1] - POS_TOLERANCE && b[0] + b[2] <= p[0] + p[2] + POS_TOLERANCE && b[1] + b[3] <= p[1] + p[3] + POS_TOLERANCE;
+const accent = () => ev(`(() => { const d = document.createElement('i'); d.style.background = 'var(--accent)'; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })()`);
+const sphereBg = () => ev(`getComputedStyle([...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)[4]).backgroundColor`);
 const others = () => ev(`(() => [...document.querySelectorAll('#paneL .pane-head, .ruler, .ruler-corner, #svStrip, #plotL > .legend-chip:not([hidden]), #toastHost .toast')].filter((e) => e.getClientRects().length)
   .map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.className, box: [r.left, r.top, r.width, r.height] }; }))()`);
 const meets = (a, b) => a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1];
@@ -73,6 +76,14 @@ for (const lang of LANGS) {
       ok(`${t}: every key lies inside the plot`, c.every((k) => inside(k.box, pb)), { plot: pb, boxes: c.map((k) => k.box) });
       const cols = new Set(c.map((k) => Math.round(k.box[0])));
       ok(`${t}: one column where the keys fit the plot, two (zoom keys on the left) where they don't`, cols.size === (pb[3] < SHORT_PLOT ? 2 : 1), { plotH: pb[3], cols: [...cols] });
+      if (pb[3] >= SHORT_PLOT) {
+        const gap = (i) => c[i + 1].box[1] - (c[i].box[1] + c[i].box[3]);
+        ok(`${t}: ${GROUP_GAP} px between the groups (Display to Zoom in, Zoom out to Fit view)`, Math.abs(gap(0) - GROUP_GAP) <= POS_TOLERANCE && Math.abs(gap(2) - GROUP_GAP) <= POS_TOLERANCE, [gap(0), gap(1), gap(2), gap(3)]);
+      }
+      if (surf !== 'land') {
+        const bg = await sphereBg(), ac = await accent();
+        ok(`${t}: Sphere's pressed state shows as the accent fill, its released state does not`, (bg === ac) === (surf === 'sphere'), { bg, ac });
+      }
       boxes[surf] = c;
     }
     for (const surf of ['sphere', 'land']) ok(`${tag}: no key moves between the plane and the ${surf}`, same(boxes[surf], boxes.plane), { plane: boxes.plane.map((k) => k.box), [surf]: boxes[surf].map((k) => k.box) });
@@ -94,6 +105,12 @@ for (const lang of LANGS) {
     await settled({ until: "!!document.querySelector('#toastHost .toast')", max: 3000 });
     const toast = await ev(`(document.querySelector('#toastHost .toast') || {}).textContent || ''`);
     ok(`${tag}: a tap on the disabled Sphere shows its reason as the toast`, toast.length > 0 && (lang !== 'en' || toast.includes(NO_SPHERE_ON_LAND)), toast);
+    // while the message shows the stack stays where it was, inside the plot, and the message meets no key
+    await new Promise((r) => setTimeout(r, 600));
+    const withToast = await column(), tp = await plot(), tb = (await others()).filter((e) => /toast/.test(e.id));
+    ok(`${tag}: the stack keeps its place while a message shows`, same(withToast, boxes.land), { land: boxes.land.map((k) => k.box), withToast: withToast.map((k) => k.box) });
+    ok(`${tag}: and stays inside the plot`, withToast.every((k) => inside(k.box, tp)), { plot: tp, boxes: withToast.map((k) => k.box) });
+    ok(`${tag}: and the message meets no key`, tb.length > 0 && !withToast.some((k) => tb.some((e) => meets(k.box, e.box))), { toast: tb, keys: withToast.map((k) => k.box) });
   }
 }
 return { pass: !fails.length, fails, info };

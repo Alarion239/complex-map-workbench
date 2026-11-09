@@ -242,7 +242,7 @@ info.keys = kv;
 for (const v of Object.keys(kv)) ok(`every shown plane key is classified in ${v}`, Object.keys(kv[v]).every((n) => !n.startsWith('unclassified')), kv[v]);
 for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
 for (const v of ['swap', 'phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
-ok('D8 Both is the top key of its column, above the stack', kv.xy.both && kv.xy.both[1] < kv.xy.display[1] && Math.abs(kv.xy.both[0] - kv.xy.display[0]) <= 1, kv.xy);
+ok('D8 Both is the top key of its column, above the stack', kv.xy.both && kv.xy.both[1] < kv.xy.display[1] && kv.xy.both[0] === kv.xy.display[0], kv.xy);
 ok('the stack is at the bottom right, Display over Fit over Sphere', kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] < kv.xy.sphere[1] && kv.xy.sphere[1] > 600 && kv.xy.sphere[0] > 340, kv.xy);
 // Landscape on a portrait phone: the surface uses more of the plane than the bounding sphere's fit
 const lb = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
