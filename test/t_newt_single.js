@@ -1,7 +1,7 @@
-// Node check that the external ray's landing is conditional on the CPU (src/invops.js, opNewt): the seed walks back
-// plain first, and the ray only runs for a w where that walk misses. With the ray's stage test made impossible
-// (Inverse.NEWT_RAY.TOL = 0 fails every stage), a w far from the set keeps its member, since the plain walk solves it,
-// and a w near the set loses it, since only the ray reaches it. Run: node test/t_newt_ray_cond.js
+// Node check of the single-root skip (src/invops.js opNewt, src/inverse.js newtOps): a step that declares degreeOne
+// (one root of H_t(u) = w at most, checked numerically over a grid of seeds) skips the identity-seeded member's walk
+// where member 0 has already hit, which is the same root, so the members are the full path's and the walk's work is
+// saved. Run: node test/t_newt_single.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
@@ -14,11 +14,6 @@ const { Funcs, Inverse } = ctx;
 let bad = 0;
 const check = (name, ok, info = '') => { if (!ok) { bad++; console.log('FAIL', name, info); } };
 
-const T = 0.9;                       // a glide frame where member 0 misses near the set and the seed solves some of those places
-// Node check of the single-root skip (src/invops.js opNewt, src/inverse.js newtOps): a step that declares degreeOne
-// (one root of H_t(u) = w at most, checked numerically over a grid of seeds) skips the identity-seeded member's walk
-// where member 0 has already hit, which is the same root, so the members are the full path's and the walk's work is
-// saved. Run: node test/t_newt_single.js
 // the glide's t, early to near its end, with the most work per pixel the skipped path may do as a part of the full path's (H
 // calls): member 1 walks about 32 (1 - t) stages and member 0 the rest, so the skip saves most early and little late
 const MAX_WORK = { 0.1: 0.5, 0.5: 0.7, 0.9: 0.95, 0.9999: 0.99 };
@@ -50,6 +45,18 @@ for (const type of ['dh', 'bottcher']) {
     check(`${type} t=${t}: the skipped path has the full path's members at every scanned point (${diff} differ of ${pts.length})`, diff === 0 && nm > 0);
     check(`${type} t=${t}: and does at most ${MAX_WORK[t]} of its work (${(ws / wf).toFixed(2)})`, ws <= MAX_WORK[t] * wf, JSON.stringify({ ws, wf }));
   }
+}
+// controls: a step that declares degreeOne but has two roots over a w (z + a / z, a above the tangency test's reach: two
+// preimages of every w) fails the numeric check and keeps the full path; a polynomial step keeps its two members
+{
+  const A = 40;   // |f(z) / z - 1| = A / |z|^2 = 0.04 at |z| = NEWT_RAY.R: the identity test passes, the map is two-to-one
+  const s = { type: 'dh', params: Funcs.defaults('dh'), on: true }, b = Funcs.build(s);
+  const f = (z) => ({ re: z.re + A * z.re / (z.re * z.re + z.im * z.im), im: z.im - A * z.im / (z.re * z.re + z.im * z.im) });
+  b.f = f; b.hom = (t) => (z) => { const w = f(z); return { re: (1 - t) * z.re + t * w.re, im: (1 - t) * z.im + t * w.im }; };
+  const op = Inverse.homOps(b, 0.5).ops.find((o) => o.kind === 'NEWT');
+  check('a two-to-one step declaring degreeOne is not accepted as single-root (its ops carry no skip)', !!op && !(op.p.back || []).some((q) => q.single) && (op.p.back || []).some((q) => q.ray), JSON.stringify(op && op.p.back && op.p.back.map((q) => [q.ray, q.single])));
+  const q = Inverse.homOps(Funcs.build({ type: 'poly', params: Funcs.defaults('poly'), on: true }), 0.5).ops.find((o) => o.kind === 'NEWT');
+  check('a polynomial step keeps its roots as members (no skip)', !!q && !(q.p.back || []).some((x) => x.single));
 }
 console.log(bad ? `${bad} failed` : 'all passed');
 process.exit(bad ? 1 : 0);

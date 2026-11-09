@@ -2162,7 +2162,7 @@ void ixAncTan(vec2 w) {
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
-    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1), ray: back.some((q) => q.ray) } : null;
+    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1), ray: back.some((q) => q.ray), single: back.some((q) => q.single) } : null;
   };
   // a polynomial NEWT op's degree (InvOps.opNewt with deg: its members are every root of H_t(u) = w), or 0
   const newtDeg = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.deg) || 0;
@@ -2203,11 +2203,10 @@ void ixAncTan(vec2 w) {
   // the stepper's trip bound: its longest schedule (a missed CHECK, then GRID's NEWT_K stages, AT, POL; or a LAD, POL;
   // or a BACK of NEWT_K stages, POL; or DEFL's NEWT_DEF steps) in single steps; the thread's t is in [0, 1], so a BACK has
   // at most NEWT_K stages (kb = ceil(NEWT_K (1 - t))) and a missed CHECK, which restarts the grid, is the longest
-  // (ray: the plain BACK walk and its POL, then a RAY phase and a second BACK walk, the external ray's landing: its stages
-  // at most HALVINGS SUB + 1, NEWT steps each, then the BACK stages and POL; each walk is its own pass of _run's loop, so the
-  // bound is the longer one's)
-  const newtRayMax = () => { const R = Inverse.NEWT_RAY; return (R.SUB * R.HALVINGS + 1) * R.NEWT + Inverse.NEWT_K + Inverse.NEWT_POL; };
-  const newtRunMax = (ray) => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF, ray ? newtRayMax() : 0);
+  // (a program with a ray seed runs a second pass of the loop after a missed plain BACK: RAY's stages, NEWT steps each,
+  // then the BACK stages and POL, bounded in the shader by the pixel's own stage count rS: (rS + 1) NEWT + NEWT_K + NEWT_POL,
+  // at most (HALVINGS SUB + 1) NEWT + NEWT_K + NEWT_POL, since a member needing more stages gets no ray)
+  const newtRunMax = () => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF);
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)); ray adds the RAY phase and its
   // rS / wk state and nothing else: _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, the only place
@@ -2223,7 +2222,7 @@ void ixAncTan(vec2 w) {
   // geometric stages newtRayStages counts, NEWT steps each at t = 1 through the same _step with w_s as its w; a stage that
   // then still moves u by more than TOL (1 + |u|) fails the member; then BACK, POL. RAY runs only after the plain BACK, POL
   // from the seed missed the hit test, so a pixel the plain walk solves pays nothing for it; its at most HALVINGS SUB + 1
-  // stages raise newtRunMax. _run's result is true when the schedule ran to its end and the
+  // stages bound the second pass. _run's result is true when the schedule ran to its end and the
   // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
   // there
   const newtCoreFns = (P, H, ray) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
@@ -2266,7 +2265,8 @@ ${ray ? `  // the external ray's stages (newtRayStages): rS of them below |w| = 
     }
   }
   for (int pass = 0; pass < 2; pass++) {
-` : ''}  for (int it = 0; it < ${newtRunMax(ray)}; it++) {
+  int itMax = pass == 0 ? ${newtRunMax()} : (rS + 1) * ${Inverse.NEWT_RAY.NEWT} + ${Inverse.NEWT_K + Inverse.NEWT_POL};
+` : ''}  for (int it = 0; it < ${ray ? 'itMax' : newtRunMax()}; it++) {
     if (ph == ${NP.GRID} && n > k0) { ug = u; ph = ${NP.AT}; n = 0; }
     if (ph == ${NP.BACK} && n > kb) { ph = ${NP.POL}; n = 0; }
     if (ph == ${NP.AT} && n > 0) { ph = ${NP.POL}; n = 0; }
@@ -2337,7 +2337,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v = w, ug;
     bool okv = true;
     int mode = ${NM.WALK};
-    if (m > 0) { okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
+    if (m > 0) { ${bk.single ? `okv = !${P}_k[0]; if (okv) ` : ''}okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
 ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
     else if (uNrRead == 1 && w == ixPixW) {
       v = texelFetch(uNrTex0, ixNrTexel, 0).zw;

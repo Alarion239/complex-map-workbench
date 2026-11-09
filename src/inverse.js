@@ -1671,6 +1671,39 @@ const Inverse = (() => {
     }
     return true;
   }
+  // A step that declares degreeOne has at most one root of H_t(u) = w, for every t and w: the Newton walks from a grid of
+  // seeds (SR_SEEDS points of the square |Re|, |Im| <= SR_BOX and SR_RING points on each of the circles |z| = SR_RADII,
+  // the last one NEWT_RAY.R) end on at most one distinct root, at every t of SR_T for each of SR_W points w, so a seed walk that lands
+  // where member 0 did finds nothing new. The grid is the evidence the declaration is checked against (no proof: the
+  // check is numeric, as tangentAtInfinity); a map with a second root anywhere on it fails. Cached per build
+  const SR_T = [1e-4, 0.002, 0.1, 0.25, 0.5, 0.75, 0.9, 0.998, 0.9999], SR_BOX = 2.5, SR_SEEDS = 5, SR_RADII = [1.1, 1.8, 4, 12, 32], SR_RING = 8, SR_W = 6, SR_STEPS = 14;
+  const singleRootCache = new WeakMap();
+  function singleRoot(b) {
+    if (singleRootCache.has(b)) return singleRootCache.get(b);
+    const seeds = [];
+    for (let i = 0; i < SR_SEEDS; i++) for (let j = 0; j < SR_SEEDS; j++) seeds.push(C(-SR_BOX + 2 * SR_BOX * (i + 0.5) / SR_SEEDS, -SR_BOX + 2 * SR_BOX * (j + 0.5) / SR_SEEDS));
+    for (const r of SR_RADII) for (let k = 0; k < SR_RING; k++) { const a = 2 * Math.PI * (k + 0.5) / SR_RING; seeds.push(C(r * Math.cos(a), r * Math.sin(a))); }
+    const ws = [];
+    for (let k = 0; k < SR_W; k++) { const a = 2 * Math.PI * (k * 0.618 % 1), r = 1 + 2.5 * ((k * 0.381 + 0.1) % 1); ws.push(C(r * Math.cos(a), r * Math.sin(a))); }
+    let ok = true;
+    for (const t of SR_T) {
+      const H = b.hom ? b.hom(t) : (z) => { const w = b.f(z); return C((1 - t) * z.re + t * w.re, (1 - t) * z.im + t * w.im); };
+      const dH = (u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(H(add(u, C(h, 0))), H(sub(u, C(h, 0)))), 0.5 / h); };
+      for (const w of ws) {
+        const roots = [];
+        for (const z0 of seeds) {
+          let u = z0;
+          for (let it = 0; it < SR_STEPS && isFin(u); it++) u = sub(u, div(sub(H(u), w), dH(u)));
+          if (isFin(u) && abs(sub(H(u), w)) <= 1e-9 * (1 + abs(w)) && roots.every((r) => abs(sub(u, r)) > NEWT_SAME * (1 + abs(r)))) roots.push(u);
+          if (roots.length > 1) break;
+        }
+        if (roots.length > 1) { ok = false; break; }
+      }
+      if (!ok) break;
+    }
+    singleRootCache.set(b, ok);
+    return ok;
+  }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
   // step has its f). A polynomial step of degree 2 to NEWT_POLY_MAX (its degree known exactly) has a homotopy that is
@@ -1686,7 +1719,7 @@ const Inverse = (() => {
     // (a step with no exact ops that declares itself one-to-one onto the outside of a disk and tangent to the identity at
     // infinity is seeded by the identity when f is that close to the identity on a
     // circle: then f(z) = w has exactly one root outside it, by Rouché, for w inside the circle's image)
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : b.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true })] : null;
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : b.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true, single: !!b.degreeOne && singleRoot(b) })] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:

@@ -318,7 +318,7 @@ const InvOps = (() => {
   function opNewt(t, H, back, deg, anchor, pole) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
-    const ray = !!counts && back.some((q) => q.ray);
+    const ray = !!counts && back.some((q) => q.ray), single = !!counts && back.some((q) => q.single);
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
     const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
@@ -387,7 +387,7 @@ const InvOps = (() => {
         if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
         if (counts) {
           const K = newtBackK(t);
-          for (let i = 0; i < seeds; i++) {
+          for (let i = 0; i < seeds && !(single && out.length); i++) {
             const v0 = seedOf(w, i);
             let v = v0 && walkBack(v0, w, K);
             if (ray && v0 && !(v && hits(v, w))) v = walkBack(rayLand(v0, w), w, K);
