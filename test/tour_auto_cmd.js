@@ -277,17 +277,19 @@ await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRe
 await settled({ max: 15000 });   // (the song scene's frames and shader compiles are done before the press, so the playback is timed alone)
 const ab = await center('.ts-act');
 await ltInstall();
+// (the captions are logged in the page, with the page's clock, as they change: the tour's own timers set them, and a CDP
+// poll over a loaded machine sees them seconds late or skips one)
+await ev(`(() => { window.__caps = []; let last = null; const note = () => { const e = document.querySelector('#tourLead'), t = e ? e.textContent : null; if (t !== last) { last = t; window.__caps.push([performance.now(), t]); } }; note(); window.__capObs = new MutationObserver(note); window.__capObs.observe(document.body, { childList: true, characterData: true, subtree: true }); return 1; })()`);
 await click(ab[0], ab[1]); t0 = Date.now(); const p0 = await ev('performance.now()');
-const caps = [];
-let last = '', durMs = 0;
+let durMs = 0;
 while (Date.now() - t0 < 30000) {
-  const t = await ev(`document.querySelector('#tourLead').textContent`);
-  if (t !== last) { caps.push([Date.now() - t0, t.slice(0, 24)]); last = t; }
   // (the function's Listen along; its duration is the circle's length at the zoom, 250 px/s)
   if (!durMs) durMs = 1000 * ((await ev(`(() => { const s = __cmwSound(); return s.listenFn ? s.listenFn.dur : 0; })()`)) || 0);
   if ((await cur()) !== 'sound/song') break;
   await sleep(40);
 }
+const caps = ((await ev('window.__caps.slice()')) || []).filter((c) => c[1] != null).map((c) => [c[0] - p0, c[1].slice(0, 24)]);
+await ev('window.__capObs.disconnect(); 1');
 const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
 // (the Mountain King's F is costly, so Listen along samples it first (f181c88, "Preparing to listen along")
 // and starts seconds after the press: the fractions are counted from the playback's start, its first caption)
