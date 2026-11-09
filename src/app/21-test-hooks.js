@@ -926,6 +926,7 @@
     if (!w) return null;
     const ms = window.__cmwLandMembers([[w.re, w.im]])[0] || [];
     let status = 'ok', N = 0, P = 0, branchLeaves = 0, bad = 0;
+    const tally = [];
     const minStep = opts.nearContour ? 1 : SCN.MIN_STEP;
     for (const l of leaves) {
       if (l.two) {
@@ -999,6 +1000,7 @@
         const n = sum / (2 * Math.PI);
         if (Math.abs(n - Math.round(n)) > SCN.CLOSE * 1e3) { status = status === 'ok' ? 'unresolved' : status; continue; }
         N += Math.round(n);
+        if (Math.round(n)) tally.push({ k, x: [l.x0, l.x1], y: [l.y0, l.y1], n: Math.round(n) });
         if (!opts.noPoles) {
           for (const p of l.poles) {
             const at = (r) => { const h = sc.g(k, l.c, C(p.re + r, p.im)); return h ? CX.abs(h) : 0; }, a = at(SCN.POLE_R), b = at(10 * SCN.POLE_R), order = Math.log(a / b) / Math.log(10);
@@ -1010,7 +1012,7 @@
     // (a certified member in a branch leaf contradicts the leaf's exclusion of w: the count is unresolved)
     if (ms.some((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && !l.closed && !l.two; })) status = status === 'ok' ? 'unresolved' : status;
     const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && (l.closed || l.two); }).length - (opts.dropOne ? 1 : 0);
-    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad }];
+    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad, tally, memberLeaves: ms.map((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l ? { x: [l.x0, l.x1], y: [l.y0, l.y1], closed: l.closed } : null; }) }];
   };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true }, noRay: { noRay: true }, mixBeta0: { mixBeta0: true }, mixSwitch: { mixSwitch: true }, clipOff: { clipOff: true }, clipLinear: { clipLinear: true }, noSeam: { noSeam: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
