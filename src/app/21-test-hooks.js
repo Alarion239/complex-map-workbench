@@ -737,7 +737,7 @@
   // 'poleOnly' (the prefix has no zero in the box: 1 / (z - 0.5)) and 'cutCrossing' ((z + 0.5) / (z - 0.5), the cut through the image of the box's outside)
   window.__cmwLandWindFixture = (kind) => {
     const half = C(0.5, 0), mob = kind === 'poleOnly' ? [CX.ZERO, CX.ONE, CX.ONE, C(-0.5, 0)] : [CX.ONE, half, CX.ONE, C(-0.5, 0)];
-    const sh = { plan: { ops: [InvOps.opMob(mob), InvOps.opRootPow(half, kind === 'poleOnly' ? Math.PI : 0, 0)] } };
+    const sh = { plan: { ops: [Inverse._ops.opMob(mob), Inverse._ops.opRootPow(half, kind === 'poleOnly' ? Math.PI : 0, 0)] } };
     const r = window.__cmwLandWind([1, 1], { sheets: [sh], box: { x0: -2, x1: 2, y0: -2, y1: 2 } });
     return r && r[0] ? { status: r[0].status, ok: r[0].ok } : null;
   };
