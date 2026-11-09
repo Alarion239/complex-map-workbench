@@ -77,6 +77,7 @@
   // the cases without a hue-shifted row, 23 on the Joukowski airfoil, the largest; a hue-shifted row at a sheet boundary is
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
+  const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
@@ -134,6 +135,17 @@
       let n = 0;
       for (let i = 0; i < x.length; i += 4) { const p = hue(x, i), q = hue(y, i); if (p >= 0 && q >= 0) { const d = Math.abs(p - q); if (Math.min(d, 360 - d) > ${HUE_OFF_DEG}) n++; } }
       return n;
+    },
+    // the most pixels of one image row that differ by more than tol (their largest channel difference) between two frames, and that row
+    rowOver: (a, b, tol) => {
+      const x = window.__heldPx[a], y = window.__heldPx[b], W = document.getElementById('canvasL').width, H = x.length / 4 / W;
+      let best = 0, at = -1;
+      for (let j = 0; j < H; j++) {
+        let n = 0;
+        for (let i = 0; i < W; i++) { const q = 4 * (j * W + i); if (Math.max(Math.abs(x[q] - y[q]), Math.abs(x[q + 1] - y[q + 1]), Math.abs(x[q + 2] - y[q + 2])) > tol) n++; }
+        if (n > best) { best = n; at = j; }
+      }
+      return { n: best, row: at };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -547,6 +559,23 @@
         await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const hueN = await ev(`__lx.hueOff('curT', ${first ? "'P0T'" : "'P1T'"})`);
         r[u].top = { still: stillT, d: dT, hueN };
+        if (lastU && u >= 1 - END_U && c.tag === ROW_CASE) {
+          const ro = await ev(`__lx.rowOver('curT', 'P1T', ${DIFF_TOL})`);
+          r.rowOver = ro;
+          ok(`${t}: in the Top view no image row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} from the parked plane's (row ${ro.row} has ${ro.n})`, ro.n <= ROW_OVER_MAX, ro);
+          // (controls: the per-fragment side discard put back, and the block's sides a little wide, each leave a row over the bound)
+          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide']]) {
+            let o;
+            try {
+              await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+              await grab('ctlR');
+              o = await ev(`__lx.rowOver('ctlR', 'P1T', ${DIFF_TOL})`);
+            } finally {
+              await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            }
+            ok(`${t}: control: with ${what} a Top view row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} (row ${o.row} has ${o.n})`, o.n > ROW_OVER_MAX, o);
+          }
+        }
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
         if (lastU && COMBO_CONTROL.includes(c.tag) && !r.comboControl) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
