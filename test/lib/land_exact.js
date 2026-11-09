@@ -70,7 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  const MONO_CERT = 1e-10, MONO_NEWT_MAX = 12;   // a member of H_u = w: Newton's method on H, its residual within this share of 1 + |w|, in at most this many steps
+  const MONO_CERT = 1e-7, MONO_NEWT_MAX = 12;   // a member of H_u = w: Newton's method on H, its residual within this share of 1 + |w| (the far sheets' H stalls near 5e-10: float64 in a large log coordinate), in at most this many steps
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
   const MONO_STEPS_MAX = 4000, MONO_MIN_DT = 1e-9;   // the tracker's steps along one path, and the smallest share of a segment a step may take (past them the path is unresolved, a red)
   const BRANCH_CELLS_PER_POINT = 4;   // the most cells of a grid one point can touch
@@ -164,18 +164,20 @@
       const clog = (a) => [Math.log(cabs(a)), Math.atan2(a[1], a[0])], mix = (a, b, t) => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       const sepOn = !(opt && opt.sep === false), h = window.__lxGrid;
       const hom = (z, lam, sh) => { const q = window.__cmwLandHom(z, lam); const o = q && q[sh]; return o && o.H && o.dH ? o : null; };
+      let nfail = null;   // (why the last Newton solve gave up: the step, the residual or the missing homotopy value)
       const newton = (m, w) => {
         let z = m.z, lam = m.lam;
         for (let i = 0; i < ${MONO_NEWT_MAX}; i++) {
           const o = hom(z, lam, m.sheet);
-          if (!o) return null;
+          if (!o) { nfail = { i, why: 'hom', sheet: m.sheet }; return null; }
           const res = csub(o.H, w);
           if (cabs(res) <= ${MONO_CERT} * (1 + cabs(w))) return { z, lam, sheet: m.sheet };
           const dz = cdiv(res, o.dH);
-          if (!(cabs(dz) < 1e30)) return null;
+          if (!(cabs(dz) < 1e30)) { nfail = { i, why: 'dz' }; return null; }
           const zn = csub(z, dz);
           if (lam) lam = cadd(lam, clog(cdiv(zn, z)));
           z = zn;
+          nfail = { i, res: cabs(res), dz: cabs(dz), sheet: m.sheet };
         }
         return null;
       };
@@ -198,7 +200,7 @@
             const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m) => newton(m, w));
             let good = nx.every(Boolean);
             if (good && sepOn) good = nx.every((m, i) => cabs(csub(m.z, cur[i].z)) <= ${MONO_SEP} * sepOf(nx, i));
-            if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = { s, t0, why: nx.every(Boolean) ? 'sep' : 'newton ' + nx.findIndex((m) => !m) + ' of ' + nx.length }; return null; } }
+            if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = { s, t0, why: nx.every(Boolean) ? 'sep' : 'newton ' + nx.findIndex((m) => !m) + ' of ' + nx.length, nfail }; return null; } }
           }
         }
         return cur;
