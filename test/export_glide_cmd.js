@@ -11,6 +11,20 @@ const DRAWN = 60;
 // a 3D frame has its picture on it when more than this share of its pixels is drawn (a globe fills about a third of its frame, so
 // this says the picture is there and not the paper alone)
 const DRAWN_MIN = 0.04;
+// a 3D first frame is compared with the still over the pixels the still draws, to this mean difference (of 255): the frame shows
+// the screen's look and the still the art layer's fills, so the bound is above their gap and below the controls' (a globe agrees
+// to about 3, the Landscape, whose relief window is rounded, to about 12)
+const SPHERE_BOUND = 6, LAND_BOUND = 15;
+// the share of the still's pixels that must be drawn for its comparison to say something
+const STILL_DRAWN_MIN = 0.05;
+// the 3 channels of a white pixel summed: a pixel is paper when its channels sum within DRAWN of this
+const RGB_MAX = 765;
+// the controls: the frame zoomed by this factor, and shifted by this share of the crop's width
+const CONTROL_ZOOM = 1.1, CONTROL_SHIFT = 0.1;
+// the still is compared at this width in px
+const CMP_W = 320;
+// a globe still's panel and the pane's canvas on the screen agree in width over height to this (css px rounding)
+const ASPECT_TOL = 0.02;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -58,7 +72,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     if (!f.box) return { none: 1 };
     const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
     im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
-    const w = 320, h = Math.round(w * im[3] / im[2]);
+    const w = ${CMP_W}, h = Math.round(w * im[3] / im[2]);
     const still = document.createElement('canvas'); still.width = w; still.height = h;
     still.getContext('2d').drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
     // the frame's window: f.box widened about its centre to 16:9
@@ -98,11 +112,14 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
         g.drawImage(img, mx - cw / 2, my - ch / 2, cw, ch, 0, 0, w, h);
         const a = g.getImageData(0, 0, w, h).data;
         let sum = 0, n = 0;
-        for (let i = 0; i < a.length; i += 4) { if (765 - c[i] - c[i + 1] - c[i + 2] <= 60) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
+        for (let i = 0; i < a.length; i += 4) { if (${RGB_MAX} - c[i] - c[i + 1] - c[i + 2] <= ${DRAWN}) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
         return { mad: n ? sum / (n * 3) : null, n: n / (w * h) };
       };
       const picW = Math.round(chk.pic * dv.width), H = dv.height;
-      three = { first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, 1.1, 0), shift: cmp(dv, picW, H, 1, 0.1), asp: +asp.toFixed(3) };
+      // (the pane's canvas on the screen, measured here and not through the figure: its width over height is the still's panel's
+      // for a globe)
+      const pc = [...document.querySelectorAll('#plotL canvas')].map((e) => e.getBoundingClientRect()).sort((p, q) => q.width * q.height - p.width * p.height)[0];
+      three = { first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, ${CONTROL_ZOOM}, 0), shift: cmp(dv, picW, H, 1, ${CONTROL_SHIFT}), asp: +asp.toFixed(3), dom: pc ? +(pc.width / pc.height).toFixed(3) : null };
     }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
     // draws what the pane draws: no level curves of its own
@@ -114,9 +131,11 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
   // (a bound for each: the frame shows the screen's look, the still the art layer's fills; the controls sit well above it)
   if (surf !== 'plane') {
-    const t3 = fp && fp.three, bound = surf === 'sphere' ? 6 : 15;
-    ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > 0.05 && t3.first.mad < bound, fp);
-    ok(`${tag}: the same comparison fails on a frame zoomed by a tenth and on one shifted by a tenth`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
+    const t3 = fp && fp.three, bound = surf === 'sphere' ? SPHERE_BOUND : LAND_BOUND;
+    ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > STILL_DRAWN_MIN && t3.first.mad < bound, fp);
+    // the still's shape is checked against the pane's own size, not against the figure's path that the frame also takes
+    if (surf === 'sphere') ok(`${tag}: the globe still's panel has the pane's width over height (${t3 && t3.dom})`, !!t3 && t3.dom != null && Math.abs(t3.asp - t3.dom) < ASPECT_TOL, fp);
+    ok(`${tag}: the same comparison fails on a frame zoomed by ${CONTROL_ZOOM} and on one shifted by ${CONTROL_SHIFT} of the crop`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
   }
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
