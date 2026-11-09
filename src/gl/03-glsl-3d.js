@@ -1091,24 +1091,26 @@ void main() {
   }
   if (!found) { ringWhy(tfOut, 1); return; }
   vec2 pP = uBox.xy + vec2(p) / float(uN - 1) * uBox.zw;
-  float best = 1e30, hj = 0.0;
+  float hd = 1e-6 * (1.0 + length(zA));
+  vec2 dM = (mapPoint(zA + vec2(hd, 0.0)) - mapPoint(zA - vec2(hd, 0.0))) / (2.0 * hd);
+  float best = 1e30, hj = 0.0, hit = 0.0;
   vec2 zj = vec2(0.0);
+  int why = 2;
   for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
     if (j >= uLayers || j == uK) continue;
     vec4 tj = ringT(j, p);
     if (!(tj.w > 5.0 && tj.w < uCode + 0.1)) continue;
     vec2 zz = ringZ(j, p).xy;
     float d = length(zz - zA);
-    if (d < best) { best = d; zj = zz; hj = tj.z; }
+    // (the layers' preimages of a place can coincide: a candidate is taken by its height too)
+    if (!(d * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { why = max(why, 3); continue; }
+    cxs0_out = false;
+    vec2 h = carryHeightA(zA, zz);
+    if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { why = max(why, 4); continue; }
+    if (uGuard == 1 && abs(h.x - tj.z) > ${RING_GUARD} * uH) { why = max(why, 5); continue; }
+    if (d < best) { best = d; zj = zz; hj = tj.z; hit = 1.0; }
   }
-  if (!(best < 1e29)) { ringWhy(tfOut, 2); return; }
-  float hd = 1e-6 * (1.0 + length(zA));
-  vec2 dM = (mapPoint(zA + vec2(hd, 0.0)) - mapPoint(zA - vec2(hd, 0.0))) / (2.0 * hd);
-  if (!(best * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { ringWhy(tfOut, 3); return; }
-  cxs0_out = false;
-  vec2 h = carryHeightA(zA, zj);
-  if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { ringWhy(tfOut, 4); return; }
-  if (uGuard == 1 && abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 5); return; }
+  if (hit < 0.5) { ringWhy(tfOut, why); return; }
   tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, hj + uHOff * uH, uContCode);
 }
 `;

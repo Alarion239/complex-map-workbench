@@ -15,13 +15,21 @@ const CASES = [
   { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
   { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN },
   { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [] },
+  // a box centred off the branch point
+  { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 } },
+  // more layers than the cross-layer pass reads: the frame is still drawn
+  { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential', shapes: [], blankOnly: true },
 ];
+const ONLY = process.env.CMW_ONLY ? new RegExp(process.env.CMW_ONLY) : null;
+const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view
 const AT = [0.25, 0.5, 0.75];   // (the glide's u of the probes: between the two planes, where no end blend hides a crack)
 const CRACK_NEAR = 3, FULL = 250, SPAN = 2;   // (a pixel counts when 3 of its 4 neighbours SPAN pixels away are covered at over FULL of 255)
 // the largest count of the parked frames of the three cases in both views (log of an annulus, parked plane 0, isometric: 30); a moving
 // frame's cracks are at most what a parked plane draws
 const CRACK_MAX = 30;
+// a frame with more layers than the cross-layer pass reads is drawn (not blank): its relief covers this share of the pane
+const BLANK_MIN = 0.02;
 // the measure's control: CTL_HOLES isolated one-pixel holes, CTL_STEP pixels apart along a row of the covered interior
 const CTL_HOLES = 40, CTL_STEP = 5;
 const COUNT = `window.__lxCrack = (cov, w, h) => {
@@ -100,16 +108,24 @@ const controls = async (c) => {
 };
 await view(1440, 900, false, false);
 for (const c of CASES) {
+  if (ONLY && !ONLY.test(c.tag)) continue;
   const ns = 'cracks' + Date.now();
-  await loadView('steps', ns, { shapes: c.shapes, steps: c.steps, sheets: true, height: 'im' });
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
-  await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  if (c.example) {
+    await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+    await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
+    await ev(`__cmwExample(${names.indexOf(c.example)}); 1`); await settled({ max: LOAD_MAX_MS });
+    await ev("__cmwSet('alpha', 1), __cmwSet('height', 'im'), __cmwSet('sheets', true), 1");
+  } else {
+    await loadView('steps', ns, { shapes: c.shapes, steps: c.steps, sheets: true, height: 'im', srcView: c.srcView });
+    await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+    await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  }
   await settled({ max: LOAD_MAX_MS * 2, until: '__cmwSteps().ready.ready' });
   await ev(COUNT);
   const cam0 = await ev("__cmwCam('L')");
   for (const [view_, cam] of [['isometric', cam0], ['Top', TOP_CAM]]) {
     await ev(`__cmwCam('L', ${JSON.stringify(cam)}); 1`);
-    for (const k of [0, 1]) {
+    for (const k of c.blankOnly ? [] : [0, 1]) {
       await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
       const n = await ev('__lxCount()');
       info[`${c.tag}, ${view_}, plane ${k}`] = n;
@@ -122,6 +138,14 @@ for (const c of CASES) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS });
     for (const u of AT) {
       await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      if (c.blankOnly) {
+        const r = await ev('JSON.stringify(__cmwLandRelief())');
+        const cov = r && JSON.parse(r);
+        const frac = cov ? cov.n / (cov.w * cov.h) : null;
+        info[`${c.tag}, ${view_}, u=${u}`] = frac;
+        ok(`${c.tag}, ${view_}, u=${u}: the frame is drawn, the relief covering at least ${BLANK_MIN} of the pane (${frac})`, frac !== null && frac >= BLANK_MIN, { frac });
+        continue;
+      }
       const n = await ev('__lxCount()');
       info[`${c.tag}, ${view_}, u=${u}`] = n;
       ok(`${c.tag}, ${view_}, u=${u}: the frame has at most ${CRACK_MAX} cracks along its seams (${n})`, n !== null && n <= CRACK_MAX, { n });

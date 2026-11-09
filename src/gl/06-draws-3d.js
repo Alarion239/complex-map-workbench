@@ -465,10 +465,13 @@
   }
   // The cross-layer continuation of the layered glide's layers (LAND_CARRY_RING_VS): each layer's texels and preimages
   // are read by the pass of every layer, so the layers are all placed first
+  let landRingSkipped = 0;   // the layer count of the last frame whose cross-layer pass was left out (more than RING_LAYERS_MAX), else 0
   function landRing(st, N, mode, H, mu, aspect) {
     const c = st.carry, b = st.box, bytes = N * N * 16, n = landActive.length;
-    if (n < 2) return;
-    if (n > RING_LAYERS_MAX) throw new Error('the glide has ' + n + ' layers; the cross-layer pass reads at most ' + RING_LAYERS_MAX);
+    if (n < 2) { landRingSkipped = 0; return; }
+    // (more layers than the pass reads: the frame is drawn without it, and the hook says so)
+    landRingSkipped = 0;
+    if (n > RING_LAYERS_MAX) { landRingSkipped = n; return; }
     const P = program('landCarryRing', c.map);
     if (!P) return;
     const h0 = c.hT == null ? c.T : c.hT;
@@ -545,6 +548,7 @@
     });
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
+    out.skipped = landRingSkipped;
     return out;
   }
   // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
