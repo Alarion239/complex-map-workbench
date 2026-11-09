@@ -20,7 +20,6 @@ const FIRST = 0.002;          // (a glide's first and last frames: x from either
 const MIN_PX = 300;           // (the pixels at which the strokes are expected, in axes and in grid: the parked frames have 375 to 1250 axes pixels and 979 to 5156 grid ones)
 const SAME_OVER = 0.05;       // (two frames' shares of those pixels not drawn right, at most this far apart)
 const LINE_SHIFT = 2;         // (CSS px: the control's lines off)
-const EDGE_CSS = 24;          // (the rulers' band, left out: a moving frame has none)
 const CASES = [
   { tag: 'Strip to disk', example: null, scope: 'in' },
   { tag: 'Böttcher coordinates, Everywhere', example: 'Böttcher coordinates of a Julia set', scope: 'all' },
@@ -32,7 +31,7 @@ const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); 
 const at = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 1e-9 && __cmwSteps().moving` }); };
 // the page's reader of a kept frame (tag) for the camera win = [cx, cy, s], its lines dx, dy CSS px off:
 // { axes: { n, over }, grid: { n, over } }
-const READER = `window.__lineShare = (tag, win, dx, dy, edge, tol) => {
+const READER = `window.__lineShare = (tag, win, dx, dy, tol) => {
   const P = window.__heldPx[tag], c = document.getElementById('canvasL'), W = c.width, H = c.height, d = W / c.getBoundingClientRect().width;
   const cw = W / d, ch = H / d, [cx, cy, s] = win;
   const cs = getComputedStyle(document.documentElement), hex = (v, f) => { const h = (cs.getPropertyValue(v).trim() || f).slice(1); return [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)); };
@@ -51,10 +50,9 @@ const READER = `window.__lineShare = (tag, win, dx, dy, edge, tol) => {
     o.n++; if (off) o.over++;
   };
   const grid = (m, q) => m * (1 - aL) + ink[q] * aL, axis = (m, q) => (m * 0.6 + casing[q] * 0.4) * (1 - aA) + ink[q] * aA;
-  const e = Math.round(edge * d);
   // (a vertical line at CSS x, a horizontal one at CSS y: the pixel the rest renderer's 1 px line at Math.round(x) + 0.5 covers)
-  const vline = (x, want, o) => { const X = Math.floor((x + dx) * d); if (X - K < 0 || X + K >= W) return; for (let y = e; y < H - e; y++) px(4 * (y * W + X), 4 * (y * W + X - K), 4 * (y * W + X + K), want, o); };
-  const hline = (y, want, o) => { const Y = Math.floor((y + dy) * d); if (Y - K < 0 || Y + K >= H) return; for (let x = e; x < W - e; x++) px(4 * (Y * W + x), 4 * ((Y - K) * W + x), 4 * ((Y + K) * W + x), want, o); };
+  const vline = (x, want, o) => { const X = Math.floor((x + dx) * d); if (X - K < 0 || X + K >= W) return; for (let y = 0; y < H; y++) px(4 * (y * W + X), 4 * (y * W + X - K), 4 * (y * W + X + K), want, o); };
+  const hline = (y, want, o) => { const Y = Math.floor((y + dy) * d); if (Y - K < 0 || Y + K >= H) return; for (let x = 0; x < W; x++) px(4 * (Y * W + x), 4 * ((Y - K) * W + x), 4 * ((Y + K) * W + x), want, o); };
   const ox = cw / 2 - cx * s, oy = ch / 2 + cy * s, x0 = cx - cw / 2 / s, x1 = cx + cw / 2 / s, y0 = cy - ch / 2 / s, y1 = cy + ch / 2 / s;
   vline(Math.round(ox) + 0.5, axis, out.axes); hline(Math.round(oy) + 0.5, axis, out.axes);
   for (let k = Math.ceil(x0 / st); k <= Math.floor(x1 / st); k++) if (k !== 0) vline(Math.round(cw / 2 + (k * st - cx) * s) + 0.5, grid, out.grid);
@@ -63,7 +61,7 @@ const READER = `window.__lineShare = (tag, win, dx, dy, edge, tol) => {
   return out;
 }, 1`;
 const WIN = '(() => { const v = __cmwSteps().win; return v; })()';
-const read = async (tag, win, dx = 0, dy = 0) => ev(`window.__lineShare(${JSON.stringify(tag)}, ${JSON.stringify(win)}, ${dx}, ${dy}, ${EDGE_CSS}, ${DIFF_TOL})`);
+const read = async (tag, win, dx = 0, dy = 0) => ev(`window.__lineShare(${JSON.stringify(tag)}, ${JSON.stringify(win)}, ${dx}, ${dy}, ${DIFF_TOL})`);
 // two frames' lines compared: both have the pixels, and as many of them right
 const same = (a, b) => ['axes', 'grid'].every((k) => a[k].n >= MIN_PX && b[k].n >= MIN_PX && Math.abs(a[k].over - b[k].over) <= SAME_OVER);
 async function lines(c, r) {
