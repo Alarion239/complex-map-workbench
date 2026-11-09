@@ -295,7 +295,6 @@
     }
     return combo;
   }
-  const CARRY_SHEET_CODE = 10;   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i
   const CARRY_SHEET_TOLS = [1e-3, 5e-2];   // how near the glide's image of a vertex's preimage is to its place, as a fraction of the place's size: tried in turn
   const CARRY_EDGE_STEPS = 13;   // bisection steps of the carried frame's edge pass: a cut is found to 2^-12 of a cell
   // The All sheets' layers past the first (member k >= 1 of the glide's inverse, drawn with the first's programs): each its
@@ -364,9 +363,12 @@
       const Pn = lyr ? program('landCarryCont', c.map) : null;
       out.own = ownCombo(ex.sheetW || 2, Math.max(h0, c.hT2 == null ? h0 : c.hT2, c.T), [ex.shift].concat(ex.shifts || []));
       const own = (P) => { u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', out.own); };
+      if (sheets.length > CARRY_SHEETS_MAX) throw new Error('the glide has ' + sheets.length + ' sheets; the cross-sheet edge test reads at most ' + CARRY_SHEETS_MAX);
       if (P3 && (Pf || sheets.length === 1) && (!lyr || Pn)) {
         if (!out.edges) out.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift, ex.shifts || []));
+        const sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
+        const combos = sheets.map((sh) => carrySheetCombo(sh.shift, sheetW));
         const code = (i) => (Pf ? CARRY_SHEET_CODE + i : 1);
         const stages = (P) => { u1i(P, 'uN', N); u1i(P, 'uHMode', mode); u1f(P, 'uH', H); u1f(P, 'uMu', mu); mixU(P, st, mu); u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0); u1f(P, 'uHClip', clipOf(mode)); };
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
@@ -409,9 +411,11 @@
             runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, out.edges[d], N, N, gl.RGBA32F, gl.RGBA);
           }
         }
-        // (the edges between two sheets, last: the earlier passes' edges stay)
+        // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
         if (Pf && !lyr) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
+          gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, out.edges[d]);
@@ -423,8 +427,8 @@
         out.cont = lyr;
         out.datas = Pf ? datas : null;
         out.chain = Pf ? null : datas[0];
-        out.sheetW = Math.max(1, ...sheets.map((sh) => (sh.shift ? Math.abs(sh.shift.dk) : 0)));
-        out.combos = sheets.map((sh) => carrySheetCombo(sh.shift, out.sheetW));
+        out.sheetW = sheetW;
+        out.combos = combos;
       }
     }
     if (!polar || (lay && ex && ex.layered)) out.exact = exact;
@@ -491,6 +495,15 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return out;
+  }
+  // The last exact carried frame's grid edges that are crossed twice (a branch point on the edge: the edge pass's w 2), whose triangles
+  // the draw leaves out, over every layer (tests); null without cuts
+  function landDrops() {
+    const Ls = (landActive.length ? landActive : [landC]).filter((L) => L && L.exact && L.cuts && L.edges);
+    if (!Ls.length) return null;
+    let n = 0;
+    for (const L of Ls) for (const t of L.edges) { const px = lwRead(t, L.N, L.N); if (!px) return null; for (let k = 3; k < px.length; k += 4) if (px[k] > 1.5) n++; }
+    return n;
   }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the

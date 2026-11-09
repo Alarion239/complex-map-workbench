@@ -766,24 +766,30 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
   bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
   int J = int(j01) + int(j12) + int(j20);
-  if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  if (max(max(e01.w, e12.w), e20.w) > 1.5) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // a corner of sub-triangle sub (kk 0, 1, 2): a grid corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
-  ivec2 srcs[3]; int xs[3]; vec3 vEd = vec3(0.0);
+  ivec2 srcs[3], xos[3]; int xs[3]; vec3 vEd = vec3(0.0);
   for (int kk = 0; kk < 3; kk++) {
-    ivec2 src = A; int x = 0;
+    ivec2 src = A, xo = A; int x = 0;
     if (J == 0) { if (sub > 0) return; src = kk == 0 ? A : (kk == 1 ? B : C); }
     else if (J == 1) {
       if (sub > 1) return;
       if (sub == 0) { src = A; x = kk == 1 ? 1 : 0; if (kk == 2) src = C; vEd = vec3(1.0, 0.0, 0.0); }
       else { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; vEd = vec3(0.0, 1.0, 0.0); }
+    } else if (J == 3) {
+      // (every edge crossed, where the cuts meet: each corner has its own piece, cut off by the chord between the crossings on its two edges)
+      if (sub > 2) return;
+      src = sub == 0 ? A : (sub == 1 ? B : C);
+      xo = kk == 1 ? (sub == 0 ? B : (sub == 1 ? C : A)) : (sub == 0 ? C : (sub == 1 ? A : B));
+      x = kk == 0 ? 0 : 1; vEd = vec3(1.0, 0.0, 0.0);
     } else {
       if (sub == 0) { src = A; x = kk; vEd = vec3(1.0, 0.0, 0.0); }
       else if (sub == 1) { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; }
       else { src = kk == 0 ? B : C; x = kk == 0 ? 1 : (kk == 2 ? 2 : 0); vEd = vec3(0.0, 1.0, 0.0); }
     }
-    srcs[kk] = src; xs[kk] = x;
+    srcs[kk] = src; xs[kk] = x; xos[kk] = xo;
   }
   // (layered: a layer's cut separates its bank from the same surface in the next layer, as between the parked sheets, which draw no cut ink)
   vEdge = ${L ? 'vec3(0.0)' : 'vEd'};
@@ -791,17 +797,17 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   vec2 cxy[3], cz[3]; float ch[3]; vec4 cnv[3];
   for (int kk = 0; kk < 3; kk++) {
     if (!(${clip ? 'true' : 'kk == k'})) continue;
-    ivec2 src = srcs[kk]; int x = xs[kk];
+    ivec2 src = srcs[kk], xo = xos[kk]; int x = xs[kk];
     vec4 t = texelFetch(uT1, src, 0);
     cnv[kk] = texelFetch(uT2, src, 0);
     cxy[kk] = t.xy; cz[kk] = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
     ch[kk] = t.z;
     if (x > 0) {
-      ivec2 E = x == 1 ? B : C;
-      vec4 e = edgeOf(A, E);
-      cxy[kk] = mix(texelFetch(uT1, A, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
-      cz[kk] = mix(texelFetch(uZ, A, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
-      ch[kk] = src == A ? e.y : e.z;
+      ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
+      vec4 e = edgeOf(F, E);
+      cxy[kk] = mix(texelFetch(uT1, F, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
+      cz[kk] = mix(texelFetch(uZ, F, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+      ch[kk] = src == F ? e.y : e.z;
     }
   }
 ${clip ? `  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
@@ -818,7 +824,7 @@ ${clip ? `  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
   vNor = cnv[k].xyz; vAO = cnv[k].w;`}
 ${L ? '' : `  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
   // the cut separates from the first piece's)
-  ivec2 anchor = (J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A;
+  ivec2 anchor = J == 3 ? (sub == 0 ? A : (sub == 1 ? B : C)) : ((J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A);
   vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;`}
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
@@ -850,14 +856,20 @@ void main() {
   // a end of the cut, at its b end, jump). The edge's preimages are joined by a chord and the height there bisected
   // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
   // the edges whose two vertices are on the sheet uCode (the texel's w, LAND_CARRY_FIX_VS) are looked at, with that
-  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
+  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none. The edges whose ends are on
+  // different sheets, or on none, have their own test (uCode -1)
   // The member-seam test of the exact glide's edge pass: the places of an edge are carried SEAM_NEWT_CONT equal steps of the place
   // by SEAM_NEWT_POL Newton iterations each; the preimages are one member when the carried one is within SEAM_REL of their
   // distance (plus SEAM_ABS, relative to |z|) of the other; an edge whose preimages are within SEAM_FAR times the
   // distance one member's derivative gives them is one member and is not tested
+  // the place a sheet carried along a cross-sheet edge may miss the far end's by, relative to 1 + |w| (the tests' hook tolerance)
+  const CROSS_REL = '1.5e-3';
+  // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i; the cross-sheet edge test reads the combos of at most CARRY_SHEETS_MAX sheets
+  const CARRY_SHEET_CODE = 10, CARRY_SHEETS_MAX = 16;
   const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = (L = false) => `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
+uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + (L ? CARRY_HEIGHT_ANCHORED + `
@@ -902,10 +914,37 @@ void main() {
   ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
   if (q.x >= uN || q.y >= uN) return;
   vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
-  // (uCode -1: an edge between two sheets, whose vertices' heights step: the sheets' domains meet at a cut, which
-  // lies between the two places; mid-way)
+  // (uCode -1: an edge whose ends are not on one sheet: on two sheets, or on one and on none. The sheet of one end (a placed
+  // one first) is carried along the edge from that end's preimage to the other's, by the anchored chain, and read against
+  // the other end's own value there: its sheet's at its preimage, or its place where it is on none. The edge is
+  // continuous where they agree (the sheets' labels change at cuts of their own, not of the map). Where they do not, it
+  // crosses a cut, which is bisected along the chord of the preimages. A carried value that is not finite (a branch point on
+  // the edge), or a sheet code outside the combos, leaves the edge crossed twice, which drops the triangles that hold it)
   if (uCode < 0.0) {
-    if (a.w > 5.0 && b.w > 5.0 && abs(a.w - b.w) > 0.5 && abs(b.z - a.z) > 0.02 * uH) tfOut = vec4(0.5, a.z, b.z, 1.0);
+    if (uCrossOn == 0) return;
+    bool pa = a.w > 5.0, pb = b.w > 5.0;
+    if ((!pa && !pb) || (pa && pb && abs(a.w - b.w) < 0.5)) return;
+    vec2 zp = texelFetch(uZ, p, 0).xy, zq = texelFetch(uZ, q, 0).xy;
+    // (from the placed end; both placed: from a)
+    bool fwd = pa;
+    int cf = int((fwd ? a.w : b.w) + 0.5) - ${CARRY_SHEET_CODE}, ct = int((fwd ? b.w : a.w) + 0.5) - ${CARRY_SHEET_CODE};
+    if (cf < 0 || cf >= ${CARRY_SHEETS_MAX} || ((fwd ? pb : pa) && (ct < 0 || ct >= ${CARRY_SHEETS_MAX}))) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+    vec2 zf = fwd ? zp : zq, zt = fwd ? zq : zp;
+    vec2 cv = chainSheetRange(zf, zt, uGs, uGt, uSheetCombos[cf]);
+    vec2 own = (fwd ? pb : pa) ? chainSheetRange(zt, zt, uGs, uGt, uSheetCombos[ct]) : (fwd ? b.xy : a.xy);
+    if (!cfin(cv) || !cfin(own)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+    if (!(length(cv - own) > ${CROSS_REL} * (length(own) + 1.0))) return;
+    // the cut: along the chord of the preimages, the share m up to which the sheet of the first end is still its own piece (its
+    // value carried from the first end is the one anchored at m itself), bisected as a cut within one sheet is
+    float lo = 0.0, hi = 1.0;
+    for (int it = 0; it < uSteps - 1; it++) {
+      float m = 0.5 * (lo + hi);
+      vec2 zm = mix(zf, zt, m), c1 = chainSheetRange(zf, zm, uGs, uGt, uSheetCombos[cf]), c2 = chainSheetRange(zm, zm, uGs, uGt, uSheetCombos[cf]);
+      if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+      if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
+    }
+    float tc = 0.5 * (lo + hi);
+    tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;
   }
   if (abs(a.w - uCode) > 0.5 || abs(b.w - uCode) > 0.5) return;
