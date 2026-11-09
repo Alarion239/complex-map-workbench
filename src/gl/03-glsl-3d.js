@@ -708,11 +708,20 @@ void main() {
   vec4 t = texelFetch(uT1, src, 0), nv = texelFetch(uT2, src, 0);
   vec2 xy = t.xy, z = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
   float h = t.z;
-  // (a corner the cut runs through, in a triangle whose other corners are on the far bank (the edge opposite it whole): the far bank's height there)
-  if (J == 0 && uFarOn == 1) {
-    if (src == A) h = e12.w < 0.5 ? farEnd(e20, true, farEnd(e01, false, h)) : h;
-    else if (src == B) h = e20.w < 0.5 ? farEnd(e01, true, farEnd(e12, false, h)) : h;
-    else h = e01.w < 0.5 ? farEnd(e12, true, farEnd(e20, false, h)) : h;
+  // (a corner the cut runs through takes, in a piece, the height of its bank there: the far end of the flag-3 edge to a corner of the same piece
+  // (a corner that is in a piece with the corner the cut leaves it with). eAB, eBC, eCA: the edge data of the rotated corners, oriented A -> B, B -> C, C -> A)
+  if (uFarOn == 1) {
+    vec4 eAB = r == 0 ? e01 : (r == 1 ? e12 : e20), eBC = r == 0 ? e12 : (r == 1 ? e20 : e01), eCA = r == 0 ? e20 : (r == 1 ? e01 : e12);
+    if (J == 0) {
+      if (src == A) h = eBC.w < 0.5 ? farEnd(eCA, true, farEnd(eAB, false, h)) : h;
+      else if (src == B) h = eCA.w < 0.5 ? farEnd(eAB, true, farEnd(eBC, false, h)) : h;
+      else h = eAB.w < 0.5 ? farEnd(eBC, true, farEnd(eCA, false, h)) : h;
+    } else if (J == 1) {
+      if (sub == 0) h = src == C ? farEnd(eCA, false, h) : (src == A ? farEnd(eCA, true, h) : h);
+      else h = src == C ? farEnd(eBC, true, h) : (src == B ? farEnd(eBC, false, h) : h);
+    } else if (J == 2 && sub >= 1) {
+      h = src == C ? farEnd(eBC, true, h) : (src == B ? farEnd(eBC, false, h) : h);
+    }
   }
   if (x > 0) {
     ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
