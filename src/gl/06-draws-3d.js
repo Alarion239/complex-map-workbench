@@ -403,7 +403,7 @@
         for (let i = 0; i < (stA ? 0 : sheets.length); i++) {
           use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); if (lyr) own(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', lyr || carryProbe.noSeam ? 0 : 1);
+          stages(P3); if (lyr) own(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', lyr || carryProbe.noSeam ? 0 : 1); u1i(P3, 'uMidOn', carryProbe.midCut ? 1 : 0);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
@@ -417,7 +417,7 @@
         // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
         if (Pf && !lyr) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
-          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uMidOn', carryProbe.midCut ? 1 : 0); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
           gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
@@ -517,8 +517,6 @@
       return out;
     });
   }
-  // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
-  // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels
   // The last carried frame's seam vertices (tests), per layer of landActive: the texels placed on the layer ({ own }), the
   // ones the cross-layer pass continued ({ cont }) and the ones it left off a layer beside an own vertex ({ miss }, the first
   // SEAM_MISS_LIST of them as [column, row])
@@ -549,6 +547,8 @@
     gl.deleteFramebuffer(fbo);
     return out;
   }
+  // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
+  // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels
   function landEdgeCounts() {
     const fbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -565,6 +565,25 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return out;
+  }
+  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t]] }, the preimages of the edge's two ends (a, then b along
+  // +x, +y or the diagonal) and the share t of the chord a -> b at which the cut was found; null without cuts
+  function landCutEdges() {
+    if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.zTex) return null;
+    const N = landC.N, Z = lwRead(landC.zTex, N, N), out = [];
+    if (!Z) return null;
+    landC.edges.forEach((tex, d) => {
+      const E = lwRead(tex, N, N);
+      if (!E) return;
+      const dx = d === 1 ? 0 : 1, dy = d === 0 ? 0 : 1;
+      for (let j = 0; j < N - dy; j++) for (let i = 0; i < N - dx; i++) {
+        const k = 4 * (j * N + i), w = E[k + 3];
+        if (!(w > 0.5 && w < 1.5)) continue;
+        const m = 4 * ((j + dy) * N + i + dx);
+        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k]]);
+      }
+    });
+    return { steps: CARRY_EDGE_STEPS, edges: out };
   }
   // The last exact carried frame's grid edges that are crossed twice (a branch point on the edge: the edge pass's w 2), whose triangles
   // the draw leaves out, over every layer (tests); null without cuts

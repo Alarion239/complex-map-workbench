@@ -111,6 +111,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -142,6 +143,22 @@
       let n = 0;
       for (let i = 0; i < x.length; i += 4) { const p = hue(x, i), q = hue(y, i); if (p >= 0 && q >= 0) { const d = Math.abs(p - q); if (Math.min(d, 360 - d) > ${HUE_OFF_DEG}) n++; } }
       return n;
+    },
+    // where the cut was found on each flagged edge, against the step's own cut (the negative real axis of its input plane, which is plane
+    // z here): the worst distance of a crossing's preimage z* = a + t (b - a) to the ray, in shares of the edge's chord |b - a|, over the edges whose
+    // crossing is inside the chord (n), and how many sit at an end of it (atEnd: the vertex itself is taken as the cut)
+    cutT: () => {
+      const r = window.__cmwLandCutEdges();
+      if (!r) return null;
+      const tol = Math.pow(2, 1 - r.steps);
+      let worst = 0, atEnd = 0, n = 0;
+      for (const [ax, ay, bx, by, t] of r.edges) {
+        if (t < tol || t > 1 - tol) { atEnd++; continue; }
+        n++;
+        const x = ax + t * (bx - ax), y = ay + t * (by - ay), chord = Math.hypot(bx - ax, by - ay);
+        worst = Math.max(worst, (x < 0 ? Math.abs(y) : Math.hypot(x, y)) / chord);
+      }
+      return { n, atEnd, worst, steps: r.steps };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -719,6 +736,22 @@
       {
         const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
         ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
+      }
+      // where the edge pass puts a cut on an edge is the step's own cut, to the bisection's resolution: the preimage of each flagged edge's cut is
+      // within 2^-(steps - 1) of the edge's chord from the cut (the negative real axis of plane z)
+      if ((CUT_ROWS[c.tag] || []).includes(u)) {
+        const ct = await ev('__lx.cutT()');
+        const tol = ct ? Math.pow(2, 1 - ct.steps) : 0;
+        r[u].cut = ct;   // (atEnd: the flagged edges whose cut is at an end of the chord, the vertex itself, which are counted here and not judged)
+        ok(`${t}: the cuts the edge pass finds are the step's own (${ct ? ct.n : '?'} flagged edges, over 0, with the cut inside the chord, and ${ct ? ct.atEnd : '?'} at an end of it; the worst is ${ct ? ct.worst.toExponential(2) : '?'} of the chord from the cut, at most ${tol.toExponential(2)})`, !!ct && ct.n > 0 && ct.worst <= tol, ct);
+        // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
+        let ctlC;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1] === u ? MID_U[0] : MID_U[1]); await setU(u);
+          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+          ctlC = await ev('__lx.cutT()');
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
+        ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
