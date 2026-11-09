@@ -760,13 +760,13 @@ void main() {
   tfOut = vec4(float(cls), 0.0, 0.0, 1.0);
 }
 `;
-  const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
+  const LAND_CARRY_VS = (L = false, clip = false, plain = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 ${clip ? `uniform vec2 uClipA; uniform float uClipH;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)
 uniform int uFanN;   // (the fan's triangles a sub-triangle is drawn with: CLIP_FAN, or 1 for the plain draw of the cells inside the block)
 uniform highp sampler2D uCls; uniform int uClsMode;   // (uClsMode 1: only the cells of class LAND_CLASS_IN, whose polygon is the triangle itself)
-const int CLASS_IN = ${LAND_CLASS_IN};` : ''}
+const int CLASS_IN = ${LAND_CLASS_IN};` : plain ? `uniform highp sampler2D uCls; const int CLASS_IN = ${LAND_CLASS_IN};   // (the plain draw of the cells inside the block: no clip)` : ''}
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
@@ -797,7 +797,7 @@ void main() {
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
 ${clip ? '  // (clip: each sub-triangle is a fan of up to CLIP_FAN triangles of the block-clipped polygon, 3 * CLIP_FAN vertices)\n  int sub = loc / (3 * uFanN), fan = (loc - 3 * uFanN * sub) / 3, k = loc - 3 * uFanN * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
   ivec2 c = ivec2(cell % M, cell / M);
-${clip ? '  if (uClsMode == 1 && int(texelFetch(uCls, c, 0).x + 0.5) != CLASS_IN) return;\n' : ''}  ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
+${plain ? '  if (int(texelFetch(uCls, c, 0).x + 0.5) != CLASS_IN) return;\n' : clip ? '  if (uClsMode == 1 && int(texelFetch(uCls, c, 0).x + 0.5) != CLASS_IN) return;\n' : ''}  ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
 ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on it, own or continued, and one is own; its

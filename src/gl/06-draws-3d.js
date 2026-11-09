@@ -1548,29 +1548,34 @@
       // too, where the layers run on past it: LAND_CLIP; clipOff is a probe's control)
       const clipC = (contDraw ? clipOf(mode) > 0 : !!(landC && landC.exact)) && !carryProbe.clipOff;
       let fan = clipC ? LAND_CLIP_CORNERS - 2 : 1;
-      const Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
-      use(Pc, st.carry.map);
-      if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
-      common(Pc);
-      if (clipC) { u1i(Pc, 'uFanN', fan); u1i(Pc, 'uClsMode', 0); }
-      u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
-      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
-      u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
-      u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
-      u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
-      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
-      // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
-      // a key's push of the depth would only put a layer behind the floor plate)
-      keyUniforms(Pc, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
-      // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale scales the block's sides)
-      u1i(Pc, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
-      // (the single layer has no top or bottom plane: it is one open sheet, as the parked plane draws it)
-      if (clipC) u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30);
-      u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
-      const sb = st.carry.src || box;
-      u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      let Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
+      const Pc0 = Pc;
+      // (the carried draw's uniforms, for the program that draws: the clipped one, or the plain one of the cells inside the block)
+      const carryUniforms = (Pc) => {
+        use(Pc, st.carry.map);
+        if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
+        common(Pc);
+        if (clipC) { u1i(Pc, 'uFanN', fan); u1i(Pc, 'uClsMode', 0); }
+        u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
+        lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        u3(Pc, 'uCut', C.cut);
+        u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+        u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
+        u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
+        // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
+        // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
+        // a key's push of the depth would only put a layer behind the floor plate)
+        keyUniforms(Pc, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
+        // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale scales the block's sides)
+        u1i(Pc, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
+        // (the single layer has no top or bottom plane: it is one open sheet, as the parked plane draws it)
+        if (clipC) u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30);
+        u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
+        const sb = st.carry.src || box;
+        u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+        u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      };
+      carryUniforms(Pc);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -1615,8 +1620,8 @@
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
         if (carryProbe.classPlain && clipC && !contDraw && exact) {
           // (the cells' classes against the block: the plain draw of the cells inside it)
-          const Pk = program('landCarryClass');
-          if (Pk) {
+          const Pk = program('landCarryClass'), PcI = program('landCarryI', st.carry.map);
+          if (Pk && PcI) {
             if (!L.clsTex) L.clsTex = floatTex();
             use(Pk);
             u1i(Pk, 'uN', hd.N); u4f(Pk, 'uBox', box.x0, box.y0, BW, BH); u2f(Pk, 'uAspect', aspect[0], aspect[1]);
@@ -1625,16 +1630,23 @@
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, cutDraw ? L.edges[d] : L.tex1); }
             gl.activeTexture(gl.TEXTURE15);
-            runTF(Pk, empty(), gl.POINTS, hd.N * hd.N, 0, hd.N * hd.N * 16, L.clsTex, hd.N, hd.N, gl.RGBA32F, gl.RGBA);
+            if (!(carryProbe.classReuse && L.clsDone)) runTF(Pk, empty(), gl.POINTS, hd.N * hd.N, 0, hd.N * hd.N * 16, L.clsTex, hd.N, hd.N, gl.RGBA32F, gl.RGBA);
+            L.clsDone = true;
             use(Pc, st.carry.map);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
             if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
             if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
             gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
-            fan = 1; u1i(Pc, 'uFanN', 1); u1i(Pc, 'uClsMode', 1); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+            fan = 1; Pc = PcI; carryUniforms(Pc);
+            {
+              const hv = new Float32Array(16);
+              landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
+              gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
+            }
+            u1i(Pc, 'uZOn', 1); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
             drawCarryGrid(L, hd.N);
-            fan = LAND_CLIP_CORNERS - 2; u1i(Pc, 'uFanN', fan); u1i(Pc, 'uClsMode', 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
+            fan = LAND_CLIP_CORNERS - 2; Pc = Pc0; use(Pc, st.carry.map);
           }
         } else
         drawCarryGrid(L, hd.N);

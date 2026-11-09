@@ -225,6 +225,7 @@
     landCarry: { chain: true, vs: () => LAND_CARRY_VS(), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landCarryL: { chain: true, vs: () => LAND_CARRY_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true) },
     landCarryClass: { chain: false, vs: () => LAND_CARRY_CLASS_VS, fs: () => TF_FS, tf: true },
+    landCarryI: { chain: true, vs: () => LAND_CARRY_VS(false, false, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, false, true) },
     landCarryC: { chain: true, vs: () => LAND_CARRY_VS(false, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, false, true) },
     landCarryLC: { chain: true, vs: () => LAND_CARRY_VS(true, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
