@@ -33,6 +33,12 @@
 // - a cell whose continuation fails (a branch point) passes only with a certificate: the critical point of H, proved to exist and
 //   to be unique in a disc by a Kantorovich test, its local degree by the argument principle on the disc's boundary; the pixels
 //   under the disc are then decided as at a boundary. CERT_MAX certificates a frame, more fails.
+//   The Lipschitz bound of H''' behind the Kantorovich test is a sampled maximum, not a proof, and fails safe: a declared singular point within
+//   CERT_NEAR disc radii refuses the disc, and so does a bound the midpoints between the samples exceed once it is CERT_LIP_SAFE over. The gap that
+//   remains is a feature of H''' narrower than the samples' spacing that is no declared singular point and that the midpoints miss too.
+// - the completeness count (frame.count) is read at three kinds of place: the first corner of every COUNT_STRIDE-th accepted cell, at most COUNT_BND_MAX
+//   cells whose corners carry different members (where a fold's island or a cut's far side shows), and on both sides of each critical value a certificate
+//   proved; opts.countDrop names the scope whose counts lose a member (a control for each).
 (() => {
   const CONSTS = {
     CELL_DEPTH_MAX: 8,      // halvings of a lattice cell; one still over the bound there fails
@@ -50,9 +56,12 @@
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-8,         // |H(z) - w| of a converged correction, relative to 1 + |w| (the forward map's own rounding is about 2e-10)
     SING_REACH_PX: 2,       // half-resolution pixels around a declared singular point's place that its certificate covers: the surface is
-                            // not smooth there at any depth the lattice reaches (infinite slope), the pixels are decided by rays
-    SING_ADJ: 3,            // leaf cells apart at most: suspect cells of one kind that touch are one neighbourhood
-    SING_REACH_MAX_PX: 4,   // half-resolution pixels from the singular point at most, whatever touches
+                            // not smooth there at any depth the lattice reaches (infinite slope), so the pixels are decided by rays. A
+                            // calibration: the reach at which the suspect cells at the cube root's apex and the logarithm's end are covered
+    SING_ADJ: 3,            // leaf cells apart at most: suspect cells of one kind that touch are one neighbourhood (a calibration: it bridges the
+                            // gaps a cut or a wall leaves in one point's patch of suspect cells)
+    SING_REACH_MAX_PX: 4,   // half-resolution pixels from the singular point at most, whatever touches (twice the reach: a chain of suspect cells
+                            // cannot carry a certificate along a wall to a place far from the point)
     SING_GAP: 1e-6,         // w: a ray's samples beside a singular point stop this far from it (relative to 1 + |w|)
     SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
     DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
@@ -74,12 +83,17 @@
     RAY_BOX: 0.5,           // the part of the ray kept: over the cell's box grown by this share of its width each side
     CERT_DELTA: 1e-3,       // the step of the finite differences of H' and H'' (relative to 1 + |z|)
     CERT_RHO_MIN: 1e-3,     // the smallest disc radius, relative to the members' distance
-    CERT_LIP_SAFE: 1.25,    // the sampled bound of H''' is taken this much over
+    CERT_LIP_SAFE: 1.25,    // the sampled maximum of H''' on the disc's circle is taken this much over (a calibration; the 2x re-sample below refuses a
+                            // bound the finer sampling exceeds)
+    CERT_NEAR: 4,           // a declared singular point (a pole or a branch point, where H''' is unbounded) within this many disc radii of a
+                            // certificate's disc refuses it: a sampled bound cannot see a blow-up just outside the circle
     CERT_CRIT_TOL: 1e-9,    // |H'(c)| of the located critical point
     CERT_DEGEN: 1e-9,       // |H''| under this share of |H'| (per unit of the members' distance): the critical point is not simple
     CERT_TIGHT: 0.125,      // the cluster certificate's inner circle, as a share of the outer
     CERT_WIND_RES: 1e-3,    // the winding number's distance from an integer
-    COUNT_STRIDE: 128,      // every this many accepted cells the completeness count is read at the cell's first corner (winding plus poles equals the members found, on every sheet)
+    COUNT_STRIDE: 128,      // every this many accepted cells the completeness count is read at the cell's first corner (winding plus poles equals the members found, on every sheet); a calibration of the count's cost against the sweep's time
+    COUNT_BND_MAX: 64,      // counts at most at cells whose members change (a fold's island or a cut's far side: the places the stride may miss), spread evenly over them
+    COUNT_CRIT: 0.5,        // counts on each side of every critical value of H, at this share of the certificate's image radius from it
     PLACES_MAX: 4e6,        // places looked up at most (a bound on the run)
   };
   const K = CONSTS;
@@ -444,8 +458,7 @@
       if (frame.count && cells.facet % o.COUNT_STRIDE === 1) {
         // (the count at the cell's vertex: each sheet's winding of the homotopy plus the poles equals the members found there; anything else, an unresolved or
         // on-contour place included, fails the frame by place)
-        cells.counted = (cells.counted || 0) + 1;
-        for (const r of frame.count(vs[0].w, o.countDrop ? { dropOne: true } : {}) || []) if (!r.ok || r.status !== 'ok') fail({ kind: 'count', w: vs[0].w, sheet: r.sheet, N: r.N, P: r.P, members: r.members, status: r.status });
+        countAt(vs[0].w, 'stride');
       }
       vs[0].all.forEach((m, k) => {
         if (!m.drawn) return;
@@ -458,6 +471,7 @@
       if (++spun % 64 === 0) { tick(); yield; }
     }
     if (leaves.branch.length) yield* certifyBranches(leaves);
+    yield* countHard(leaves);
     yield* boundaryRays(leaves.boundary.concat(leaves.branch.filter((c) => c.certified)));
     for (const c of leaves.branch) if (!c.certified) fail(Object.assign({ kind: c.kind || 'branch', i: c.i, j: c.j, w: wAt(c.i, c.j), why: c.certWhy || c.why }, c.info));
     return { px, cells, certs, failures };
@@ -466,26 +480,50 @@
     // the critical point c of H beside a branch-suspect cell, proved by a Kantorovich test on H' and its degree by the argument
     // principle on a circle about it; the enumerator's members inside the disc, at a place on each side of H(c) inside the
     // circle's image, must be d of them
+    // the completeness count at a place: each sheet's winding of the homotopy plus the poles equals the members found there; anything else (an unresolved or
+    // on-contour place included) fails the frame by place. scope names where the place came from ('stride': every COUNT_STRIDE-th accepted cell; 'boundary': a cell
+    // whose members change; 'critical': beside a critical value of H); opts.countDrop = scope removes a member from the counts of that scope only (the control)
+    function countAt(w, scope) {
+      cells.counted = (cells.counted || 0) + 1;
+      cells.countedBy = cells.countedBy || {};
+      cells.countedBy[scope] = (cells.countedBy[scope] || 0) + 1;
+      for (const r of frame.count(w, o.countDrop === scope ? { dropOne: true } : {}) || []) if (!r.ok || r.status !== 'ok') fail({ kind: 'count', scope, w, sheet: r.sheet, N: r.N, P: r.P, members: r.members, status: r.status });
+    }
+    // the counts where the stride may not look: at cells whose corners carry different members (an island of a fold, the far side of a cut), at most COUNT_BND_MAX of
+    // them spread evenly, and on both sides of each critical value of H the certificates proved, at COUNT_CRIT of its image radius
+    function* countHard(lv) {
+      if (!frame.count) return;
+      const nb = lv.boundary.length, step = Math.max(1, Math.ceil(nb / o.COUNT_BND_MAX));
+      for (let k = 0; k < nb; k += step) { countAt(lv.boundary[k].vs[0].w, 'boundary'); yield; }
+      for (const q of certs) {
+        if (q.singular || !q.w || !(q.rImage > 0)) continue;
+        for (const sgn of [1, -1]) { countAt([q.w[0] + sgn * o.COUNT_CRIT * q.rImage, q.w[1]], 'critical'); yield; }
+      }
+    }
+    // whether certificate q covers the suspect leaf cell c: the cell's centre lies within the certificate's image radius (the places the winding and the two counts
+    // prove to have d members in the disc, on each side of the critical value) and the cell's diagonal of it
+    function covers(q, c) {
+      return dist2(q.w, wAt(c.i + c.s / 2, c.j + c.s / 2)) <= q.rImage + dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
+    }
     function* certifyBranches(lv) {
       yield* certifyPass(lv);
       // (a leaf met before the certificate of the cell beside it was issued is covered by it where it lies within its reach)
       for (const c of lv.branch) {
         if (c.certified) continue;
-        const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2), diag = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
-        const known = certs.find((q) => dist2(q.w, ctr) <= q.rImage + diag);
+        const known = certs.find((q) => covers(q, c));
         if (known) c.certified = known;
       }
     }
     function* certifyPass(lv) {
       issueSingular(lv);
       for (const c of lv.branch) {
-        const ctr0 = wAt(c.i + c.s / 2, c.j + c.s / 2), diag0 = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s)), known0 = certs.find((q) => dist2(q.w, ctr0) <= q.rImage + diag0);
+        const known0 = certs.find((q) => covers(q, c));
         if (known0) c.certified = known0;
       }
       for (const c of lv.branch) {
         if (c.certified) continue;
-        const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2), diag = dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
-        const known = certs.find((q) => dist2(q.w, ctr) <= q.rImage + diag);
+        const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2);
+        const known = certs.find((q) => covers(q, c));
         if (known) { c.certified = known; continue; }
         if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w: ctr }); c.certWhy = 'certMax'; continue; }
         const ms = c.vs.flatMap((v) => v.all);
@@ -627,14 +665,28 @@
       if (!f || !fp || cabs(fp) < o.CERT_DEGEN * cabs(f) / (1 + sep)) return { ok: false, why: 'no derivative', degenerate: true };
       // Kantorovich for f = H': beta = 1/|f'|, eta = |f|/|f'|, the Lipschitz constant of f' (H''') sampled on the disc of radius rho
       const beta = 1 / cabs(fp), eta = cabs(f) * beta, rho = Math.max(2 * eta, sep * o.CERT_RHO_MIN);
-      let lip = 0;
-      for (let k = 0; k < o.CERT_LIP_N; k++) {
-        const a = 2 * Math.PI * k / o.CERT_LIP_N, q = cadd(z0, [rho * Math.cos(a), rho * Math.sin(a)]);
-        const u = d2H(cadd(q, [delta, 0])), v = d2H(csub(q, [delta, 0]));
-        if (!u || !v) return { ok: false, why: 'no second derivative on the disc' };
-        lip = Math.max(lip, cabs(cscale(csub(u, v), 1 / (2 * delta))));
+      // (the bound is a sampled maximum, not a proof: it fails safe. A declared singular point, where H''' is unbounded, within CERT_NEAR disc radii of the disc
+      // refuses it, and so does a bound that the midpoints between the samples exceed once it is taken CERT_LIP_SAFE over. What remains unproved is a
+      // feature of H''' narrower than the spacing of the samples that is no declared singular point and that the midpoints miss as well)
+      if (frame.sing) {
+        if (singList === null) singList = frame.sing() || [];
+        const near = singList.find((q) => q.z && dist2(q.z, z0) <= (o.CERT_NEAR + 1) * rho);
+        if (near) return { ok: false, why: 'a declared singular point (' + near.kind + ') within ' + o.CERT_NEAR + ' disc radii: the sampled bound of H\'\'\' is not safe' };
       }
-      lip *= o.CERT_LIP_SAFE;
+      const lipOf = (phase) => {
+        let top = 0;
+        for (let k = 0; k < o.CERT_LIP_N; k++) {
+          const a = 2 * Math.PI * (k + phase) / o.CERT_LIP_N, q = cadd(z0, [rho * Math.cos(a), rho * Math.sin(a)]);
+          const u = d2H(cadd(q, [delta, 0])), v = d2H(csub(q, [delta, 0]));
+          if (!u || !v) return null;
+          top = Math.max(top, cabs(cscale(csub(u, v), 1 / (2 * delta))));
+        }
+        return top;
+      };
+      const lip0 = lipOf(0), lipMid = lipOf(0.5);
+      if (lip0 === null || lipMid === null) return { ok: false, why: 'no second derivative on the disc' };
+      const lip = lip0 * o.CERT_LIP_SAFE;
+      if (lipMid > lip) return { ok: false, why: 'the sampled bound of H\'\'\' (' + lip.toExponential(2) + ') is exceeded by the midpoints between the samples (' + lipMid.toExponential(2) + ')' };
       const kh = beta * eta * lip * beta;
       if (!(kh <= 0.5)) return { ok: false, why: 'Kantorovich h=' + kh.toExponential(2) + ' over 1/2', kh, degenerate: true };
       let c = z0;

@@ -54,7 +54,11 @@
   const REF = { nx: 40, ny: 34, slack: 1 };
   const RASTER_TOL = SAME_FRAC;
   const STEP_MAX = 1200;   // at most this many raster steps a frame (STEP_MS each): more is a reference that never finishes, and fails
+  // the seam control is armed where the rays decide at least SEAM_MIN_HITS pixels (fewer than that are inside the tolerance in some frames), and fails the reference when the
+  // moved seam changes SEAM_DIFF_SHARE of them (the moved seam decides one cell's worth of pixels wrongly: a fifth of a boundary frame's hits is far above rounding)
   const SEAM_MIN_HITS = 50, SEAM_DIFF_SHARE = 0.2;
+  const COUNT_SCOPES = ['stride', 'boundary', 'critical'];
+  const COUNT_WHERE = { stride: 'accepted cells', boundary: 'cells whose members change', critical: 'critical values of H' };
   const CTL_DEPTH = 1;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002 needs 2 halvings; at 1 it is over its bound at the cap)
   const STEP_MS = 5000;   // a raster step's time in the page: a CDP call (20 s) stays under its limit with the core's longest unyielding stretch (CONT_MS) after it
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
@@ -203,7 +207,7 @@
   // the plane at index k parked and its frame kept as tag; its height reading kept for the references
   // the exact image reference at the current u (land_exact_core.js), run in steps; the result is the comparison with the frame's relief
   // plus the core's cells, certificates and failures (a result with failures is not exact)
-  async function refImage(sheets, ref) {
+  async function runReference(sheets, ref) {
     await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(ref)})`);
     let st = { done: false };
     for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
@@ -466,17 +470,18 @@
       r[u].coverage = cd;
       // the exact image reference: the frame's relief against the raster of the reference's members, at this u
       const rl = await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
-      const rk = await refImage(sheets, REF);
+      const rk = await runReference(sheets, REF);
       r[u].raster = rk;
       const fl = rk ? rk.failures : null;
-      // (the reference judges the glide's middle; the ends compare with the parked planes above until the reference is accepted as complete there: their result is kept in the info)
-      const refOk = u === GLIDE_MID ? ok : () => {};
+      // (Ruling C: u = 0.002, 0.5 and 0.998 are judged against the exact reference at the same u; the frames END_U from a plane compare with that parked plane
+      // above, and the reference's result there is kept in the info)
+      const refOk = u <= END_U || u >= 1 - END_U ? () => {} : ok;
       refOk(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference exact: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk: rk && Object.assign({}, rk, { failures: fl.slice(0, 4) }) });
       refOk(`${t}: the reference decides every cell (${rk ? JSON.stringify(rk.cells) : '?'}; ${rk ? rk.certs.length : '?'} branch certificates): no failure`, !!rk && fl.length === 0, { failures: fl && fl.slice(0, 4) });
       // the controls, each a reference that must fail: too shallow a lattice at the thinnest feature, the nearest root taken as a member's
       // identity at the Newton glide's end, the seam of a boundary cell moved one cell, a branch point located one cell off
       const control = async (name, extra, need) => {
-        const c = await refImage(sheets, Object.assign({}, REF, extra));
+        const c = await runReference(sheets, Object.assign({}, REF, extra));
         ok(`${t}: the control: ${name} fails the reference`, !!c && need(c), { off: c && c.off, failures: c && c.failures.slice(0, 3) });
       };
       if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH}`, { CELL_DEPTH_MAX: CTL_DEPTH }, (c) => c.failures.some((f) => f.kind === 'cellDepth'));
@@ -484,7 +489,10 @@
       // (the rays decide fewer pixels than the tolerance in these frames: the seam control is armed where they decide at least SEAM_MIN_HITS, and fails the reference when the
       // moved seam changes at least SEAM_DIFF_SHARE of them)
       if (rk && rk.cells.hits >= SEAM_MIN_HITS && !controlsDone.seam) { controlsDone.seam = 1; await control('a seam moved one cell', { seam: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL || c.diff >= SEAM_DIFF_SHARE * rk.cells.hits); }
-      if (rk && rk.cells.counted && !controlsDone.count) { controlsDone.count = 1; await control('a member removed from the completeness count', { countDrop: 1 }, (c) => c.failures.some((f) => f.kind === 'count')); }
+      // (each scope of the completeness count has its own control: a member removed from that scope's counts alone must fail a count of that scope)
+      for (const scope of COUNT_SCOPES) {
+        if (rk && rk.cells.countedBy && rk.cells.countedBy[scope] && !controlsDone['count:' + scope]) { controlsDone['count:' + scope] = 1; await control(`a member removed from the completeness counts at ${COUNT_WHERE[scope]}`, { countDrop: scope }, (c) => c.failures.some((f) => f.kind === 'count' && f.scope === scope)); }
+      }
       if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone.apex) { controlsDone.apex = 1; await control('a pixel at a branch point decided with no height comparison', { apexOld: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
       if (rk && rk.certs.length > 0 && !controlsDone.branch) { controlsDone.branch = 1; await control('a branch point moved one cell', { branch: 1 }, (c) => c.failures.some((f) => f.kind === 'branch' || f.kind === 'cellDepth')); }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
@@ -494,7 +502,7 @@
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
   ok('the step-floor control ran: some place has a step floor away from the contour that is unresolved', !!controlsDone.far, controlsDone);
   ok('the noise-floor control ran: some place has a real turn of the argument that a noise floor drops', !!controlsDone.noise, controlsDone);
-  ok('the completeness-count control ran: some frame had a count read at a cell', !!controlsDone.count, controlsDone);
+  for (const scope of COUNT_SCOPES) ok(`the completeness-count control ran: some frame had a count read at ${COUNT_WHERE[scope]}`, !!controlsDone['count:' + scope], controlsDone);
   ok('the branch-point height control ran: the cube root at the glide\'s middle', !!controlsDone.apex, controlsDone);
   return { pass: !fails.length, fails, info };
 })
