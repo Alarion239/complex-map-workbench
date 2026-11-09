@@ -1281,6 +1281,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'dh': case 'bottcher': {
         const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
         const NM = Funcs.DH_NMAX;
+        // The certified early stop of the orbit: the walk back from w_n takes φ(w_n) = w_n √(1 + c/w_n²), whose relative error
+        // is below 2^{1-n} |c| / |w_n|² (and that is the relative error of H after the n square roots, 2^{-n} times it), so the
+        // orbit ends at the first n with 2^{1-n} |c| / |w_n|² <= DH_STOP_TOL. The bound holds, and w_n escapes, where
+        // |w_n|² > 8 and |w_n|² >= 8 |c| (then |w_{n+1}| >= 7/8 |w_n|², past 10⁴ within DH_STOP_STEPS more steps), and the stop
+        // needs k + DH_STOP_STEPS <= N so the escape test of N steps (the blank band) is the same. Squared, with no square root
+        const DH_STOP_TOL = +NEWT_HIT_F / 16, DH_STOP_STEPS = 6;
+        const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
         return {
           sig: [type],
           f: `vec2 orb[${NM + 1}];
@@ -1288,7 +1295,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
   int n = -1;
   for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
     orb[k] = w;
-    if (dot(w, w) > 1e8) { n = k; break; }
+    float w2 = dot(w, w), c2 = dot(c, c);
+    if (w2 > 1e8) { n = k; break; }
+    if (${DH_STOP}) { n = k; break; }
     if (float(k) >= ${nn.x}) break;
     w = cmul(w, w) + c;
   }
