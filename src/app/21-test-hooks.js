@@ -921,7 +921,7 @@
         if (!cert) { rejected++; continue; }
         if (out.some((x) => x.k === cert.k && Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) <= SCN.SAME_Z * (1 + Math.hypot(m.z[0], m.z[1])))) continue;
         const at = sceneMiss(sc, wc, z, z), own = at.length > 0 && at[0].k === sc.own && at[0].miss <= SCN.CERT;
-        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, own, rank: sc.rank(cert.k), miss: cert.miss, member: m.member, src: m.sheet });
+        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, own, rank: sc.rank(cert.k), miss: cert.miss, member: m.member, src: m.sheet, lvl: m.lvl, cell: cert.leaf && cert.leaf.closed ? [cert.leaf.c.re, cert.leaf.c.im] : m.z });
       }
       const front = out.reduce((best, m) => (!best || m.rank < best.rank || (m.rank === best.rank && depth(m) < depth(best)) ? m : best), null);
       if (front) front.front = true;
@@ -932,15 +932,17 @@
     window.__cmwLandRejected = rejectedAll;
     return res;
   };
-  // the frame's homotopy H_u at a point z of plane 0 on every surface of the scene (the cell centred at z): [{ sheet: k, H: [re, im] | null,
-  // dH: [re, im] | null, exactD }]; dH is a central difference over HOM_DZ in z at the same cell, exactD false
+  // the range ramp (pixels) the inverse admits members outside a sheet's window by: a member's lvl is at least -RAMP
+  window.__cmwLandRamp = () => Inverse.RAMP;
+  // the frame's homotopy H_u at a point z of plane 0 on every surface of the scene, evaluated on the cell centred at cell ([re, im]; z when
+  // omitted): [{ sheet: k, H: [re, im] | null, dH: [re, im] | null, exactD }]; dH is a central difference over HOM_DZ in z at the same cell, exactD false
   const HOM_DZ = 1e-6;
-  window.__cmwLandHom = (z) => {
+  window.__cmwLandHom = (z, cell) => {
     const sc = sceneOf();
     if (!sc) return null;
-    const zc = C(z[0], z[1]), a = C(z[0] + HOM_DZ, z[1]), b = C(z[0] - HOM_DZ, z[1]), out = [];
+    const zc = C(z[0], z[1]), cc = cell ? C(cell[0], cell[1]) : zc, a = C(z[0] + HOM_DZ, z[1]), b = C(z[0] - HOM_DZ, z[1]), out = [];
     for (let k = 0; k < sc.K; k++) {
-      const h = sc.g(k, zc, zc), ha = sc.g(k, zc, a), hb = sc.g(k, zc, b);
+      const h = sc.g(k, cc, zc), ha = sc.g(k, cc, a), hb = sc.g(k, cc, b);
       out.push({ sheet: k, H: h ? [h.re, h.im] : null, dH: ha && hb ? [(ha.re - hb.re) / (2 * HOM_DZ), (ha.im - hb.im) / (2 * HOM_DZ)] : null, exactD: false });
     }
     return out;
