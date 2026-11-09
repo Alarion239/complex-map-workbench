@@ -701,19 +701,27 @@
   const sceneLeaves = (sc) => {
     if (sc.leaves) return sc.leaves;
     const out = [], b = sc.box, n0 = 1 << SCN.DEPTH0;
-    const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
-    // (a leaf is closed when every surface's value on the cell centred at the leaf's centre runs round its loop in steps of at most REL: no cut of
-    // the cell, no branch point, inside)
+    // (a leaf is closed when every surface's value on the cell centred at the leaf's centre runs round its loop in steps of at most REL of its
+    // distance from the value at the centre (a constant offset hides nothing): no cut of the cell, no branch point, inside)
     const closed = (r) => {
       const c = C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
       for (let k = 0; k < sc.K; k++) {
-        const g = (z) => sc.g(k, c, z);
+        const g = (z) => sc.g(k, c, z), vc = g(c);
+        if (!vc) return false;
+        const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
         for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return false;
       }
       return true;
     };
+    // (the circle of H_u's own cut crosses the rectangle: the leaf is a cut leaf whatever the size of the jump)
+    const crosses = (r) => {
+      if (!sc.cut) return false;
+      const nx = Math.min(Math.max(0, r.x0), r.x1), ny = Math.min(Math.max(0, r.y0), r.y1);
+      const far = Math.max(...[[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]].map(([x, y]) => Math.hypot(x, y)));
+      return Math.hypot(nx, ny) < sc.cut.R && sc.cut.R < far;
+    };
     const cut = (r, d) => {
-      const ok = closed(r), two = !ok && sc.cut ? cutLeaf(sc, r) : null;
+      const x = crosses(r), two = x ? cutLeaf(sc, r) : null, ok = !x && closed(r);
       if (ok || two || d >= SCN.DEPTH_MAX || out.length >= SCN.LEAF_MAX) {
         out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, two, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
         return;
@@ -892,7 +900,7 @@
       }
       for (let k = 0; k < sc.K; k++) {
         let sum = 0, on = false, loopOk = true;
-        const g = (z) => sc.g(k, l.c, z), ctl = (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG && CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
+        const g = (z) => sc.g(k, l.c, z), vc = g(l.c) || C(0, 0), ctl = (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG && CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
         for (const f of rectLoop(l)) {
           const q = windOpen(g, f, w, ctl, minStep);
           if (q.on) on = true;
@@ -912,6 +920,8 @@
         }
       }
     }
+    // (a certified member in a branch leaf contradicts the leaf's exclusion of w: the count is unresolved)
+    if (ms.some((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && !l.closed && !l.two; })) status = status === 'ok' ? 'unresolved' : status;
     const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && (l.closed || l.two); }).length - (opts.dropOne ? 1 : 0);
     return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad }];
   };
