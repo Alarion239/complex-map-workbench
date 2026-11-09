@@ -551,12 +551,12 @@
   // completeness of the members is the winding of H_u - w around the leaves of the box (anchored continuation, so no cut of a plan enters).
   // SCN: CERT, the relative |H_u(z) - w| a member is within (LAND_ENUM_Z_TOL's value: the candidate's z is as exact as the frame's); TIE, how
   // much nearer the best surface must be than the next, or the surface is ambiguous; ARG, the largest argument a winding step turns;
-  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; LEAF_MAX, the leaves after which no leaf is cut further; SPLIT and JIT, the share of a leaf its cut falls at and the shift of the first grid's inner lines (a cut that is not the middle keeps a branch point off a leaf's edge); SHRINK, the rings a branch leaf's values are also read on (each half the one before); LIP, the factor its range is widened by over the largest difference of neighbouring samples; CONV, the largest share of the first half of those rings' change that the second half may still change a value by for the branch to be algebraic (finite, converging); MIN_STEP, the smallest step of an edge
+  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; LEAF_MAX, the leaves after which no leaf is cut further; SPLIT and JIT, the share of a leaf its cut falls at and the shift of the first grid's inner lines (a cut that is not the middle keeps a branch point off a leaf's edge); SHRINK, the rings a branch leaf's values are also read on (each half the one before); LIP, the factor its range is widened by over the largest difference of neighbouring samples; CUT_EDGE, the relative distance within which a crossing of a leaf's edge by the cut circle is taken as the edge's corner; CONV, the largest share of the first half of those rings' change that the second half may still change a value by for the branch to be algebraic (finite, converging); MIN_STEP, the smallest step of an edge
   // (a unit edge; the control raises it to 1); CLOSE, the relative distance within which a closed contour returns to its first value; ON, the relative |H_u - w| that
   // puts w on a contour; NEAR, the relative gap of a value from w that the control calls near; REL, the largest relative change of a
   // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
   // grid; SAME_Z, the relative distance under which two candidates are one z
-  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
+  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
   let sceneMemo = null;
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
@@ -583,44 +583,109 @@
     };
     let poles = [];
     try { poles = svDrain(svPolesIn(cpuMap(map), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || []; } catch (e) { poles = []; }
-    return (sceneMemo = { key, map, W, K, own, rank, g, box: bx, poles, leaves: null });
+    // The cut of H_u itself: a step with a Joukowski path, alone and last in the map (its input is the z-plane), takes its disk's formula inside
+    // the circle |z| = JOUK_R (Funcs.joukInside) and the exterior's outside; cut = { side(inside)(z), R } then, with g of each side
+    let cut = null;
+    const hiStep = map.mode === 1 ? map.hi : 0, bb = hiStep ? built[hiStep - 1] : null, live = (k) => S.steps[k - 1] && S.steps[k - 1].on !== false && built[k - 1] && !built[k - 1].error;
+    if (bb && bb.nat && bb.nat.kind === 'jouk' && K === 1 && !Array.from({ length: hiStep - 1 }, (_, i) => i + 1).some(live) && typeof Funcs.joukAt === 'function') {
+      const t = map.t, lc = bb.nat.scaled && bb.natData ? bb.natData.lc : null, kk = lc ? CX.exp(Funcs.natSc(lc, t)) : null;
+      cut = { R: Funcs.JOUK_R, side: (inside) => { const J = Funcs.joukAt(t, inside); return (z) => { const v = J(z); return v && CX.isFin(v) ? (kk ? CX.mul(kk, v) : v) : null; }; } };
+    }
+    return (sceneMemo = { key, map, W, K, own, rank, g, box: bx, poles, cut, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
-  // the continuation of a value v at the point zi to the point z1: the surface whose own principal value at zi is nearest v (null when
-  // two are about as near: the surfaces meet), then its value at z1 on the cell centred at zi
-  const sceneNext = (sc, v, zi, z1) => {
-    let best = -1, d1 = Infinity, d2 = Infinity;
-    if (sc.K === 1) best = 0;
-    else {
-      for (let k = 0; k < sc.K; k++) {
-        const a = sc.g(k, zi, zi);
-        if (!a) continue;
-        const d = CX.abs(CX.sub(a, v));
-        if (d < d1) { d2 = d1; d1 = d; best = k; } else if (d < d2) d2 = d;
-      }
-      if (best < 0 || d1 * SCN.TIE > d2) return null;
-    }
-    const nv = sc.g(best, zi, z1);
-    return nv ? { k: best, v: nv } : null;
+  // the loop round a rectangle r, counter-clockwise from its lower left corner: its four edges as pieces t -> z, t in [0, 1]
+  const rectLoop = (r) => {
+    const P = [C(r.x0, r.y0), C(r.x1, r.y0), C(r.x1, r.y1), C(r.x0, r.y1)];
+    return P.map((a, e) => { const b = P[(e + 1) % 4]; return (t) => C(a.re + (b.re - a.re) * t, a.im + (b.im - a.im) * t); });
   };
-  // the continuation of start surface k0 once round the rectangle's edges (counter-clockwise from its lower left corner): control(v, nv) says
-  // whether a step is small enough; each accepted step calls onStep(v, nv). { ok, v0, v1 }: ok false where a step cannot be made small
-  const sceneRing = (sc, k0, r, control, onStep, minStep = SCN.MIN_STEP) => {
-    const pts = [C(r.x0, r.y0), C(r.x1, r.y0), C(r.x1, r.y1), C(r.x0, r.y1), C(r.x0, r.y0)], z0 = pts[0], v0 = sc.g(k0, z0, z0);
-    if (!v0) return { ok: false };
-    let v = v0, zi = z0;
+  // The loops round the two parts of a rectangle r that the circle |z| = R cuts: { inside, outside }, each a list of closed loops, a loop a list
+  // of pieces t -> z, t in [0, 1]; null when the circle does not cross r. The part inside the circle is walked counter-clockwise (its arcs
+  // counter-clockwise), the part outside too (its arcs clockwise). An edge's crossing at a corner is a corner.
+  const cutLoops = (R, r) => {
+    const P = [C(r.x0, r.y0), C(r.x1, r.y0), C(r.x1, r.y1), C(r.x0, r.y1)], hits = [];
     for (let e = 0; e < 4; e++) {
-      const a = pts[e], b = pts[e + 1], len = CX.abs(CX.sub(b, a));
-      let t = 0, h = 1 / SCN.SEG;
-      while (t < 1) {
-        const t1 = Math.min(1, t + h), z1 = C(a.re + (b.re - a.re) * t1, a.im + (b.im - a.im) * t1), n = sceneNext(sc, v, zi, z1);
-        if (n && control(v, n.v)) { onStep(v, n.v); v = n.v; zi = z1; t = t1; h = Math.min(h * 2, 1 / SCN.SEG); continue; }
-        h /= 2;
-        if (h < minStep || h * len < minStep) return { ok: false, v0 };
+      const a = P[e], d = CX.sub(P[(e + 1) % 4], a), dd = d.re * d.re + d.im * d.im, ad = a.re * d.re + a.im * d.im, disc = ad * ad - dd * (a.re * a.re + a.im * a.im - R * R);
+      if (disc <= 0) continue;
+      for (const sg of [-1, 1]) {
+        const tt = (-ad + sg * Math.sqrt(disc)) / dd;
+        if (tt > SCN.CUT_EDGE && tt < 1 - SCN.CUT_EDGE) { const z = C(a.re + d.re * tt, a.im + d.im * tt); hits.push({ s: e + tt, z, ang: Math.atan2(z.im, z.re) }); }
       }
     }
-    return { ok: true, v0, v1: v };
+    if (hits.length < 2) return null;
+    hits.sort((p, q) => p.s - q.s);
+    const inDisk = (z) => z.re * z.re + z.im * z.im < R * R;
+    // (the boundary between hit i and the next: the corners on the way, its midpoint's side)
+    const bpieces = hits.map((h, i) => {
+      const n = hits[(i + 1) % hits.length], pts = [h.z];
+      let e = Math.floor(h.s) + 1;
+      const end = n.s > h.s ? n.s : n.s + 4;
+      for (; e <= Math.floor(end - 1e-12); e++) pts.push(P[e % 4]);
+      pts.push(n.z);
+      const len = pts.slice(1).reduce((a, q, j) => a + CX.abs(CX.sub(q, pts[j])), 0), at = (t) => {
+        let m = t * len;
+        for (let j = 1; j < pts.length; j++) { const l = CX.abs(CX.sub(pts[j], pts[j - 1])); if (m <= l || j === pts.length - 1) { const f = l ? Math.min(1, m / l) : 0; return C(pts[j - 1].re + (pts[j].re - pts[j - 1].re) * f, pts[j - 1].im + (pts[j].im - pts[j - 1].im) * f); } m -= l; }
+        return pts[pts.length - 1];
+      };
+      return { from: h, to: n, f: at, inside: inDisk(at(0.5)) };
+    });
+    const byAng = hits.slice().sort((p, q) => p.ang - q.ang), inR = (z) => z.re >= r.x0 && z.re <= r.x1 && z.im >= r.y0 && z.im <= r.y1;
+    const arcs = [];   // counter-clockwise arcs of the circle inside r, from hit a to hit b
+    byAng.forEach((a, i) => {
+      const b = byAng[(i + 1) % byAng.length], span = b.ang > a.ang ? b.ang - a.ang : b.ang - a.ang + 2 * Math.PI, mid = a.ang + span / 2;
+      if (inR(C(R * Math.cos(mid), R * Math.sin(mid)))) arcs.push({ from: a, to: b, f: (t) => C(R * Math.cos(a.ang + span * t), R * Math.sin(a.ang + span * t)) });
+    });
+    const arcFrom = (h, rev) => arcs.find((a) => (rev ? a.to : a.from) === h);
+    const loopsOf = (inside) => {
+      const out = [], used = new Set(), mine = bpieces.filter((b) => b.inside === inside);
+      for (const start of mine) {
+        if (used.has(start)) continue;
+        const loop = [];
+        let cur = start;
+        for (let guard = 0; cur && !used.has(cur) && guard < 64; guard++) {
+          used.add(cur); loop.push(cur.f);
+          const end = cur.to, arc = arcFrom(end, !inside);
+          if (!arc) return null;
+          loop.push(inside ? arc.f : (t) => arc.f(1 - t));
+          cur = mine.find((b) => b.from === (inside ? arc.to : arc.from));
+        }
+        out.push(loop);
+      }
+      return out;
+    };
+    const inside = loopsOf(true), outside = loopsOf(false);
+    return inside && outside && inside.length + outside.length > 0 ? { inside, outside } : null;
+  };
+  // the sum of the arguments' turns of g(z) - w along the piece f (t in [0, 1]) with steps of at most ARG; control(v, nv) bounds a step's size
+  // by the values' change as well. { sum, on, bad }
+  const windOpen = (g, f, w, control, minStep = SCN.MIN_STEP) => {
+    let t = 0, h = 1 / SCN.SEG, v = g(f(0)), sum = 0, on = false;
+    if (!v) return { bad: true };
+    if (CX.abs(CX.sub(v, w)) < SCN.ON * (1 + CX.abs(w))) on = true;
+    while (t < 1) {
+      const t1 = Math.min(1, t + h), nv = g(f(t1));
+      if (nv && control(v, nv)) {
+        sum += argd(CX.sub(v, w), CX.sub(nv, w));
+        if (CX.abs(CX.sub(nv, w)) < SCN.ON * (1 + CX.abs(w))) on = true;
+        v = nv; t = t1; h = Math.min(h * 2, 1 / SCN.SEG);
+        continue;
+      }
+      h /= 2;
+      if (h < minStep) return { bad: true, on };
+    }
+    return { sum, on, bad: false };
+  };
+  // a cut leaf (the circle crosses it) whose two parts' loops can be walked with g's values finite and changing by steps of at most REL
+  const cutLeaf = (sc, r) => {
+    const loops = cutLoops(sc.cut.R, r);
+    if (!loops) return null;
+    const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
+    for (const [side, set] of [[true, loops.inside], [false, loops.outside]]) {
+      const g = sc.cut.side(side);
+      for (const loop of set) for (const f of loop) if (windOpen(g, f, C(0, 0), (v, nv) => rel(v, nv)).bad) return null;
+    }
+    return loops;
   };
   // the leaves of the box: a quadtree cut until the continuation of every surface round a leaf returns to its own value (no branch point
   // inside), at most DEPTH_MAX deep; a leaf that still does not close is a branch leaf. [{ x0, x1, y0, y1, c, closed, poles }]
@@ -628,17 +693,20 @@
     if (sc.leaves) return sc.leaves;
     const out = [], b = sc.box, n0 = 1 << SCN.DEPTH0;
     const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
+    // (a leaf is closed when every surface's value on the cell centred at the leaf's centre runs round its loop in steps of at most REL: no cut of
+    // the cell, no branch point, inside)
     const closed = (r) => {
+      const c = C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
       for (let k = 0; k < sc.K; k++) {
-        const q = sceneRing(sc, k, r, rel, () => {});
-        if (!q.ok || CX.abs(CX.sub(q.v1, q.v0)) > SCN.CLOSE * cmax(q.v0)) return false;
+        const g = (z) => sc.g(k, c, z);
+        for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return false;
       }
       return true;
     };
     const cut = (r, d) => {
-      const ok = closed(r);
-      if (ok || d >= SCN.DEPTH_MAX || out.length >= SCN.LEAF_MAX) {
-        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
+      const ok = closed(r), two = !ok && sc.cut ? cutLeaf(sc, r) : null;
+      if (ok || two || d >= SCN.DEPTH_MAX || out.length >= SCN.LEAF_MAX) {
+        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, two, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
         return;
       }
       const mx = r.x0 + (r.x1 - r.x0) * SCN.SPLIT, my = r.y0 + (r.y1 - r.y0) * SCN.SPLIT;
@@ -736,9 +804,9 @@
   // the winding of H_u - w counts (the sum over surfaces of the winding round the leaf plus its poles, each by its order) against the pairs the
   // certified members make in it. A leaf no surface closes round (a branch point) holds no pair when w is farther from the mean of its boundary
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
-  // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
+  // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, cutLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
-  // opts: noPoles omits P, dropOne removes a member, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
+  // opts: noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => { const t0 = performance.now(); try { const r = window.__cmwLandWind0(wIn, opts); if (r) r[0].ms = Math.round(performance.now() - t0); return r; } catch (e) { return [{ err: String(e && e.stack || e).slice(0, 400), ok: false }]; } };
   window.__cmwLandWind0 = (wIn, opts = {}) => {
@@ -755,6 +823,34 @@
     let status = 'ok', N = 0, P = 0, branchLeaves = 0, bad = 0;
     const minStep = opts.nearContour ? 1 : SCN.MIN_STEP;
     for (const l of leaves) {
+      if (l.two) {
+        // (a leaf the circle crosses: each part's loops walked with its own side's formula; the parts' windings and poles add up)
+        const loopsTwo = opts.cutDelta ? cutLoops(sc.cut.R + opts.cutDelta, l) || l.two : l.two, relc = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
+        for (const [side, set] of [[true, loopsTwo.inside], [false, loopsTwo.outside]]) {
+          const g = sc.cut.side(side);
+          for (const loop of set) {
+            let sum = 0;
+            let loopOk = true;
+            for (const f of loop) {
+              const q = windOpen(g, f, w, (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG && relc(v, nv), minStep);
+              if (q.bad) { loopOk = false; break; }
+              sum += q.sum;
+              if (q.on) status = 'onContour';
+            }
+            if (!loopOk) { bad++; status = status === 'ok' ? 'unresolved' : status; continue; }
+            const n = sum / (2 * Math.PI);
+            if (Math.abs(n - Math.round(n)) > SCN.CLOSE * 1e3) { status = status === 'ok' ? 'unresolved' : status; continue; }
+            N += Math.round(n);
+          }
+          if (!opts.noPoles) {
+            for (const p of l.poles.filter((q) => Funcs.joukInside(q) === side)) {
+              const at = (r) => { const h = g(C(p.re + r, p.im)); return h ? CX.abs(h) : 0; }, a = at(SCN.POLE_R), b = at(10 * SCN.POLE_R), order = Math.log(a / b) / Math.log(10);
+              if (a > SCN.POLE_BIG && order > 0.5) { N += Math.round(order); P += Math.round(order); }
+            }
+          }
+        }
+        continue;
+      }
       if (!l.closed) {
         branchLeaves++;
         // (the values of every surface at the leaf's rim and on SHRINK rings each half the one before about its centre, and the largest
@@ -782,13 +878,16 @@
         continue;
       }
       for (let k = 0; k < sc.K; k++) {
-        let sum = 0, on = false;
-        const q = sceneRing(sc, k, l, (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG, (v, nv) => {
-          sum += argd(CX.sub(v, w), CX.sub(nv, w));
-          if (CX.abs(CX.sub(nv, w)) < SCN.ON * (1 + CX.abs(w))) on = true;
-        }, minStep);
-        if (!q.ok) { bad++; status = status === 'ok' ? 'unresolved' : status; continue; }
-        if (on || CX.abs(CX.sub(q.v0, w)) < SCN.ON * (1 + CX.abs(w))) { status = 'onContour'; continue; }
+        let sum = 0, on = false, loopOk = true;
+        const g = (z) => sc.g(k, l.c, z), ctl = (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG && CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
+        for (const f of rectLoop(l)) {
+          const q = windOpen(g, f, w, ctl, minStep);
+          if (q.on) on = true;
+          if (q.bad) { loopOk = false; break; }
+          sum += q.sum;
+        }
+        if (on) { status = 'onContour'; continue; }
+        if (!loopOk) { bad++; status = status === 'ok' ? 'unresolved' : status; continue; }
         const n = sum / (2 * Math.PI);
         if (Math.abs(n - Math.round(n)) > SCN.CLOSE * 1e3) { status = status === 'ok' ? 'unresolved' : status; continue; }
         N += Math.round(n);
@@ -800,8 +899,8 @@
         }
       }
     }
-    const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && l.closed; }).length - (opts.dropOne ? 1 : 0);
-    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, bad }];
+    const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && (l.closed || l.two); }).length - (opts.dropOne ? 1 : 0);
+    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad }];
   };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true }, noRay: { noRay: true }, mixBeta0: { mixBeta0: true }, mixSwitch: { mixSwitch: true }, clipOff: { clipOff: true }, clipLinear: { clipLinear: true }, noSeam: { noSeam: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)

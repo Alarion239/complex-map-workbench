@@ -91,7 +91,7 @@
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
-  const WIND_PLACES = 12;   // (places counted per frame)
+  const WIND_PLACES = 12, CUT_DELTA = 0.5;   // (places counted per frame; the control's shift of the cut circle's radius)   // (places counted per frame)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
   // the exact image reference's raster (window.__lxRaster): the box's lattice (nx x ny cells, each halved up to depth times where the
@@ -125,7 +125,7 @@
     // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
     { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
     { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true, clipControls: true },
-    { tag: 'Joukowski airfoil', example: 'Joukowski airfoil' },
+    { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', cutControl: true },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
     { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
   ];
@@ -718,7 +718,7 @@
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
       const tP0 = Date.now();
       const ref = await evx(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
-      if (process.env.CMW_PROF) { const t1 = Date.now() - tP0; const tw0 = Date.now(); const wr = await evx(`__cmwLandWind(${JSON.stringify(vpts[0])}, {})`); const t2 = Date.now() - tw0; const tw1 = Date.now(); const sg = await evx('JSON.stringify(__cmwLandSing())'); const tr0 = Date.now(); const big = await evx(`(() => { const b = ${JSON.stringify(box)}, pts = []; for (let i = 0; i < 500; i++) pts.push([b.x0 + (b.x1 - b.x0) * ((i * 37 % 500) + 0.5) / 500, b.y0 + (b.y1 - b.y0) * ((i * 91 % 500) + 0.5) / 500]); const e = __cmwLandMembers(pts); return { n: e.length, mem: e.reduce((a, l) => a + l.length, 0), rej: window.__cmwLandRejected }; })()`); const t3 = Date.now() - tr0; return { pass: false, fails: [{ name: 'PROF', got: { big, bigMs: t3, enumMs: t1, windMs: t2, wr, sing: sg.slice(0, 300), sing2: Date.now() - tw1 } }], info }; }
+      if (process.env.CMW_PROF) { const t1 = Date.now() - tP0; const tw0 = Date.now(); const wr = await evx(`__cmwLandWind(${JSON.stringify(vpts[0])}, {})`); const t2 = Date.now() - tw0; const tw1 = Date.now(); const sg = await evx('JSON.stringify(__cmwLandSing())'); const tr0 = Date.now(); const big = await evx(`(() => { const b = ${JSON.stringify(box)}, pts = []; for (let i = 0; i < 500; i++) pts.push([b.x0 + (b.x1 - b.x0) * ((i * 37 % 500) + 0.5) / 500, b.y0 + (b.y1 - b.y0) * ((i * 91 % 500) + 0.5) / 500]); const e = __cmwLandMembers(pts); return { n: e.length, mem: e.reduce((a, l) => a + l.length, 0), rej: window.__cmwLandRejected }; })()`); const t3 = Date.now() - tr0; return { pass: false, fails: [{ name: 'PROF', got: { big, bigMs: t3, enumMs: t1, windMs: t2, wr, sing: sg.slice(0, 1500), sing2: Date.now() - tw1 } }], info }; }
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
       ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
       if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
@@ -774,6 +774,17 @@
               const lw = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
               // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is unbounded there, so the count must say branchLog, never ok)
               ok(`${t}: the control: the branch leaf at 0 is reported (${r0 ? r0.branchLeaves : '?'} leaves, status ${r0 ? r0.status : '?'})`, !!r0 && r0.branchLeaves > 0 && (u < 1 - 2 * END_U || r0.status === 'branchLog'), { lw });
+            }
+            if (c.cutControl) {
+              // (the part of H_u inside the circle |z| = 1 and the part outside are different formulas: a count that takes the circle's radius moved by CUT_DELTA
+              // counts the wrong region for each, and must differ from the certified members at some place)
+              const base = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), nCut = base && base[0] ? base[0].cutLeaves : 0;
+              if (u === GLIDE_MID) ok(`${t}: the circle's cut is walked as two parts at u = ${u} (${nCut} leaves cross it)`, nCut > 0, { base });
+              if (nCut > 0) {
+                let nBadC = 0;
+                for (const i of pick) { const wr = await evx(`__cmwLandWind(${JSON.stringify(vpts[i])}, { cutDelta: ${CUT_DELTA} })`); if (wr && wr.some((r) => !r.ok)) nBadC++; }
+                ok(`${t}: the control: the cut circle's radius moved by ${CUT_DELTA} breaks the count (${nBadC} of ${pick.length} places)`, nBadC > 0, { nBadC });
+              }
             }
             const nop = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await evx(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
             const poleCase = !!withP && withP.some((r) => r.P > 0);
