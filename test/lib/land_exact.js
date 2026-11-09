@@ -77,6 +77,10 @@
   const LAMBDA_SAME = 1e-4;   // two certified roots are one member when their log coordinates agree within this share of 1 + |lam| (whatever sheets list them): Newton's certificate is 1e-5 of H, and distinct members of a set are far apart in lam
   const SYN_ARM = 0.5;   // the made-up edge through a branch value: half its length in grid cells (its direction runs from the branch value toward the centre of the places the frame spans, so both its ends are in them)
   const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
+  const STRIP_TOL = 1e-9;   // radians: a member whose log coordinate's imaginary part is this far outside its sheet's window (lo, hi] of the first op (__cmwLandWin) is a range-ramp member the scene's count (a winding inside the window) leaves out; the enumerator's own level test (lvl >= 0, src/inverse.js) is the same rule
+  const RAMP_LATTICE = 40;   // places on a side of the lattice the ramp-member control searches
+  const LOOP_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];   // the directions the displaced control moves its loops: each of the eight neighbours of the vertex
+  const CELL_QUANT = 8;   // a branch cell is named by its lower-left corner in eighths of a grid cell
   const ORBIT_EXTRA = 2;   // the roots of an orbit added for a loop's image are at most the scene's member count here plus this many (past it the loop is unresolved)
   const MONO_FAR = 8;   // grid cells: a member set the enumerator does not complete is counted and certified this far from the place, and continued in
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
@@ -165,6 +169,7 @@
       const hb = window.__cmwLandHom([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
       window.__lxRegion = [x0, x1, y0, y1];
+      window.__lxWin = window.__cmwLandWin() || [];
       return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class: 'seam' (continuing its first end's member along the edge's place segment lands on a member other than the second
@@ -227,12 +232,15 @@
           if (!want.includes(e.sheet)) continue;   // (the sheets the edge's ends hold; the others only crowd the separation check)
           const m = newton({ z: e.z, lam: e.lam, sheet: e.sheet, sheets: [e.sheet], lvl: e.lvl }, w);
           if (!m) continue;
-          const q = out.find((x) => dist(x, m) <= ${LAMBDA_SAME} * (1 + cabs(m.lam || m.z)));
+          const q = !(opt && opt.countRamp) && out.find((x) => dist(x, m) <= ${LAMBDA_SAME} * (1 + cabs(m.lam || m.z)));   // (countRamp: every sheet's entry is its own member, so the ramp sheets of a member count again)
           if (q) { if (!q.sheets.includes(m.sheet)) q.sheets.push(m.sheet); if (!(m.lvl < 0)) q.lvl = m.lvl; } else out.push(m);   // (a member any of whose sheets has it in its window is counted)
         }
         return out;
       };
-      const counted = (set) => set.filter((m) => cabs(m.z) >= ${COUNT_R_MIN} && inBox(m) && !(m.lvl < 0)).length;
+      // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within STRIP_TOL; a member with no
+      // log coordinate falls back to the enumerator's level; opt.countRamp counts the ramp members too: the control that the count catches them)
+      const inWin = (m) => !m.lam || !window.__lxWin.length || (m.sheets || [m.sheet]).some((sh) => { const q = window.__lxWin[sh]; return !q || q.lo === null || (m.lam[1] > q.lo - ${STRIP_TOL} && m.lam[1] <= q.hi + ${STRIP_TOL}); });
+      const counted = (set) => set.filter((m) => cabs(m.z) >= ${COUNT_R_MIN} && inBox(m) && (inWin(m) || !!(opt && opt.countRamp))).length;
       const membersN = (w) => {
         const n = countAt(w), out = listAt(w);
         if (counted(out) === n) return out;
@@ -263,6 +271,11 @@
       };
       // (the member of a set nearest z on the sheet: two members of different sheets are two members even where their z coincide)
       const nearest = (set, z, sheet) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = (m.sheets || [m.sheet]).includes(sheet) ? (z.lam ? dist(m, z) : cabs(csub(m.z, z.z || z))) : Infinity; if (q < d) { d = q; b = i; } }); return { i: b, d }; };
+      if (opt && opt.countAt) {
+        // (the scene's count of the members at a place against the certified members there: every sheet; countRamp counts the ramp members too)
+        want = (window.__cmwLandWind(opt.countAt) || []).map((r) => r.sheet);
+        return { N: countAt(opt.countAt), n: counted(listAt(opt.countAt)) };
+      }
       let e = window.__lxPend[k];
       if (opt && opt.syn) {
         // (a made-up edge through the branch value bv, from one side of it to the other (so the track along it cannot complete, as for a real edge at a branch
@@ -295,9 +308,10 @@
       const shA = sA, shB = sB, setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA);
       const trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
       if (trA) {
-        const setB = membersAt([wbx, wby]), anyB = (() => { let b = -1, d = Infinity; setB.forEach((m, i) => { const q = cabs(csub(m.z, [bx, by])); if (q < d) { d = q; b = i; } }); return b; })();
+        const setB = opt && opt.emptyB ? [] : membersAt([wbx, wby]), anyB = (() => { let b = -1, d = Infinity; setB.forEach((m, i) => { const q = cabs(csub(m.z, [bx, by])); if (q < d) { d = q; b = i; } }); return b; })();
         const c = trA[ia.i];
-        if (anyB < 0 || dist(c, setB[anyB]) > ${LAMBDA_SAME} * (1 + cabs(c.lam || c.z))) return { cls: 'seam' };
+        if (anyB < 0) return { cls: 'unresolved', why: 'bset' };   // (no certified member at the second end's place: no certificate of a seam)
+        if (dist(c, setB[anyB]) > ${LAMBDA_SAME} * (1 + cabs(c.lam || c.z))) return { cls: 'seam' };
       }
       // the branch value: the monodromy of the members round the cells at the vertex (based loops), and where a track fails round the 2 x 2 ring there
       const shV = atA ? shA : shB, shO = atA ? shB : shA;
@@ -338,7 +352,7 @@
       if (ib === iv.i) return { cls: 'false', why: 'one member', dl: dist(setV[iv.i], trO[io.i]) };
       if (opt && opt.displace) {
         let n = 0;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        for (const [dx, dy] of ${JSON.stringify(LOOP_DIRS)}) {
           const c0 = [wv[0] + dx * ${MONO_DISPLACE} * h, wv[1] + dy * ${MONO_DISPLACE} * h];
           for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { const q = cyc(loop(c0, sx, sy)); if (q && q.hit) { n++; break; } }
         }
@@ -360,15 +374,25 @@
         return added > 0;
       };
       const read = (pts) => { let q = cyc(pts); if (q && q.lost && enlarge(q.shift)) q = cyc(pts); return q; };
+      if (opt && opt.noLoops) return { cls: 'false', why: 'no loops' };   // (the no-reach control: with no loop to read, a branch edge is not certified)
       let unres = false;
       for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
         const q = read(loop(wv, sx, sy));
         if (!q) { unres = true; continue; }
         if (q.lost) unres = true;
-        if (q.hit) return { cls: 'branch', cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * 8), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * 8)] };
+        if (q.hit) return { cls: 'branch', cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * ${CELL_QUANT}), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * ${CELL_QUANT})] };
       }
-      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * 8), Math.round(wv[1] / h * 8), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', fail }; }
+      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT}), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', fail }; }
       return { cls: 'false' };
+    },
+    // a place of the frame's region where the enumerator lists a range-ramp member (level below 0) on some sheet, found on a lattice of n x n places: null when there is none
+    rampPlace: (n) => {
+      const [x0, x1, y0, y1] = window.__lxRegion, b = window.__cmwLandCarry(true);   // (a ramp member in the box and beyond the count's inner radius, where the count would see it)
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        const w = [x0 + (x1 - x0) * (i + 0.5) / n, y0 + (y1 - y0) * (j + 0.5) / n];
+        if ((window.__cmwLandEnum([w]) || [[]])[0].some((e) => e.lvl < 0 && b && e.z[0] >= b.x0 && e.z[0] <= b.x1 && e.z[1] >= b.y0 && e.z[1] <= b.y1 && Math.hypot(e.z[0], e.z[1]) >= ${COUNT_R_MIN})) return w;
+      }
+      return null;
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -793,21 +817,34 @@
         for (const k of bIdx) {
           const sw = await ev(`__lx.certEdge(${k}, { swapB: true })`), dp = await ev(`__lx.certEdge(${k}, { displace: true })`);
           if (sw.cls === 'false') nSwap++;
-          if (dp.cls === 'displaced' && dp.loops < 8) nDisp++;
+          if (dp.cls === 'displaced' && dp.loops < LOOP_DIRS.length) nDisp++;
         }
         ok(`${t}: control: a wrong second member certifies none of the ${bIdx.length} branch edges (${nSwap} are none)`, nSwap === bIdx.length, { nSwap });
         ok(`${t}: control: loops moved ${MONO_DISPLACE} cells away do not all certify any of the ${bIdx.length} branch edges (${nDisp})`, nDisp === bIdx.length, { nDisp });
+        // the controls of the certificate's inputs: an edge whose second end has no certified member is unresolved, never a seam; counting the range-ramp members makes
+        // the scene's count (the winding inside each sheet's window) disagree with the members, so some edge becomes unresolved; and a branch edge read with no loops
+        // is not certified
+        const kSeam = certs.findIndex((q) => q.cls === 'seam');
+        if (kSeam >= 0) { const eb = await ev(`__lx.certEdge(${kSeam}, { emptyB: true })`); ok(`${t}: control: a seam edge whose second end has no certified member is unresolved (${eb.cls})`, eb.cls === 'unresolved', eb); }
+        else ok(`${t}: control: this row has no seam edge to empty the second end of (${certs.length} edges, none a seam)`, certs.every((q) => q.cls !== 'seam'), { n: certs.length });
+        const rp = await ev(`__lx.rampPlace(${RAMP_LATTICE})`);
+        if (rp) {
+          const cOff = await ev(`__lx.certEdge(0, { countAt: ${JSON.stringify(rp)} })`), cOn = await ev(`__lx.certEdge(0, { countAt: ${JSON.stringify(rp)}, countRamp: true })`);
+          ok(`${t}: control: at a place with a range-ramp member (${JSON.stringify(rp)}) the certified members match the scene's count (${cOff.n} of ${cOff.N}) and with the ramp members counted they do not (${cOn.n})`, cOff.n === cOff.N && cOn.n !== cOn.N, { cOff, cOn });
+        } else ok(`${t}: control: no place of a ${RAMP_LATTICE} x ${RAMP_LATTICE} lattice holds a range-ramp member in this row`, true, null);
         // the cell that holds a branch value of the scene (the root's 0): a made-up edge there must certify a branch, which the wrong-member, displaced-loop and
         // no-separation-check controls must each break; a row whose branch value (the frame's homotopy at the branch point, read by certPrep) is no place of the frame certifies none
         const bvs = prep.inPlace ? [prep.wb] : [];
         if (!bvs.length) ok(`${t}: the scene's branch values have no place on the grid, so no real edge certifies a branch (${cc.branch})`, cc.branch === 0, cc);
         for (const bv of bvs) {
           const syn = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)} })`), synSw = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, swapB: true })`);
+          const synNL = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, noLoops: true })`);
+          ok(`${t}: control: with no loops to read the made-up branch edge is not certified (${synNL.cls})`, synNL.cls !== 'branch', synNL);
           const synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`);
           const synZ = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true })`), synZoff = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true, sep: false })`);
           ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls})`, syn.cls === 'branch', syn);
           ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
-          ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of 8 still certify)`, synDp.cls === 'displaced' && synDp.loops < 8, synDp);
+          ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of ${LOOP_DIRS.length} still certify)`, synDp.cls === 'displaced' && synDp.loops < LOOP_DIRS.length, synDp);
           ok(`${t}: control: in the z chart (steps near the branch value swap members) the verdict without the separation check (${synZoff.cls}) differs from the one with it (${synZ.cls})`, synZoff.cls !== synZ.cls, { synZ, synZoff });
         }
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
