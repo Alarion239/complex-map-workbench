@@ -568,6 +568,8 @@
   // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
   // grid; SAME_Z, the relative distance under which two candidates are one z; RAY_LIP, how far from a power path's cut ray each of its two sides is read (the principal power takes the upper side's value on the ray itself); SAME_V and SAME_PTS, the relative difference of two surfaces' values under which they are one at each of SAME_PTS squared places of the box
   const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5, SAME_V: 1e-9, SAME_PTS: 3, RAY_LIP: 1e-9 };
+  // the steps whose path has no pole at 0 < t <= 1 (a polynomial's zoom is entire, a root, a power or a log is a branch step with no pole where its power is positive)
+  const POLE_FREE = ['mul', 'add', 'affine', 'pown', 'root', 'powa', 'exp', 'log', 'poly'];
   let sceneMemo = null;
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
@@ -604,19 +606,34 @@
     });
     let poles = [];
     try { poles = svDrain(svPolesIn(cpuMap(map), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || []; } catch (e) { poles = []; }
+    const liveK = (k) => S.steps[k - 1] && S.steps[k - 1].on !== false && built[k - 1] && !built[k - 1].error;
     // The exact poles of a Möbius first step (the steps view's own search is a 16-point grid, which a pole between its points escapes): its path's matrix
     // M(t) has its pole at -M[3] / M[2]; { poles, exact } both: exactPoles, the ones read from the matrix, kept apart so that a control can drop them
     const exactPoles = [];
     {
-      const first = Array.from({ length: S.steps.length }, (_, i) => i + 1).find(live), bf = first ? built[first - 1] : null, how = first ? Funcs.sheetMapHow(map, first) : 0;
-      if (bf && bf.nat && bf.nat.kind === 'mob' && bf.natData && bf.natData.m && how && map.mode === 1 && !(map.t <= 0)) {
-        const M = how === 1 || map.t >= 1 ? bf.natData.m : (CX.mobPath(bf.natData.m) || (() => null))(map.t);
+      const first = Array.from({ length: S.steps.length }, (_, i) => i + 1).find(liveK), bf = first ? built[first - 1] : null, how = first ? Funcs.sheetMapHow(map, first) : 0;
+      if (bf && bf.def && bf.def.id === 'mobius' && bf.vals && how && map.mode === 1 && !(map.t <= 0)) {
+        const m = [bf.vals.a, bf.vals.b, bf.vals.c, bf.vals.d], path = CX.mobPath(m), M = how === 1 || map.t >= 1 ? m : path ? path(map.t) : null;
         if (M && !CX.isZero(M[2])) {
           const pl = CX.neg(CX.div(M[3], M[2]));
           if (pl.re >= bx.x0 && pl.re <= bx.x1 && pl.im >= bx.y0 && pl.im <= bx.y1) exactPoles.push(pl);
         }
       }
     }
+    // Whether the scene's poles are all read: every liveK step the map applies is one whose path has no pole (POLE_FREE: entire at every t > 0, or a branch step
+    // whose power is positive), a Möbius first step (its moving pole is above), a Joukowski step (its pole is the origin), or a recognised formula of such
+    // steps; any other step may carry poles this scene does not read, and its counts are unresolved
+    const stepKinds = (b) => (b.def && b.def.id === 'custom' && b.rec ? b.rec.built.flatMap(stepKinds) : [b.def ? b.def.id : '?']);
+    const unread = [], firstLive = Array.from({ length: S.steps.length }, (_, i) => i + 1).find(liveK);
+    for (let k = 1; k <= S.steps.length; k++) {
+      if (!liveK(k) || !Funcs.sheetMapHow(map, k)) continue;
+      const bk = built[k - 1];
+      for (const id of stepKinds(bk)) {
+        const read = POLE_FREE.includes(id) || id === 'joukowski' || (id === 'mobius' && k === firstLive && bk.vals && CX.mobPath([bk.vals.a, bk.vals.b, bk.vals.c, bk.vals.d]));
+        if (!read) unread.push(id);
+      }
+    }
+    if (built.some((b, i) => b && liveK(i + 1) && Funcs.sheetMapHow(map, i + 1) && b.nat && b.nat.kind === 'jouk')) { const o = C(0, 0); if (!poles.some((p) => CX.abs(p) < SCN.SAME_Z)) exactPoles.push(o); }
     for (const q of exactPoles) if (!poles.some((p) => CX.abs(CX.sub(p, q)) < SCN.SAME_Z * (1 + CX.abs(q)))) poles.push(q);
     // The cut of H_u itself: a step with a Joukowski path, alone and last in the map (its input is the z-plane), takes its disk's formula inside
     // the circle |z| = JOUK_R (Funcs.joukInside) and the exterior's outside; cut = { side(inside)(z), R } then, with g of each side
@@ -671,7 +688,7 @@
       try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
       return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? CX.sub(f, e.node) : null; } catch (er) { return null; } } };
     });
-    return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, box: bx, poles, cut, kindScene, leaves: null });
+    return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
@@ -937,6 +954,11 @@
     const s = pl != null ? pl : S.sheets && multiSheet() || [e, T0, svHT(g.a), svHT(e)].some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0, v = leftView(s), b = v && landBox(v);
     return b ? { s, box: [b.x0, b.x1, b.y0, b.y1] } : null;
   };
+  // the steps of the map (the glide's, or opts.map) whose poles the scene does not read; empty: every pole is read
+  window.__cmwLandPolesUnread = (map) => {
+    sceneMapOver = map || null;
+    try { const sc = sceneOf(); return sc ? sc.polesUnread.slice() : null; } finally { sceneMapOver = null; }
+  };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
   // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest, noContinuity (leafState)
@@ -961,13 +983,13 @@
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
   // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, cutLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
-  // opts: noExactPoles drops the poles read from a Möbius step's matrix, noRay cuts no leaf at the cut of a custom power path, noInputs cuts the leaves without the winding of the branch steps' inputs, noPoleTest without the test for a pole in a closed leaf, noDedupe counts coincident surfaces each, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
+  // opts: poleShift moves the exact poles by that much along the imaginary axis, noExactPoles drops the poles read from a Möbius step's matrix, noRay cuts no leaf at the cut of a custom power path, noInputs cuts the leaves without the winding of the branch steps' inputs, noPoleTest without the test for a pole in a closed leaf, noDedupe counts coincident surfaces each, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => {
     const sc0 = sceneOf();
     if (!sc0) return null;
     // (noInputs: the leaves are cut by the continuity of the surfaces alone, so a leaf that holds a branch point with a tiny cut jump counts as closed)
-    const sc = opts.noInputs || opts.noPoleTest || opts.noDedupe || opts.noRay || opts.noExactPoles ? Object.assign({}, sc0, { poles: opts.noExactPoles ? sc0.poles.filter((p) => !sc0.exactPoles.includes(p)) : sc0.poles, noTest: { noInputs: !!opts.noInputs, noPoleTest: !!opts.noPoleTest, noRay: !!opts.noRay }, ks: opts.noDedupe ? Array.from({ length: sc0.K }, (_, k) => k) : sc0.ks, leaves: null }) : sc0;
+    const sc = opts.noInputs || opts.noPoleTest || opts.noDedupe || opts.noRay || opts.noExactPoles || opts.poleShift ? Object.assign({}, sc0, { poles: opts.noExactPoles ? sc0.poles.filter((p) => !sc0.exactPoles.includes(p)) : opts.poleShift ? sc0.poles.map((p) => (sc0.exactPoles.includes(p) ? C(p.re, p.im + opts.poleShift) : p)) : sc0.poles, noTest: { noInputs: !!opts.noInputs, noPoleTest: !!opts.noPoleTest, noRay: !!opts.noRay }, ks: opts.noDedupe ? Array.from({ length: sc0.K }, (_, k) => k) : sc0.ks, leaves: null }) : sc0;
     const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
     let w = wIn ? C(wIn[0], wIn[1]) : null;
     if (opts.onContour || opts.nearContour) {
@@ -981,7 +1003,7 @@
     const minStep = opts.nearContour ? 1 : SCN.MIN_STEP;
     // (a leaf the cut of a custom power path runs through is counted as its parts, each a closed leaf of its own)
     const units = leaves.flatMap((l) => (l.parts ? l.parts.map((q) => Object.assign({ c: C((q.x0 + q.x1) / 2, (q.y0 + q.y1) / 2), closed: true, two: null, poles: l.poles.filter((p) => p.re >= q.x0 && p.re < q.x1 && p.im >= q.y0 && p.im < q.y1) }, q)) : [l]));
-    if (sc.rayBlind) status = 'unresolved';
+    if (sc.rayBlind || (sc.polesUnread.length && !opts.noPolesCheck)) status = 'unresolved';
     for (const l of units) {
       if (l.two) {
         // (a leaf the circle crosses: each part's loops walked with its own side's formula; the parts' windings and poles add up)
@@ -1066,7 +1088,7 @@
     // (a certified member in a branch leaf contradicts the leaf's exclusion of w: the count is unresolved)
     if (ms.some((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && !l.closed && !l.two; })) status = status === 'ok' ? 'unresolved' : status;
     const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && (l.closed || l.two); }).length - (opts.dropOne ? 1 : 0);
-    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad, tally, memberLeaves: ms.map((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l ? { x: [l.x0, l.x1], y: [l.y0, l.y1], closed: l.closed } : null; }) }];
+    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad, polesUnread: sc.polesUnread, tally, memberLeaves: ms.map((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l ? { x: [l.x0, l.x1], y: [l.y0, l.y1], closed: l.closed } : null; }) }];
   };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true }, noRay: { noRay: true }, mixBeta0: { mixBeta0: true }, mixSwitch: { mixSwitch: true }, clipOff: { clipOff: true }, clipLinear: { clipLinear: true }, noSeam: { noSeam: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
