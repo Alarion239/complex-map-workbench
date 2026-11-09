@@ -180,11 +180,19 @@
           if (!o) { nfail = { i, why: 'hom', sheet: m.sheet }; return null; }
           const res = csub(o.H, w);
           if (cabs(res) <= ${MONO_CERT} * (1 + cabs(w))) return { z, lam, sheet: m.sheet };
+          // (with a log coordinate the step is taken in it, dH/dlam = z dH/dz: smooth where z -> 0 at a branch value, where dH/dz is not; without, in z)
+          if (lam) {
+            const dl = cdiv(res, [o.dH[0] * z[0] - o.dH[1] * z[1], o.dH[0] * z[1] + o.dH[1] * z[0]]);
+            if (!(cabs(dl) < 1e30)) { nfail = { i, why: 'dlam' }; return null; }
+            const ex = Math.exp(-dl[0]);
+            lam = csub(lam, dl);
+            z = [ex * (z[0] * Math.cos(dl[1]) + z[1] * Math.sin(dl[1])), ex * (z[1] * Math.cos(dl[1]) - z[0] * Math.sin(dl[1]))];
+            nfail = { i, res: cabs(res), dz: cabs(dl), sheet: m.sheet };
+            continue;
+          }
           const dz = cdiv(res, o.dH);
           if (!(cabs(dz) < 1e30)) { nfail = { i, why: 'dz' }; return null; }
-          const zn = csub(z, dz);
-          if (lam) lam = cadd(lam, clog(cdiv(zn, z)));
-          z = zn;
+          z = csub(z, dz);
           nfail = { i, res: cabs(res), dz: cabs(dz), sheet: m.sheet };
         }
         return null;
