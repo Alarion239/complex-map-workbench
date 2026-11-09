@@ -232,7 +232,7 @@ await grab();
 
 // ---------------- one fixed column of keys at the bottom right ----------------
 await fresh('keys', 412, 860, false, true);
-const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : e.classList.contains('ph-sph') ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
+const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn, .viewstack .ph-key')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : /^(left|right)Sph$/.test(e.id) ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
 const kv = {};
 kv.xy = await keys();
 await ev('Phone.swap()'); await settle(); kv.swap = await keys(); await ev('Phone.swap()'); await settle();
@@ -241,8 +241,8 @@ await ev(`__cmwSetMain('land'); 1`); await settle(); kv.land = await keys();
 info.keys = kv;
 for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
 for (const v of ['swap', 'phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
-ok('D8 Both is the column\'s top key', kv.xy.both && kv.xy.both[1] < kv.xy.sphere[1] && kv.xy.both[0] === kv.xy.sphere[0], kv.xy);
-ok('the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
+ok('D8 Both is the top key of its column, above the stack', kv.xy.both && kv.xy.both[1] < kv.xy.display[1] && Math.abs(kv.xy.both[0] - kv.xy.display[0]) <= 1, kv.xy);
+ok('the stack is at the bottom right, Display over Fit over Sphere', kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] < kv.xy.sphere[1] && kv.xy.sphere[1] > 600 && kv.xy.sphere[0] > 340, kv.xy);
 // Landscape on a portrait phone: the surface uses more of the plane than the bounding sphere's fit
 const lb = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
 const im = await img({ x: lb[0], y: lb[1], width: lb[2], height: lb[3] });
@@ -254,8 +254,8 @@ info.landWidth = [(x1 - x0) / im.width];
 ok('the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
 await ev(`__cmwSetMain('xy'); 1`); await settle();
 await view(915, 412, false, true); await settle();
-const k915 = await ev(`[...document.querySelectorAll('.ph-col')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
-ok('915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
+const k915 = await ev(`[...document.querySelectorAll('.viewstack')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
+ok('915 × 412: each plane\'s key stack sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
 await grab();
 
 // ---------------- the Shapes list, the ⋯ sheet, the long-press tips ----------------
