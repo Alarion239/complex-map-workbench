@@ -65,6 +65,29 @@ const forceProp = (id, on) => ev(`(() => { const d = Funcs.DEFS.${id}, b = d.bui
 
 // the number of members of the Newton plan of the step { type, params } at t over each w ([re, im]), in the page
 const members = (step, t, ws) => ev(`(() => { const b = Funcs.build(${JSON.stringify(step)}), r = Inverse.homOps(b, ${t}); if (!r.ok) return { ok: false, reason: r.reason }; const op = r.ops[r.ops.length - 1]; return { ok: true, kind: op.kind, n: ${JSON.stringify(ws)}.map(([re, im]) => op.pre({ re, im }).length) }; })()`);
+// the number of distinct roots of H_t(z) = w found by Newton's method from a SEED_GRID x SEED_GRID grid of seeds over |re|, |im| <= SEED_SPAN
+// (the plan's count must be this: the geometry, not the plan, says whether a band point is covered)
+const SEED_GRID = 48, SEED_SPAN = 4, ROOT_ITERS = 60, ROOT_TOL = 1e-9, SAME_ROOT = 1e-6;
+const roots = (step, t, ws) => ev(`(() => {
+  const b = Funcs.build(${JSON.stringify(step)}), H = b.hom(${t}), C = (re, im) => ({ re, im });
+  const fin = (z) => Number.isFinite(z.re) && Number.isFinite(z.im);
+  return ${JSON.stringify(ws)}.map(([re, im]) => {
+    const found = [];
+    for (let i = 0; i < ${SEED_GRID}; i++) for (let j = 0; j < ${SEED_GRID}; j++) {
+      let u = C(-${SEED_SPAN} + (i + 0.5) * 2 * ${SEED_SPAN} / ${SEED_GRID}, -${SEED_SPAN} + (j + 0.5) * 2 * ${SEED_SPAN} / ${SEED_GRID});
+      for (let it = 0; it < ${ROOT_ITERS} && fin(u); it++) {
+        const h = 1e-6, v = H(u), d = H(C(u.re + h, u.im)), dv = C((d.re - v.re) / h, (d.im - v.im) / h), den = dv.re * dv.re + dv.im * dv.im;
+        if (!(den > 0) || !fin(v)) { u = C(NaN, NaN); break; }
+        const er = v.re - re, ei = v.im - im;
+        u = C(u.re - (er * dv.re + ei * dv.im) / den, u.im - (ei * dv.re - er * dv.im) / den);
+      }
+      if (!fin(u)) continue;
+      const v = H(u);
+      if (fin(v) && Math.hypot(v.re - re, v.im - im) <= ${ROOT_TOL} * (1 + Math.hypot(re, im)) && found.every((q) => Math.hypot(q.re - u.re, q.im - u.im) > ${SAME_ROOT})) found.push(u);
+    }
+    return found.length;
+  });
+})()`);
 const STEPS = [['dh', 'Douady–Hubbard', { N: 64 }], ['bottcher', 'Böttcher', { c: '-1', N: 64 }]];
 await view(1440, 900, false, false);
 for (const [id, name, params] of STEPS) {
@@ -93,7 +116,9 @@ for (const [id, name, params] of STEPS) {
     ok(`${name} at t = ${t}: one member over each w outside the band (degree 1)`, !!out && out.ok && out.n.every((n) => n === 1), out);
     // (the band is in H_t's image fully only near t = 1: at t = 0.5 the straight-line homotopy leaves some of it uncovered, so there
     // a point has at most one member)
-    ok(`${name} at t = ${t}: ${t > 0.5 ? 'one member' : 'at most one member'} over each w in the band (degree 1)`, !!band && band.ok && band.n.every((n) => (t > 0.5 ? n === 1 : n <= 1)), band);
+    const refBand = await roots({ type: id, params }, t, W_BAND);
+    info[`${id} band roots ${t}`] = refBand;
+    ok(`${name} at t = ${t}: the plan has as many members over each w in the band as Newton's method from a grid of seeds finds roots (${t > 0.5 ? 'one' : 'at most one'}: degree 1)`, !!band && band.ok && band.n.every((n, k) => n === refBand[k] && (t > 0.5 ? n === 1 : n <= 1)), { band, refBand });
   }
   {
     const g = await at(0.5);
