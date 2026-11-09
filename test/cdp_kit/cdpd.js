@@ -219,12 +219,20 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-H.load = async (ns, st, extra, viewName) => {
+// load(ns, state, extra, view, { limitMs }): the page opened with the saved state, answering once it is loaded and its hooks are
+// defined. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for again, and
+// one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading
+const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000;
+H.load = async (ns, st, extra, viewName, opts = {}) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
-  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+  const limitMs = opts.limitMs || LOAD_LIMIT_MS, t0 = Date.now();
+  let r;
+  do r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, limitMs - (Date.now() - t0))), until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+  while (!r.ok && Date.now() - t0 < limitMs);
+  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${JSON.stringify(r)})`);
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)

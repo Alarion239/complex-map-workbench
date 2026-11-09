@@ -302,6 +302,7 @@ const VIEWS = {
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
+  'kit_load_wait_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),
   'line_slice_cmd.js': steps({ pin: true }),
   'mj_ranges_cmd.js': steps({ pin: true }),
