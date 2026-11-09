@@ -77,7 +77,7 @@ for (const [name, type, bound, boundPass] of CASES) {
   check(`${name}: a second _run call site is counted in the NR pass (reaches ${moreNr}, past ${boundPass})`, dupNr !== nrSrc && moreNr > boundPass, moreNr);
   if (name === 'ray-seeded') {
     const R = Inverse.NEWT_RAY;
-    check(`${name}: the program fails a member that needs more than ${R.SUB * R.HALVINGS} ray stages`, inv.lib.includes(`if (rS > ${R.SUB * R.HALVINGS}) return false;`));
+    check(`${name}: the program runs no ray for a member that needs more than ${R.SUB * R.HALVINGS} stages`, inv.lib.includes(`if (rS > ${R.SUB * R.HALVINGS}) rayLeft = false;`));
     check(`${name}: and so does the CPU (newtRayStages answers -1)`, Inverse.newtRayStages({ re: 1.0004, im: 0 }) === -1 && Inverse.newtRayStages({ re: 1.01, im: 0 }) > 0);
   }
   console.log(`${name}: program ${prog}, roots pass ${nr} H evaluations (bounds ${bound}, ${boundPass})`);

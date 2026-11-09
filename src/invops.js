@@ -336,6 +336,11 @@ const InvOps = (() => {
       }
       return v;
     };
+    // the seed v walked back from t = 1 to t in K stages, polished: v, or null (a null v stays null)
+    const walkBack = (v, w, K) => {
+      for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
+      return v && polishAt(v, w);
+    };
     // f's i-th point over w (back's members in turn, the last op's first), or null
     const seedOf = (w, i) => {
       let u = w;
@@ -383,10 +388,9 @@ const InvOps = (() => {
         if (counts) {
           const K = newtBackK(t);
           for (let i = 0; i < seeds; i++) {
-            let v = seedOf(w, i);
-            if (ray && v) v = rayLand(v, w);
-            for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
-            v = v && polishAt(v, w);
+            const v0 = seedOf(w, i);
+            let v = v0 && walkBack(v0, w, K);
+            if (ray && v0 && !(v && hits(v, w))) v = walkBack(rayLand(v0, w), w, K);
             if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 + i }));
           }
           return out;
