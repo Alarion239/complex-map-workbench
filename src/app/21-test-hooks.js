@@ -580,8 +580,8 @@
           M = [CX.add(CX.mul(A[0], M[0]), CX.mul(A[1], M[2])), CX.add(CX.mul(A[0], M[1]), CX.mul(A[1], M[3])), CX.add(CX.mul(A[2], M[0]), CX.mul(A[3], M[2])), CX.add(CX.mul(A[2], M[1]), CX.mul(A[3], M[3]))];
         }
         const rest = { ops: ops.slice(mi + 1) };
-        const ends = ok ? [[CX.abs(M[0]) < 1e-14 ? null : CX.neg(CX.div(M[1], M[0])), CX.ZERO, 'zero'], [CX.abs(M[2]) < 1e-14 ? null : CX.neg(CX.div(M[3], M[2])), CX.INF, 'infinity']] : [];
-        for (const [z, u, kind] of ends) {
+        const ends = ok ? [{ z: CX.abs(M[0]) < 1e-14 ? null : CX.neg(CX.div(M[1], M[0])), u: CX.ZERO, kind: 'zero' }, { z: CX.abs(M[2]) < 1e-14 ? null : CX.neg(CX.div(M[3], M[2])), u: CX.INF, kind: 'infinity' }] : [];
+        for (const { z, u, kind } of ends) {
           if (!z || !CX.isFin(z) || !(z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1)) continue;
           let w = null;
           try { w = Inverse.fwdOps(rest, u); } catch (e) { w = null; }
