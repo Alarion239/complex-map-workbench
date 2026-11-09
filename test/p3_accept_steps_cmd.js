@@ -222,4 +222,36 @@ ok(`mixed paths: the frame is within ${100 * MIXED_DIFF} % of the all-exact fram
 await shot('p3s_mixed');
 await ev('__cmwForceForward([]); 1'); await wait();
 
+// ---- (i) the spherical checker on the GPU: log(H) columns at Re w = ln tan(j pi / 16) +- CHECKER_PX px, on the plane at plane 1
+// (the renderer's spherical checker is drawn through the test hook; the user has no pattern menu)
+const CHECKER_PX = 0.5, MIN_COLUMNS = 4, COLUMN_EDGE_PX = 3;
+await load('p3si' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base, { pattern: 'sphere' }));
+await ev('__cmwHideStrokes(true); __cmwSteps({ go: 1, now: true, surf: "plane", scope: "in", T: 0 }); 1'); await wait();
+R.menu = await ev(`document.querySelectorAll('#patternSeg, [data-pat]').length`);
+ok('(i) no pattern menu: the regions are filled by the phase', R.menu === 0, R.menu);
+R.i = await ev(`(() => {
+  const lk = __cmwLook('s1', 'L'), s = lk.view.s * lk.dpr, W = lk.W, Hh = lk.H;
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const c0 = hex(lk.color), c1 = hex(lk.color2);
+  const cv = document.getElementById('canvasL'), g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height;
+  const x = g.getContext('2d'); x.drawImage(cv, 0, 0); const D = x.getImageData(0, 0, g.width, g.height).data;
+  const tOf = (k) => { let num = 0, den = 0; for (let q = 0; q < 3; q++) { const d = c1[q] - c0[q]; num += (D[4 * k + q] - c0[q]) * d; den += d * d; } return num / den; };
+  const wy = 5 * Math.PI / 16, j = Math.round(Hh / 2 - (wy - lk.view.cy) * s - 0.5);
+  const vals = []; for (let i = 0; i < W; i++) vals.push(tOf(j * W + i));
+  const xs = []; for (let i = 1; i < W; i++) { const a = vals[i - 1] - 0.5, b = vals[i] - 0.5; if (a * b < 0) xs.push(i - 1 + a / (a - b) + 0.5); }
+  let worst = 0, matched = 0, expected = 0;
+  for (let q = 1; q < 16; q++) {
+    const re = Math.log(Math.tan(q * Math.PI / 16)), px = (re - lk.view.cx) * s + W / 2;
+    if (px < ${COLUMN_EDGE_PX} || px > W - ${COLUMN_EDGE_PX}) continue;
+    const wl = (re - Math.log(Math.tan((q - 1) * Math.PI / 16))) * s, wr = (Math.log(Math.tan((q + 1) * Math.PI / 16)) - re) * s;
+    if (!(wl >= ${COLUMN_EDGE_PX} && wr >= ${COLUMN_EDGE_PX})) continue;
+    expected++;
+    const d = Math.min(...xs.map((c) => Math.abs(c - px)));
+    worst = Math.max(worst, d); if (d <= ${CHECKER_PX}) matched++;
+  }
+  return { expected, matched, worst: +worst.toFixed(3), crossings: xs.length, sphN: lk.sphN };
+})()`);
+ok(`(i) GPU sphere checker log(H) columns within ${CHECKER_PX} px`, R.i.expected >= MIN_COLUMNS && R.i.matched === R.i.expected, R.i);
+await shot('p3s_i_logH_sphere');
+
 return { pass: fails.length === 0, fails, results: R };
