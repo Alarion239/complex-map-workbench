@@ -243,6 +243,7 @@
   }
   function svApply() {
     const k = svStage();
+    svInvSurfSeen();
     svViewFix();
     leftAuto = false;
     if (k > 0) Object.assign(V.left, S.srcView);
@@ -2877,13 +2878,51 @@
       // once: svWarmCarry)
       if (GLR.prestartCarry) GLR.prestartCarry();
       svWarmCarry(0);
+      svWarmInverse(0);
       svPolesWatch();
     } catch (e) { /* (the first glide starts them) */ }
+  }
+  // The inverse programs a glide into each plane draws its carried colour with (step b's homotopy, drawInverse's
+  // carried variant), as the states GLR.inverseWarmup takes: [] when no step has an inverse pass. Built once for the
+  // chain shown (svPrestartSoon drops it)
+  // The Landscape draws no frames between planes, so it has none ([]): a program linking there would redraw its pane after
+  // the pane settled
+  let svInvStates = null, svInvLand = false;
+  function svInvList() {
+    if (SV.surf === 'land') return [];
+    if (svInvStates) return svInvStates;
+    const sts = [];
+    for (let b = 1; b <= nSteps(); b++) {
+      if (derivIn(0, b) || isDeriv(b)) continue;
+      const h = svInvPaths(b, 0.5, 'flat', { r: null });
+      if (!h) continue;
+      h.paths.forEach((p, i) => sts.push({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: { alpha: 1, alphaOwn: 1 }, carry: true, staged: shapeStage(h.list[i]) > 0 }));
+    }
+    return (svInvStates = sts);
+  }
+  // Leaving the Landscape starts the warm-up the surface skipped; the list is built again for the surface shown
+  function svInvSurfSeen() {
+    const land = SV.surf === 'land';
+    if (land === svInvLand) return;
+    svInvLand = land;
+    svInvStates = null;
+    if (!land && SV.on) svWarmInverse(0);
+  }
+  // Starts those programs and makes their first draw, one program to an idle moment (each first draw builds a pipeline: a
+  // stall that must not land in an edit or a glide, nor pile up in one block), tried again while a program links
+  function svWarmInverse(n, t0 = performance.now()) {
+    if (n > SV_WARM_TRIES || !GLR.ok || !GLR.inverseWarmup || nSteps() < 1) return;
+    svWarmWhenIdle(svWarmInverse, n, t0, () => {
+      let r = { done: 0, total: 1, drawn: 0 };
+      try { r = GLR.inverseWarmup(svInvList(), { start: true, warm: 1 }); } catch (e) { svInvStates = []; }
+      return r.done >= r.total ? true : r.drawn ? 'more' : false;
+    });
   }
   // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
   // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
   let svPrestartTimer = 0;
   function svPrestartSoon(ms) {
+    svInvStates = null;
     clearTimeout(svPrestartTimer);
     svPrestartTimer = setTimeout(() => {
       svPrestartTimer = 0;
@@ -2892,8 +2931,8 @@
     }, ms);
   }
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
-  // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the carried
-  // colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
+  // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the
+  // glide's inverse programs linked and drawn once (inverse), the carried colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
   // while the GPU layer or the chain is not up; ready is true only when done = total > 0
   // (test hook: the idle jobs count as unfinished while set)
   let svJobsHold = false;
@@ -2902,6 +2941,7 @@
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus();
+    try { parts.inverse = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : { done: 0, total: 0 }; } catch (e) { svInvStates = []; parts.inverse = { done: 0, total: 0 }; }
     parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
@@ -2917,18 +2957,35 @@
   // would run on past that stall and end it. The idle moment is SV_WARM_IDLE_MS after the chain changed and after the
   // last input (lastInputT): that machine code takes the main thread for a second or more on such a renderer, which
   // just after an edit holds back what the edit shows (the "Added" message). Tried again while the programs link
-  // (prestartCarry), at most 40 times; the programs themselves link without waiting (prestartCarry, the parallel compile)
+  // (prestartCarry), at most SV_WARM_TRIES times; the programs themselves link without waiting (prestartCarry, the parallel compile)
   const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true }, SV_WARM_IDLE_MS = 2000;
+  // the idle warm-ups (svWarmCarry, svWarmInverse): at most SV_WARM_TRIES attempts, the next one SV_WARM_RETRY_MS after an
+  // unfinished one, a wait for input to stop looked at again after at least SV_WARM_POLL_MS, and the idle callback run
+  // after SV_WARM_IDLE_CB_MS at the latest
+  const SV_WARM_TRIES = 40, SV_WARM_RETRY_MS = 500, SV_WARM_POLL_MS = 250, SV_WARM_IDLE_CB_MS = 1000;
+  // Runs step() in an idle moment, SV_WARM_IDLE_MS after t0 and after the last input, if the chain is still the one it was
+  // asked for and nothing is being dragged or typed (looked at again when the idle callback runs); step() is true when its
+  // work is done, 'more' when it made progress and has more to do, else false. Then again(n, t0) runs SV_WARM_RETRY_MS
+  // later, with n + 1 unless it made progress. A wait for input to stop calls again(n, t0) after at least SV_WARM_POLL_MS
+  function svWarmWhenIdle(again, n, t0, step) {
+    const sig = chainSig[nSteps()];
+    const wait = () => Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
+    const waitMore = () => { setTimeout(() => { if (chainSig[nSteps()] === sig) again(n, t0); }, Math.max(wait(), SV_WARM_POLL_MS)); };
+    if (wait() > 0 || interacting()) { waitMore(); return; }
+    const idle = window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: SV_WARM_IDLE_CB_MS }) : (f) => setTimeout(f, SV_WARM_POLL_MS);
+    idle(() => {
+      if (chainSig[nSteps()] !== sig) return;
+      if (wait() > 0 || interacting()) { waitMore(); return; }
+      const r = step();
+      if (r !== true) setTimeout(() => again(r === 'more' ? n : n + 1, t0), SV_WARM_RETRY_MS);
+    });
+  }
   let svWarmSig = null, svWarmAt = 0;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
-    if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
-    const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
-    if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
-    const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 250));
-    idle(() => {
-      if (chainSig[nSteps()] !== sig) return;
+    if (svWarmSig === sig || n > SV_WARM_TRIES || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    svWarmWhenIdle(svWarmCarry, n, t0, () => {
       const r = shapeGPU(SV_WARM, { base: 2 }), pane = paneL;
       let done = false;
       try {
@@ -2940,7 +2997,8 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
+      if (done) { svWarmSig = sig; svWarmAt = performance.now(); }
+      return done;
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
