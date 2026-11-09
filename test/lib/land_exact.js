@@ -403,8 +403,20 @@
   const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
   // All sheets at one place: the layers and the members pair one to one, a layer with a member at its z and (the forward combos of one z are
   // told apart by height) its drawn height within HEIGHT_TOL
-  // the texel code of a vertex continued onto a layer past its range (CARRY_CONT_CODE: the layer's own vertices are below it)
-  const CONT_CODE = 10.25;
+  // The members the frame draws at one place: every drawn texel, own or continued onto another layer, counted once. A texel is a copy of
+  // an earlier one when it agrees with it in z within Z_TOL and in height within HEIGHT_TOL (a layer's continued vertex repeats the member
+  // its neighbour draws; the forward combos of one z differ in height, so they stay apart)
+  const distinctLayers = (list) => {
+    const out = [];
+    for (const l of list) if (!l.z || !out.some((o) => o.z && sameZ(o.z, l.z) && Math.abs(o.h - l.h) <= HEIGHT_TOL)) out.push(l);
+    return out;
+  };
+  {
+    const L = (z, h) => ({ z, h }), a = L([1, 0], 0), b = L([1, 0], 1), c = L([-1, 0], 0);
+    ok('the distinct layers count a duplicate copy once', distinctLayers([a, L([1, 0], 0.001), c]).length === 2, null);
+    ok('the distinct layers keep two heights of one z apart', distinctLayers([a, b]).length === 2, null);
+    ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
+  }
   const sameLayers = (have, want) => {
     if (have.length !== want.length) return false;
     const used = new Set();
@@ -843,11 +855,9 @@
           ok(`${t}: the control: the principal-branch homotopy flags the ramp members (miss ${pr.worst}); a ramp of 0 flags ${tight}`, pr.worst > HOM_TOL && tight === nRamp, { principal: pr.worst, tight, nRamp });
         }
       }
-      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0, contN = 0, contBad = 0; const at = [], atPh = [], atH = [], atCont = [];
+      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       pts.forEach((p, i) => {
-        const wantAll = ref[i] || [], haveAll = (got[i] || []).filter((l) => !(l.c >= CONT_CODE));   // (a continued vertex is a layer's copy of a neighbour's surface, not a member)
-        // (each continued vertex left out is the copy of another layer's own member at the place: a copy of nothing fails)
-        (got[i] || []).filter((l) => l.c >= CONT_CODE).forEach((l) => { contN++; if (!l.z || !haveAll.some((o) => o.z && sameZ(o.z, l.z))) { contBad++; if (atCont.length < 4) atCont.push({ p, z: l.z }); } });
+        const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
@@ -866,7 +876,6 @@
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
-      ok(`${t}: every continued vertex left out of the members is a copy of another layer's own member (${contN} continued vertices, ${contBad} copies of nothing)`, contBad === 0, { contN, contBad, atCont });
       ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
