@@ -1544,10 +1544,11 @@
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
       const contDraw = !!(landC && landC.cont);
-      // (the layered draw of linear heights runs the layers past the block and clips them there exactly: LAND_CLIP; clipOff is a probe's control)
-      const clipC = contDraw && clipOf(mode) > 0 && !carryProbe.clipOff;
-      const fan = clipC ? 3 : 1;
-      const Pc = program(clipC ? 'landCarryLC' : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
+      // (the exact single layer and the layered draw of linear heights are clipped at the block's sides, and the layered one at its top and bottom
+      // too, where the layers run on past it: LAND_CLIP; clipOff is a probe's control)
+      const clipC = (contDraw ? clipOf(mode) > 0 : !!(landC && landC.exact)) && !carryProbe.clipOff;
+      const fan = clipC ? LAND_CLIP_CORNERS - 2 : 1;
+      const Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
@@ -1561,8 +1562,9 @@
       // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
       // a key's push of the depth would only put a layer behind the floor plate)
       keyUniforms(Pc, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
-      // (the probes' controls: sideDiscard puts the per-fragment side discard back, clipScale widens the block's sides)
-      u1i(Pc, 'uSideDiscard', 1);
+      // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale widens the block's sides)
+      u1i(Pc, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
+      if (clipC) u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30);
       u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
