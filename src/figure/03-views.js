@@ -741,10 +741,10 @@
         }
         items.push(XD.at(XD.tex(keyWithName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
       } else {
-        items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-        items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'key'));
-        items.push(XD.at(XD.tex('\\pm\\pi', tp), kx - R - 1.5, ky, 'end', 'mid', 'key'));
-        items.push(XD.at(XD.tex('-\\pi/2', tp), kx, ky + R + 1.5, 'middle', 'top', 'key'));
+        items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+        items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'));
+        items.push(XD.at(XD.tex('\\pm\\pi', tp), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
+        items.push(XD.at(XD.tex('-\\pi/2', tp), kx, ky + R + 1.5, 'middle', 'top', 'ring-mark'));
         items.push(XD.at(XD.tex(`\\arg ${A.fname()}`, tp), kx, ky - R - 12, 'middle', 'bottom', 'key'));
       }
     }
