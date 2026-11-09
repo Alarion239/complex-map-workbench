@@ -498,20 +498,40 @@
         runTF(P, empty(), gl.POINTS, N * N, 0, bytes, tex, N, N, gl.RGBA32F, gl.RGBA);
       }
     }
-    // (then, on every layer's final texels, the triangles another layer draws)
-    for (let k = 0; k < n; k++) {
-      const L = landActive[k];
+  }
+  // The triangles each layer's draw keeps (LAND_CARRY_DRAWS_VS: one texel a cell), then each layer's ownership of them
+  // (LAND_CARRY_OWN_VS): the draw of a layer leaves a triangle that a lower layer draws with the same preimages
+  function landOwn(st, N, mode, H) {
+    const c = st.carry, bytes = N * N * 16, n = landActive.length;
+    if (n < 2 || n > RING_LAYERS_MAX) return;
+    const Pd = program('landCarryDraws', c.map), Po = program('landCarryOwn');
+    if (!Pd || !Po) return;
+    const hv = new Float32Array(16);
+    landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (N - 1)), 0], 4 * i));
+    for (const L of landActive) {
+      if (!L.drawTex) L.drawTex = floatTex();
       if (!L.ownTex) L.ownTex = floatTex();
-      use(P, c.map);
-      u1i(P, 'uN', N); u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uOutZ', 2);
-      gl.uniform1iv(P.loc.uRT1, Array.from({ length: RING_LAYERS_MAX }, (_, j) => 2 * j)); gl.uniform1iv(P.loc.uRZ, Array.from({ length: RING_LAYERS_MAX }, (_, j) => 2 * j + 1));
-      for (let j = 0; j < RING_LAYERS_MAX; j++) {
-        const Lj = landActive[Math.min(j, n - 1)];
-        gl.activeTexture(gl.TEXTURE0 + 2 * j); gl.bindTexture(gl.TEXTURE_2D, Lj.tex1);
-        gl.activeTexture(gl.TEXTURE0 + 2 * j + 1); gl.bindTexture(gl.TEXTURE_2D, Lj.zTex);
-      }
+      use(Pd, c.map);
+      u1i(Pd, 'uN', N); u1f(Pd, 'uLim', c.lim); u1f(Pd, 'uStep', carryStep(mode, H, true));
+      u1i(Pd, 'uCuts', L.cuts ? 1 : 0); u1f(Pd, 'uDrawCode', CARRY_SHEET_CODE); u1f(Pd, 'uDrawCode0', CARRY_SHEET_CODE);
+      u4f(Pd, 'uPolar', 0, 0, 0, 0); gl.uniform4fv(Pd.loc.uHoles, hv); u1i(Pd, 'uNHoles', landHoles.length);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+      if (L.cuts) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
       gl.activeTexture(gl.TEXTURE15);
-      runTF(P, empty(), gl.POINTS, N * N, 0, bytes, L.ownTex, N, N, gl.RGBA32F, gl.RGBA);
+      runTF(Pd, empty(), gl.POINTS, N * N, 0, bytes, L.drawTex, N, N, gl.RGBA32F, gl.RGBA);
+    }
+    use(Po);
+    u1i(Po, 'uN', N); u1i(Po, 'uLayers', n);
+    gl.uniform1iv(Po.loc.uRZ, Array.from({ length: RING_LAYERS_MAX }, (_, j) => j)); gl.uniform1iv(Po.loc.uRD, Array.from({ length: RING_LAYERS_MAX }, (_, j) => RING_LAYERS_MAX + j));
+    for (let j = 0; j < RING_LAYERS_MAX; j++) {
+      const Lj = landActive[Math.min(j, n - 1)];
+      gl.activeTexture(gl.TEXTURE0 + j); gl.bindTexture(gl.TEXTURE_2D, Lj.zTex);
+      gl.activeTexture(gl.TEXTURE0 + RING_LAYERS_MAX + j); gl.bindTexture(gl.TEXTURE_2D, Lj.drawTex);
+    }
+    for (let k = 0; k < n; k++) {
+      u1i(Po, 'uK', k);
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(Po, empty(), gl.POINTS, N * N, 0, bytes, landActive[k].ownTex, N, N, gl.RGBA32F, gl.RGBA);
     }
   }
   // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
@@ -1583,6 +1603,7 @@
       const bx = st.box, cell = (bx.x1 - bx.x0) / (N - 1), r1 = cell * LAND_HOLE_CELLS, ext = r1;
       landHoles = (st.carry.exact.hole || []).filter(([x, y]) => x > bx.x0 - ext && x < bx.x1 + ext && y > bx.y0 - ext && y < bx.y1 + ext).slice(0, LAND_HOLES_MAX);
       landHoles = landHoles.map(([x, y]) => [x, y, cell * 1e-4, r1]);
+      if (!carryProbe.noRing) landOwn(st, N, mode, H);
       for (const L of landActive) L.pp = landHoles.map((pl, i) => carryHeights(st, LAND_POLAR_N, mode, H, mu, aspect, pl, (L.pp && L.pp[i]) || {}, Object.assign({ k: 0 }, L.spec)));
     }
     // (the glide's inverse pass: 'drawn', 'pending' or 'error' when st.carry.exact asked for it)

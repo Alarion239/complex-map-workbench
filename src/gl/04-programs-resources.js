@@ -219,6 +219,8 @@
     landCarryEdge: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(), fs: () => TF_FS, tf: true },
     // (the layered glide's variants, whose cuts are continued from an own vertex: see LAND_CARRY_CONT_VS)
     landCarryEdgeL: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(true), fs: () => TF_FS, tf: true },
+    landCarryOwn: { chain: false, vs: () => LAND_CARRY_OWN_VS, fs: () => TF_FS, tf: true },
+    landCarryDraws: { chain: true, vs: () => LAND_CARRY_DRAWS_VS, fs: () => TF_FS, tf: true },
     landCarryRing: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_RING_VS, fs: () => TF_FS, tf: true },
     landCarryCont: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_CONT_VS, fs: () => TF_FS, tf: true },
     landCarryFix: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_FIX_VS, fs: () => TF_FS, tf: true },

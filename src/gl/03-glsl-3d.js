@@ -710,7 +710,7 @@ vec3 clipBoxE(int i1, int i2, int n, float Fl[5]) {
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form)
-  const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
+  const LAND_CARRY_HEAD = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep;
@@ -738,6 +738,28 @@ vec4 edgeOf(ivec2 a, ivec2 b) {
   vec4 e = ad.y == 0 ? texelFetch(uE0, o, 0) : (ad.x == 0 ? texelFetch(uE1, o, 0) : texelFetch(uE2, o, 0));
   return rev ? vec4(1.0 - e.x, e.z, e.y, e.w) : e;
 }
+// whether the draw keeps triangle V0 V1 V2 of the grid: its corners placed (on a layer: own or continued, one own), its places
+// at most uLim apart, its centre outside the holes, its heights within uStep, on the sheet uDrawCode, and no edge crossed twice
+bool triDraws(ivec2 V0, ivec2 V1, ivec2 V2) {
+  vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
+  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return false;
+${L ? `  if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) return false;
+  if (!(t0.w < uDrawCode0 + 0.1 || t1.w < uDrawCode0 + 0.1 || t2.w < uDrawCode0 + 0.1)) return false;` : ''}
+  if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return false;
+  if (uPolar.w <= 0.0) {
+    vec2 ctr = (t0.xy + t1.xy + t2.xy) / 3.0;
+    for (int i = 0; i < 4; i++) if (i < uNHoles && length(ctr - uHoles[i].xy) < uHoles[i].z) return false;
+  }
+  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return false;
+  if (uDrawCode > 0.0) {
+    float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
+    if (abs(cc - uDrawCode) > 0.5) return false;
+  }
+  vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
+  return max(max(e01.w, e12.w), e20.w) <= 1.5;
+}
+`;
+  const LAND_CARRY_VS = (L = false, clip = false) => LAND_CARRY_HEAD(L, clip) + `
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
@@ -746,30 +768,18 @@ void main() {
 ${clip ? '  // (clip: each sub-triangle is a fan of up to 3 triangles of the block-clipped polygon, 9 vertices)\n  int sub = loc / 9, fan = (loc - 9 * sub) / 3, k = loc - 9 * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
+  if (!triDraws(V0, V1, V2)) return;
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
-  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
-${L ? `  // (layered: a triangle is a layer's when its corners are all placed on it, own or continued, and one is own; its
-  // colour is continued from that corner)
-  if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) return;
-  bool o0 = t0.w < uDrawCode0 + 0.1, o1 = t1.w < uDrawCode0 + 0.1, o2 = t2.w < uDrawCode0 + 0.1;
-  if (!(o0 || o1 || o2)) return;
-  if (uOwnOn == 1 && texelFetch(uOwnT, ivec2(cell % M, cell / M), 0)[hf] > 0.5) return;
+${L ? `  if (uOwnOn == 1) {
+    // (a layer's triangle that a lower layer draws, the same piece of the surface, is that layer's)
+    ivec2 oc = ivec2(cell % M, cell / M);
+    if (texelFetch(uOwnT, oc, 0)[hf] > 0.5) return;
+  }
+  bool o0 = t0.w < uDrawCode0 + 0.1, o1 = t1.w < uDrawCode0 + 0.1;
   vZc = texelFetch(uZ, o0 ? V0 : (o1 ? V1 : V2), 0).xy;` : ''}
-  if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
-  if (uPolar.w <= 0.0) {
-    vec2 ctr = (t0.xy + t1.xy + t2.xy) / 3.0;
-    for (int i = 0; i < 4; i++) if (i < uNHoles && length(ctr - uHoles[i].xy) < uHoles[i].z) return;
-  }
-  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
-  if (uDrawCode > 0.0) {
-    float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
-    if (abs(cc - uDrawCode) > 0.5) return;
-  }
-  // (rotate, winding kept: one jump on AB, or two on AB and AC with BC whole; three, or an edge crossed twice: left out)
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
   bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
   int J = int(j01) + int(j12) + int(j20);
-  if (max(max(e01.w, e12.w), e20.w) > 1.5) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // a corner of sub-triangle sub (kk 0, 1, 2): a grid corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
@@ -1051,6 +1061,23 @@ void main() {
   if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode);
 }
 `;
+  // A layer's draw keeps whole, per cell of its grid, the bits of its two triangles (x: V0 V1 V2 with V1 right, y: V1 below-right):
+  // the draw's own predicate (triDraws), one texel a cell
+  const LAND_CARRY_DRAWS_VS = LAND_CARRY_HEAD(true) + `
+out vec4 tfOut;
+// the triangle is drawn whole: kept, and none of its edges is cut (a cut splits it into banks, each drawn up to the cut)
+bool triWhole(ivec2 V0, ivec2 V1, ivec2 V2) {
+  return triDraws(V0, V1, V2) && edgeOf(V0, V1).w < 0.5 && edgeOf(V1, V2).w < 0.5 && edgeOf(V2, V0).w < 0.5;
+}
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  tfOut = vec4(0.0);
+  if (p.x >= uN - 1 || p.y >= uN - 1) return;
+  tfOut = vec4(triWhole(p, p + ivec2(1, 0), p + ivec2(1, 1)) ? 1.0 : 0.0, triWhole(p, p + ivec2(1, 1), p + ivec2(0, 1)) ? 1.0 : 0.0, 0.0, 1.0);
+}
+`;
   // The layered glide's cross-layer continuation (one pass per target layer, on the layers' texels once every layer is
   // placed): a vertex of layer uK with no value or none confirmed (texel w under 5), beside an own vertex A (its first own
   // neighbour), lies across the step's cut from A. The surface continues there onto the member of another layer: the
@@ -1077,33 +1104,10 @@ vec4 ringZ(int j, ivec2 p) {
 ${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRZ[${i}], p, 0);`).join('\n')}
   return vec4(0.0);
 }
-// uOutZ 2: for each cell of layer uK's grid, whether a lower layer draws each of its two triangles: one with all three corners
-// own or continued, one of them own, whose preimages are the layer's there, the same piece of the surface (a continued corner holds its
-// source's preimage exactly)
-bool ringHas(int j, ivec2 a, ivec2 b, ivec2 c) {
-  vec3 w = vec3(ringT(j, a).w, ringT(j, b).w, ringT(j, c).w);
-  // (placed on the layer, one at least its own: the draw's own rule)
-  if (min(w.x, min(w.y, w.z)) < 5.0 || min(w.x, min(w.y, w.z)) > uCode + 0.1) return false;
-  vec2 d0 = ringZ(j, a).xy - ringZ(uK, a).xy, d1 = ringZ(j, b).xy - ringZ(uK, b).xy, d2 = ringZ(j, c).xy - ringZ(uK, c).xy;
-  float tol = ${SEAM_ABS} * (1.0 + length(ringZ(uK, a).xy));
-  return max(max(length(d0), length(d1)), length(d2)) <= tol;
-}
-vec4 ringOwn(ivec2 p) {
-  if (p.x >= uN - 1 || p.y >= uN - 1) return vec4(0.0);
-  ivec2 v1 = p + ivec2(1, 0), v2 = p + ivec2(1, 1), v3 = p + ivec2(0, 1);
-  float d0 = 0.0, d1 = 0.0;
-  for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
-    if (j >= uK) break;
-    if (ringHas(j, p, v1, v2)) d0 = 1.0;
-    if (ringHas(j, p, v2, v3)) d1 = 1.0;
-  }
-  return vec4(d0, d1, 0.0, 1.0);
-}
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
-  if (uOutZ == 2) { tfOut = ringOwn(p); return; }
   vec4 t = ringT(uK, p), z0 = ringZ(uK, p);
   tfOut = uOutZ == 1 ? z0 : t;
   if (t.w >= 5.0) return;
@@ -1136,6 +1140,41 @@ void main() {
   if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { ringWhy(tfOut, 4); return; }
   if (uGuard == 1 && abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 5); return; }
   tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, hj, uContCode);
+}
+`;
+  // Ownership of the layered glide's triangles (one pass per layer uK, on the layers' final preimages uRZ and draw bits uRD): per
+  // cell of its grid (x: the triangle with the corner right of the cell's, y: the one below-right), whether a lower layer draws it with the
+  // preimages of this layer at all three corners (the same piece of the surface; a continued corner holds its source's preimage exactly)
+  const LAND_CARRY_OWN_VS = `
+uniform int uN; uniform int uK; uniform int uLayers;
+uniform highp sampler2D uRZ[${RING_LAYERS_MAX}]; uniform highp sampler2D uRD[${RING_LAYERS_MAX}];
+out vec4 tfOut;
+vec4 ringZ(int j, ivec2 p) {
+${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRZ[${i}], p, 0);`).join('\n')}
+  return vec4(0.0);
+}
+vec4 ringD(int j, ivec2 p) {
+${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRD[${i}], p, 0);`).join('\n')}
+  return vec4(0.0);
+}
+bool ringHas(int j, ivec2 a, ivec2 b, ivec2 c) {
+  vec2 d0 = ringZ(j, a).xy - ringZ(uK, a).xy, d1 = ringZ(j, b).xy - ringZ(uK, b).xy, d2 = ringZ(j, c).xy - ringZ(uK, c).xy;
+  float tol = ${SEAM_ABS} * (1.0 + length(ringZ(uK, a).xy));
+  return max(max(length(d0), length(d1)), length(d2)) <= tol;
+}
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  tfOut = vec4(0.0, 0.0, 0.0, 1.0);
+  if (p.x >= uN - 1 || p.y >= uN - 1) return;
+  ivec2 v1 = p + ivec2(1, 0), v2 = p + ivec2(1, 1), v3 = p + ivec2(0, 1);
+  for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
+    if (j >= uK) break;
+    vec4 dj = ringD(j, p);
+    if (dj.x > 0.5 && ringHas(j, p, v1, v2)) tfOut.x = 1.0;
+    if (dj.y > 0.5 && ringHas(j, p, v2, v3)) tfOut.y = 1.0;
+  }
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
