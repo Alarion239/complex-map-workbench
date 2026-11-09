@@ -1671,7 +1671,9 @@ const Inverse = (() => {
     if (!(P && P.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
     if (isNewtPoly(P)) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : null;
+    // (a step with no exact ops that is one-to-one onto the outside of a disk and tangent to the identity at infinity is
+    // seeded by the identity: z = w is near the point over w, which Newton settles at t = 1)
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : P.identitySeed ? [opAff(ONE, ZERO)] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:

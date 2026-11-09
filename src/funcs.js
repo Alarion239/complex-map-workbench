@@ -11,6 +11,8 @@ const Funcs = (() => {
   const props = (o = {}) => Object.assign({
     analytic: false, entire: false, rational: false, polynomial: false, mobius: false, proper: false, injective: false,
     deg: null, degExact: false, constant: false,
+    // identitySeed: one-to-one onto the outside of a disk and f(z)/z -> 1 at infinity, so z = w is a seed of f(z) = w for large |w|
+    identitySeed: false,
   }, o);
   const ALL = { analytic: true, entire: true, rational: true, polynomial: true, mobius: true, proper: true, injective: true, deg: 1, degExact: true };
   const CONSTANT = props({ analytic: true, entire: true, rational: true, polynomial: true, deg: 0, degExact: true, constant: true });
@@ -780,7 +782,7 @@ const Funcs = (() => {
       return {
         f, hom: linHom(f), homTex: dhHomTex,
         tex: (a) => ({ s: `\\Phi_M${paren(a.s)}`, p: 3 }),
-        props: props({ analytic: true, injective: true }),
+        props: props({ analytic: true, injective: true, identitySeed: true }),
         domain: (v) => `${v}\\notin M`,
         inverseNote: dhNoInv(),
       };
@@ -795,7 +797,7 @@ const Funcs = (() => {
       return {
         f, hom: linHom(f), homTex: dhHomTex,
         tex: (a) => ({ s: `\\varphi_{${valTex(c)}}${paren(a.s)}`, p: 3 }),
-        props: props({ analytic: true, injective: true }),
+        props: props({ analytic: true, injective: true, identitySeed: true }),
         domain: (v) => (rho > 1 ? `G_c(${v})>G_c(0)` : `${v}\\notin K_c`),
         inverseNote: dhNoInv(),
         dh: { rho },

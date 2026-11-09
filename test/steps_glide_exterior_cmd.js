@@ -71,5 +71,13 @@ for (const [id, name, params] of STEPS) {
     ok(`${name} at u = 0.5: drawn by the inverse pass`, !!g && g.path === 'inverse', g);
     ok(`${name} at u = 0.5: the CPU reference's colours (> 6 on at most ${MID_OVER})`, r.n > MIN_PX && r.over <= MID_OVER, r);
   }
+  // negative control: the same step without the property takes the carried mesh, with the reason the glide names
+  await ev(`(() => { const d = Funcs.DEFS.${id}, b = d.build; d.build = function () { const r = b.apply(this, arguments); r.props = Object.assign({}, r.props, { identitySeed: false }); return r; }; __cmwStepParam(0, 'N', 63); return 1; })()`);
+  await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
+  {
+    const g = await at(0.5, null, FRAME_MS);
+    info[`${id} control`] = g;
+    ok(`${name} without the property, at u = 0.5: the carried mesh (control)`, !!g && g.path === 'mesh' && /Newton inverse/.test(g.reason || ''), g);
+  }
 }
 return { pass: fails.length === 0, fails, info };
