@@ -63,6 +63,7 @@ const lt = await landNote('tiles');
 ok('Landscape under Tiles: the note says the regions are coloured by phase', lt.phase === true && /phase of z,/.test(lt.text), lt);
 const lp = await landNote('plaster');
 ok('Landscape under Plaster is set up: no phase colouring', lp.phase === false, lp);
+ok('Landscape under Plaster: the note is hidden (no visible text)', lp.text === '', lp);
 ok('Landscape under Plaster: the note does not say the regions are coloured by phase', !/phase/i.test(lp.text), lp);
 info.notes = { t1, r1, p1, lt, lp };
 return { pass: fails.length === 0, fails, info };
