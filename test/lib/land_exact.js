@@ -338,7 +338,11 @@
       // (the other end's member at the vertex: the one the vertex's set holds there, or, where the enumerator leaves it out (a member of the range ramp), the
       // carried member itself, a certified root of its sheet's H, joined to the set so that the loops move it too)
       let ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i], trO[io.i].sheet).i;
-      if (ib === -1) { setV.push(trO[io.i]); ib = setV.length - 1; }
+      if (ib === -1) {
+        // (a member of the set at the same log coordinate is the same member whatever sheet the carried one is on; else the carried member joins the set)
+        const tb = trO[io.i], same = setV.findIndex((x) => dist(x, tb) <= ${LAMBDA_SAME} * (1 + cabs(tb.lam || tb.z)));
+        if (same >= 0) { ib = same; if (!setV[same].sheets.includes(tb.sheet)) setV[same].sheets.push(tb.sheet); } else { setV.push(tb); ib = setV.length - 1; }
+      }
       // (the set re-converged at the vertex to the scale of its own separations, which a member added above changes)
       const refine = () => setV.forEach((m, i) => { const f = newton(m, wv, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(setV, i))); if (f) Object.assign(m, f, { sheets: m.sheets, lvl: m.lvl }); });
       if (!(opt && opt.absTol)) refine();
