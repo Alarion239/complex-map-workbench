@@ -35,7 +35,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
@@ -57,11 +57,11 @@ const Inverse = (() => {
     return JSON.stringify(['inv2', sigs]);
   }
   // an op's part of the key: its kind, a NEWT op's seeding ops with their member counts and a polynomial NEWT op's degree
-  // (they shape its program), and a NEWT op's pole member
+  // (they shape its program; D: the step writes its derivative with its value, funcs' dualDerivative), and a NEWT op's pole member
   function opSig(o) {
     if (o.kind === 'NEWT' && o.p && o.p.deg) return `NEWT^${o.p.deg}`;
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
-    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind;
+    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind;
   }
   // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
   function planChain(steps, built, a = 0, b = steps.length) {
@@ -1659,6 +1659,56 @@ const Inverse = (() => {
     }
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
+  // f is within ID_TOL of the identity relatively, |f(z) / z - 1|, at ID_SAMPLES points of the circle |z| = NEWT_RAY.R, where the external ray's landing starts
+  // (ID_TOL: a tenth is well inside Rouché's bound of 1 for exactly one root outside the circle, and leaves the identity
+  // close enough to the root that the ray's first stage converges; ID_SAMPLES: points enough that a map with a few
+  // lobes of difference around the circle is caught)
+  const ID_SAMPLES = 16, ID_TOL = 0.1;
+  function tangentAtInfinity(f) {
+    for (let k = 0; k < ID_SAMPLES; k++) {
+      const a = 2 * Math.PI * (k + 0.5) / ID_SAMPLES, z = C(NEWT_RAY.R * Math.cos(a), NEWT_RAY.R * Math.sin(a)), w = f(z);
+      if (!isFin(w) || !(abs(sub(div(w, z), ONE)) <= ID_TOL)) return false;
+    }
+    return true;
+  }
+  // A step that declares degreeOne has at most one root of H_t(u) = w, for every t and w: the Newton walks from a grid of
+  // seeds (SR_SEEDS points of the square |Re|, |Im| <= SR_BOX and SR_RING points on each of the circles |z| = SR_RADII,
+  // the last one NEWT_RAY.R) end on at most one distinct root, at every t of SR_T for each of SR_W scattered points w and the 3 x 3 points of the box |Re|, |Im| <= SR_WBOX (the glide's place box: its corners, edge midpoints and centre), so a seed walk that lands
+  // where member 0 did finds nothing new. The grid is the evidence the declaration is checked against (no proof: the
+  // check is numeric, as tangentAtInfinity); a map with a second root anywhere on it fails. Cached per build
+  const SR_T = [1e-4, 0.002, 0.1, 0.25, 0.5, 0.75, 0.9, 0.998, 0.9999], SR_BOX = 2.5, SR_SEEDS = 5, SR_RADII = [1.1, 1.8, 4, 12, 32], SR_RING = 8, SR_W = 6, SR_WBOX = 3.5, SR_STEPS = 14, SR_CONV = 1e-12;
+  const singleRootCache = new WeakMap();
+  const singleRootW = () => {
+    const ws = [];
+    for (let k = 0; k < SR_W; k++) { const a = 2 * Math.PI * (k * 0.618 % 1), r = 1 + 2.5 * ((k * 0.381 + 0.1) % 1); ws.push(C(r * Math.cos(a), r * Math.sin(a))); }
+    for (const x of [-1, 0, 1]) for (const y of [-1, 0, 1]) ws.push(C(SR_WBOX * x, SR_WBOX * y));
+    return ws;
+  };
+  function singleRoot(b) {
+    if (singleRootCache.has(b)) return singleRootCache.get(b);
+    const seeds = [];
+    for (let i = 0; i < SR_SEEDS; i++) for (let j = 0; j < SR_SEEDS; j++) seeds.push(C(-SR_BOX + 2 * SR_BOX * (i + 0.5) / SR_SEEDS, -SR_BOX + 2 * SR_BOX * (j + 0.5) / SR_SEEDS));
+    for (const r of SR_RADII) for (let k = 0; k < SR_RING; k++) { const a = 2 * Math.PI * (k + 0.5) / SR_RING; seeds.push(C(r * Math.cos(a), r * Math.sin(a))); }
+    const ws = singleRootW();
+    let ok = true;
+    for (const t of SR_T) {
+      const H = b.hom ? b.hom(t) : (z) => { const w = b.f(z); return C((1 - t) * z.re + t * w.re, (1 - t) * z.im + t * w.im); };
+      const dH = (u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(H(add(u, C(h, 0))), H(sub(u, C(h, 0)))), 0.5 / h); };
+      for (const w of ws) {
+        const roots = [];
+        for (const z0 of seeds) {
+          let u = z0;
+          for (let it = 0; it < SR_STEPS && isFin(u); it++) { const d = div(sub(H(u), w), dH(u)); u = sub(u, d); if (abs(d) <= SR_CONV * (1 + abs(u))) break; }
+          if (isFin(u) && abs(sub(H(u), w)) <= 1e-9 * (1 + abs(w)) && roots.every((r) => abs(sub(u, r)) > NEWT_SAME * (1 + abs(r)))) roots.push(u);
+          if (roots.length > 1) break;
+        }
+        if (roots.length > 1) { ok = false; break; }
+      }
+      if (!ok) break;
+    }
+    singleRootCache.set(b, ok);
+    return ok;
+  }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
   // step has its f). A polynomial step of degree 2 to NEWT_POLY_MAX (its degree known exactly) has a homotopy that is
@@ -1671,7 +1721,10 @@ const Inverse = (() => {
     if (!(P && P.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
     if (isNewtPoly(P)) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : null;
+    // (a step with no exact ops that declares itself one-to-one onto the outside of a disk and tangent to the identity at
+    // infinity is seeded by the identity when f is that close to the identity on a
+    // circle: then f(z) = w has exactly one root outside it, by Rouché, for w inside the circle's image)
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : b.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true, single: !!b.degreeOne && singleRoot(b), dual: !!b.dualDerivative })] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:
@@ -1725,7 +1778,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },
