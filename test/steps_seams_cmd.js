@@ -219,10 +219,18 @@ const park = async (x, scope) => {
       return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
     info.cracks = await scan(false);
-    // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws none, so
-    // its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
-    info.cutCurves = await ev('__cmwCutCurves().length');
-    ok('cracks: Square root, parked half-way, strokes hidden: no cut curve is drawn', info.cutCurves === 0, info.cutCurves);
+    // (the cut's image curve, a red line with a paper-coloured halo, is drawn with the strokes hidden as the parked plane draws its cut, which
+    // hiding the shapes' strokes leaves alone: the frame's cut curves are those it draws with the strokes shown, the same count and the same banks;
+    // the crack scan above counts a grey pixel between coloured ones, which the halo is not, at any device pixel ratio)
+    const cutKey = () => ev('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, w: c.w })))');
+    const hiddenCuts = await cutKey();
+    await ev('__cmwHideStrokes(false); 1'); await settled({ max: 20000 });
+    const shownCuts = await cutKey();
+    await ev('__cmwHideStrokes(true); 1'); await settled({ max: 20000 });
+    info.cutCurves = JSON.parse(hiddenCuts).length;
+    info.cutCurvesShown = JSON.parse(shownCuts).length;
+    ok('cracks: Square root, parked half-way, strokes hidden: the cut curves drawn are those drawn with the strokes shown (the same banks)', hiddenCuts === shownCuts, { hidden: info.cutCurves, shown: info.cutCurvesShown });
+    ok('cracks: the reference draws a cut (a frame that drops the cut must differ from it)', info.cutCurvesShown > 0 && JSON.stringify([]) !== shownCuts, { shown: info.cutCurvesShown });
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
