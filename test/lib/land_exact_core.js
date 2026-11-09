@@ -43,6 +43,7 @@
     CONT_STEP_MIN: 1e-12,   // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
     CUT_JUMP: 1e-3,         // a step floor where H's linear prediction is off by more than this (relative to 1 + |H|) is a cut of H, not a branch point
     CONT_STEPS_MAX: 40000,  // steps a continuation may take: a glide near its start has members a spiral's pitch apart (about 1e-3 of |z| at u = 1e-4), and a step is a share of that
+    CONT_MS: 20000,         // milliseconds a single continuation may run: a longer one fails (a page call that does not return kills the page's session)
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
@@ -134,7 +135,7 @@
     const vert = (i, j) => verts.get(i * (NYF + 1) + j);
     // ---- identity: continuation of every member of a place along the segment to another place
     let hofCut = false;   // the last Hof call found H jumping beside z
-    const Hof = (m, z, lam) => { const r = frame.hom(z, lam)[m.sheet]; hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null; };
+    const Hof = (m, z, lam) => { const r = frame.hom(z, lam, m.sheet)[m.sheet]; hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null; };
     let newtWhy = '', newtCut = false;   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
       let d1 = null, d2 = null;
@@ -188,6 +189,7 @@
     }
     // all members of `from` carried from place wA to place wB in lockstep: { ok, z[], lam[] } or { ok: false, why }
     function track(from, wA, wB) {
+      const t0 = Date.now();
       let zs = from.map((m) => m.z), lams = from.map((m) => m.lam), t = 0, dt = 1, steps = 0, last = '', kf = -1, pf = null;
       const dw = csub(wB, wA);
       while (t < 1) {
@@ -226,6 +228,7 @@
           }
         }
         if (steps > o.CONT_STEPS_MAX) return { ok: false, why: 'steps' };
+        if ((steps & 255) === 0 && Date.now() - t0 > o.CONT_MS) return { ok: false, why: 'time' };
       }
       return { ok: true, z: zs, lam: lams, steps };
     }

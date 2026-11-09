@@ -497,9 +497,9 @@
   // H the one the frame draws: the plan's first multivalued op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
   // is on (lam = log P(z), P the ops before it), and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
   // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H in z over HOM_DZ, or a thousandth of |z| where that is less (the plan's ops carry no
-  // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]
+  // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]; with `only` (a sheet's index) the other sheets' entries are null
   const HOM_DZ = 1e-6, HOM_CUT = 0.5;   // (HOM_CUT: the second difference of H over dz as a share of its first, at which H is taken to jump)
-  window.__cmwLandHom = (z, lam) => {
+  window.__cmwLandHom = (z, lam, only) => {
     const inp = render3D.exactIn;
     if (!inp) return null;
     const zc = C(z[0], z[1]), lc = lam ? C(lam[0], lam[1]) : null;
@@ -517,6 +517,7 @@
       return CX.add(lc, C(Math.log(CX.abs(r)), Math.atan2(r.im, r.re)));
     };
     return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => {
+      if (only !== undefined && sheet !== only) return null;
       // (the step is HOM_DZ, or a thousandth of |z| where z is smaller: a step larger than z samples another place)
       const dz = Math.min(HOM_DZ, 1e-3 * Math.hypot(z[0], z[1])) || HOM_DZ;
       const pa = C(z[0] + dz, z[1]), pb = C(z[0] - dz, z[1]);

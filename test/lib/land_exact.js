@@ -91,7 +91,7 @@
     return {
       box: L.box, W2: Math.ceil(cv.width / 2), H2: Math.ceil(cv.height / 2), all: !!sheets,
       enumAt: (ws) => { const e = __cmwLandEnum(ws); if (!e) throw new Error('no inverse path'); return e.map((ms) => ms.map((m) => ({ z: m.z, lam: m.lam, h: m.h, sheet: m.sheet, front: m.front === true }))); },
-      hom: (z, lam) => __cmwLandHom(z, lam) || [],
+      hom: (z, lam, sheet) => __cmwLandHom(z, lam, sheet) || [],
       project: (x, y, h) => { const q = __cmwLandProject(x, y, h); return q && Number.isFinite(q[0] + q[1]) ? [q[0] * dpr / 2, q[1] * dpr / 2] : null; },
       mask: (x, y) => __cmwLandMask(x, y),
       lamStep: (z, z2) => __cmwLandLamStep(z, z2),
