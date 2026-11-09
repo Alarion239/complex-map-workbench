@@ -812,7 +812,18 @@ void main() {
     vec2 cv = chainSheetRange(zf, zt, uGs, uGt, uSheetCombos[cf]);
     vec2 own = (fwd ? pb : pa) ? chainSheetRange(zt, zt, uGs, uGt, uSheetCombos[ct]) : (fwd ? b.xy : a.xy);
     if (!cfin(cv) || !cfin(own)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
-    if (length(cv - own) > ${CROSS_REL} * (length(own) + 1.0)) tfOut = vec4(0.5, a.z, b.z, 1.0);
+    if (!(length(cv - own) > ${CROSS_REL} * (length(own) + 1.0))) return;
+    // the cut: along the chord of the preimages, the share m up to which the sheet of the first end is still its own piece (its
+    // value carried from the first end is the one anchored at m itself), bisected as a cut within one sheet is
+    float lo = 0.0, hi = 1.0;
+    for (int it = 0; it < uSteps - 1; it++) {
+      float m = 0.5 * (lo + hi);
+      vec2 zm = mix(zf, zt, m), c1 = chainSheetRange(zf, zm, uGs, uGt, uSheetCombos[cf]), c2 = chainSheetRange(zm, zm, uGs, uGt, uSheetCombos[cf]);
+      if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+      if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
+    }
+    float tc = 0.5 * (lo + hi);
+    tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;
   }
   if (abs(a.w - uCode) > 0.5 || abs(b.w - uCode) > 0.5) return;

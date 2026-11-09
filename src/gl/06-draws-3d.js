@@ -340,7 +340,7 @@
         // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
         if (Pf) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
-          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
           gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
