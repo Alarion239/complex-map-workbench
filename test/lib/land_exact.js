@@ -843,9 +843,11 @@
           ok(`${t}: the control: the principal-branch homotopy flags the ramp members (miss ${pr.worst}); a ramp of 0 flags ${tight}`, pr.worst > HOM_TOL && tight === nRamp, { principal: pr.worst, tight, nRamp });
         }
       }
-      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
+      let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0, contN = 0, contBad = 0; const at = [], atPh = [], atH = [], atCont = [];
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = (got[i] || []).filter((l) => !(l.c >= CONT_CODE));   // (a continued vertex is a layer's copy of a neighbour's surface, not a member)
+        // (each continued vertex left out is the copy of another layer's own member at the place: a copy of nothing fails)
+        (got[i] || []).filter((l) => l.c >= CONT_CODE).forEach((l) => { contN++; if (!l.z || !haveAll.some((o) => o.z && sameZ(o.z, l.z))) { contBad++; if (atCont.length < 4) atCont.push({ p, z: l.z }); } });
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
@@ -864,6 +866,7 @@
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
+      ok(`${t}: every continued vertex left out of the members is a copy of another layer's own member (${contN} continued vertices, ${contBad} copies of nothing)`, contBad === 0, { contN, contBad, atCont });
       ok(`${t}: the drawn height of every member within ${HEIGHT_TOL}`, hBad === 0, { hBad, atH });
       ok(`${t}: the members' colour (arg F) within ${PHASE_TOL * 180 / Math.PI} degrees (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
