@@ -592,10 +592,10 @@
     return out;
   };
   window.__cmwLandWind = (wIn, opts = {}) => {
-    const inp = render3D.exactIn, bx = render3D.box;
+    const inp = render3D.exactIn, bx = opts.box || render3D.box;
     if (!inp || !bx) return null;
-    const hMin = opts.hMin == null ? WIND_H_MIN : opts.hMin;
-    const sheets = [inp.exact].concat(inp.exact.more || []), TAU2 = 2 * Math.PI;
+    const hMin = opts.hMin == null ? WIND_H_MIN : opts.hMin, noise = opts.noise == null ? WIND_ARG_NOISE : opts.noise;
+    const sheets = opts.sheets || [inp.exact].concat(inp.exact.more || []), TAU2 = 2 * Math.PI;
     const W = bx.x1 - bx.x0, Hh = bx.y1 - bx.y0, Lp = 2 * (W + Hh);
     // (the box boundary counter-clockwise from its bottom-left corner, by arc length s)
     const perim = (s) => {
@@ -621,7 +621,7 @@
       for (let i = WIND_SEG0; i > 0; i--) stack.push([(i - 1) / WIND_SEG0, i / WIND_SEG0]);
       while (stack.length) {
         const [t0, t1] = stack.pop(), a = g(t0), b = g(t1), d = argd(a, b), tm = (t0 + t1) / 2, m = g(tm), d1 = argd(a, m), d2 = argd(m, b);
-        const flat = Math.abs(d) < WIND_ARG_NOISE && Math.abs(d1) < WIND_ARG_NOISE && Math.abs(d2) < WIND_ARG_NOISE;   // (the evaluation's own rounding, not a turn of the argument)
+        const flat = Math.abs(d) < noise && Math.abs(d1) < noise && Math.abs(d2) < noise;   // (the evaluation's own rounding, not a turn of the argument)
         const ok = flat || Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
         if (ok) { sum += d; continue; }
         if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true, minD };
@@ -679,7 +679,8 @@
           const pieces = [];   // [[piece fns...] per component]
           const endArc = (re, im0, im1) => (t) => ({ z: C(0, 0), lam: C(re, im0 + (im1 - im0) * t) });
           if (!multi) pieces.push([[arc(0, Lp), Lp]]);
-          else if (infIn && !(zeroIn && !cross.length)) throw new Error('unsupported contour: the pole of the prefix inside the box with a cut crossing');
+          else if (infIn && !zeroIn) throw new Error('unsupported contour: only the pole of the prefix is inside the box');
+          else if (infIn && cross.length) throw new Error('unsupported contour: the pole of the prefix inside the box with a cut crossing');
           else if (infIn) {
             // (0 and infinity both in the prefix's image of the box, the cut not crossing its boundary: the strip between the eps-ends, lip to lip,
             // with the image of the boundary as its hole)
@@ -730,6 +731,15 @@
       });
       return out;
     })();
+  };
+  // the completeness count on a synthetic plan (the controls of the contour's unsupported cases): the first sheet's status at a place, for a plan whose
+  // multivalued op (a square root, the cut at angle theta) follows a Moebius prefix with its pole inside the box [-2, 2]^2 at z = 0.5:
+  // 'poleOnly' (the prefix has no zero in the box: 1 / (z - 0.5)) and 'cutCrossing' ((z + 0.5) / (z - 0.5), the cut through the image of the box's outside)
+  window.__cmwLandWindFixture = (kind) => {
+    const half = C(0.5, 0), mob = kind === 'poleOnly' ? [CX.ZERO, CX.ONE, CX.ONE, C(-0.5, 0)] : [CX.ONE, half, CX.ONE, C(-0.5, 0)];
+    const sh = { plan: { ops: [InvOps.opMob(mob), InvOps.opRootPow(half, kind === 'poleOnly' ? Math.PI : 0, 0)] } };
+    const r = window.__cmwLandWind([1, 1], { sheets: [sh], box: { x0: -2, x1: 2, y0: -2, y1: 2 } });
+    return r && r[0] ? { status: r[0].status, ok: r[0].ok } : null;
   };
   // the range ramp (pixels) the inverse admits members outside a sheet's window by: a member's lvl is at least -RAMP
   window.__cmwLandRamp = () => Inverse.RAMP;

@@ -43,6 +43,7 @@
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
+  const WIND_HMIN_FAR = 0.5, WIND_NOISE_CTL = 1e-2;   // (a step floor too coarse for any piece of the contour; a noise floor over the argument's small real turns)
   const WIND_PLACES = 12, WIND_HMIN_CTL = 0.1;   // (places counted per frame; the control's step floor, as a fraction of a piece)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
@@ -407,6 +408,18 @@
             const nop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
             const poleCase = !!withP && withP.some((r) => r.P > 0);
             if (poleCase) ok(`${t}: the control: the poles omitted break the count`, !!nop && nop.some((r) => !r.ok), { nop });
+            // the step floor away from the contour: a stop with |G - w| / (1 + |w|) over the bound is 'unresolved', never 'onContour' and never a count
+            const far = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { hMin: ${WIND_HMIN_FAR} })`);
+            ok(`${t}: the control: a step floor away from the contour is unresolved, not on the contour and not counted`, !!far && far.some((r) => r.status === 'unresolved') && !far.some((r) => r.status === 'onContour'), { far: far && far.slice(0, 3) });
+            // a noise floor over the real turns of the argument drops them, and the total is no integer: the count fails
+            const noisy = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noise: ${WIND_NOISE_CTL} })`), plain = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
+            if (plain && plain.some((r) => r.N > 0)) ok(`${t}: the control: a noise floor of ${WIND_NOISE_CTL} over the real turns breaks the count`, !!noisy && noisy.some((r) => !r.ok), { noisy: noisy && noisy.slice(0, 3) });
+            if (!controlsDone.fixtures) {
+              controlsDone.fixtures = 1;
+              const fx = await ev("[__cmwLandWindFixture('poleOnly'), __cmwLandWindFixture('cutCrossing')]");
+              ok('the fixture: a prefix whose only pole is inside the box is an unsupported contour (the exact status)', !!fx && !!fx[0] && fx[0].status === 'error: unsupported contour: only the pole of the prefix is inside the box' && !fx[0].ok, { fx });
+              ok('the fixture: a prefix with its pole inside the box and the cut crossing is an unsupported contour (the exact status)', !!fx && !!fx[1] && fx[1].status === 'error: unsupported contour: the pole of the prefix inside the box with a cut crossing' && !fx[1].ok, { fx });
+            }
           }
         }
         if (nRamp) {
