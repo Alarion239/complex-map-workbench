@@ -94,6 +94,7 @@
       hom: (z, lam) => __cmwLandHom(z, lam) || [],
       project: (x, y, h) => { const q = __cmwLandProject(x, y, h); return q && Number.isFinite(q[0] + q[1]) ? [q[0] * dpr / 2, q[1] * dpr / 2] : null; },
       mask: (x, y) => __cmwLandMask(x, y),
+      lamStep: (z, z2) => __cmwLandLamStep(z, z2),
       sing: () => __cmwLandSing(),
       progress: (c, f) => { window.__lxProgress = { cells: Object.assign({}, c), failures: f.length }; },
       // (All sheets: a member a layer per forward combo, as the frame draws it)

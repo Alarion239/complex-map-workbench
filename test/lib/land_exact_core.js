@@ -155,7 +155,9 @@
       newtWhy = 'residuals ' + hist.join(' ') + '; sheet ' + m.sheet + ' z ' + z[0].toExponential(3) + ',' + z[1].toExponential(3) + ' lam ' + (lam ? lam[0].toFixed(4) + ',' + lam[1].toFixed(4) : 'null') + ' dH ' + (r0 ? r0.dH[0].toExponential(3) + ',' + r0.dH[1].toExponential(3) : '-') + ' fwd ' + (r0 && rp ? ((rp.H[0] - r0.H[0]) / dl).toExponential(3) + ',' + ((rp.H[1] - r0.H[1]) / dl).toExponential(3) : '-');
       return null;
     }
-    const relLog = (z, z2) => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; };
+    // the move of a member's continued log coordinate from z to a point z2 beside it: the frame's own (log of the ratio of the prefix's values, the ops before the plan's
+    // first multivalued op), else that of z itself
+    const relLog = frame.lamStep || ((z, z2) => { const q = cdiv(z2, z); return [Math.log(cabs(q)), Math.atan2(q[1], q[0])]; });
     // the member of place vb that the carried point z of a member m is: the nearest of m's own sheet (the same z repeats on
     // sheets beside the frame's own, as different surfaces), within MATCH_TOL; -1 when none
     const matchIn = (vb, m, z) => {

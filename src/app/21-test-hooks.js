@@ -526,6 +526,14 @@
       return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * dz), (a.im - b.im) / (2 * dz)] : null, exactD: false, cut };
     });
   };
+  // the move of a member's continued log coordinate from z to a point z2 beside it: log P(z2) / P(z) on the principal log, P the ops of the plan before its first
+  // multivalued op (the identity when that op is first, or there is none)
+  window.__cmwLandLamStep = (z, z2) => {
+    const inp = render3D.exactIn;
+    if (!inp) return null;
+    const sh = inp.exact, m = landMultiOp(sh), pre = (q) => Inverse.fwdOps({ ops: sh.plan.ops.slice(0, Math.max(m, 0)) }, C(q[0], q[1])), r = CX.div(pre(z2), pre(z));
+    return CX.isFin(r) ? [Math.log(CX.abs(r)), Math.atan2(r.im, r.re)] : null;
+  };
   // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of
   // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in
   // the continued log coordinate when the plan's first op is a log or a power, else in z), plus the plan's poles inside R, against the members
