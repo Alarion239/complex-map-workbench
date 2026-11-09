@@ -1,12 +1,13 @@
-// A glide frame draws every sheet the parked plane it arrives at draws (issue #1413, part of #1194; the standing rule: moving
-// frames look like parked planes). With Show all sheets, the parked plane past a multi-valued step draws all its sheets; a
-// glide frame a hair short of that plane must be the same picture: at most SAME_FRAC of the pixels (not paper in both frames)
-// more than TOL levels apart. The frame sits END_EPS of a step from the plane, so the glide's own motion is sub-pixel and the
-// parked plane stands for the exact picture of the glide there. A pixel on an edge of the colour (the parked frame's 3 x 3
-// neighbourhood spans more than EDGE_LEVELS in a channel: a ring or a sector's boundary, which the two paths filter apart) is
-// left out, and at most EDGE_MAX_SHARE of the compared pixels may be (measured 8.5 % and 8.1 %: the rings, the sectors and the seam) (a control: with every pixel an edge, the cap fails). The colour layer alone (strokes hidden, bare). Only the arrival
-// end is compared: a glide carries the colour plane's colour of each point, so near its start it is not the parked plane's picture.
-// Chains, each at the end of its last step:
+// A glide frame is the parked plane it leaves and the parked plane it arrives at, a hair from either (issue #1413, part of #1194;
+// the standing rule: moving frames look like parked planes). With Show all sheets, the parked plane past a multi-valued step
+// draws all its sheets; the glide frame END_EPS of a step short of that plane must be the same picture, and the frame END_EPS
+// past the plane the step leaves the same as that plane: at most SAME_FRAC of the pixels (not paper in both frames) more than TOL
+// levels apart. The frame sits END_EPS of a step from the plane, so the glide's own motion is sub-pixel and the parked plane
+// stands for the exact picture of the glide there. A pixel on an edge of the colour (the parked frame's 3 x 3 neighbourhood
+// spans more than EDGE_LEVELS in a channel: a ring or a sector's boundary, which the two paths filter apart) is left out; at
+// most EDGE_MAX_SHARE of the compared pixels may be (measured 8.5 % and 8.1 %: the rings, the sectors and the seam), and with
+// every pixel an edge the cap fails (a control). The colour layer alone (strokes hidden, bare).
+// Chains, each at both ends of its last step:
 // - Square root alone: the glide is the inverse pass's (glide.path 'inverse');
 // - the cubic z^3 - 3z, then the Square root: the exact renderer inverts no cubic, so the glide is the carried meshes' (glide.path 'mesh').
 // A control must fail the same measure: the same glide frame against the plane the step starts from, more than CONTROL_FACTOR
@@ -74,6 +75,10 @@ const measure = async (c, gx, px, edgeLevels = EDGE_LEVELS) => {
 };
 for (const c of CHAINS) {
   const a = c.last - 1, b = c.last, gx = b - END_EPS;
+  const lo = await measure(c, a + END_EPS, a);
+  info[`${c.label}: glide ${END_EPS} past plane ${a}`] = lo;
+  ok(`${c.label}: the glide at the start of its last step is drawn by the ${c.path} path`, lo.path === c.path, lo);
+  ok(`${c.label}: the frame ${END_EPS} past plane ${a} is the parked plane, at most ${SAME_FRAC * 100} % of the pixels more than ${TOL} levels off`, lo.n > MIN_PIXELS && lo.over <= SAME_FRAC, lo);
   const hi = await measure(c, gx, b);
   info[`${c.label}: glide ${END_EPS} short of plane ${b}`] = hi;
   ok(`${c.label}: the glide at the end of its last step is drawn by the ${c.path} path`, hi.path === c.path, hi);
