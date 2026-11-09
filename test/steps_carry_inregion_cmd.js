@@ -70,7 +70,7 @@ async function check(tag, at, b, P, pts, cand, min, exact = false) {
 
 // the carried colour of the frame mid-glide, parked (at.park) or held (at.hold), graded by the judge against the exact picture of
 // plane z's parked frame (held_frames' judge: the frame pulled back through H_u's inverse by the glide's own sheet key)
-async function judged(tag, at) {
+async function judged(tag, at, seeds) {
   // (the colour layer alone, as the other suites that grade a frame against the exact picture read it: outlines and labels are drawn over the colour at places that differ between the frames)
   await ev('__cmwSteps({ bare: true }), 1');
   await steps({ scope: at.scope, surf: 'plane', go: 0, now: true });
@@ -81,7 +81,7 @@ async function judged(tag, at) {
   if (at.hold != null) { ok(`${tag}: the thread is held at x = ${at.hold}`, (await hold(at.hold)).ok, null); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
   ok(`${tag}: the moving frame settles`, await grab('M'), null);
   const state = await ev('__cmwSteps()'), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
-  const j = await judge('R0', 'M');
+  const j = await judge('R0', 'M', { seeds });
   if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   await ev('__cmwSteps({ bare: false }), 1');
   info[tag] = { j, g, x: state.x, T: state.T };
@@ -92,11 +92,14 @@ async function judged(tag, at) {
   // negative control: the cross-fade of the two planes' parked frames at the same u is not the exact picture
   const xt = at.hold != null ? at.hold : at.park, u = xt - Math.floor(xt);
   ok(`${tag}: the cross-fade frame exists`, await fade('R0', 'R1', u, 'X'), null);
-  const c = await judge('R0', 'X');
+  const c = await judge('R0', 'X', { seeds });
   info[tag].control = c;
   ok(`${tag}: negative control: a cross-fade of the two planes' frames does not pass the judge`, !c.pass && c.n >= JUDGE_MIN_N, info[tag]);
 }
 
+// (the reference's Newton seeds for the Joukowski frame: the default 8 x 6 grid misses roots in the band under the real axis,
+// where the front root it then picks is a later sheet's)
+const JOUK_SEEDS = [48, 32];
 // ---- the Joukowski airfoil ----
 const names = exampleNames();
 const EX = names.indexOf('Joukowski airfoil');
@@ -141,7 +144,7 @@ await wait();
     // the outline's 1.5 px stroke and 3.5 px halo, and the 1.5 px the seam test moves w)
     const AXIS = 0.04;
     const heldCand = joukPath(outside, (z, w) => Math.min(Math.abs(z[0]), Math.abs(z[1])) < AXIS || labelAt(w)).candAt(0.25);
-    await check('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, 1, P, pts, heldCand, 400);
+    await judged('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, JOUK_SEEDS);
     // (and densely over the stretch where the image of the cut, the lower semicircle, runs: Re w in [-3, -0.5],
     // Im w in [-3.5, -0.3], 50 x 50; none wrong: the triangles the cut tears keep the enhanced style's modulus bands
     // where the exact colour has them)
