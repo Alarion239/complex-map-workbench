@@ -739,6 +739,7 @@
         await ev(`window.__lxHomTol = ${HOM_TOL}; 1`);
         const mr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0)`), mv = await ev(`__lxHomMiss(${JSON.stringify(ms)}, ${HOM_SHIFT})`), miss = mr.worst, moved = mv.worst;
         ok(`${t}: every enumerated member (${ms.length}) maps to its place under the frame's homotopy (window.__cmwLandHom) within ${HOM_TOL}`, ms.length > 0 && miss <= HOM_TOL, { miss, nBad: mr.nBad, n: ms.length, sample: mr.sample });
+        { const sc = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, 40))}, K = __cmwLandSceneCombos(); if (!K) return null; return { K, rows: ms.map((m) => { const per = []; for (let k = 0; k < K.n; k++) { const h = __cmwLandScene(m.z, k); per.push(h ? Math.hypot(h[0] - m.w[0], h[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])) : null); } return { sheet: m.sheet, member: m.member, per }; }) }; })()`); ok('PROBE scene', false, sc); }
         ok(`${t}: the control: the places moved by ${HOM_SHIFT} are not matched by the homotopy (miss ${moved})`, moved > HOM_TOL, { moved });
         // the plan read by the reference corrupted (the output of its last op moved, on every sheet): its members are preimages under the shortened plan, not
         // under the scene, so the homotopy check must flag them; a reference that takes its homotopy from the plan answers the corrupted plan
