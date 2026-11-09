@@ -77,6 +77,7 @@
   // the cases without a hue-shifted row, 23 on the Joukowski airfoil, the largest; a hue-shifted row at a sheet boundary is
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
+  const SIDE_STRIP_PX = 3;   // (half-resolution pixels: the strip along a side edge of the block in which the frame must hold what the reference covers)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
@@ -146,6 +147,38 @@
         if (n > best) { best = n; at = j; }
       }
       return { n: best, row: at };
+    },
+    // the block's side edges in the current view, against the reference raster window.__lxMasks.ref (half-resolution pixels) and a frame mask (the kept
+    // one, or with fresh the relief's coverage now, cut as lxRaster cuts it): the frame's pixels more than one pixel beyond an edge (beyond), and in
+    // the strip of px pixels inside each edge the reference's pixels (n) and those the frame misses (missing)
+    sideStrips: (px, fresh) => {
+      const M = window.__lxMasks, R = window.__cmwLandRelief, L = R && R.land, cv = document.getElementById('canvasL');
+      if (!M || !L) return null;
+      const { W2, H2 } = M, k = cv.width / cv.getBoundingClientRect().width / 2, b = L.box;
+      let frame = M.frame;
+      if (fresh) {
+        frame = new Uint8Array(W2 * H2);
+        for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+          let n = 0, t = 0;
+          for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) { const qx = 2 * x + dx, qy = 2 * y + dy; if (qx < R.w && qy < R.h) { t++; if (R.cov[qy * R.w + qx] > 0) n++; } }
+          frame[y * W2 + x] = t && 2 * n >= t ? 1 : 0;
+        }
+      }
+      const P = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]].map(([x, y]) => window.__cmwLandProject(x, y, 0).map((v) => v * k));
+      const cx = P.reduce((s, q) => s + q[0], 0) / 4, cy = P.reduce((s, q) => s + q[1], 0) / 4;
+      let beyond = 0, n = 0, missing = 0;
+      for (let e = 0; e < 4; e++) {
+        const [ax, ay] = P[e], [bx, by] = P[(e + 1) % 4], ex = bx - ax, ey = by - ay, len = Math.hypot(ex, ey);
+        let nx = ey / len, ny = -ex / len;
+        if (nx * (ax - cx) + ny * (ay - cy) < 0) { nx = -nx; ny = -ny; }
+        for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+          const t = ((x - ax) * ex + (y - ay) * ey) / len, d = (x - ax) * nx + (y - ay) * ny;
+          if (t < 0 || t > len) continue;
+          if (d > 1 && frame[y * W2 + x]) beyond++;
+          if (d <= 0 && d >= -px && M.ref[y * W2 + x]) { n++; if (!frame[y * W2 + x]) missing++; }
+        }
+      }
+      return { beyond, n, missing };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -593,6 +626,27 @@
         }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
+      }
+      // the block's side edges at the glide's middle (the boxes differ there), in the Top view, against the reference raster: no surface beyond
+      // an edge, and the strip inside each edge as covered as the reference's; the sides a little wide or narrow break one each (controls)
+      if (c.tag === ROW_CASE && !sheets && u === GLIDE_MID) {
+        await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const { rk, calm } = await refine(sheets, REF);
+        const ss = await ev(`__lx.sideStrips(${SIDE_STRIP_PX}, false)`);
+        r[u].sides = ss;
+        ok(`${t}: in the Top view no surface lies beyond the block's side edges (${ss && ss.beyond} pixels)`, !!rk && calm >= REF.calm && !!ss && ss.beyond === 0, { ss });
+        ok(`${t}: the strip of ${SIDE_STRIP_PX} pixels inside each side edge holds what the reference covers (${ss && ss.missing} of ${ss && ss.n} missing; at most ${RASTER_TOL * 100} %)`, !!ss && ss.n > 0 && ss.missing <= RASTER_TOL * ss.n, { ss });
+        for (const [probe, what, bad] of [['clipWide', 'the block sides 2 % wide', (o) => o.beyond > 0], ['clipNarrow', 'the block sides 2 % narrow', (o) => o.missing > RASTER_TOL * o.n]]) {
+          let o;
+          try {
+            await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            o = await ev(`__lx.sideStrips(${SIDE_STRIP_PX}, true)`);
+          } finally {
+            await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          }
+          ok(`${t}: control: with ${what} the side measure fails (${o && o.beyond} beyond, ${o && o.missing} of ${o && o.n} missing)`, !!o && bad(o), { o });
+        }
+        await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
       }
       // the surface pixels at the ends
       if (first || lastU) {
