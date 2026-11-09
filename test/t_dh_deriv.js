@@ -32,7 +32,8 @@ const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed
 const edgePoints = (cs) => {
   const out = [], escapes = (z) => Number.isFinite(CX.bottcher(z, cs.c(z), N).re);
   for (let g = 0; g < BISECT; g++) {
-    let a = C(0, 0), ang = 2 * Math.PI * rnd(), e = C(1.5 * Math.cos(ang) + 0.25, 1.5 * Math.sin(ang));
+    const ang = 2 * Math.PI * rnd();
+    let a = C(0, 0), e = C(1.5 * Math.cos(ang) + 0.25, 1.5 * Math.sin(ang));
     if (!escapes(e)) continue;
     for (let it = 0; it < 30; it++) { const m = scale(add(a, e), 0.5); if (it > 12) out.push(m); if (escapes(m)) e = m; else a = m; }
   }
