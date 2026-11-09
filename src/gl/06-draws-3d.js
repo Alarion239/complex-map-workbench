@@ -1555,7 +1555,7 @@
         use(Pc, st.carry.map);
         if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
         common(Pc);
-        if (clipC) { u1i(Pc, 'uFanN', fan); u1i(Pc, 'uClsMode', 0); }
+        if (clipC) { u1i(Pc, 'uFanN', fan); u1i(Pc, 'uMixOn', 0); }
         u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
         lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
         u3(Pc, 'uCut', C.cut);
@@ -1583,6 +1583,22 @@
       // (each layer: its places, preimages and edges; the glide's sheets, one draw each with that sheet's chain data, its
       // colour being of the sheet's branch)
       // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
+      // (a test read: the cells' counts by class, and the MIX list's length, from the class texture and the rows' bases)
+      const classCounts = (L, N) => {
+        const fb = gl.createFramebuffer(), px = new Float32Array(N * N * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.clsTex, 0);
+        gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
+        const rb = new Float32Array(4);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.rowBTex, 0);
+        gl.readPixels(N - 2, 0, 1, 1, gl.RGBA, gl.FLOAT, rb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
+        const n = [0, 0, 0];
+        for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) n[Math.round(px[4 * (y * N + x)])]++;
+        return { out: n[LAND_CLASS_OUT], in: n[LAND_CLASS_IN], mix: n[LAND_CLASS_MIX], listed: rb[0] + rb[1], K: LAND_MIX_K };
+      };
+      let mixK = 0;   // (over 0: the draw is mixK instances of one cell each, the MIX cells' list: LAND_CARRY_CLASS_VS)
       const drawCarryGrid = (G, n) => {
         const cutDraw = !!(G.exact && G.cuts);
         u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
@@ -1600,7 +1616,8 @@
           if (datas && G.cont) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
           if (datas && !G.cont) u1i(Pc, 'uSheetCombo', G.combos[i] + (carryProbe.comboShift | 0));
           u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
-          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
+          if (mixK) gl.drawArraysInstanced(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan, mixK);
+          else gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
         }
         if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
       };
@@ -1647,6 +1664,34 @@
             u1i(Pc, 'uZOn', 1); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
             drawCarryGrid(L, hd.N);
             fan = LAND_CLIP_CORNERS - 2; Pc = Pc0; use(Pc, st.carry.map);
+            if (!carryProbe.classNoMix) {
+              // (the MIX cells' list, then the clipped draw of those cells alone)
+              const rowsP = program('landClassRows'), baseP = program('landClassBase'), listP = program('landClassList');
+              if (rowsP && baseP && listP) {
+                if (!L.rowNTex) { L.rowNTex = floatTex(); L.rowBTex = floatTex(); L.mixTex = floatTex(); }
+                const N = hd.N;
+                if (N > LAND_CLASS_LOOP) throw new Error('the class passes loop over at most ' + LAND_CLASS_LOOP + ' cells; the grid is ' + N);
+                gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
+                use(rowsP); u1i(rowsP, 'uN', N);
+                gl.activeTexture(gl.TEXTURE31); runTF(rowsP, empty(), gl.POINTS, N, 0, N * 16, L.rowNTex, N, 1, gl.RGBA32F, gl.RGBA);
+                gl.activeTexture(gl.TEXTURE18); gl.bindTexture(gl.TEXTURE_2D, L.rowNTex);
+                use(baseP); u1i(baseP, 'uN', N);
+                gl.activeTexture(gl.TEXTURE31); runTF(baseP, empty(), gl.POINTS, N, 0, N * 16, L.rowBTex, N, 1, gl.RGBA32F, gl.RGBA);
+                gl.activeTexture(gl.TEXTURE19); gl.bindTexture(gl.TEXTURE_2D, L.rowBTex);
+                use(listP); u1i(listP, 'uN', N);
+                gl.activeTexture(gl.TEXTURE31); runTF(listP, empty(), gl.POINTS, LAND_MIX_K, 0, LAND_MIX_K * 16, L.mixTex, LAND_MIX_K, 1, gl.RGBA32F, gl.RGBA);
+                if (carryProbe.classStats) info.classCounts = classCounts(L, N);
+                use(Pc, st.carry.map);
+                gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+                gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
+                if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
+                if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+                gl.activeTexture(gl.TEXTURE17); gl.bindTexture(gl.TEXTURE_2D, L.mixTex);
+                u1i(Pc, 'uMixOn', 1); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan); mixK = LAND_MIX_K;
+                drawCarryGrid(L, hd.N);
+                mixK = 0; u1i(Pc, 'uMixOn', 0);
+              }
+            }
           }
         } else
         drawCarryGrid(L, hd.N);
