@@ -11,6 +11,16 @@ const DRAWN = 60;
 // a 3D frame has its picture on it when more than this share of its pixels is drawn (a globe fills about a third of its frame, so
 // this says the picture is there and not the paper alone)
 const DRAWN_MIN = 0.04;
+// the options of the 2 s, 30 fps glide video every check here records
+const VIDEO_OPT = { size: '1280x720', fps: 30, secs: 2, ends: 'once' };
+// makeVideo's evaluate wait (ms): the encode of a whole video
+const VIDEO_WAIT_MS = 600000;
+// the pane's settle limit (ms) after the thread is moved
+const SETTLE_MAX_MS = 15000;
+// the thread's position is parked to this tolerance (a step of the thread is 1)
+const POS_TOL = 1e-6;
+// the frame probe's size in px: the label does not depend on it
+const PROBE_W = 192, PROBE_H = 108;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -27,7 +37,7 @@ const open = async (exN, surf) => {
 for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land']]) {
   const tag = `ex ${exN} ${surf}`;
   await open(exN, surf);
-  const vopt = { size: '1280x720', fps: 30, secs: 2, ends: 'once' };
+  const vopt = VIDEO_OPT;
   const v = await ev(`await (async () => { try {
     const g = __cmwFig.glide(), at0 = __cmwSteps().x;
     const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(vopt)}, keepForCheck: true });
@@ -45,7 +55,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
   // being that window widened to 16:9 (both at 320 px wide, so the pixels compare the same picture)
   const fp = await ev(`await (async () => { try {
-    const mv = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
+    const mv = await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)}, keepForCheck: true });
     const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(mv.frames - 1, 640, 360);
     const f = await __cmwFig.build({});
     if (!f) return { none: 1 };
@@ -148,19 +158,26 @@ for (const T of ['null', 0]) {
   }
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
-// the glide's label words are the pane's readout: a frame's label, then the pane parked at the same place says it too
+// the glide's label words are the pane's readout: a frame's label, then the pane parked at the same place says it too. The
+// pane's spoken value is the readout followed by the Play range's words, and no range is set here, so it is the label itself
 {
   const lb = JSON.parse(await ev(`await (async () => { try {
-    const g = __cmwFig.glide(), vopt = { size: '1280x720', fps: 30, secs: 2, ends: 'once' };
-    const r = await __cmwFig.makeVideo({ video: vopt, keepForCheck: true }), chk = await __cmwFig.videoCheck(5, 192, 108);
-    return JSON.stringify({ lo: g.lo, t: chk && chk.t, label: chk && chk.label, frames: r.frames });
-  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 600) }); } })()`, 600000));
+    const g = __cmwFig.glide(), vopt = ${JSON.stringify(VIDEO_OPT)};
+    const r = await __cmwFig.makeVideo({ video: vopt, keepForCheck: true }), chk = await __cmwFig.videoCheck(5, ${PROBE_W}, ${PROBE_H});
+    return JSON.stringify({ lo: g.lo, hi: g.hi, t: chk && chk.t, label: chk && chk.label, frames: r.frames });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 600) }); } })()`, VIDEO_WAIT_MS));
   ok('a glide frame reports the label it drew', !lb.err && typeof lb.label === 'string' && lb.label.length > 0, lb);
   if (!lb.err && lb.label) {
-    await ev(`(__cmwSteps({ x: ${lb.lo + lb.t} }), 1)`);
-    await settled({ until: `Math.abs(__cmwSteps().x - ${lb.lo + lb.t}) < 1e-6 && !!document.querySelector('[role=slider][aria-valuetext]')`, max: 15000 });
-    const said = await ev(`document.querySelector('[role=slider][aria-valuetext]').getAttribute('aria-valuetext')`);
-    ok('the pane parked where the frame stands says the frame\'s label', typeof said === 'string' && said.startsWith(lb.label), { said, lb });
+    const park = async (x) => {
+      await ev(`(__cmwSteps({ x: ${x} }), 1)`);
+      await settled({ until: `Math.abs(__cmwSteps().x - ${x}) < ${POS_TOL} && !!document.querySelector('[role=slider][aria-valuetext]')`, max: SETTLE_MAX_MS });
+      return ev(`document.querySelector('[role=slider][aria-valuetext]').getAttribute('aria-valuetext')`);
+    };
+    const said = await park(lb.lo + lb.t);
+    ok('the pane parked where the frame stands says the frame\'s label', said === lb.label, { said, lb });
+    // negative control: parked at the far end of the glide the pane says something else, so the equality above can fail
+    const far = await park(lb.t < (lb.hi - lb.lo) / 2 ? lb.hi : lb.lo);
+    ok('the pane parked at the other end of the glide does not say the frame\'s label', typeof far === 'string' && far !== lb.label, { far, lb });
   }
 }
 // the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
