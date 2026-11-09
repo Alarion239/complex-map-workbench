@@ -79,6 +79,7 @@
   // planes' parked frames are far over it (the control in each case).
   const SIDE_CASES = ['cube root', 'log of an annulus', 'Möbius, √'];   // (the cases whose extent at the glide's middle is checked against the side cut)
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
+  const NEWTON_TAG = 'Partial sums of the exponential (Newton)', Z_OUT_MAX = 0;   // (the layers a place draws whose preimage z lies outside plane s's box: none, as the parked plane has one member of each place)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
@@ -520,6 +521,20 @@
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
       r[u] = { carry, cov, p0: p0.cover, p1: p1.cover };
       ok(`${t}: a still, carried frame`, cov.still && !!carry, { carry, still: cov.still });
+      // the carried surface's domain is plane s's box: no layer's preimage z lies outside it (the far layers of a Newton step's other roots)
+      if (c.tag === NEWTON_TAG && sheets) {
+        const zo = await ev(`(() => {
+          const c = __cmwLandCarry(), b = __cmwLandCarry(true), s = c && c.src;
+          if (!s || !b) return null;
+          const pts = []; for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) pts.push([b.x0 + (i + 0.5) / 6 * (b.x1 - b.x0), b.y0 + (j + 0.5) / 6 * (b.y1 - b.y0)]);
+          const g = __cmwLandFrameVerts(pts) || [];
+          let layers = 0, out = 0;
+          for (const ls of g) for (const l of ls || []) { if (!l || !l.z) continue; layers++; if (l.z[0] < s.x0 || l.z[0] > s.x1 || l.z[1] < s.y0 || l.z[1] > s.y1) out++; }
+          return { layers, out, src: s };
+        })()`);
+        r[u].zOut = zo;
+        ok(`${t}: no layer's preimage lies outside plane s's box (${zo && zo.out} of ${zo && zo.layers} layers)`, !!zo && zo.out <= Z_OUT_MAX, zo);
+      }
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
