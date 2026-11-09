@@ -11,10 +11,10 @@ const { launch, sleep } = require('./regress/perf/cdp');
   let r;
   try {
     await B.nav(srv.base + 'glsl-dh-orbit.html');
-    for (let i = 0; i < 1200 && !(await B.ev('window.__dhOrbit && window.__dhOrbit.done')); i++) await sleep(500);
+    for (let i = 0; i < 1200 && !(await B.ev('window.__dhOrbit && window.__dhOrbit.done')) && !B.logs().some((l) => l.t === 'EXC'); i++) await sleep(500);
     r = await B.ev('JSON.stringify(window.__dhOrbit)'); if (process.env.DH_LOGS) console.log(B.logs().slice(0, 10));
   } finally { await B.close(); srv.server.close(); }
-  const o = JSON.parse(r);
+  const o = JSON.parse(r || '{"errors":["page exception"]}');
   console.log(JSON.stringify(o, null, 1));
   console.log(o.ok ? 'PASS' : 'FAIL');
   process.exit(o.ok ? 0 : 1);

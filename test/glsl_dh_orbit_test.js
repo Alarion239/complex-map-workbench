@@ -57,7 +57,7 @@
   const built = Funcs.applyRepeats(steps, steps.map((s) => Funcs.build(s)));
   const gc = GLChain.build(steps, built);
   const REG = gc.source;
-  const swap = (s, from, to, what) => { if (!s.includes(from) && !(from instanceof RegExp && from.test(s))) throw new Error(`pattern not found: ${what}`); return s.replace(from, to); };
+  const swap = (s, from, to, what) => { if (!(from instanceof RegExp ? from.test(s) : s.includes(from))) throw new Error(`pattern not found: ${what}`); return s.replace(from, to); };
   const ARR = (() => {
     let s = REG;
     s = swap(s, DH_RE, `vec2 orb[${NMAX + 1}];`, 'registers');
