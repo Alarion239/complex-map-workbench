@@ -549,6 +549,10 @@
     });
     return true;
   };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a further block, as t_publish caps a block's length)
   // ---- The scene's reference for an exact Landscape glide frame ----
   // Everything below reads the scene's own definition of the glide's homotopy H_u (__cmwLandScene: Funcs.sheetMapEval on the map the steps
   // view draws) and never the inverse plan. __cmwLandEnum's members are candidates only; a candidate counts when it is certified here, and the
@@ -720,6 +724,10 @@
     }
     return loops;
   };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a further block, as t_publish caps a block's length)
   // the state of a rectangle r as a leaf of the scene: 'closed' (every surface's value runs round r's loop in steps of at most REL, no branch step's
   // input winds round 0 or comes near it, and r holds no pole of a branch step's input: the winding of H_u - w then counts the pairs in r), 'crossed' (a branch
   // step's input runs round the loop with winding 0 yet reaches the ray opposite its value at the centre, where the anchored surface jumps: not a
@@ -879,6 +887,10 @@
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
   // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest (leafState)
   window.__cmwLandLeafState = (x0, x1, y0, y1, opts) => { const sc = sceneOf(); return sc ? leafState(sc, { x0, x1, y0, y1 }, opts || {}) : null; };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a further block, as t_publish caps a block's length)
   // the scene's singular points over the frame's box: { poles: [[re, im]], branch: [[re, im]] }, the poles the steps view finds on the glide's
   // map and the centres of the leaves no surface closes round (a branch point inside) with their kind, [re, im, 'algebraic' | 'log']
   window.__cmwLandSing = () => {
