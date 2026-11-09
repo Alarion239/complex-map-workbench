@@ -160,6 +160,8 @@
       }
       return [x0, y0, x1, y1];
     },
+    // the pixels where two kept frames differ at all (any channel)
+    diffCount: (a, b) => { const x = window.__heldPx[a], y = window.__heldPx[b]; let n = 0; for (let i = 0; i < x.length; i += 4) if (x[i] !== y[i] || x[i + 1] !== y[i + 1] || x[i + 2] !== y[i + 2]) n++; return n; },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
   // The exact image reference, as a coverage mask at half the canvas's resolution: the box is sampled on a lattice that is refined
@@ -576,6 +578,16 @@
           const ro = await ev(`__lx.rowOver('curT', 'P1T', ${DIFF_TOL})`);
           r.rowOver = ro;
           ok(`${t}: in the Top view no image row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} from the parked plane's (row ${ro.row} has ${ro.n})`, ro.n <= ROW_OVER_MAX, ro);
+          // (the clip's fans drawn as triangles, the plain way: the same picture to the pixel)
+          let tri;
+          try {
+            await ev(`__svCarryProbe = __svCarryProbeSettings.fanTriangles; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await grab('triT');
+            tri = await ev("__lx.diffCount('curT', 'triT')");
+          } finally {
+            await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          }
+          ok(`${t}: the restart fans draw the same Top view as the clip's triangles (${tri} pixels differ; none may)`, tri === 0, { tri });
           // (controls: the per-fragment side discard put back, and the block's sides a little wide, each leave a row over the bound)
           for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide']]) {
             let o;

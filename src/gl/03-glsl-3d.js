@@ -667,15 +667,16 @@ void main() {
   // with a height plane, a corner far beyond the block, both ends on its side (a pole), is interpolated in 1 / h, exact to first
   // order at a simple pole, where linear interpolation hugs the near corner. The clipped height edges are marked by clipBoxE
   // (the rim). Returns the number of corners left
-  const LAND_CLIP_CORNERS = 9, LAND_BLOCK_K = 1.25;
+  const LAND_CLIP_CORNERS = 9, LAND_BLOCK_K = 1.25;   // (the polygon's room; the block's height in H: the clip's top and bottom)
   // The most corners a cell triangle of the single layer leaves after the clip of the block's four sides: its edges are under the draw's limit lim, which is
   // under the block's shorter side s, so the triangle, and the polygon in it, has no two points s apart. The polygon cannot reach two opposite sides, so it
   // meets one side or two adjacent ones (a corner of the block): the triangle cut by one half-plane has 4 corners, by two 5
-  const LAND_CLIP_CELL_CORNERS = 5;   // (the block's height in H: the clip's top and bottom)
+  const LAND_CLIP_CELL_CORNERS = 5;
   const LAND_CLIP = `
 const float BLOCK_K = ${LAND_BLOCK_K};
 const int CLIP_N = ${LAND_CLIP_CORNERS};
 const int CLIP_FAN = CLIP_N - 2;   // (the triangles of the polygon's fan)
+const int CLIP_CELL_CORNERS = ${LAND_CLIP_CELL_CORNERS};
 const vec4 CLIP_NO_SIDES = vec4(-1e30, 1e30, -1e30, 1e30);
 uniform int uClipLinear;   // (a test control: 1 takes every crossing linearly)
 const float CLIP_FAR = 2.0;   // (corners farther than this many block edges beyond the block use the 1 / h crossing)
@@ -743,7 +744,7 @@ vec3 clipBoxE(int i1, int i2, int n, float Fl[CLIP_N]) {
   const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-${clip ? 'uniform vec2 uClipA; uniform float uClipH; uniform int uFan;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)' : ''}
+${clip ? 'uniform vec2 uClipA; uniform float uClipH; uniform int uFan; uniform int uRFan;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)' : ''}
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
@@ -772,7 +773,11 @@ void main() {
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
   int M = uN - 1;
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
-${clip ? '  // (clip: each sub-triangle is a fan of uFan (up to CLIP_FAN) triangles of the block-clipped polygon, 3 * uFan vertices)\n  int sub = loc / (3 * uFan), fan = (loc - 3 * uFan * sub) / 3, k = loc - 3 * uFan * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
+${clip ? `  // (clip: each sub-triangle is the block-clipped polygon, drawn as a fan of uFan (up to CLIP_FAN) triangles, 3 * uFan vertices, or with uRFan 1 as a
+  // triangle fan of CLIP_CELL_CORNERS vertices (an indexed draw with primitive restart): vertex c is polygon corner c, repeated past the last corner)
+  int sub, fan, k, fc;
+  if (uRFan == 1) { sub = loc / CLIP_CELL_CORNERS; fc = loc - CLIP_CELL_CORNERS * sub; fan = 0; k = fc == 0 ? 0 : ((fc & 1) == 1 ? 1 : 2); }
+  else { sub = loc / (3 * uFan); fan = (loc - 3 * uFan * sub) / 3; k = loc - 3 * uFan * sub - 3 * fan; fc = 0; }` : '  int sub = loc / 3, k = loc - 3 * sub;'}
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
@@ -794,7 +799,7 @@ ${clip ? `  // the block's sides in the place's units (|vPos.xy| <= uClipA, vPos
   vec4 Sd = vec4(sideC.x - sideH.x, sideC.x + sideH.x, sideC.y - sideH.y, sideC.y + sideH.y);
 ${L ? '' : `  // (a triangle of the single layer whose three places lie within the sides is not cut, and the corners of its sub-triangles lie on its edges: it is the fan's
   // first triangle alone, so the rest of the fan has nothing to draw.)
-  if (fan > 0 && clipWithin(t0.xy, t1.xy, t2.xy, Sd, 1.0)) return;`}` : ''}
+  if (uRFan == 0 && fan > 0 && clipWithin(t0.xy, t1.xy, t2.xy, Sd, 1.0)) return;`}` : ''}
   if (uDrawCode > 0.0) {
     float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
     if (abs(cc - uDrawCode) > 0.5) return;
@@ -805,6 +810,11 @@ ${L ? '' : `  // (a triangle of the single layer whose three places lie within t
   int J = int(j01) + int(j12) + int(j20);
   if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
+${clip && !L ? `  // (a fan's corners past the third of a triangle within the sides, with no cut: the third corner again, a zero-area piece)
+  if (uRFan == 1 && J == 0 && sub == 0 && fc >= 3 && clipWithin(t0.xy, t1.xy, t2.xy, Sd, 1.0)) {
+    gl_Position = uMVP * vec4(vec3(((t2.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t2.z), 1.0);
+    return;
+  }` : ''}
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // a corner of sub-triangle sub (kk 0, 1, 2): a grid corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
   ivec2 srcs[3]; int xs[3]; vec3 vEd = vec3(0.0);
@@ -845,8 +855,12 @@ ${clip ? `  vec3 Q[CLIP_N]; vec4 QA[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
   for (int i = 0; i < CLIP_N; i++) { Q[i] = vec3(0.0); QA[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
   for (int i = 0; i < 3; i++) { Q[i] = vec3(cxy[i], ch[i]); QA[i] = vec4(cz[i], cnv[i].w, 0.0); Nn[i] = cnv[i].xyz; }
   int n = blockClip(uClipH, Sd, 3, Q, QA, Nn, Fl);
-  if (fan + 2 >= n) return;
   int i1 = fan + 1, i2 = fan + 2, vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
+  if (uRFan == 1) {
+    if (n < 3) return;
+    vi = min(fc, n - 1);
+    i2 = min(max(fc, 2), n - 1); i1 = i2 - 1;
+  } else if (fan + 2 >= n) return;
   vBoxE = clipBoxE(i1, i2, n, Fl);
   vZ = QA[vi].xy;
   vPos = vec3(((Q[vi].xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, Q[vi].z);

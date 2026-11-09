@@ -509,6 +509,23 @@
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return true;
   }
+  // The restart fans of the carried single layer's clip (LAND_CARRY_VS with uRFan 1): per cell triangle and sub-triangle (S of them) the ids of the polygon's
+  // LAND_CLIP_CELL_CORNERS corners, 5 * S per triangle, then the restart index; a VAO per S holds an index buffer grown to the most triangles drawn
+  const clipFans = new Map();
+  function clipFanVao(S, tris) {
+    let f = clipFans.get(S);
+    if (f && f.tris >= tris) return f.vao;
+    const per = LAND_CLIP_CELL_CORNERS, idx = new Uint32Array(tris * S * (per + 1));
+    let q = 0;
+    for (let t = 0; t < tris; t++) for (let sub = 0; sub < S; sub++) { for (let c = 0; c < per; c++) idx[q++] = t * S * per + sub * per + c; idx[q++] = 0xFFFFFFFF; }
+    if (!f) { f = { tris: 0, vao: gl.createVertexArray(), buf: gl.createBuffer() }; clipFans.set(S, f); }
+    gl.bindVertexArray(f.vao);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, f.buf);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+    gl.bindVertexArray(empty());
+    f.tris = tris;
+    return f.vao;
+  }
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
@@ -1552,6 +1569,15 @@
       // is the layered draw's, the full one, where either does not hold; fanShort is a probe's control)
       const cellFan = clipC && !contDraw && st.carry.lim < Math.min(box.x1 - box.x0, box.y1 - box.y0) * (carryProbe.clipScale || 1);
       const fan = clipC ? (cellFan ? LAND_CLIP_CELL_CORNERS - 2 - (carryProbe.fanShort ? 1 : 0) : LAND_CLIP_CORNERS - 2) : 1;
+      // (a cell triangle's clip is drawn as a triangle fan of LAND_CLIP_CELL_CORNERS vertices with primitive restart, 5 vertices for a polygon of up to 5 corners,
+      // where the 3 triangles of the fan take 9; fanTriangles is a probe's control, the triangles)
+      const restartFan = cellFan && !carryProbe.fanTriangles;
+      const perSub = restartFan ? LAND_CLIP_CELL_CORNERS : 3 * fan;
+      const drawCarryTris = (cutDraw, tris) => {
+        const S = cutDraw ? 3 : 1;
+        if (restartFan) { gl.bindVertexArray(clipFanVao(S, tris)); gl.drawElements(gl.TRIANGLE_FAN, tris * S * (LAND_CLIP_CELL_CORNERS + 1), gl.UNSIGNED_INT, 0); gl.bindVertexArray(empty()); }
+        else gl.drawArrays(gl.TRIANGLES, 0, S * perSub * tris);
+      };
       const Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
@@ -1569,7 +1595,7 @@
       // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale scales the block's sides)
       u1i(Pc, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
       // (the single layer has no top or bottom plane: it is one open sheet, as the parked plane draws it)
-      if (clipC) { u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pc, 'uFan', fan); }
+      if (clipC) { u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pc, 'uFan', fan); u1i(Pc, 'uRFan', restartFan ? 1 : 0); }
       u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -1583,7 +1609,7 @@
       // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
       const drawCarryGrid = (G, n) => {
         const cutDraw = !!(G.exact && G.cuts);
-        u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
+        u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 3 : 1) * perSub);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.tex2);
         if (G.exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, G.zTex); }
@@ -1598,7 +1624,7 @@
           if (datas && G.cont) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
           if (datas && !G.cont) u1i(Pc, 'uSheetCombo', G.combos[i] + (carryProbe.comboShift | 0));
           u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
-          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
+          drawCarryTris(cutDraw, 2 * (n - 1) * (n - 1));
         }
         if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
       };
@@ -1611,7 +1637,7 @@
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
         if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
-        u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
+        u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 3 : 1) * perSub);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
@@ -1629,10 +1655,10 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', 3 * fan); u1i(Pc, 'uCuts', 0);
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N); u1i(Pc, 'uPer', perSub); u1i(Pc, 'uCuts', 0);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
-        gl.drawArrays(gl.TRIANGLES, 0, 6 * fan * (p.N - 1) * (p.N - 1));
+        drawCarryTris(false, 2 * (p.N - 1) * (p.N - 1));
       };
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
       for (const p of pp) drawPatch(p);
