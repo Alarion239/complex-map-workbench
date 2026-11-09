@@ -19,6 +19,7 @@ const GROUP_GAP = 8;         // px: between a key and the next group's key in th
 const SHORT_PLOT = 260;      // px: below this plot height five 44 px keys with their gaps do not fit one column
 const SETTLE_POLL_MS = 100;  // ms between reads while the stack's boxes settle (its 150 ms ease after a message)
 const SETTLE_MAX_MS = 3000;  // ms: the longest the stack may take to come to rest
+const CLIP_SLACK = 1;        // px: scroll sizes are rounded to whole pixels, so a box one pixel short of its content is not clipped
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';   // the key's tooltip and note
 const NO_SPHERE_TOAST = { en: 'The Landscape has no sphere. Use the surface menu.', ru: 'В Рельефе нет сферы. Смените поверхность в меню.' };   // the phone's message: two lines at the narrowest width
@@ -123,7 +124,7 @@ for (const lang of LANGS) {
     ok(`${tag}: the stack keeps its place while a message shows`, same(withToast, boxes.land), { land: boxes.land.map((k) => k.box), withToast: withToast.map((k) => k.box) });
     ok(`${tag}: and stays inside the plot`, withToast.every((k) => inside(k.box, tp)), { plot: tp, boxes: withToast.map((k) => k.box) });
     // the reason reads in full: no line is clipped and no ellipsis shows
-    const words = await ev(`(() => { const e = document.querySelector('#toastHost .toast > span'); return e ? { clipped: e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1, text: e.textContent } : null; })()`);
+    const words = await ev(`(() => { const e = document.querySelector('#toastHost .toast > span'); return e ? { clipped: e.scrollHeight > e.clientHeight + ${CLIP_SLACK} || e.scrollWidth > e.clientWidth + ${CLIP_SLACK}, text: e.textContent } : null; })()`);
     ok(`${tag}: the message's words are not clipped or truncated`, !!words && !words.clipped, words);
     ok(`${tag}: and the message meets no key`, tb.length > 0 && !withToast.some((k) => tb.some((e) => meets(k.box, e.box))), { toast: tb, keys: withToast.map((k) => k.box) });
   }
