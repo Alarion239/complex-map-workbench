@@ -80,6 +80,7 @@
   const STRIP_TOL = 1e-9;   // radians: a member whose log coordinate's imaginary part is this far outside its sheet's window (lo, hi] of the first op (__cmwLandWin) is a range-ramp member the scene's count (a winding inside the window) leaves out; the enumerator's own level test (lvl >= 0, src/inverse.js) is the same rule
   const CTL_NA = { seam: { 'log of an annulus@0.5': 'no seam edge in the row (its one edge is a false cut)', 'log of an annulus@0.75': 'no seam edge in the row (its edges are false cuts or unresolved)' }, ramp: { 'log of an annulus@0.75': 'no place of the lattice holds a range-ramp member inside the box' } };   // the rows (case tag @ u) where a control has nothing to run on, so it is listed and checked: a row off the list that cannot run fails, and so does a row on it that can
   const RAMP_LATTICE = 40;   // places on a side of the lattice the ramp-member control searches
+  const CONV_SHARE = 1e-3;   // a tracked member is converged when the correction Newton still implies is within this share of the smallest separation to another member of its set (and never above LAMBDA_SAME)
   const LOOP_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];   // the directions the displaced control moves its loops: each of the eight neighbours of the vertex
   const CELL_QUANT = 8;   // a branch cell is named by its lower-left corner in eighths of a grid cell
   const ORBIT_EXTRA = 2;   // the roots of an orbit added for a loop's image are at most the scene's member count here plus this many (past it the loop is unresolved)
@@ -189,7 +190,7 @@
       const expc = (l) => { const e = Math.exp(l[0]); return [e * Math.cos(l[1]), e * Math.sin(l[1])]; };
       const homAt = (z, lam, sh) => { const q = window.__cmwLandHom(z, lam); const o = q && q[sh]; return o && o.H ? o : null; };
       let nfail = null;   // (why the last Newton solve gave up: the step, the residual or the missing homotopy value)
-      const newton = (m, w, inZ) => {
+      const newton = (m, w, inZ, dlTol) => {
         let z = m.z, lam = inZ ? null : m.lam;   // (inZ: the member is continued in z, where steps near a branch value may swap members)
         for (let i = 0; i < ${MONO_NEWT_MAX}; i++) {
           const o = homAt(z, lam, m.sheet);
@@ -203,7 +204,7 @@
             if (!(cabs(dl) < 1e30)) { nfail = { i, why: 'dlam' }; return null; }
             // (a root is certified when the residual is small and the correction it implies is within LAMBDA_SAME: where H is flat, as near a branch value, a small
             // residual alone is a position that may be far off)
-            if (certRes && cabs(dl) <= ${LAMBDA_SAME}) return { z, lam, sheet: m.sheet, sheets: m.sheets, lvl: m.lvl };
+            if (certRes && cabs(dl) <= (dlTol === undefined ? ${LAMBDA_SAME} : dlTol)) return { z, lam, sheet: m.sheet, sheets: m.sheets, lvl: m.lvl };
             lam = csub(lam, dl); z = expc(lam);
             nfail = { i, res: cabs(res), dl: cabs(dl), sheet: m.sheet };
             continue;
@@ -236,7 +237,10 @@
           const q = !(opt && opt.countRamp) && out.find((x) => dist(x, m) <= ${LAMBDA_SAME} * (1 + cabs(m.lam || m.z)));   // (countRamp: every sheet's entry is its own member, so the ramp sheets of a member count again)
           if (q) { if (!q.sheets.includes(m.sheet)) q.sheets.push(m.sheet); if (!(m.lvl < 0)) q.lvl = m.lvl; } else out.push(m);   // (a member any of whose sheets has it in its window is counted)
         }
-        return out;
+        // (every member re-converged to CONV_SHARE of its smallest separation to another member, the scale the tracker's steps are judged by; one that cannot be is not certified)
+        if (opt && opt.absTol) return out;
+        const fine = out.map((m, i) => newton(m, w, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(out, i))));
+        return out.map((m, i) => fine[i] && Object.assign({}, fine[i], { sheets: m.sheets, lvl: m.lvl })).filter(Boolean);
       };
       // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within STRIP_TOL; a member with no
       // log coordinate falls back to the enumerator's level; opt.countRamp counts the ramp members too: the control that the count catches them)
@@ -266,7 +270,7 @@
           let t0 = 0, dt = 1;
           while (t0 < 1) {
             if (++steps > ${MONO_STEPS_MAX}) { fail = { s, t0, why: 'steps' }; return null; }
-            const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m) => newton(m, w, opt && opt.zchart));
+            const t1 = Math.min(1, t0 + dt), w = mix(pts[s], pts[s + 1], t1), nx = cur.map((m, i) => newton(m, w, opt && opt.zchart, opt && opt.absTol ? undefined : Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(cur, i))));
             let good = nx.every(Boolean);
             if (good && sepOn) good = nx.every((m, i) => dist(m, cur[i]) <= ${MONO_SEP} * sepOf(nx, i));
             if (good) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = { s, t0, why: nx.every(Boolean) ? 'sep' : 'newton ' + nx.findIndex((m) => !m) + ' of ' + nx.length, nfail }; return null; } }
@@ -335,6 +339,9 @@
       // carried member itself, a certified root of its sheet's H, joined to the set so that the loops move it too)
       let ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i], trO[io.i].sheet).i;
       if (ib === -1) { setV.push(trO[io.i]); ib = setV.length - 1; }
+      // (the set re-converged at the vertex to the scale of its own separations, which a member added above changes)
+      const refine = () => setV.forEach((m, i) => { const f = newton(m, wv, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(setV, i))); if (f) Object.assign(m, f, { sheets: m.sheets, lvl: m.lvl }); });
+      if (!(opt && opt.absTol)) refine();
       const loop = (c0, sx, sy) => [wv, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, wv];
       const ring = [wv, [wv[0] + h, wv[1]], [wv[0] + h, wv[1] + h], [wv[0] - h, wv[1] + h], [wv[0] - h, wv[1] - h], [wv[0] + h, wv[1] - h], [wv[0] + h, wv[1]], wv];
       // (the member a tracked member has arrived at, by its log coordinate whatever sheets list it: the monodromy of a loop is read along the chain from a; the
@@ -376,6 +383,7 @@
           const m = newton({ z: expc(lam), lam, sheet: setV[iv.i].sheet, sheets: setV[iv.i].sheets, lvl: setV[iv.i].lvl }, wv);
           if (m && !setV.some((x) => dist(x, m) <= ${LAMBDA_SAME} * (1 + cabs(m.lam)))) { setV.push(m); added++; }
         }
+        if (added > 0 && !(opt && opt.absTol)) refine();
         return added > 0;
       };
       const read = (pts) => { let q = cyc(pts); if (q && q.lost && enlarge(q.shift)) q = cyc(pts); return q; };
