@@ -13,6 +13,8 @@ const DRAWN = 60;
 const DRAWN_MIN = 0.04;
 // a box may overshoot the figure's size by this much (SVG units) to count as inside it
 const FIT_SLACK = 0.01;
+// the hue ring is marked 1, i, -1, -i
+const RING_MARKS = 4;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -159,7 +161,7 @@ for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
   ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv.view === want, sv);
   // (a plain plane's still carries the pane's key: its line is the caption the pane's legend shows; a Phase still has none of its own here)
   // (the ring's marks, drawn by the code the plain still shares, lie inside the figure on both stills)
-  ok(`T ${T}, plane ${go}: the still's ring marks lie inside the figure`, sv.ring.length >= 1 && sv.ring.every((b) => b.x0 >= -FIT_SLACK && b.y0 >= -FIT_SLACK && b.x1 <= sv.W + FIT_SLACK && b.y1 <= sv.H + FIT_SLACK), sv);
+  ok(`T ${T}, plane ${go}: the still's ring marks lie inside the figure`, sv.ring.length === RING_MARKS && sv.ring.every((b) => b.x0 >= -FIT_SLACK && b.y0 >= -FIT_SLACK && b.x1 <= sv.W + FIT_SLACK && b.y1 <= sv.H + FIT_SLACK), sv);
   ok(`T ${T}, plane ${go}: the still's key line ${want === 'xyL' ? 'is the pane\'s' : 'is absent'}`, want === 'xyL' ? !!sv.key && sv.key === sv.cap : !sv.key, sv);
 }
 // a short, wide pane makes a short picture: the figure is as tall as its key, whose last line is inside it
