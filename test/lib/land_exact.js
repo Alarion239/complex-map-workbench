@@ -77,6 +77,8 @@
   // the cases without a hue-shifted row, 23 on the Joukowski airfoil, the largest; a hue-shifted row at a sheet boundary is
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
+  const SIDE_CASES = ['cube root', 'log of an annulus', 'Möbius, √'];   // (the cases whose extent at the glide's middle is checked against the side cut)
+  const SIDE_REACH = ['log of an annulus', 'Möbius, √'];   // (of them, the cases whose surface crosses a block side at the glide's middle: left uncut it lies beyond it)
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
@@ -608,7 +610,7 @@
       }
       // the block's sides at the glide's middle, where the boxes differ, in the Top view: the frame's extent is that of the draw with the sides cut per
       // fragment (the probe clipOff), to within SIDE_BOX_PX; the sides a little narrow move it (control; the surface does not reach past the block there, so a wide side moves nothing)
-      if (c.tag === ROW_CASE && !sheets && u === GLIDE_MID) {
+      if (SIDE_CASES.includes(c.tag) && !sheets && u === GLIDE_MID) {
         const boxWith = async (probe) => {
           await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           return ev('(__cmwLandRelief(), __lx.frameBox())');   // (__cmwLandRelief renders the coverage the box is read from)
@@ -617,13 +619,14 @@
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         let boxes;
         try {
-          boxes = { own: await boxWith(null), frag: await boxWith('clipOff'), narrow: await boxWith('clipNarrow') };
+          boxes = { own: await boxWith(null), frag: await boxWith('clipOff'), narrow: await boxWith('clipNarrow'), none: await boxWith('noSides') };
         } finally {
           await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         }
         r[u].sideBoxes = boxes;
         ok(`${t}: in the Top view the frame's extent is the per-fragment side cut's, within ${SIDE_BOX_PX} pixel (${boxes.own} against ${boxes.frag})`, apart(boxes.own, boxes.frag) <= SIDE_BOX_PX, boxes);
+        if (SIDE_REACH.includes(c.tag)) ok(`${t}: control: with neither the clip nor the discard the extent is beyond the side cut's (${boxes.none} against ${boxes.frag})`, apart(boxes.none, boxes.frag) > SIDE_BOX_PX, boxes);
         ok(`${t}: control: with the block sides 2 % narrow the extent moves by more than ${SIDE_BOX_PX} pixel (${boxes.narrow})`, apart(boxes.narrow, boxes.frag) > SIDE_BOX_PX, boxes);
       }
       // the surface pixels at the ends
