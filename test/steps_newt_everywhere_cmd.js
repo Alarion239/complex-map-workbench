@@ -3,7 +3,8 @@
 // NEWT_POLY_MAX, Aberth's method); the other gallery examples whose first glide is such a step keep the carried mesh
 // (#1321: their inverse frames are blank or miss members). The cases: the partial sums of the exponential (degree 8) takes
 // the inverse path; the zeros of the zeta function, the poles of the Gamma function, a natural boundary, zeta as a Dirichlet
-// series, the Mandelbrot set, the Douady-Hubbard map and the Böttcher coordinates of a Julia set stay on the mesh.
+// series and the Mandelbrot set stay on the mesh. (The Douady-Hubbard map and the Böttcher coordinate are seeded by the
+// identity and take the inverse path: steps_glide_exterior_cmd.js.)
 // The partial sums, sheets off (the front member alone is drawn, as a parked plane is), at u = endFor's first end, 0.5 and
 // its last end:
 // - path: the glide's record says 'inverse';
@@ -35,8 +36,6 @@ const CASES = [
   { ex: 'A natural boundary' },
   { ex: 'Zeta as a Dirichlet series' },
   { ex: 'The Mandelbrot set' },
-  { ex: 'The Douady–Hubbard map' },
-  { ex: 'Böttcher coordinates of a Julia set' },
 ];
 const ready = () => settled({ max: READY_MS, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // the frame at thread place x, once a frame there was drawn, and its record
