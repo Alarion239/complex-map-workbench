@@ -763,7 +763,7 @@ void main() {
   // The list of the MIX cells, in row-major order, by two scans and a gather: LAND_CLASS_ROWS_VS counts the MIX cells of each row, LAND_CLASS_BASE_VS
   // gives each row's first rank (and its count), LAND_CLASS_LIST_VS finds the cell of each rank 0 .. LAND_MIX_K - 1: (x, y, 1), or (0, 0, 0) beyond the count
   // (the count is the last row's base plus its count; a count over LAND_MIX_K is the caller's failure to report)
-  const LAND_MIX_K = 2048, LAND_CLASS_LOOP = 1024;   // (the list's length, and the grid's width at most: the loops' bound)
+  const LAND_MIX_K = 1024, LAND_CLASS_LOOP = 1024;   // (the list's length, and the grid's width at most: the loops' bound)
   const LAND_CLASS_ROWS_VS = `
 uniform int uN; uniform highp sampler2D uCls;
 out vec4 tfOut;
