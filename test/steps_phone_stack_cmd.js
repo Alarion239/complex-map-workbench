@@ -15,6 +15,8 @@ const SIZES = [[360, 640], [390, 844], [740, 360], [844, 390]];   // width, heig
 const LANGS = ['en', 'ru'];
 const SURFACES = ['plane', 'sphere', 'land'];
 const MIN_KEY = 44;          // px: the smallest touch target
+const SHORT_PLOT = 260;      // px: below this plot height five 44 px keys with their gaps do not fit one column
+const UNUSED_MIN = 44;          // px: the smallest touch target
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
@@ -35,6 +37,9 @@ const column = () => ev(`(() => [...document.querySelectorAll('#plotL button.ph-
     box: [r.left, r.top, r.width, r.height], top: t === b || b.contains(t) };
 }))()`);
 // what the column must clear: the boxes of the shown head, rulers, strip, legend chip and toast
+// the plot's box: every key lies inside it (a key above its top edge is clipped)
+const plot = () => ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
+const inside = (b, p) => b[0] >= p[0] - POS_TOLERANCE && b[1] >= p[1] - POS_TOLERANCE && b[0] + b[2] <= p[0] + p[2] + POS_TOLERANCE && b[1] + b[3] <= p[1] + p[3] + POS_TOLERANCE;
 const others = () => ev(`(() => [...document.querySelectorAll('#paneL .pane-head, .ruler, .ruler-corner, #svStrip, #plotL > .legend-chip:not([hidden]), #toastHost .toast')].filter((e) => e.getClientRects().length)
   .map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.className, box: [r.left, r.top, r.width, r.height] }; }))()`);
 const meets = (a, b) => a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1];
@@ -64,6 +69,10 @@ for (const lang of LANGS) {
       const hits = [];
       for (const k of c) for (const e of o) if (meets(k.box, e.box)) hits.push([k.label, e.id]);
       ok(`${t}: the column overlaps nothing`, hits.length === 0, hits);
+      const pb = await plot();
+      ok(`${t}: every key lies inside the plot`, c.every((k) => inside(k.box, pb)), { plot: pb, boxes: c.map((k) => k.box) });
+      const cols = new Set(c.map((k) => Math.round(k.box[0])));
+      ok(`${t}: one column where the keys fit the plot, two (zoom keys on the left) where they don't`, cols.size === (pb[3] < SHORT_PLOT ? 2 : 1), { plotH: pb[3], cols: [...cols] });
       boxes[surf] = c;
     }
     for (const surf of ['sphere', 'land']) ok(`${tag}: no key moves between the plane and the ${surf}`, same(boxes[surf], boxes.plane), { plane: boxes.plane.map((k) => k.box), [surf]: boxes[surf].map((k) => k.box) });

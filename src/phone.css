@@ -108,6 +108,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); gap: 8px; }
 :root.ph .viewstack, :root.ph .viewstack .vgroup { pointer-events: none; }   /* (only the keys take a tap: the gaps between them and the box around them leave the plane's own controls their touches) */
 :root.ph .viewstack button { pointer-events: auto; }
+/* a short landscape plane cannot hold the five keys in one column: Display stays top right, Fit view and Sphere keep the bottom right, and the zoom keys take a column to their left at the same bottom */
+@media (max-height: 380px) {
+  :root.ph .viewstack { display: grid; grid-template-columns: auto auto; align-items: end; justify-items: end; column-gap: 8px; }
+  :root.ph .viewstack > .vgroup:nth-child(1) { grid-column: 2; grid-row: 1; }
+  :root.ph .viewstack > .vgroup:nth-child(2) { grid-column: 1; grid-row: 2; }
+  :root.ph .viewstack > .vgroup:nth-child(3) { grid-column: 2; grid-row: 2; }
+}
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
