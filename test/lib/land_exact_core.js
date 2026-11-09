@@ -46,10 +46,10 @@
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
     NEWT_TOL: 1e-8,         // |H(z) - w| of a converged correction, relative to 1 + |w| (the forward map's own rounding is about 2e-10)
-    SING_REACH_PX: 1,       // half-resolution pixels around a declared singular point's place that its certificate covers: the surface is
+    SING_REACH_PX: 2,       // half-resolution pixels around a declared singular point's place that its certificate covers: the surface is
                             // not smooth there at any depth the lattice reaches (infinite slope), the pixels are decided by rays
     SING_ADJ: 3,            // leaf cells apart at most: suspect cells of one kind that touch are one neighbourhood
-    SING_REACH_MAX_PX: 3,   // half-resolution pixels from the singular point at most, whatever touches
+    SING_REACH_MAX_PX: 4,   // half-resolution pixels from the singular point at most, whatever touches
     SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
     DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
     NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
@@ -716,7 +716,7 @@
         // that is under half of the smallest separation of its sheet's members at both places, which makes the match unique)
         const near = displacementMap(A.v, S.v);
         if (near) return near;
-        fail({ kind: 'rayIdentity', w: A.v.w, why: tr.why });
+        fail({ kind: 'rayIdentity', w: A.v.w, to: S.v.w, members: A.v.all.length, why: tr.why });
         return null;
       };
       const range = Math.max(hHi - hLo, 1e-12), wTiny = o.RAY_SUB_PX * wPx;
