@@ -70,7 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  const BRANCH_NEAR = 2;   // grid scales: a flagged vertex this close to the step's branch point (z = 0, the branch point of the root and the logarithm: its place is 0 or infinite) is in a cell the branch point drops
+  const BRANCH_NEAR = 2;   // grid scales: a flagged vertex this close to a branch point of the step (the case's branch list, in the step's input plane: z = 0 for the root and the logarithm, whose place is 0 or infinite) is in a cell the branch point drops
   const BRANCH_RING = 4;   // chords: the flagged edges this close to a vertex set the grid's scale there (the largest of their chords); the scale is local because the grid is refined toward the branch point
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
@@ -84,8 +84,8 @@
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
     { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
-    { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN },
-    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [] },
+    { tag: 'log of an annulus', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, branch: [[0, 0]] },
+    { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], branch: [[0, 0]] },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil' },
     { tag: 'Roots as preimages', example: 'Roots as preimages' },
     { tag: 'Partial sums of the exponential (Newton)', example: 'Partial sums of the exponential' },
@@ -123,7 +123,7 @@
     // test: neither end's preimage, carried along the edge's place by Newton's method on the homotopy, reaches the other's, and the preimages are
     // farther apart than the map's derivative allows one member), branch (the vertex is within near grid scales of the step's branch point, z = 0, judged in the preimage because the
     // logarithm's branch point has no place: the cells that hold it are dropped and counted), or false (a cut drawn where there is neither a cut nor a seam)
-    cutClasses: (near, ring, fake) => {
+    cutClasses: (near, ring, branchPts, fake) => {
       const r = fake ? Object.assign({}, window.__cmwLandCutEdges(), { edges: fake }) : window.__cmwLandCutEdges(), tol = Math.pow(2, 1 - r.steps), out = { onCut: 0, seam: 0, branch: 0, falseN: 0, falseList: [] };
       const cabs = (a) => Math.hypot(a[0], a[1]), csub = (a, b) => [a[0] - b[0], a[1] - b[1]], cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
       const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
@@ -145,7 +145,7 @@
             seam = chord * cabs(ha.dH) > r.seam.far * cabs(csub(hb.H, ha.H)) && cabs(csub(zA1, zb)) > reach && cabs(csub(zB1, za)) > reach;
           }
         }
-        if (seam) out.seam++; else if (cabs(v) <= near * scaleAt(v, chord)) out.branch++; else { out.falseN++; if (out.falseList.length < 5) out.falseList.push([ax, ay, bx, by, t, ca, cb]); }
+        if (seam) out.seam++; else if (Math.min(...branchPts.map((b) => cabs(csub(v, b)))) <= near * scaleAt(v, chord)) out.branch++; else { out.falseN++; if (out.falseList.length < 5) out.falseList.push([ax, ay, bx, by, t, ca, cb]); }
       }
       return out;
     },
@@ -546,12 +546,15 @@
         ok(`${t}: the cuts the edge pass finds are the step's own (${ct ? ct.n : '?'} flagged edges, over 0, with the cut inside the chord, and ${ct ? ct.atEnd : '?'} at an end of it; the worst is ${ct ? ct.worst.toExponential(2) : '?'} of the chord from the cut, at most ${tol.toExponential(2)})`, !!ct && ct.n > 0 && ct.worst <= tol, ct);
         // the flagged edges at an end of their chord: on the step's cut, or between two members of the glide's map (a seam, which the sheets-off
         // two-layer item (#1439) turns into layers), and never a cut where there is neither
-        const cc = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING})`);
+        const cc = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, ${JSON.stringify(c.branch)})`);
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a member seam (${cc.seam}) or at its branch point (${cc.branch}); ${cc.falseN} are none`, cc.falseN === 0, cc);
         // the control: a flagged edge off the cut, away from the branch point, in one member is none, and the assertion goes red
-        const ctlB = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, [[0.5, 0.5, 0.5001, 0.5, 0, 1, 1, 0, 0, 0, 0]])`);
+        const ctlB = await ev(`__lx.cutClasses(${BRANCH_NEAR}, ${BRANCH_RING}, ${JSON.stringify(c.branch)}, [[0.5, 0.5, 0.5001, 0.5, 0, 1, 1, 0, 0, 0, 0]])`);
         ok(`${t}: control: a flagged edge away from the branch point, off the cut and in one member is none (${ctlB.falseN})`, ctlB.falseN === 1, ctlB);
+        // the control: with no reach the branch cells are none, so the class is what clears them
+        const ctlR = await ev(`__lx.cutClasses(0, ${BRANCH_RING}, ${JSON.stringify(c.branch)})`);
+        ok(`${t}: control: with no reach the ${cc.branch} branch cells are none (${ctlR.falseN})`, ctlR.falseN >= cc.branch && (cc.branch === 0 || ctlR.falseN > cc.falseN), ctlR);
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
         const ctlC = await withProbe({ midCut: true }, u, () => ev('__lx.cutT()'));
         ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
