@@ -84,6 +84,14 @@
     if (i > 0) throw new Error('branchPoints: the forward chain before step ' + i + ' is not defined');
     return [[0, 0]];
   });
+  // The places of the branch values of a scene's steps (the images of the branch points, in the first step's output plane): the root's is 0; the
+  // logarithm's is at infinity, no place of the grid; a Möbius map has none. Another type throws, like branchPoints.
+  const branchValues = (steps) => steps.flatMap((s, i) => {
+    if (s.type === 'mobius' || s.type === 'log') return [];
+    if (s.type !== 'root') throw new Error('branchValues: no branch values are defined for the step type ' + s.type);
+    if (i > 0) throw new Error('branchValues: the forward chain before step ' + i + ' is not defined');
+    return [[0, 0]];
+  });
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
@@ -212,6 +220,13 @@
       // (the member of a set nearest z on the sheet: two members of different sheets are two members even where their z coincide)
       const nearest = (set, z, sheet) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = m.sheet === sheet ? cabs(csub(m.z, z)) : Infinity; if (q < d) { d = q; b = i; } }); return { i: b, d }; };
       let e = window.__lxPend[k];
+      if (opt && opt.syn) {
+        // (a made-up edge in the cell that holds the branch value bv: the first member at the cell's corner, the second the continuation of another member from the next corner along x)
+        const wv0 = [opt.syn[0] - h / 2, opt.syn[1] - h / 2], wo0 = [wv0[0] + h, wv0[1]], set0 = membersAt(wv0), tr = set0.length > 1 ? track(set0, [wv0, wo0]) : null;
+        if (!tr) return { cls: 'unresolved', why: 'syn' };
+        const code = window.__lxSheetCode + set0[0].sheet;
+        e = [set0[0].z[0], set0[0].z[1], tr[1].z[0], tr[1].z[1], 0, code, code, wv0[0], wv0[1], wo0[0], wo0[1]];
+      }
       if (opt && opt.same) {
         const w0 = opt.same, w1 = [w0[0] + h, w0[1]], set0 = membersAt(w0), tr = set0.length ? track(set0, [w0, w1]) : null;
         if (!tr) return { cls: 'unresolved', why: 'same' };
@@ -220,20 +235,28 @@
       const [ax, ay, bx, by, t, ca, cb, wax, way, wbx, wby] = e;
       want = [...new Set([shOf(ca, cb), shOf(cb, ca)])];
       const atA = t < 0.5, zv = atA ? [ax, ay] : [bx, by], wv = atA ? [wax, way] : [wbx, wby], zo = atA ? [bx, by] : [ax, ay], wo = atA ? [wbx, wby] : [wax, way];
-      // the seam: the first end's member continued along the edge to the second end's place
-      const shA = shOf(ca, cb), shB = shOf(cb, ca), setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA), trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
+      // the seam: the first end's member continued along the edge to the second end's place, by a completed track with its sheet kept by continuity; it is a
+      // seam when it arrives at a member of that place other than the second end's (found by its z among the members there, whatever label the page gave it)
+      const shA = shOf(ca, cb), shB = shOf(cb, ca), setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA);
+      const trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
       if (trA) {
-        // (continued to the second end's place the first end's member is that end's member only on its own sheet and at its z)
-        const za1 = trA[ia.i];
-        if (shA !== shB || cabs(csub(za1.z, [bx, by])) > ${MONO_SEP} * sepOf(trA, ia.i)) return { cls: 'seam' };
+        const setB = membersAt([wbx, wby]), anyB = (() => { let b = -1, d = Infinity; setB.forEach((m, i) => { const q = cabs(csub(m.z, [bx, by])); if (q < d) { d = q; b = i; } }); return b; })();
+        const c = trA[ia.i];
+        if (anyB < 0 || c.sheet !== setB[anyB].sheet || cabs(csub(c.z, setB[anyB].z)) > ${MONO_SEP} * sepOf(setB, anyB)) return { cls: 'seam' };
       }
-      // the branch point: the cells at the vertex, as loops based at its place
+      // the branch value: the monodromy of the members round the cells at the vertex (based loops), and where a track fails round the 2 x 2 ring there
       const shV = atA ? shA : shB, shO = atA ? shB : shA, setV = membersAt(wv), iv = nearest(setV, zv, shV), setO = membersAt(wo), io = nearest(setO, zo, shO);
       if (iv.i < 0 || io.i < 0) return { cls: 'unresolved', why: 'members', sets: [setV.length, setO.length, iv.i, io.i] };
-      const trO = track(setO, [wo, wv]);
+      // (the other end's member carried to the vertex: along the edge, or round it by a detour one grid step to the side where the edge's track fails)
+      let trO = track(setO, [wo, wv]);
+      for (const [dx, dy] of trO ? [] : [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        trO = track(setO, [wo, [wo[0] + dx * h, wo[1] + dy * h], [wv[0] + dx * h, wv[1] + dy * h], wv]);
+        if (trO) break;
+      }
       if (!trO) return { cls: 'unresolved', why: 'edge', fail };
       const ib = opt && opt.swapB ? -2 : nearest(setV, trO[io.i].z, trO[io.i].sheet).i;
       const loop = (c0, sx, sy) => [wv, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, wv];
+      const ring = [wv, [wv[0] + h, wv[1]], [wv[0] + h, wv[1] + h], [wv[0] - h, wv[1] + h], [wv[0] - h, wv[1] - h], [wv[0] + h, wv[1] - h], [wv[0] + h, wv[1]], wv];
       const cyc = (pts) => {
         const tr = track(setV, pts);
         if (!tr) return null;
@@ -257,7 +280,8 @@
         if (!q) { unres = true; continue; }
         if (q.hit) return { cls: 'branch', cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * 8), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * 8)] };
       }
-      return { cls: unres ? 'unresolved' : 'false', why: unres ? 'loop' : null, fail };
+      if (unres) { const q = cyc(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * 8), Math.round(wv[1] / h * 8), 'ring'] }; if (!q) return { cls: 'unresolved', why: 'ring', fail }; }
+      return { cls: 'false' };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -601,7 +625,6 @@
     const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
-    let branchSum = 0, sepSum = 0;   // (the branch edges, and the verdicts that change without the separation check, over the case's cut rows)
     const brPts = CUT_ROWS[c.tag] ? branchPoints(c.steps) : [];
     for (const u0 of GLIDE_U) {
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
@@ -673,25 +696,29 @@
         // the certified branch cells are at most those the scene's branch points can touch
         ok(`${t}: the certified branch cells (${cc.cells}) are at most ${BRANCH_CELLS_PER_POINT} for each of the ${brPts.length} branch points`, cc.cells <= BRANCH_CELLS_PER_POINT * brPts.length, cc);
         // the controls, each of which must fail the certificate: a made-up edge between one member's two places is none; a wrong second member and loops
-        // moved MONO_DISPLACE cells away (in some direction every loop is then a trivial one) do not certify a branch edge; without the separation check
-        // the tracker must change a verdict, which shows the check is load-bearing
+        // moved MONO_DISPLACE cells away (in some direction every loop is then a trivial one) do not certify a branch edge
         const ctlA = await ev(`__lx.certEdge(0, { same: ${JSON.stringify(SAME_PLACE)} })`);
         ok(`${t}: control: a made-up flagged edge between one member's two places is none (${ctlA ? ctlA.cls : '?'})`, !!ctlA && ctlA.cls === 'false', ctlA);
         const bIdx = certs.map((q, k) => (q.cls === 'branch' ? k : -1)).filter((k) => k >= 0);
-        let nSwap = 0, nDisp = 0, nSep = 0;
+        let nSwap = 0, nDisp = 0;
         for (const k of bIdx) {
-          const sw = await ev(`__lx.certEdge(${k}, { swapB: true })`), dp = await ev(`__lx.certEdge(${k}, { displace: true })`), ns = await ev(`__lx.certEdge(${k}, { sep: false })`);
+          const sw = await ev(`__lx.certEdge(${k}, { swapB: true })`), dp = await ev(`__lx.certEdge(${k}, { displace: true })`);
           if (sw.cls === 'false') nSwap++;
           if (dp.cls === 'displaced' && dp.loops < 8) nDisp++;
-          if (ns.cls !== certs[k].cls) nSep++;
         }
         ok(`${t}: control: a wrong second member certifies none of the ${bIdx.length} branch edges (${nSwap} are none)`, nSwap === bIdx.length, { nSwap });
         ok(`${t}: control: loops moved ${MONO_DISPLACE} cells away do not all certify any of the ${bIdx.length} branch edges (${nDisp})`, nDisp === bIdx.length, { nDisp });
-        branchSum += cc.branch;
-        sepSum += nSep;
-        if (u === CUT_ROWS[c.tag][CUT_ROWS[c.tag].length - 1]) {
-          ok(`${name}: the branch edges over the cut rows are counted (${branchSum}, over 0)`, branchSum > 0, { branchSum });
-          ok(`${name}: control: without the separation check the tracker changes ${sepSum} of the branch verdicts over the cut rows (over 0)`, sepSum > 0, { sepSum });
+        // the cell that holds a branch value of the scene (the root's 0): a made-up edge there must certify a branch, which the wrong-member, displaced-loop and
+        // no-separation-check controls must each break; a scene whose branch values have no place on the grid (the logarithm's, at infinity) certifies none
+        const bvs = branchValues(c.steps);
+        if (!bvs.length) ok(`${t}: the scene's branch values have no place on the grid, so no real edge certifies a branch (${cc.branch})`, cc.branch === 0, cc);
+        for (const bv of bvs) {
+          const syn = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)} })`), synSw = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, swapB: true })`);
+          const synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`), synSep = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, sep: false })`);
+          ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls})`, syn.cls === 'branch', syn);
+          ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
+          ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of 8 still certify)`, synDp.cls === 'displaced' && synDp.loops < 8, synDp);
+          ok(`${t}: control: without the separation check the verdict changes (${synSep.cls})`, synSep.cls !== syn.cls, synSep);
         }
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
         const ctlC = await withProbe({ midCut: true }, u, () => ev('__lx.cutT()'));
