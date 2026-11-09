@@ -2225,7 +2225,7 @@ void ixAncTan(vec2 w) {
   // stages bound the second pass. _run's result is true when the schedule ran to its end and the
   // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
   // there
-  const newtCoreFns = (P, H, ray) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+  const newtCoreFns = (P, H, ray) => (ray = ray && !globalThis.__perfNoRay, `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
@@ -2302,7 +2302,7 @@ ${ray ? `  if (good || !rayLeft) return good;
   }
   return false;
 ` : ''}}
-`;
+`);
   // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
   // continued in t from w, member 1 + i continued from 1 down to t from f's i-th point over w (bk.ops' members, mixed
   // radix with the last op's member least significant). _roots walks every member once per w and keeps the roots;

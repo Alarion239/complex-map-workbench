@@ -2115,6 +2115,61 @@ unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm 
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
+// Where the GPU time of the Douady–Hubbard and Böttcher glides goes (diagnostic): per dpr (0.5, 1, 2: a quarter, one and four
+// times the pixels) and per variant (full: the shipped shader; noray: the RAY phase compiled out, window.__perfNoRay), one
+// warm glide with the frame timed as the other units do (frame_ms: cpu + the readPixels sync), then one glide with every draw
+// timed between two gl.finish() calls (P.split): the milliseconds per frame of the inverse programs' draws and of every other
+// draw, and the pixels their viewports cover. Rows are info; the reps are the median of REPS glides.
+async function svSplitUnit(scene, state, variants) {
+  const id = `sv.passsplit.${scene}`, [pa, pb] = [0, 1];
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer'); return; }
+  for (const variant of variants) for (const dpr of [0.5, 1, 2]) {
+    const pre = `${id}.${variant}.dpr${dpr}`, R = { frame: [], inv: [], other: [], invPx: [], otherPx: [], invDraws: [], otherDraws: [], frames: [] };
+    await setDpr(dpr);
+    try {
+      for (let i = 0; i < REPS; i++) {
+        const ini = variant === 'noray' ? await B.addInit('window.__perfNoRay = true;') : null;
+        await openSteps(state);
+        if (ini) await B.removeInit(ini);
+        await settle(await pageNow());
+        await B.ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: ${pa}, now: true }), 1`);
+        await sleep(SV_IDLE_MS);
+        for (const to of [pb, pa]) { await B.ev(`__cmwSteps({ go: ${to} }), 1`); await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20); }
+        await settle(await pageNow());
+        const glideTo = async (to) => {
+          const a = await pageNow();
+          await B.ev(`__cmwSteps({ go: ${to} }), 1`);
+          await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+          return windowStats(a, await pageNow());
+        };
+        const w = await glideTo(pb);
+        await settle(await pageNow());
+        await glideTo(pa);
+        await settle(await pageNow());
+        await B.ev('(__perf.split = [], 1)');
+        const w2 = await glideTo(pb);
+        const recs = await B.ev('(() => { const r = __perf.split; __perf.split = null; return r; })()');
+        const n = Math.max(1, w2.drawn.length), sum = (a, k) => a.reduce((x, r) => x + r[k], 0), inv = recs.filter((r) => r.inv), oth = recs.filter((r) => !r.inv);
+        R.frame.push(...w.frame); R.frames.push(w.drawn.length);
+        R.inv.push(sum(inv, 'ms') / n); R.other.push(sum(oth, 'ms') / n);
+        R.invPx.push(inv.reduce((x, r) => x + r.w * r.h, 0) / n); R.otherPx.push(oth.reduce((x, r) => x + r.w * r.h, 0) / n);
+        R.invDraws.push(inv.length / n); R.otherDraws.push(oth.length / n);
+        detail(`${pre}.buffer`, `${await B.ev('innerWidth')} x ${await B.ev('innerHeight')} css px, devicePixelRatio ${await B.ev('devicePixelRatio')}, timer query ${await B.ev(`!!document.createElement('canvas').getContext('webgl2').getExtension('EXT_disjoint_timer_query_webgl2')`)}`);
+      }
+    } finally { await setDpr(1); }
+    put(`${pre}.frame_p95_ms`, 'info', 'ms', [quant(R.frame, 0.95)]);
+    put(`${pre}.inv_ms_frame`, 'info', 'ms/frame', R.inv.map(r3));
+    put(`${pre}.other_ms_frame`, 'info', 'ms/frame', R.other.map(r3));
+    put(`${pre}.inv_px_frame`, 'info', 'px/frame', R.invPx.map(Math.round));
+    put(`${pre}.other_px_frame`, 'info', 'px/frame', R.otherPx.map(Math.round));
+    put(`${pre}.inv_draws_frame`, 'info', 'draws/frame', R.invDraws.map(r3));
+    put(`${pre}.other_draws_frame`, 'info', 'draws/frame', R.otherDraws.map(r3));
+    put(`${pre}.frames`, 'info', 'frames', R.frames);
+  }
+}
+unit('sv.passsplit.dh', 'diagnostic: where the Douady–Hubbard glide\'s GPU time goes, per dpr and with the RAY phase compiled out; info rows only', () => svSplitUnit('dh', SV_EXT_STATE('dh', { N: 64 }), ['full', 'noray']));
+unit('sv.passsplit.bottcher', 'diagnostic: where the Böttcher glide\'s GPU time goes, per dpr and with the RAY phase compiled out; info rows only', () => svSplitUnit('bottcher', SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), ['full', 'noray']));
 unit('sv.glide.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere (the carried grid, its heights and colour moving with the points); info rows only, until it has a baseline', () => svGlideUnit('default', { id: 'sv.glide.land', surf: 'land', info: true }));
 unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the same glide in Inside regions (the carried region mask); info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_in', surf: 'land', scope: 'in', info: true }));
 // (All sheets on a multivalued chain: √z then z + 2 with the Landscape's glide between w₁ and w₂, whose carry starts from

@@ -114,7 +114,17 @@
   const K = WebGL2RenderingContext;
   for (const name of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements']) {
     const f = G[name];
-    G[name] = function () { P.draws++; if (P.curInv) P.invDraws++; P.lastDrawT = now(); return f.apply(this, arguments); };
+    G[name] = function () {
+      P.draws++; if (P.curInv) P.invDraws++; P.lastDrawT = now();
+      if (!P.split) return f.apply(this, arguments);
+      // pass-split mode (P.split an array): each draw is timed between two gl.finish() calls, so its wall time is its own GPU work
+      // (the pipeline is drained before and after it), with its viewport and whether an inverse program draws it
+      const gl = this; gl.finish();
+      const a = now(), r = f.apply(this, arguments); gl.finish();
+      const b = now(), vp = gl.getParameter(gl.VIEWPORT);
+      P.split.push({ inv: !!P.curInv, ms: b - a, w: vp[2], h: vp[3], buf: gl.drawingBufferWidth * gl.drawingBufferHeight, f: cur ? cur.ts : 0 });
+      return r;
+    };
   }
   // programs: links, readiness and inverse programs (perf units examples, gallery.open, hover.dim; SPEC 12.5)
   const srcOf = new WeakMap(), shadersOf = new WeakMap(), progRec = new WeakMap();
