@@ -184,6 +184,7 @@
       const membersAt = (w) => {
         const out = [];
         for (const e of (window.__cmwLandEnum([w]) || [[]])[0]) {
+          if (e.sheet !== 0) continue;   // (sheets off draws the frame's own sheet; the far sheets are the layers of All sheets)
           const m = newton({ z: e.z, lam: e.lam, sheet: e.sheet }, w);
           if (m && !out.some((q) => q.sheet === m.sheet && cabs(csub(q.z, m.z)) <= 1e-7 * (1 + cabs(m.z)))) out.push(m);
         }
