@@ -18,6 +18,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
+const BANK_PX = 2, FAR_PX = 3000, END_EPS = 1e-4;   // (BANK_PX: how far a sample of the frame's bank may lie from the parked bank's polyline, for samples within FAR_PX px of the pane's origin: the bank's far end runs tens of thousands of px out, where a quarter of the samples differ by their own spacing; END_EPS: how far a step the frame is from its plane)
 const CUT_BANKS = 2;   // (the two banks of a ray cut, the solid one and the dashed one: what the frame draws of Square root's cut)
 const ready = () => settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof __cmwHideStrokes === "function"' });
 // the left pane drawn: two reads of its pixels 100 ms apart agree (the glide's meshes are made in idle moments after
@@ -220,23 +221,7 @@ const park = async (x, scope) => {
       return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
     info.cracks = await scan(false);
-    // (the cut's image curve, a red line with a paper-coloured halo, is drawn with the strokes hidden as the parked plane draws its cut, which
-    // hiding the shapes' strokes leaves alone: the frame's cut curves are those it draws with the strokes shown, the same count and the same banks;
-    // the crack scan above counts a grey pixel between coloured ones, which the halo is not, at any device pixel ratio)
-    const cutKey = () => ev('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, w: c.w })))');
-    const hiddenCuts = await cutKey();
-    await ev('__cmwHideStrokes(false); 1'); await settled({ max: 20000 });
-    const shownCuts = await cutKey();
-    await ev('__cmwHideStrokes(true); 1'); await settled({ max: 20000 });
-    info.cutCurves = JSON.parse(hiddenCuts).length;
-    info.cutCurvesShown = JSON.parse(shownCuts).length;
-    // (the same-banks comparison, and its controls, which run on what the frame drew: a frame that drops the cut, or one of its two banks, is not the reference)
-    const sameCuts = (a, b) => a === b;
-    const dropBank = (key) => JSON.stringify(JSON.parse(key).slice(1));
-    ok('cracks: Square root, parked half-way, strokes hidden: the cut curves drawn are those drawn with the strokes shown (the same count and the same banks)', sameCuts(hiddenCuts, shownCuts), { hidden: info.cutCurves, shown: info.cutCurvesShown });
-    ok('cracks: the reference draws the cut\'s two banks', info.cutCurvesShown === CUT_BANKS, { shown: info.cutCurvesShown });
-    ok('cracks: the control: a frame that drops the cut differs from the reference', !sameCuts('[]', shownCuts), { shown: info.cutCurvesShown });
-    ok('cracks: the control: a frame that drops one bank differs from the reference', !sameCuts(dropBank(hiddenCuts), shownCuts), { dropped: JSON.parse(dropBank(hiddenCuts)).length, shown: info.cutCurvesShown });
+    info.cutCurves = await ev('__cmwCutCurves().length');   // (the cut's image curve is drawn with the strokes hidden, as the parked plane draws its cut: compared with the parked plane's below)
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
@@ -246,6 +231,24 @@ const park = async (x, scope) => {
     info.control = await scan(true);
     ok('cracks: a fill crack injected beside the cut\'s image at 135° is counted', info.control.out['135'].cracks > 0, info.control.out['135']);
     ok('cracks: the other ray, with no crack injected, still reads none', info.control.out['225'].cracks === 0, info.control.out['225']);
+    // The cut curves of the frame END_EPS of a step short of plane 1, strokes hidden, are the parked plane 1's (strokes hidden): the same count, the same
+    // solid and dashed banks, and every sample of a bank within BANK_PX px of the parked bank's polyline (the frame samples a quarter as many points). The
+    // controls, each a frame that must fail the same comparison: the plane 0 parked (a plane that draws its cut as a ray and keeps no banks: a frame with the
+    // cut dropped), and the frame's own banks with one removed.
+    const cutsOf = async () => JSON.parse(await ev('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, s: c.s.filter(Boolean) })))'));
+    const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const polyDist = (p, poly) => { let m = Infinity; for (let i = 1; i < poly.length; i++) m = Math.min(m, segDist(p, poly[i - 1], poly[i])); return m; };
+    const sameCuts = (frame, ref) => frame.length === ref.length && frame.every((c, i) => c.step === ref[i].step && c.solid === ref[i].solid && c.s.length > 0 && c.s.every((p) => Math.abs(p[0]) > FAR_PX || Math.abs(p[1]) > FAR_PX || polyDist(p, ref[i].s) <= BANK_PX));
+    await park(1, 'all'); const parked1 = await cutsOf();
+    await ev(`__cmwSteps({ x: ${1 - END_EPS} }); 1`); await settled({ max: 20000 }); ok('cracks: the frame next to plane 1 is drawn', await drawn(), null);
+    const nearEnd = await cutsOf();
+    await park(0, 'all'); const parked0 = await cutsOf();
+    info.cutCurves = { parked1: parked1.length, nearEnd: nearEnd.length, parked0: parked0.length };
+    ok('cracks: the parked plane 1 draws the cut\'s two banks', parked1.length === CUT_BANKS, info.cutCurves);
+    ok(`cracks: the frame ${END_EPS} short of plane 1, strokes hidden, draws the parked plane 1's cut curves (the same count and banks, within ${BANK_PX} px)`, sameCuts(nearEnd, parked1), info.cutCurves);
+    ok('cracks: the control: a frame that drops the cut (the plane 0 parked, which keeps no banks) is not the parked plane 1\'s', !sameCuts(parked0, parked1), info.cutCurves);
+    ok('cracks: the control: the frame with one of its banks dropped is not the parked plane 1\'s', !sameCuts(nearEnd.slice(1), parked1), { kept: nearEnd.length - 1 });
+    await park(0.5, 'all');
   }
 }
 return { pass: fails.length === 0, fails, info };
