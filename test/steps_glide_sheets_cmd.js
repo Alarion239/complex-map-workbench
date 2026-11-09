@@ -4,7 +4,7 @@
 // more than TOL levels apart. The frame sits END_EPS of a step from the plane, so the glide's own motion is sub-pixel and the
 // parked plane stands for the exact picture of the glide there. A pixel on an edge of the colour (the parked frame's 3 x 3
 // neighbourhood spans more than EDGE_LEVELS in a channel: a ring or a sector's boundary, which the two paths filter apart) is
-// left out. The colour layer alone (strokes hidden, bare). Only the arrival
+// left out, and at most EDGE_MAX_SHARE of the compared pixels may be (measured 8.5 % and 8.1 %: the rings, the sectors and the seam) (a control: with every pixel an edge, the cap fails). The colour layer alone (strokes hidden, bare). Only the arrival
 // end is compared: a glide carries the colour plane's colour of each point, so near its start it is not the parked plane's picture.
 // Chains, each at the end of its last step:
 // - Square root alone: the glide is the inverse pass's (glide.path 'inverse');
@@ -16,9 +16,9 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (TOL levels of 255 per channel; SAME_FRAC the share of the pixels over TOL; MIN_PIXELS the least count compared; WHITE a channel
-// above which a pixel is paper; EDGE_LEVELS the span that makes a pixel an edge; END_EPS how far a step the glide frame is short of its parked plane, so its motion is below a
+// above which a pixel is paper; EDGE_LEVELS the span that makes a pixel an edge, EDGE_MAX_SHARE the most of the compared pixels that may be left out as edges; END_EPS how far a step the glide frame is short of its parked plane, so its motion is below a
 // hundredth of a pixel; RELOAD_MS the wait for the page a figure's opening reloads)
-const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, WHITE = 250, EDGE_LEVELS = 24, END_EPS = 1e-4, RELOAD_MS = 4000;
+const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, WHITE = 250, EDGE_LEVELS = 24, EDGE_MAX_SHARE = 0.1, END_EPS = 1e-4, RELOAD_MS = 4000;
 const CUBIC = { type: 'custom', params: { expr: 'z^3-3z', cut: 180 } };
 const CHAINS = [
   { label: 'Square root alone', example: 'Square root and its sheets', pre: [], last: 1, path: 'inverse' },
@@ -39,8 +39,8 @@ const openChain = async (c) => {
   await pause(RELOAD_MS);
   await settled({ max: 30000, until: `typeof __cmwSteps === "function" && __cmwP().steps.length === ${c.pre.length + 1}` });
 };
-// the glide frame at gx against the parked plane px: {n, over, max, drawn, drawnOver, path} (drawn: the pixels the glide draws, of n)
-const measure = async (c, gx, px) => {
+// the glide frame at gx against the parked plane px: {n, over, max, drawn, drawnOver, edgeShare, path} (drawn: the pixels the glide draws, of n; edgeShare: the share of the pixels not paper in both frames that are left out as edges)
+const measure = async (c, gx, px, edgeLevels = EDGE_LEVELS) => {
   await openChain(c);
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); __cmwSteps({ park: ${px} }); 1`);
   await settled({ max: 20000 }); ok(`${c.label}: the parked plane ${px} is drawn`, await grab('parked'), null);
@@ -53,20 +53,22 @@ const measure = async (c, gx, px) => {
       for (let c = 0; c < 3; c++) {
         let lo = 255, hi = 0;
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = Math.min(W - 1, Math.max(0, x + dx)), Y = Math.min(H - 1, Math.max(0, y + dy)), v = P[4 * (Y * W + X) + c]; lo = Math.min(lo, v); hi = Math.max(hi, v); }
-        if (hi - lo > ${EDGE_LEVELS}) return true;
+        if (hi - lo > ${edgeLevels}) return true;
       }
       return false;
     };
-    let n = 0, over = 0, max = 0, dn = 0, dover = 0;
+    let n = 0, over = 0, max = 0, dn = 0, dover = 0, all = 0, edges = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = 4 * (y * W + x);
       const gp = G[i] > ${WHITE} && G[i + 1] > ${WHITE} && G[i + 2] > ${WHITE}, pp = P[i] > ${WHITE} && P[i + 1] > ${WHITE} && P[i + 2] > ${WHITE};
-      if ((gp && pp) || edge(x, y)) continue;
+      if (gp && pp) continue;
+      all++;
+      if (edge(x, y)) { edges++; continue; }
       const d = Math.max(Math.abs(G[i] - P[i]), Math.abs(G[i + 1] - P[i + 1]), Math.abs(G[i + 2] - P[i + 2]));
       n++; max = Math.max(max, d); if (d > ${TOL}) over++;
       if (!gp) { dn++; if (d > ${TOL}) dover++; }
     }
-    return { n, max, over: n ? +(over / n).toFixed(4) : null, drawn: dn, drawnOver: dn ? +(dover / dn).toFixed(4) : null };
+    return { n, max, over: n ? +(over / n).toFixed(4) : null, drawn: dn, drawnOver: dn ? +(dover / dn).toFixed(4) : null, edgeShare: all ? +(edges / all).toFixed(4) : null };
   })()`);
   return Object.assign(r, { path });
 };
@@ -75,8 +77,12 @@ for (const c of CHAINS) {
   const hi = await measure(c, gx, b);
   info[`${c.label}: glide ${END_EPS} short of plane ${b}`] = hi;
   ok(`${c.label}: the glide at the end of its last step is drawn by the ${c.path} path`, hi.path === c.path, hi);
+  ok(`${c.label}: at most ${EDGE_MAX_SHARE * 100} % of the pixels compared are left out as colour edges`, hi.edgeShare !== null && hi.edgeShare <= EDGE_MAX_SHARE, hi);
   ok(`${c.label}: where the glide at the end of its last step draws, it is the parked plane, at most ${SAME_FRAC * 100} % of those pixels more than ${TOL} levels off`, hi.drawn > MIN_PIXELS && hi.drawnOver <= SAME_FRAC, hi);
   ok(`${c.label}: the frame ${END_EPS} short of plane ${b} is the parked plane (every sheet), at most ${SAME_FRAC * 100} % of the pixels more than ${TOL} levels off`, hi.n > MIN_PIXELS && hi.over <= SAME_FRAC, hi);
+  const allEdges = await measure(c, gx, b, 0);
+  info[`${c.label} (control: every pixel an edge)`] = allEdges;
+  ok(`${c.label} (control): with every pixel an edge, more than ${EDGE_MAX_SHARE * 100} % of the pixels compared are left out`, allEdges.edgeShare > EDGE_MAX_SHARE, allEdges);
   const wrong = await measure(c, gx, a);
   info[`${c.label} (control: plane ${a})`] = wrong;
   ok(`${c.label} (control): the same frame against plane ${a}: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the pixels over ${TOL} levels`, wrong.over > CONTROL_FACTOR * SAME_FRAC, wrong);
