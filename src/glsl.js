@@ -1292,14 +1292,21 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j divides dp by 2 p_{j+1}: the
         // product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The value is computed as H alone is
         const dc = jc ? 'vec2(0.0)' : 'vec2(1.0, 0.0)';
+        // The orbit w_0 .. w_n is kept in variables, not in an array indexed by n - j (that would be local memory on most GPUs):
+        // the first DH_REG points, and every DH_CK-th point after them (the checkpoints). A point past the registers is the
+        // orbit run on from the nearest checkpoint at or before it by the same steps as the walk, at most DH_CK - 1 of them,
+        // so every value is bit for bit the one the walk had
+        const DH_REG = 8, DH_CK = 8, NCK = Math.floor((NM - 1) / DH_CK);
+        const reg = Array.from({ length: DH_REG }, (_, i) => `o${i}`), ck = Array.from({ length: NCK }, (_, i) => `k${i + 1}`);
+        const pick = (idx, names) => names.map((nm, i) => (i < names.length - 1 ? `${idx} == ${i} ? ${nm} : ` : nm)).join('');
         const pre = `vec2 ${P}_fd(vec2 z, out vec2 d, out float tail) {
   d = vec2(cx_nan());
   tail = 0.0;
-  vec2 orb[${NM + 1}];
+  vec2 ${[...reg, ...ck].join(', ')};
   vec2 c = ${jc ? jc.v : 'z'}, w = z, dw = vec2(1.0, 0.0);
   int n = -1;
   for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
-    orb[k] = w;
+    ${reg.map((o, i) => `if (k == ${i}) ${o} = w;`).join(' else ')} else if (k % ${DH_CK} == 0) { int m = k / ${DH_CK}; ${ck.map((o, i) => `if (m == ${i + 1}) ${o} = w;`).join(' else ')} }
     float w2 = dot(w, w), c2 = dot(c, c);
     if (w2 > 1e8) { n = k; break; }
     if (${DH_STOP}) { n = k; tail = sqrt(c2 * exp2(2.0 - 2.0 * float(k))) / w2; break; }
@@ -1313,7 +1320,10 @@ vec2 cx_binom(vec2 a, vec2 b) {
   for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
     if (j > n) break;
     float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
-    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o = orb[n - j];
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o;
+    int q = n - j;
+    if (q < ${DH_REG}) o = ${pick('q', reg)};
+    else { int m = q / ${DH_CK}; o = ${pick('m - 1', ck)}; for (int i = m * ${DH_CK}; i < q; i++) o = cmul(o, o) + c; }
     p = dot(r, o) >= 0.0 ? r : -r;
     pr = cmul(pr, 2.0 * p);
   }
