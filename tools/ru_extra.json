@@ -711,6 +711,7 @@
  "F is not finite on the curve: its Cauchy integral is not defined": "F не конечна на кривой: её интеграл Коши не определён",
  "Cauchy: on z only": "Коши: только на z",
  "No curve selected": "Кривая не выбрана",
+  "The Landscape has no sphere. Use the surface menu.": "В Рельефе нет сферы. Смените поверхность в меню.",
   "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности",
   "Nothing to fit yet": "Пока нечего вписывать"
 }

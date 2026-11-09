@@ -3377,6 +3377,7 @@
  "F is not finite on the curve: its Cauchy integral is not defined": "F non è finita sulla curva: il suo integrale di Cauchy non è definito",
  "Cauchy: on z only": "Cauchy: solo su z",
  "No curve selected": "Nessuna curva selezionata",
+  "The Landscape has no sphere. Use the surface menu.": "Il Paesaggio non ha una sfera. Usa il menu della superficie.",
   "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "Il Paesaggio non ha una sfera: scegli Piano o Sfera nel menu della superficie",
   "Nothing to fit yet": "Ancora niente da adattare"
 }

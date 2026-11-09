@@ -549,15 +549,16 @@
   // the head controls show the state
   // The canvas stack's surface and fit keys, on each plane's .viewstack. Sphere carries the surface in aria-pressed; a key the surface cannot
   // use stays in its place, aria-disabled, with its reason as the tooltip and as the note the key's aria-describedby names.
-  function setStackKey(btn, note, off, why, tip) {
+  function setStackKey(btn, note, off, why, tip, short) {
     if (off) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
     btn.title = off ? why : tip;
     note.textContent = off ? why : '';
+    if (off && short) btn.dataset.short = short; else delete btn.dataset.short;
   }
-  // A press on a key the surface cannot use: true, and on a phone (no hover tooltip) the reason shows as the message
+  // A press on a key the surface cannot use: true, and on a phone (no hover tooltip) the reason shows as the message (its short form, which fits two lines)
   function stackKeyDeclined(btn) {
-    if (btn.getAttribute('aria-disabled') !== 'true') return false;
-    if (document.documentElement.classList.contains('ph')) toast(btn.title);
+    if (!svOff(btn)) return false;
+    if (document.documentElement.classList.contains('ph')) toast(btn.dataset.short || btn.title);
     return true;
   }
   function syncStackKeys() {
@@ -567,7 +568,7 @@
       const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
       sph.setAttribute('aria-pressed', String(on));
       sph.innerHTML = MODE_ICONS.sphere;
-      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'), $t('The Landscape has no sphere. Use the surface menu.'));
       setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
     }
   }
