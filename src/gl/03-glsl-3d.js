@@ -758,7 +758,7 @@ void main() {
   const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
-uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn;
+uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn; uniform int uMidOn;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + `
@@ -823,7 +823,7 @@ void main() {
       if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
       if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
     }
-    float tc = 0.5 * (lo + hi);
+    float tc = uMidOn == 1 ? 0.5 : 0.5 * (lo + hi);
     tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;
   }
@@ -847,7 +847,7 @@ void main() {
   }
   float big = 1e3 * max(uMu, 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
-  if (jump) { tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0); return; }
+  if (jump) { tfOut = vec4(uMidOn == 1 ? 0.5 : 0.5 * (lo + hi), hLo, hHi, 1.0); return; }
   // a member seam (uSeam 1): neither end's preimage carried along the edge's place reaches the other's, so the two
   // places hold different members of the glide's inverse and the edge is a cut between them, whatever the chord of
   // their preimages shows; each bank's height at the middle of the edge is its own member's there

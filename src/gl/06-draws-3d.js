@@ -327,7 +327,7 @@
         for (let i = 0; i < sheets.length; i++) {
           use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', carryProbe.noSeam ? 0 : 1);
+          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', carryProbe.noSeam ? 0 : 1); u1i(P3, 'uMidOn', carryProbe.midCut ? 1 : 0);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
@@ -341,7 +341,7 @@
         // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
         if (Pf) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
-          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uMidOn', carryProbe.midCut ? 1 : 0); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
           gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);

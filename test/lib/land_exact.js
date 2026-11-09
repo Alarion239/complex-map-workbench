@@ -70,6 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const TICK_PX = 1, FOOT_MIN_PX = 100;   // the foot of a cut may differ from the parked plane's by rasterization only; a boundary of fewer pixels is no measurement
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -98,6 +99,16 @@
       let n = 0;
       for (let i = 0; i < x.length; i += 4) { const p = hue(x, i), q = hue(y, i); if (p >= 0 && q >= 0) { const d = Math.abs(p - q); if (Math.min(d, 360 - d) > ${HUE_OFF_DEG}) n++; } }
       return n;
+    },
+    // the foot of the cut: the covered region's boundary (saturation over SAT_MIN) of two frames, and how far each boundary pixel of one is from
+    // the nearest of the other (canvas pixels): { fa: the first's worst, fb: the second's, na, nb: their boundary pixels }
+    footOff: (a, b) => {
+      const W = document.getElementById('canvasL').width, x = window.__heldPx[a], y = window.__heldPx[b], H = x.length / 4 / W;
+      const cov = (d, i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN};
+      const edge = (d) => { const pts = []; for (let r = 1; r < H - 1; r++) for (let c = 1; c < W - 1; c++) { const i = 4 * (r * W + c); if (cov(d, i) && (!cov(d, i - 4) || !cov(d, i + 4) || !cov(d, i - 4 * W) || !cov(d, i + 4 * W))) pts.push([c, r]); } return pts; };
+      const worst = (p, q) => { let m = 0; for (const [c, r] of p) { let d = Infinity; for (const [c2, r2] of q) { const e = (c - c2) * (c - c2) + (r - r2) * (r - r2); if (e < d) d = e; } if (d > m) m = d; } return Math.sqrt(m); };
+      const pa = edge(x), pb = edge(y);
+      return { fa: worst(pa, pb), fb: worst(pb, pa), na: pa.length, nb: pb.length };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -451,6 +462,22 @@
         const hueN = await ev(`__lx.hueOff('curT', ${first ? "'P0T'" : "'P1T'"})`);
         r[u].top = { still: stillT, d: dT, hueN };
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
+        if (lastU && c.tag === 'cube root') {
+          // the foot of the cut (where the carried frame's pieces end at it) is where the parked plane's is, to the pixel; the control puts every cut at the middle
+          // of its edge (probe midCut), which moves the foot by up to half a cell, and the check fails
+          const foot = await ev("__lx.footOff('curT', 'P1T')");
+          ok(`${t}: the foot of the cut in the Top view is the parked plane's within ${TICK_PX} px (${foot.fa.toFixed(2)} and ${foot.fb.toFixed(2)} px at worst, of ${foot.na} and ${foot.nb} boundary pixels)`, foot.na >= FOOT_MIN_PX && foot.nb >= FOOT_MIN_PX && foot.fa <= TICK_PX && foot.fb <= TICK_PX, foot);
+          let ctlF;
+          try {
+            await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1]); await setU(u);
+            await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await grab('ctlF');
+            ctlF = await ev("__lx.footOff('ctlF', 'P1T')");
+          } finally {
+            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); await setU(u);
+          }
+          ok(`${t}: control: with every cut at the middle of its edge the foot is over ${TICK_PX} px off the parked plane's (${ctlF.fa.toFixed(2)} and ${ctlF.fb.toFixed(2)} px)`, Math.max(ctlF.fa, ctlF.fb) > TICK_PX, ctlF);
+        }
         if (lastU && COMBO_CONTROL.includes(c.tag) && !r.comboControl) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
           let ctl;
