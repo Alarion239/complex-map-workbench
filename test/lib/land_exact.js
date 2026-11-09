@@ -40,6 +40,10 @@
   // frame's real scale gap against the parked plane (1.6e-4 of the ruler's length at 1 - END_U, a few hundredths of a pixel) adds to that, so
   // two frames' labels are at most TICK_PX = 1 px apart; the gap itself is not absorbed here: the own-height check below sees it.
   const TICK_PX = 1;
+  // The labels are screen heights, so they follow the camera. park() fits the camera to its plane: the two end planes of the log cases are parked
+  // with cameras about 0.4 apart in distance (11.9 and 7.16), the other cases' with the same one. The control that pins the other plane's camera
+  // therefore needs a gap of at least CAM_GAP_MIN, and CAM_GAP_CASES must have it.
+  const CAM_GAP_MIN = 0.1, CAM_GAP_CASES = ['log of an annulus', 'log, box centred at 1.5 + 0.5i'];
   // The cut's seam: parked draws the cut as one continuous surface with no dark line, so the pixels of a near-end frame that differ from
   // the next plane's parked frame form no run of connected pixels as long as a seam. The rim's anti-aliasing dots are runs of at most 27.
   const SEAM_RUN = 40;
@@ -483,13 +487,17 @@
     await load(c, sheets);
     if (!rcDone) { rcDone = true; await rasterControls(); }
     const last = 1;   // (the glide from plane 0 to plane 1)
-    const p0 = await park(0, 'P0'), p1 = await park(last, 'P1');
+    const p0 = await park(0, 'P0');
+    const camP0 = await ev("__cmwCam('L')");
+    const p1 = await park(last, 'P1');
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
     // the parked end planes again in the Top view
-    const cam0 = await ev("__cmwCam('L')");
+    const camP1 = await ev("__cmwCam('L')");   // (the camera plane 1 was parked with: park() fits the camera to its plane, so plane 0's can be another)
+    const camGap = Math.abs(camP1.dist - camP0.dist) / camP0.dist;
+    if (CAM_GAP_CASES.includes(c.tag)) ok(`${name}: the two end planes are parked with cameras ${camGap} apart in distance (at least ${CAM_GAP_MIN}: the premise of the tick label control)`, camGap >= CAM_GAP_MIN, { camP0, camP1 });
     await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`);
     const p0T = await park(0, 'P0T'), p1T = await park(last, 'P1T');
-    await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`);
+    await ev(`__cmwCam('L', ${JSON.stringify(camP1)}); 1`);
     ok(`${name}: the parked frames are still in the Top view`, p0T.still && p1T.still, { p0T, p1T });
     const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
@@ -498,6 +506,7 @@
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
+      const camU = await ev("__cmwCam('L')");   // (the camera this frame is drawn with: the camera follows the frame, and every Top-view trip returns to it)
       const still = await grab('cur');
       const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u, holes: c.landHoles }; })()');
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
@@ -552,7 +561,7 @@
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const stillT = await grab('curT');
         const dT = (await compare('curT', first ? 'P0T' : 'P1T')).frac;
-        await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const hueN = await ev(`__lx.hueOff('curT', ${first ? "'P0T'" : "'P1T'"})`);
         r[u].top = { still: stillT, d: dT, hueN };
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
@@ -565,7 +574,7 @@
             await grab('ctlT');
             ctl = await ev("__lx.hueOff('ctlT', 'P1T')");
           } finally {
-            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           }
           r.comboControl = ctl;
           ok(`${t}: control: with every sheet's combo one off the Top view's hue is over ${HUE_OFF_MAX} pixels off (${ctl} are)`, ctl > HUE_OFF_MAX, { ctl });
@@ -677,6 +686,14 @@
         const ref = (first ? p0 : p1).ticks, got = await ev('__cmwLandTicks()');
         ok(`${t}: the height ruler's tick labels are the parked plane's (${got && got.length} against ${ref && ref.length}; each within ${TICK_PX} px)`,
           !!got && !!ref && got.length === ref.length && ref.every((y, i) => Math.abs(y - got[i]) <= TICK_PX), { got, ref });
+        if (first && camGap >= CAM_GAP_MIN) {
+          // (the control: the labels are screen heights, so the camera plane 1 was parked with, in place of this frame's, moves them off the parked plane's)
+          await ev(`__cmwCam('L', ${JSON.stringify(camP1)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const pinned = await ev('__cmwLandTicks()');
+          await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: control: under plane 1's camera the tick labels are not the parked plane's (${pinned && pinned.length} against ${ref && ref.length}; one over ${TICK_PX} px)`,
+            !!pinned && !!ref && (pinned.length !== ref.length || ref.some((y, i) => Math.abs(y - pinned[i]) > TICK_PX)), { pinned, ref });
+        }
       }
       // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
       {
