@@ -327,10 +327,13 @@
     }
     x.putImageData(img, 0, 0);
   }
-  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z
+  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z. The Landscape under
+  // Plaster draws the relief with no phase colours, so there is no colouring to name and the note is hidden
   function regionsNote() {
-    const note = document.querySelector('#regionsBox > .lbl');
-    if (note) note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
+    const note = /** @type {HTMLElement | null} */ (document.querySelector('#regionsBox > .lbl'));
+    if (!note) return;
+    note.hidden = S.view.main === 'land' && !lPhase();
+    note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
   }
   function buildDisplay() {
     // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)

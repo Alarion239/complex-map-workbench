@@ -832,7 +832,7 @@
           setViewOpt('D', 'phase', v !== 'plaster');
           if (v === 'phase') setOpt('landPlain', S.dc !== 'phase');
           else if (v === 'tiles') { setOpt('landPlain', false); if (S.dc === 'phase') setOpt('dc', 'enhanced'); }
-          buildRightFoot(); updateFocusUI(); paintChanged(); save();
+          buildRightFoot(); regionsNote(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
     // the colour panel: the same controls on every plane of the steps view, before and after the colour plane; one that
