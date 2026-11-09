@@ -822,10 +822,10 @@ ${clip ? `  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
   vNor = Nn[vi]; vAO = QA[vi].z;` : `  vZ = cz[k];
   vPos = vec3(((cxy[k] - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, ch[k]);
   vNor = cnv[k].xyz; vAO = cnv[k].w;`}
-${L ? '' : `  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
-  // the cut separates from the first piece's)
+  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
+  // the cut separates from the first piece's; layered: the bank's corner when it is the layer's own, else the triangle's first own corner)
   ivec2 anchor = J == 3 ? (sub == 0 ? A : (sub == 1 ? B : C)) : ((J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A);
-  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;`}
+${L ? '  if (texelFetch(uT1, anchor, 0).w < uDrawCode0 + 0.1) vZc = texelFetch(uZ, anchor, 0).xy;' : '  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;'}
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
