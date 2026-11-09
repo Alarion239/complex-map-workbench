@@ -1215,11 +1215,13 @@ async function svInteractUnit(scene) {
 // reference without the Landscape's glide makes it NEW (refCannot)
 // Opens the steps view on a fresh page (state: the saved page to start from, else the default one) and waits for its first frame
 // and the typesetter.
-async function openSteps(state) {
+async function openSteps(state, diag) {
   const gns = `perfsvg${process.pid}_${++nsCounter}`;
+  const dg = diag ? await B.addInit(`window.cmwDiag = ${JSON.stringify(diag)};`) : null;
   const seed = state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(gns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + gns)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`) : null;
   await B.nav(`${BASE}test.html?ns=${gns}&view=steps`);
   if (seed) await B.removeInit(seed);
+  if (dg) await B.removeInit(dg);
   await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
   await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
 }
@@ -1251,7 +1253,7 @@ async function svGlideUnit(scene, o = {}) {
         // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
         // limit: fewer reps, not a timeout, which aborts the whole run)
         if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
-        await openSteps(o.state);
+        await openSteps(o.state, o.diag);
         if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
@@ -2114,6 +2116,8 @@ unit('sv.glide.cut_globe', 'the steps view on the globe (Surface: Sphere, on a G
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
+const SV_DIAG = { v0: {}, v1: { ray0: 1 }, v2: { noD: 1 }, v3: { orb8: 1 }, v4: { pol: 1 }, v5: { mem0: 1 }, v6: { orb8: 1, ray0: 1, noD: 1, pol: 1 } };
+for (const [k, d] of Object.entries(SV_DIAG)) unit(`sv.glide.diag.${k}`, `diagnostic (not for merge): the Douady–Hubbard glide with the variant ${JSON.stringify(d)}`, () => svGlideUnit('dh', { id: `sv.glide.diag.${k}`, state: SV_EXT_STATE('dh', { N: 64 }), info: true, diag: d }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
 unit('sv.glide.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere (the carried grid, its heights and colour moving with the points); info rows only, until it has a baseline', () => svGlideUnit('default', { id: 'sv.glide.land', surf: 'land', info: true }));
 unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the same glide in Inside regions (the carried region mask); info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_in', surf: 'land', scope: 'in', info: true }));

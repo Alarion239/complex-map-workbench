@@ -1283,7 +1283,27 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const NM = Funcs.DH_NMAX;
         return {
           sig: [type],
-          f: `vec2 orb[${NM + 1}];
+          f: DIAG().orb8 ? `vec2 o0, o1, o2, o3, o4, o5, o6, o7;
+  vec2 c = ${jc ? jc.v : 'z'}, w = z;
+  int n = -1;
+  for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
+    if (k == 0) o0 = w; else if (k == 1) o1 = w; else if (k == 2) o2 = w; else if (k == 3) o3 = w; else if (k == 4) o4 = w; else if (k == 5) o5 = w; else if (k == 6) o6 = w; else if (k == 7) o7 = w;
+    if (dot(w, w) > 1e8) { n = k; break; }
+    if (float(k) >= ${nn.x}) break;
+    w = cmul(w, w) + c;
+  }
+  if (n < 0) return vec2(cx_nan());
+  vec2 p = cmul(w, csqrtp(vec2(1.0, 0.0) + cdiv(cdiv(c, w), w)));
+  for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
+    if (j > n) break;
+    float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
+    int q = n - j;
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o;
+    if (q < 8) { o = q == 0 ? o0 : q == 1 ? o1 : q == 2 ? o2 : q == 3 ? o3 : q == 4 ? o4 : q == 5 ? o5 : q == 6 ? o6 : o7; }
+    else { o = z; for (int i = 0; i < q; i++) o = cmul(o, o) + c; }
+    p = dot(r, o) >= 0.0 ? r : -r;
+  }
+  ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;` : `vec2 orb[${NM + 1}];
   vec2 c = ${jc ? jc.v : 'z'}, w = z;
   int n = -1;
   for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
@@ -2193,6 +2213,7 @@ void ixAncTan(vec2 w) {
   // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
   // its step is within NEWT_STEP_TOL (1 + |z|))
   const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
+  const DIAG = () => (typeof globalThis !== 'undefined' && globalThis.cmwDiag) || {};
   // The stepper's modes (the start of a member's schedule) and phases. A schedule is a run of phases: WALK is GRID from
   // stage ks + 1, AT, POL; CHECK is a stored root's test, then WALK from w; LAND is LAD, POL; SETTLE is POL; BACK is BACK
   // from stage 1, POL (in a program with a ray seed, and only when that walk's hit test fails: RAY, BACK, POL from the seed
@@ -2225,7 +2246,7 @@ void ixAncTan(vec2 w) {
   // stages bound the second pass. _run's result is true when the schedule ran to its end and the
   // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
   // there
-  const newtCoreFns = (P, H, ray) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+  const newtCoreFns = (P, H, ray) => `${DIAG().noD ? `vec2 ${P}_d(vec2 u, float t) { return vec2(1.0, 0.0); }` : `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }`}
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
@@ -2264,14 +2285,14 @@ ${ray ? `  // the external ray's stages (newtRayStages): rS of them below |w| = 
       if (rS > ${Inverse.NEWT_RAY.SUB * Inverse.NEWT_RAY.HALVINGS}) rayLeft = false;
     }
   }
-  for (int pass = 0; pass < 2; pass++) {
+${DIAG().ray0 ? '  rayLeft = false;\n' : ''}  for (int pass = 0; pass < 2; pass++) {
   int itMax = pass == 0 ? ${newtRunMax()} : (rS + 1) * ${Inverse.NEWT_RAY.NEWT} + ${Inverse.NEWT_K + Inverse.NEWT_POL};
 ` : ''}  for (int it = 0; it < ${ray ? 'itMax' : newtRunMax()}; it++) {
     if (ph == ${NP.GRID} && n > k0) { ug = u; ph = ${NP.AT}; n = 0; }
     if (ph == ${NP.BACK} && n > kb) { ph = ${NP.POL}; n = 0; }
     if (ph == ${NP.AT} && n > 0) { ph = ${NP.POL}; n = 0; }
     if (ph == ${NP.LAD} && n >= ${Inverse.NEWT_LAD}) { ph = ${NP.POL}; n = 0; }
-    if (ph == ${NP.POL} && n >= ${Inverse.NEWT_POL}) ph = ${NP.DONE};
+    if (ph == ${NP.POL} && n >= ${DIAG().pol || Inverse.NEWT_POL}) ph = ${NP.DONE};
     if (ph == ${NP.DEFL} && n >= ${Inverse.NEWT_DEF}) ph = ${NP.DONE};
 ${ray ? `    if (ph == ${NP.RAY} && n >= (rS + 1) * ${Inverse.NEWT_RAY.NEWT}) { ph = ${NP.BACK}; n = 1; }
 ` : ''}    if (ph == ${NP.DONE}) break;
@@ -2337,7 +2358,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v = w, ug;
     bool okv = true;
     int mode = ${NM.WALK};
-    if (m > 0) { ${bk.single ? `okv = !${P}_k[0]; if (okv) ` : ''}okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
+    if (m > 0) { ${DIAG().mem0 ? 'okv = false; if (okv) ' : bk.single ? `okv = !${P}_k[0]; if (okv) ` : ''}okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
 ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
     else if (uNrRead == 1 && w == ixPixW) {
       v = texelFetch(uNrTex0, ixNrTexel, 0).zw;
