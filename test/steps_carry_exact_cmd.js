@@ -11,7 +11,7 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { hold, grab, fade, judge } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { hold, grab, fade, judge, JUDGE_MIN_N } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const HELD_U = [0.25, 0.5, 0.75];
 await view(1200, 800, false, false);
 await go(`http://localhost:${PORT}/test.html?ns=cex${Date.now()}`);
@@ -34,7 +34,7 @@ for (const u of HELD_U) {
   ok(`u = ${u}: the cross-fade frame exists`, await fade('R0', 'R1', u, 'X' + u), null);
   const c = await judge('R0', 'X' + u);
   info['control u=' + u] = c;
-  ok(`u = ${u}: negative control: a cross-fade of the two planes' frames does not pass the judge`, !c.pass && c.n >= 1000, c);
+  ok(`u = ${u}: negative control: a cross-fade of the two planes' frames does not pass the judge`, !c.pass && c.n >= JUDGE_MIN_N, c);
   await ev('window.__svScrubUp(), 1');
   await rest(0);
 }
