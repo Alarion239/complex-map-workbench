@@ -106,6 +106,7 @@ const VIEWS = {
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'newt_ab_cmd.js': steps({ pin: true }),
   'newt_member0_cmd.js': steps({ pin: true }),
+  'steps_glide_exterior_cmd.js': steps(),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),
