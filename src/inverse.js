@@ -1686,6 +1686,7 @@ const Inverse = (() => {
   };
   function singleRoot(b) {
     if (singleRootCache.has(b)) return singleRootCache.get(b);
+    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
     const seeds = [];
     for (let i = 0; i < SR_SEEDS; i++) for (let j = 0; j < SR_SEEDS; j++) seeds.push(C(-SR_BOX + 2 * SR_BOX * (i + 0.5) / SR_SEEDS, -SR_BOX + 2 * SR_BOX * (j + 0.5) / SR_SEEDS));
     for (const r of SR_RADII) for (let k = 0; k < SR_RING; k++) { const a = 2 * Math.PI * (k + 0.5) / SR_RING; seeds.push(C(r * Math.cos(a), r * Math.sin(a))); }
@@ -1707,6 +1708,7 @@ const Inverse = (() => {
       if (!ok) break;
     }
     singleRootCache.set(b, ok);
+    if (typeof window !== 'undefined') (window.cmwSR = window.cmwSR || []).push([Math.round(t0), Math.round(performance.now() - t0)]);
     return ok;
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
