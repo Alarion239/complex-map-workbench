@@ -1547,7 +1547,11 @@
       // (the exact single layer and the layered draw of linear heights are clipped at the block's sides, and the layered one at its top and bottom
       // too, where the layers run on past it: LAND_CLIP; clipOff is a probe's control)
       const clipC = (contDraw ? clipOf(mode) > 0 : !!(landC && landC.exact)) && !carryProbe.clipOff;
-      const fan = clipC ? LAND_CLIP_CORNERS - 2 : 1;
+      // (the single layer has no top or bottom plane, and its cell triangles are shorter than the block's shorter side, by the draw's edge limit
+      // lim: such a triangle meets at most one corner of the block, so the clip leaves at most LAND_CLIP_CELL_CORNERS corners, a fan of 3. The fan
+      // is the layered draw's, the full one, where either does not hold; fanShort is a probe's control)
+      const cellFan = clipC && !contDraw && st.carry.lim < Math.min(box.x1 - box.x0, box.y1 - box.y0) * (carryProbe.clipScale || 1);
+      const fan = clipC ? (cellFan ? LAND_CLIP_CELL_CORNERS - 2 - (carryProbe.fanShort ? 1 : 0) : LAND_CLIP_CORNERS - 2) : 1;
       const Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
@@ -1565,7 +1569,7 @@
       // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale scales the block's sides)
       u1i(Pc, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
       // (the single layer has no top or bottom plane: it is one open sheet, as the parked plane draws it)
-      if (clipC) u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30);
+      if (clipC) { u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pc, 'uFan', fan); }
       u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);

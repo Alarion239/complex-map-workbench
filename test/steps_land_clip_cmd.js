@@ -120,4 +120,40 @@ info.within = { W, Wk };
 ok('clipWithin: a triangle it calls within the sides is not cut (no triangle called within comes back with more than 3 corners)', Object.values(W).every((w) => !w.within || w.n === 3), { W });
 ok('clipWithin: a triangle well inside the sides is called within, one on the side is too (it skips them), one beyond the side is not', W.insideT.within && W.edgeT.within && !W.overT.within && !W.farT.within, { W });
 ok(`control: with the sides read ${WITHIN_K} wider a triangle the clip cuts is called within`, Wk.within && Wk.n > 3, { Wk });
+// (the cell triangle's corner bound, LAND_CLIP_CELL_CORNERS: a triangle whose edges are under the block's shorter side, the carried draw's limit,
+// leaves at most that many corners after the clip of the four sides, as a plain polygon clip reads them; a triangle larger than the side leaves more
+// (control), and the fan one too small (CELL_CORNERS - 1 corners) is too few for a triangle at a corner of the block)
+const CELL_CORNERS = await ev('GLR.landClipCellCorners');
+const SIDE_MIN = 2, TRIS = 40000;   // (the box [-1, 1]^2: the shorter side is 2)
+let rng = 12345;
+const rnd = () => { rng = (rng + 0x6D2B79F5) | 0; let t = Math.imul(rng ^ (rng >>> 15), 1 | rng); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const clipSides = (tri) => {
+  let poly = tri;
+  for (const d of [(q) => -1 - q[0], (q) => q[0] - 1, (q) => -1 - q[1], (q) => q[1] - 1]) {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], da = d(a), db = d(b);
+      if (da <= 0) out.push(a);
+      if ((da <= 0) !== (db <= 0)) out.push(a.map((v, k) => v + da / (da - db) * (b[k] - v)));
+    }
+    poly = out;
+  }
+  return poly.length;
+};
+const maxCorners = (edge) => {
+  let best = 0;
+  for (let i = 0; i < TRIS; i++) {
+    const c = [rnd() * 6 - 3, rnd() * 6 - 3], tri = [0, 1, 2].map(() => [c[0] + (rnd() - 0.5) * edge, c[1] + (rnd() - 0.5) * edge]);
+    const e = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (Math.max(e(tri[0], tri[1]), e(tri[1], tri[2]), e(tri[2], tri[0])) >= SIDE_MIN) continue;
+    best = Math.max(best, clipSides(tri));
+  }
+  return best;
+};
+const maxBig = (() => { let best = 0; for (let i = 0; i < TRIS; i++) { const tri = [0, 1, 2].map(() => [rnd() * 8 - 4, rnd() * 8 - 4]); best = Math.max(best, clipSides(tri)); } return best; })();
+const maxSmall = maxCorners(2 * SIDE_MIN);
+info.cellCorners = { CELL_CORNERS, maxSmall, maxBig };
+ok(`a cell triangle (edges under the block's shorter side) leaves at most ${CELL_CORNERS} corners, and a triangle at a corner of the block leaves that many`, maxSmall === CELL_CORNERS, { maxSmall });
+ok(`control: a triangle larger than the side leaves more than ${CELL_CORNERS} corners`, maxBig > CELL_CORNERS, { maxBig });
+ok(`control: the fan one too small (${CELL_CORNERS - 1} corners) is too few for a cell triangle`, maxSmall > CELL_CORNERS - 1, { maxSmall });
 return { pass: fails.length === 0, fails, info };
