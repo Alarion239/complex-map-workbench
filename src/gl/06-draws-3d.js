@@ -318,9 +318,23 @@
   const mixOf = (st) => st.mix || { mu2: 0, beta: 0, endLin: 0 };
   const clipOf = (m) => (m === 4 || m === 5 || m >= 8 ? 1e4 : 0);
   const mixU = (P, st, mu) => { const mix = mixOf(st); u1f(P, 'uMu2', mix.mu2 > 0 ? mix.mu2 : mu); u1f(P, 'uMix', mix.beta); u1i(P, 'uEndLin', mix.endLin); };
+  // the members an op's inverse has at a point: a finite family's count; a 'log' family (ROOTPOW: members L_m = beta (Log w + 2 pi i m)
+  // with Im L_m in a strip of width 2 pi, which Im L steps through 2 pi |beta.re| at a time) 1 / |beta.re| members, rounded up unless it
+  // is an integer within LAND_MEMBERS_INT; a family with infinitely many members (beta.re 0) has no count (Infinity)
+  const LAND_MEMBERS_INT = 1e-12;
+  const opMembers = (o) => {
+    if (!o.fam) return 1;
+    if (o.fam.type === 'fin') return o.fam.count;
+    if (o.fam.type !== 'log') return 1;
+    if (o.fam.inf || !(Math.abs(o.fam.beta.re) > 0)) return Infinity;
+    const r = 1 / Math.abs(o.fam.beta.re), ri = Math.round(r);
+    return Math.abs(r - ri) < LAND_MEMBERS_INT ? ri : Math.ceil(r);
+  };
+  let landMembersFail = null;   // the last frame's member count when it has none or is over LAND_MEMBERS_MAX ({ n, reason }), else null: the layers are then the first LAND_MEMBERS_MAX members
   const landMembers = (st) => {
     const ex = st.carry.exact, plans = [ex.plan].concat((ex.more || []).map((m) => m.plan));
-    const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * (o.fam && o.fam.type === 'fin' ? o.fam.count : 1), 1)));
+    const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * opMembers(o), 1)));
+    landMembersFail = !Number.isFinite(n) ? { n, reason: 'infinite' } : n > LAND_MEMBERS_MAX ? { n, reason: 'over the cap' } : null;
     return clamp(Math.round(n) || 1, 1, LAND_MEMBERS_MAX);
   };
   function landLayer(k, N) {
@@ -548,7 +562,7 @@
     });
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
-    return { layers: out, skipped: landRingSkipped };
+    return { layers: out, skipped: landRingSkipped, membersFail: landMembersFail };
   }
   // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
   // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels

@@ -403,6 +403,8 @@
   const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
   // All sheets at one place: the layers and the members pair one to one, a layer with a member at its z and (the forward combos of one z are
   // told apart by height) its drawn height within HEIGHT_TOL
+  // the texel code of a vertex continued onto a layer past its range (CARRY_CONT_CODE: the layer's own vertices are below it)
+  const CONT_CODE = 10.25;
   const sameLayers = (have, want) => {
     if (have.length !== want.length) return false;
     const used = new Set();
@@ -843,7 +845,7 @@
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       pts.forEach((p, i) => {
-        const wantAll = ref[i] || [], haveAll = got[i] || [];
+        const wantAll = ref[i] || [], haveAll = (got[i] || []).filter((l) => !(l.c >= CONT_CODE));   // (a continued vertex is a layer's copy of a neighbour's surface, not a member)
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
