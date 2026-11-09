@@ -773,8 +773,7 @@
   // frame's own sheet first) [{ z, f, h, k, own, rank, front, miss }]. own: the member is on the frame's own sheet at its own cell (zc = z);
   // front marks the one member the frame draws with sheets off: the own-sheet member nearest the camera, or with none the nearest sheet's.
   // window.__cmwLandRejected is the number of candidates of the last call that no surface certified. Null when the frame has no scene
-  window.__cmwLandMembers = (pts) => { try { return window.__cmwLandMembers0(pts); } catch (e) { return { err: String(e && e.stack || e).slice(0, 400) }; } };
-  window.__cmwLandMembers0 = (pts) => {
+  window.__cmwLandMembers = (pts) => {
     const sc = sceneOf(), ens = window.__cmwLandEnum(pts), fl = render3D.floor, bx = render3D.box;
     if (!sc || !ens || !fl || !fl.info) return null;
     const info = fl.info, depth = (m) => {
@@ -828,8 +827,7 @@
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
   // opts: noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
-  window.__cmwLandWind = (wIn, opts = {}) => { const t0 = performance.now(); try { const r = window.__cmwLandWind0(wIn, opts); if (r) r[0].ms = Math.round(performance.now() - t0); return r; } catch (e) { return [{ err: String(e && e.stack || e).slice(0, 400), ok: false }]; } };
-  window.__cmwLandWind0 = (wIn, opts = {}) => {
+  window.__cmwLandWind = (wIn, opts = {}) => {
     const sc = sceneOf();
     if (!sc) return null;
     const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
