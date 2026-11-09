@@ -545,154 +545,232 @@
     });
     return true;
   };
-  // the frame's homotopy H_u at a point z of plane 0, per sheet (the sheets as __cmwLandEnum takes them): the forward ops of the plan the frame
-  // inverts (Inverse.fwdOps), so H(z) is the w the frame draws z at. lam, the member's continued log coordinate (as __cmwLandEnum gives it), makes
-  // H the one the frame draws: the plan's first op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
-  // is on, and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
-  // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H over HOM_DZ in z (the plan's ops carry no
-  // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]
-  const HOM_DZ = 1e-6;
-  window.__cmwLandHom = (z, lam) => {
-    const inp = render3D.exactIn;
-    if (!inp) return null;
-    const zc = C(z[0], z[1]), lc = lam ? C(lam[0], lam[1]) : null;
-    // (the first op's output from the lifted log coordinate; null when that op is neither)
-    const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
-    const at = (sh, p, l) => {
-      try {
-        const o = sh.plan.ops[0], u = l && first(o, l), w = u ? Inverse.fwdOps({ ops: sh.plan.ops.slice(1) }, u) : Inverse.fwdOps(sh.plan, p);
-        return CX.isFin(w) ? w : null;
-      } catch (e) { return null; }
+  // ---- The scene's reference for an exact Landscape glide frame ----
+  // Everything below reads the scene's own definition of the glide's homotopy H_u (__cmwLandScene: Funcs.sheetMapEval on the map the steps
+  // view draws) and never the inverse plan. __cmwLandEnum's members are candidates only; a candidate counts when it is certified here, and the
+  // completeness of the members is the winding of H_u - w around the leaves of the box (anchored continuation, so no cut of a plan enters).
+  // SCN: CERT, the relative |H_u(z) - w| a member is within (LAND_ENUM_Z_TOL's value: the candidate's z is as exact as the frame's); TIE, how
+  // much nearer the best surface must be than the next, or the surface is ambiguous; ARG, the largest argument a winding step turns;
+  // SEG, a leaf edge's first steps; DEPTH0 and DEPTH_MAX, the quadtree's first and last depths; MIN_STEP, the smallest step of an edge
+  // (a unit edge; the control raises it to 1); CLOSE, the relative distance within which a closed contour returns to its first value; ON, the relative |H_u - w| that
+  // puts w on a contour; NEAR, the relative gap of a value from w that the control calls near; REL, the largest relative change of a
+  // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
+  // grid; SAME_Z, the relative distance under which two candidates are one z
+  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 7, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5 };
+  let sceneMemo = null;
+  // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
+  // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
+  // sheet), rank(k) how far k's last piece is from its own sheet (0 own, then 1, 1, 2, 2, ...: the order the page tries the sheets in)
+  const sceneOf = () => {
+    const bx = render3D.box;
+    if (!bx || !render3D.carried || typeof Funcs.sheetMapEval !== 'function') return null;
+    const map = sceneMap(), W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const key = JSON.stringify([map, bx.x0, bx.x1, bx.y0, bx.y1, W, chainSig[nSteps()]]);
+    if (sceneMemo && sceneMemo.key === key) return sceneMemo;
+    const pcs = Funcs.sheetMapPieces(S.steps, built, map);
+    if (!pcs) return null;
+    const K = Funcs.sheetMapCombos(S.steps, built, map, W), radix = pcs.map((e) => (e.n > 0 ? e.n : 2 * W + 1));
+    let own = 0, r = 1;
+    pcs.forEach((e, i) => { if (e.n <= 0) own += W * r; r *= radix[i]; });
+    const last = pcs.length - 1, below = radix.slice(0, last).reduce((a, b) => a * b, 1);
+    const rank = (k) => {
+      if (last < 0) return 0;
+      const d = Math.floor(k / below) % radix[last], off = pcs[last].n > 0 ? Math.min(d, pcs[last].n - d) : Math.abs(d - W);
+      return off;
     };
-    // (d lam = dz / z at the continued log)
-    const lamAt = (p) => (lc ? CX.add(lc, CX.div(CX.sub(p, zc), zc)) : null);
-    return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => {
-      const pa = C(z[0] + HOM_DZ, z[1]), pb = C(z[0] - HOM_DZ, z[1]);
-      const w = at(sh, zc, lc), a = at(sh, pa, lamAt(pa)), b = at(sh, pb, lamAt(pb));
-      return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * HOM_DZ), (a.im - b.im) / (2 * HOM_DZ)] : null, exactD: false };
-    });
+    const g = (k, zc, z) => {
+      try { const f = Funcs.sheetMapEval(S.steps, built, map, zc, z, k, W); return CX.isFin(f) ? f : null; } catch (e) { return null; }
+    };
+    let poles = [];
+    try { poles = svDrain(svPolesIn(cpuMap(map), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || []; } catch (e) { poles = []; }
+    return (sceneMemo = { key, map, W, K, own, rank, g, box: bx, poles, leaves: null });
   };
-  // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of
-  // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in
-  // the continued log coordinate when the plan's first op is a log or a power, else in z), plus the plan's poles inside R, against the members
-  // __cmwLandEnum finds there. [{ sheet, N, P, members, ok, status }]; status 'ok', 'onContour' (w is on the boundary, the count is undefined),
-  // 'unresolved' (the winding's step fell below the minimum) or 'cutInR' (a later multivalued op's cut crosses R). opts: noPoles omits P,
-  // dropOne removes a member, hMin replaces WIND_H_MIN, onLip puts w on sheet 0's cut lip, nearContour puts w within WIND_NEAR of sheet 0's
-  // boundary
-  const WIND_ARG = Math.PI / 4, WIND_EPS_R = 1e-6, WIND_D_ON = 1e-9, WIND_H_MIN = 1e-12, WIND_CLOSE = 1e-6, WIND_PERIM = 4096, WIND_NEAR = 1e-4, WIND_SEG0 = 64, WIND_POLE_R = 1e-7, WIND_POLE_BIG = 1e3;
-  window.__cmwLandWind = (wIn, opts = {}) => {
-    const inp = render3D.exactIn, bx = render3D.box;
-    if (!inp || !bx) return null;
-    const hMin = opts.hMin == null ? WIND_H_MIN : opts.hMin;
-    const sheets = [inp.exact].concat(inp.exact.more || []), TAU2 = 2 * Math.PI;
-    const W = bx.x1 - bx.x0, Hh = bx.y1 - bx.y0, Lp = 2 * (W + Hh);
-    // (the box boundary counter-clockwise from its bottom-left corner, by arc length s)
-    const perim = (s) => {
-      s = ((s % Lp) + Lp) % Lp;
-      if (s < W) return C(bx.x0 + s, bx.y0);
-      if (s < W + Hh) return C(bx.x1, bx.y0 + s - W);
-      if (s < 2 * W + Hh) return C(bx.x1 - (s - W - Hh), bx.y1);
-      return C(bx.x0, bx.y1 - (s - 2 * W - Hh));
-    };
-    const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
-    const gAt = (sh, pt) => {
-      const o = sh.plan.ops[0], u = pt.lam && first(o, pt.lam);
-      const w = u ? Inverse.fwdOps({ ops: sh.plan.ops.slice(1) }, u) : Inverse.fwdOps(sh.plan, pt.z);
-      return w;
-    };
-    const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
-    // the winding of G - w along a piece t -> {z, lam}, t in [0, 1]: the sum of the wrapped arg steps, each at most WIND_ARG with its midpoint between
-    // the ends'; { sum, on, bad }
-    const windPiece = (sh, w, f, len) => {
-      let sum = 0, on = false;
-      const g = (t) => { const v = CX.sub(gAt(sh, f(t)), w); if (!CX.isFin(v)) throw new Error('nonfinite'); if (CX.abs(v) < WIND_D_ON * (1 + CX.abs(w))) on = true; return v; };
-      const stack = [];
-      for (let i = WIND_SEG0; i > 0; i--) stack.push([(i - 1) / WIND_SEG0, i / WIND_SEG0]);
-      while (stack.length) {
-        const [t0, t1] = stack.pop(), a = g(t0), b = g(t1), d = argd(a, b), tm = (t0 + t1) / 2, m = g(tm), d1 = argd(a, m), d2 = argd(m, b);
-        const ok = Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
-        if (ok) { sum += d; continue; }
-        if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true };
-        stack.push([tm, t1], [t0, tm]);
+  const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
+  const cmax = (z) => Math.max(1, CX.abs(z));
+  // the continuation of a value v at the point zi to the point z1: the surface whose own principal value at zi is nearest v (null when
+  // two are about as near: the surfaces meet), then its value at z1 on the cell centred at zi
+  const sceneNext = (sc, v, zi, z1) => {
+    let best = -1, d1 = Infinity, d2 = Infinity;
+    if (sc.K === 1) best = 0;
+    else {
+      for (let k = 0; k < sc.K; k++) {
+        const a = sc.g(k, zi, zi);
+        if (!a) continue;
+        const d = CX.abs(CX.sub(a, v));
+        if (d < d1) { d2 = d1; d1 = d; best = k; } else if (d < d2) d2 = d;
       }
-      return { sum, on, bad: false };
-    };
-    const lamOf = (sh, z) => { const o = sh.plan.ops[0]; return CX.log(z, o.p.theta, o.p.k); };
-    return (() => {
-      const probe = wIn && !opts.onLip && !opts.nearContour ? C(wIn[0], wIn[1]) : null;
-      const ens = window.__cmwLandEnum([wIn || [0, 0]]), out = [];
-      sheets.forEach((sh, k) => {
-        const o = sh.plan.ops[0], multi = o && (o.kind === 'LOG' || o.kind === 'ROOTPOW');
-        let w = probe, status = 'ok', N = 0;
-        try {
-          // (where the sheet's cut ray leaves the origin: Im lam = hi, the cut lips are Im lam = lo and hi)
-          const lo = multi ? o.p.lo : 0, hi = multi ? o.p.hi : 0;
-          const zeroIn = bx.x0 < 0 && 0 < bx.x1 && bx.y0 < 0 && 0 < bx.y1;
-          // (the perimeter's crossings of the ray, by the jump of the windowed arg between neighbours)
-          const cross = [];
-          if (multi) {
-            let prev = lamOf(sh, perim(0)).im;
-            for (let i = 1; i <= WIND_PERIM; i++) {
-              const cur = lamOf(sh, perim(Lp * i / WIND_PERIM)).im;
-              if (Math.abs(cur - prev) > Math.PI) {
-                let a = Lp * (i - 1) / WIND_PERIM, b = Lp * i / WIND_PERIM; const upA = prev > (lo + hi) / 2;
-                for (let it = 0; it < 80; it++) { const m = (a + b) / 2; ((lamOf(sh, perim(m)).im > (lo + hi) / 2) === upA ? (a = m) : (b = m)); }
-                cross.push({ s: (a + b) / 2, upBefore: upA });
-              }
-              prev = cur;
-            }
-          }
-          const lip = (r0, r1, im) => (t) => { const lr = r0 + (r1 - r0) * t, z = C(Math.exp(lr) * Math.cos(im), Math.exp(lr) * Math.sin(im)); return { z, lam: C(lr, im) }; };
-          const arc = (s0, s1) => (t) => { const z = perim(s0 + (s1 - s0) * t); return { z, lam: multi ? lamOf(sh, z) : null }; };
-          const pieces = [];   // [[piece fns...] per component]
-          if (!multi) pieces.push([[arc(0, Lp), Lp]]);
-          else if (!cross.length) pieces.push([[arc(0, Lp), Lp]]);
-          else if (zeroIn) {
-            const c0 = cross[0], rc = CX.abs(perim(c0.s)), eps = WIND_EPS_R * Math.hypot(W, Hh), lr = Math.log(rc), le = Math.log(eps);
-            pieces.push([[(t) => { const z = perim(c0.s + Lp * t); const l = lamOf(sh, z); return { z, lam: l.im <= lo + 1e-9 && t > 1 - 1e-9 ? C(l.re, hi) : l }; }, Lp], [lip(lr, le, hi), lr - le], [(t) => { const im = hi + (lo - hi) * t; return { z: C(eps * Math.cos(im), eps * Math.sin(im)), lam: C(le, im) }; }, hi - lo], [lip(le, lr, lo), lr - le]]);
-          } else {
-            // (0 outside the box and the ray through it: each piece of the boundary between two crossings with the lip back along the ray)
-            for (let i = 0; i < cross.length; i++) {
-              const a = cross[i], b = cross[(i + 1) % cross.length];
-              const s1 = b.s > a.s ? b.s : b.s + Lp, ra = Math.log(CX.abs(perim(a.s))), rb = Math.log(CX.abs(perim(b.s)));
-              const im = lamOf(sh, perim(a.s + (s1 - a.s) * 1e-9)).im;
-              pieces.push([[arc(a.s, s1), s1 - a.s], [lip(rb, ra, im > (lo + hi) / 2 ? hi : lo), Math.abs(rb - ra)]]);
-            }
-          }
-          if (opts.onLip && !multi) { out.push({ sheet: k, N: 0, P: 0, members: 0, ok: true, status: 'noCut' }); return; }
-          if (opts.onLip && multi) { for (const lr of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) { const g0 = gAt(sh, { z: C(Math.exp(lr) * Math.cos(hi), Math.exp(lr) * Math.sin(hi)), lam: C(lr, hi) }); if (g0 && CX.isFin(g0)) { w = g0; break; } } }
-          if (opts.nearContour) { const z = perim(Lp / 3); w = CX.add(gAt(sh, { z, lam: multi ? lamOf(sh, z) : null }), C(WIND_NEAR, 0)); }
-          let total = 0;
-          for (const comp of pieces) {
-            let sum = 0;
-            for (const [f, len] of comp) { const r = windPiece(sh, w, f, len || 1); if (r.on) status = 'onContour'; if (r.bad) status = status === 'ok' ? 'unresolved' : status; sum += r.sum; }
-            const n = sum / TAU2;
-            if (Math.abs(n - Math.round(n)) > WIND_CLOSE) status = status === 'ok' ? 'unresolved' : status;
-            total += Math.round(n);
-          }
-          N = total;
-        } catch (e) { status = String(e.message) === 'nonfinite' ? 'onContour' : 'error: ' + e.message; }
-        // (the plan's poles inside the box, each counted by its order: the growth of |G| over WIND_POLE_R and ten times it. A singular point
-        // that G does not blow up at is no pole; a pole on the sheet's cut ray is on the contour)
-        let P = 0;
-        if (!opts.noPoles) {
-          try {
-            const at = (q, r) => { const z = C(q.re + r, q.im), l = multi ? lamOf(sh, z) : null; return CX.abs(gAt(sh, { z, lam: l })); };
-            for (const q of Inverse.singular(sh.plan, bx, ['pole'], 16)) {
-              if (!(q.z.re >= bx.x0 && q.z.re <= bx.x1 && q.z.im >= bx.y0 && q.z.im <= bx.y1)) continue;
-              const a = at(q.z, WIND_POLE_R), b = at(q.z, 10 * WIND_POLE_R), order = Math.log(a / b) / Math.log(10);
-              if (a > WIND_POLE_BIG && order > 0.5) P += Math.round(order);
-            }
-          } catch (e) { P = 0; }
-        }
-        const mem = ((ens && ens[0]) || []).filter((m) => m.sheet === k && m.z[0] >= bx.x0 && m.z[0] <= bx.x1 && m.z[1] >= bx.y0 && m.z[1] <= bx.y1 && (!multi || !m.lam || (m.lam[1] > o.p.lo && m.lam[1] <= o.p.hi))).length - (opts.dropOne && k === 0 ? 1 : 0);
-        out.push({ sheet: k, N, P, members: mem, ok: status === 'ok' && N + P === mem, status });
-      });
-      return out;
-    })();
+      if (best < 0 || d1 * SCN.TIE > d2) return null;
+    }
+    const nv = sc.g(best, zi, z1);
+    return nv ? { k: best, v: nv } : null;
   };
-  // the range ramp (pixels) the inverse admits members outside a sheet's window by: a member's lvl is at least -RAMP
-  window.__cmwLandRamp = () => Inverse.RAMP;
+  // the continuation of start surface k0 once round the rectangle's edges (counter-clockwise from its lower left corner): control(v, nv) says
+  // whether a step is small enough; each accepted step calls onStep(v, nv). { ok, v0, v1 }: ok false where a step cannot be made small
+  const sceneRing = (sc, k0, r, control, onStep, minStep = SCN.MIN_STEP) => {
+    const pts = [C(r.x0, r.y0), C(r.x1, r.y0), C(r.x1, r.y1), C(r.x0, r.y1), C(r.x0, r.y0)], z0 = pts[0], v0 = sc.g(k0, z0, z0);
+    if (!v0) return { ok: false };
+    let v = v0, zi = z0;
+    for (let e = 0; e < 4; e++) {
+      const a = pts[e], b = pts[e + 1], len = CX.abs(CX.sub(b, a));
+      let t = 0, h = 1 / SCN.SEG;
+      while (t < 1) {
+        const t1 = Math.min(1, t + h), z1 = C(a.re + (b.re - a.re) * t1, a.im + (b.im - a.im) * t1), n = sceneNext(sc, v, zi, z1);
+        if (n && control(v, n.v)) { onStep(v, n.v); v = n.v; zi = z1; t = t1; h = Math.min(h * 2, 1 / SCN.SEG); continue; }
+        h /= 2;
+        if (h < minStep || h * len < minStep) return { ok: false, v0 };
+      }
+    }
+    return { ok: true, v0, v1: v };
+  };
+  // the leaves of the box: a quadtree cut until the continuation of every surface round a leaf returns to its own value (no branch point
+  // inside), at most DEPTH_MAX deep; a leaf that still does not close is a branch leaf. [{ x0, x1, y0, y1, c, closed, poles }]
+  const sceneLeaves = (sc) => {
+    if (sc.leaves) return sc.leaves;
+    const out = [], b = sc.box, n0 = 1 << SCN.DEPTH0;
+    const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
+    const closed = (r) => {
+      for (let k = 0; k < sc.K; k++) {
+        const q = sceneRing(sc, k, r, rel, () => {});
+        if (!q.ok || CX.abs(CX.sub(q.v1, q.v0)) > SCN.CLOSE * cmax(q.v0)) return false;
+      }
+      return true;
+    };
+    const cut = (r, d) => {
+      const ok = closed(r);
+      if (ok || d >= SCN.DEPTH_MAX) {
+        out.push(Object.assign({ c: C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2), closed: ok, poles: sc.poles.filter((p) => p.re >= r.x0 && p.re < r.x1 && p.im >= r.y0 && p.im < r.y1) }, r));
+        return;
+      }
+      const mx = (r.x0 + r.x1) / 2, my = (r.y0 + r.y1) / 2;
+      for (const [x0, x1] of [[r.x0, mx], [mx, r.x1]]) for (const [y0, y1] of [[r.y0, my], [my, r.y1]]) cut({ x0, x1, y0, y1 }, d + 1);
+    };
+    for (let j = 0; j < n0; j++) for (let i = 0; i < n0; i++) {
+      cut({ x0: b.x0 + (b.x1 - b.x0) * i / n0, x1: b.x0 + (b.x1 - b.x0) * (i + 1) / n0, y0: b.y0 + (b.y1 - b.y0) * j / n0, y1: b.y0 + (b.y1 - b.y0) * (j + 1) / n0 }, SCN.DEPTH0);
+    }
+    return (sc.leaves = out);
+  };
+  const leafOf = (sc, z) => sceneLeaves(sc).find((l) => z.re >= l.x0 && z.re <= l.x1 && z.im >= l.y0 && z.im <= l.y1) || null;
+  // the surfaces of H_u at z on the cell centred at zc, nearest w first: [{ k, miss }], miss the relative |H_u(z) - w|
+  const sceneMiss = (sc, w, zc, z) => {
+    const out = [];
+    for (let k = 0; k < sc.K; k++) {
+      const h = sc.g(k, zc, z);
+      if (h) out.push({ k, miss: CX.abs(CX.sub(h, w)) / (1 + CX.abs(w)) });
+    }
+    return out.sort((p, q) => p.miss - q.miss);
+  };
+  // the candidate z's surface on the leaf's cell: the one within CERT of w and clearly nearest (the next at least TIE times as far); null otherwise
+  const sceneCertify = (sc, w, z) => {
+    const l = leafOf(sc, z), m = sceneMiss(sc, w, l && l.closed ? l.c : z, z);
+    return m.length && m[0].miss <= SCN.CERT && (m.length === 1 || m[0].miss * SCN.TIE <= m[1].miss) ? { k: m[0].k, miss: m[0].miss, leaf: l } : null;
+  };
+  // The scene's members at probe places w ([re, im] each): per place the certified candidates of __cmwLandEnum (one per z and surface, the
+  // frame's own sheet first) [{ z, f, h, k, own, rank, front, miss }]. own: the member is on the frame's own sheet at its own cell (zc = z);
+  // front marks the one member the frame draws with sheets off: the own-sheet member nearest the camera, or with none the nearest sheet's.
+  // window.__cmwLandRejected is the number of candidates of the last call that no surface certified. Null when the frame has no scene
+  window.__cmwLandMembers = (pts) => {
+    const sc = sceneOf(), ens = window.__cmwLandEnum(pts), fl = render3D.floor, bx = render3D.box;
+    if (!sc || !ens || !fl || !fl.info) return null;
+    const info = fl.info, depth = (m) => {
+      const c = GLR.M4.apply(info.MVP, [(2 * (m.z[0] - bx.x0) / (bx.x1 - bx.x0) - 1) * info.aspect[0], (2 * (m.z[1] - bx.y0) / (bx.y1 - bx.y0) - 1) * info.aspect[1], m.h]);
+      return c[2] / c[3];
+    };
+    let rejectedAll = 0;
+    const res = pts.map((w, i) => {
+      const wc = C(w[0], w[1]), out = [];
+      let rejected = 0;
+      for (const m of ens[i]) {
+        const z = C(m.z[0], m.z[1]), cert = sceneCertify(sc, wc, z);
+        if (!cert) { rejected++; continue; }
+        if (out.some((x) => x.k === cert.k && Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) <= SCN.SAME_Z * (1 + Math.hypot(m.z[0], m.z[1])))) continue;
+        const at = sceneMiss(sc, wc, z, z), own = at.length > 0 && at[0].k === sc.own && at[0].miss <= SCN.CERT;
+        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, own, rank: sc.rank(cert.k), miss: cert.miss, member: m.member, src: m.sheet });
+      }
+      const front = out.reduce((best, m) => (!best || m.rank < best.rank || (m.rank === best.rank && depth(m) < depth(best)) ? m : best), null);
+      if (front) front.front = true;
+      out.sort((p, q) => (q.front ? 1 : 0) - (p.front ? 1 : 0));
+      rejectedAll += rejected;
+      return out;
+    });
+    window.__cmwLandRejected = rejectedAll;
+    return res;
+  };
+  // the frame's homotopy H_u at a point z of plane 0 on every surface of the scene (the cell centred at z): [{ sheet: k, H: [re, im] | null,
+  // dH: [re, im] | null, exactD }]; dH is a central difference over HOM_DZ in z at the same cell, exactD false
+  const HOM_DZ = 1e-6;
+  window.__cmwLandHom = (z) => {
+    const sc = sceneOf();
+    if (!sc) return null;
+    const zc = C(z[0], z[1]), a = C(z[0] + HOM_DZ, z[1]), b = C(z[0] - HOM_DZ, z[1]), out = [];
+    for (let k = 0; k < sc.K; k++) {
+      const h = sc.g(k, zc, zc), ha = sc.g(k, zc, a), hb = sc.g(k, zc, b);
+      out.push({ sheet: k, H: h ? [h.re, h.im] : null, dH: ha && hb ? [(ha.re - hb.re) / (2 * HOM_DZ), (ha.im - hb.im) / (2 * HOM_DZ)] : null, exactD: false });
+    }
+    return out;
+  };
+  // the scene's singular points over the frame's box: { poles: [[re, im]], branch: [[re, im]] }, the poles the steps view finds on the glide's
+  // map and the centres of the leaves no surface closes round (a branch point inside)
+  window.__cmwLandSing = () => {
+    const sc = sceneOf();
+    return sc ? { poles: sc.poles.map((p) => [p.re, p.im]), branch: sceneLeaves(sc).filter((l) => !l.closed).map((l) => [l.c.re, l.c.im]) } : null;
+  };
+  // the completeness count of the frame's reference at one place w (plane 0's map value): over the leaves of the box, the pairs (z, surface)
+  // the winding of H_u - w counts (the sum over surfaces of the winding round the leaf plus its poles, each by its order) against the pairs the
+  // certified members make in it. A leaf no surface closes round (a branch point) holds no pair when w is farther from the mean of its boundary
+  // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
+  // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
+  // count is undefined there) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
+  // opts: noPoles omits P, dropOne removes a member, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
+  // unreachable
+  window.__cmwLandWind = (wIn, opts = {}) => {
+    const sc = sceneOf();
+    if (!sc) return null;
+    const leaves = sceneLeaves(sc), first = leaves.find((l) => l.closed) || leaves[0];
+    let w = wIn ? C(wIn[0], wIn[1]) : null;
+    if (opts.onContour || opts.nearContour) {
+      const z = C(first.x0, first.y0), v = sc.g(0, z, z);
+      w = !v ? w : opts.onContour ? v : CX.add(v, C(SCN.NEAR * cmax(v), 0));
+    }
+    if (!w) return null;
+    const ms = window.__cmwLandMembers([[w.re, w.im]])[0] || [];
+    let status = 'ok', N = 0, P = 0, branchLeaves = 0, bad = 0;
+    const minStep = opts.nearContour ? 1 : SCN.MIN_STEP;
+    for (const l of leaves) {
+      if (!l.closed) {
+        branchLeaves++;
+        const vals = [];
+        const rim = [C(l.x0, l.y0), C(l.x1, l.y0), C(l.x1, l.y1), C(l.x0, l.y1)];
+        for (let e = 0; e < 4; e++) for (let s = 0; s < SCN.SEG; s++) {
+          const z = C(rim[e].re + (rim[(e + 1) % 4].re - rim[e].re) * s / SCN.SEG, rim[e].im + (rim[(e + 1) % 4].im - rim[e].im) * s / SCN.SEG);
+          for (let k = 0; k < sc.K; k++) { const v = sc.g(k, z, z); if (v) vals.push(v); }
+        }
+        const mean = vals.reduce((a, v) => CX.add(a, v), C(0, 0)), vc = C(mean.re / vals.length, mean.im / vals.length);
+        const spread = vals.reduce((a, v) => Math.max(a, CX.abs(CX.sub(v, vc))), 0);
+        if (l.poles.length || !(CX.abs(CX.sub(w, vc)) > spread * (1 + SCN.NEAR))) status = status === 'ok' ? 'unresolved' : status;
+        continue;
+      }
+      for (let k = 0; k < sc.K; k++) {
+        let sum = 0, on = false;
+        const q = sceneRing(sc, k, l, (v, nv) => Math.abs(argd(CX.sub(v, w), CX.sub(nv, w))) <= SCN.ARG, (v, nv) => {
+          sum += argd(CX.sub(v, w), CX.sub(nv, w));
+          if (CX.abs(CX.sub(nv, w)) < SCN.ON * (1 + CX.abs(w))) on = true;
+        }, minStep);
+        if (!q.ok) { bad++; status = status === 'ok' ? 'unresolved' : status; continue; }
+        if (on || CX.abs(CX.sub(q.v0, w)) < SCN.ON * (1 + CX.abs(w))) { status = 'onContour'; continue; }
+        const n = sum / (2 * Math.PI);
+        if (Math.abs(n - Math.round(n)) > SCN.CLOSE * 1e3) { status = status === 'ok' ? 'unresolved' : status; continue; }
+        N += Math.round(n);
+        if (!opts.noPoles) {
+          for (const p of l.poles) {
+            const at = (r) => { const h = sc.g(k, l.c, C(p.re + r, p.im)); return h ? CX.abs(h) : 0; }, a = at(SCN.POLE_R), b = at(10 * SCN.POLE_R), order = Math.log(a / b) / Math.log(10);
+            if (a > SCN.POLE_BIG && order > 0.5) { N += Math.round(order); P += Math.round(order); }
+          }
+        }
+      }
+    }
+    const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && l.closed; }).length - (opts.dropOne ? 1 : 0);
+    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, bad }];
+  };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true }, noRay: { noRay: true }, mixBeta0: { mixBeta0: true }, mixSwitch: { mixSwitch: true }, clipOff: { clipOff: true }, clipLinear: { clipLinear: true }, noSeam: { noSeam: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)

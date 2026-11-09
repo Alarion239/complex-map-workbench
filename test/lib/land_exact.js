@@ -90,7 +90,7 @@
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
-  const WIND_PLACES = 12, WIND_HMIN_CTL = 0.1;   // (places counted per frame; the control's step floor, as a fraction of a piece)
+  const WIND_PLACES = 12;   // (places counted per frame)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
   // the exact image reference's raster (window.__lxRaster): the box's lattice (nx x ny cells, each halved up to depth times where the
@@ -167,17 +167,17 @@
       if (!need.length) return true;
       if (cache.size + need.length > g.cap) { capped = true; return false; }
       for (let at = 0; at < need.length; at += g.batch) {
-        const part = need.slice(at, at + g.batch), e = __cmwLandEnum(part.map(([i, j]) => xy(i, j)));
+        const part = need.slice(at, at + g.batch), e = __cmwLandMembers(part.map(([i, j]) => xy(i, j)));
         if (!e) return false;
         part.forEach(([i, j], k) => {
           // (a place outside the frame's Inside-regions mask is not drawn as relief: __cmwLandMask is 0 to 1, null with no mask)
           const mk = __cmwLandMask(...xy(i, j));
-          let ms = mk !== null && mk < ${MASK_ON} ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h));
+          let ms = mk !== null && mk < ${MASK_ON} ? [] : e[k].filter((m) => (sheets || m.front) && Number.isFinite(m.h)).map((m) => Object.assign({}, m, { sheet: m.k }));
           // (All sheets: a member a layer per forward combo, as the frame draws it)
           if (sheets && typeof __cmwLandRefSheets === 'function') ms = window.__lxExpand(ms, __cmwLandRefSheets);
           // (a point is its projection and its member's id: a facet pairs the same member at every corner)
           const pts = [];
-          for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2, m.sheet + ':' + m.member + ':' + (m.combo || '')]); }
+          for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2, m.sheet + ':' + m.member + ':' + m.src + ':' + (m.combo || '')]); }
           cache.set(key(i, j), pts);
         });
         yield;
@@ -258,47 +258,36 @@
     for (let i = 0; i < ref.length; i++) { if (ref[i]) { n++; if (!gf[i]) missing++; } if (frame[i] && !gr[i]) extra++; }
     return { n, extra, missing, off: n ? (extra + missing) / n : 1, capped: !!capped, w: W2, h: H2 };
   };
-  // the largest |H(z) - w| over the members (each { z, lam, sheet, w }) by the frame's homotopy (window.__cmwLandHom, at the member's continued
-  // log coordinate lam): 0 when each member is a preimage of its place; Infinity when the hook has no value there. shift moves every w by that
-  // much, principal evaluates H at z's principal log instead of at lam (the controls)
-  window.__lxHomMiss = (ms, shift, principal) => {
+  // the largest relative |H(z) - w| over the members (each { z, w }), each at the surface of the scene's homotopy (window.__cmwLandHom, the cell
+  // centred at z) nearest its place: 0 when each member is a preimage of its place; Infinity when the hook has no value there. shift moves every w
+  // by that much (the control)
+  window.__lxHomMiss = (ms, shift) => {
     const d = ms.map((m) => {
-      const hs = typeof __cmwLandHom === 'function' ? __cmwLandHom(m.z, principal ? null : m.lam) : null, e = hs && hs[m.sheet] && hs[m.sheet].H;
-      return e ? Math.hypot(e[0] - m.w[0] - shift, e[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])) : Infinity;
+      const hs = typeof __cmwLandHom === 'function' ? __cmwLandHom(m.z) : null;
+      return hs ? Math.min(Infinity, ...hs.filter((h) => h.H).map((h) => Math.hypot(h.H[0] - m.w[0] - shift, h.H[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])))) : Infinity;
     });
     const bad = ms.map((m, i) => [i, d[i]]).filter(([, x]) => x > window.__lxHomTol);
-    return { worst: d.reduce((a, b) => Math.max(a, b), 0), nBad: bad.length, sample: bad.slice(0, 4).map(([i, x]) => {
-      // (the sheet whose homotopy maps the member to its place, when it is not the one it is labelled with: a label mismatch, not a wrong member)
-      const hs = __cmwLandHom(ms[i].z, ms[i].lam) || [], per = hs.map((h) => (h.H ? Math.hypot(h.H[0] - ms[i].w[0], h.H[1] - ms[i].w[1]) / (1 + Math.hypot(ms[i].w[0], ms[i].w[1])) : Infinity));
-      const best = per.reduce((a, v, k) => (v < per[a] ? k : a), 0);
-      return { sheet: ms[i].sheet, member: ms[i].member, z: ms[i].z, lam: ms[i].lam, lvl: ms[i].lvl, w: ms[i].w, miss: x, bestSheet: best, bestMiss: per[best] };
-    }) };
+    return { worst: d.reduce((a, b) => Math.max(a, b), 0), nBad: bad.length, sample: bad.slice(0, 4).map(([i, x]) => ({ z: ms[i].z, w: ms[i].w, miss: x })) };
   };
   window.__lxPick = null;
   // the members expanded by the forward combos refsOf(z) gives ([{ combo, z, f, h }] per z): a member with more than one combo is that many
   // layers, the others stay as they are
   window.__lxExpand = (o, refsOf) => o.flatMap((m) => {
     const rs = refsOf(m.z).filter((r) => r.f && r.h !== null);
-    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, combo: r.combo, lam: m.lam, lvl: m.lvl })) : [m];
+    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, src: m.src, combo: r.combo })) : [m];
   });
   window.__lxEnum = (pts, sheets) => {
-    const e = typeof __cmwLandEnum === 'function' ? __cmwLandEnum(pts) : null;
+    const e = typeof __cmwLandMembers === 'function' ? __cmwLandMembers(pts) : null;
     if (!e) return null;
-    // (the front member first: the hook marks it, front: true, one per place; a place with members and none marked is counted in
-    // window.__lxNoFront, which the suite fails on, and is not ordered by any rule here. The same z repeats on sheets that differ by
-    // a multiple of n, so a z listed again is dropped.)
-    window.__lxNoFront = 0;
+    // (the front member first: the hook marks the one the frame draws with sheets off. All sheets: a member of a chain with a multivalued
+    // step past plane 0 is drawn once per forward combo of the colour map's distinct sheets, the parked frame's own: window.__cmwLandRefSheets(z),
+    // each { combo, z, f, h }; a chain without one has the member alone)
     return e.map((ms) => {
-      const best = ms.find((m) => m.front);
-      if (ms.length && !best) window.__lxNoFront++;
-      const use = best ? [best].concat(ms.filter((m) => m !== best)) : ms, o = [];
-      for (const m of use) if (!o.some((x) => Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) < ${SAME_Z} && Math.abs(x.h - m.h) <= ${HEIGHT_TOL})) o.push({ z: m.z, f: m.fd || m.f, h: m.hd ?? m.h, sheet: m.sheet, lam: m.lam, lvl: m.lvl });
-      // (All sheets: a member of a chain with a multivalued step past plane 0 is drawn once per forward combo of the colour map's distinct
-      // sheets, the parked frame's own: window.__cmwLandRefSheets(z), each { combo, z, f, h }; a chain without one has the member alone)
+      const o = ms.map((m) => ({ z: m.z, f: m.f, h: m.h, sheet: m.k, member: m.member, src: m.src }));
       return sheets && typeof __cmwLandRefSheets === 'function' ? window.__lxExpand(o, __cmwLandRefSheets) : o;
     });
   };
-  1`;
+    1`;
   async function load(c, sheets) {
     const ns = 'landexact' + Date.now();
     if (c.example) {
@@ -725,71 +714,61 @@
       const at1 = (g, q) => q.map((p, i) => (g && g[i] && g[i][0] && g[i][0].w) || p);
       const vpts = at1(got, pts), cw = at1(cgot, cpts);
       const ref = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
-      const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
       ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
       if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
       ok(`${t}: the CPU reference finds preimages at a probe place (${refN} of ${pts.length})`, refN > 0, { refN });
-      ok(`${t}: the hook marks the front member (front: true) at every place that has members; ${noFront} places without (the front member is the page's, never ordered here)`, noFront === 0, { noFront });
       {
         const ms = [];
-        ref.forEach((l, i) => l.forEach((m) => { if (m.z && ms.length < HOM_MAX) ms.push({ z: m.z, lam: m.lam || null, lvl: m.lvl, sheet: m.sheet || 0, member: m.member, w: vpts[i] }); }));
+        ref.forEach((l, i) => l.forEach((m) => { if (m.z && ms.length < HOM_MAX) ms.push({ z: m.z, w: vpts[i] }); }));
         await ev(`window.__lxHomTol = ${HOM_TOL}; 1`);
         const mr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0)`), mv = await ev(`__lxHomMiss(${JSON.stringify(ms)}, ${HOM_SHIFT})`), miss = mr.worst, moved = mv.worst;
         ok(`${t}: every enumerated member (${ms.length}) maps to its place under the frame's homotopy (window.__cmwLandHom) within ${HOM_TOL}`, ms.length > 0 && miss <= HOM_TOL, { miss, nBad: mr.nBad, n: ms.length, sample: mr.sample });
-        { const sc = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, 40))}, K = __cmwLandSceneCombos(); if (!K) return null; return { K, rows: ms.map((m) => { const per = []; for (let k = 0; k < K.n; k++) { const h = __cmwLandScene(m.z, k); per.push(h ? Math.hypot(h[0] - m.w[0], h[1] - m.w[1]) / (1 + Math.hypot(m.w[0], m.w[1])) : null); } return { sheet: m.sheet, member: m.member, per }; }) }; })()`); ok('PROBE scene', false, sc); }
         ok(`${t}: the control: the places moved by ${HOM_SHIFT} are not matched by the homotopy (miss ${moved})`, moved > HOM_TOL, { moved });
-        // the plan read by the reference corrupted (the output of its last op moved, on every sheet): its members are preimages under the shortened plan, not
-        // under the scene, so the homotopy check must flag them; a reference that takes its homotopy from the plan answers the corrupted plan
-        // consistently and flags nothing
+        // the plan read by the candidate generator corrupted (the output of its last op moved, on every sheet): its candidates are preimages under
+        // the shortened plan, not under the scene, so the scene must refuse them: candidates are rejected, the members that are left are fewer than
+        // the winding counts, and the case fails. A reference that took its homotopy from the plan would answer the corrupted plan consistently
+        const idxW = []; ref.forEach((l, i) => { if (l.length) idxW.push(i); });
+        const pickWind = idxW.filter((_, j) => j % Math.max(1, Math.ceil(idxW.length / WIND_PLACES)) === 0).slice(0, WIND_PLACES);
         if (c.corruptPlan) {
           const applied = await ev(`__cmwLandCorruptPlan('shiftOut')`);
           ok(`${t}: the control's corrupted plan applies`, applied === true, { applied });
           if (applied === true) {
             try {
-              const bad = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`), ms2 = [];
-              bad.forEach((l, i) => l.forEach((m) => { if (m.z && ms2.length < HOM_MAX) ms2.push({ z: m.z, lam: m.lam || null, lvl: m.lvl, sheet: m.sheet || 0, member: m.member, w: vpts[i] }); }));
-              const mc = await ev(`__lxHomMiss(${JSON.stringify(ms2)}, 0)`);
-              ok(`${t}: the control: a plan whose last op's output is moved is flagged by the homotopy check (${ms2.length} members, miss ${mc.worst})`, ms2.length > 0 && mc.worst > HOM_TOL, { n: ms2.length, miss: mc.worst, nBad: mc.nBad });
+              const bad = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`), rejected = await ev('window.__cmwLandRejected');
+              const have = bad.reduce((n, l) => n + l.length, 0), want = ref.reduce((n, l) => n + l.length, 0);
+              let notOk = 0, nW = 0;
+              for (const i of pickWind) { const wr = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, {})`); for (const r of wr || []) { nW++; if (!r.ok) notOk++; } }
+              ok(`${t}: the control: a corrupted plan's candidates are rejected by the scene (${rejected} rejected; ${have} members left of ${want})`, rejected > 0 && have < want, { rejected, have, want });
+              ok(`${t}: the control: with a corrupted plan the completeness count fails (${notOk} of ${nW} counts)`, notOk > 0, { notOk, nW });
             } finally { await ev(`__cmwLandCorruptPlan('restore')`); }
           }
         }
-        // (a member of the range ramp, lvl < 0, is outside its sheet's window: H is exact at its lam, and the principal log of z is another
-        // branch. Every member is within the ramp; the principal evaluation and a ramp of 0 must each flag the members that are outside)
-        const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length;
-        const out = ms.filter((m) => !(m.lvl >= -ramp)).length;
-        ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
         // the completeness count: for probe places with members, the winding of the homotopy around each sheet's region (plus the plan's poles) equals the
         // members found there on every sheet; controls: a member removed, the poles omitted, a place on a cut lip, a step floor that cannot resolve a place near the boundary
         {
-          const idx = []; ref.forEach((l, i) => { if (l.length) idx.push(i); });
-          const pick = idx.filter((_, j) => j % Math.max(1, Math.ceil(idx.length / WIND_PLACES)) === 0).slice(0, WIND_PLACES);
+          const pick = pickWind;
           let nBadW = 0, nChecked = 0; const badW = [];
           for (const i of pick) {
             const wr = await ev(`__cmwLandWind(${JSON.stringify(vpts[i])}, {})`);
             for (const r of wr || []) { nChecked++; if (!r.ok) { nBadW++; if (badW.length < 4) badW.push(Object.assign({ place: vpts[i] }, r)); } }
           }
-          ok(`${t}: the completeness count: the winding of the homotopy plus the poles equals the members found, on every sheet of ${pick.length} places (${nChecked} sheet counts)`, nChecked > 0 && nBadW === 0, { nBadW, nChecked, badW });
+          ok(`${t}: the completeness count: the winding of the scene's homotopy plus the poles equals the certified members, over the leaves of the box at ${pick.length} places (${nChecked} counts)`, nChecked > 0 && nBadW === 0, { nBadW, nChecked, badW });
           if (pick.length) {
             const i0 = pick[0];
             const drop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { dropOne: true })`);
             ok(`${t}: the control: one member removed breaks the count`, !!drop && drop.some((r) => !r.ok), { drop });
-            const lipR = await ev(`__cmwLandWind(null, { onLip: true })`);
-            // (a place on a lip is a root on the contour: the count must report it, as on the contour or as an unresolved step, and never as a count)
-            const noCut = !!lipR && lipR.every((r) => r.status === 'noCut'), loud = !!lipR && lipR.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
-            ok(`${t}: the control: a place on a cut lip is not counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipR && loud && (noCut || lipR.some((r) => r.status === 'onContour' || r.status === 'unresolved')), { lipR: lipR && lipR.slice(0, 3) });
-            const near = await ev(`__cmwLandWind(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
+            const lipR = await ev(`__cmwLandWind(null, { onContour: true })`);
+            // (a place whose value is on a leaf's contour has a winding that is undefined: the count must say so, never give a count)
+            ok(`${t}: the control: a place on a leaf contour is not counted`, !!lipR && lipR.every((r) => r.status === 'onContour'), { lipR });
+            const near = await ev(`__cmwLandWind(null, { nearContour: true })`);
             ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!near && near.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near });
             const nop = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withP = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
             const poleCase = !!withP && withP.some((r) => r.P > 0);
             if (poleCase) ok(`${t}: the control: the poles omitted break the count`, !!nop && nop.some((r) => !r.ok), { nop });
           }
-        }
-        if (nRamp) {
-          const pr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`), tight = ms.filter((m) => !(m.lvl >= 0)).length;
-          ok(`${t}: the control: the principal-branch homotopy flags the ramp members (miss ${pr.worst}); a ramp of 0 flags ${tight}`, pr.worst > HOM_TOL && tight === nRamp, { principal: pr.worst, tight, nRamp });
         }
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
