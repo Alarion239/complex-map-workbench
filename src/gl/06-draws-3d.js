@@ -1565,7 +1565,7 @@
       // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale scales the block's sides)
       u1i(Pc, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
       // (the single layer has no top or bottom plane: it is one open sheet, as the parked plane draws it)
-      if (clipC) u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30);
+      if (clipC) { u1f(Pc, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1f(Pc, 'uClipZ', carryProbe.noZClip ? 0 : carryProbe.srcShrunk || 1); }
       u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);

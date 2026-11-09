@@ -19,17 +19,20 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 await go(`http://localhost:${PORT}/test.html?ns=landclip${Date.now()}`);
 await settled({ max: 60000, until: '!!window.GLR && !!GLR.landClipGlsl' });
 const NO_SIDES = [-1e30, 1e30, -1e30, 1e30];   // (CLIP_NO_SIDES)
-const CLIP_N = 9;   // (LAND_CLIP_CORNERS: the polygon's room)
-const run = (tri, linear, sides = NO_SIDES) => ev(`(() => {
+const CLIP_N = 13;   // (LAND_CLIP_CORNERS: the polygon's room)
+const CORNERS_6 = 9;   // (a triangle cut by the 6 planes of the block)
+const run = (tri, linear, sides = NO_SIDES, pay = [[0, 0], [0, 0], [0, 0]], zd = NO_SIDES, payOut = false) => ev(`(() => {
   const gl = document.createElement('canvas').getContext('webgl2');
   const src = '#version 300 es\\nprecision highp float; precision highp int;\\n' + GLR.landClipGlsl + \`
-uniform vec3 uQ[3]; uniform float uHb; uniform vec4 uSd; out vec4 o;
+uniform vec3 uQ[3]; uniform vec2 uP[3]; uniform float uHb; uniform vec4 uSd; uniform vec4 uZd; uniform int uOut; out vec4 o;
 void main() {
   vec3 Q[CLIP_N]; vec4 A[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
   for (int i = 0; i < CLIP_N; i++) { Q[i] = vec3(0.0); A[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
   Q[0] = uQ[0]; Q[1] = uQ[1]; Q[2] = uQ[2];
-  int n = blockClip(uHb, uSd, 3, Q, A, Nn, Fl);
-  o = vec4(Q[gl_VertexID].xy, Q[gl_VertexID].z, float(n) * 10.0 + Fl[gl_VertexID] + 1.0);
+  A[0].xy = uP[0]; A[1].xy = uP[1]; A[2].xy = uP[2];
+  int n = blockClip(uHb, uSd, uZd, 3, Q, A, Nn, Fl);
+  float pk = float(n) * 10.0 + Fl[gl_VertexID] + 1.0;
+  o = uOut == 0 ? vec4(Q[gl_VertexID].xy, Q[gl_VertexID].z, pk) : vec4(A[gl_VertexID].xy, Q[gl_VertexID].z, pk);
   gl_PointSize = 1.0;
 }\`;
   const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
@@ -40,6 +43,9 @@ void main() {
   gl.useProgram(p);
   gl.uniform3fv(gl.getUniformLocation(p, 'uQ'), new Float32Array(${JSON.stringify(tri.flat())}));
   gl.uniform1f(gl.getUniformLocation(p, 'uHb'), ${HB});
+  gl.uniform2fv(gl.getUniformLocation(p, 'uP'), new Float32Array(${JSON.stringify(pay.flat())}));
+  gl.uniform4fv(gl.getUniformLocation(p, 'uZd'), new Float32Array(${JSON.stringify(zd)}));
+  gl.uniform1i(gl.getUniformLocation(p, 'uOut'), ${payOut ? 1 : 0});
   gl.uniform4fv(gl.getUniformLocation(p, 'uSd'), new Float32Array(${JSON.stringify(sides)}));
   gl.uniform1i(gl.getUniformLocation(p, 'uClipLinear'), ${linear ? 1 : 0});
   const buf = gl.createBuffer(); gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, buf); gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, ${CLIP_N} * 16, gl.DYNAMIC_READ);
@@ -103,5 +109,19 @@ const nine = [[1.5, 1.5, 1.8], [-2.25, -3.75, -1.5], [-0.5, 0.5, -1.2]];
 const want9 = clipRef(nine);
 const N9 = await run(nine, false, BOX);
 info.nine = { N9, want9 };
-ok(`all six planes: ${want9.length} corners, each where the plain polygon clip puts it`, N9.n === want9.length && want9.length === CLIP_N && want9.every((w) => N9.v.some((v) => Math.abs(v.x - w[0]) <= FLOAT_TOL && Math.abs(v.y - w[1]) <= FLOAT_TOL && Math.abs(v.z - w[2]) <= FLOAT_TOL)), { N9, want9 });
+ok(`all six planes: ${want9.length} corners, each where the plain polygon clip puts it`, N9.n === want9.length && want9.length === CORNERS_6 && want9.every((w) => N9.v.some((v) => Math.abs(v.x - w[0]) <= FLOAT_TOL && Math.abs(v.y - w[1]) <= FLOAT_TOL && Math.abs(v.z - w[2]) <= FLOAT_TOL)), { N9, want9 });
+// (the preimage box: four more planes on the payload, a corner's preimage z. A flat triangle whose preimages run from inside the box
+// [-ZB, ZB] x [-ZB, ZB] to far outside it is cut where the preimage reaches the box's side, the new corner's payload on the plane exactly)
+const ZB = 2, ZD = [-ZB, ZB, -ZB, ZB], FAR = 10;
+const zt = [[0, 0, 0.5], [1, 0, 0.5], [0, 1, 0.5]];
+const zp = [[0, 0], [FAR, 0], [0, 1]];
+const ZC = await run(zt, false, NO_SIDES, zp, ZD, true);   // (the payload of each corner)
+const ZX = await run(zt, false, NO_SIDES, zp, ZD, false);   // (the place of each corner)
+const tz = ZB / FAR;   // (the preimage reaches x = ZB at this share of the edge (0, 0) -> (1, 0), and at (FAR - ZB) / FAR of the edge (1, 0) -> (0, 1))
+const onPlane = has(ZC, { x: ZB, y: 0, z: 0.5, fl: 0 }) && has(ZC, { x: ZB, y: (FAR - ZB) / FAR, z: 0.5, fl: 0 }) && has(ZC, { x: 0, y: 0, z: 0.5, fl: 0 }) && has(ZC, { x: 0, y: 1, z: 0.5, fl: 0 });
+const placed = has(ZX, { x: tz, y: 0, z: 0.5, fl: 0 }) && has(ZX, { x: 1 - (FAR - ZB) / FAR, y: (FAR - ZB) / FAR, z: 0.5, fl: 0 });
+ok('the preimage box: a corner far outside it is cut where its preimage reaches the plane, the new corners\' payload on it exactly (x = ' + ZB + ')', ZC.n === 4 && onPlane, { ZC });
+ok('the preimage box: the new corners lie at the same share of their edge in the place', ZX.n === 4 && placed, { ZX, tz });
+const ZO = await run(zt, false, NO_SIDES, zp, NO_SIDES, true);
+ok('control: without the preimage box the same triangle comes back unchanged', ZO.n === 3, { ZO });
 return { pass: fails.length === 0, fails, info };

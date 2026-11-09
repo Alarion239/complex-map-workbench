@@ -660,31 +660,34 @@ void main() {
 }
 `;
   // The block's clip, shared by the sheets' mesh (LAND_SHEET_VS) and the carried draw (LAND_CARRY_VS): a convex polygon of up
-  // to LAND_CLIP_CORNERS corners (a convex polygon gains at most one corner a plane: a triangle and 6 planes make 9), Q (x, y: the grid's or the
+  // to LAND_CLIP_CORNERS corners (a convex polygon gains at most one corner a plane: a triangle and 10 planes make 13), Q (x, y: the grid's or the
   // plane's position, which orders an edge's ends; z: the height), with a payload A mixed along an edge like the position,
   // a normal Nn and a flag Fl (0 a corner, +1 / -1 on the top / bottom of the block). Planes: the top and bottom |h| = Hb, then
   // the sides Sd = (x lo, x hi, y lo, y hi) in Q's units (a side crossing lies exactly on its plane). The crossing of an edge
   // with a height plane, a corner far beyond the block, both ends on its side (a pole), is interpolated in 1 / h, exact to first
   // order at a simple pole, where linear interpolation hugs the near corner. The clipped height edges are marked by clipBoxE
   // (the rim). Returns the number of corners left
-  const LAND_CLIP_CORNERS = 9, LAND_BLOCK_K = 1.25;   // (the block's height in H: the clip's top and bottom)
+  const LAND_CLIP_CORNERS = 13, LAND_BLOCK_K = 1.25;   // (the block's height in H: the clip's top and bottom)
   const LAND_CLIP = `
 const float BLOCK_K = ${LAND_BLOCK_K};
 const int CLIP_N = ${LAND_CLIP_CORNERS};
+const int CLIP_PLANES = 10;   // (top, bottom, 4 sides, 4 sides of the preimage box)
 const int CLIP_FAN = CLIP_N - 2;   // (the triangles of the polygon's fan)
 const vec4 CLIP_NO_SIDES = vec4(-1e30, 1e30, -1e30, 1e30);
 uniform int uClipLinear;   // (a test control: 1 takes every crossing linearly)
 const float CLIP_FAR = 2.0;   // (corners farther than this many block edges beyond the block use the 1 / h crossing)
-// the signed distance of q from clip plane p, along the plane's axis (inside when not over 0)
-float clipD(int p, float Hb, vec4 Sd, vec3 q) {
-  return p == 0 ? q.z - Hb : (p == 1 ? -q.z - Hb : (p == 2 ? Sd.x - q.x : (p == 3 ? q.x - Sd.y : (p == 4 ? Sd.z - q.y : q.y - Sd.w))));
+// the signed distance from clip plane p, along the plane's axis (inside when not over 0): 0, 1 the top and bottom of the block (q.z), 2 to 5 its
+// sides (q.x, q.y), 6 to 9 the sides of the preimage box Zd = (x lo, x hi, y lo, y hi) on the payload (a.x, a.y: the corner's preimage z)
+float clipD(int p, float Hb, vec4 Sd, vec4 Zd, vec3 q, vec4 a) {
+  return p == 0 ? q.z - Hb : (p == 1 ? -q.z - Hb : (p == 2 ? Sd.x - q.x : (p == 3 ? q.x - Sd.y : (p == 4 ? Sd.z - q.y : (p == 5 ? q.y - Sd.w :
+    (p == 6 ? Zd.x - a.x : (p == 7 ? a.x - Zd.y : (p == 8 ? Zd.z - a.y : a.y - Zd.w))))))));
 }
-int blockClip(float Hb, vec4 Sd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_N], inout vec3 Nn[CLIP_N], inout float Fl[CLIP_N]) {
-  for (int pass = 0; pass < 6; pass++) {
+int blockClip(float Hb, vec4 Sd, vec4 Zd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_N], inout vec3 Nn[CLIP_N], inout float Fl[CLIP_N]) {
+  for (int pass = 0; pass < CLIP_PLANES; pass++) {
     float s = pass == 0 ? 1.0 : -1.0;
     // (a plane that no corner is beyond leaves the polygon as it is)
     bool cut = false;
-    for (int i = 0; i < CLIP_N; i++) { if (i >= n) break; if (clipD(pass, Hb, Sd, Q[i]) > 0.0) cut = true; }
+    for (int i = 0; i < CLIP_N; i++) { if (i >= n) break; if (clipD(pass, Hb, Sd, Zd, Q[i], A[i]) > 0.0) cut = true; }
     if (!cut) continue;
     vec3 R[CLIP_N]; vec4 RA[CLIP_N]; vec3 RN[CLIP_N]; float RF[CLIP_N];
     for (int i = 0; i < CLIP_N; i++) { R[i] = vec3(0.0); RA[i] = vec4(0.0); RN[i] = vec3(0.0, 0.0, 1.0); RF[i] = 0.0; }
@@ -692,7 +695,7 @@ int blockClip(float Hb, vec4 Sd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_
     for (int i = 0; i < CLIP_N; i++) {
       if (i >= n) break;
       int j = i + 1 == n ? 0 : i + 1;
-      float di = clipD(pass, Hb, Sd, Q[i]), dj = clipD(pass, Hb, Sd, Q[j]);
+      float di = clipD(pass, Hb, Sd, Zd, Q[i], A[i]), dj = clipD(pass, Hb, Sd, Zd, Q[j], A[j]);
       bool inI = di <= 0.0, inJ = dj <= 0.0;
       if (inI) { R[m] = Q[i]; RA[m] = A[i]; RN[m] = Nn[i]; RF[m] = Fl[i]; m++; }
       if (inI != inJ) {
@@ -707,8 +710,10 @@ int blockClip(float Hb, vec4 Sd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_
           t = (1.0 / (s * Hb) - 1.0 / a.z) / (1.0 / b.z - 1.0 / a.z);
         t = clamp(t, 0.0, 1.0);
         vec3 q = mix(a, b, t);
-        if (pass < 2) q.z = s * Hb; else if (pass < 4) q.x = pass == 2 ? Sd.x : Sd.y; else q.y = pass == 4 ? Sd.z : Sd.w;
-        R[m] = q; RA[m] = mix(aa, ab, t); RN[m] = normalize(mix(na, nb, t) + vec3(0.0, 0.0, 1e-6)); RF[m] = pass < 2 ? s : 0.0; m++;
+        vec4 qa = mix(aa, ab, t);
+        if (pass < 2) q.z = s * Hb; else if (pass < 4) q.x = pass == 2 ? Sd.x : Sd.y; else if (pass < 6) q.y = pass == 4 ? Sd.z : Sd.w;
+        else if (pass < 8) qa.x = pass == 6 ? Zd.x : Zd.y; else qa.y = pass == 8 ? Zd.z : Zd.w;
+        R[m] = q; RA[m] = qa; RN[m] = normalize(mix(na, nb, t) + vec3(0.0, 0.0, 1e-6)); RF[m] = pass < 2 ? s : 0.0; m++;
       }
     }
     for (int i = 0; i < CLIP_N; i++) { Q[i] = R[i]; A[i] = RA[i]; Nn[i] = RN[i]; Fl[i] = RF[i]; }
@@ -732,7 +737,7 @@ vec3 clipBoxE(int i1, int i2, int n, float Fl[CLIP_N]) {
   const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-${clip ? 'uniform vec2 uClipA; uniform float uClipH;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)' : ''}
+${clip ? 'uniform vec2 uClipA; uniform float uClipH; uniform float uClipZ;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)' : ''}
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
@@ -829,7 +834,11 @@ ${clip ? `  vec3 Q[CLIP_N]; vec4 QA[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
   for (int i = 0; i < 3; i++) { Q[i] = vec3(cxy[i], ch[i]); QA[i] = vec4(cz[i], cnv[i].w, 0.0); Nn[i] = cnv[i].xyz; }
   // (the block's sides in the place's units: |vPos.xy| <= uClipA, vPos being affine in the place)
   vec2 sideC = uBox.xy + 0.5 * uBox.zw, sideH = 0.5 * uBox.zw * uClipA / uAspect;
-  int n = blockClip(uClipH, vec4(sideC.x - sideH.x, sideC.x + sideH.x, sideC.y - sideH.y, sideC.y + sideH.y), 3, Q, QA, Nn, Fl);
+  // (the preimage box is plane s's box uSrc, scaled about its centre by uClipZ: where the box's cells are drawn, a layer's preimage outside it is not a member of
+  // the carried surface; a patch about a pole of the glide's map is drawn over the far plane, so it is left whole)
+  vec2 zC = uSrc.xy + 0.5 * uSrc.zw, zH = 0.5 * uSrc.zw * uClipZ;
+  vec4 Zd = uClipZ > 0.0 && uPolar.w <= 0.0 ? vec4(zC.x - zH.x, zC.x + zH.x, zC.y - zH.y, zC.y + zH.y) : CLIP_NO_SIDES;
+  int n = blockClip(uClipH, vec4(sideC.x - sideH.x, sideC.x + sideH.x, sideC.y - sideH.y, sideC.y + sideH.y), Zd, 3, Q, QA, Nn, Fl);
   if (fan + 2 >= n) return;
   int i1 = fan + 1, i2 = fan + 2, vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
   vBoxE = clipBoxE(i1, i2, n, Fl);
@@ -1474,7 +1483,7 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
   vec2 Wv[3]; Wv[0] = pA.xy; Wv[1] = pB.xy; Wv[2] = pC.xy;
   Nn[0] = nrmOf(ta); Nn[1] = nrmOf(tb); Nn[2] = nrmOf(tc);
   int n = 3;
-  if (uClip == 1) n = blockClip(BLOCK_K * uH, CLIP_NO_SIDES, n, Q, QA, Nn, Fl);
+  if (uClip == 1) n = blockClip(BLOCK_K * uH, CLIP_NO_SIDES, CLIP_NO_SIDES, n, Q, QA, Nn, Fl);
   if (sub + 2 >= n) return;
   int i1 = sub + 1, i2 = sub + 2;
   int vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
