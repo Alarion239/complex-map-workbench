@@ -2162,7 +2162,7 @@ void ixAncTan(vec2 w) {
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
-    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1) } : null;
+    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1), ray: back.some((q) => q.ray) } : null;
   };
   // a polynomial NEWT op's degree (InvOps.opNewt with deg: its members are every root of H_t(u) = w), or 0
   const newtDeg = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.deg) || 0;
@@ -2196,12 +2196,14 @@ void ixAncTan(vec2 w) {
   // The stepper's modes (the start of a member's schedule) and phases. A schedule is a run of phases: WALK is GRID from
   // stage ks + 1, AT, POL; CHECK is a stored root's test, then WALK from w; LAND is LAD, POL; SETTLE is POL; BACK is BACK
   // from stage 1, POL; DEFL is DEFL. Every schedule ends with the hit test (DEFL's with its dedupe test).
-  const NM = { WALK: 0, LAND: 1, SETTLE: 2, BACK: 3, DEFL: 4, CHECK: 5 };
-  const NP = { CHECK: 0, GRID: 1, BACK: 2, AT: 3, LAD: 4, POL: 5, DEFL: 6, DONE: 7 };
+  const NM = { WALK: 0, LAND: 1, SETTLE: 2, BACK: 3, DEFL: 4, CHECK: 5, RAY: 6 };
+  const NP = { CHECK: 0, GRID: 1, BACK: 2, AT: 3, LAD: 4, POL: 5, DEFL: 6, DONE: 7, RAY: 8 };
   // the stepper's trip bound: its longest schedule (a missed CHECK, then GRID's NEWT_K stages, AT, POL; or a LAD, POL;
   // or a BACK of NEWT_K stages, POL; or DEFL's NEWT_DEF steps) in single steps; the thread's t is in [0, 1], so a BACK has
   // at most NEWT_K stages (kb = ceil(NEWT_K (1 - t))) and a missed CHECK, which restarts the grid, is the longest
-  const newtRunMax = () => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF);
+  // (ray: a RAY phase, the external ray's landing: its stages at most HALVINGS SUB + 1, NEWT steps each, then POL)
+  const newtRayMax = () => { const R = Inverse.NEWT_RAY; return (R.SUB * R.HALVINGS + 1) * R.NEWT + Inverse.NEWT_POL; };
+  const newtRunMax = (ray) => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF, ray ? newtRayMax() : 0);
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, the only place
   // that evaluates H_t at a Newton iterate (a shader compiler inlines every call, so a program's size follows the
@@ -2214,7 +2216,7 @@ void ixAncTan(vec2 w) {
   // walk failed by then), then one step at t, polished. _run's result is true when the schedule ran to its end and the
   // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
   // there
-  const newtCoreFns = (P, H) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+  const newtCoreFns = (P, H, ray) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
@@ -2237,28 +2239,43 @@ bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out 
 bool ${P}_run(inout vec2 u, vec2 w, float t, int mode, int ks, int kb, vec2 dz, out vec2 ug) {
   ug = vec2(${IX_NR_NONE});
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
-  int ph = mode == ${NM.WALK} ? ${NP.GRID} : mode == ${NM.LAND} ? ${NP.LAD} : mode == ${NM.SETTLE} ? ${NP.POL} : mode == ${NM.BACK} ? ${NP.BACK} : mode == ${NM.DEFL} ? ${NP.DEFL} : ${NP.CHECK};
+  int ph = ${ray ? `mode == ${NM.RAY} ? ${NP.RAY} : ` : ''}mode == ${NM.WALK} ? ${NP.GRID} : mode == ${NM.LAND} ? ${NP.LAD} : mode == ${NM.SETTLE} ? ${NP.POL} : mode == ${NM.BACK} ? ${NP.BACK} : mode == ${NM.DEFL} ? ${NP.DEFL} : ${NP.CHECK};
   int n = mode == ${NM.WALK} ? ks + 1 : mode == ${NM.BACK} ? 1 : 0;
   bool ok = true, chk = false;
-  for (int it = 0; it < ${newtRunMax()}; it++) {
+${ray ? `  // the external ray's stages (newtRayStages): rS of them below |w| = R, none at or above it; wk is the stage's target
+  float rg0 = ${Math.log(Inverse.NEWT_RAY.R)}, rgw = log(cx_abs(w));
+  int rS = 0;
+  if (mode == ${NM.RAY}) {
+    if (!(rgw > 0.0)) return false;
+    if (rgw < rg0 && ${Inverse.NEWT_RAY.SUB} > 0) { rS = int(ceil(${Inverse.NEWT_RAY.SUB}.0 * log2(rg0 / rgw))); u = w * (${Inverse.NEWT_RAY.R}.0 / cx_abs(w)); }
+  }
+` : ''}  for (int it = 0; it < ${newtRunMax(ray)}; it++) {
     if (ph == ${NP.GRID} && n > k0) { ug = u; ph = ${NP.AT}; n = 0; }
     if (ph == ${NP.BACK} && n > kb) { ph = ${NP.POL}; n = 0; }
     if (ph == ${NP.AT} && n > 0) { ph = ${NP.POL}; n = 0; }
     if (ph == ${NP.LAD} && n >= ${Inverse.NEWT_LAD}) { ph = ${NP.POL}; n = 0; }
     if (ph == ${NP.POL} && n >= ${Inverse.NEWT_POL}) ph = ${NP.DONE};
     if (ph == ${NP.DEFL} && n >= ${Inverse.NEWT_DEF}) ph = ${NP.DONE};
-    if (ph == ${NP.DONE}) break;
-    float tk = ph == ${NP.GRID} ? float(n) / ${Inverse.NEWT_K}.0 : ph == ${NP.BACK} ? 1.0 - (1.0 - t) * float(n) / float(kb) : t;
+${ray ? `    if (ph == ${NP.RAY} && n >= (rS + 1) * ${Inverse.NEWT_RAY.NEWT}) { ph = ${NP.POL}; n = 0; }
+` : ''}    if (ph == ${NP.DONE}) break;
+    float tk = ${ray ? `ph == ${NP.RAY} ? 1.0 : ` : ''}ph == ${NP.GRID} ? float(n) / ${Inverse.NEWT_K}.0 : ph == ${NP.BACK} ? 1.0 - (1.0 - t) * float(n) / float(kb) : t;
     vec2 p = u;
     bool held;
-    bool sok = ${P}_step(u, w, tk, dz, ph == ${NP.DEFL}, ph == ${NP.CHECK}, held);
+${ray ? `    vec2 wk = w;
+    if (ph == ${NP.RAY}) {
+      int rs = n / ${Inverse.NEWT_RAY.NEWT};
+      float rg = rs >= rS ? rgw : max(rg0 * exp2(-float(rs) / ${Math.max(1, Inverse.NEWT_RAY.SUB)}.0), rgw);
+      wk = w * (exp(rg) / cx_abs(w));
+    }
+` : ''}    bool sok = ${P}_step(u, ${ray ? 'wk' : 'w'}, tk, dz, ph == ${NP.DEFL}, ph == ${NP.CHECK}, held);
     if (ph == ${NP.CHECK}) {
       if (held) { chk = true; break; }
       u = w; ph = ${NP.GRID}; n = 1;
       continue;
     }
     if (!sok) { ok = false; break; }
-    n++;
+${ray ? `    if (ph == ${NP.RAY} && n % ${Inverse.NEWT_RAY.NEWT} == ${Inverse.NEWT_RAY.NEWT - 1} && cx_abs(u - p) > ${Inverse.NEWT_RAY.TOL} * (1.0 + cx_abs(u))) { ok = false; break; }
+` : ''}    n++;
     if ((ph == ${NP.LAD} || ph == ${NP.POL}) && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) n = ${newtRunMax()};
   }
   return ok && (chk || (${P}_hit(u, w, t) && (mode != ${NM.DEFL} || cx_abs(u - dz) > ${NEWT_DEDUPE} * (1.0 + cx_abs(dz)))));
@@ -2280,7 +2297,7 @@ bool ${P}_run(inout vec2 u, vec2 w, float t, int mode, int ks, int kb, vec2 dz, 
       else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
     }
     return `vec2 chainHom(int i, vec2 z, float t);
-${fns}${newtCoreFns(P, H)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
+${fns}${newtCoreFns(P, H, bk.ray)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
   Lf S = ixStart(w);
 ${seedSteps.join('\n')}
   u = S.u;
@@ -2298,7 +2315,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v = w, ug;
     bool okv = true;
     int mode = ${NM.WALK};
-    if (m > 0) { okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
+    if (m > 0) { okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK};${bk.ray ? ` if (okv) okv = ${P}_run(v, w, 1.0, ${NM.RAY}, 0, 1, vec2(0.0), ug);` : ''} }
 ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
     else if (uNrRead == 1 && w == ixPixW) {
       v = texelFetch(uNrTex0, ixNrTexel, 0).zw;

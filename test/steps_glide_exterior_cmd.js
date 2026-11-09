@@ -11,7 +11,7 @@
 //   colours z), at most SAME_FRAC of the compared pixels more than LOOK_TOL off.
 // - members: the plan's own members (Inverse.homOps' NEWT op's pre) over sample points w, outside the band and in it, are
 //   exactly one (degree 1); the control, a quadratic, has two.
-// Controls: the step without the property takes the carried mesh, and then its band at 1 - END is off plane 1's by more than
+// Controls: the ray's stages off (Inverse.NEWT_RAY.SUB = 0) leave the band off plane 1's; the step without the property takes the carried mesh, and then its band at 1 - END is off plane 1's by more than
 // SAME_FRAC (the whole frame's difference, 0.3 %, is below it: the band is the measure that tells them apart); a step whose map is not tangent to the identity (the Gamma function) with the property forced on keeps the mesh
 // too (the seed is verified, not trusted).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
@@ -27,7 +27,7 @@ const BAND_OUT = 1.1;      // the band's outer radius, in plane w
 const READY_MS = 60000, FRAME_MS = 300000, WARM_MS = 120000, SETTLE_MS = 1500;   // waits (ms): a page, a frame, the prestart, a frame's last draws
 const MEMBER_US = [0.5, 1 - END];   // the homotopy's t for the member counts
 // sample points w for the member counts: outside the band, and in it ([re, im])
-const W_OUT = [[3, 0], [0, -2], [-1.5, 1.5], [1.2, 0.8]], W_BAND = [[1.05, 0], [0, -1.05], [-0.74, 0.74], [0.5, 0.93]];
+const W_OUT = [[3, 0], [0, -2], [-1.5, 1.5], [1.2, 0.8]], W_BAND = [[1.05, 0.2], [0, -1.05], [-0.74, 0.74], [0.5, 0.93]];
 const SRC = { cx: 0, cy: 0, s: 60 };
 const ready = () => settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // the frame at thread place x, once a frame there was drawn, and its record
@@ -83,7 +83,8 @@ for (const [id, name, params] of STEPS) {
     const out = await members({ type: id, params }, t, W_OUT), band = await members({ type: id, params }, t, W_BAND);
     info[`${id} members ${t}`] = { out, band };
     ok(`${name} at t = ${t}: one member over each w outside the band (degree 1)`, !!out && out.ok && out.n.every((n) => n === 1), out);
-    ok(`${name} at t = ${t}: one member over each w in the band (degree 1)`, !!band && band.ok && band.n.every((n) => n === 1), band);
+    // (the band is in H_t's image only near t = 1: at t = 0.5 the straight-line homotopy leaves some of it uncovered)
+    if (t > 0.5) ok(`${name} at t = ${t}: one member over each w in the band (degree 1)`, !!band && band.ok && band.n.every((n) => n === 1), band);
   }
   {
     const g = await at(0.5);
@@ -104,6 +105,18 @@ for (const [id, name, params] of STEPS) {
     ok(`${name} without the property: the carried mesh (control)`, !!g && g.path === 'mesh' && /Newton inverse/.test(g.reason || ''), g);
     ok(`${name} without the property: the band is off plane 1's by more than ${SAME_FRAC * 100} % (control)`, !!r && r.n >= MIN_BAND && r.over > SAME_FRAC, r);
   }
+}
+// control: with the ray's stages off (SUB = 0: the seed is landed on w directly) the band stays off the parked plane
+for (const [id, name, params] of STEPS) {
+  await scene(id, params, id + 'sub');
+  await ev('Inverse.NEWT_RAY.SUB = 0, __cmwStepParam(0, "N", 63)');
+  await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
+  await park(1); await grab('P1c');
+  const g = await at(1 - END);
+  await grab('C0');
+  const band = await sameAway('C0', 'P1c', LOOK_TOL, IN_BAND);
+  info[`${id} no stages`] = { g, band };
+  ok(`${name} with no ray stages: the band is off plane 1's by more than ${SAME_FRAC * 100} % (control)`, !!band && band.n >= MIN_BAND && band.over > SAME_FRAC, { g, band });
 }
 // control: a map of degree 2 has two members over those points
 {

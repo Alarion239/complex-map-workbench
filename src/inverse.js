@@ -35,7 +35,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
@@ -1659,11 +1659,11 @@ const Inverse = (() => {
     }
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
-  // f is within ID_TOL of the identity relatively, |f(z) / z - 1|, at ID_SAMPLES points of the circle |z| = ID_RADIUS
-  const ID_RADIUS = 32, ID_SAMPLES = 16, ID_TOL = 0.1;
+  // f is within ID_TOL of the identity relatively, |f(z) / z - 1|, at ID_SAMPLES points of the circle |z| = NEWT_RAY.R, where the external ray's landing starts
+  const ID_SAMPLES = 16, ID_TOL = 0.1;
   function tangentAtInfinity(f) {
     for (let k = 0; k < ID_SAMPLES; k++) {
-      const a = 2 * Math.PI * (k + 0.5) / ID_SAMPLES, z = C(ID_RADIUS * Math.cos(a), ID_RADIUS * Math.sin(a)), w = f(z);
+      const a = 2 * Math.PI * (k + 0.5) / ID_SAMPLES, z = C(NEWT_RAY.R * Math.cos(a), NEWT_RAY.R * Math.sin(a)), w = f(z);
       if (!isFin(w) || !(abs(sub(div(w, z), ONE)) <= ID_TOL)) return false;
     }
     return true;
@@ -1683,7 +1683,7 @@ const Inverse = (() => {
     // (a step with no exact ops that declares itself one-to-one onto the outside of a disk and tangent to the identity at
     // infinity is seeded by the identity when f is that close to the identity on a
     // circle: then f(z) = w has exactly one root outside it, by Rouché, for w inside the circle's image)
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : P.identitySeed && tangentAtInfinity(b.f) ? [opAff(ONE, ZERO)] : null;
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : P.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true })] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:
@@ -1737,7 +1737,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

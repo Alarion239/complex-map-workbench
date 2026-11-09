@@ -231,6 +231,17 @@ const InvOps = (() => {
   // two members closer than this (relative to 1 + |u|) are one (the CPU's; glsl.js has the float32 one)
   const NEWT_SAME = 1e-6;
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10;
+  // The external ray's landing of a seed that is only near a root (a seed op flagged ray): from |w| = R, where the identity
+  // is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the identity), the target
+  // w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the geometric stages
+  // G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than TOL (1 + |u|) after
+  // them fails the member), HALVINGS at most (|w| below exp(log R 2^-HALVINGS) takes none). SUB = 0: no stages, the seed
+  // is landed on w itself
+  const NEWT_RAY = { R: 32, SUB: 4, HALVINGS: 12, NEWT: 3, TOL: 1e-2 };
+  const newtRayStages = (w) => {
+    const g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
+    return !(gw > 0) ? -1 : gw >= g0 || NEWT_RAY.SUB <= 0 ? 0 : Math.ceil(NEWT_RAY.SUB * Math.log2(g0 / gw));
+  };
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
   // the last stage k of member 0's grid walk at t (k / NEWT_K <= t), of t as float32: the GPU's
   const newtGridK = (t) => Math.min(NEWT_K, Math.floor(NEWT_K * Math.fround(t)));
@@ -300,10 +311,24 @@ const InvOps = (() => {
   function opNewt(t, H, back, deg, anchor, pole) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
+    const ray = !!counts && back.some((q) => q.ray);
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
     const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
     const polishAt = (u, w) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) u = step(u, w, Ht); return u; };
+    // the seed v landed on a root of H_1 = w by the external ray (newtRayStages): v, or null when a stage fails
+    const rayLand = (v, w) => {
+      const n = newtRayStages(w), f1 = H(1), g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
+      if (n < 0) return null;
+      if (n > 0) v = scale(w, NEWT_RAY.R / abs(w));
+      for (let s = 0; s <= n; s++) {
+        const g = s >= n ? gw : Math.max(g0 * Math.pow(2, -s / NEWT_RAY.SUB), gw), target = scale(w, Math.exp(g) / abs(w));
+        let moved = Infinity;
+        for (let it = 0; it < NEWT_RAY.NEWT && isFin(v); it++) { const nv = step(v, target, f1); moved = abs(sub(nv, v)); v = nv; }
+        if (!isFin(v) || !(moved <= NEWT_RAY.TOL * (1 + abs(v)))) return null;
+      }
+      return v;
+    };
     // f's i-th point over w (back's members in turn, the last op's first), or null
     const seedOf = (w, i) => {
       let u = w;
@@ -352,6 +377,7 @@ const InvOps = (() => {
           const K = newtBackK(t);
           for (let i = 0; i < seeds; i++) {
             let v = seedOf(w, i);
+            if (ray && v) v = rayLand(v, w);
             for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
             v = v && polishAt(v, w);
             if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 + i }));
@@ -985,7 +1011,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';
