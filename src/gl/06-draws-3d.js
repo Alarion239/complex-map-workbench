@@ -1429,7 +1429,7 @@
       common(Pc);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1f(Pc, 'uSheetStep', carryStep(mode, H, false)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0); u1i(Pc, 'uSheetW', landC && landC.sheetW || 0); u1i(Pc, 'uSheetCombo', 0);
       const cutDraw = !!(landC && landC.exact && landC.cuts);
       u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);

@@ -637,6 +637,9 @@ void main() {
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep;
+// uSheetStep: the height step over which a triangle with corners on different sheets of the exact glide is left out (the edge pass
+// looks only at edges between vertices of one sheet, so a cut between two sheets is no edge it flags)
+uniform float uSheetStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
 // uCuts 1 (the exact glide, whose cuts LAND_CARRY_EDGE_VS found into uE0, uE1, uE2): a triangle is drawn as LAND_VS draws
@@ -667,7 +670,9 @@ void main() {
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
-  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
+  float dz = max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z);
+  if (dz > uStep) return;
+  if (uZOn == 1 && (t0.w != t1.w || t1.w != t2.w) && dz > uSheetStep) return;
   if (uDrawCode > 0.0) {
     float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
     if (abs(cc - uDrawCode) > 0.5) return;
