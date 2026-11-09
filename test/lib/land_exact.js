@@ -149,7 +149,7 @@
         if ((v[0] < 0 ? Math.abs(v[1]) : Math.hypot(v[0], v[1])) <= tol * chord) { out.onCut++; continue; }
         pend.push(e);
       }
-      window.__lxPend = pend; window.__lxGrid = h;
+      window.__lxPend = pend; window.__lxGrid = h; window.__lxSheetCode = r.seam.sheetCode;
       return { n: out.n, onCut: out.onCut, pending: pend.length, h };
     },
     // One pending edge's class: 'seam' (continuing its first end's member along the edge's place segment lands on a member other than the second
@@ -181,10 +181,13 @@
         }
         return null;
       };
+      // (the glide's sheets an edge's ends hold: sheet i has the code sheetCode + i; an end on no sheet takes the other's)
+      const shOf = (c, o) => Math.max(0, Math.round((c > 5 ? c : o) - window.__lxSheetCode));
+      let want = [0];
       const membersAt = (w) => {
         const out = [];
         for (const e of (window.__cmwLandEnum([w]) || [[]])[0]) {
-          if (e.sheet !== 0) continue;   // (sheets off draws the frame's own sheet; the far sheets are the layers of All sheets)
+          if (!want.includes(e.sheet)) continue;   // (the sheets the edge's ends hold; the others only crowd the separation check)
           const m = newton({ z: e.z, lam: e.lam, sheet: e.sheet }, w);
           if (m && !out.some((q) => q.sheet === m.sheet && cabs(csub(q.z, m.z)) <= 1e-7 * (1 + cabs(m.z)))) out.push(m);
         }
@@ -213,7 +216,8 @@
         if (!tr) return { cls: 'unresolved', why: 'same' };
         e = [set0[0].z[0], set0[0].z[1], tr[0].z[0], tr[0].z[1], 0, 1, 1, w0[0], w0[1], w1[0], w1[1]];
       }
-      const [ax, ay, bx, by, t, , , wax, way, wbx, wby] = e;
+      const [ax, ay, bx, by, t, ca, cb, wax, way, wbx, wby] = e;
+      want = [...new Set([shOf(ca, cb), shOf(cb, ca)])];
       const atA = t < 0.5, zv = atA ? [ax, ay] : [bx, by], wv = atA ? [wax, way] : [wbx, wby], zo = atA ? [bx, by] : [ax, ay], wo = atA ? [wbx, wby] : [wax, way];
       // the seam: the first end's member continued along the edge to the second end's place
       const setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay]), trA = ia.i >= 0 && ia.d <= ${MONO_SEP} * sepOf(setA, ia.i) ? track(setA, [[wax, way], [wbx, wby]]) : null;
