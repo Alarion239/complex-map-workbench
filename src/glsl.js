@@ -2273,12 +2273,14 @@ void ixAncTan(vec2 w) {
   // there
   const newtCoreFns = (P, H, ray, HD) => `vec2 ${P}_d(vec2 u, float t) { ${HD ? `vec2 d; float tl; ${HD('u', 't', 'd', 'tl')}; return d;` : `float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h);`} }
 bool ${P}_hit(vec2 u, vec2 w, float t) { ${HD ? `vec2 d, h; float tl; h = ${HD('u', 't', 'd', 'tl')}; return ixFin(u) && cx_abs(h - w) + tl <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));` : `return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));`} }
-${HD ? `vec2 ${P}_dc = vec2(0.0);
+${HD ? `// H' at the stored root, kept only by a CHECK step that held (the root is then the member's): _dk says so
+vec2 ${P}_dc = vec2(0.0);
+bool ${P}_dk = false;
 ` : ''}${HD ? '' : `vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
 `}bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
   ${HD ? `vec2 d, hu; float tl; hu = ${HD('u', 't', 'd', 'tl')};` : `vec2 hu = ${H('u', 't')};`}
   held = ixFin(u) && cx_abs(hu - w) ${HD ? '+ tl ' : ''}<= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
-  if (chk) { ${HD ? `${P}_dc = d; ` : ''}return true; }
+  if (chk) { ${HD ? `if (held) { ${P}_dc = d; ${P}_dk = true; } ` : ''}return true; }
   ${HD ? '' : `vec2 d = ${P}_fd(u, hu, t);`}
   if (defl) {
     vec2 g = cdiv(d, hu - w) - cinv(u - dz);
@@ -2376,10 +2378,7 @@ bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
 vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
-${bk.dual ? `// the derivative at member 0's root when the stored root's CHECK held: the same walk of H gave H and H' there
-vec2 ${P}_dd = vec2(0.0);
-bool ${P}_dk = false;
-` : ''}void ${P}_roots(vec2 w, float t) {
+void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
 ${bk.dual ? `  ${P}_dk = false;
@@ -2397,8 +2396,7 @@ ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
     }
 #endif
 ` : ''}    if (okv) okv = ${P}_run(v, w, t, mode, 0, kb, vec2(0.0), ug);
-${bk.dual ? `    if (m == 0 && okv && mode == ${NM.CHECK}) { ${P}_dd = ${P}_dc; ${P}_dk = true; }
-` : ''}    for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
+    for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
     ${P}_r[m] = v; ${P}_k[m] = okv;
   }
 }
@@ -2410,7 +2408,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   if (!${P}_k[b]) return false;
   vec2 u = ${P}_r[b];
 ${bk.dual ? `  vec2 d;
-  if (b == 0 && ${P}_dk) d = ${P}_dd; else d = ${P}_d(u, t);
+  if (b == 0 && ${P}_dk) d = ${P}_dc; else d = ${P}_d(u, t);
   return ixApply(L, u, cinv(d), ${NOR});` : `  return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});`}
 }
 `;

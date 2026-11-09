@@ -79,6 +79,12 @@ for (const [name, type, bound, boundPass] of CASES) {
   const moreNr = reach(bodies(dupNr, 'ix0'))('main');
   check(`${name}: a second _run call site is counted in the NR pass (reaches ${moreNr}, past ${boundPass})`, dupNr !== nrSrc && moreNr > boundPass, moreNr);
   if (name === 'ray-seeded') {
+    // the derivative the CHECK step keeps is reused only for a CHECK that held (a missed CHECK walks to another root, and the
+    // derivative at the stored one would be stale): _dk is set nowhere but inside `if (held)` of the CHECK step. The control: the same text with
+    // the guard removed fails the predicate
+    const guarded = (src) => { const sets = src.match(/ix0_dk = true/g) || []; return sets.length === 1 && /if \(chk\) \{ if \(held\) \{ ix0_dc = d; ix0_dk = true; \}/.test(src); };
+    check(`${name}: the CHECK derivative is kept only where the CHECK held`, guarded(inv.lib));
+    check(`${name}: control: without the held guard the predicate fails`, !guarded(inv.lib.replace('if (held) { ix0_dc = d; ix0_dk = true; }', 'ix0_dc = d; ix0_dk = true;')));
     const R = Inverse.NEWT_RAY;
     check(`${name}: the program runs no ray for a member that needs more than ${R.SUB * R.HALVINGS} stages`, inv.lib.includes(`if (rS > ${R.SUB * R.HALVINGS}) rayLeft = false;`));
     check(`${name}: and so does the CPU (newtRayStages answers -1)`, Inverse.newtRayStages({ re: 1.0004, im: 0 }) === -1 && Inverse.newtRayStages({ re: 1.01, im: 0 }) > 0);
