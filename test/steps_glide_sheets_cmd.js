@@ -16,9 +16,11 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-// (TOL levels of 255 per channel; SAME_FRAC the share of the pixels over TOL; MIN_PIXELS the least count compared; WHITE a channel
-// above which a pixel is paper; EDGE_LEVELS the span that makes a pixel an edge, EDGE_MAX_SHARE the most of the compared pixels that may be left out as edges; END_EPS how far a step the glide frame is short of its parked plane, so its motion is below a
-// hundredth of a pixel; RELOAD_MS the wait for the page a figure's opening reloads)
+// (TOL levels of 255 per channel; SAME_FRAC the share of the pixels over TOL; CONTROL_FACTOR how many times SAME_FRAC a control
+// must exceed; MIN_PIXELS the least count compared; WHITE a channel above which a pixel is paper; EDGE_LEVELS the span that
+// makes a pixel an edge; EDGE_MAX_SHARE the most of the compared pixels that may be left out as edges; END_EPS how far a step
+// the glide frame is from its parked plane, so its motion is below a hundredth of a pixel; RELOAD_MS the wait for the page a
+// figure's opening reloads)
 const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, WHITE = 250, EDGE_LEVELS = 24, EDGE_MAX_SHARE = 0.1, END_EPS = 1e-4, RELOAD_MS = 4000;
 const CUBIC = { type: 'custom', params: { expr: 'z^3-3z', cut: 180 } };
 const CHAINS = [
