@@ -28,8 +28,8 @@ const CRACK_NEAR = 3, FULL = 250, SPAN = 2;   // (a pixel counts when 3 of its 4
 // the largest count of the parked frames of the three cases in both views (log of an annulus, parked plane 0, isometric: 30); a moving
 // frame's cracks are at most what a parked plane draws
 const CRACK_MAX = 30;
-// a frame with more layers than the cross-layer pass reads is drawn (not blank): its relief covers this share of the pane
-const BLANK_MIN = 0.02;
+// a frame with more layers than the cross-layer pass reads is drawn (not blank): its relief covers this share of the smaller parked plane's
+const BLANK_MIN = 0.5;
 // the measure's control: CTL_HOLES isolated one-pixel holes, CTL_STEP pixels apart along a row of the covered interior
 const CTL_HOLES = 40, CTL_STEP = 5;
 const COUNT = `window.__lxCrack = (cov, w, h) => {
@@ -125,8 +125,10 @@ for (const c of CASES) {
   const cam0 = await ev("__cmwCam('L')");
   for (const [view_, cam] of [['isometric', cam0], ['Top', TOP_CAM]]) {
     await ev(`__cmwCam('L', ${JSON.stringify(cam)}); 1`);
-    for (const k of c.blankOnly ? [] : [0, 1]) {
+    const parkedN = [];
+    for (const k of [0, 1]) {
       await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      if (c.blankOnly) { const r = await ev('__cmwLandRelief()'); parkedN.push(r ? r.n : 0); continue; }
       const n = await ev('__lxCount()');
       info[`${c.tag}, ${view_}, plane ${k}`] = n;
       ok(`${c.tag}, ${view_}: the parked plane ${k} has at most ${CRACK_MAX} cracks (${n})`, n !== null && n <= CRACK_MAX, { n });
@@ -139,11 +141,10 @@ for (const c of CASES) {
     for (const u of AT) {
       await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
       if (c.blankOnly) {
-        const r = await ev('JSON.stringify(__cmwLandRelief())');
-        const cov = r && JSON.parse(r);
-        const frac = cov ? cov.n / (cov.w * cov.h) : null;
+        const cov = await ev('__cmwLandRelief()');
+        const frac = cov ? cov.n / Math.min(...parkedN) : null;
         info[`${c.tag}, ${view_}, u=${u}`] = frac;
-        ok(`${c.tag}, ${view_}, u=${u}: the frame is drawn, the relief covering at least ${BLANK_MIN} of the pane (${frac})`, frac !== null && frac >= BLANK_MIN, { frac });
+        ok(`${c.tag}, ${view_}, u=${u}: the frame is drawn, its relief covering at least ${BLANK_MIN} of the parked planes' (${frac}; parked ${parkedN})`, frac !== null && frac >= BLANK_MIN, { frac, parkedN });
         continue;
       }
       const n = await ev('__lxCount()');
