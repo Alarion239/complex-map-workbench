@@ -660,7 +660,7 @@ void main() {
 }
 `;
   // The block's clip, shared by the sheets' mesh (LAND_SHEET_VS) and the carried draw (LAND_CARRY_VS): a convex polygon of up
-  // to LAND_CLIP_CORNERS corners (a triangle cut by 6 planes gains at most one corner a plane), Q (x, y: the grid's or the
+  // to LAND_CLIP_CORNERS corners (a convex polygon gains at most one corner a plane: a triangle and 6 planes make 9), Q (x, y: the grid's or the
   // plane's position, which orders an edge's ends; z: the height), with a payload A mixed along an edge like the position,
   // a normal Nn and a flag Fl (0 a corner, +1 / -1 on the top / bottom of the block). Planes: the top and bottom |h| = Hb, then
   // the sides Sd = (x lo, x hi, y lo, y hi) in Q's units (a side crossing lies exactly on its plane). The crossing of an edge
@@ -682,6 +682,10 @@ float clipD(int p, float Hb, vec4 Sd, vec3 q) {
 int blockClip(float Hb, vec4 Sd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_N], inout vec3 Nn[CLIP_N], inout float Fl[CLIP_N]) {
   for (int pass = 0; pass < 6; pass++) {
     float s = pass == 0 ? 1.0 : -1.0;
+    // (a plane that no corner is beyond leaves the polygon as it is)
+    bool cut = false;
+    for (int i = 0; i < CLIP_N; i++) { if (i >= n) break; if (clipD(pass, Hb, Sd, Q[i]) > 0.0) cut = true; }
+    if (!cut) continue;
     vec3 R[CLIP_N]; vec4 RA[CLIP_N]; vec3 RN[CLIP_N]; float RF[CLIP_N];
     for (int i = 0; i < CLIP_N; i++) { R[i] = vec3(0.0); RA[i] = vec4(0.0); RN[i] = vec3(0.0, 0.0, 1.0); RF[i] = 0.0; }
     int m = 0;
@@ -691,7 +695,7 @@ int blockClip(float Hb, vec4 Sd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_
       float di = clipD(pass, Hb, Sd, Q[i]), dj = clipD(pass, Hb, Sd, Q[j]);
       bool inI = di <= 0.0, inJ = dj <= 0.0;
       if (inI) { R[m] = Q[i]; RA[m] = A[i]; RN[m] = Nn[i]; RF[m] = Fl[i]; m++; }
-      if (inI != inJ && m < CLIP_N) {
+      if (inI != inJ) {
         // (from the lower end in grid order, so the two triangles of an edge find the same point)
         bool fw = Q[i].x < Q[j].x || (Q[i].x == Q[j].x && Q[i].y < Q[j].y);
         vec3 a = fw ? Q[i] : Q[j], b = fw ? Q[j] : Q[i];
