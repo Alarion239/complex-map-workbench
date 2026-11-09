@@ -74,14 +74,50 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]);
     mad = s / (w * h * 3);
     }
+    // a globe or a relief: the frame is the still's camera widened to 16:9 (the same eye, target and up, the same extent in the
+    // still's height), so the still's picture is the frame's centre crop at the still's aspect (the Landscape's still crops the
+    // relief to what is drawn: f.info.crop, as fractions of the render at the still's aspect). Compared over the pixels the
+    // still draws (the frame's paper is white, but it carries a ground shadow and the screen's look), the frame also moved by
+    // a tenth of the crop (a zoom, a shift) as controls the row must tell apart
+    let three = null;
+    if (${surf !== 'plane'}) {
+      const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
+      im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+      const w = 320, h = Math.round(w * im[3] / im[2]), asp = im[2] / im[3], cr = f.info && f.info.crop;
+      const still = document.createElement('canvas'); still.width = w; still.height = h;
+      const gs = still.getContext('2d'); gs.fillStyle = '#fff'; gs.fillRect(0, 0, w, h);
+      gs.drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
+      const c = gs.getImageData(0, 0, w, h).data;
+      const cmp = (img, picW, H, zoom, dx) => {
+        let sx = picW / 2 - H * asp / 2, sy = 0, cw = H * asp, ch = H;
+        if (cr) { const rw = H * cr.asp; sx = picW / 2 - rw / 2 + cr.x0 * rw; sy = cr.y0 * H; cw = (cr.x1 - cr.x0) * rw; ch = (cr.y1 - cr.y0) * H; }
+        const mx = sx + cw / 2 + dx * cw, my = sy + ch / 2;
+        cw /= zoom; ch /= zoom;
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+        g.drawImage(img, mx - cw / 2, my - ch / 2, cw, ch, 0, 0, w, h);
+        const a = g.getImageData(0, 0, w, h).data;
+        let sum = 0, n = 0;
+        for (let i = 0; i < a.length; i += 4) { if (765 - c[i] - c[i + 1] - c[i + 2] <= 60) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
+        return { mad: n ? sum / (n * 3) : null, n: n / (w * h) };
+      };
+      const picW = Math.round(chk.pic * dv.width), H = dv.height;
+      three = { first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, 1.1, 0), shift: cmp(dv, picW, H, 1, 0.1), asp: +asp.toFixed(3) };
+    }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
     // draws what the pane draws: no level curves of its own
     const de = await ld(end.decoded), rc = (img) => { const c = document.createElement('canvas'); c.width = 60; c.height = 80; c.getContext('2d').drawImage(img, 0.89 * img.width, 0.1 * img.height, 0.08 * img.width, 0.14 * img.height, 0, 0, 60, 80); return c.getContext('2d').getImageData(0, 0, 60, 80).data; };
     const r0 = rc(dv), r1 = rc(de); let sr = 0; for (let i = 0; i < r0.length; i += 4) sr += Math.abs(r0[i] - r1[i]) + Math.abs(r0[i + 1] - r1[i + 1]) + Math.abs(r0[i + 2] - r1[i + 2]);
-    return { mad, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
+    return { mad, three, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
   if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
+  // (a bound for each: the frame shows the screen's look, the still the art layer's fills; the controls sit well above it)
+  if (surf !== 'plane') {
+    const t3 = fp && fp.three, bound = surf === 'sphere' ? 6 : 15;
+    ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > 0.05 && t3.first.mad < bound, fp);
+    ok(`${tag}: the same comparison fails on a frame zoomed by a tenth and on one shifted by a tenth`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
+  }
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place; a globe or a relief has no window of the still's to crop to, so its
