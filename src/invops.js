@@ -236,7 +236,10 @@ const InvOps = (() => {
   // w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the geometric stages
   // G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than TOL (1 + |u|) after
   // them fails the member), HALVINGS halvings at most (a |w| that needs more, below exp(log R 2^-HALVINGS), fails the
-  // member: newtRayStages answers -1, and so does the program). SUB = 0: no stages, the seed
+  // member: newtRayStages answers -1, and so does the program). TOL is a tracking test only (the final accuracy is the hit
+  // test): at the step tolerance 1e-5 the band 1 < |w| < 1.1 of the Douady-Hubbard map and the Böttcher coordinate is off the
+  // parked plane on 8 % and 26 % of its pixels, since NEWT steps per stage do not reach it near the set; at 1e-2 on none.
+  // SUB = 0: no stages, the seed
   // is landed on w itself
   const NEWT_RAY = { R: 32, SUB: 4, HALVINGS: 12, NEWT: 3, TOL: 1e-2 };
   const newtRayStages = (w) => {
