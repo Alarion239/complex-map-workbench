@@ -232,7 +232,11 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
   let r;
   do r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, limitMs - (Date.now() - t0))), until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
   while (!r.ok && Date.now() - t0 < limitMs);
-  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${JSON.stringify(r)})`);
+  if (!r.ok) {
+    // (what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms since its start; 0 where an event has not come) and how many scripts and sheets it has)
+    const page = await H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
+    throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${JSON.stringify(r)}; page ${JSON.stringify(page)})`);
+  }
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)

@@ -22,5 +22,7 @@ try {
   try { await load('kitloadlimit' + t0, STATE, '', null, { limitMs: SHORT_LIMIT_MS }); } catch (e) { err = String(e && e.message || e); }
   info.limit = { err, ms: Date.now() - t0 };
   ok('load: a page that is not ready within its limit throws, naming the limit', !!err && new RegExp('not ready after ' + SHORT_LIMIT_MS + ' ms').test(err), info.limit);
+  // (the held sheet keeps `load` from firing: the page is interactive, its navigation's loadEventEnd 0)
+  ok('load: the throw names the page: its readyState, and its navigation timings with the load event not yet come', !!err && /"readyState":"interactive"/.test(err) && /"nav":\{[^}]*"domInteractive":[1-9]\d*[^}]*"loadEventEnd":0\}/.test(err), info.limit);
 } finally { await holdSheet(0); }
 return { pass: fails.length === 0, fails, info };
