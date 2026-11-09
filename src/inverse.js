@@ -1659,6 +1659,15 @@ const Inverse = (() => {
     }
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
+  // f is within ID_TOL of the identity relatively, |f(z) / z - 1|, at ID_SAMPLES points of the circle |z| = ID_RADIUS
+  const ID_RADIUS = 32, ID_SAMPLES = 16, ID_TOL = 0.1;
+  function tangentAtInfinity(f) {
+    for (let k = 0; k < ID_SAMPLES; k++) {
+      const a = 2 * Math.PI * (k + 0.5) / ID_SAMPLES, z = C(ID_RADIUS * Math.cos(a), ID_RADIUS * Math.sin(a)), w = f(z);
+      if (!isFin(w) || !(abs(sub(div(w, z), ONE)) <= ID_TOL)) return false;
+    }
+    return true;
+  }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built
   // step has its f). A polynomial step of degree 2 to NEWT_POLY_MAX (its degree known exactly) has a homotopy that is
@@ -1671,9 +1680,10 @@ const Inverse = (() => {
     if (!(P && P.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
     if (isNewtPoly(P)) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
-    // (a step with no exact ops that is one-to-one onto the outside of a disk and tangent to the identity at infinity is
-    // seeded by the identity: z = w is near the point over w, which Newton settles at t = 1)
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : P.identitySeed ? [opAff(ONE, ZERO)] : null;
+    // (a step with no exact ops that declares itself one-to-one onto the outside of a disk and tangent to the identity at
+    // infinity is seeded by the identity when f is that close to the identity on a
+    // circle: then f(z) = w has exactly one root outside it, by Rouché, for w inside the circle's image)
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : P.identitySeed && tangentAtInfinity(b.f) ? [opAff(ONE, ZERO)] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:
