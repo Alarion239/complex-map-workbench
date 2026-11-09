@@ -11,8 +11,9 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (TOL levels of 255 per channel; SAME_FRAC the share of a region's pixels that may fail; CONTROL_FACTOR how many times SAME_FRAC a control must exceed;
 // MIN_PIXELS the least count compared; BAND_PX rows each side of the cut's row; DISC_R the half width of the box around the handle's disc; CHIP_W how far right of the handle the chip's label reaches;
-// SHIFT_PX the shift of the control; END_EPS how far a step the glide frame is from its parked plane, so that its motion is below a hundredth of a pixel)
-const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, BAND_PX = 12, DISC_R = 9, CHIP_W = 90, SHIFT_PX = 2, END_EPS = 1e-4;
+// SHIFT_PX the shift of the control; CHIP_EDGE_MAX the share of the handle chip's pixels that may have no pixel of the parked chip's 3 x 3 within TOL (the label's glyphs are anti-aliased at the handle's place, which
+// a glide frame has moved by 0.04 px at END_EPS: text edges differ by more than TOL for that; the share falls with the motion, which CHIP_SCALE checks, and a 2 px shift of the chip fails it); CHIP_SCALE the most the share may be, at a tenth of END_EPS, of that at END_EPS; END_EPS how far a step the glide frame is from its parked plane, so that its motion is below a hundredth of a pixel)
+const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, BAND_PX = 12, DISC_R = 9, CHIP_W = 90, SHIFT_PX = 2, END_EPS = 1e-4, CHIP_EDGE_MAX = 0.1, CHIP_SCALE = 0.2;
 const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -43,6 +44,7 @@ await frameAt('__cmwSteps({ park: 0 })'); const dim = await grab('parked0');
 ok('the parked plane 0 is drawn', !!dim, dim);
 await frameAt(`__cmwSteps({ x: ${END_EPS} })`); ok('the glide frame near plane 0 is drawn', !!(await grab('glide')), null);
 const glideHandles = await ev('__cmwCutHandles().length');
+await frameAt(`__cmwSteps({ x: ${END_EPS / 10} })`); ok('the glide frame a tenth of that near plane 0 is drawn', !!(await grab('glideTenth')), null);
 const glidePath = await ev('(__cmwSteps().glide || {}).path');
 await frameAt('__cmwSteps({ park: 1 })'); ok('the parked plane 1 is drawn', !!(await grab('parked1')), null);
 await frameAt('__cmwSteps({ park: 0 })'); await grab('parked0');
@@ -69,19 +71,24 @@ await frameAt('__cmwSteps({ park: 0 })'); await grab('parked0');
 const hd = await ev(`(() => { const hs = __cmwCutHandles(), cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(); const h = hs[0]; return h ? { x: (h.x - r.left) * cv.width / r.width, y: (h.y - r.top) * cv.height / r.height } : null; })()`);
 ok('the parked plane 0 has a cut handle', !!hd, hd);
 const row = Math.round(hd.y), hx = Math.round(hd.x);
-// (the band holds the cut's line, hatches and dot but not the handle's chip: its glyphs are anti-aliased at the handle's place, which a glide frame has moved by a hundredth of a pixel, and a text edge changes by more than TOL levels for that; the disc is checked apart)
+// (the band holds the cut's line, hatches and dot but not the handle's chip, which is judged apart under its own bound, CHIP_EDGE_MAX; the disc is checked apart too)
 const band = { x0: 0, x1: dim.W, y0: row - BAND_PX, y1: row + BAND_PX }, disc = { x0: hx - DISC_R, x1: hx + DISC_R, y0: row - DISC_R, y1: row + DISC_R };
-const chipSkip = { x0: hx + DISC_R, x1: hx + CHIP_W };
+const chipSkip = { x0: hx + DISC_R, x1: hx + CHIP_W }, chip = { x0: chipSkip.x0, x1: chipSkip.x1, y0: row - BAND_PX, y1: row + BAND_PX };
 const rows = {
   'the glide frame': await measure('glide', 'parked0', band, chipSkip), 'the glide frame, its handle': await measure('glide', 'parked0', disc),
   'the parked plane against itself': await measure('parked0', 'parked0', band, chipSkip),
   'the glide frame against plane 1': await measure('glide', 'parked1', band, chipSkip),
+  'the glide frame, its chip': await measure('glide', 'parked0', chip), 'the glide frame a tenth of that near, its chip': await measure('glideTenth', 'parked0', chip), 'the parked plane against itself, the chip': await measure('parked0', 'parked0', chip),
 };
 info.path = glidePath; info.glideHandles = glideHandles; info.rows = rows;
 ok(`the glide near plane 0 is drawn by the inverse pass`, glidePath === 'inverse', glidePath);
 ok(`the cut's band of the glide frame ${END_EPS} past plane 0 is the parked plane's within one pixel, at most ${SAME_FRAC * 100} % of its pixels without a pixel of its 3 x 3 within ${TOL} levels`, rows['the glide frame'].n > MIN_PIXELS && rows['the glide frame'].fail <= SAME_FRAC, rows['the glide frame']);
 ok(`the cut's handle disc of the glide frame is the parked plane's, within the same bound`, rows['the glide frame, its handle'].n > 0 && rows['the glide frame, its handle'].fail <= SAME_FRAC, rows['the glide frame, its handle']);
 ok('the glide frame draws the handle but gives it no hit target (it is inert while the glide moves)', glideHandles === 0, glideHandles);
+ok(`the handle's chip (label and pill) of the glide frame: at most ${CHIP_EDGE_MAX * 100} % of its pixels without a pixel of the parked chip's 3 x 3 within ${TOL} levels`, rows['the glide frame, its chip'].n > 0 && rows['the glide frame, its chip'].fail <= CHIP_EDGE_MAX, rows['the glide frame, its chip']);
+ok(`the chip's difference is rasterization: at a tenth of that distance from plane 0 the share is at most ${CHIP_SCALE} of it`, rows['the glide frame a tenth of that near, its chip'].fail <= CHIP_SCALE * rows['the glide frame, its chip'].fail, { tenth: rows['the glide frame a tenth of that near, its chip'], full: rows['the glide frame, its chip'] });
+ok(`the control: the parked chip against itself shifted ${SHIFT_PX} px: more than ${CHIP_EDGE_MAX * 100} % of its pixels fail`, rows['the parked plane against itself, the chip'].failShift > CHIP_EDGE_MAX, rows['the parked plane against itself, the chip']);
+ok('the control: the parked chip against itself: no pixel fails', rows['the parked plane against itself, the chip'].fail === 0, rows['the parked plane against itself, the chip']);
 ok('the control: the parked plane against itself: no pixel fails', rows['the parked plane against itself'].fail === 0, rows['the parked plane against itself']);
 ok(`the control: the parked plane against itself shifted ${SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the parked plane against itself'].failShift > CONTROL_FACTOR * SAME_FRAC, rows['the parked plane against itself']);
 ok(`the control: the same glide frame against plane 1: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the glide frame against plane 1'].fail > CONTROL_FACTOR * SAME_FRAC, rows['the glide frame against plane 1']);
