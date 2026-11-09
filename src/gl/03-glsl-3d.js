@@ -1057,13 +1057,13 @@ void main() {
   // of the grid, that preimage and that height, texel w uContCode. uOutZ 0 writes the texel, 1 the preimage.
   const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
   const LAND_CARRY_RING_VS = `
-uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy;
+uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard;
 uniform int uGs; uniform int uGt;
 uniform highp sampler2D uRT1[${RING_LAYERS_MAX}]; uniform highp sampler2D uRZ[${RING_LAYERS_MAX}];
 out vec4 tfOut;
 ` + CARRY_HEIGHT + CARRY_HEIGHT_ANCHORED + `
 // (uWhy 1, tests: a vertex the pass leaves off the layer has texel w minus the reason: 1 no own neighbour, 2 no own layer
-// there, 3 not one member, 4 the guard)
+// there, 3 not one member, 4 no height on the branch, 5 the guard)
 void ringWhy(inout vec4 o, int why) { if (uWhy == 1 && uOutZ == 0) o.w = -float(why); }
 // (a sampler array is indexed by constants only: one case a layer)
 vec4 ringT(int j, ivec2 p) {
@@ -1107,7 +1107,8 @@ void main() {
   if (!(best * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { ringWhy(tfOut, 3); return; }
   cxs0_out = false;
   vec2 h = carryHeightA(zA, zj);
-  if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38 || abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 4); return; }
+  if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { ringWhy(tfOut, 4); return; }
+  if (uGuard == 1 && abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 5); return; }
   tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, h.x, uContCode);
 }
 `;

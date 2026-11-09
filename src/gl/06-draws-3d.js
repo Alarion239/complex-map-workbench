@@ -482,7 +482,7 @@
       u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0);
       u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', L.own);
       u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
+      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1i(P, 'uGuard', carryProbe.noGuard ? 0 : 1); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
       const units = [];
       for (let j = 0; j < RING_LAYERS_MAX; j++) {
         const Lj = landActive[Math.min(j, n - 1)];
@@ -1542,7 +1542,7 @@
         if (L.exact) { L.spec = specs[k]; landActive.push(L); }
       }
       landC.spec = specs[0];
-      landRing(st, N, mode, H, mu, aspect);
+      if (!carryProbe.noRing) landRing(st, N, mode, H, mu, aspect);
       for (const L of landActive) carryHeights(st, N, mode, H, mu, aspect, null, null, Object.assign({ k: landActive.indexOf(L), stage: 'B' }, L.spec));
       // (a polar patch of every layer about each branch point of the glide's inverse in view, where the box's cell holding
       // the point spans a whole turn of the helicoid: the box's triangles about it are left out)

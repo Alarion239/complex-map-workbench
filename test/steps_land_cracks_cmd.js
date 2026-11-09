@@ -50,6 +50,31 @@ window.__lxCtl = (holes, step) => {
   return { n: __lxCrack(cov, w, h), run: best.run };
 };
 1`;
+// the cross-layer pass's controls, each at a u of the case: with it off the cracks return (cube root); the guard refuses
+// continuations onto a surface the frame does not draw there, and without it none is refused (log)
+const CONTROLS = { 'cube root': { u: 0.5 }, 'log of an annulus': { u: 0.25 } };
+const SEAM = `window.__lxSeam = () => { const m = __cmwLandSeamMiss(); const sum = (k) => m.reduce((a, L) => a + (L.why[k] || 0), 0); return { refused: sum(5), cont: m.reduce((a, L) => a + L.cont, 0) }; };
+window.__lxProbe = (p) => { GLR.carryProbes(Object.assign({ ringWhy: true }, p)); return 1; };
+1`;
+const controls = async (c) => {
+  const u = CONTROLS[c.tag].u;
+  const at = async (probe) => { await ev(`__lxProbe(${JSON.stringify(probe)})`); await ev(`__cmwSteps({ x: ${u} }); 1`); await ev(`__cmwSteps({ x: ${u} + 0.01 }); 1`); await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
+  await ev(SEAM);
+  if (c.tag === 'cube root') {
+    await at({ noRing: true });
+    const n = await ev('__lxCount()');
+    ok(`${c.tag}, u=${u}: control: without the cross-layer pass the frame has over ${CRACK_MAX} cracks (${n})`, n !== null && n > CRACK_MAX, { n });
+  } else {
+    await at({});
+    const on = await ev('__lxSeam()');
+    await at({ noGuard: true });
+    const off = await ev('__lxSeam()');
+    ok(`${c.tag}, u=${u}: the guard refuses continuations onto surfaces the frame does not draw (${on.refused})`, on.refused > 0, on);
+    ok(`${c.tag}, u=${u}: control: without the guard none is refused and more vertices are continued (${off.refused}, ${off.cont} against ${on.cont})`, off.refused === 0 && off.cont > on.cont, { on, off });
+  }
+  await at({});
+  await ev('GLR.carryProbes({}); 1');
+};
 await view(1440, 900, false, false);
 for (const c of CASES) {
   const ns = 'cracks' + Date.now();
@@ -78,6 +103,7 @@ for (const c of CASES) {
       info[`${c.tag}, ${view_}, u=${u}`] = n;
       ok(`${c.tag}, ${view_}, u=${u}: the frame has at most ${CRACK_MAX} cracks along its seams (${n})`, n !== null && n <= CRACK_MAX, { n });
     }
+    if (view_ === 'isometric' && CONTROLS[c.tag]) await controls(c);
   }
 }
 return { pass: fails.length === 0, fails, info };
