@@ -2326,7 +2326,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v = w, ug;
     bool okv = true;
     int mode = ${NM.WALK};
-    if (m > 0) { okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK};${bk.ray ? `` : ''} }
+    if (m > 0) { okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
 ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
     else if (uNrRead == 1 && w == ixPixW) {
       v = texelFetch(uNrTex0, ixNrTexel, 0).zw;
