@@ -8,7 +8,7 @@
 // most EDGE_MAX_SHARE of the compared pixels may be (measured 8.5 % and 8.1 %: the rings, the sectors and the seam), and with
 // every pixel an edge the cap fails (a control). The edge pixels are compared apart (the ruler ruling's one pixel of rasterization):
 // each passes when some pixel of the parked frame's 3 x 3 around it is within TOL levels of the glide's; at most SAME_FRAC of them
-// may fail, and with the glide shifted EDGE_SHIFT_PX px the measure must fail (a control). The colour layer alone (strokes hidden, bare).
+// may fail; the controls are the parked plane against itself (none fails) and against itself shifted EDGE_SHIFT_PX px (the measure must fail), which hold whatever the glide draws. The colour layer alone (strokes hidden, bare).
 // Chains, each at both ends of its last step:
 // - Square root alone: the glide is the inverse pass's (glide.path 'inverse');
 // - the cubic z^3 - 3z, then the Square root: the exact renderer inverts no cubic, so the glide is the carried meshes' (glide.path 'mesh').
@@ -44,7 +44,7 @@ const openChain = async (c) => {
   await pause(RELOAD_MS);
   await settled({ max: 30000, until: `typeof __cmwSteps === "function" && __cmwP().steps.length === ${c.pre.length + 1}` });
 };
-// the glide frame at gx against the parked plane px: {n, over, max, drawn, drawnOver, edgeShare, edgeFail, edgeFailShifted, path} (drawn: the pixels the glide draws, of n; edgeShare: the share of the pixels not paper in both frames that are left out as edges; edgeFail: the share of those edge pixels with no pixel of the parked 3 x 3 within TOL of the glide's, and the same with the glide shifted EDGE_SHIFT_PX px)
+// the glide frame at gx against the parked plane px: {n, over, max, drawn, drawnOver, edgeShare, edgeFail, edgeFailShifted, path} (drawn: the pixels the glide draws, of n; edgeShare: the share of the pixels not paper in both frames that are left out as edges; edgeFail: the share of those edge pixels with no pixel of the parked 3 x 3 within TOL of the glide's, and the same with the glide frame shifted EDGE_SHIFT_PX px)
 const measure = async (c, gx, px, edgeLevels = EDGE_LEVELS) => {
   await openChain(c);
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); __cmwSteps({ park: ${px} }); 1`);
@@ -93,7 +93,6 @@ for (const c of CHAINS) {
   ok(`${c.label}: the glide at the start of its last step is drawn by the ${c.path} path`, lo.path === c.path, lo);
   ok(`${c.label}: the frame ${END_EPS} past plane ${a} is the parked plane, at most ${SAME_FRAC * 100} % of the pixels more than ${TOL} levels off`, lo.n > MIN_PIXELS && lo.over <= SAME_FRAC, lo);
   ok(`${c.label}: the edge pixels of the frame ${END_EPS} past plane ${a} are the parked plane's within one pixel, at most ${SAME_FRAC * 100} % of them without a pixel of its 3 x 3 within ${TOL} levels`, lo.edgeFail !== null && lo.edgeFail <= SAME_FRAC, lo);
-  ok(`${c.label} (control): the glide shifted ${EDGE_SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the edge pixels fail`, lo.edgeFailShifted > CONTROL_FACTOR * SAME_FRAC, lo);
   const hi = await measure(c, gx, b);
   info[`${c.label}: glide ${END_EPS} short of plane ${b}`] = hi;
   ok(`${c.label}: the glide at the end of its last step is drawn by the ${c.path} path`, hi.path === c.path, hi);
@@ -101,7 +100,10 @@ for (const c of CHAINS) {
   ok(`${c.label}: where the glide at the end of its last step draws, it is the parked plane, at most ${SAME_FRAC * 100} % of those pixels more than ${TOL} levels off`, hi.drawn > MIN_PIXELS && hi.drawnOver <= SAME_FRAC, hi);
   ok(`${c.label}: the frame ${END_EPS} short of plane ${b} is the parked plane (every sheet), at most ${SAME_FRAC * 100} % of the pixels more than ${TOL} levels off`, hi.n > MIN_PIXELS && hi.over <= SAME_FRAC, hi);
   ok(`${c.label}: the edge pixels of the frame ${END_EPS} short of plane ${b} are the parked plane's within one pixel, at most ${SAME_FRAC * 100} % of them without a pixel of its 3 x 3 within ${TOL} levels`, hi.edgeFail !== null && hi.edgeFail <= SAME_FRAC, hi);
-  ok(`${c.label} (control): the glide shifted ${EDGE_SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the edge pixels fail`, hi.edgeFailShifted > CONTROL_FACTOR * SAME_FRAC, hi);
+  const self = await measure(c, a, a);
+  info[`${c.label} (control: plane ${a} against itself)`] = self;
+  ok(`${c.label} (control): the parked plane ${a} against itself: no edge pixel fails`, self.edgeFail === 0, self);
+  ok(`${c.label} (control): the parked plane ${a} against itself shifted ${EDGE_SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the edge pixels fail`, self.edgeFailShifted > CONTROL_FACTOR * SAME_FRAC, self);
   const allEdges = await measure(c, gx, b, 0);
   info[`${c.label} (control: every pixel an edge)`] = allEdges;
   ok(`${c.label} (control): with every pixel an edge, more than ${EDGE_MAX_SHARE * 100} % of the pixels compared are left out`, allEdges.edgeShare > EDGE_MAX_SHARE, allEdges);
