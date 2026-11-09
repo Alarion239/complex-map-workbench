@@ -1296,7 +1296,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // the first DH_REG points, and every DH_CK-th point after them (the checkpoints). A point past the registers is the
         // orbit run on from the nearest checkpoint at or before it by the same steps as the walk, at most DH_CK - 1 of them,
         // so every value is bit for bit the one the walk had
-        const DH_REG = 8, DH_CK = 8, NCK = Math.floor((NM - 1) / DH_CK);
+        // (n <= N <= NM and j >= 1, so q = n - j <= NM - 1: the checkpoints read are k_1 .. k_{floor((NM - 1) / DH_CK)}, and w_NM is not kept)
+        const DH_REG = 8, DH_CK = 8, NCK = Math.ceil(NM / DH_CK) - 1;
+        if (Math.floor((NM - 1) / DH_CK) > NCK) throw new Error('DH orbit: a checkpoint read past the ones kept');
         const reg = Array.from({ length: DH_REG }, (_, i) => `o${i}`), ck = Array.from({ length: NCK }, (_, i) => `k${i + 1}`);
         const pick = (idx, names) => names.map((nm, i) => (i < names.length - 1 ? `${idx} == ${i} ? ${nm} : ` : nm)).join('');
         const pre = `vec2 ${P}_fd(vec2 z, out vec2 d, out float tail) {
