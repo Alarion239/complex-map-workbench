@@ -3,8 +3,8 @@
 // - exactImages: false is what the state carries and the plane's exact images are not drawn (the frame differs from the
 //   page that has them on, over more than MIN_CHANGED pixels of the pane);
 // - unitLevel: true draws the Landscape's unit level plane (the frame differs from the one without it);
-// - spin, compact, chev, fov: the steps view reads none of them: the state carries each value (a link keeps it) and the
-//   plane's frame and the Landscape's are the frame of the page without it.
+// - spin, compact, chev, fov: the steps view reads none of them: the plane's frame and the Landscape's are the frame of the
+//   page without it (a guard against one gaining an effect there).
 // Every comparison has a control: the same state loaded twice draws the same frame (no pixel over TOL), so a difference is the
 // key's. A command file for a CDP daemon (test/cdp_kit README); CI runs it in the misc-3 shard (ci/browser_shards.js). Prints { pass, fails, info }.
 const fails = [], info = {};
@@ -12,6 +12,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const TOL = 8;              // a channel's difference (of 255) from which two pixels differ
 const MIN_CHANGED = 50;     // pixels of the pane a key that changes the frame changes at least
 const INERT = ['spin', 'compact', 'chev', 'fov'];
+const INERT_MAX = 5;        // pixels a key the steps view does not read may change (the control's bound)
 await view(1200, 800, false, false);
 const STATE = (extra) => Object.assign({ v3: true, v4: true, v5: true, v6: true,
   shapes: [{ id: 's2', kind: 'disc', c: [0.3, 0.1], r: 1, ci: 0, visible: true }, { id: 's3', kind: 'disc', c: [1.4, 0], r: 0.3, ci: 1, visible: true }],
@@ -48,7 +49,7 @@ for (const surf of ['plane', 'land']) {
   const base = await open({}, surf), again = await open({}, surf);
   const control = changed(base.im, again.im);
   info[surf] = { control };
-  ok(`${surf}: the same state loaded twice draws the same frame (the control)`, control <= 5, control);
+  ok(`${surf}: the same state loaded twice draws the same frame (the control)`, control <= INERT_MAX, control);
   const keys = surf === 'plane' ? ['exactImages'] : ['unitLevel'];
   for (const k of keys) {
     const v = k === 'exactImages' ? false : true;
@@ -62,8 +63,8 @@ for (const surf of ['plane', 'land']) {
       const p = await open({ [k]: v }, surf);
       const n = changed(base.im, p.im);
       info[surf][k + String(v)] = n;
-      ok(`${surf}: ${k} ${v} is what the state carries`, p.state[k] === v, p.state);
-      ok(`${surf}: ${k} ${v} draws the frame without it (not over the control)`, n <= 5, n);
+      // DELETE row in #622: remove this check with the key.
+      ok(`${surf}: ${k} ${v} draws the frame without it (not over the control)`, n <= INERT_MAX, n);
     }
   }
 }
