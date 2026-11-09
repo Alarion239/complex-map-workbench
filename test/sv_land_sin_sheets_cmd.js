@@ -19,8 +19,8 @@ await ev(`__cmwSteps({ surf: 'land' }); 1`);
 // (the frame is drawn when the sheets it drew are reported: none is reported while the principal branch stands in)
 const K = async (x) => {
   await ev(`__cmwSteps({ x: ${x} }); 1`);
-  const r = await settled({ max: 90000, until: '__cmwLandSheets().drawn !== null' });
-  return { settled: r && r.ok, K: await ev('(() => { const d = __cmwLandSheets().drawn; return d ? d.K : null; })()') };
+  const r = await settled({ max: 90000, until: '__cmwLandSheets().drawn !== null || (__cmwLandCarry() && __cmwLandCarry().path === "inverse")' });
+  return { settled: r && r.ok, K: await ev('(() => { const d = __cmwLandSheets().drawn, c = __cmwLandCarry(); return d ? d.K : (c && c.path === "inverse" ? c.layers : null); })()') };
 };
 for (const x of [0, 0.5, 1, 1.5, 2]) {
   info['x' + x] = await K(x);

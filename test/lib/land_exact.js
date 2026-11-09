@@ -51,6 +51,8 @@
   // SEAM_MIN_SAMPLES samples is no measurement.
   const SEAM_DARK_TOL = 8, SEAM_DARK_MAX = 0, SEAM_MIN_SAMPLES = 100, SEAM_END_PX = 4;
   const SEAM_SIDE_PX = 3;   // (the seam measure compares a seam pixel with the frame's own pixels this far to either side of the cut curve)
+  const REL_FLOOR = 1e-9;   // (a relative difference is against at least this: a reference of 0 has no scale)
+  const relDiff = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), REL_FLOOR);
   const TICK_H_TOL = 1e-9;   // (a label's world height against the frame's own height function of its value: the same float computation)
   const TICK_SCALE_ERR = 1.6e-3;   // (the scale error the own-scale check must see: the gap the near ends have against the parked plane at .998)
   const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
@@ -60,10 +62,11 @@
   const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view: the camera the end frames are also compared in, where a missing piece of the surface shows against the pale floor
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
   const CONT_STEP = 0.02;   // (the continuity probe's two frames: u - CONT_STEP / 2 and u + CONT_STEP / 2)
+  const MID_U = [0.25, 0.75];   // (probes inside the glide: no parked plane to compare with, so the exact map alone judges them)
   const CONT_AT = [0.25, GLIDE_MID, 0.75];
   const CONT_LIPSCHITZ = 1;   // (the largest change of a layer's height at a place, in block heights, per unit of u)
   const CLIP_CONTROL_U = 0.998;   // (the glide's u of the block clip's controls: the tower's cut shows in the image at once)
-  const GLIDE_U = [END_U, 0.002, GLIDE_MID, 0.998, 1 - END_U];
+  const GLIDE_U = [END_U, 0.002, MID_U[0], GLIDE_MID, MID_U[1], 0.998, 1 - END_U];
   const SEAM_AT = [1 - END_U, 0.998, 1 - 1e-5];   // (the glide's u of the frame's own seam measure)
   // (the probes at 0.002 and 0.998 are the far-end check: judged by the exact reference at their own u, not by the parked plane, below
   // (Ruling C); END_U is the ends of a polynomial's glide)
@@ -109,6 +112,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -140,6 +144,22 @@
       let n = 0;
       for (let i = 0; i < x.length; i += 4) { const p = hue(x, i), q = hue(y, i); if (p >= 0 && q >= 0) { const d = Math.abs(p - q); if (Math.min(d, 360 - d) > ${HUE_OFF_DEG}) n++; } }
       return n;
+    },
+    // where the cut was found on each flagged edge, against the step's own cut (the negative real axis of its input plane, which is plane
+    // z here): the worst distance of a crossing's preimage z* = a + t (b - a) to the ray, in shares of the edge's chord |b - a|, over the edges whose
+    // crossing is inside the chord (n), and how many sit at an end of it (atEnd: the vertex itself is taken as the cut)
+    cutT: () => {
+      const r = window.__cmwLandCutEdges();
+      if (!r) return null;
+      const tol = Math.pow(2, 1 - r.steps);
+      let worst = 0, atEnd = 0, n = 0;
+      for (const [ax, ay, bx, by, t] of r.edges) {
+        if (t < tol || t > 1 - tol) { atEnd++; continue; }
+        n++;
+        const x = ax + t * (bx - ax), y = ay + t * (by - ay), chord = Math.hypot(bx - ax, by - ay);
+        worst = Math.max(worst, (x < 0 ? Math.abs(y) : Math.hypot(x, y)) / chord);
+      }
+      return { n, atEnd, worst, steps: r.steps };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -482,7 +502,7 @@
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     for (const u0 of GLIDE_U) {
-      const u = u0, first = u0 < GLIDE_MID, lastU = u0 > GLIDE_MID;   // (first: a probe near plane z, lastU: near the next plane)
+      const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
       const still = await grab('cur');
@@ -645,12 +665,11 @@
       // the height ruler's labels: at every u each label sits at the frame's OWN height of its value; at the ends the same labels as the parked
       // plane's, each within TICK_PX of its screen y (rasterization only; the end frames' real scale gap is not absorbed: it is checked by the own height)
       {
-        const relErr = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
         const ownTicks = async () => {
           const marks = await ev('__cmwLandTickMarks()');
           const own = JSON.parse(await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`));
           const nz = marks.map((m, i) => i).filter((i) => own[i]);   // (a label at height 0 has no scale)
-          return { marks, own, nz, bad: nz.filter((i) => !(relErr(marks[i].hz, own[i]) <= TICK_H_TOL)) };
+          return { marks, own, nz, bad: nz.filter((i) => !(relDiff(marks[i].hz, own[i]) <= TICK_H_TOL)) };
         };
         const o = await ownTicks();
         ok(`${t}: the height ruler's ${o.marks.length} labels sit at the frame's own height of their value`, o.marks.length > 0 && !o.bad.length, o);
@@ -669,12 +688,11 @@
       // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
       {
         const sc = await ev('__cmwLandScale()'), ref = first ? p0.scale : p1.scale;
-        const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
         if (u === END_U || u === 1 - END_U) {
           ok(`${t}: the frame's scale and boost are the parked plane's (mu ${sc && sc.mu} against ${ref && ref.mu}, boost ${sc && sc.boost} against ${ref && ref.boost}; within ${SCALE_TOL})`,
-            !!sc && !!ref && rel(sc.mu, ref.mu) <= SCALE_TOL && rel(sc.boost, ref.boost) <= SCALE_TOL, { sc, ref });
+            !!sc && !!ref && relDiff(sc.mu, ref.mu) <= SCALE_TOL && relDiff(sc.boost, ref.boost) <= SCALE_TOL, { sc, ref });
         } else if (u === GLIDE_MID && sc && ref) {
-          ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, rel(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
+          ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, relDiff(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
         }
       }
       // the height function moves continuously from plane z's to the next plane's: the layers' heights at a place change by at most
@@ -703,6 +721,27 @@
         const d1b = (await compare('b0', 'P1')).frac;
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         ok(`${t}: the weight frozen at plane z's height fails the next plane's parked frame (control; ${d1b} of pixels over ${DIFF_TOL})`, d1b > SAME_FRAC, { d1b });
+      }
+      // no edge of the frame is crossed twice (a branch point on an edge drops its triangles)
+      {
+        const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
+        ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
+      }
+      // where the edge pass puts a cut on an edge is the step's own cut, to the bisection's resolution: the preimage of each flagged edge's cut is
+      // within 2^-(steps - 1) of the edge's chord from the cut (the negative real axis of plane z)
+      if ((CUT_ROWS[c.tag] || []).includes(u)) {
+        const ct = await ev('__lx.cutT()');
+        const tol = ct ? Math.pow(2, 1 - ct.steps) : 0;
+        r[u].cut = ct;   // (atEnd: the flagged edges whose cut is at an end of the chord, the vertex itself, which are counted here and not judged)
+        ok(`${t}: the cuts the edge pass finds are the step's own (${ct ? ct.n : '?'} flagged edges, over 0, with the cut inside the chord, and ${ct ? ct.atEnd : '?'} at an end of it; the worst is ${ct ? ct.worst.toExponential(2) : '?'} of the chord from the cut, at most ${tol.toExponential(2)})`, !!ct && ct.n > 0 && ct.worst <= tol, ct);
+        // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
+        let ctlC;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1] === u ? MID_U[0] : MID_U[1]); await setU(u);
+          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+          ctlC = await ev('__lx.cutT()');
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
+        ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
@@ -850,6 +889,17 @@
       r[u].raster = rk;
       ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
       ok(`${t}: the reference is converged: ${REF.calm} levels in a row change no pixel within ${REF.slack} (depth ${rk ? rk.depth : '?'} of at most ${REF.depthMax}; last pair off ${conv}, first pair ${firstConv})`, !!rk && calm >= REF.calm, { depth: rk && rk.depth, conv, firstConv, calm });
+      if (c.tag === 'cube root' && u === MID_U[0]) {
+        // the control: with every cross-sheet edge taken as continuous (probe noCross) the whole triangles across the cuts between sheets
+        // come back as slivers, and the relief check fails
+        let ctl;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { noCross: true }); 1"); await setU(MID_U[1]); await setU(u);
+          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+          ctl = (await refine(sheets, REF)).rk;
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); }
+        ok(`${t}: control: with every cross-sheet edge taken as continuous the relief is over ${RASTER_TOL * 100} % off (${ctl ? ctl.extra : '?'} extra, ${ctl ? ctl.missing : '?'} missing of ${ctl ? ctl.n : '?'})`, !!ctl && ctl.off > RASTER_TOL, { ctl });
+      }
       if (/Roots as preimages/.test(t) && u === 0.002) {
         // controls: a reference refined only over the SHALLOW levels is not converged (its pair still moves checked pixels), and
         // a raster given too few levels is reported capped, so the relief check fails

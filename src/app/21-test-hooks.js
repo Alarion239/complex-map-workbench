@@ -425,6 +425,9 @@
   // (the test hooks go on: a second block, as t_publish caps a block's length)
   // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f, sheet, matches }]; matches is 1 plus how many other members, of another z, fit the layer's z and height and lie within LAND_ENUM_NEAR times the nearest one's distance (the nearest is taken; more than 1 is ambiguous); f and sheet are
   // those of the enumerator's member (__cmwLandEnum) at the vertex's own place that has its z and its height (null: none has)
+  // the last exact carried frame's edges crossed twice (a branch point on an edge): the triangles holding them are left out
+  window.__cmwLandDrops = () => (GLR.landDrops ? GLR.landDrops() : null);
+  window.__cmwLandCutEdges = () => (GLR.landCutEdges ? GLR.landCutEdges() : null);
   window.__cmwLandFrameVerts = (pts) => {
     const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null;
     return g ? g.map((ls) => ls.map((l) => {
@@ -436,6 +439,7 @@
   };
   // the last carried frame's cut edges per layer: [{ cuts, box, pp: [patch] }], each grid { n, jumps, w } (the jump texels of its three edge textures and the places of the first few); null with no carried frame
   window.__cmwLandEdgeCounts = () => (render3D.carried ? GLR.landEdgeCounts() : null);
+  window.__cmwLandSeamMiss = () => (render3D.carried ? GLR.landSeamMiss() : null);
   // the shown plane's map at a point z of plane 0 ([re, im] -> [re, im]), from the inverse inputs the last carried frame drew
   // from; null when there are none
   window.__cmwLandForward = (z) => { const F = render3D.exactIn && render3D.exactIn.F, f = F ? F(C(z[0], z[1])) : null; return f && CX.isFin(f) ? [f.re, f.im] : null; };

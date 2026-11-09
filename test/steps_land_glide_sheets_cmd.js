@@ -39,6 +39,8 @@ const open = async () => {
 await open();
 await rest(1); await grab('rest1');
 await rest(0); await grab('rest0');
+// (a glide drawn by the exact inverse draws its sheets as layers: more than one layer is the sheets drawn)
+const drawsSheets = (c) => !!c && (c.sheets === true || (c.path === 'inverse' && c.layers >= 2));
 const carry = () => ev('typeof __cmwLandCarry === "function" ? JSON.stringify(__cmwLandCarry()) : null').then((c) => (c ? JSON.parse(c) : null));
 info.ends = {};
 for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]) {
@@ -49,7 +51,7 @@ for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]
   info.ends[tag] = { u: c && c.u, sheets: c && c.sheets, d: await diff(tag, restTag) };
   await ev('window.__svScrubUp(), 1');
   await settled({ max: 60000 });
-  ok(`held at ${x}: a carried frame that draws the sheets`, !!c && Math.abs(c.u - x) < 0.002 && c.sheets === true, c);
+  ok(`held at ${x}: a carried frame that draws the sheets`, !!c && Math.abs(c.u - x) < 0.002 && drawsSheets(c), c);
   ok(`held at ${x}: the plane at rest there (<= 2 % of pixels > 32/255)`, info.ends[tag].d != null && info.ends[tag].d <= 0.02, info.ends[tag]);
 }
 await rest(0); await hold(0.5);
@@ -61,7 +63,7 @@ await rest(0); await park(0.5);
 const mid = await carry();
 await grab('mid');
 info.mid = { carry: mid, from0: await diff('mid', 'rest0'), from1: await diff('mid', 'rest1') };
-ok('parked at 0.5: a carried frame that draws the sheets', !!mid && mid.sheets === true, mid);
+ok('parked at 0.5: a carried frame that draws the sheets', drawsSheets(mid), mid);
 ok('parked at 0.5: unlike both planes at rest', info.mid.from0 > 0.01 && info.mid.from1 > 0.01, info.mid);
 info.heldMid = { mu: [heldMid && heldMid.mu, mid && mid.mu], d: await diff('mid', 'heldMid') };
 ok('the same u gives the same frame, held or parked (<= 2 % of pixels > 32/255, one height scale)', !!heldMid && Math.abs(heldMid.mu / mid.mu - 1) < 1e-6 && info.heldMid.d != null && info.heldMid.d <= 0.02, info.heldMid);
