@@ -585,14 +585,14 @@
   // (v: a view of the left plane, default its own: the steps view's glide asks for both planes')
   function landBox(v) {
     // (a figure's art: the window figure.js chose, snapped to round numbers; the screen never takes this path)
-    // (a video frame: the still's window, the screen's own window rounded, whatever the frame's own shape)
-    if (artLandBox && artLandRound) return artLandRound(artLandBox);
     if (artMode && artLandBox) return artLandBox;
     const vb = leftPaneBox(v);
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
-    return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    const b = { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    // (a video frame: the window the still of that plane has, its edges rounded)
+    return artLandRound && !artMode ? artLandRound(b) : b;
   }
   // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs, va, vb, rest}: plane
   // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of

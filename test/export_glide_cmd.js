@@ -29,6 +29,9 @@ const ASPECT_TOL = 0.02;
 const SCALE_TOL = 0.02;
 // the scan that finds it: a step of REG_STEP, REG_SPAN steps each way (a zoom of 1 - 0.06 to 1 + 0.06)
 const REG_STEP = 0.01, REG_SPAN = 6;
+// the relief's pixels are the saturated ones of the still (its ground, floor lines and labels are grey or black): a pixel whose
+// saturation is over this
+const RELIEF_SAT = 0.3;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -106,7 +109,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
       const gs = still.getContext('2d'); gs.fillStyle = '#fff'; gs.fillRect(0, 0, w, h);
       gs.drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
       const c = gs.getImageData(0, 0, w, h).data;
-      const cmp = (img, picW, H, zoom, dx, dy = 0) => {
+      const cmp = (img, picW, H, zoom, dx, dy = 0, relief = false) => {
         let sx = picW / 2 - H * asp / 2, sy = 0, cw = H * asp, ch = H;
         if (cr) { const rw = H * cr.asp; sx = picW / 2 - rw / 2 + cr.x0 * rw; sy = cr.y0 * H; cw = (cr.x1 - cr.x0) * rw; ch = (cr.y1 - cr.y0) * H; }
         const mx = sx + cw / 2 + dx * cw, my = sy + ch / 2 + dy * ch;
@@ -116,7 +119,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
         g.drawImage(img, mx - cw / 2, my - ch / 2, cw, ch, 0, 0, w, h);
         const a = g.getImageData(0, 0, w, h).data;
         let sum = 0, n = 0;
-        for (let i = 0; i < a.length; i += 4) { if (${RGB_MAX} - c[i] - c[i + 1] - c[i + 2] <= ${DRAWN}) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
+        for (let i = 0; i < a.length; i += 4) { if (${RGB_MAX} - c[i] - c[i + 1] - c[i + 2] <= ${DRAWN}) continue; if (relief && !(Math.max(c[i], c[i + 1], c[i + 2]) > 0 && 1 - Math.min(c[i], c[i + 1], c[i + 2]) / Math.max(c[i], c[i + 1], c[i + 2]) > ${RELIEF_SAT})) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
         return { mad: n ? sum / (n * 3) : null, n: n / (w * h) };
       };
       const picW = Math.round(chk.pic * dv.width), H = dv.height;
@@ -128,7 +131,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
       // still draws, not by their outlines)
       const best = (vals, f) => vals.reduce((m, v) => { const r = f(v).mad; return r != null && r < m.mad ? { v, mad: r } : m; }, { v: 0, mad: Infinity }).v;
       const steps = Array.from({ length: 2 * ${REG_SPAN} + 1 }, (_, i) => +((i - ${REG_SPAN}) * ${REG_STEP}).toFixed(4));
-      const bz = best(steps.map((d) => 1 + d), (z) => cmp(dv, picW, H, z, 0)), bx = best(steps, (d) => cmp(dv, picW, H, bz, d)), by = best(steps, (d) => cmp(dv, picW, H, bz, bx, d));
+      const bz = best(steps.map((d) => 1 + d), (z) => cmp(dv, picW, H, z, 0, 0, true)), bx = best(steps, (d) => cmp(dv, picW, H, bz, d, 0, true)), by = best(steps, (d) => cmp(dv, picW, H, bz, bx, d, true));
       three = { reg: { zoom: bz, dx: bx, dy: by }, first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, ${CONTROL_ZOOM}, 0), shift: cmp(dv, picW, H, 1, ${CONTROL_SHIFT}), asp: +asp.toFixed(3), dom: pc ? +(pc.width / pc.height).toFixed(3) : null };
     }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
