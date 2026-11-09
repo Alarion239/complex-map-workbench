@@ -70,7 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  const TICK_PX = 1, FOOT_MIN_PX = 100;   // the foot of a cut may differ from the parked plane's by rasterization only; a boundary of fewer pixels is no measurement
+  const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -100,15 +100,21 @@
       for (let i = 0; i < x.length; i += 4) { const p = hue(x, i), q = hue(y, i); if (p >= 0 && q >= 0) { const d = Math.abs(p - q); if (Math.min(d, 360 - d) > ${HUE_OFF_DEG}) n++; } }
       return n;
     },
-    // the foot of the cut: the covered region's boundary (saturation over SAT_MIN) of two frames, and how far each boundary pixel of one is from
-    // the nearest of the other (canvas pixels): { fa: the first's worst, fb: the second's, na, nb: their boundary pixels }
-    footOff: (a, b) => {
-      const W = document.getElementById('canvasL').width, x = window.__heldPx[a], y = window.__heldPx[b], H = x.length / 4 / W;
-      const cov = (d, i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN};
-      const edge = (d) => { const pts = []; for (let r = 1; r < H - 1; r++) for (let c = 1; c < W - 1; c++) { const i = 4 * (r * W + c); if (cov(d, i) && (!cov(d, i - 4) || !cov(d, i + 4) || !cov(d, i - 4 * W) || !cov(d, i + 4 * W))) pts.push([c, r]); } return pts; };
-      const worst = (p, q) => { let m = 0; for (const [c, r] of p) { let d = Infinity; for (const [c2, r2] of q) { const e = (c - c2) * (c - c2) + (r - r2) * (r - r2); if (e < d) d = e; } if (d > m) m = d; } return Math.sqrt(m); };
-      const pa = edge(x), pb = edge(y);
-      return { fa: worst(pa, pb), fb: worst(pb, pa), na: pa.length, nb: pb.length };
+    // where the cut was found on each flagged edge, against the step's own cut (the negative real axis of its input plane, which is plane
+    // z here): the worst distance of a crossing's preimage z* = a + t (b - a) to the ray, in shares of the edge's chord |b - a|, over the edges whose
+    // crossing is inside the chord (n), and how many sit at an end of it (atEnd: the vertex itself is taken as the cut)
+    cutT: () => {
+      const r = window.__cmwLandCutEdges();
+      if (!r) return null;
+      const tol = Math.pow(2, 1 - r.steps);
+      let worst = 0, atEnd = 0, n = 0;
+      for (const [ax, ay, bx, by, t] of r.edges) {
+        if (t < tol || t > 1 - tol) { atEnd++; continue; }
+        n++;
+        const x = ax + t * (bx - ax), y = ay + t * (by - ay), chord = Math.hypot(bx - ax, by - ay);
+        worst = Math.max(worst, (x < 0 ? Math.abs(y) : Math.hypot(x, y)) / chord);
+      }
+      return { n, atEnd, worst, steps: r.steps };
     },
     cover: (tag) => { const d = window.__heldPx[tag]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT_MIN}) n++; return n; }
   };
@@ -462,22 +468,6 @@
         const hueN = await ev(`__lx.hueOff('curT', ${first ? "'P0T'" : "'P1T'"})`);
         r[u].top = { still: stillT, d: dT, hueN };
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
-        if (lastU && c.tag === 'cube root') {
-          // the foot of the cut (where the carried frame's pieces end at it) is where the parked plane's is, to the pixel; the control puts every cut at the middle
-          // of its edge (probe midCut), which moves the foot by up to half a cell, and the check fails
-          const foot = await ev("__lx.footOff('curT', 'P1T')");
-          ok(`${t}: the foot of the cut in the Top view is the parked plane's within ${TICK_PX} px (${foot.fa.toFixed(2)} and ${foot.fb.toFixed(2)} px at worst, of ${foot.na} and ${foot.nb} boundary pixels)`, foot.na >= FOOT_MIN_PX && foot.nb >= FOOT_MIN_PX && foot.fa <= TICK_PX && foot.fb <= TICK_PX, foot);
-          let ctlF;
-          try {
-            await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1]); await setU(u);
-            await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-            await grab('ctlF');
-            ctlF = await ev("__lx.footOff('ctlF', 'P1T')");
-          } finally {
-            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); await setU(u);
-          }
-          ok(`${t}: control: with every cut at the middle of its edge the foot is over ${TICK_PX} px off the parked plane's (${ctlF.fa.toFixed(2)} and ${ctlF.fb.toFixed(2)} px)`, Math.max(ctlF.fa, ctlF.fb) > TICK_PX, ctlF);
-        }
         if (lastU && COMBO_CONTROL.includes(c.tag) && !r.comboControl) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
           let ctl;
@@ -503,6 +493,22 @@
       {
         const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
         ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
+      }
+      // where the edge pass puts a cut on an edge is the step's own cut, to the bisection's resolution: the preimage of each flagged edge's cut is
+      // within 2^-(steps - 1) of the edge's chord from the cut (the negative real axis of plane z)
+      if ((CUT_ROWS[c.tag] || []).includes(u)) {
+        const ct = await ev('__lx.cutT()');
+        const tol = ct ? Math.pow(2, 1 - ct.steps) : 0;
+        r[u].cut = ct;   // (atEnd: the flagged edges whose cut is at an end of the chord, the vertex itself, which are counted here and not judged)
+        ok(`${t}: the cuts the edge pass finds are the step's own (${ct ? ct.n : '?'} flagged edges, over 0, with the cut inside the chord, and ${ct ? ct.atEnd : '?'} at an end of it; the worst is ${ct ? ct.worst.toExponential(2) : '?'} of the chord from the cut, at most ${tol.toExponential(2)})`, !!ct && ct.n > 0 && ct.worst <= tol, ct);
+        // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
+        let ctlC;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { midCut: true }); 1"); await setU(MID_U[1] === u ? MID_U[0] : MID_U[1]); await setU(u);
+          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+          ctlC = await ev('__lx.cutT()');
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
+        ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');

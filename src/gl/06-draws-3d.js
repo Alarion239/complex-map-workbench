@@ -393,6 +393,25 @@
       return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }] : [];
     });
   }
+  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t]] }, the preimages of the edge's two ends (a, then b along
+  // +x, +y or the diagonal) and the share t of the chord a -> b at which the cut was found; null without cuts
+  function landCutEdges() {
+    if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.zTex) return null;
+    const N = landC.N, Z = lwRead(landC.zTex, N, N), out = [];
+    if (!Z) return null;
+    landC.edges.forEach((tex, d) => {
+      const E = lwRead(tex, N, N);
+      if (!E) return;
+      const dx = d === 1 ? 0 : 1, dy = d === 0 ? 0 : 1;
+      for (let j = 0; j < N - dy; j++) for (let i = 0; i < N - dx; i++) {
+        const k = 4 * (j * N + i), w = E[k + 3];
+        if (!(w > 0.5 && w < 1.5)) continue;
+        const m = 4 * ((j + dy) * N + i + dx);
+        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k]]);
+      }
+    });
+    return { steps: CARRY_EDGE_STEPS, edges: out };
+  }
   // The last exact carried frame's grid edges that are crossed twice (a branch point on the edge: the edge pass's w 2), whose triangles
   // the draw leaves out (tests); null without cuts
   function landDrops() {
