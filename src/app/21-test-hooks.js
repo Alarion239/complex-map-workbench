@@ -492,6 +492,24 @@
       return out;
     });
   };
+  // The scene's own definition of the glide's homotopy H_u from plane 0 to the plane shown at u (the map the carried mesh and the steps view
+  // draw: svBetween's, from base 0), on surface number combo of the cell centred at zc (default z): Funcs.sheetMapEval, [re, im] or null where
+  // it is not finite. __cmwLandSceneCombos() answers { n, W }, the surfaces the map has (Funcs.sheetMapCombos), or null when the map cannot be
+  // drawn as sheets; both read the scene's state alone, never the inverse plan
+  const sceneMap = () => {
+    const g = svBetween();
+    return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: 0 } : { mode: 1, base: 0, hi: g.b, t: g.u };
+  };
+  window.__cmwLandSceneCombos = () => {
+    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), m = sceneMap();
+    return typeof Funcs.sheetMapPieces === 'function' && Funcs.sheetMapPieces(S.steps, built, m) ? { n: Funcs.sheetMapCombos(S.steps, built, m, W), W } : null;
+  };
+  window.__cmwLandScene = (z, combo, zcIn) => {
+    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), zc = C((zcIn || z)[0], (zcIn || z)[1]);
+    let f = null;
+    try { f = Funcs.sheetMapEval(S.steps, built, sceneMap(), zc, C(z[0], z[1]), combo, W); } catch (e) { f = null; }
+    return f && CX.isFin(f) ? [f.re, f.im] : null;
+  };
   // Corrupts the plan the CPU reference reads (the frame itself is already drawn from the true one): 'shiftOut' moves the output of the
   // plan's last op by PLAN_SHIFT on every sheet, in the op's forward map, its preimage rule and its pole test alike, and prepares the plan the
   // way the page does, so Inverse.enumerate and Inverse.fwdOps agree with each other and disagree with the scene; 'restore' puts the true plan and
