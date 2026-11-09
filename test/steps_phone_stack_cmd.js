@@ -17,7 +17,8 @@ const SURFACES = ['plane', 'sphere', 'land'];
 const MIN_KEY = 44;          // px: the smallest touch target
 const GROUP_GAP = 8;         // px: between a key and the next group's key in the one-column stack
 const SHORT_PLOT = 260;      // px: below this plot height five 44 px keys with their gaps do not fit one column
-const UNUSED_MIN = 44;          // px: the smallest touch target
+const SETTLE_POLL_MS = 100;  // ms between reads while the stack's boxes settle (its 150 ms ease after a message)
+const SETTLE_MAX_MS = 3000;  // ms: the longest the stack may take to come to rest
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
@@ -41,6 +42,17 @@ const column = () => ev(`(() => [...document.querySelectorAll('#plotL button.ph-
 // the plot's box: every key lies inside it (a key above its top edge is clipped)
 const plot = () => ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
 const inside = (b, p) => b[0] >= p[0] - POS_TOLERANCE && b[1] >= p[1] - POS_TOLERANCE && b[0] + b[2] <= p[0] + p[2] + POS_TOLERANCE && b[1] + b[3] <= p[1] + p[3] + POS_TOLERANCE;
+// the column once two reads SETTLE_POLL_MS apart agree (a stack that is still easing has not reached its place)
+const atRest = async () => {
+  let prev = await column();
+  for (let t = 0; t < SETTLE_MAX_MS; t += SETTLE_POLL_MS) {
+    await new Promise((r) => setTimeout(r, SETTLE_POLL_MS));
+    const now = await column();
+    if (same(now, prev)) return now;
+    prev = now;
+  }
+  return prev;
+};
 const accent = () => ev(`(() => { const d = document.createElement('i'); d.style.background = 'var(--accent)'; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })()`);
 const sphereBg = () => ev(`getComputedStyle([...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)[4]).backgroundColor`);
 const others = () => ev(`(() => [...document.querySelectorAll('#paneL .pane-head, .ruler, .ruler-corner, #svStrip, #plotL > .legend-chip:not([hidden]), #toastHost .toast')].filter((e) => e.getClientRects().length)
@@ -60,14 +72,12 @@ for (const lang of LANGS) {
       ok(`${t}: the keys are Display options, Zoom in, Zoom out, Fit view, Sphere, in that order`, lang === 'en' ? JSON.stringify(labels) === JSON.stringify(LABELS.en) : labels.length === 5, labels);
       ok(`${t}: no Both key and no second Sphere key`, !c.some((k) => /ph-both-key|ph-sph/.test(k.cls)), c.map((k) => k.cls));
       ok(`${t}: every key is at least ${MIN_KEY} px and is on top at its centre`, c.every((k) => k.box[2] >= MIN_KEY && k.box[3] >= MIN_KEY && k.top), c);
-      const sp = c.find((k) => k.cls.includes('sbtn') || k.label === (lang === 'en' ? 'Sphere' : k.label)) ;
       const sph = c[4];
       if (sph) {
         ok(`${t}: Sphere is pressed exactly on the sphere`, sph.pressed === String(surf === 'sphere'), sph.pressed);
         if (surf === 'land') ok(`${t}: Sphere is aria-disabled in place, with its reason in the note`, sph.disabled === 'true' && sph.note === (lang === 'en' ? NO_SPHERE_ON_LAND : sph.note) && !!sph.note, sph);
         else ok(`${t}: Sphere is enabled`, sph.disabled !== 'true', sph);
       }
-      void sp;
       const o = await others();
       const hits = [];
       for (const k of c) for (const e of o) if (meets(k.box, e.box)) hits.push([k.label, e.id]);
@@ -106,7 +116,7 @@ for (const lang of LANGS) {
     const toast = await ev(`(document.querySelector('#toastHost .toast') || {}).textContent || ''`);
     ok(`${tag}: a tap on the disabled Sphere shows its reason as the toast`, toast.length > 0 && (lang !== 'en' || toast.includes(NO_SPHERE_ON_LAND)), toast);
     // while the message shows the stack stays where it was, inside the plot, and the message meets no key
-    await new Promise((r) => setTimeout(r, 600));
+    await atRest();
     const withToast = await column(), tp = await plot(), tb = (await others()).filter((e) => /toast/.test(e.id));
     ok(`${tag}: the stack keeps its place while a message shows`, same(withToast, boxes.land), { land: boxes.land.map((k) => k.box), withToast: withToast.map((k) => k.box) });
     ok(`${tag}: and stays inside the plot`, withToast.every((k) => inside(k.box, tp)), { plot: tp, boxes: withToast.map((k) => k.box) });
