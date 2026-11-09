@@ -47,6 +47,7 @@ const b = await counts('root_root', [ROOT, ROOT]);
 ok('√ then √ (distinct sheets): all 4 are drawn at rest and parked in the glide', b.rest0 === 4 && b.mid === 4, b);
 // the glide's layers: the distinct members of the composite
 await open([ROOT, COS, LOG]);
+const CONT_CODE = 10.25;   // (the texel code of a vertex continued onto a layer past its range, CARRY_CONT_CODE: a layer's own vertices are below it)
 const LAYER_SAME = 1e-4, PROBES = [], PN = 8;   // (relative to 1 + |z|, and in height units: float noise of the walk and of the frame's textures)
 for (let i = 0; i < PN; i++) for (let j = 0; j < PN; j++) PROBES.push([-6 + 12 * (i + 0.5) / PN, -5 + 10 * (j + 0.5) / PN]);
 // the distinct layers among {z, h}: one when its z and height agree with an earlier one's within tol; the distinct members among {z}: by z alone
@@ -67,7 +68,7 @@ const split = (ls, tol) => {
 const probeGlide = async (u) => {
   await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
   const gl = JSON.parse(await ev('JSON.stringify((() => { const c = __cmwLandCarry(); return { carried: !!c, path: c && c.path }; })())'));
-  const fv = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(PROBES)}).map((ls) => ls.filter((l) => l.z && l.c < 10.25).map((l) => ({ z: l.z, h: l.h }))))`));
+  const fv = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(PROBES)}).map((ls) => ls.filter((l) => l.z).map((l) => ({ z: l.z, h: l.h, c: l.c }))))`));
   const en = JSON.parse(await ev(`JSON.stringify(__cmwLandEnum(${JSON.stringify(PROBES)}).map((ms) => ms.map((m) => ({ z: m.z, h: m.h }))))`));
   return { gl, fv, en };
 };
@@ -80,6 +81,9 @@ for (const u of [0.5, 0.9, 0.98]) {
   ok(`√, cos, log, u=${u}: the view is still a glide drawn by the exact inverse path`, g.gl.carried && g.gl.path === 'inverse', g.gl);
   const r = badAt(g, (ls) => distinct(ls, LAYER_SAME), LAYER_SAME);
   ok(`√, cos, log, u=${u}: the frame's distinct layers are the enumerator's distinct members with the ${SHEETS} sheets, at every probe place (${r.n} places)`, r.n > 0 && r.bad === 0, r);
+  // the whole frame: its most layers at a place (own and continued, each distinct one counted) are the most the enumerator's members give
+  const kFrame = Math.max(...g.fv.map((ls) => distinct(ls, LAYER_SAME).length)), kWant = Math.max(...g.en.map((ms) => expected(ms, LAYER_SAME)));
+  ok(`√, cos, log, u=${u}: the frame's most layers at a place are the scene's (${kFrame}, the enumerator's ${kWant})`, kFrame === kWant, { kFrame, kWant });
   info[`places with two members, u=${u}`] = g.fv.filter((ls) => members(ls, LAYER_SAME).length === 2).length;
 }
 // the controls
@@ -87,6 +91,9 @@ const c5 = badAt(G[0.5], (ls) => distinct(ls.concat(ls.slice(0, 1)), LAYER_SAME)
 ok('control: a duplicate layer appended to every place is counted once', c5.bad === 0, c5);
 // (the members' z are far apart (about opposite at the end) and their layers' heights close: a merge by closeness of the heights, which are the surface's values,
 // would drop the second member)
+// (a continued layer dropped from every place that has one: the layers the frame draws are then fewer than the members', so the row goes red)
+const cCont = badAt(G[0.5], (ls) => ls.filter((l) => !(l.c >= CONT_CODE)), LAYER_SAME);
+ok('control: dropping the continued layers at u .5 turns the row red', cCont.bad > 0, cCont);
 const c98 = badAt(G[0.9], (ls) => ls.filter((l, i) => !ls.slice(0, i).some((o) => Math.abs(o.h - l.h) <= SPLIT_MERGE)), LAYER_SAME);
 ok('control: a merge of layers whose heights are within ' + SPLIT_MERGE + ' at u .9 turns the row red', c98.bad > 0, c98);
 const cDrop = badAt(G[0.5], (ls) => ls.filter((l) => near(members(ls, LAYER_SAME)[0], l, LAYER_SAME)), LAYER_SAME);
