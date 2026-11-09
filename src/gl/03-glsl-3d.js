@@ -712,6 +712,10 @@ vec3 clipBoxE(int i1, int i2, int n, float Fl[5]) {
   // evaluates G exactly (LAND_FS's carry form)
   const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
+// uWhy over 0 (tests): a triangle left out for reason uWhy is drawn whole instead, from its corners' places and heights (1: a corner
+// without a value, 2: a corner not on the layer, 3: no own corner, 4: an edge over uLim, 5: a polar hole, 6: a height step over uStep,
+// 7: another sheet's triangle, 8: an edge crossed twice, 9: a piece the cut's split does not make)
+uniform int uWhy;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
@@ -736,6 +740,13 @@ vec4 edgeOf(ivec2 a, ivec2 b) {
   vec4 e = ad.y == 0 ? texelFetch(uE0, o, 0) : (ad.x == 0 ? texelFetch(uE1, o, 0) : texelFetch(uE2, o, 0));
   return rev ? vec4(1.0 - e.x, e.z, e.y, e.w) : e;
 }
+void whyTri(ivec2 a, ivec2 b, ivec2 c, int k) {
+  vec4 t = texelFetch(uT1, k == 0 ? a : (k == 1 ? b : c), 0);
+  vZ = vec2(0.0); vNor = vec3(0.0, 0.0, 1.0); vAO = 0.0; vBary = vec3(1.0, 0.0, 0.0);
+  vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
+  gl_Position = uMVP * vec4(vPos, 1.0);
+}
+#define WHY(c) { if (uWhy == c) whyTri(V0, V1, V2, k); return; }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
@@ -745,42 +756,42 @@ ${clip ? '  // (clip: each sub-triangle is a fan of up to 3 triangles of the blo
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
-  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
+  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) WHY(1)
 ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on it, own or continued, and one is own; its
   // colour is continued from that corner)
-  if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) return;
+  if (t0.w < 5.0 || t1.w < 5.0 || t2.w < 5.0) WHY(2)
   bool o0 = t0.w < uDrawCode0 + 0.1, o1 = t1.w < uDrawCode0 + 0.1, o2 = t2.w < uDrawCode0 + 0.1;
-  if (!(o0 || o1 || o2)) return;
+  if (!(o0 || o1 || o2)) WHY(3)
   vZc = texelFetch(uZ, o0 ? V0 : (o1 ? V1 : V2), 0).xy;` : ''}
-  if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
+  if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) WHY(4)
   if (uPolar.w <= 0.0) {
     vec2 ctr = (t0.xy + t1.xy + t2.xy) / 3.0;
-    for (int i = 0; i < 4; i++) if (i < uNHoles && length(ctr - uHoles[i].xy) < uHoles[i].z) return;
+    for (int i = 0; i < 4; i++) if (i < uNHoles && length(ctr - uHoles[i].xy) < uHoles[i].z) WHY(5)
   }
-  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
+  if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) WHY(6)
   if (uDrawCode > 0.0) {
     float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
-    if (abs(cc - uDrawCode) > 0.5) return;
+    if (abs(cc - uDrawCode) > 0.5) WHY(7)
   }
   // (rotate, winding kept: one jump on AB, or two on AB and AC with BC whole; three, or an edge crossed twice: left out)
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
   bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
   int J = int(j01) + int(j12) + int(j20);
-  if (max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  if (max(max(e01.w, e12.w), e20.w) > 1.5) WHY(8)
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // a corner of sub-triangle sub (kk 0, 1, 2): a grid corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
   ivec2 srcs[3], xos[3]; int xs[3]; vec3 vEd = vec3(0.0);
   for (int kk = 0; kk < 3; kk++) {
     ivec2 src = A, xo = A; int x = 0;
-    if (J == 0) { if (sub > 0) return; src = kk == 0 ? A : (kk == 1 ? B : C); }
+    if (J == 0) { if (sub > 0) WHY(9) src = kk == 0 ? A : (kk == 1 ? B : C); }
     else if (J == 1) {
-      if (sub > 1) return;
+      if (sub > 1) WHY(9)
       if (sub == 0) { src = A; x = kk == 1 ? 1 : 0; if (kk == 2) src = C; vEd = vec3(1.0, 0.0, 0.0); }
       else { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; vEd = vec3(0.0, 1.0, 0.0); }
     } else if (J == 3) {
       // (every edge crossed, where the cuts meet: each corner has its own piece, cut off by the chord between the crossings on its two edges)
-      if (sub > 2) return;
+      if (sub > 2) WHY(9)
       src = sub == 0 ? A : (sub == 1 ? B : C);
       xo = kk == 1 ? (sub == 0 ? B : (sub == 1 ? C : A)) : (sub == 0 ? C : (sub == 1 ? A : B));
       x = kk == 0 ? 0 : 1; vEd = vec3(1.0, 0.0, 0.0);

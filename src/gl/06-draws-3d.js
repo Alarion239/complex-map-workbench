@@ -505,6 +505,29 @@
     for (const L of Ls) for (const t of L.edges) { const px = lwRead(t, L.N, L.N); if (!px) return null; for (let k = 3; k < px.length; k += 4) if (px[k] > 1.5) n++; }
     return n;
   }
+  // The last carried frame's grid vertices a layer leaves unplaced beside one it places (tests), per layer of landActive: [{ n, placed, miss, none }]:
+  // the grid's side, the vertices with a placed code (own or continued), the finite ones found but not placed, and those with no value at all
+  // (the walk found none), each counted only where an 8-neighbour is placed
+  function landSeamMiss() {
+    const Ls = (landActive.length ? landActive : [landC]).filter((L) => L && L.exact && L.tex1);
+    if (!Ls.length) return null;
+    return Ls.map((L) => {
+      const N = L.N, px = lwRead(L.tex1, N, N);
+      if (!px) return null;
+      let placed = 0, miss = 0, none = 0;
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const w = px[4 * (j * N + i) + 3];
+        if (w >= 5) { placed++; continue; }
+        let near = false;
+        for (let dj = -1; dj <= 1 && !near; dj++) for (let di = -1; di <= 1; di++) {
+          const a = i + di, b = j + dj;
+          if ((di || dj) && a >= 0 && b >= 0 && a < N && b < N && px[4 * (b * N + a) + 3] >= 5) { near = true; break; }
+        }
+        if (near) { if (w < 0.5) none++; else miss++; }
+      }
+      return { n: N, placed, miss, none };
+    });
+  }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
@@ -1563,6 +1586,7 @@
       const Pc = program(clipC ? 'landCarryLC' : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
       use(Pc, st.carry.map);
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
+      u1i(Pc, 'uWhy', carryProbe.why || 0);
       common(Pc);
       u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
