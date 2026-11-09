@@ -2280,7 +2280,7 @@ bool ${P}_dk = false;
 `}bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
   ${HD ? `vec2 d, hu; float tl; hu = ${HD('u', 't', 'd', 'tl')};` : `vec2 hu = ${H('u', 't')};`}
   held = ixFin(u) && cx_abs(hu - w) ${HD ? '+ tl ' : ''}<= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
-  if (chk) { ${HD ? `if (held) { ${P}_dc = d; ${P}_dk = true; } ` : ''}return true; }
+  if (chk) ${HD ? `{ if (held) { ${P}_dc = d; ${P}_dk = true; } return true; }` : 'return true;'}
   ${HD ? '' : `vec2 d = ${P}_fd(u, hu, t);`}
   if (defl) {
     vec2 g = cdiv(d, hu - w) - cinv(u - dz);
