@@ -1560,7 +1560,7 @@
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
       // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
       // a key's push of the depth would only put a layer behind the floor plate)
-      keyUniforms(Pc, landC && landC.exact && !landActive.length ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
+      keyUniforms(Pc, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
       // (the probes' controls: sideDiscard puts the per-fragment side discard back, clipScale widens the block's sides)
       u1i(Pc, 'uSideDiscard', 1);
       u2f(Pc, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
