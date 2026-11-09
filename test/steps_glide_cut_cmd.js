@@ -13,7 +13,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 // MIN_PIXELS the least count compared; BAND_PX rows each side of the cut's row; DISC_R the half width of the box around the handle's disc; CHIP_W how far right of the handle the chip's label reaches;
 // SHIFT_PX the shift of the control; CHIP_EDGE_MAX the share of the handle chip's pixels that may have no pixel of the parked chip's 3 x 3 within TOL (the label's glyphs are anti-aliased at the handle's place, which
 // a glide frame has moved by 0.04 px at END_EPS: text edges differ by more than TOL for that; the share falls with the motion, which CHIP_SCALE checks, and a 2 px shift of the chip fails it); CHIP_SCALE the most the share may be, at a tenth of END_EPS, of that at END_EPS; END_EPS how far a step the glide frame is from its parked plane, so that its motion is below a hundredth of a pixel)
-const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, BAND_PX = 12, DISC_R = 9, CHIP_W = 90, SHIFT_PX = 2, END_EPS = 1e-4, CHIP_EDGE_MAX = 0.1, CHIP_SCALE = 0.2;
+const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, BAND_PX = 12, DISC_R = 9, CHIP_W = 90, SHIFT_PX = 2, END_EPS = 1e-4, CHIP_EDGE_MAX = 0.1, CHIP_SCALE = 0.2, MID_U = 0.5, STEP_U = 0.02, JUMP_RATIO = 3, JUMP_FLOOR_PX = 4;
 const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +46,18 @@ await frameAt(`__cmwSteps({ x: ${END_EPS} })`); ok('the glide frame near plane 0
 const glideHandles = await ev('__cmwCutHandles().length');
 await frameAt(`__cmwSteps({ x: ${END_EPS / 10} })`); ok('the glide frame a tenth of that near plane 0 is drawn', !!(await grab('glideTenth')), null);
 const glidePath = await ev('(__cmwSteps().glide || {}).path');
+// the handle drawn across the middle of the glide: its place at u = MID_U - 2 STEP_U ... MID_U + 2 STEP_U; the jump from one side of the middle to the other is at most JUMP_RATIO times the larger move between neighbouring steps (and JUMP_FLOOR_PX px)
+const handleAt = async (u) => { await frameAt(`__cmwSteps({ x: ${u} })`); return ev('(() => { const m = __cmwCutMarks()[0]; return m ? [m.x, m.y] : null; })()'); };
+const mid = [];
+for (const k of [-3, -1, 1, 3]) mid.push(await handleAt(MID_U + k * STEP_U / 2));
+info.mid = mid;
+ok('the glide frame draws the cut handle on both sides of the middle', mid.every((m) => !!m), mid);
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+if (mid.every((m) => !!m)) {
+  const jump = dist(mid[1], mid[2]), walk = Math.max(dist(mid[0], mid[1]), dist(mid[2], mid[3]));
+  info.midJump = { jump, walk };
+  ok(`the handle is continuous across the middle: its move from u = ${MID_U - STEP_U / 2} to ${MID_U + STEP_U / 2} is at most ${JUMP_RATIO} times the move between neighbouring steps (at least ${JUMP_FLOOR_PX} px)`, jump <= Math.max(JUMP_FLOOR_PX, JUMP_RATIO * walk), { jump, walk });
+}
 await frameAt('__cmwSteps({ park: 1 })'); ok('the parked plane 1 is drawn', !!(await grab('parked1')), null);
 await frameAt('__cmwSteps({ park: 0 })'); await grab('parked0');
 // the picture of a region of a frame against a parked one: { n, fail, failShift } (n: the pixels, fail: the share without a pixel of the other's 3 x 3 within TOL; failShift: the same with this frame shifted SHIFT_PX px)
