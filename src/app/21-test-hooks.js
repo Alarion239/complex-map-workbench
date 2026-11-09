@@ -423,6 +423,7 @@
   // those of the enumerator's member (__cmwLandEnum) at the vertex's own place that has its z and its height (null: none has)
   // the last exact carried frame's edges crossed twice (a branch point on an edge): the triangles holding them are left out
   window.__cmwLandDrops = () => (GLR.landDrops ? GLR.landDrops() : null);
+  window.__cmwLandDbg = () => (GLR.landDbg ? GLR.landDbg() : null);
   window.__cmwLandMedials = () => (GLR.landMedials ? GLR.landMedials() : null);
   window.__cmwLandFrameVerts = (pts) => {
     const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null;

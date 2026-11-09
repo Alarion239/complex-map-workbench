@@ -415,6 +415,35 @@
     }
     return n;
   }
+  // (probe) per-triangle drop reasons and the jump edges' data of the last exact frame
+  function landDbg() {
+    if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.dbgLim) return null;
+    const N = landC.N, E = landC.edges.map((t) => lwRead(t, N, N)), T = lwRead(landC.tex1, N, N), Z = lwRead(landC.zTex, N, N), L = landC.dbgLim;
+    const ed = (d, i, j) => { const k = 4 * (j * N + i); return [E[d][k], E[d][k + 1], E[d][k + 2], E[d][k + 3]]; };
+    const t = (i, j) => { const k = 4 * (j * N + i); return [T[k], T[k + 1], T[k + 2], T[k + 3]]; };
+    const out = { lim: L.lim, step: L.step, tot: 0, nonfin: 0, limDrop: 0, limDropJump: 0, stepDrop: 0, over15: 0, J: [0, 0, 0, 0], limCells: [], f: [] };
+    const tri = (vs, es, ij) => {
+      out.tot++;
+      const ts = vs.map(([i, j]) => t(i, j));
+      const js = es.map(([d, i, j]) => ed(d, i, j));
+      const anyJump = js.some((e) => e[3] > 0.5);
+      if (ts.some((q) => q[3] < 0.5)) { out.nonfin++; return; }
+      const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (dist(ts[0], ts[1]) > L.lim || dist(ts[1], ts[2]) > L.lim || dist(ts[2], ts[0]) > L.lim) {
+        out.limDrop++; if (anyJump) { out.limDropJump++; if (out.limCells.length < 12) out.limCells.push([ij[0], ij[1], js.map((e) => e[3])]); } return;
+      }
+      if (Math.max(ts[0][2], ts[1][2], ts[2][2]) - Math.min(ts[0][2], ts[1][2], ts[2][2]) > L.step) { out.stepDrop++; return; }
+      if (Math.max(js[0][3], js[1][3], js[2][3]) > 1.5) { out.over15++; return; }
+      const J = js.filter((e) => e[3] > 0.5).length;
+      out.J[J]++;
+      if (J === 3) { const zs = vs.map(([i, j]) => [Z[4 * (j * N + i)], Z[4 * (j * N + i) + 1]]); out.f.push([ij[0], ij[1], Math.min(...zs.map((z) => Math.hypot(z[0], z[1]))), js.map((e) => [e[0], e[3]])]); }
+    };
+    for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+      tri([[i, j], [i + 1, j], [i + 1, j + 1]], [[0, i, j], [1, i + 1, j], [2, i, j]], [i, j]);
+      tri([[i, j], [i + 1, j + 1], [i, j + 1]], [[2, i, j], [0, i, j + 1], [1, i, j]], [i, j]);
+    }
+    return out;
+  }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
@@ -1449,6 +1478,7 @@
       common(Pc);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
+      if (landC) landC.dbgLim = { lim: st.carry.lim, step: carryStep(mode, H, landC.exact) };
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0); u1i(Pc, 'uSheetW', landC && landC.sheetW || 0); u1i(Pc, 'uSheetCombo', 0);
       const cutDraw = !!(landC && landC.exact && landC.cuts);
