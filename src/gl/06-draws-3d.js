@@ -393,7 +393,7 @@
       return px[k + 3] > 0.5 ? [{ h: px[k + 2], member: 0, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }] : [];
     });
   }
-  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t, codeA, codeB]] }, the preimages of the edge's two ends (a, then b along
+  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), seam (the member-seam test's constants), edges [[ax, ay, bx, by, t, codeA, codeB]] }, the preimages of the edge's two ends (a, then b along
   // +x, +y or the diagonal), the share t of the chord a -> b at which the cut was found, and the ends' sheet codes (texel w); null without cuts
   function landCutEdges() {
     if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.zTex) return null;
@@ -410,7 +410,7 @@
         out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k], T[k + 3], T[m + 3]]);
       }
     });
-    return { steps: CARRY_EDGE_STEPS, edges: out };
+    return { steps: CARRY_EDGE_STEPS, seam: { cont: SEAM_NEWT_CONT, pol: SEAM_NEWT_POL, rel: +SEAM_REL, abs: +SEAM_ABS, far: +SEAM_FAR, sheetCode: CARRY_SHEET_CODE }, edges: out };
   }
   // The last exact carried frame's grid edges that are crossed twice (a branch point on the edge: the edge pass's w 2), whose triangles
   // the draw leaves out (tests); null without cuts
