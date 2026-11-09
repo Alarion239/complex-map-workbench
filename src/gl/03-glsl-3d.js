@@ -716,6 +716,13 @@ int blockClip(float Hb, vec4 Sd, int n, inout vec3 Q[CLIP_N], inout vec4 A[CLIP_
   }
   return n;
 }
+// whether the three places lie within the sides Sd (scaled about their centre by k, 1 for the exact sides): such a triangle is not cut by the sides,
+// the polygon the clip leaves is the triangle itself
+bool clipWithin(vec2 a, vec2 b, vec2 c, vec4 Sd, float k) {
+  vec2 ctr = 0.5 * vec2(Sd.x + Sd.y, Sd.z + Sd.w), h = 0.5 * vec2(Sd.y - Sd.x, Sd.w - Sd.z) * k;
+  vec2 lo = min(min(a, b), c), hi = max(max(a, b), c);
+  return lo.x >= ctr.x - h.x && hi.x <= ctr.x + h.x && lo.y >= ctr.y - h.y && hi.y <= ctr.y + h.y;
+}
 // the rim flags of the fan's triangle (0, i1, i2): a polygon edge whose two ends lie on the same plane of the block
 vec3 clipBoxE(int i1, int i2, int n, float Fl[CLIP_N]) {
   return vec3(Fl[i1] != 0.0 && Fl[i1] == Fl[i2] ? 1.0 : 0.0,
@@ -778,6 +785,12 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
     for (int i = 0; i < 4; i++) if (i < uNHoles && length(ctr - uHoles[i].xy) < uHoles[i].z) return;
   }
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
+${clip ? `  // the block's sides in the place's units (|vPos.xy| <= uClipA, vPos being affine in the place)
+  vec2 sideC = uBox.xy + 0.5 * uBox.zw, sideH = 0.5 * uBox.zw * uClipA / uAspect;
+  vec4 Sd = vec4(sideC.x - sideH.x, sideC.x + sideH.x, sideC.y - sideH.y, sideC.y + sideH.y);
+${L ? '' : `  // (a triangle of the single layer whose three places lie within the sides is not cut, and the corners of its sub-triangles lie on its edges: it is the fan's
+  // first triangle alone, so the rest of the fan has nothing to draw.)
+  if (fan > 0 && clipWithin(t0.xy, t1.xy, t2.xy, Sd, 1.0)) return;`}` : ''}
   if (uDrawCode > 0.0) {
     float cc = t0.w > 5.0 ? t0.w : (t1.w > 5.0 ? t1.w : (t2.w > 5.0 ? t2.w : uDrawCode0));
     if (abs(cc - uDrawCode) > 0.5) return;
@@ -827,9 +840,7 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
 ${clip ? `  vec3 Q[CLIP_N]; vec4 QA[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
   for (int i = 0; i < CLIP_N; i++) { Q[i] = vec3(0.0); QA[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
   for (int i = 0; i < 3; i++) { Q[i] = vec3(cxy[i], ch[i]); QA[i] = vec4(cz[i], cnv[i].w, 0.0); Nn[i] = cnv[i].xyz; }
-  // (the block's sides in the place's units: |vPos.xy| <= uClipA, vPos being affine in the place)
-  vec2 sideC = uBox.xy + 0.5 * uBox.zw, sideH = 0.5 * uBox.zw * uClipA / uAspect;
-  int n = blockClip(uClipH, vec4(sideC.x - sideH.x, sideC.x + sideH.x, sideC.y - sideH.y, sideC.y + sideH.y), 3, Q, QA, Nn, Fl);
+  int n = blockClip(uClipH, Sd, 3, Q, QA, Nn, Fl);
   if (fan + 2 >= n) return;
   int i1 = fan + 1, i2 = fan + 2, vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
   vBoxE = clipBoxE(i1, i2, n, Fl);

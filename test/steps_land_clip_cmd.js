@@ -20,16 +20,17 @@ await go(`http://localhost:${PORT}/test.html?ns=landclip${Date.now()}`);
 await settled({ max: 60000, until: '!!window.GLR && !!GLR.landClipGlsl' });
 const NO_SIDES = [-1e30, 1e30, -1e30, 1e30];   // (CLIP_NO_SIDES)
 const CLIP_N = 9;   // (LAND_CLIP_CORNERS: the polygon's room)
-const run = (tri, linear, sides = NO_SIDES) => ev(`(() => {
+const run = (tri, linear, sides = NO_SIDES, mode = 0, k = 1) => ev(`(() => {
   const gl = document.createElement('canvas').getContext('webgl2');
   const src = '#version 300 es\\nprecision highp float; precision highp int;\\n' + GLR.landClipGlsl + \`
-uniform vec3 uQ[3]; uniform float uHb; uniform vec4 uSd; out vec4 o;
+uniform vec3 uQ[3]; uniform float uHb; uniform vec4 uSd; uniform int uMode; uniform float uK; out vec4 o;
 void main() {
   vec3 Q[CLIP_N]; vec4 A[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
   for (int i = 0; i < CLIP_N; i++) { Q[i] = vec3(0.0); A[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
   Q[0] = uQ[0]; Q[1] = uQ[1]; Q[2] = uQ[2];
   int n = blockClip(uHb, uSd, 3, Q, A, Nn, Fl);
   o = vec4(Q[gl_VertexID].xy, Q[gl_VertexID].z, float(n) * 10.0 + Fl[gl_VertexID] + 1.0);
+  if (uMode == 2) o = vec4(clipWithin(uQ[0].xy, uQ[1].xy, uQ[2].xy, uSd, uK) ? 1.0 : 0.0, float(n), 0.0, 0.0);
   gl_PointSize = 1.0;
 }\`;
   const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
@@ -40,12 +41,15 @@ void main() {
   gl.useProgram(p);
   gl.uniform3fv(gl.getUniformLocation(p, 'uQ'), new Float32Array(${JSON.stringify(tri.flat())}));
   gl.uniform1f(gl.getUniformLocation(p, 'uHb'), ${HB});
+  gl.uniform1i(gl.getUniformLocation(p, 'uMode'), ${mode});
+  gl.uniform1f(gl.getUniformLocation(p, 'uK'), ${k});
   gl.uniform4fv(gl.getUniformLocation(p, 'uSd'), new Float32Array(${JSON.stringify(sides)}));
   gl.uniform1i(gl.getUniformLocation(p, 'uClipLinear'), ${linear ? 1 : 0});
   const buf = gl.createBuffer(); gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, buf); gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, ${CLIP_N} * 16, gl.DYNAMIC_READ);
   gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buf);
   gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, ${CLIP_N}); gl.endTransformFeedback();
   const out = new Float32Array(${4 * CLIP_N}); gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
+  if (${mode === 2 ? 'true' : 'false'}) return { within: out[0] === 1, n: out[1] };
   const n = Math.round(out[3] / 10);
   return { n, v: [...Array(n).keys()].map((i) => ({ x: out[4 * i], y: out[4 * i + 1], z: out[4 * i + 2], fl: Math.round(out[4 * i + 3] - 10 * n - 1) })) };
 })()`);
@@ -104,4 +108,16 @@ const want9 = clipRef(nine);
 const N9 = await run(nine, false, BOX);
 info.nine = { N9, want9 };
 ok(`all six planes: ${want9.length} corners, each where the plain polygon clip puts it`, N9.n === want9.length && want9.length === CLIP_N && want9.every((w) => N9.v.some((v) => Math.abs(v.x - w[0]) <= FLOAT_TOL && Math.abs(v.y - w[1]) <= FLOAT_TOL && Math.abs(v.z - w[2]) <= FLOAT_TOL)), { N9, want9 });
+// (clipWithin, the test that lets the carried draw leave the rest of a triangle's fan undrawn: a triangle it calls within the sides comes back from the clip
+// whole, whatever the sides; and it is true of a triangle well inside them, so it does skip. With the sides read 10 % wider it is true of a triangle
+// the clip cuts: the control)
+const WB = [-1, 1, -1, 1], WITHIN_K = 1.1;
+const insideT = [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]], overT = [[0.5, 0, 0], [1.05, 0, 0], [0.5, 0.5, 0]], farT = [[2, 2, 0], [3, 2, 0], [2, 3, 0]], edgeT = [[0.5, 0, 0], [1, 0, 0], [0.5, 0.5, 0]];
+const W = {};
+for (const [name, t] of Object.entries({ insideT, overT, farT, edgeT })) W[name] = await run(t, false, WB, 2);
+const Wk = await run(overT, false, WB, 2, WITHIN_K);
+info.within = { W, Wk };
+ok('clipWithin: a triangle it calls within the sides is not cut (no triangle called within comes back with more than 3 corners)', Object.values(W).every((w) => !w.within || w.n === 3), { W });
+ok('clipWithin: a triangle well inside the sides is called within, one on the side is too (it skips them), one beyond the side is not', W.insideT.within && W.edgeT.within && !W.overT.within && !W.farT.within, { W });
+ok(`control: with the sides read ${WITHIN_K} wider a triangle the clip cuts is called within`, Wk.within && Wk.n > 3, { Wk });
 return { pass: fails.length === 0, fails, info };
