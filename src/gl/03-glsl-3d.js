@@ -1048,6 +1048,69 @@ void main() {
   if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode);
 }
 `;
+  // The layered glide's cross-layer continuation (one pass per target layer, on the layers' texels once every layer is
+  // placed): a vertex of layer uK with no value or none confirmed (texel w under 5), beside an own vertex A (its first own
+  // neighbour), lies across the step's cut from A. The surface continues there onto the member of another layer: the
+  // layer whose own preimage at the vertex is nearest A's. It is that member when the two preimages are no farther apart
+  // than the glide's derivative at A allows for the distance of the two places (the seam test's criterion, SEAM_FAR), and
+  // the continuation of A's branch to it has the height that layer draws there (RING_GUARD). The vertex takes the place
+  // of the grid, that preimage and that height, texel w uContCode. uOutZ 0 writes the texel, 1 the preimage.
+  const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
+  const LAND_CARRY_RING_VS = `
+uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy;
+uniform int uGs; uniform int uGt;
+uniform highp sampler2D uRT1[${RING_LAYERS_MAX}]; uniform highp sampler2D uRZ[${RING_LAYERS_MAX}];
+out vec4 tfOut;
+` + CARRY_HEIGHT + CARRY_HEIGHT_ANCHORED + `
+// (uWhy 1, tests: a vertex the pass leaves off the layer has texel w minus the reason: 1 no own neighbour, 2 no own layer
+// there, 3 not one member, 4 the guard)
+void ringWhy(inout vec4 o, int why) { if (uWhy == 1 && uOutZ == 0) o.w = -float(why); }
+// (a sampler array is indexed by constants only: one case a layer)
+vec4 ringT(int j, ivec2 p) {
+${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRT1[${i}], p, 0);`).join('\n')}
+  return vec4(0.0);
+}
+vec4 ringZ(int j, ivec2 p) {
+${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRZ[${i}], p, 0);`).join('\n')}
+  return vec4(0.0);
+}
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  vec4 t = ringT(uK, p), z0 = ringZ(uK, p);
+  tfOut = uOutZ == 1 ? z0 : t;
+  if (t.w >= 5.0) return;
+  vec2 zA = vec2(0.0), pA = vec2(0.0);
+  bool found = false;
+  for (int j = 0; j < 9; j++) {
+    ivec2 q = p + ivec2(j % 3 - 1, j / 3 - 1);
+    if (j == 4 || q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
+    vec4 tq = ringT(uK, q);
+    if (tq.w > 5.0 && tq.w < uCode + 0.1) { zA = ringZ(uK, q).xy; pA = tq.xy; found = true; break; }
+  }
+  if (!found) { ringWhy(tfOut, 1); return; }
+  vec2 pP = uBox.xy + vec2(p) / float(uN - 1) * uBox.zw;
+  float best = 1e30, hj = 0.0;
+  vec2 zj = vec2(0.0);
+  for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
+    if (j >= uLayers || j == uK) continue;
+    vec4 tj = ringT(j, p);
+    if (!(tj.w > 5.0 && tj.w < uCode + 0.1)) continue;
+    vec2 zz = ringZ(j, p).xy;
+    float d = length(zz - zA);
+    if (d < best) { best = d; zj = zz; hj = tj.z; }
+  }
+  if (!(best < 1e29)) { ringWhy(tfOut, 2); return; }
+  float hd = 1e-6 * (1.0 + length(zA));
+  vec2 dM = (mapPoint(zA + vec2(hd, 0.0)) - mapPoint(zA - vec2(hd, 0.0))) / (2.0 * hd);
+  if (!(best * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { ringWhy(tfOut, 3); return; }
+  cxs0_out = false;
+  vec2 h = carryHeightA(zA, zj);
+  if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38 || abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 4); return; }
+  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, h.x, uContCode);
+}
+`;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
   // only a corner that is not finite drops it. A real jump (LAND_EDGE_VS) splits it along the chord between the
   // crossing points: each bank is drawn up to the cut with its own one-sided height there, nothing across it, and the
