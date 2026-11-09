@@ -77,6 +77,8 @@
   const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
+  // the frames (by the check's name) with a triangle crossed on all three edges, and how many: a cut's branch point inside a cell
+  const MEDIAL_KNOWN = {};
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
@@ -477,6 +479,13 @@
         const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
         ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
       }
+      // a triangle with a crossing on all three edges leaves its middle open (paper where a sheet belongs): a cut is a curve, so that is only
+      // where cuts meet or end inside a cell (a branch point); the cells known are bounded, and no cut running through a vertex adds one
+      {
+        const medials = await ev('typeof __cmwLandMedials === \'function\' ? __cmwLandMedials() : null');
+        const cap = MEDIAL_KNOWN[t] || 0;
+        ok(`${t}: at most ${cap} triangles have a crossing on all three edges (${medials} do)`, medials !== null && medials <= cap, { medials, cap });
+      }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
       ok(`${t}: the frame's box is readable`, !!box, null);
@@ -585,6 +594,14 @@
           ctl = (await refine(sheets, REF)).rk;
         } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); }
         ok(`${t}: control: with every cross-sheet edge taken as continuous the relief is over ${RASTER_TOL * 100} % off (${ctl ? ctl.extra : '?'} extra, ${ctl ? ctl.missing : '?'} missing of ${ctl ? ctl.n : '?'})`, !!ctl && ctl.off > RASTER_TOL, { ctl });
+        // the control: with a vertex on the cut counted as a crossing (probe noEnd) the triangles that cross all three edges come back
+        let medCtl;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { noEnd: true }); 1"); await setU(MID_U[1]); await setU(u);
+          await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)');
+          medCtl = await ev('__cmwLandMedials()');
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); }
+        ok(`${t}: control: with a vertex on the cut counted as a crossing, the triangles crossed on all three edges are over ${MEDIAL_KNOWN[t] || 0} (${medCtl})`, medCtl > (MEDIAL_KNOWN[t] || 0), { medCtl });
       }
       if (/Roots as preimages/.test(t) && u === 0.002) {
         // controls: a reference refined only over the SHALLOW levels is not converged (its pair still moves checked pixels), and

@@ -327,7 +327,7 @@
         for (let i = 0; i < sheets.length; i++) {
           use(P3, Object.assign({}, c.map, { base: 0 }));   // (the preimages are on plane 0: the seam test carries them by the map from there)
           if (datas[i]) gl.uniform4fv(P3.loc.uChain, datas[i]);
-          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', carryProbe.noSeam ? 0 : 1);
+          stages(P3); u1i(P3, 'uSteps', CARRY_EDGE_STEPS); u1f(P3, 'uCode', code(i)); u1i(P3, 'uSeam', carryProbe.noSeam ? 0 : 1); u1i(P3, 'uEndOn', carryProbe.noEnd ? 0 : 1);
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
             gl.activeTexture(gl.TEXTURE15);
@@ -341,7 +341,7 @@
         // (the edges whose ends are not on one sheet, last: the earlier passes' edges stay)
         if (Pf) {
           use(P3, c.map); stages(P3); u1f(P3, 'uCode', -1); u1i(P3, 'uUsePrev', 1);
-          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
+          u1i(P3, 'uSheetW', sheetW); u1i(P3, 'uCrossOn', carryProbe.noCross ? 0 : 1); u1i(P3, 'uEndOn', carryProbe.noEnd ? 0 : 1); u1i(P3, 'uSteps', CARRY_EDGE_STEPS);
           gl.uniform1iv(P3.loc.uSheetCombos, Array.from({ length: CARRY_SHEETS_MAX }, (_, i) => combos[i] || 0));
           for (let d = 0; d < 3; d++) {
             u1i(P3, 'uDir', d);
@@ -398,7 +398,21 @@
   function landDrops() {
     if (!landC || !landC.exact || !landC.cuts || !landC.edges) return null;
     let n = 0;
-    for (const t of landC.edges) { const px = lwRead(t, landC.N, landC.N); if (!px) return null; for (let k = 3; k < px.length; k += 4) if (px[k] > 1.5) n++; }
+    for (const t of landC.edges) { const px = lwRead(t, landC.N, landC.N); if (!px) return null; for (let k = 3; k < px.length; k += 4) if (px[k] > 1.5 && px[k] < 2.5) n++; }
+    return n;
+  }
+  // The last exact carried frame's triangles with a jump on all three edges (LAND_CARRY_VS draws a piece at each corner and leaves
+  // the middle open), whose open middle shows the paper where a sheet belongs (tests); null without cuts
+  function landMedials() {
+    if (!landC || !landC.exact || !landC.cuts || !landC.edges) return null;
+    const N = landC.N, E = landC.edges.map((t) => lwRead(t, N, N));
+    if (E.some((e) => !e)) return null;
+    const jump = (d, i, j) => { const w = E[d][4 * (j * N + i) + 3]; return w > 0.5 && w < 1.5; };
+    let n = 0;
+    for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+      if (jump(0, i, j) && jump(1, i + 1, j) && jump(2, i, j)) n++;
+      if (jump(2, i, j) && jump(0, i, j + 1) && jump(1, i, j)) n++;
+    }
     return n;
   }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
@@ -1436,6 +1450,7 @@
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      u1i(Pc, 'uFarOn', carryProbe.noFar ? 0 : 1);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0); u1i(Pc, 'uSheetW', landC && landC.sheetW || 0); u1i(Pc, 'uSheetCombo', 0);
       const cutDraw = !!(landC && landC.exact && landC.cuts);
       u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3); u1f(Pc, 'uH', H);

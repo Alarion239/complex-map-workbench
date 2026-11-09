@@ -642,7 +642,7 @@ uniform highp sampler2D uZ; uniform int uZOn;
 // uCuts 1 (the exact glide, whose cuts LAND_CARRY_EDGE_VS found into uE0, uE1, uE2): a triangle is drawn as LAND_VS draws
 // it, 9 vertices each (uPer 9); else 3
 uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
-uniform int uCuts; uniform int uPer;
+uniform int uCuts; uniform int uPer; uniform int uFarOn;
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
@@ -656,6 +656,13 @@ vec4 edgeOf(ivec2 a, ivec2 b) {
   ivec2 o = rev ? b : a, ad = abs(d);
   vec4 e = ad.y == 0 ? texelFetch(uE0, o, 0) : (ad.x == 0 ? texelFetch(uE1, o, 0) : texelFetch(uE2, o, 0));
   return rev ? vec4(1.0 - e.x, e.z, e.y, e.w) : e;
+}
+// edge data e of a grid segment (edgeOf's orientation): a crossing (w 1) or a vertex on the cut (w 3, LAND_CARRY_EDGE_VS)
+bool crossing(vec4 e) { return e.w > 0.5 && e.w < 1.5; }
+bool crossedTwice(vec4 e) { return e.w > 1.5 && e.w < 2.5; }
+// the height of the corner an edge's cut runs through, on the bank the triangle's other corners are on: the edge's far height at that end (atB: the corner is the edge's b end)
+float farEnd(vec4 e, bool atB, float own) {
+  return e.w > 2.5 && (atB ? e.x > 0.5 : e.x < 0.5) ? (atB ? e.y : e.z) : own;
 }
 void main() {
   gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -674,9 +681,9 @@ void main() {
   }
   // (rotate, winding kept: one jump on AB, or two on AB and AC with BC whole; three, or an edge crossed twice: left out)
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
-  bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
+  bool j01 = crossing(e01), j12 = crossing(e12), j20 = crossing(e20);
   int J = int(j01) + int(j12) + int(j20);
-  if (max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  if (crossedTwice(e01) || crossedTwice(e12) || crossedTwice(e20)) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // this vertex: a corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
@@ -701,6 +708,12 @@ void main() {
   vec4 t = texelFetch(uT1, src, 0), nv = texelFetch(uT2, src, 0);
   vec2 xy = t.xy, z = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
   float h = t.z;
+  // (a corner the cut runs through, in a triangle whose other corners are on the far bank (the edge opposite it whole): the far bank's height there)
+  if (J == 0 && uFarOn == 1) {
+    if (src == A) h = e12.w < 0.5 ? farEnd(e20, true, farEnd(e01, false, h)) : h;
+    else if (src == B) h = e20.w < 0.5 ? farEnd(e01, true, farEnd(e12, false, h)) : h;
+    else h = e01.w < 0.5 ? farEnd(e12, true, farEnd(e20, false, h)) : h;
+  }
   if (x > 0) {
     ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
     vec4 e = edgeOf(F, E);
@@ -761,10 +774,13 @@ void main() {
   const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
-uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn;
+uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn; uniform int uEndOn;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + `
+// a bisection that never left an end of the edge found the cut at the vertex itself (within the bisection's resolution 2^-(uSteps-1)):
+// the vertex lies on the cut, and no edge crossing is written for it (uEndOn 0: it is)
+bool onCut(float lo, float hi) { return uEndOn == 1 && (lo == 0.0 || hi == 1.0); }
 // the preimage of the place w nearest z on the glide's own map (Newton's method with a central-difference derivative)
 vec2 seamNewt(vec2 z, vec2 w) {
   for (int i = 0; i < ${SEAM_NEWT_POL}; i++) {
@@ -826,6 +842,7 @@ void main() {
       if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
       if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
     }
+    if (onCut(lo, hi)) return;
     float tc = 0.5 * (lo + hi);
     tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;
@@ -850,7 +867,8 @@ void main() {
   }
   float big = 1e3 * max(uMu, 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
-  if (jump) { tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0); return; }
+  // (flag 3: the vertex is on the cut; hLo, hHi are as a jump's: the bank of the end it lies at, and the other bank's height there)
+  if (jump) { tfOut = vec4(0.5 * (lo + hi), hLo, hHi, onCut(lo, hi) ? 3.0 : 1.0); return; }
   // a member seam (uSeam 1): neither end's preimage carried along the edge's place reaches the other's, so the two
   // places hold different members of the glide's inverse and the edge is a cut between them, whatever the chord of
   // their preimages shows; each bank's height at the middle of the edge is its own member's there
