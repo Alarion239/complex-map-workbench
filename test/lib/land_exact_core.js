@@ -50,6 +50,7 @@
                             // not smooth there at any depth the lattice reaches (infinite slope), the pixels are decided by rays
     SING_ADJ: 3,            // leaf cells apart at most: suspect cells of one kind that touch are one neighbourhood
     SING_REACH_MAX_PX: 4,   // half-resolution pixels from the singular point at most, whatever touches
+    SING_GAP: 1e-6,         // w: a ray's samples beside a singular point stop this far from it (relative to 1 + |w|)
     SING_PX: 1e-3,          // a ray sample this close (in pixels of w) to a declared singular point is at it
     DISP_SEP: 0.5,          // a member's displacement is under this share of the smallest separation of its sheet's members to identify it
     NEWT_FLOOR: 1e-9,       // a first correction under this (relative to 1 + |z|) is rounding: its contraction ratio is not judged
@@ -697,9 +698,34 @@
       };
       const smp = [];
       for (let k = 0; k <= o.RAY_SAMPLES; k++) { const s = at(tA + (tB - tA) * k / o.RAY_SAMPLES); if (s) smp.push(s); }
-      // a sample at a declared singular point of the plan (a branch point, where the members' surfaces meet): a drawn member is there
-      // and the pixel is covered; no identity is needed or defined (the members all coincide)
-      if (frame.sing) {
+      // the ray's ground track passing a declared singular point of the plan (a branch point, where the members' surfaces meet and no continuation
+      // is defined): the track is split there. The samples on each side stop SING_GAP short of it and are continued from their own ends, and at the
+      // point itself the members coincide in one height per combo, so the ray meets the surface there by a plain comparison of heights
+      if (frame.sing && !o.apexOld) {
+        if (singList === null) singList = frame.sing() || [];
+        const on = o.SING_PX * wPx, places = [];
+        for (const q of singList) if (q.w && !places.some((p) => dist2(p, q.w) <= on)) places.push(q.w);
+        for (const pw of places) {
+          for (let a = 0; a + 1 < smp.length; a++) {
+            if (smp[a].apex || smp[a + 1].apex) continue;
+            const P = smp[a].v.w, Q = smp[a + 1].v.w, d = csub(Q, P), len2 = d[0] * d[0] + d[1] * d[1];
+            if (!(len2 > 0)) continue;
+            const tt = Math.min(1, Math.max(0, ((pw[0] - P[0]) * d[0] + (pw[1] - P[1]) * d[1]) / len2));
+            if (dist2([P[0] + d[0] * tt, P[1] + d[1] * tt], pw) > on) continue;
+            const t0 = smp[a].t, t1 = smp[a + 1].t, ts = t0 + (t1 - t0) * tt, et = o.SING_GAP * (1 + cabs(pw)) / (Math.sqrt(len2) / (t1 - t0));
+            const sLo = at(Math.max(t0, ts - et)), sHi = at(Math.min(t1, ts + et));
+            if (!sLo || !sHi) { fail({ kind: 'singular unresolved', w: pw, why: 'no ray sample beside the point' }); continue; }
+            const vA = mkVert(pw, frame.enumAt([pw])[0] || []), hA = {}, spread = {};
+            for (const m of vA.all) if (m.drawn) for (const l of m.layers) { if (hA[l.combo] === undefined) { hA[l.combo] = l.h; spread[l.combo] = 0; } else spread[l.combo] = Math.max(spread[l.combo], Math.abs(l.h - hA[l.combo])); }
+            const rng = Math.max(hHi - hLo, 1e-12);
+            if (Object.values(spread).some((x) => x > o.HIT_TOL * rng)) { fail({ kind: 'singular unresolved', w: pw, why: 'the members at the point differ in height' }); continue; }
+            smp.splice(a + 1, 0, sLo, { t: ts, h: hAt(ts), v: vA, apex: hA }, sHi);
+            a += 3;
+          }
+        }
+      }
+      // (the old rule: a sample at a declared point decides the pixel with no height comparison; kept only as a control)
+      if (frame.sing && o.apexOld) {
         if (singList === null) singList = frame.sing() || [];
         for (const sm of smp) for (const q of singList) {
           if (q.w && dist2(sm.v.w, q.w) <= o.SING_PX * wPx && sm.v.all.some((m) => m.drawn)) { cells.apex++; return true; }
@@ -721,7 +747,19 @@
       };
       const range = Math.max(hHi - hLo, 1e-12), wTiny = o.RAY_SUB_PX * wPx;
       for (let a = 0; a + 1 < smp.length; a++) {
-        const A = smp[a], B = smp[a + 1], mapB = carry(A, B);
+        const A = smp[a], B = smp[a + 1];
+        if (A.apex || B.apex) {
+          // (a sample beside a singular point against the point: each member of the sample meets the surface at the point's height, or crosses it before)
+          const H = A.apex ? B : A, M = A.apex ? A : B;
+          for (let k = 0; k < H.v.all.length; k++) for (const la of H.v.all[k].layers) {
+            const gH = layerG(H.v, k, la.combo, H.h);
+            if (gH === null || M.apex[la.combo] === undefined) continue;
+            const gM = M.h - M.apex[la.combo];
+            if (gH === 0 || Math.sign(gM) !== Math.sign(gH)) { cells.apex++; return true; }
+          }
+          continue;
+        }
+        const mapB = carry(A, B);
         if (!mapB) continue;
         for (let k = 0; k < A.v.all.length; k++) for (const la of A.v.all[k].layers) {
           const gA = layerG(A.v, k, la.combo, A.h);
