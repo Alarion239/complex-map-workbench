@@ -44,6 +44,9 @@
   // with cameras about 0.4 apart in distance (11.9 and 7.16), the other cases' with the same one. The control that pins the other plane's camera
   // therefore needs a gap of at least CAM_GAP_MIN, and CAM_GAP_CASES must have it.
   const CAM_GAP_MIN = 0.1, CAM_GAP_CASES = ['log of an annulus', 'log, box centred at 1.5 + 0.5i'];
+  // (the cases whose two end planes are parked with one camera distance, within CAM_SAME_TOL: the labels agree under either camera; and the distance a
+  // plane's Top-view reference is parked at is that plane's own, within CAM_DIST_TOL: no distance is carried over from the other plane)
+  const CAM_SAME_CASES = ['Möbius, √'], CAM_SAME_TOL = 1e-3, CAM_DIST_TOL = 1e-3;
   // The cut's seam: parked draws the cut as one continuous surface with no dark line, so the pixels of a near-end frame that differ from
   // the next plane's parked frame form no run of connected pixels as long as a seam. The rim's anti-aliasing dots are runs of at most 27.
   const SEAM_RUN = 40;
@@ -494,10 +497,16 @@
     // the parked end planes again in the Top view
     const camP1 = await ev("__cmwCam('L')");   // (the camera plane 1 was parked with: park() fits the camera to its plane, so plane 0's can be another)
     const camGap = Math.abs(camP1.dist - camP0.dist) / camP0.dist;
+    if (CAM_SAME_CASES.includes(c.tag)) ok(`${name}: the two end planes are parked with the same camera distance (${camGap} apart; within ${CAM_SAME_TOL}: the labels agree under either camera)`, camGap <= CAM_SAME_TOL, { camP0, camP1 });
     if (CAM_GAP_CASES.includes(c.tag)) ok(`${name}: the two end planes are parked with cameras ${camGap} apart in distance (at least ${CAM_GAP_MIN}: the premise of the tick label control)`, camGap >= CAM_GAP_MIN, { camP0, camP1 });
     await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`);
-    const p0T = await park(0, 'P0T'), p1T = await park(last, 'P1T');
+    const p0T = await park(0, 'P0T');
+    const distP0T = (await ev("__cmwCam('L')")).dist;
+    const p1T = await park(last, 'P1T');
+    const distP1T = (await ev("__cmwCam('L')")).dist;
     await ev(`__cmwCam('L', ${JSON.stringify(camP1)}); 1`);
+    ok(`${name}: the Top-view references are parked at each plane's own camera distance (${distP0T} for plane 0 against ${camP0.dist}, ${distP1T} for plane 1 against ${camP1.dist}; within ${CAM_DIST_TOL})`,
+      Math.abs(distP0T - camP0.dist) <= CAM_DIST_TOL * camP0.dist && Math.abs(distP1T - camP1.dist) <= CAM_DIST_TOL * camP1.dist, { distP0T, distP1T, camP0, camP1 });
     ok(`${name}: the parked frames are still in the Top view`, p0T.still && p1T.still, { p0T, p1T });
     const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
