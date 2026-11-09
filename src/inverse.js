@@ -57,11 +57,11 @@ const Inverse = (() => {
     return JSON.stringify(['inv2', sigs]);
   }
   // an op's part of the key: its kind, a NEWT op's seeding ops with their member counts and a polynomial NEWT op's degree
-  // (they shape its program), and a NEWT op's pole member
+  // (they shape its program; D: the step writes its derivative with its value, funcs' dualDerivative), and a NEWT op's pole member
   function opSig(o) {
     if (o.kind === 'NEWT' && o.p && o.p.deg) return `NEWT^${o.p.deg}`;
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
-    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind;
+    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind;
   }
   // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
   function planChain(steps, built, a = 0, b = steps.length) {
@@ -1724,7 +1724,7 @@ const Inverse = (() => {
     // (a step with no exact ops that declares itself one-to-one onto the outside of a disk and tangent to the identity at
     // infinity is seeded by the identity when f is that close to the identity on a
     // circle: then f(z) = w has exactly one root outside it, by Rouché, for w inside the circle's image)
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : b.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true, single: !!b.degreeOne && singleRoot(b) })] : null;
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : b.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true, single: !!b.degreeOne && singleRoot(b), dual: !!b.dualDerivative })] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:

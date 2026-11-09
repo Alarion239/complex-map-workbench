@@ -18,13 +18,16 @@ const check = (name, ok, info = '') => { if (!ok) { bad++; console.log('FAIL', n
 // H evaluations one program reaches per NEWT op. The inverse program's member function: _run 2 (H and the forward
 // difference) + _hit 1 + _d 2.
 const NEWT_H_SITES = 5;
+// A step that writes H and H' in one walk (chainHomD, GLSL's dual derivative: one site for both): the member function's _run 1 +
+// _hit 1 + _d 1, the roots pass's _run 1 + _hit 1.
+const NEWT_H_SITES_DUAL = 3, NEWT_H_SITES_DUAL_PASS = 2;
 // The roots pass: _run 2 + _hit 1 (no _d there).
 const NEWT_H_SITES_PASS = 3;
 // A polynomial op's member function: settle's _run 2 + _hit 1 + _d 2 + the stored roots' _hit 1; its roots pass: settle's
 // _run 2 + _hit 1 + the stored roots' _hit 1.
 const NEWT_H_SITES_POLY = 6, NEWT_H_SITES_POLY_PASS = 4;
 const T = 0.5;
-const CASES = [['plain', 'series', NEWT_H_SITES, NEWT_H_SITES_PASS], ['pole', 'zeta', NEWT_H_SITES, NEWT_H_SITES_PASS], ['seeded', 'ijouk', NEWT_H_SITES, NEWT_H_SITES_PASS], ['ray-seeded', 'dh', NEWT_H_SITES, NEWT_H_SITES_PASS], ['polynomial', 'poly', NEWT_H_SITES_POLY, NEWT_H_SITES_POLY_PASS]];
+const CASES = [['plain', 'series', NEWT_H_SITES, NEWT_H_SITES_PASS], ['pole', 'zeta', NEWT_H_SITES, NEWT_H_SITES_PASS], ['seeded', 'ijouk', NEWT_H_SITES, NEWT_H_SITES_PASS], ['ray-seeded', 'dh', NEWT_H_SITES_DUAL, NEWT_H_SITES_DUAL_PASS], ['polynomial', 'poly', NEWT_H_SITES_POLY, NEWT_H_SITES_POLY_PASS]];
 
 // Function bodies of prefix P (and `main`) of a GLSL text, by name.
 const bodies = (src, P) => {
@@ -44,7 +47,7 @@ const reach = (fns) => {
     if (memo[n] != null) return memo[n];
     if (stack.includes(n)) throw new Error('recursion at ' + n);
     const b = fns[n] || '';
-    let c = (b.match(/\bchainHom\(/g) || []).length;
+    let c = (b.match(/\bchainHomD?\(/g) || []).length;
     for (const k of Object.keys(fns)) {
       if (k === n) continue;
       const mm = b.match(new RegExp(`\\b${k}\\(`, 'g'));
