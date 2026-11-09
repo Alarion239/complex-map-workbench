@@ -18,6 +18,8 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
+const BANK_PX = 2, FAR_PX = 3000, END_EPS = 1e-4;   // (BANK_PX: how far a sample of the frame's bank may lie from the parked bank's polyline, for samples within FAR_PX px of the pane's origin: the bank's far end runs tens of thousands of px out, where a quarter of the samples differ by their own spacing; END_EPS: how far a step the frame is from its plane)
+const CUT_BANKS = 2;   // (the two banks of a ray cut, the solid one and the dashed one: what the frame draws of Square root's cut)
 const ready = () => settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof __cmwHideStrokes === "function"' });
 // the left pane drawn: two reads of its pixels 100 ms apart agree (the glide's meshes are made in idle moments after
 // the page is settled, and each lands in a later frame)
@@ -219,10 +221,7 @@ const park = async (x, scope) => {
       return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
     info.cracks = await scan(false);
-    // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws none, so
-    // its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
-    info.cutCurves = await ev('__cmwCutCurves().length');
-    ok('cracks: Square root, parked half-way, strokes hidden: no cut curve is drawn', info.cutCurves === 0, info.cutCurves);
+    info.cutCurves = await ev('__cmwCutCurves().length');   // (the cut's image curve is drawn with the strokes hidden, as the parked plane draws its cut: compared with the parked plane's below)
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
@@ -232,6 +231,37 @@ const park = async (x, scope) => {
     info.control = await scan(true);
     ok('cracks: a fill crack injected beside the cut\'s image at 135° is counted', info.control.out['135'].cracks > 0, info.control.out['135']);
     ok('cracks: the other ray, with no crack injected, still reads none', info.control.out['225'].cracks === 0, info.control.out['225']);
+    // The cut curves of the frame END_EPS of a step short of plane 1, strokes hidden, are the parked plane 1's (strokes hidden): the same count, the same
+    // solid and dashed banks, and every sample of a bank within BANK_PX px of the parked bank's polyline (the frame samples a quarter as many points). The
+    // controls, each a frame that must fail the same comparison: the plane 0 parked (a plane that draws its cut as a ray and keeps no banks: a frame with the
+    // cut dropped), and the frame's own banks with one removed.
+    const cutsOf = async () => JSON.parse(await ev('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, s: c.s.filter(Boolean) })))'));
+    const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const polyDist = (p, poly) => { let m = Infinity; for (let i = 1; i < poly.length; i++) m = Math.min(m, segDist(p, poly[i - 1], poly[i])); return m; };
+    // (both ways: every frame sample lies within BANK_PX of the reference polyline, and every reference sample within FAR_PX of the origin lies within BANK_PX of the frame's polyline, so a bank that stops short or a half-drawn one fails the second)
+    const near = (a, b) => a.every((p) => Math.abs(p[0]) > FAR_PX || Math.abs(p[1]) > FAR_PX || polyDist(p, b) <= BANK_PX);
+    const sameCuts = (frame, ref) => frame.length === ref.length && frame.every((c, i) => c.step === ref[i].step && c.solid === ref[i].solid && c.s.length > 1 && ref[i].s.length > 1 && near(c.s, ref[i].s) && near(ref[i].s, c.s));
+    // (the strokes are hidden at the frames compared: the page's own state is read back, after the frame has settled)
+    const hidden = async () => { await settled({ max: 20000 }); return (await ev('__cmwHideStrokesGet()')) === true; };
+    await park(1, 'all'); ok('cracks: the strokes are hidden at the parked plane 1', await hidden(), null); const parked1 = await cutsOf();
+    await ev(`__cmwSteps({ x: ${1 - END_EPS} }); 1`); await settled({ max: 20000 }); ok('cracks: the frame next to plane 1 is drawn', await drawn(), null);
+    ok('cracks: the strokes are hidden at the frame next to plane 1', await hidden(), null);
+    const nearEnd = await cutsOf();
+    await park(0, 'all'); const parked0 = await cutsOf();
+    info.cutCurves = { parked1: parked1.length, nearEnd: nearEnd.length, parked0: parked0.length };
+    ok('cracks: the parked plane 1 draws the cut\'s two banks', parked1.length === CUT_BANKS, info.cutCurves);
+    ok(`cracks: the frame ${END_EPS} short of plane 1, strokes hidden, draws the parked plane 1's cut curves (the same count and banks, within ${BANK_PX} px)`, sameCuts(nearEnd, parked1), info.cutCurves);
+    ok('cracks: the control: a frame that drops the cut (the plane 0 parked, which keeps no banks) is not the parked plane 1\'s', !sameCuts(parked0, parked1), info.cutCurves);
+    ok('cracks: the control: the frame with one of its banks dropped is not the parked plane 1\'s', !sameCuts(nearEnd.slice(1), parked1), { kept: nearEnd.length - 1 });
+    // the reverse controls: a frame whose banks are cut to their first half passes the frame-to-reference direction alone and fails the two-way comparison
+    const half = nearEnd.map((c) => ({ ...c, s: c.s.slice(0, Math.max(2, c.s.length >> 1)) }));
+    ok('cracks: the control: banks cut to their first half still lie on the parked ones (one way)', half.every((c, i) => near(c.s, parked1[i].s)), null);
+    ok('cracks: the control: banks cut to their first half are not the parked plane 1\'s (the reverse check)', !sameCuts(half, parked1), null);
+    // the strokes control: with the strokes shown, the same read reports them shown
+    await ev('__cmwHideStrokes(false); 1');
+    ok('cracks: the control: with the strokes shown the hidden check fails', !(await hidden()), null);
+    await ev('__cmwHideStrokes(true); 1');
+    await park(0.5, 'all');
   }
 }
 return { pass: fails.length === 0, fails, info };

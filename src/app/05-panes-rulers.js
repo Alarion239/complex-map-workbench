@@ -70,6 +70,8 @@
   // ---------------- panes ----------------
   let paneL, paneR;
   let cutHandlesL = [];
+  let cutMarksL = [];   // the cuts' handles on a frame between two planes: drawn like the editable ones, never hit-tested
+
   let hoverCut = 0;
   // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
@@ -244,6 +246,7 @@
     zpHandlesL = [];
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
+      drawCutHandles(paneL, cutMarksL);
       drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // ([#253] a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
