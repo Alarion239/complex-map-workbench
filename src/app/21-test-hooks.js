@@ -500,7 +500,10 @@
   // draw: svBetween's, from base 0), on surface number combo of the cell centred at zc (default z): Funcs.sheetMapEval, [re, im] or null where
   // it is not finite. __cmwLandSceneCombos() answers { n, W }, the surfaces the map has (Funcs.sheetMapCombos), or null when the map cannot be
   // drawn as sheets; both read the scene's state alone, never the inverse plan
+  // (sceneMapOver: a map a control reads the scene of instead of the glide's)
+  let sceneMapOver = null;
   const sceneMap = () => {
+    if (sceneMapOver) return sceneMapOver;
     const g = svBetween();
     return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: 0 } : { mode: 1, base: 0, hi: g.b, t: g.u };
   };
@@ -731,7 +734,7 @@
   // the state of a rectangle r as a leaf of the scene: 'closed' (every surface's value runs round r's loop in steps of at most REL, no branch step's
   // input winds round 0 or comes near it, and r holds no pole of a branch step's input: the winding of H_u - w then counts the pairs in r), 'crossed' (a branch
   // step's input runs round the loop with winding 0 yet reaches the ray opposite its value at the centre, where the anchored surface jumps: not a
-  // leaf that can be counted) or 'branch'. opts.noInputs and opts.noPoleTest leave the inputs, and the poles, out of the test
+  // leaf that can be counted) or 'branch'. opts.noInputs, opts.noPoleTest and opts.noContinuity leave the inputs, the poles and the continuity out of the test
   const leafState = (sc, r, opts = {}) => {
     const c = C((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2);
     let crossed = false;
@@ -739,7 +742,7 @@
       const g = (z) => sc.g(k, c, z), vc = g(c);
       if (!vc) return 'branch';
       const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(CX.sub(v, vc)) + CX.abs(CX.sub(nv, vc)) + SCN.CLOSE * cmax(vc));
-      for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return 'branch';
+      if (!opts.noContinuity) for (const f of rectLoop(r)) if (windOpen(g, f, C(0, 0), rel).bad) return 'branch';
       if (opts.noInputs) continue;
       for (const inp of sc.inputs) {
         const u = (z) => inp.f(k, c, z), u0 = u(c);
@@ -885,8 +888,12 @@
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
-  // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest (leafState)
-  window.__cmwLandLeafState = (x0, x1, y0, y1, opts) => { const sc = sceneOf(); return sc ? leafState(sc, { x0, x1, y0, y1 }, opts || {}) : null; };
+  // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest, noContinuity (leafState)
+  // opts.map: the scene of that map spec ({ mode: 1, base: 0, hi, t }) instead of the glide's
+  window.__cmwLandLeafState = (x0, x1, y0, y1, opts) => {
+    sceneMapOver = opts && opts.map || null;
+    try { const sc = sceneOf(); return sc ? leafState(sc, { x0, x1, y0, y1 }, opts || {}) : null; } finally { sceneMapOver = null; }
+  };
   // TEMP-DEBUG-HOOK
 
   // TEMP-DEBUG-HOOK (removed before publishing)

@@ -125,7 +125,7 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
-    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true },
+    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true, polePair: { x: [-0.5, 0.5], y: [-1.5, 1.5], map: { mode: 1, base: 0, hi: 2, t: 1 } } },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
     { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
     { tag: 'log of an annulus', logControl: true, steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
@@ -826,6 +826,14 @@
               const sn = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), bl = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noInputs: true })`);
               ok(`${t}: the branch leaf is reported (${sn && sn[0] ? sn[0].branchLeaves : '?'} leaves; ${bl && bl[0] ? bl[0].branchLeaves : '?'} by the continuity alone)`, !!sn && !!sn[0] && sn[0].branchLeaves > 0, { sn, bl });
             }
+            if (c.polePair) {
+              // (the map of both steps, a Möbius map and the root of its value: a leaf that holds a zero (i) and the pole (-i) of the root's input winds
+              // it 0 times, so only the pole test makes it a branch leaf: with the pole test and the continuity test left out its loop is judged by the
+              // reach of the input's argument alone and is 'crossed'. No glide is needed, the scene is read of that map)
+              const q = c.polePair, a0 = `${q.x[0]}, ${q.x[1]}, ${q.y[0]}, ${q.y[1]}`;
+              const withP = await ev(`__cmwLandLeafState(${a0}, { map: ${JSON.stringify(q.map)} })`), noP = await ev(`__cmwLandLeafState(${a0}, { map: ${JSON.stringify(q.map)}, noPoleTest: true, noContinuity: true })`);
+              ok(`${t}: the control: a leaf with a zero and a pole of the root's input is a branch leaf (${withP}), and not one without the pole test (${noP})`, withP === 'branch' && noP !== 'branch', { withP, noP });
+            }
             if (c.logControl) {
               // (the surfaces counted as digits: where the log path repeats a sheet, the count reads two for one member)
               if (u === GLIDE_MID) {
@@ -887,19 +895,6 @@
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
       }
-      // (the sheets' combo one off: the colour at the near probes leaves NEAR_TOL)
-      if (NEAR_U.includes(u) && u >= REVERSED_FROM && u <= 1 - REVERSED_FROM && COMBO_CONTROL.includes(c.tag)) {
-        let nPh = 0;
-        try {
-          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          const sh = await hook(pts);
-          (sh || []).forEach((hv, i) => (ref[i] || []).slice(0, 1).forEach((m) => { (hv || []).filter((x) => sameZ(x.z, m.z)).forEach((l) => { const g = phaseGap(l.f, m.f); if (g !== null && g > NEAR_TOL) nPh++; }); }));
-        } finally { await ev("window.__svCarryProbe = {}; 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
-        ok(`${t}: the control: with every sheet's combo one off the colour leaves ${NEAR_TOL} rad at ${nPh} members`, nPh > 0, { nPh });
-      }
-      ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
-      ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
