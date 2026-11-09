@@ -957,13 +957,14 @@
     let whole = null;
     // (a plane at rest whose step has no exact inverse is drawn as the glide's last frame is: the homotopy's inverse at t = 1)
     const restHom = () => svSheetKey(b).sing;
+    const viaHom = (x, t, sing) => (shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, t, sing)) : invHomPath(x, 0, b, t, sing));
     const paths = list.map((x) => {
-      if (hom) return shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, u, singAt)) : invHomPath(x, 0, b, u, singAt);
+      if (hom) return viaHom(x, u, singAt);
       const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
       // (only a step with no exact inverse falls back: the exact images off, a path still compiling or forced forward stay as they are)
       const m = normalizeMap(stageMap(b));
       if (p.path !== 'forward' || invPlan(m.a || 0, m.b || 0).ok) return p;
-      const q = shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, 1, restHom)) : invHomPath(x, 0, b, 1, restHom);
+      const q = viaHom(x, 1, restHom);
       return q.path === 'inverse' ? q : p;
     });
     const part = why.rest && !hom && !list.includes(SV_ALL);
@@ -2314,7 +2315,7 @@
     openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true }));
   }
   function svSurfMenu() {
-    svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), (v) => { SV.surf = v; if (v === 'sphere') prestartGlobe(); svApply(); tourEmit('surface-changed', { s: v }); });
+    svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), (v) => { SV.surf = v; if (v === 'sphere') { prestartGlobe(); svPrestartSoon(300); } svApply(); tourEmit('surface-changed', { s: v }); });
   }
   function svSetScope(v) { SV.scope = v; svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
   function svScopeMenu() { svChoiceMenu(SV.els.scopeBtn, SV.els.SCOPES, SV.scope, $t('Where colour shows'), svSetScope); }
@@ -2884,6 +2885,18 @@
     if (SV.own) { SV.own = false; SV.sig = svSigNow(); }
     svWantFocus();
   }
+  // On the globe, the inverse program of the glides out of and into the plane shown (svGlobeCarryInv's: each step's homotopy
+  // inverted by its own ops, its own program), linked in the background, so the first glide finds it and no program links
+  // inside a glide's frame
+  function svPrestartGlobeInv() {
+    if (SV.surf !== 'sphere' || !paneL || !GLR.inverseState || nSteps() < 1) return;
+    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), T = svT(), carry = svCarryStyle(T);
+    for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
+      if (!b || isDeriv(b) || derivIn(0, b)) continue;
+      const h = svInvPaths(b, 0.5, 'globe', { r: null });
+      if (h) h.list.forEach((x, i) => GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], x, carry))));
+    }
+  }
   // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
   // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
   // chain changes
@@ -2900,6 +2913,7 @@
       // (and the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn
       // once: svWarmCarry)
       if (GLR.prestartCarry) GLR.prestartCarry();
+      svPrestartGlobeInv();
       svWarmCarry(0);
       svPolesWatch();
     } catch (e) { /* (the first glide starts them) */ }
