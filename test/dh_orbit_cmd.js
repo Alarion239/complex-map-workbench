@@ -21,4 +21,4 @@ ok('the page finished', !!r, null);
 ok('the page reported no errors', !!r && !r.errors.length, r && r.errors);
 ok('the orbit in variables equals the array form bit for bit at every point', !!r && r.rows.length > 0 && r.rows.every((x) => x.arrayVsRegistersDiffer === 0), r && r.rows);
 ok('control: the recomputation off by one step differs', !!r && r.controls.length > 0 && r.controls.every((c) => c.skewedRecomputeDiffers > 0), r && r.controls);
-console.log(JSON.stringify({ pass: fails.length === 0, fails, info }));
+return { pass: fails.length === 0, fails: fails.slice(0, 10), info };
