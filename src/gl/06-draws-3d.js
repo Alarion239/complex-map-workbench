@@ -307,6 +307,7 @@
       landC.cuts = 0; landC.datas = null;
       const sheets = exact ? [{ shift: null }].concat(c.exact.more || []) : [];
       const Pf = sheets.length > 1 ? program('landCarryFix', c.map) : null, P3 = exact ? program('landCarryEdge', c.map) : null;
+      if (sheets.length > CARRY_SHEETS_MAX) throw new Error('the glide has ' + sheets.length + ' sheets; the cross-sheet edge test reads at most ' + CARRY_SHEETS_MAX);
       if (P3 && (Pf || sheets.length === 1)) {
         if (!landC.edges) landC.edges = [floatTex(), floatTex(), floatTex()];
         const datas = sheets.map((sh) => sheetChainData(sh.shift));
@@ -398,6 +399,20 @@
     if (!landC || !landC.exact || !landC.cuts || !landC.edges) return null;
     let n = 0;
     for (const t of landC.edges) { const px = lwRead(t, landC.N, landC.N); if (!px) return null; for (let k = 3; k < px.length; k += 4) if (px[k] > 1.5) n++; }
+    return n;
+  }
+  // The last exact carried frame's triangles with a jump on all three edges (LAND_CARRY_VS draws a piece at each corner and leaves
+  // the middle open), whose open middle shows the paper where a sheet belongs (tests); null without cuts
+  function landMedials() {
+    if (!landC || !landC.exact || !landC.cuts || !landC.edges) return null;
+    const N = landC.N, E = landC.edges.map((t) => lwRead(t, N, N));
+    if (E.some((e) => !e)) return null;
+    const jump = (d, i, j) => { const w = E[d][4 * (j * N + i) + 3]; return w > 0.5 && w < 1.5; };
+    let n = 0;
+    for (let j = 0; j < N - 1; j++) for (let i = 0; i < N - 1; i++) {
+      if (jump(0, i, j) && jump(1, i + 1, j) && jump(2, i, j)) n++;
+      if (jump(2, i, j) && jump(0, i, j + 1) && jump(1, i, j)) n++;
+    }
     return n;
   }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the

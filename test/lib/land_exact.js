@@ -77,6 +77,8 @@
   const Z_TOL = 1e-2;   // the frame's z is the shader's float inverse: a cube root's preimage is w cubed, so its relative error is three times the map's
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
+  // the frames (by the check's name) that draw triangles with an open middle, and how many cells: their fill is not done
+  const MEDIAL_KNOWN = {};
   const CASES = [
     { tag: 'Möbius, √', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [] },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
@@ -476,6 +478,12 @@
       {
         const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
         ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
+      }
+      // the triangles with a jump on every edge leave their middle open (paper where a sheet belongs): at most the cells known for the frame
+      {
+        const medials = await ev('typeof __cmwLandMedials === \'function\' ? __cmwLandMedials() : null');
+        const cap = MEDIAL_KNOWN[t] || 0;
+        ok(`${t}: at most ${cap} triangles are drawn with an open middle (${medials} are)`, medials !== null && medials <= cap, { medials, cap });
       }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
