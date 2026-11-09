@@ -232,13 +232,14 @@ await grab();
 
 // ---------------- one fixed column of keys at the bottom right ----------------
 await fresh('keys', 412, 860, false, true);
-const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn, .viewstack .ph-key')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : /^(left|right)Sph$/.test(e.id) ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
+const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn, .viewstack .ph-key')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : e.classList.contains('ph-dsp') ? 'display' : /^(left|right)Sph$/.test(e.id) ? 'sphere' : /^(left|right)Fit$/.test(e.id) ? 'fit' : /^(left|right)Zoom(In|Out)$/.test(e.id) ? e.id.replace(/^(left|right)/, 'zoom') : 'unclassified ' + (e.id || e.className)] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
 const kv = {};
 kv.xy = await keys();
 await ev('Phone.swap()'); await settle(); kv.swap = await keys(); await ev('Phone.swap()'); await settle();
 await ev(`__cmwSetMain('phase'); 1`); await settle(); kv.phase = await keys();
 await ev(`__cmwSetMain('land'); 1`); await settle(); kv.land = await keys();
 info.keys = kv;
+for (const v of Object.keys(kv)) ok(`every shown plane key is classified in ${v}`, Object.keys(kv[v]).every((n) => !n.startsWith('unclassified')), kv[v]);
 for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
 for (const v of ['swap', 'phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
 ok('D8 Both is the top key of its column, above the stack', kv.xy.both && kv.xy.both[1] < kv.xy.display[1] && Math.abs(kv.xy.both[0] - kv.xy.display[0]) <= 1, kv.xy);
