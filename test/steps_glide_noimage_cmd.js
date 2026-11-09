@@ -14,7 +14,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 // MIN_PIXELS the least count of parked-coloured pixels; WHITE a channel above which a pixel is paper; EDGE_SHIFT_PX the shift of
 // the pixel measure's control; END_EPS the distance of a frame from its parked plane; U_NEAR the distance of the moved frames;
 // RELOAD_MS the wait for the page a figure's opening reloads)
-const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, WHITE = 250, EDGE_SHIFT_PX = 2, END_EPS = 1e-4, U_NEAR = 0.002, RELOAD_MS = 4000;
+const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, WHITE = 250, EDGE_SHIFT_PX = 2, END_EPS = 1e-4, U_NEAR = 0.002, RELOAD_MS = 4000, GREY_SPREAD = 8, MIN_HATCH = 2000;
 const EXAMPLE = 'The Douady–Hubbard map';
 const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
@@ -26,7 +26,7 @@ const open = async () => {
   await ev(`__cmwExample(${names.indexOf(EXAMPLE)}); 1`); await settled({ max: 20000 });
 };
 // the glide frame at gx against the parked plane px: {coloured, paper (of the parked-coloured pixels, the glide's paper ones),
-// paperShare, noMatch (share of the parked-coloured pixels with no pixel of the glide frame's 3 x 3 within TOL of theirs),
+// paperShare, grey (of them, the grey ones: the no-value hatch) and greyPaper (the paper ones of those), greyPaperShare, noMatch (share of the parked-coloured pixels with no pixel of the glide frame's 3 x 3 within TOL of theirs),
 // noMatchShifted (the same with the glide frame replaced by the parked plane shifted EDGE_SHIFT_PX px)}
 const measure = async (gx, px, blank = false) => {
   await open();
@@ -47,16 +47,18 @@ const measure = async (gx, px, blank = false) => {
     };
     const S = new Uint8ClampedArray(P.length);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (let c = 0; c < 4; c++) S[4 * (y * W + x) + c] = P[4 * (y * W + Math.min(W - 1, x + ${EDGE_SHIFT_PX})) + c];
-    let coloured = 0, pap = 0, bad = 0, badShifted = 0;
+    let coloured = 0, pap = 0, bad = 0, badShifted = 0, grey = 0, greyPaper = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = 4 * (y * W + x);
       if (paper(P, i)) continue;
       coloured++;
-      if (paper(G, i)) pap++;
+      const isGrey = Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) <= ${GREY_SPREAD};
+      if (isGrey) grey++;
+      if (paper(G, i)) { pap++; if (isGrey) greyPaper++; }
       if (!matches(G, x, y)) bad++;
       if (!matches(S, x, y)) badShifted++;
     }
-    return { coloured, paper: pap, paperShare: coloured ? +(pap / coloured).toFixed(4) : null, noMatch: coloured ? +(bad / coloured).toFixed(4) : null, noMatchShifted: coloured ? +(badShifted / coloured).toFixed(4) : null };
+    return { coloured, paper: pap, grey, greyPaper, greyPaperShare: grey ? +(greyPaper / grey).toFixed(4) : null, paperShare: coloured ? +(pap / coloured).toFixed(4) : null, noMatch: coloured ? +(bad / coloured).toFixed(4) : null, noMatchShifted: coloured ? +(badShifted / coloured).toFixed(4) : null };
   })()`);
 };
 // (plane 0 -> plane 1: [u of the glide frame, the plane it is compared with, whether the pixel measure applies])
@@ -66,6 +68,7 @@ for (const [u, p, exact] of ROWS) {
   info[`glide at ${u} against plane ${p}`] = r;
   ok(`the frame at ${u}: more than ${MIN_PIXELS} pixels of plane ${p} are coloured`, r.coloured > MIN_PIXELS, r);
   ok(`the frame at ${u}: of the pixels plane ${p} colours, at most ${SAME_FRAC * 100} % are paper`, r.paperShare !== null && r.paperShare <= SAME_FRAC, r);
+  if (p === 0) ok(`the frame at ${u}: of the grey no-value hatch of plane 0 (at least ${MIN_HATCH} pixels), at most ${SAME_FRAC * 100} % are paper`, r.grey >= MIN_HATCH && r.greyPaperShare <= SAME_FRAC, r);
   if (exact) ok(`the frame at ${u}: of the pixels plane ${p} colours, at most ${SAME_FRAC * 100} % have no pixel of the glide's 3 x 3 within ${TOL} levels`, r.noMatch !== null && r.noMatch <= SAME_FRAC, r);
 }
 // controls: the parked plane against itself, and shifted
