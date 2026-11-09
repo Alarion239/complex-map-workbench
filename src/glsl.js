@@ -2199,7 +2199,8 @@ void ixAncTan(vec2 w) {
   const NM = { WALK: 0, LAND: 1, SETTLE: 2, BACK: 3, DEFL: 4, CHECK: 5 };
   const NP = { CHECK: 0, GRID: 1, BACK: 2, AT: 3, LAD: 4, POL: 5, DEFL: 6, DONE: 7 };
   // the stepper's trip bound: its longest schedule (a missed CHECK, then GRID's NEWT_K stages, AT, POL; or a LAD, POL;
-  // or a BACK of NEWT_K stages, POL; or DEFL's NEWT_DEF steps) in single steps
+  // or a BACK of NEWT_K stages, POL; or DEFL's NEWT_DEF steps) in single steps; the thread's t is in [0, 1], so a BACK has
+  // at most NEWT_K stages (kb = ceil(NEWT_K (1 - t))) and a missed CHECK, which restarts the grid, is the longest
   const newtRunMax = () => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF);
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, the only place
