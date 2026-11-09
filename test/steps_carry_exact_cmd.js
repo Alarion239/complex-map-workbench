@@ -14,7 +14,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { hold, grab, fade, judge, JUDGE_MIN_N } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const HELD_U = [0.25, 0.5, 0.75];
 await view(1200, 800, false, false);
-await go(`http://localhost:${PORT}/test.html?ns=cex${Date.now()}`);
+await go(`http://localhost:${PORT}/test.html?ns=cex${Date.now()}&view=steps`);
 await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 await ev(`__cmwSet('morphPaths', false), __cmwSet('alpha', 1), __cmwSteps({ scope: 'all', surf: 'plane', bare: false }), 1`);
 // (at rest on plane i, its frame drawn)
