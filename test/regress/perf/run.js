@@ -2118,7 +2118,7 @@ unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate a
 // Where the GPU time of the Douady–Hubbard and Böttcher glides goes (diagnostic): per dpr (0.5, 1, 2: a quarter, one and four
 // times the pixels) and per variant (full: the shipped shader; noray: the RAY phase compiled out, window.__perfNoRay), one
 // warm glide with the frame timed as the other units do (frame_ms: cpu + the readPixels sync), then one glide with every draw
-// timed between two gl.finish() calls (P.split): the milliseconds per frame of the inverse programs' draws and of every other
+// timed in a GPU timer query (P.split): the milliseconds per frame of the inverse programs' draws and of every other
 // draw, and the pixels their viewports cover. Rows are info; the reps are the median of REPS glides.
 async function svSplitUnit(scene, state, variants) {
   const id = `sv.passsplit.${scene}`, [pa, pb] = [0, 1];
@@ -2149,7 +2149,8 @@ async function svSplitUnit(scene, state, variants) {
         await settle(await pageNow());
         await B.ev('(__perf.split = [], 1)');
         const w2 = await glideTo(pb);
-        const recs = await B.ev('(() => { const r = __perf.split; __perf.split = null; return r; })()');
+        await B.until('__perf.splitReady()', SETTLE_TIMEOUT, 20);
+        const recs = (await B.ev('__perf.splitTake()')).filter((r) => r.ms !== null);
         const n = Math.max(1, w2.drawn.length), sum = (a, k) => a.reduce((x, r) => x + r[k], 0), inv = recs.filter((r) => r.inv), oth = recs.filter((r) => !r.inv);
         R.frame.push(...w.frame); R.frames.push(w.drawn.length);
         R.inv.push(sum(inv, 'ms') / n); R.other.push(sum(oth, 'ms') / n);

@@ -117,12 +117,17 @@
     G[name] = function () {
       P.draws++; if (P.curInv) P.invDraws++; P.lastDrawT = now();
       if (!P.split) return f.apply(this, arguments);
-      // pass-split mode (P.split an array): each draw is timed between two gl.finish() calls, so its wall time is its own GPU work
-      // (the pipeline is drained before and after it), with its viewport and whether an inverse program draws it
-      const gl = this; gl.finish();
-      const a = now(), r = f.apply(this, arguments); gl.finish();
-      const b = now(), vp = gl.getParameter(gl.VIEWPORT);
-      P.split.push({ inv: !!P.curInv, ms: b - a, w: vp[2], h: vp[3], buf: gl.drawingBufferWidth * gl.drawingBufferHeight, f: cur ? cur.ts : 0 });
+      // pass-split mode (P.split an array): each draw runs inside a TIME_ELAPSED query (EXT_disjoint_timer_query_webgl2), so its
+      // GPU time is its own; with its viewport and whether an inverse program draws it. P.splitReady() is true once every
+      // query has a result, P.splitTake() returns the records with ms (null where the timer was disjoint) and ends the mode
+      const gl = this, X = gl.__tq || (gl.__tq = gl.getExtension('EXT_disjoint_timer_query_webgl2'));
+      if (!X) return f.apply(this, arguments);
+      const q = gl.createQuery();
+      gl.beginQuery(X.TIME_ELAPSED_EXT, q);
+      const r = f.apply(this, arguments);
+      gl.endQuery(X.TIME_ELAPSED_EXT);
+      const vp = gl.getParameter(gl.VIEWPORT);
+      P.split.push({ q, gl, inv: !!P.curInv, w: vp[2], h: vp[3], buf: gl.drawingBufferWidth * gl.drawingBufferHeight, f: cur ? cur.ts : 0 });
       return r;
     };
   }
@@ -321,6 +326,15 @@
   const pendingNow = () => { try { return typeof GLR !== 'undefined' && GLR && typeof GLR.frameStatus === 'function' ? !!GLR.frameStatus().pending : false; } catch (e) { return false; } };
   P.status = () => ({ now: now(), lastDrawT: P.lastDrawT, lastActT: Math.max(P.lastActT, P.lastDrawT), ledL: P.led.L, ledR: P.led.R, draws: P.draws, nFrames: P.frames.length, pending: pendingNow(), invLinks: P.invLinks, invDraws: P.invDraws });
   // frames and listener timings with t0 >= since (page time), compacted for transfer
+  P.splitReady = () => !P.split || P.split.every((r) => r.gl.getQueryParameter(r.q, r.gl.QUERY_RESULT_AVAILABLE));
+  P.splitTake = () => {
+    const out = (P.split || []).map((r) => {
+      const X = r.gl.__tq, dis = r.gl.getParameter(X.GPU_DISJOINT_EXT);
+      return { inv: r.inv, w: r.w, h: r.h, buf: r.buf, f: r.f, ms: dis ? null : r.gl.getQueryParameter(r.q, r.gl.QUERY_RESULT) / 1e6 };
+    });
+    P.split = null;
+    return out;
+  };
   P.framesSince = (since, until = Infinity) => P.frames.filter((f) => f.t0 >= since && f.t0 <= until).map((f) => [+f.t0.toFixed(2), +f.cpu.toFixed(3), +f.gpu.toFixed(3), f.draws, f.n, +f.ts.toFixed(2), +f.t1.toFixed(2), f.inv]);
   // programs linked at page times in [since, until]: [t, ready (null: never seen complete), inv]
   P.progsSince = (since, until = Infinity) => P.progs.filter((r) => r.t >= since && r.t <= until).map((r) => [+r.t.toFixed(2), r.ready === null ? null : +r.ready.toFixed(2), r.inv]);
