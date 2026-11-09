@@ -2193,69 +2193,75 @@ void ixAncTan(vec2 w) {
   // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
   // its step is within NEWT_STEP_TOL (1 + |z|))
   const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
+  // The stepper's modes (the start of a member's schedule) and phases. A schedule is a run of phases: WALK is GRID from
+  // stage ks + 1, AT, POL; CHECK is a stored root's test, then WALK from w; LAND is LAD, POL; SETTLE is POL; BACK is BACK
+  // from stage 1, POL; DEFL is DEFL. Every schedule ends with the hit test (DEFL's with its dedupe test).
+  const NM = { WALK: 0, LAND: 1, SETTLE: 2, BACK: 3, DEFL: 4, CHECK: 5 };
+  const NP = { CHECK: 0, GRID: 1, BACK: 2, AT: 3, LAD: 4, POL: 5, DEFL: 6, DONE: 7 };
+  // the stepper's trip bound: its longest schedule (a missed CHECK, then GRID's NEWT_K stages, AT, POL; or a LAD, POL;
+  // or a BACK of NEWT_K stages, POL; or DEFL's NEWT_DEF steps) in single steps; the thread's t is in [0, 1], so a BACK has
+  // at most NEWT_K stages (kb = ceil(NEWT_K (1 - t))) and a missed CHECK, which restarts the grid, is the longest
+  const newtRunMax = () => Math.max(2 + Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_LAD + Inverse.NEWT_POL, Inverse.NEWT_K + Inverse.NEWT_POL, Inverse.NEWT_DEF);
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
-  // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
-  // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at grid stage ks
-  // (InvOps.opNewt's fixed grid: the stages k / NEWT_K up to k0 = floor(NEWT_K t), ug the root at k0, IX_NR_NONE when
-  // the walk failed by then), then one step at t, polished, kept when it hits w; _walk0, member 0 from w; _m0, member
-  // 0 where the NEWT roots pass (IX_NR_N, uNrTex0: (ug, u) for the pixel's own w) has it: a stored member that misses w
-  // is walked again (the pass's member is the full walk's, so a read is the walk's result; the check guards a target
-  // that does not hold this frame's)
-  const newtCoreFns = (P, H, rd) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
+  // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, the only place
+  // that evaluates H_t at a Newton iterate (a shader compiler inlines every call, so a program's size follows the
+  // number of such places; the arithmetic stays in this function, since written inline in _run's loop the compiled
+  // float result differs in the last bits): one step of H_t at u, the CHECK test (held: u hits w), a plain step
+  // or the DEFL step deflated by the root dz; _run, one loop of such steps over a schedule (NM, NP) from u, with stage t_k of a step: a plain
+  // step is capped at a quarter of 1 + |u|, a polish step (POL, LAD) stops the phase when it moves u by at most
+  // NEWT_STEP_TOL (1 + |u|); DEFL steps Newton's method deflated by the root dz. Member 0's walk is InvOps.opNewt's
+  // fixed grid: the stages k / NEWT_K from ks + 1 up to k0 = floor(NEWT_K t), ug the root at k0 (IX_NR_NONE when the
+  // walk failed by then), then one step at t, polished. _run's result is true when the schedule ran to its end and the
+  // hit test (u hits w; DEFL: and u is further than NEWT_DEDUPE (1 + |dz|) from dz) holds; a CHECK that holds ends
+  // there
+  const newtCoreFns = (P, H) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
 bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
 vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
-bool ${P}_step(inout vec2 u, vec2 w, float t) {
+bool ${P}_step(inout vec2 u, vec2 w, float t, vec2 dz, bool defl, bool chk, out bool held) {
   vec2 hu = ${H('u', 't')};
+  held = ixFin(u) && cx_abs(hu - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));
+  if (chk) return true;
   vec2 d = ${P}_fd(u, hu, t);
+  if (defl) {
+    vec2 g = cdiv(d, hu - w) - cinv(u - dz);
+    if (!(dot(g, g) > 0.0)) return false;
+    u -= cinv(g);
+    return ixFin(u);
+  }
   if (!(dot(d, d) > 0.0)) return false;
   vec2 st = cdiv(hu - w, d);
   float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
   u -= sl > mx ? st * (mx / sl) : st;
   return ixFin(u);
 }
-bool ${P}_polish(inout vec2 u, vec2 w, float t) {
-  bool ok = true;
-  for (int it = 0; it < ${Inverse.NEWT_POL}; it++) {
-    if (!ok) break;
-    vec2 p = u;
-    ok = ${P}_step(u, w, t);
-    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
-  }
-  return ok;
-}
-bool ${P}_settle(inout vec2 u, vec2 w, float t) { return ${P}_polish(u, w, t) && ${P}_hit(u, w, t); }
-bool ${P}_land(inout vec2 u, vec2 w, float t) {
-  bool ok = true;
-  for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
-    if (!ok) break;
-    vec2 p = u;
-    ok = ${P}_step(u, w, t);
-    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
-  }
-  return ok && ${P}_settle(u, w, t);
-}
-bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
+bool ${P}_run(inout vec2 u, vec2 w, float t, int mode, int ks, int kb, vec2 dz, out vec2 ug) {
+  ug = vec2(${IX_NR_NONE});
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
-  bool ok = true;
-  for (int k = 1; k <= ${Inverse.NEWT_K}; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
-  ug = ok ? u : vec2(${IX_NR_NONE});
-  if (ok) ok = ${P}_step(u, w, t);
-  return ok && ${P}_settle(u, w, t);
-}
-bool ${P}_walk0(vec2 w, float t, out vec2 u) {
-  vec2 ug;
-  u = w;
-  return ${P}_walkg(w, t, 0, u, ug);
-}
-bool ${P}_m0(vec2 w, float t, out vec2 u) {
-${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
-  if (uNrRead == 1 && w == ixPixW) {
-    u = texelFetch(uNrTex0, ixNrTexel, 0).zw;
-    if (!(abs(u.x) < ${NEWT_FINITE})) return false;
-    if (${P}_hit(u, w, t)) return true;
+  int ph = mode == ${NM.WALK} ? ${NP.GRID} : mode == ${NM.LAND} ? ${NP.LAD} : mode == ${NM.SETTLE} ? ${NP.POL} : mode == ${NM.BACK} ? ${NP.BACK} : mode == ${NM.DEFL} ? ${NP.DEFL} : ${NP.CHECK};
+  int n = mode == ${NM.WALK} ? ks + 1 : mode == ${NM.BACK} ? 1 : 0;
+  bool ok = true, chk = false;
+  for (int it = 0; it < ${newtRunMax()}; it++) {
+    if (ph == ${NP.GRID} && n > k0) { ug = u; ph = ${NP.AT}; n = 0; }
+    if (ph == ${NP.BACK} && n > kb) { ph = ${NP.POL}; n = 0; }
+    if (ph == ${NP.AT} && n > 0) { ph = ${NP.POL}; n = 0; }
+    if (ph == ${NP.LAD} && n >= ${Inverse.NEWT_LAD}) { ph = ${NP.POL}; n = 0; }
+    if (ph == ${NP.POL} && n >= ${Inverse.NEWT_POL}) ph = ${NP.DONE};
+    if (ph == ${NP.DEFL} && n >= ${Inverse.NEWT_DEF}) ph = ${NP.DONE};
+    if (ph == ${NP.DONE}) break;
+    float tk = ph == ${NP.GRID} ? float(n) / ${Inverse.NEWT_K}.0 : ph == ${NP.BACK} ? 1.0 - (1.0 - t) * float(n) / float(kb) : t;
+    vec2 p = u;
+    bool held;
+    bool sok = ${P}_step(u, w, tk, dz, ph == ${NP.DEFL}, ph == ${NP.CHECK}, held);
+    if (ph == ${NP.CHECK}) {
+      if (held) { chk = true; break; }
+      u = w; ph = ${NP.GRID}; n = 1;
+      continue;
+    }
+    if (!sok) { ok = false; break; }
+    n++;
+    if ((ph == ${NP.LAD} || ph == ${NP.POL}) && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) n = ${newtRunMax()};
   }
-#endif
-` : ''}  return ${P}_walk0(w, t, u);
+  return ok && (chk || (${P}_hit(u, w, t) && (mode != ${NM.DEFL} || cx_abs(u - dz) > ${NEWT_DEDUPE} * (1.0 + cx_abs(dz)))));
 }
 `;
   // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
@@ -2274,7 +2280,7 @@ ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
       else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
     }
     return `vec2 chainHom(int i, vec2 z, float t);
-${fns}${newtCoreFns(P, H, rd)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
+${fns}${newtCoreFns(P, H)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
   Lf S = ixStart(w);
 ${seedSteps.join('\n')}
   u = S.u;
@@ -2287,17 +2293,22 @@ bool ${P}_k[${NB}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
-  vec2 u;
-  ${P}_k[0] = ${P}_m0(w, t, u);
-  ${P}_r[0] = u;
   int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
-  for (int i = 0; i < ${bk.seeds}; i++) {
-    vec2 v;
-    bool okv = ${P}_seed(w, i, v);
-    for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
-    okv = okv && ${P}_settle(v, w, t);
-    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
-    ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
+  for (int m = 0; m < ${NB}; m++) {
+    vec2 v = w, ug;
+    bool okv = true;
+    int mode = ${NM.WALK};
+    if (m > 0) { okv = ${P}_seed(w, m - 1, v); mode = ${NM.BACK}; }
+${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
+    else if (uNrRead == 1 && w == ixPixW) {
+      v = texelFetch(uNrTex0, ixNrTexel, 0).zw;
+      okv = abs(v.x) < ${NEWT_FINITE};
+      mode = ${NM.CHECK};
+    }
+#endif
+` : ''}    if (okv) okv = ${P}_run(v, w, t, mode, 0, kb, vec2(0.0), ug);
+    for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
+    ${P}_r[m] = v; ${P}_k[m] = okv;
   }
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }
@@ -2327,7 +2338,7 @@ bool ${P}_one_b(inout Lf L, int b) {
     { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
 #endif`).join('\n');
     return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, false)}vec2 ${P}_a(int k, vec2 w) {
+${newtCoreFns(P, H)}vec2 ${P}_a(int k, vec2 w) {
   vec4 v = uInv[${c + 1} + k / 2];
   vec2 a = (k & 1) == 0 ? v.xy : v.zw;
   return k == 0 ? a - w : a;
@@ -2412,7 +2423,9 @@ ${fetch('uNrPrev')}
   }
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
-    bool ok = i < de && ixFin(v) && ${P}_settle(v, w, t);
+    vec2 ug;
+    bool ok = i < de && ixFin(v);
+    if (ok) ok = ${P}_run(v, w, t, ${NM.SETTLE}, 0, 1, vec2(0.0), ug);
     for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
@@ -2467,15 +2480,39 @@ void main() {
     if (abs(up.x) < ${NEWT_FINITE} && kp >= 0 && kp <= k0) { u = up; ks = kp; }
   }
 #endif
-  bool ok = ${P}_walkg(w, t, ks, u, ug);
+#if IX_NR_N >= 2
+  const int mem = ${seeded ? 1 : 2};
+#else
+  const int mem = 1;
+#endif
+  bool ok = false;
+  vec2 v = ${NONE};
+  for (int m = 0; m < mem; m++) {
+    vec2 x = u, ugm;
+    bool okm = true;
+    int mode = ${NM.WALK}, kst = ks;
+    vec2 dz = vec2(0.0);
+    if (m == 1) {
+${seeded ? '' : pole ? `      vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
+      vec2 d = w - (1.0 - t) * pa.xy - t * pb.xy;
+      okm = dot(d, d) > 0.0;
+      x = vec2(0.0);
+      if (okm) x = pa.xy + t * cdiv(pa.zw, d);
+      mode = ${NM.LAND}; kst = 0;
+` : `      okm = ok;
+      x = 2.0 * w - u;
+      mode = ${NM.DEFL}; kst = 0;
+      dz = u;
+`}    }
+    if (okm) okm = ${P}_run(x, w, t, mode, kst, 1, dz, ugm);
+    if (m == 0) { ok = okm; ug = ugm; u = x; }
+    else {
+${pole ? `      if (okm && !(ok && cx_abs(x - u) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(u)))) v = x;
+` : '      if (okm) v = x;\n'}    }
+  }
   o = vec4(ug, ok ? u : ${NONE});
 #if IX_NR_N >= 2
-  vec2 v = ${NONE};
-${seeded ? '' : pole ? `  vec2 v1;
-  if (${P}_pole2(w, t, ok, u, v1)) v = v1;
-` : `  vec2 v1;
-  if (ok && ${P}_defl(w, t, u, v1)) v = v1;
-`}  o1 = vec4(float(k0), 0.0, v);
+  o1 = vec4(float(k0), 0.0, v);
 #endif
 }
 `;
@@ -2504,57 +2541,49 @@ ${seeded ? '' : pole ? `  vec2 v1;
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
-vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
-bool ${P}_root(vec2 w, float t, out vec2 u) {
-  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
-  bool ok = ${P}_m0(w, t, u);
-  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
-  return ok;
-}
-// member 1: Newton deflated by member 0's u, from 2w - u
-bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
-  v = 2.0 * w - u;
-  for (int it = 0; it < ${Inverse.NEWT_DEF}; it++) {
-    vec2 hv = ${H('v', 't')};
-    vec2 g = cdiv(${P}_fd(v, hv, t), hv - w) - cinv(v - u);
-    if (!(dot(g, g) > 0.0)) return false;
-    v -= cinv(g);
-    if (!ixFin(v)) return false;
-  }
-  return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
-}
-${pole ? `// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
-// hits w and, when member 0 exists (k0), differs from it
-bool ${P}_pole2(vec2 w, float t, bool k0, vec2 u, out vec2 v) {
-  vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
-  vec2 d = w - (1.0 - t) * pa.xy - t * pb.xy;
-  v = vec2(0.0);
-  if (!(dot(d, d) > 0.0)) return false;
-  v = pa.xy + t * cdiv(pa.zw, d);
-  bool okv = ${P}_land(v, w, t);
-  return okv && !(k0 && cx_abs(v - u) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(u)));
-}
-` : ''}vec2 ${P}_r[${NB}];
+${newtCoreFns(P, H)}bool ${P}_has = false;
+vec2 ${P}_w = vec2(0.0);
+vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
+// the members: 0, walked from w (a stored root of the NEWT roots pass where there is one: kept when it hits w), 1, the pole's
+// (a step with a simple pole: Newton from the root the pole puts over w, InvOps.opNewt's pole) or the one deflated by member 0,
+// then one member per seed of the ladder, each landed by Newton at t; a member equal to an earlier one is dropped
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
-  vec2 u, v = vec2(0.0);
-  ${P}_k[0] = ${P}_root(w, t, u);
-  ${P}_r[0] = u;
-  ${P}_k[1] = ${pole ? `${P}_pole2(w, t, ${P}_k[0], u, v)` : `${P}_k[0] && ${P}_defl(w, t, u, v)`};
-  ${P}_r[1] = v;
   vec4 an = uInv[${c}];
   bool anch = an.y >= an.w;
   vec2 lo = anch ? vec2(an.z, an.w) : vec2(w.x / (1.0 - t), w.y / (1.0 - t) - ${Inverse.NEWT_SPAN.toFixed(1)});
   float span = anch ? an.y - an.w : ${(2 * Inverse.NEWT_SPAN).toFixed(1)};
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
-  for (int i = 0; i < ${NL}; i++) {
-    vec2 v = lo + vec2(0.0, span * lad[i]);
-    bool okv = ${P}_land(v, w, t);
-    for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
-    ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
+  for (int m = 0; m < ${NB}; m++) {
+    vec2 v = vec2(0.0), ug, dz = vec2(0.0);
+    bool okv = false;
+    int mode = ${NM.LAND};
+    if (m == 0) {
+      v = w; okv = true; mode = ${NM.WALK};
+${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
+      if (uNrRead == 1 && w == ixPixW) {
+        v = texelFetch(uNrTex0, ixNrTexel, 0).zw;
+        okv = abs(v.x) < ${NEWT_FINITE};
+        mode = ${NM.CHECK};
+      }
+#endif
+` : ''}    } else if (m == 1) {
+${pole ? `      vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
+      vec2 d = w - (1.0 - t) * pa.xy - t * pb.xy;
+      if (dot(d, d) > 0.0) { v = pa.xy + t * cdiv(pa.zw, d); okv = true; }
+` : `      okv = ${P}_k[0];
+      v = 2.0 * w - ${P}_r[0];
+      dz = ${P}_r[0];
+      mode = ${NM.DEFL};
+`}    } else {
+      v = lo + vec2(0.0, span * lad[m - 2]);
+      okv = true;
+    }
+    if (okv) okv = ${P}_run(v, w, t, mode, 0, 1, dz, ug);
+    for (int j = 0; j < ${NB}; j++) { if (j >= m) break; if (okv && ${P}_k[j] && cx_abs(v - ${P}_r[j]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[j]))) okv = false; }
+    ${P}_r[m] = v; ${P}_k[m] = okv;
   }
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }
