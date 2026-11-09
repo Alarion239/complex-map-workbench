@@ -1,7 +1,9 @@
 // The regions' note in the steps view names the plane whose phase colours the regions: the colour plane.
 // - colour plane z: the ⋯ pop-up's note says "phase of z", on a phone the Display sheet's too;
 // - colour plane w₁ (set on w₁, the view back on z): both say "phase of w₁";
-// - the note follows the language (Russian).
+// - the note follows the language (Russian);
+// - on the Landscape under Plaster, which draws the relief with no phase colours, the note does not say the regions are coloured
+//   by phase (under Tiles it does).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 // (ms to let a pop-up or a sheet finish opening before its note is read)
 const POP_FLOOR = 400, SHEET_FLOOR = 500;
@@ -43,5 +45,24 @@ await ev(`document.querySelector('.ph-dsp').click(); 1`);
 await settled({ floor: SHEET_FLOOR });
 const p1 = await note();
 ok('colour plane w₁: the phone Display sheet says phase of w₁', /phase of w₁,/.test(p1 || ''), p1);
-info.notes = { t1, r1, p1 };
+// the Landscape's Colouring is in the foot's Display options; the note is in the head's ⋯ pop-up
+const PAINT_FLOOR = 300;
+const landNote = async (paint) => {
+  await open(1440, 900, false, 'en', 0);
+  await ev(`(__cmwSteps({ surf: 'land', go: 0, now: true }), 1)`);
+  await settled({ max: 15000, until: '!__cmwSteps().moving' });
+  await ev(`(document.getElementById('landPaint') || document.querySelector('#leftFoot .opts-btn').click(), document.querySelector('#landPaint button[data-v="${paint}"]').click(), 1)`);
+  await settled({ floor: PAINT_FLOOR });
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+  await ev(`document.querySelector('.pane-head .opts-btn').click(); 1`);
+  await settled({ floor: POP_FLOOR });
+  const text = await ev(`(() => { const n = document.querySelector('#regionsBox > .lbl'); return n && !n.hidden && n.offsetParent !== null ? n.textContent : ''; })()`);
+  return { text, phase: await ev('__cmwState().view.D.phase'), checked: await ev(`(() => { const b = document.querySelector('#landPaint button.on'); return b ? b.dataset.v : null; })()`) };
+};
+const lt = await landNote('tiles');
+ok('Landscape under Tiles: the note says the regions are coloured by phase', lt.phase === true && /phase of z,/.test(lt.text), lt);
+const lp = await landNote('plaster');
+ok('Landscape under Plaster is set up: no phase colouring', lp.phase === false, lp);
+ok('Landscape under Plaster: the note does not say the regions are coloured by phase', !/phase/i.test(lp.text), lp);
+info.notes = { t1, r1, p1, lt, lp };
 return { pass: fails.length === 0, fails, info };
