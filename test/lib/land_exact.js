@@ -59,6 +59,7 @@
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const PLANE_BOX_TOL = 1e-9;   // (the scene's plane box and the drawn box are the same numbers read twice)
   const POLE_SHIFT = 3;   // (the pole control: far enough along the imaginary axis to leave the leaf that holds the dipole)
+  const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view: the camera the end frames are also compared in, where a missing piece of the surface shows against the pale floor
   const GLIDE_MID = 0.5;   // (the glide's middle: probes before it are near plane z, after it near the next plane)
@@ -315,7 +316,7 @@
     window.__lxNoFront = 0;
     return e.map((ms) => {
       if (ms.length && !ms.some((m) => m.front)) window.__lxNoFront++;
-      const o = ms.map((m) => ({ z: m.z, f: m.f, h: m.h, sheet: m.k, member: m.member, src: m.src, lvl: m.lvl, cell: m.cell, front: m.front }));
+      const o = ms.map((m) => ({ z: m.z, f: m.f, h: m.h, sheet: m.k, member: m.member, src: m.src, lvl: m.lvl, cell: m.cell, miss: m.miss, miss2: m.miss2, front: m.front }));
       return sheets && typeof __cmwLandRefSheets === 'function' ? window.__lxExpand(o, __cmwLandRefSheets) : o;
     });
   };
@@ -775,11 +776,16 @@
       ok(`${t}: the hook marks the front member (front: true) at every place that has members; ${noFront} places without (the front member is the page's, never ordered here)`, noFront === 0, { noFront });
       {
         const ms = [];
-        ref.forEach((l, i) => l.forEach((m) => { if (m.z && ms.length < HOM_MAX) ms.push({ z: m.z, cell: m.cell, lvl: m.lvl, sheet: m.sheet || 0, member: m.member, w: vpts[i] }); }));
+        ref.forEach((l, i) => l.forEach((m) => { if (m.z && ms.length < HOM_MAX) ms.push({ z: m.z, cell: m.cell, miss: m.miss, miss2: m.miss2, lvl: m.lvl, sheet: m.sheet || 0, member: m.member, w: vpts[i] }); }));
         await ev(`window.__lxHomTol = ${HOM_TOL}; 1`);
         const mr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0)`), mv = await ev(`__lxHomMiss(${JSON.stringify(ms)}, ${HOM_SHIFT})`), miss = mr.worst, moved = mv.worst;
         ok(`${t}: every enumerated member (${ms.length}) maps to its place under the frame's homotopy (window.__cmwLandHom) within ${HOM_TOL}`, ms.length > 0 && miss <= HOM_TOL, { miss, nBad: mr.nBad, n: ms.length, sample: mr.sample });
         ok(`${t}: the control: the places moved by ${HOM_SHIFT} are not matched by the homotopy (miss ${moved})`, moved > HOM_TOL, { moved });
+        // (a member whose second-best surface is within SHEET_MARGIN times its residual is a lip member, listed and failed; a lone surface reads miss2 null)
+        {
+          const lip = ms.filter((m) => !(m.miss2 === null || m.miss2 > SHEET_MARGIN * m.miss));
+          ok(`${t}: no certified member is a lip member (a second surface within ${SHEET_MARGIN} x its residual; ${lip.length} are)`, lip.length === 0, { n: lip.length, sample: lip.slice(0, 3).map((m) => ({ z: m.z, sheet: m.sheet, miss: m.miss, miss2: m.miss2 })) });
+        }
         // (each member is judged on its own sheet: read on the next surface it is not a preimage of its place wherever the sheets differ there)
         const sheetsDiffer = ms.length > 0 && (await ev(`__cmwLandHom(${JSON.stringify(ms[0].z)}, ${JSON.stringify(ms[0].cell)})`) || []).length > 1;
         if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL, { worst: wr.worst }); }
@@ -937,6 +943,17 @@
         const rev = worst(HIST[name][REVERSED_FROM], HIST[name][u]), froz = worst(HIST[name][REVERSED_FROM], HIST[name][GLIDE_MID]);
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
+      }
+      // (control) the farthest member marked front: at the places where that is another z than the nearest, the frame's front is not the reference's
+      if (!sheets && !r.farFront && ref.some((l) => l.length > 1)) {
+        let far = null;
+        try { await ev('window.__cmwLandFarFront = true; 1'); far = await ev(`__lxEnum(${JSON.stringify(vpts)}, false)`); } finally { await ev('window.__cmwLandFarFront = false; 1'); }
+        const moved = Array.isArray(far) ? pts.map((p, i) => i).filter((i) => (far[i] || []).length > 1 && !sameZ(far[i][0].z, ref[i][0].z)) : [];
+        if (moved.length) {
+          const nBad = moved.filter((i) => !frontSame(got[i] || [], far[i])).length;
+          r.farFront = nBad;
+          ok(`${t}: the control: with the farthest member marked front the frame's front is not the reference's (${nBad} of ${moved.length} places where it is another z)`, nBad > 0, { nBad, moved: moved.length });
+        }
       }
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)

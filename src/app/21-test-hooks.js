@@ -899,7 +899,7 @@
   // the candidate z's surface on the leaf's cell: the one within CERT of w and clearly nearest (the next at least TIE times as far); null otherwise
   const sceneCertify = (sc, w, z) => {
     const l = leafOf(sc, z), m = sceneMiss(sc, w, l && l.closed ? l.c : z, z);
-    return m.length && m[0].miss <= SCN.CERT && (m.length === 1 || m[0].miss * SCN.TIE <= m[1].miss) ? { k: m[0].k, miss: m[0].miss, leaf: l } : null;
+    return m.length && m[0].miss <= SCN.CERT && (m.length === 1 || m[0].miss * SCN.TIE <= m[1].miss) ? { k: m[0].k, miss: m[0].miss, miss2: m.length > 1 ? m[1].miss : Infinity, leaf: l } : null;
   };
   // The scene's members at probe places w ([re, im] each): per place the certified candidates of __cmwLandEnum (one per z and surface, the
   // frame's own sheet first) [{ z, f, h, k, own, rank, front, miss }]. own: the member is on the frame's own sheet at its own cell (zc = z);
@@ -921,9 +921,10 @@
         if (!cert) { rejected++; continue; }
         if (out.some((x) => x.k === cert.k && Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) <= SCN.SAME_Z * (1 + Math.hypot(m.z[0], m.z[1])))) continue;
         const at = sceneMiss(sc, wc, z, z), own = at.length > 0 && at[0].k === sc.own && at[0].miss <= SCN.CERT;
-        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, own, rank: sc.rank(cert.k), miss: cert.miss, member: m.member, src: m.sheet, lvl: m.lvl, cell: cert.leaf && cert.leaf.closed ? [cert.leaf.c.re, cert.leaf.c.im] : m.z });
+        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, own, rank: sc.rank(cert.k), miss: cert.miss, miss2: cert.miss2, member: m.member, src: m.sheet, lvl: m.lvl, cell: cert.leaf && cert.leaf.closed ? [cert.leaf.c.re, cert.leaf.c.im] : m.z });
       }
-      const front = out.reduce((best, m) => (!best || m.rank < best.rank || (m.rank === best.rank && depth(m) < depth(best)) ? m : best), null);
+      // (window.__cmwLandFarFront, a control: the farthest member marked front instead of the nearest)
+      const far = !!window.__cmwLandFarFront, front = out.reduce((best, m) => (!best || (far ? m.rank > best.rank || (m.rank === best.rank && depth(m) > depth(best)) : m.rank < best.rank || (m.rank === best.rank && depth(m) < depth(best))) ? m : best), null);
       if (front) front.front = true;
       out.sort((p, q) => (q.front ? 1 : 0) - (p.front ? 1 : 0));
       rejectedAll += rejected;
