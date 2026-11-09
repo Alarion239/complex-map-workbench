@@ -80,6 +80,8 @@
   const SIDE_CASES = ['cube root', 'log of an annulus', 'Möbius, √'];   // (the cases whose extent at the glide's middle is checked against the side cut)
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
+  const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
+  const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_MIX_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
@@ -522,6 +524,14 @@
       ok(`${t}: a still, carried frame`, cov.still && !!carry, { carry, still: cov.still });
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
+      // the cells' classes against the block (LAND_CARRY_CLASS_VS): every cell has one, the straddling cells are all in the draw's list, which is not full
+      if (u === GLIDE_MID) {
+        await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const cc = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+        await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
+        ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
+      }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
       // repeats another layer's height there; the probe's noRay (no anchor is refused for lying across the cut) brings the repeat back
       if (c.cutProbe && sheets && u === CUT_PROBE_U) {
@@ -577,7 +587,7 @@
           r.rowOver = ro;
           ok(`${t}: in the Top view no image row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} from the parked plane's (row ${ro.row} has ${ro.n})`, ro.n <= ROW_OVER_MAX, ro);
           // (controls: the per-fragment side discard put back, and the block's sides a little wide, each leave a row over the bound)
-          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide']]) {
+          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide'], ['classOut', 'the cells over a side left out']]) {
             let o;
             try {
               await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -588,6 +598,21 @@
             }
             ok(`${t}: control: with ${what} a Top view row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} (row ${o.row} has ${o.n})`, o.n > ROW_OVER_MAX, o);
           }
+        }
+        // (the straddling cells are clipped: with the block's sides narrow so that cells straddle them, taking every straddling cell as inside the
+        // block draws them whole and the frame is not the clipped one's (control))
+        if (lastU && u >= 1 - END_U && c.tag === ROW_CASE) {
+          const narrow = async (probe, name2) => {
+            try {
+              await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+              await grab(name2);
+            } finally {
+              await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            }
+          };
+          await narrow('clipNarrow', 'ctlN'); await narrow('classInNarrow', 'ctlI');
+          const dI = (await compare('ctlN', 'ctlI')).frac;
+          ok(`${t}: control: with the sides narrow and every straddling cell taken as inside the frame is not the clipped one (${dI} of pixels over ${DIFF_TOL}; over ${IN_CONTROL_MIN})`, dI > IN_CONTROL_MIN, { dI });
         }
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
         if (lastU && COMBO_CONTROL.includes(c.tag) && !r.comboControl) {

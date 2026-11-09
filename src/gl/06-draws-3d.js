@@ -1596,7 +1596,7 @@
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
         const n = [0, 0, 0];
         for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) n[Math.round(px[4 * (y * N + x)])]++;
-        return { out: n[LAND_CLASS_OUT], in: n[LAND_CLASS_IN], mix: n[LAND_CLASS_MIX], listed: rb[0] + rb[1], K: LAND_MIX_K };
+        return { cells: (N - 1) * (N - 1), out: n[LAND_CLASS_OUT], in: n[LAND_CLASS_IN], mix: n[LAND_CLASS_MIX], listed: rb[0] + rb[1], K: LAND_MIX_K };
       };
       let mixK = 0;   // (over 0: the draw is mixK instances of one cell each, the MIX cells' list: LAND_CARRY_CLASS_VS)
       const drawCarryGrid = (G, n) => {
@@ -1643,7 +1643,7 @@
             use(Pk);
             u1i(Pk, 'uN', hd.N); u4f(Pk, 'uBox', box.x0, box.y0, BW, BH); u2f(Pk, 'uAspect', aspect[0], aspect[1]);
             u2f(Pk, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
-            u1f(Pk, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pk, 'uCuts', cutDraw ? 1 : 0);
+            u1f(Pk, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pk, 'uCuts', cutDraw ? 1 : 0); u1i(Pk, 'uForce', carryProbe.classForce | 0);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, cutDraw ? L.edges[d] : L.tex1); }
             gl.activeTexture(gl.TEXTURE15);

@@ -736,6 +736,7 @@ vec3 clipBoxE(int i1, int i2, int n, float Fl[CLIP_N]) {
   // part of it is in the block), MIX (anything else, including a corner not placed or not finite: clipped)
   const LAND_CARRY_CLASS_VS = LAND_CLIP + `
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform vec2 uClipA; uniform float uClipH; uniform int uCuts;
+uniform int uForce;   // (a test control: 1 takes every MIX cell as OUT, 2 as IN)
 uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
 out vec4 tfOut;
 bool jumpAt(highp sampler2D e, ivec2 o) { return uCuts > 0 && texelFetch(e, o, 0).w > 0.5; }
@@ -757,6 +758,7 @@ void main() {
     orC |= cd; andC &= cd;
   }
   int cls = mixed ? ${LAND_CLASS_MIX} : (andC != 0 ? ${LAND_CLASS_OUT} : (orC == 0 ? ${LAND_CLASS_IN} : ${LAND_CLASS_MIX}));
+  if (cls == ${LAND_CLASS_MIX} && uForce != 0) cls = uForce == 1 ? ${LAND_CLASS_OUT} : ${LAND_CLASS_IN};
   tfOut = vec4(float(cls), 0.0, 0.0, 1.0);
 }
 `;
