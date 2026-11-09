@@ -97,6 +97,7 @@
       mask: (x, y) => __cmwLandMask(x, y),
       lamStep: (z, z2) => __cmwLandLamStep(z, z2),
       sing: () => __cmwLandSing(),
+      count: (w, opt) => __cmwLandWind(w, opt || {}),
       progress: (c, f) => { window.__lxProgress = { cells: Object.assign({}, c), failures: f.length }; },
       // (All sheets: a member a layer per forward combo, as the frame draws it)
       layers: sheets && typeof __cmwLandRefSheets === 'function' ? (m) => { const rs = __cmwLandRefSheets(m.z).filter((r) => r.f && r.h !== null); return rs.length > 1 ? rs.map((r) => ({ combo: String(r.combo), h: r.h })) : [{ combo: '', h: m.h }]; } : null,
@@ -460,6 +461,7 @@
       // (the rays decide fewer pixels than the tolerance in these frames: the seam control is armed where they decide at least SEAM_MIN_HITS, and fails the reference when the
       // moved seam changes at least SEAM_DIFF_SHARE of them)
       if (rk && rk.cells.hits >= SEAM_MIN_HITS && !controlsDone.seam) { controlsDone.seam = 1; await control('a seam moved one cell', { seam: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL || c.diff >= SEAM_DIFF_SHARE * rk.cells.hits); }
+      if (rk && rk.cells.counted && !controlsDone.count) { controlsDone.count = 1; await control('a member removed from the completeness count', { countDrop: 1 }, (c) => c.failures.some((f) => f.kind === 'count')); }
       if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone.apex) { controlsDone.apex = 1; await control('a pixel at a branch point decided with no height comparison', { apexOld: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
       if (rk && rk.certs.length > 0 && !controlsDone.branch) { controlsDone.branch = 1; await control('a branch point moved one cell', { branch: 1 }, (c) => c.failures.some((f) => f.kind === 'branch' || f.kind === 'cellDepth')); }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
@@ -467,6 +469,7 @@
   }
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
+  ok('the completeness-count control ran: some frame had a count read at a cell', !!controlsDone.count, controlsDone);
   ok('the branch-point height control ran: the cube root at the glide\'s middle', !!controlsDone.apex, controlsDone);
   return { pass: !fails.length, fails, info };
 })

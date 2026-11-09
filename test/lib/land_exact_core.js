@@ -12,13 +12,14 @@
 // The frame (what the page's hooks provide; the node check passes a synthetic one):
 //   box: { x0, x1, y0, y1 }, the places w the lattice covers;   W2, H2: the size of px;
 //   enumAt(ws): per place the enumerator's members [{ z: [re, im], lam: [re, im] | null, h, sheet, front? }];
-//   hom(z, lam): per sheet { H: [re, im] | null, dH: [re, im] | null, cut }, cut: H jumps within the derivative's step of z; the map the frame draws z at (the preimage's forward map);
+//   hom(z, lam, sheet): per sheet (only `sheet`'s entry is needed) { H: [re, im] | null, dH: [re, im] | null, cut }, cut: H jumps within the derivative's step of z; the map the frame draws z at (the preimage's forward map);
+//   lamStep(z, z2): optional, the move of a member's continued log coordinate from z to a point z2 beside it (default: the log of z2 / z), null where undefined;
 //   project(x, y, h): the half-resolution pixel [px, py] of the point (x, y, h) of the surface;
 //   mask(x, y): 0..1 (the Inside-regions mask) or null;   all: every member is drawn (All sheets), else the front one;
 //   layers(m): the drawn layers of a member [{ combo, h }] (All sheets' forward combos), default one layer of height m.h.
 //   sing(): optional, the plan's own singular points [{ sheet, z, w, kind }] (w: the place each is drawn at, null where H is not finite);
-//   count(w): optional, the completeness count at a place [{ ok, status }].
-// opts: { nx, ny, depth, <the named bounds below> and the controls' perturbations: seed, seam, branch }.
+//   count(w, { dropOne }): optional, the completeness count at a place, per sheet [{ sheet, N, P, members, ok, status }] (dropOne: a member removed, a control);
+// opts: { nx, ny, depth, <the named bounds below> and the controls' perturbations: seed, seam, branch, apexOld, countDrop }.
 //
 // How a cell is judged (each cell of the lattice either proves its image is within E_SAFE / 2 pixels, or goes to the boundary
 // method, or to a branch certificate, or fails loudly):
@@ -78,6 +79,7 @@
     CERT_DEGEN: 1e-9,       // |H''| under this share of |H'| (per unit of the members' distance): the critical point is not simple
     CERT_TIGHT: 0.125,      // the cluster certificate's inner circle, as a share of the outer
     CERT_WIND_RES: 1e-3,    // the winding number's distance from an integer
+    COUNT_STRIDE: 128,      // every this many accepted cells the completeness count is read at the cell's first corner (winding plus poles equals the members found, on every sheet)
     PLACES_MAX: 4e6,        // places looked up at most (a bound on the run)
   };
   const K = CONSTS;
@@ -439,6 +441,12 @@
       }
       // accepted: fill every drawn layer's two triangles
       cells.facet++;
+      if (frame.count && cells.facet % o.COUNT_STRIDE === 1) {
+        // (the count at the cell's vertex: each sheet's winding of the homotopy plus the poles equals the members found there; anything else, an unresolved or
+        // on-contour place included, fails the frame by place)
+        cells.counted = (cells.counted || 0) + 1;
+        for (const r of frame.count(vs[0].w, o.countDrop ? { dropOne: true } : {}) || []) if (!r.ok || r.status !== 'ok') fail({ kind: 'count', w: vs[0].w, sheet: r.sheet, N: r.N, P: r.P, members: r.members, status: r.status });
+      }
       vs[0].all.forEach((m, k) => {
         if (!m.drawn) return;
         const k1 = cp.chain(0, 1, k), k2 = cp.chain(0, 2, k), k3 = cp.chain(1, 3, k1);
