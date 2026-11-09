@@ -1673,18 +1673,23 @@ const Inverse = (() => {
   }
   // A step that declares degreeOne has at most one root of H_t(u) = w, for every t and w: the Newton walks from a grid of
   // seeds (SR_SEEDS points of the square |Re|, |Im| <= SR_BOX and SR_RING points on each of the circles |z| = SR_RADII,
-  // the last one NEWT_RAY.R) end on at most one distinct root, at every t of SR_T for each of SR_W points w, so a seed walk that lands
+  // the last one NEWT_RAY.R) end on at most one distinct root, at every t of SR_T for each of SR_W scattered points w and the 3 x 3 points of the box |Re|, |Im| <= SR_WBOX (the glide's place box: its corners, edge midpoints and centre), so a seed walk that lands
   // where member 0 did finds nothing new. The grid is the evidence the declaration is checked against (no proof: the
   // check is numeric, as tangentAtInfinity); a map with a second root anywhere on it fails. Cached per build
-  const SR_T = [1e-4, 0.002, 0.1, 0.25, 0.5, 0.75, 0.9, 0.998, 0.9999], SR_BOX = 2.5, SR_SEEDS = 5, SR_RADII = [1.1, 1.8, 4, 12, 32], SR_RING = 8, SR_W = 6, SR_STEPS = 14;
+  const SR_T = [1e-4, 0.002, 0.1, 0.25, 0.5, 0.75, 0.9, 0.998, 0.9999], SR_BOX = 2.5, SR_SEEDS = 5, SR_RADII = [1.1, 1.8, 4, 12, 32], SR_RING = 8, SR_W = 6, SR_WBOX = 3.5, SR_STEPS = 14, SR_CONV = 1e-12;
   const singleRootCache = new WeakMap();
+  const singleRootW = () => {
+    const ws = [];
+    for (let k = 0; k < SR_W; k++) { const a = 2 * Math.PI * (k * 0.618 % 1), r = 1 + 2.5 * ((k * 0.381 + 0.1) % 1); ws.push(C(r * Math.cos(a), r * Math.sin(a))); }
+    for (const x of [-1, 0, 1]) for (const y of [-1, 0, 1]) ws.push(C(SR_WBOX * x, SR_WBOX * y));
+    return ws;
+  };
   function singleRoot(b) {
     if (singleRootCache.has(b)) return singleRootCache.get(b);
     const seeds = [];
     for (let i = 0; i < SR_SEEDS; i++) for (let j = 0; j < SR_SEEDS; j++) seeds.push(C(-SR_BOX + 2 * SR_BOX * (i + 0.5) / SR_SEEDS, -SR_BOX + 2 * SR_BOX * (j + 0.5) / SR_SEEDS));
     for (const r of SR_RADII) for (let k = 0; k < SR_RING; k++) { const a = 2 * Math.PI * (k + 0.5) / SR_RING; seeds.push(C(r * Math.cos(a), r * Math.sin(a))); }
-    const ws = [];
-    for (let k = 0; k < SR_W; k++) { const a = 2 * Math.PI * (k * 0.618 % 1), r = 1 + 2.5 * ((k * 0.381 + 0.1) % 1); ws.push(C(r * Math.cos(a), r * Math.sin(a))); }
+    const ws = singleRootW();
     let ok = true;
     for (const t of SR_T) {
       const H = b.hom ? b.hom(t) : (z) => { const w = b.f(z); return C((1 - t) * z.re + t * w.re, (1 - t) * z.im + t * w.im); };
@@ -1693,7 +1698,7 @@ const Inverse = (() => {
         const roots = [];
         for (const z0 of seeds) {
           let u = z0;
-          for (let it = 0; it < SR_STEPS && isFin(u); it++) u = sub(u, div(sub(H(u), w), dH(u)));
+          for (let it = 0; it < SR_STEPS && isFin(u); it++) { const d = div(sub(H(u), w), dH(u)); u = sub(u, d); if (abs(d) <= SR_CONV * (1 + abs(u))) break; }
           if (isFin(u) && abs(sub(H(u), w)) <= 1e-9 * (1 + abs(w)) && roots.every((r) => abs(sub(u, r)) > NEWT_SAME * (1 + abs(r)))) roots.push(u);
           if (roots.length > 1) break;
         }
@@ -1773,7 +1778,7 @@ const Inverse = (() => {
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

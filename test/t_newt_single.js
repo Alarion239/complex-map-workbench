@@ -58,5 +58,12 @@ for (const type of ['dh', 'bottcher']) {
   const q = Inverse.homOps(Funcs.build({ type: 'poly', params: Funcs.defaults('poly'), on: true }), 0.5).ops.find((o) => o.kind === 'NEWT');
   check('a polynomial step keeps its roots as members (no skip)', !!q && !(q.p.back || []).some((x) => x.single));
 }
+{
+  const ws = Inverse.singleRootW(), BOX = 3.5;
+  const has = (x, y) => ws.some((w) => Math.abs(w.re - x) < 1e-12 && Math.abs(w.im - y) < 1e-12);
+  const spots = [];
+  for (const x of [-1, 0, 1]) for (const y of [-1, 0, 1]) spots.push([BOX * x, BOX * y]);
+  check('the single-root check samples the place box: its 4 corners, 4 edge midpoints and centre', spots.every(([x, y]) => has(x, y)), JSON.stringify(ws.length));
+}
 console.log(bad ? `${bad} failed` : 'all passed');
 process.exit(bad ? 1 : 0);
