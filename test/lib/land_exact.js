@@ -40,7 +40,11 @@
   const SEAM_RUN = 40;
   const SEAM_U = [1 - 1e-5];   // (the glide's u of the seam's darker-than-parked measure besides the end probe: the nearest to plane 1)
   const LUMA = [0.299, 0.587, 0.114];
-  const SEAM_DARK_TOL = 8, SEAM_DARK_MAX = 20, SEAM_MIN_SAMPLES = 100;   // (a seam sample is dark by more than SEAM_DARK_TOL luminance below both sides; a sound seam has few such samples (the occluded layers' edges), a broken one over twice as many; fewer samples than SEAM_MIN_SAMPLES is no measurement)
+  // The frame's own seam: a sample on the cut curve is dark when its pixel is SEAM_DARK_TOL (a quarter of DIFF_TOL: a broken seam is
+  // shaded 8 to 16 levels below its banks, under DIFF_TOL) below the frame's pixels SEAM_SIDE_PX to both sides of the curve. A sound seam has none.
+  // The curve's end at the origin is left out: the sample there is the surface's own dark corner, one pixel at each layer. Fewer than
+  // SEAM_MIN_SAMPLES samples is no measurement.
+  const SEAM_DARK_TOL = 8, SEAM_DARK_MAX = 0, SEAM_MIN_SAMPLES = 100, SEAM_END_PX = 4;
   const SEAM_SIDE_PX = 3;   // (the seam measure compares a seam pixel with the frame's own pixels this far to either side of the cut curve)
   const TICK_H_TOL = 1e-9;   // (a label's world height against the frame's own height function of its value: the same float computation)
   const TICK_SCALE_ERR = 1.6e-3;   // (the scale error the own-scale check must see: the gap the near ends have against the parked plane at .998)
@@ -489,13 +493,14 @@
           const b = L.box, cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, dpr = W / cv.getBoundingClientRect().width, NS = W;
           const pts = []; for (let i = 0; i < NS; i++) pts.push([b.x0 + (i + 0.5) / NS * Math.min(-b.x0, b.x1 - b.x0), 0]);
           const g = __cmwLandFrameVerts(pts); if (!g) return null;
+          const endX = ${SEAM_END_PX} * (b.x1 - b.x0) / W;
           const luma = (x, y) => { const i = 4 * (Math.round(y) * W + Math.round(x)); return ${LUMA[0]} * A[i] + ${LUMA[1]} * A[i + 1] + ${LUMA[2]} * A[i + 2]; };
           const inside = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
           const dx = (pts[1][0] - pts[0][0]) / 2;
           let dark = 0, nl = 0;
           for (let i = 0; i < NS; i++) {
             for (const l of g[i] || []) {
-              if (!l || !(l.h === l.h) || !l.w) continue;
+              if (!l || !(l.h === l.h) || !l.w || Math.abs(l.w[0]) < endX) continue;
               const q = __cmwLandProject(l.w[0], l.w[1], l.h), qa = __cmwLandProject(l.w[0] - dx, l.w[1], l.h), qb = __cmwLandProject(l.w[0] + dx, l.w[1], l.h);
               if (!q || !qa || !qb) continue;
               const x = q[0] * dpr, y = q[1] * dpr, tx = (qb[0] - qa[0]) * dpr, ty = (qb[1] - qa[1]) * dpr, tn = Math.hypot(tx, ty);
@@ -514,6 +519,10 @@
           const os = await ownSeam(su === u ? 'cur' : 'sm');
           ok(`${name}, u=${su}: the cut's seam is no darker than the frame's own pixels beside it: ${os && os.dark} of ${os && os.samples} samples (at most ${SEAM_DARK_MAX})`, !!os && os.samples > SEAM_MIN_SAMPLES && os.dark <= SEAM_DARK_MAX, { os });
         }
+        // the parked plane 1's pixels along the same curve (control: the camera and the scale at SEAM_AT's last u are plane 1's to a hundredth of
+        // a pixel, and parked's cut ink is as pale as its banks, so the measure does not flag it)
+        const pk = await ownSeam('P1');
+        ok(`${name}: the parked plane 1's cut is no darker than its own pixels beside it (control): ${pk && pk.dark} of ${pk && pk.samples} samples (at most ${SEAM_DARK_MAX})`, !!pk && pk.samples > SEAM_MIN_SAMPLES && pk.dark <= SEAM_DARK_MAX, { pk });
         await setU(u);
         // the darker-than-parked run, nearer to plane 1: parked draws no dark line along the cut
         const darkCtl = await longest('P0', 'P1', true);
