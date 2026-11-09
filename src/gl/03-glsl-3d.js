@@ -720,6 +720,8 @@ uniform highp sampler2D uZ; uniform int uZOn;
 // it, 9 vertices each (uPer 9); else 3
 uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
 uniform int uCuts; uniform int uPer;
+// (layered: the share of an edge by which each bank's piece is drawn past the cut's crossing: LAND_FS's trim cuts it at the true cut)
+uniform float uBand;
 // uDrawCode over 0: only the triangles on that sheet (LAND_CARRY_FIX_VS), whose colour the draw's chain data is of
 uniform float uDrawCode; uniform float uDrawCode0;
 // the box's triangles whose centre is within uHoles[i].z of uHoles[i].xy are left out (uNHoles of them): polar patches draw there
@@ -805,8 +807,10 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
     if (x > 0) {
       ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
       vec4 e = edgeOf(F, E);
-      cxy[kk] = mix(texelFetch(uT1, F, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
-      cz[kk] = mix(texelFetch(uZ, F, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+      float te = e.x;
+${L ? '      te = src == F ? min(e.x + uBand, 1.0) : max(e.x - uBand, 0.0);' : ''}
+      cxy[kk] = mix(texelFetch(uT1, F, 0).xy, texelFetch(uT1, E, 0).xy, te);
+      cz[kk] = mix(texelFetch(uZ, F, 0).xy, texelFetch(uZ, E, 0).xy, te);
       ch[kk] = src == F ? e.y : e.z;
     }
   }
@@ -1055,6 +1059,7 @@ void main() {
   // than the glide's derivative at A allows for the distance of the two places (the seam test's criterion, SEAM_FAR), and
   // the continuation of A's branch to it has the height that layer draws there (RING_GUARD). The vertex takes the place
   // of the grid, that preimage and that layer's height (so the two layers' copies of a surface piece coincide exactly), texel w uContCode (uHOff: a probe's offset of it, in H). uOutZ 0 writes the texel, 1 the preimage.
+  const TRIM_REL = '1e-3';
   const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
   const LAND_CARRY_RING_VS = `
 uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard; uniform float uHOff;
@@ -1605,7 +1610,7 @@ in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn; uniform int uTrim;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1660,6 +1665,8 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
 }`}
 void main() {
 ${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' + (layered && !clipped ? '  // (the block ends at 1.25 H: the layer is cut there, as the sheets of the rest frame are, where a pole runs on past it)\n  if (abs(vPos.z) > 1.25 * uH) discard;\n' : '') : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry && layered ? `  // (a fragment on the far side of a cut of the layer's chain from its anchor is the next layer's: the anchored branch and the branch cut opposite the fragment differ there)
+  if (uTrim == 1) { vec2 wA = landW(vZ), wS = chainSheetRange(vZ, vZ, uGs, uGt, uOwn); if (length(wA - wS) > ${TRIM_REL} * (1.0 + length(wA))) discard; }` : ''}
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);

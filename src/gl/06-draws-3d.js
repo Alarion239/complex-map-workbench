@@ -268,6 +268,8 @@
   }
   // (a step sheet's chain data: its own shift, then the layer's forward shifts)
   const sheetChainData = (shift, more = []) => chainWith((shift && shift.vals ? [shift] : []).concat(more));
+  // the share of an edge by which a bank's piece of a cut triangle is drawn past the cut's crossing (the fragment trim ends it at the cut)
+  const CUT_BAND = 0.5;
   const CARRY_CONT_CODE = 10.25;   // a vertex continued onto the layer's branch past its range (LAND_CARRY_CONT_VS)
   // the sheet number (chainSheetRange's combo) of the branch each multivalued step has at the point it is continued from
   // (digit 0 of a finite step, the window's centre for a log or an irrational power), for the steps up to stage top
@@ -1664,6 +1666,7 @@
       u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
       u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
+      if (contDraw) { u1f(Pc, 'uBand', carryProbe.noBand ? 0 : CUT_BAND); u1i(Pc, 'uTrim', carryProbe.noTrim ? 0 : 1); }
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
       // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
       // a key's push of the depth would only put a layer behind the floor plate)
