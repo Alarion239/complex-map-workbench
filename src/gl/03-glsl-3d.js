@@ -790,6 +790,14 @@ out vec4 tfOut;
 // a bisection that never left an end of the edge found the cut at the vertex itself (within the bisection's resolution 2^-(uSteps-1)):
 // the vertex lies on the cut, and no edge crossing is written for it (uEndOn 0: it is)
 bool onCut(float lo, float hi) { return uEndOn == 1 && (lo == 0.0 || hi == 1.0); }
+// carryHeight's height at z of the sheet of the combo carried from zc (the same blend of the stages (uGs, uGt] and (uGs, uGt2])
+vec2 sheetHeight(vec2 zc, vec2 z, int combo) {
+  vec2 hv = heightW(chainSheetRange(zc, z, uGs, uGt, combo));
+  if (uGt2 == uGt) return hv;
+  vec2 h2 = heightW(chainSheetRange(zc, z, uGs, uGt2, combo));
+  bool both = hv.y > 0.5 && h2.y > 0.5;
+  return uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
+}
 // the preimage of the place w nearest z on the glide's own map (Newton's method with a central-difference derivative)
 vec2 seamNewt(vec2 z, vec2 w) {
   for (int i = 0; i < ${SEAM_NEWT_POL}; i++) {
@@ -851,7 +859,15 @@ void main() {
       if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
       if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
     }
-    if (onCut(lo, hi)) return;
+    // (flag 3: the vertex at the end the bisection stayed at lies on the cut; its other bank's height there: the first end's sheet carried to
+    // the far end, or the far end's sheet carried to the first (its own height where it is on no sheet))
+    if (onCut(lo, hi)) {
+      bool atFirst = lo == 0.0, vIsA = atFirst == fwd;
+      vec2 fh = atFirst ? ((fwd ? pb : pa) ? sheetHeight(zt, zf, uSheetCombos[ct]) : vec2(fwd ? b.z : a.z, 1.0)) : sheetHeight(zf, zt, uSheetCombos[cf]);
+      if (!(fh.y > 0.5)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+      tfOut = vIsA ? vec4(0.0, a.z, fh.x, 3.0) : vec4(1.0, fh.x, b.z, 3.0);
+      return;
+    }
     float tc = 0.5 * (lo + hi);
     tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;

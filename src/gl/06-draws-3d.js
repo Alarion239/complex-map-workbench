@@ -415,6 +415,12 @@
     }
     return n;
   }
+  function landCell(i, j) {
+    const N = landC.N, T = lwRead(landC.tex1, N, N), E = landC.edges.map((t) => lwRead(t, N, N));
+    const v = (a, b) => { const k = 4 * (b * N + a); return [T[k], T[k + 1], T[k + 2], T[k + 3]]; };
+    const e = (d, a, b) => { const k = 4 * (b * N + a); return Array.from(E[d].slice(k, k + 4)); };
+    return { v: [v(i, j), v(i + 1, j), v(i + 1, j + 1), v(i, j + 1)], e0: e(0, i, j), e1: e(1, i + 1, j), e2: e(2, i, j), e0u: e(0, i, j + 1), e1l: e(1, i, j) };
+  }
   // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
   // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
