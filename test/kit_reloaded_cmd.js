@@ -22,6 +22,15 @@ const now = await ev(`({ origin: performance.timeOrigin, ready: ${READY}, rs: do
 ok('it is a new document', now.origin !== old, { old, now });
 ok('loaded, and the ready expression is true', now.rs === 'complete' && now.ready === true, now);
 
+// a probe the reload cuts off (a page-gone error before it reaches the page) is asked again, whenever the reload lands
+const before = await ev('performance.timeOrigin');
+await ev(`setTimeout(() => location.reload(), ${RELOAD_AFTER_MS}); 1`);
+injectGone(1);
+let cutErr = null;
+try { await reloaded(before, READY); } catch (e) { cutErr = String(e && e.message || e); }
+info.cutErr = cutErr;
+ok('a probe cut off by the page-gone error is asked again', cutErr === null, cutErr);
+
 // a page that never reloads: the wait gives up and names what is missing
 const same = await ev('performance.timeOrigin');
 let gaveUp = null;

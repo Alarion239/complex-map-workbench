@@ -185,12 +185,17 @@ H.settled = async (o = {}) => {
 // ask again of the new page, any other error is thrown. After limitMs (RELOAD_LIMIT_MS by default) it throws, naming
 // the parts still missing (newDocument, loaded, ready).
 const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
+// H.injectGone(n): the next n probes of H.reloaded fail with the page-gone error before they reach the page, as when the
+// reload cuts them off (for a check that the wait asks again; it counts down to 0 by itself)
+const FAULT = { gone: 0 };
+H.injectGone = (n) => { FAULT.gone = n; };
+const probe = (expr) => { if (FAULT.gone > 0) { FAULT.gone--; return Promise.reject(new Error('{"code":-32000,"message":"Inspected target navigated or closed"}')); } return H.ev(expr); };
 H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {}) => {
   const t0 = Date.now();
   let parts = null;
   for (;;) {
     try {
-      const r = await H.ev(`({ newDocument: performance.timeOrigin !== ${old}, loaded: document.readyState === 'complete', ready: !!(${readyExpr}) })`);
+      const r = await probe(`({ newDocument: performance.timeOrigin !== ${old}, loaded: document.readyState === 'complete', ready: !!(${readyExpr}) })`);
       if (r && r.newDocument !== undefined) { parts = r; if (r.newDocument && r.loaded && r.ready) return true; }
     } catch (e) { if (!GONE.test(String((e && e.message) || e))) throw e; }
     if (Date.now() - t0 > limitMs) {
