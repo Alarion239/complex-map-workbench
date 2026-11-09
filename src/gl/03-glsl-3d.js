@@ -676,16 +676,23 @@ void main() {
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
   bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
   int J = int(j01) + int(j12) + int(j20);
-  if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  if (max(max(e01.w, e12.w), e20.w) > 1.5) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // this vertex: a corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
-  ivec2 src = A; int x = 0;
+  ivec2 src = A, xo = A; int x = 0;
   if (J == 0) { if (sub > 0) return; src = k == 0 ? A : (k == 1 ? B : C); }
   else if (J == 1) {
     if (sub > 1) return;
     if (sub == 0) { src = A; x = k == 1 ? 1 : 0; if (k == 2) src = C; vEdge = vec3(1.0, 0.0, 0.0); }
     else { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; vEdge = vec3(0.0, 1.0, 0.0); }
+  } else if (J == 3) {
+    // (every edge crossed, where the cuts meet: each corner has its own piece, cut off by the chord between the crossings on its two edges)
+    if (sub > 2) return;
+    src = sub == 0 ? A : (sub == 1 ? B : C);
+    xo = k == 1 ? (sub == 0 ? B : (sub == 1 ? C : A)) : (sub == 0 ? C : (sub == 1 ? A : B));
+    x = k == 0 ? 0 : 1;
+    vEdge = vec3(1.0, 0.0, 0.0);
   } else {
     if (sub == 0) { src = A; x = k; vEdge = vec3(1.0, 0.0, 0.0); }
     else if (sub == 1) { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; }
@@ -695,16 +702,16 @@ void main() {
   vec2 xy = t.xy, z = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
   float h = t.z;
   if (x > 0) {
-    ivec2 E = x == 1 ? B : C;
-    vec4 e = edgeOf(A, E);
-    xy = mix(texelFetch(uT1, A, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
-    z = mix(texelFetch(uZ, A, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
-    h = src == A ? e.y : e.z;
+    ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
+    vec4 e = edgeOf(F, E);
+    xy = mix(texelFetch(uT1, F, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
+    z = mix(texelFetch(uZ, F, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+    h = src == F ? e.y : e.z;
   }
   vZ = z;
   // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
   // the cut separates from the first piece's)
-  ivec2 anchor = (J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A;
+  ivec2 anchor = J == 3 ? src : ((J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A);
   vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : z;
   vPos = vec3(((xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, h);
   vNor = nv.xyz; vAO = nv.w;

@@ -472,6 +472,11 @@
         const base = first ? p0.cover : p1.cover;
         ok(`${t}: at least the parked plane's surface pixels less ${COVER_TOL * 100} %`, cov.n >= (1 - COVER_TOL) * base, { n: cov.n, base });
       }
+      // no edge of the frame is crossed twice (a branch point on an edge drops its triangles)
+      {
+        const drops = await ev('typeof __cmwLandDrops === \'function\' ? __cmwLandDrops() : null');
+        ok(`${t}: no grid edge is crossed twice, so no triangle is left out (${drops} are)`, drops === 0, { drops });
+      }
       // the geometry
       const box = await ev('(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); return b ? { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } : null; })()');
       ok(`${t}: the frame's box is readable`, !!box, null);
