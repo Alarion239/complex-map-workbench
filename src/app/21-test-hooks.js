@@ -710,7 +710,7 @@
     const loops = cutLoops(sc.cut.R, r);
     if (!loops) return null;
     const rel = (v, nv) => CX.abs(CX.sub(nv, v)) <= SCN.REL * (CX.abs(v) + CX.abs(nv) + 1e-12);
-    for (const [side, set] of [[true, loops.inside], [false, loops.outside]]) {
+    for (const [side, set] of /** @type {[boolean, any[]][]} */ ([[true, loops.inside], [false, loops.outside]])) {
       const g = sc.cut.side(side);
       for (const loop of set) for (const f of loop) if (windOpen(g, f, C(0, 0), (v, nv) => rel(v, nv)).bad) return null;
     }

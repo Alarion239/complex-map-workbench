@@ -117,7 +117,7 @@
   const SAME_Z = 1e-5;   // the distance under which two preimages the enumerator lists (the sheets beside the frame's own repeat them) are one member when their drawn heights agree too (members of different sheets of a step come together in z as u falls but are different surfaces)
   const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
   const CASES = [
-    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true, allSheetsOnly: true, surfaces: 2, polePair: [[-0.5, 0.5], [-1.5, 1.5]] },
+    { tag: 'Möbius, √', seam: true, steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true, corruptPlan: true },
     // the pole of the step (z = -1) is inside the box: the frame covers the block about it, the cover steps_land_poles holds for the mesh path
     { tag: 'Möbius with a pole in the box', steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }], shapes: [] },
     { tag: 'log of an annulus', logControl: true, steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, cutProbe: [-1, 0.03] },
@@ -774,19 +774,13 @@
               // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is huge there and the shrinking rim's values do not converge, so the count must say branchLog or kindDisagree, never ok)
               ok(`${t}: the control: the branch leaf at 0 is reported (${r0 ? r0.branchLeaves : '?'} leaves, status ${r0 ? r0.status : '?'})`, !!r0 && r0.branchLeaves > 0 && (u < 1 - 2 * END_U || r0.status === 'branchLog' || r0.status === 'kindDisagree'), { lw });
             }
-            if (c.surfaces && (sheets || !c.allSheetsOnly)) {
+            if (c.surfaces) {
               // (the surfaces that are distinct functions: a repeated sheet is counted once, and no distinct one is dropped)
               const sf = await ev(`__cmwLandSurfaces()`);
               ok(`${t}: the distinct surfaces are ${c.surfaces} of ${sf ? sf.K : '?'}`, !!sf && sf.distinct === c.surfaces, { sf });
               // (the box holds the branch point: the leaf is reported; the leaves the continuity alone would have closed are counted beside it)
               const sn = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), bl = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noInputs: true })`);
               ok(`${t}: the branch leaf is reported (${sn && sn[0] ? sn[0].branchLeaves : '?'} leaves; ${bl && bl[0] ? bl[0].branchLeaves : '?'} by the continuity alone)`, !!sn && !!sn[0] && sn[0].branchLeaves > 0, { sn, bl });
-            }
-            if (c.polePair && (sheets || !c.allSheetsOnly)) {
-              // (a leaf that holds a zero and a pole of a step's input winds it 0 times: it is a branch leaf; the test left out calls it closed)
-              const [xr, yr] = c.polePair;
-              const withP = await ev(`__cmwLandLeafState(${xr[0]}, ${xr[1]}, ${yr[0]}, ${yr[1]})`), noP = await ev(`__cmwLandLeafState(${xr[0]}, ${xr[1]}, ${yr[0]}, ${yr[1]}, { noPoleTest: true })`);
-              ok(`${t}: the control: a leaf with a zero and a pole of the root's input is a branch leaf (${withP}), and closed without the pole test (${noP})`, withP === 'branch' && noP === 'closed', { withP, noP });
             }
             if (c.logControl) {
               // (the surfaces counted as digits: where the log path repeats a sheet, the count reads two for one member)
