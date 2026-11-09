@@ -93,6 +93,9 @@ H.holdSheet = async (ms) => {
   await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
 };
 H.send = (m, p) => send(m, p, S);
+// H.forgetCause(): the last navigation or crash is no longer what a failing call is explained by (for a check of the
+// message a call gets when no event explains its failure)
+H.forgetCause = () => { CAUSE = null; };
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
 // (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
