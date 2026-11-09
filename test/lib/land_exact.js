@@ -70,7 +70,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
-  const BRANCH_NEAR = 2;   // chords: a vertex this close to the step's branch point (z = 0 for the root and the logarithm) is in a cell the branch point drops
+  const BRANCH_NEAR = 2;   // grid edges: a vertex whose place is this close to the step's branch point's (w = 0 for the root and the logarithm) is in a cell the branch point drops
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
@@ -120,7 +120,7 @@
     // Each flagged edge whose cut is at an end of its chord (the vertex taken as the cut), in exactly one class: onCut (that vertex is within tol of
     // the chord's length of the step's cut), seam (the ends' codes differ, and their preimages are two members of the glide's map, by the page's seam
     // test: neither end's preimage, carried along the edge's place by Newton's method on the homotopy, reaches the other's, and the preimages are
-    // farther apart than the map's derivative allows one member), branch (the vertex is within near chords of the step's branch point, z = 0 for the
+    // farther apart than the map's derivative allows one member), branch (the vertex's place is within near edges of the place of the step's branch point, w = 0 for the
     // root and the logarithm: the cells that hold it are dropped and counted), or false (a cut drawn where there is neither a cut nor a seam)
     cutClasses: (near) => {
       const r = window.__cmwLandCutEdges(), tol = Math.pow(2, 1 - r.steps), out = { onCut: 0, seam: 0, branch: 0, falseN: 0, falseList: [] };
@@ -129,7 +129,7 @@
       const mix = (a, b, t) => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       const Hz = (z, sh) => { const h = window.__cmwLandHom(z); return h && h[sh] && h[sh].H && h[sh].dH ? h[sh] : null; };
       const cont = (z0, wa, wb, sh) => { let z = z0; for (let k = 1; k <= r.seam.cont; k++) { const target = mix(wa, wb, k / r.seam.cont); for (let i = 0; i < r.seam.pol; i++) { const h = Hz(z, sh); if (!h || !(cabs(h.dH) > 0)) return z; z = csub(z, cdiv(csub(h.H, target), h.dH)); } } return z; };
-      for (const [ax, ay, bx, by, t, ca, cb] of r.edges) {
+      for (const [ax, ay, bx, by, t, ca, cb, wax, way, wbx, wby] of r.edges) {
         if (!(t < tol || t > 1 - tol)) continue;
         const za = [ax, ay], zb = [bx, by], chord = cabs(csub(zb, za)), v = t > 0.5 ? zb : za;
         if ((v[0] < 0 ? Math.abs(v[1]) : cabs(v)) <= tol * chord) { out.onCut++; continue; }
@@ -143,7 +143,7 @@
             seam = chord * cabs(ha.dH) > r.seam.far * cabs(csub(hb.H, ha.H)) && cabs(csub(zA1, zb)) > reach && cabs(csub(zB1, za)) > reach;
           }
         }
-        if (seam) out.seam++; else if (cabs(v) <= near * chord) out.branch++; else { out.falseN++; if (out.falseList.length < 5) out.falseList.push([ax, ay, bx, by, t, ca, cb]); }
+        if (seam) out.seam++; else if (cabs(t > 0.5 ? [wbx, wby] : [wax, way]) <= near * cabs([wbx - wax, wby - way])) out.branch++; else { out.falseN++; if (out.falseList.length < 5) out.falseList.push([ax, ay, bx, by, t, ca, cb]); }
       }
       return out;
     },
