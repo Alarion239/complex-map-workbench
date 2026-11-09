@@ -51,6 +51,8 @@
   // SEAM_MIN_SAMPLES samples is no measurement.
   const SEAM_DARK_TOL = 8, SEAM_DARK_MAX = 0, SEAM_MIN_SAMPLES = 100, SEAM_END_PX = 4;
   const SEAM_SIDE_PX = 3;   // (the seam measure compares a seam pixel with the frame's own pixels this far to either side of the cut curve)
+  const REL_FLOOR = 1e-9;   // (a relative difference is against at least this: a reference of 0 has no scale)
+  const relDiff = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), REL_FLOOR);
   const TICK_H_TOL = 1e-9;   // (a label's world height against the frame's own height function of its value: the same float computation)
   const TICK_SCALE_ERR = 1.6e-3;   // (the scale error the own-scale check must see: the gap the near ends have against the parked plane at .998)
   const SCALE_TOL = 1e-3;   // (the relative difference under which two scales are one: they are the same computation at the same map and box)
@@ -655,12 +657,11 @@
       // the height ruler's labels: at every u each label sits at the frame's OWN height of its value; at the ends the same labels as the parked
       // plane's, each within TICK_PX of its screen y (rasterization only; the end frames' real scale gap is not absorbed: it is checked by the own height)
       {
-        const relErr = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
         const ownTicks = async () => {
           const marks = await ev('__cmwLandTickMarks()');
           const own = JSON.parse(await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`));
           const nz = marks.map((m, i) => i).filter((i) => own[i]);   // (a label at height 0 has no scale)
-          return { marks, own, nz, bad: nz.filter((i) => !(relErr(marks[i].hz, own[i]) <= TICK_H_TOL)) };
+          return { marks, own, nz, bad: nz.filter((i) => !(relDiff(marks[i].hz, own[i]) <= TICK_H_TOL)) };
         };
         const o = await ownTicks();
         ok(`${t}: the height ruler's ${o.marks.length} labels sit at the frame's own height of their value`, o.marks.length > 0 && !o.bad.length, o);
@@ -679,12 +680,11 @@
       // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
       {
         const sc = await ev('__cmwLandScale()'), ref = first ? p0.scale : p1.scale;
-        const rel = (a, b) => Math.abs(a - b) / Math.max(Math.abs(b), 1e-9);
         if (u === END_U || u === 1 - END_U) {
           ok(`${t}: the frame's scale and boost are the parked plane's (mu ${sc && sc.mu} against ${ref && ref.mu}, boost ${sc && sc.boost} against ${ref && ref.boost}; within ${SCALE_TOL})`,
-            !!sc && !!ref && rel(sc.mu, ref.mu) <= SCALE_TOL && rel(sc.boost, ref.boost) <= SCALE_TOL, { sc, ref });
+            !!sc && !!ref && relDiff(sc.mu, ref.mu) <= SCALE_TOL && relDiff(sc.boost, ref.boost) <= SCALE_TOL, { sc, ref });
         } else if (u === GLIDE_MID && sc && ref) {
-          ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, rel(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
+          ok(`${t}: the middle frame's scale is not the parked plane's (control; mu ${sc.mu} against ${ref.mu})`, relDiff(sc.mu, ref.mu) > SCALE_TOL, { sc, ref });
         }
       }
       // the height function moves continuously from plane z's to the next plane's: the layers' heights at a place change by at most
