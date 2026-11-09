@@ -84,7 +84,7 @@ const orderCheck = async (c, view_, u) => {
   await redraw({});
 };
 const CONTROLS = { 'cube root': { u: 0.5 }, 'log of an annulus': { u: 0.25 } };
-const SEAM = `window.__lxSeam = () => { const m = __cmwLandSeamMiss(); const sum = (k) => m.reduce((a, L) => a + (L.why[k] || 0), 0); return { refused: sum(5), cont: m.reduce((a, L) => a + L.cont, 0) }; };
+const SEAM = `window.__lxSeam = () => { const m = __cmwLandSeamMiss().layers; const sum = (k) => m.reduce((a, L) => a + (L.why[k] || 0), 0); return { refused: sum(5), cont: m.reduce((a, L) => a + L.cont, 0) }; };
 window.__lxProbe = (p) => { GLR.carryProbes(Object.assign({ ringWhy: true }, p)); return 1; };
 1`;
 const controls = async (c) => {

@@ -548,8 +548,7 @@
     });
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
-    out.skipped = landRingSkipped;
-    return out;
+    return { layers: out, skipped: landRingSkipped };
   }
   // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
   // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels
