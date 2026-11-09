@@ -27,7 +27,10 @@ const BAND_OUT = 1.1;      // the band's outer radius, in plane w
 const READY_MS = 60000, FRAME_MS = 300000, WARM_MS = 120000, SETTLE_MS = 1500;   // waits (ms): a page, a frame, the prestart, a frame's last draws
 const MEMBER_US = [0.5, 1 - END];   // the homotopy's t for the member counts
 // sample points w for the member counts: outside the band, and in it ([re, im])
-const W_OUT = [[3, 0], [0, -2], [-1.5, 1.5], [1.2, 0.8]], W_BAND = [[1.05, 0.2], [0, -1.05], [-0.74, 0.74], [0.5, 0.93]];
+const W_OUT = [[3, 0], [0, -2], [-1.5, 1.5], [1.2, 0.8]], W_BAND = [[1.05, 0], [-1.05, 0], [0, -1.05], [-0.74, 0.74], [0.5, 0.93]];
+// a point whose ray needs more halvings than Inverse.NEWT_RAY.HALVINGS: |w| - 1 below exp(log R 2^-HALVINGS) - 1 (about 8.5e-4 for R = 32, 12 halvings)
+const W_TOO_NEAR = [[1.0004 * Math.cos(0.4), 1.0004 * Math.sin(0.4)]];
+const RAY_SUB = 4;   // the stages per halving the page is built with (Inverse.NEWT_RAY.SUB)
 const SRC = { cx: 0, cy: 0, s: 60 };
 const ready = () => settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // the frame at thread place x, once a frame there was drawn, and its record
@@ -57,8 +60,8 @@ const scene = async (id, params, tag) => {
   await park(0); await grab('P0');
   await park(1); await grab('P1');
 };
-// the step's definition built with the property set to on
-const forceProp = (id, on) => ev(`(() => { const d = Funcs.DEFS.${id}, b = d.build; d.build = function () { const r = b.apply(this, arguments); r.props = Object.assign({}, r.props, { identitySeed: ${on} }); return r; }; __cmwStepParam(0, 'N', 63); return 1; })()`);
+// the step's definition built with the identity seed set to on
+const forceProp = (id, on) => ev(`(() => { const d = Funcs.DEFS.${id}, b = d.build; d.build = function () { const r = b.apply(this, arguments); r.identitySeed = ${on}; return r; }; __cmwStepParam(0, 'N', 63); return 1; })()`);
 
 // the number of members of the Newton plan of the step { type, params } at t over each w ([re, im]), in the page
 const members = (step, t, ws) => ev(`(() => { const b = Funcs.build(${JSON.stringify(step)}), r = Inverse.homOps(b, ${t}); if (!r.ok) return { ok: false, reason: r.reason }; const op = r.ops[r.ops.length - 1]; return { ok: true, kind: op.kind, n: ${JSON.stringify(ws)}.map(([re, im]) => op.pre({ re, im }).length) }; })()`);
@@ -79,12 +82,18 @@ for (const [id, name, params] of STEPS) {
       ok(`${name} at u = ${u}: the band 1 < |w| < ${BAND_OUT} is the parked plane's (at least ${MIN_BAND} pixels, at most ${SAME_FRAC * 100} % over ${LOOK_TOL})`, !!band && band.n >= MIN_BAND && band.over <= SAME_FRAC, band);
     }
   }
+  {
+    const near = await members({ type: id, params }, 1 - END, W_TOO_NEAR);
+    info[`${id} too near`] = near;
+    ok(`${name}: a w nearer the disk than the ray's halvings reach has no member (the member fails in the CPU and the program alike)`, !!near && near.ok && near.n.every((n) => n === 0), near);
+  }
   for (const t of MEMBER_US) {
     const out = await members({ type: id, params }, t, W_OUT), band = await members({ type: id, params }, t, W_BAND);
     info[`${id} members ${t}`] = { out, band };
     ok(`${name} at t = ${t}: one member over each w outside the band (degree 1)`, !!out && out.ok && out.n.every((n) => n === 1), out);
-    // (the band is in H_t's image only near t = 1: at t = 0.5 the straight-line homotopy leaves some of it uncovered)
-    if (t > 0.5) ok(`${name} at t = ${t}: one member over each w in the band (degree 1)`, !!band && band.ok && band.n.every((n) => n === 1), band);
+    // (the band is in H_t's image fully only near t = 1: at t = 0.5 the straight-line homotopy leaves some of it uncovered, so there
+    // a point has at most one member)
+    ok(`${name} at t = ${t}: ${t > 0.5 ? 'one member' : 'at most one member'} over each w in the band (degree 1)`, !!band && band.ok && band.n.every((n) => (t > 0.5 ? n === 1 : n <= 1)), band);
   }
   {
     const g = await at(0.5);
@@ -106,17 +115,21 @@ for (const [id, name, params] of STEPS) {
     ok(`${name} without the property: the band is off plane 1's by more than ${SAME_FRAC * 100} % (control)`, !!r && r.n >= MIN_BAND && r.over > SAME_FRAC, r);
   }
 }
-// control: with the ray's stages off (SUB = 0: the seed is landed on w directly) the band stays off the parked plane
+// control, paired at N = 63: with the ray's stages (SUB = 4) the band is the parked plane's, with none (SUB = 0: the seed is landed on w
+// directly) it is off
 for (const [id, name, params] of STEPS) {
-  await scene(id, params, id + 'sub');
-  await ev('Inverse.NEWT_RAY.SUB = 0, __cmwStepParam(0, "N", 63)');
-  await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
-  await park(1); await grab('P1c');
-  const g = await at(1 - END);
-  await grab('C0');
-  const band = await sameAway('C0', 'P1c', LOOK_TOL, IN_BAND);
-  info[`${id} no stages`] = { g, band };
-  ok(`${name} with no ray stages: the band is off plane 1's by more than ${SAME_FRAC * 100} % (control)`, !!band && band.n >= MIN_BAND && band.over > SAME_FRAC, { g, band });
+  for (const sub of [RAY_SUB, 0]) {
+    await scene(id, params, id + 'sub' + sub);
+    await ev(`Inverse.NEWT_RAY.SUB = ${sub}, __cmwStepParam(0, 'N', 63)`);
+    await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
+    await park(1); await grab('P1c');
+    const g = await at(1 - END);
+    await grab('C0');
+    const band = await sameAway('C0', 'P1c', LOOK_TOL, IN_BAND);
+    info[`${id} N 63 sub ${sub}`] = { g, band };
+    if (sub) ok(`${name} at N = 63 with ${sub} stages per halving: the band is the parked plane's`, !!band && band.n >= MIN_BAND && band.over <= SAME_FRAC, { g, band });
+    else ok(`${name} at N = 63 with no ray stages: the band is off plane 1's by more than ${SAME_FRAC * 100} % (control)`, !!band && band.n >= MIN_BAND && band.over > SAME_FRAC, { g, band });
+  }
 }
 // control: a map of degree 2 has two members over those points
 {

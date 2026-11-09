@@ -24,7 +24,7 @@ const NEWT_H_SITES_PASS = 3;
 // _run 2 + _hit 1 + the stored roots' _hit 1.
 const NEWT_H_SITES_POLY = 6, NEWT_H_SITES_POLY_PASS = 4;
 const T = 0.5;
-const CASES = [['plain', 'series', NEWT_H_SITES, NEWT_H_SITES_PASS], ['pole', 'zeta', NEWT_H_SITES, NEWT_H_SITES_PASS], ['seeded', 'ijouk', NEWT_H_SITES, NEWT_H_SITES_PASS], ['polynomial', 'poly', NEWT_H_SITES_POLY, NEWT_H_SITES_POLY_PASS]];
+const CASES = [['plain', 'series', NEWT_H_SITES, NEWT_H_SITES_PASS], ['pole', 'zeta', NEWT_H_SITES, NEWT_H_SITES_PASS], ['seeded', 'ijouk', NEWT_H_SITES, NEWT_H_SITES_PASS], ['ray-seeded', 'dh', NEWT_H_SITES, NEWT_H_SITES_PASS], ['polynomial', 'poly', NEWT_H_SITES_POLY, NEWT_H_SITES_POLY_PASS]];
 
 // Function bodies of prefix P (and `main`) of a GLSL text, by name.
 const bodies = (src, P) => {
@@ -75,6 +75,11 @@ for (const [name, type, bound, boundPass] of CASES) {
   const nrSrc = inv.lib + inv.nr.main, dupNr = nrSrc.replace(/^(.*= ix0_run\(.*)$/gm, '$1\n$1');
   const moreNr = reach(bodies(dupNr, 'ix0'))('main');
   check(`${name}: a second _run call site is counted in the NR pass (reaches ${moreNr}, past ${boundPass})`, dupNr !== nrSrc && moreNr > boundPass, moreNr);
+  if (name === 'ray-seeded') {
+    const R = Inverse.NEWT_RAY;
+    check(`${name}: the program fails a member that needs more than ${R.SUB * R.HALVINGS} ray stages`, inv.lib.includes(`if (rS > ${R.SUB * R.HALVINGS}) return false;`));
+    check(`${name}: and so does the CPU (newtRayStages answers -1)`, Inverse.newtRayStages({ re: 1.0004, im: 0 }) === -1 && Inverse.newtRayStages({ re: 1.01, im: 0 }) > 0);
+  }
   console.log(`${name}: program ${prog}, roots pass ${nr} H evaluations (bounds ${bound}, ${boundPass})`);
 }
 console.log(bad ? `${bad} failed` : 'all passed');

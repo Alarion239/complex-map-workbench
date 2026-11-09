@@ -235,12 +235,16 @@ const InvOps = (() => {
   // is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the identity), the target
   // w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the geometric stages
   // G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than TOL (1 + |u|) after
-  // them fails the member), HALVINGS at most (|w| below exp(log R 2^-HALVINGS) takes none). SUB = 0: no stages, the seed
+  // them fails the member), HALVINGS halvings at most (a |w| that needs more, below exp(log R 2^-HALVINGS), fails the
+  // member: newtRayStages answers -1, and so does the program). SUB = 0: no stages, the seed
   // is landed on w itself
   const NEWT_RAY = { R: 32, SUB: 4, HALVINGS: 12, NEWT: 3, TOL: 1e-2 };
   const newtRayStages = (w) => {
     const g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
-    return !(gw > 0) ? -1 : gw >= g0 || NEWT_RAY.SUB <= 0 ? 0 : Math.ceil(NEWT_RAY.SUB * Math.log2(g0 / gw));
+    if (!(gw > 0)) return -1;
+    if (gw >= g0 || NEWT_RAY.SUB <= 0) return 0;
+    const n = Math.ceil(NEWT_RAY.SUB * Math.log2(g0 / gw));
+    return n > NEWT_RAY.SUB * NEWT_RAY.HALVINGS ? -1 : n;
   };
   const newtBackK = (t) => Math.max(1, Math.ceil(NEWT_K * (1 - t)));
   // the last stage k of member 0's grid walk at t (k / NEWT_K <= t), of t as float32: the GPU's

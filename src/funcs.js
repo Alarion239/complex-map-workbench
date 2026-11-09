@@ -11,8 +11,6 @@ const Funcs = (() => {
   const props = (o = {}) => Object.assign({
     analytic: false, entire: false, rational: false, polynomial: false, mobius: false, proper: false, injective: false,
     deg: null, degExact: false, constant: false,
-    // identitySeed: one-to-one onto the outside of a disk and f(z)/z -> 1 at infinity, so z = w is a seed of f(z) = w for large |w|
-    identitySeed: false,
   }, o);
   const ALL = { analytic: true, entire: true, rational: true, polynomial: true, mobius: true, proper: true, injective: true, deg: 1, degExact: true };
   const CONSTANT = props({ analytic: true, entire: true, rational: true, polynomial: true, deg: 0, degExact: true, constant: true });
@@ -769,6 +767,8 @@ const Funcs = (() => {
   // orbit and the square roots nearest to it. NaN on M (on the filled Julia set), wherever the orbit needs more than N
   // steps to pass 10⁴, and for φ_c below the critical potential. The external rays and equipotentials of the Inspector
   // card are Region's dhray and dheq. Both deform along the straight line (no zoom path: they are not defined at 0)
+  // (identitySeed on a step's build: one-to-one onto the outside of a disk and f(z)/z -> 1 at infinity, so z = w is a seed
+  // of f(z) = w for large |w|; Inverse.newtOps verifies it)
   const DH_NMAX = 64;
   // (its tooltip: why a band next to the set stays blank)
   const DH_NTIP = $t('Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank');
@@ -782,9 +782,10 @@ const Funcs = (() => {
       return {
         f, hom: linHom(f), homTex: dhHomTex,
         tex: (a) => ({ s: `\\Phi_M${paren(a.s)}`, p: 3 }),
-        props: props({ analytic: true, injective: true, identitySeed: true }),
+        props: props({ analytic: true, injective: true }),
         domain: (v) => `${v}\\notin M`,
         inverseNote: dhNoInv(),
+        identitySeed: true,
       };
     },
   });
@@ -797,7 +798,8 @@ const Funcs = (() => {
       return {
         f, hom: linHom(f), homTex: dhHomTex,
         tex: (a) => ({ s: `\\varphi_{${valTex(c)}}${paren(a.s)}`, p: 3 }),
-        props: props({ analytic: true, injective: true, identitySeed: true }),
+        props: props({ analytic: true, injective: true }),
+        identitySeed: true,
         domain: (v) => (rho > 1 ? `G_c(${v})>G_c(0)` : `${v}\\notin K_c`),
         inverseNote: dhNoInv(),
         dh: { rho },

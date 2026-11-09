@@ -1660,6 +1660,9 @@ const Inverse = (() => {
     return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
   }
   // f is within ID_TOL of the identity relatively, |f(z) / z - 1|, at ID_SAMPLES points of the circle |z| = NEWT_RAY.R, where the external ray's landing starts
+  // (ID_TOL: a tenth is well inside Rouché's bound of 1 for exactly one root outside the circle, and leaves the identity
+  // close enough to the root that the ray's first stage converges; ID_SAMPLES: points enough that a map with a few
+  // lobes of difference around the circle is caught)
   const ID_SAMPLES = 16, ID_TOL = 0.1;
   function tangentAtInfinity(f) {
     for (let k = 0; k < ID_SAMPLES; k++) {
@@ -1683,7 +1686,7 @@ const Inverse = (() => {
     // (a step with no exact ops that declares itself one-to-one onto the outside of a disk and tangent to the identity at
     // infinity is seeded by the identity when f is that close to the identity on a
     // circle: then f(z) = w has exactly one root outside it, by Rouché, for w inside the circle's image)
-    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : P.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true })] : null;
+    const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : b.identitySeed && tangentAtInfinity(b.f) ? [Object.assign(opAff(ONE, ZERO), { ray: true })] : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
   // The pole member's data for a step whose f has one pole, simple, with the straight-line homotopy H_t = (1 - t) z + t f:
