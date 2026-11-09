@@ -591,7 +591,16 @@
       const t = map.t, lc = bb.nat.scaled && bb.natData ? bb.natData.lc : null, kk = lc ? CX.exp(Funcs.natSc(lc, t)) : null;
       cut = { R: Funcs.JOUK_R, side: (inside) => { const J = Funcs.joukAt(t, inside); return (z) => { const v = J(z); return v && CX.isFin(v) ? (kk ? CX.mul(kk, v) : v) : null; }; } };
     }
-    return (sceneMemo = { key, map, W, K, own, rank, g, box: bx, poles, cut, leaves: null });
+    // The kind of a branch point of H_u, from the catalogue's steps the map applies at its time t: 'log' when a piece is a log taken in full
+    // (t = 1) or a power whose exponent 1 + (alpha - 1) t has no positive real part (G is unbounded at the branch point), else 'algebraic' (roots,
+    // powers with a positive real exponent, the Joukowski path: G stays finite)
+    const kindScene = pcs.some((e) => {
+      const st = built[e.k - 1], id = st && st.def && st.def.id;
+      if (id === 'log') return !(map.t < 1);
+      if (id === 'powa') { const a = st.vals.alpha, ex = C(1 + (a.re - 1) * map.t, a.im * map.t); return !(ex.re > 0); }
+      return false;
+    }) ? 'log' : 'algebraic';
+    return (sceneMemo = { key, map, W, K, own, rank, g, box: bx, poles, cut, kindScene, leaves: null });
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
@@ -718,9 +727,10 @@
     }
     return (sc.leaves = out);
   };
-  // the kind of a branch leaf's point, from the scene: 'algebraic' when every surface's value at a fixed rim point converges as the rim shrinks
-  // about the leaf's centre (the change over the second half of the SHRINK rings is at most CONV times the first half's: roots, powers), 'log'
-  // when some value keeps changing (a log, a power's log, a pole of a later step: G unbounded there)
+  // the kind of a branch leaf's point: the scene's (sc.kindScene, from the steps the map applies) is the classifier; the values at a fixed rim
+  // point as the rim shrinks about the leaf's centre are a cross-check (the change over the second half of the SHRINK rings at most CONV times
+  // the first half's: converging), and a leaf where they disagree with the scene's 'algebraic' is 'disagree', which is reported as a failure.
+  // 'algebraic', 'log' or 'disagree'
   const leafKind = (sc, l) => {
     if (l.kind) return l.kind;
     const at = (q, k) => { const f = Math.pow(0.5, q); return sc.g(k, C(l.c.re - (l.x1 - l.x0) / 2 * f, l.c.im - (l.y1 - l.y0) / 2 * f), C(l.c.re - (l.x1 - l.x0) / 2 * f, l.c.im - (l.y1 - l.y0) / 2 * f)); };
@@ -732,6 +742,8 @@
       const d1 = CX.abs(CX.sub(b, a)), d2 = CX.abs(CX.sub(c, b));
       if (d2 > SCN.CONV * d1 && d2 > SCN.CLOSE * cmax(c)) { l.kind = 'log'; break; }
     }
+    l.numeric = l.kind;
+    l.kind = sc.kindScene === 'log' ? 'log' : l.numeric === 'log' ? 'disagree' : 'algebraic';
     return l.kind;
   };
   const leafOf = (sc, z) => sceneLeaves(sc).find((l) => z.re >= l.x0 && z.re <= l.x1 && z.im >= l.y0 && z.im <= l.y1) || null;
@@ -805,7 +817,7 @@
   // certified members make in it. A leaf no surface closes round (a branch point) holds no pair when w is farther from the mean of its boundary
   // values than all of them are (the maximum principle on its cover); a pole in it, or a w that is not, leaves the count unresolved.
   // [{ sheet: 'all', N, P, members, ok, status, leaves, branchLeaves, cutLeaves, bad }]; status 'ok', 'onContour' (w is a value on a leaf contour: the
-  // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
+  // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
   // opts: noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
   window.__cmwLandWind = (wIn, opts = {}) => { const t0 = performance.now(); try { const r = window.__cmwLandWind0(wIn, opts); if (r) r[0].ms = Math.round(performance.now() - t0); return r; } catch (e) { return [{ err: String(e && e.stack || e).slice(0, 400), ok: false }]; } };
@@ -873,7 +885,8 @@
         }
         const mean = vals.reduce((a, v) => CX.add(a, v), C(0, 0)), vc = C(mean.re / vals.length, mean.im / vals.length);
         const spread = vals.reduce((a, v) => Math.max(a, CX.abs(CX.sub(v, vc))), 0) + SCN.LIP * step;
-        if (leafKind(sc, l) === 'log') status = status === 'onContour' ? status : 'branchLog';
+        const kind = leafKind(sc, l);
+        if (kind !== 'algebraic') status = status === 'onContour' ? status : kind === 'log' ? 'branchLog' : 'kindDisagree';
         else if (l.poles.length || !(CX.abs(CX.sub(w, vc)) > spread * (1 + SCN.NEAR))) status = status === 'ok' ? 'unresolved' : status;
         continue;
       }
