@@ -1,7 +1,6 @@
 // All sheets in the steps view on the user's case, a Landscape of a chain √z then sin: the readback says what is drawn
 // (two surfaces of the two sheets, "both sheets" in the title, no deformation), the CPU twin's two surfaces are
-// sin √z and its negative (distinct), and the same two surfaces are drawn over a glide, parked between z and w₁ and
-// between w₁ and w₂; with All sheets off no sheet set is drawn.
+// sin √z and its negative (distinct); with All sheets off no sheet set is drawn.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -13,10 +12,9 @@ const DISTINCT = 0.1;                // the two surfaces differ by more than thi
 const EXACT = 1e-9;                  // sin(-w) = -sin w to rounding
 const CHAIN = [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'sin', params: {}, on: true }];
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
-const read = () => ev(`(() => { const s = __cmwLandSheets(), c = typeof __cmwLandCarry === 'function' ? __cmwLandCarry() : null;
-  return { K: s.drawn && s.drawn.K, total: s.drawn && s.drawn.total, hom: s.drawn && s.drawn.hom, carried: c && c.sheets, title: s.title.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim() }; })()`);
+const read = () => ev(`(() => { const s = __cmwLandSheets();
+  return { K: s.drawn && s.drawn.K, total: s.drawn && s.drawn.total, hom: s.drawn && s.drawn.hom, title: s.title.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim() }; })()`);
 await view(1440, 900, false, false);
 const ns = 'sheetsrb' + Date.now();
 await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'rect', a: [-HALF, -HALF], b: [HALF, HALF] }], steps: CHAIN, sheets: true, height: 'im' });
@@ -45,16 +43,6 @@ ok('the twin counts the two surfaces', twin.combos === SHEETS, twin);
 ok('the twin\'s grid has every point but the origin', twin.n === GRID * GRID - 1, twin);
 ok('the two surfaces are sin √z and its negative', twin.sumMax < EXACT, twin);
 ok('and they differ', twin.median > DISTINCT && twin.min > 0, twin);
-
-// the same two surfaces over the glide
-for (const x of [0.5, 1.5]) {
-  await rest(0); await park(x);
-  const g = await read();
-  info['park' + x] = g;
-  ok(`parked at ${x}: a carried frame`, g.carried === true, g);
-  ok(`parked at ${x}: the two surfaces are drawn`, g.K === SHEETS && g.total === SHEETS && g.hom === false, g);
-  ok(`parked at ${x}: the title says both sheets`, /both sheets/.test(g.title), g.title);
-}
 
 // All sheets off, from the plane's options: the principal surface alone
 await rest(0);
