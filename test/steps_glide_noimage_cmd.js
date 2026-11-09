@@ -80,4 +80,17 @@ ok(`control: the parked plane against itself shifted ${EDGE_SHIFT_PX} px: more t
 const blank = await measure(0, 0, true);
 info['control: an all-paper frame'] = blank;
 ok(`control: an all-paper frame has every pixel of plane 0 paper (over ${CONTROL_FACTOR * SAME_FRAC * 100} %)`, blank.paperShare === 1 && blank.paperShare > CONTROL_FACTOR * SAME_FRAC, blank);
+// the memberless pixels of a glide frame are all accounted for: __cmwGlideMemberless() -> {pixels, hatch, rest, uncertified}: the memberless
+// pixels, those drawn as plane 0's no-value hatch, those drawn as the destination's paint (only where no root is certified), and those
+// left without a certificate (a solver miss, which must fail the frame)
+const accounted = (m) => !!m && m.pixels === m.hatch + m.rest && m.uncertified === 0;
+await open();
+await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ x: ${U_NEAR} }); 1`);
+await settled({ max: 20000 });
+const mem = await ev('typeof __cmwGlideMemberless === "function" ? __cmwGlideMemberless() : "no hook"');
+info['memberless pixels of the glide at ' + U_NEAR] = mem;
+ok(`the glide frame at ${U_NEAR}: every memberless pixel is hatch or certified destination paint, none uncertified (__cmwGlideMemberless)`, accounted(mem), mem);
+ok('control: a report with one uncertified memberless pixel is not accounted for', !accounted({ pixels: 5, hatch: 2, rest: 3, uncertified: 1 }), null);
+ok('control: a report whose parts do not add up to its pixels is not accounted for', !accounted({ pixels: 5, hatch: 2, rest: 2, uncertified: 0 }), null);
+ok('control: a frame with no memberless pixel and no uncertified one is accounted for', accounted({ pixels: 0, hatch: 0, rest: 0, uncertified: 0 }), null);
 return { pass: fails.length === 0, fails, info };
