@@ -566,8 +566,8 @@
   // (a unit edge; the control raises it to 1); CLOSE, the relative distance within which a closed contour returns to its first value; ON, the relative |H_u - w| that
   // puts w on a contour; NEAR, the relative gap of a value from w that the control calls near; REL, the largest relative change of a
   // value across a step of the closure test; POLE_BIG and POLE_R, a pole's |H_u| and the radius it is read at; POLE_GRID, the pole search's
-  // grid; SAME_Z, the relative distance under which two candidates are one z; SAME_V and SAME_PTS, the relative difference of two surfaces' values under which they are one at each of SAME_PTS squared places of the box
-  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5, SAME_V: 1e-9, SAME_PTS: 3 };
+  // grid; SAME_Z, the relative distance under which two candidates are one z; RAY_LIP, how far from a power path's cut ray each of its two sides is read (the principal power takes the upper side's value on the ray itself); SAME_V and SAME_PTS, the relative difference of two surfaces' values under which they are one at each of SAME_PTS squared places of the box
+  const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5, SAME_V: 1e-9, SAME_PTS: 3, RAY_LIP: 1e-9 };
   let sceneMemo = null;
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
@@ -817,7 +817,7 @@
       const ry = sc.rays.find((q) => q.y > r.y0 && q.y < r.y1 && r.x0 < q.x);
       if (!ry) return null;
       if (r.x1 > ry.x) return 'split';
-      const parts = [{ x0: r.x0, x1: r.x1, y0: ry.y, y1: r.y1 }, { x0: r.x0, x1: r.x1, y0: r.y0, y1: ry.y }];
+      const parts = [{ x0: r.x0, x1: r.x1, y0: ry.y + SCN.RAY_LIP, y1: r.y1 }, { x0: r.x0, x1: r.x1, y0: r.y0, y1: ry.y - SCN.RAY_LIP }];
       return parts.every((q) => leafState(sc, q, sc.noTest) === 'closed') ? parts : 'split';
     };
     const cut = (r, d) => {
