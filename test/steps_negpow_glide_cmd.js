@@ -78,17 +78,17 @@ for (const [i, c] of CASES.entries()) {
       ok(`${c.name} plane: the expected share is above 0 at every u of the row (min ${minExp})`, minExp > 0, exps);
       if (Math.abs(c.a) < 1) {
         ok(`${c.name} plane: the expected share follows u (u=${U_CTRL[0]}: ${e0}, u=${U_CTRL[1]}: ${e1}, differing by more than ${EXPECT_DIFF_MIN})`, followsU(e0, e1), R[c.name].expectedAt);
-        // the frame-based frozen-u control: the glide's coloured share at u (n / parked's) is within SHARE_TOL of the expected
-        // share at that u, at both ends of U_CTRL; the frame the glide drew at U_CTRL[1], held (u frozen), judged against
-        // the expected share at U_CTRL[0], is not
+        // the frame-based wrong-u control: the glide's coloured share at u (n / parked's) is within SHARE_TOL of the expected
+        // share at that u, at both ends of U_CTRL; the frame the glide drew at U_CTRL[1], judged against the expected
+        // share at U_CTRL[0], is not
         const share = (u) => r.rows[u].n / r.ref;
         R[c.name].shares = { [U_CTRL[0]]: share(U_CTRL[0]), [U_CTRL[1]]: share(U_CTRL[1]) };
         ok(`${c.name} plane: the glide's coloured share is the expected share at u=${U_CTRL[0]} (${share(U_CTRL[0])} vs ${e0}) and u=${U_CTRL[1]} (${share(U_CTRL[1])} vs ${e1}), within ${SHARE_TOL}`, Math.abs(share(U_CTRL[0]) - e0) <= SHARE_TOL && Math.abs(share(U_CTRL[1]) - e1) <= SHARE_TOL, R[c.name].shares);
-        ok(`${c.name} plane: control, the frame drawn at u=${U_CTRL[1]} held (u frozen) is not the expected share at u=${U_CTRL[0]} (${share(U_CTRL[1])} vs ${e0})`, Math.abs(share(U_CTRL[1]) - e0) > SHARE_TOL, R[c.name].shares);
+        ok(`${c.name} plane: control, a frame drawn at the wrong u (u=${U_CTRL[1]}, judged against the expected share at u=${U_CTRL[0]}) is not within the tolerance (${share(U_CTRL[1])} vs ${e0})`, Math.abs(share(U_CTRL[1]) - e0) > SHARE_TOL, R[c.name].shares);
       } else {
         const K = await ev(`Funcs.sheetCount(CX.C(${c.a}, 0))`);
-        R[c.name].frozenU = `not applicable: |a| > 1, every w has members, so the expected share is 1 at every u (${e0}, ${e1}); the scene has K = ${K} surfaces`;
-        ok(`${c.name} plane: the expected share is 1 at every u (|a| > 1; the frozen-u control is not applicable: no u moves the share; K = ${K} surfaces)`, e0 === 1 && e1 === 1, R[c.name].expectedAt);
+        R[c.name].wrongU = `the coverage control cannot bite: |a| > 1, every w has members, the expected share is 1 at every u (${e0}, ${e1}); the scene has K = ${K} surfaces; the colour control against parked w1 below bites`;
+        ok(`${c.name} plane: the expected share is 1 at every u (|a| > 1, K = ${K} surfaces: no u moves the share, so the coverage control cannot bite; the colour control below does)`, e0 === 1 && e1 === 1, R[c.name].expectedAt);
       }
     }
     if (v === 'land') {
@@ -107,6 +107,12 @@ for (const [i, c] of CASES.entries()) {
       ok(`${c.name} ${v} u=${u}: end frame is parked w1's (compared ${r && r.n} px of parked's ${ref}; wrong share ${r && r.wrong} <= ${WRONG_MAX})`, !!r && r.wrong != null && r.n >= COMPARE_MIN_SHARE * ref && r.wrong <= WRONG_MAX, { r, ref });
       ok(`${c.name} ${v} u=${u}: control, a colour shift fails the compare (${cr && cr.wrong})`, !!cr && cr.wrong != null && cr.wrong > WRONG_MAX, cr);
     }
+    // control: a frame at the wrong u is not parked w1's colour (it bites where the coverage control cannot: K3)
+    await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
+    await park(U_CTRL[1]); await grab('m');
+    const rm = await compare('m', 'p1', 0);
+    ok(`${c.name} ${v}: control, the frame at u=${U_CTRL[1]} is not parked w1's colour (wrong share ${rm && rm.wrong} > ${WRONG_MAX})`, !!rm && rm.wrong != null && rm.wrong > WRONG_MAX, rm);
+
   }
 }
 return { pass: fails.length === 0, fails, results: R };
