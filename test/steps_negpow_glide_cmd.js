@@ -17,7 +17,7 @@ const WRONG_MAX = 0.02;      // of the pixels the glide colours
 const U_ROW = [0.6, 0.65, 0.66, 2 / 3, 0.67, 0.68, 0.7, 0.75];
 const NEAR_ZERO = [-0.02, -0.005, 0, 0.005, 0.02];
 const U_END = [0.998, 0.9999];
-const EXPECT_FULL_MAX = 0.9;   // an exponent with |a| < 1 has members in less than this share of the window
+const EXPECT_DIFF_MIN = 0.1;   // the expected share at two u of different phases differs by more than this
 const COMPARE_MIN_SHARE = 0.4; // of parked w1's coloured pixels: the compare reads at least this many
 const SHIFT = 40;            // the control's colour shift, of 255
 const VIEWS = ['plane', 'sphere', 'land'];
@@ -26,12 +26,12 @@ const CASES = [
   { name: 'K2 Formula z^(-1/2)', step: { type: 'custom', params: { expr: 'z^{-1/2}' }, on: true }, a: -0.5 },
   { name: 'K3 powa -3/2', step: { type: 'powa', params: { alpha: '-1.5', cut: 180, k: 0 }, on: true }, a: -1.5 },
 ];
-const quiet = () => settled({ max: 60000 });
+const quiet = () => settled({ max: 60000, until: '__cmwSteps().ready.ready' });
 const { grab, coloured: colouredN, compare, expected } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'frame_compare.js'), 'utf8'));
 const { paneOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // the plane window the left pane shows
 const windowOf = async () => { const P = await paneOf(); return { x0: P.v.cx - P.w / 2 / P.v.s, x1: P.v.cx + P.w / 2 / P.v.s, y0: P.v.cy - P.h / 2 / P.v.s, y1: P.v.cy + P.h / 2 / P.v.s }; };
-const U_CTRL = [0.75];
+const U_CTRL = [0.25, 0.75];
 // the u of a case's row: U_ROW and the places around the one-phase exponent's zero, u = 1/(1 - a)
 const rowOf = (c) => [...new Set([...U_ROW, ...NEAR_ZERO.map((d) => 1 / (1 - c.a) + d)].map((x) => +x.toFixed(6)))].sort((x, y) => x - y);
 await view(1200, 800, false, false);
@@ -68,9 +68,10 @@ for (const [i, c] of CASES.entries()) {
     R[c.name][v] = r;
     ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of the expected share of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
     if (v === 'plane') {
-      // the reference is exact, not trivial: a root-like exponent (|a| < 1) has members in part of the plane only
-      const ex = r.rows[U_CTRL[0]] && r.rows[U_CTRL[0]].exp;
-      ok(`${c.name} plane: the expected share at u=${U_CTRL[0]} (${ex}) is ${Math.abs(c.a) < 1 ? 'below' : 'at'} ${EXPECT_FULL_MAX}`, Math.abs(c.a) < 1 ? ex < EXPECT_FULL_MAX : ex === 1, r.rows);
+      // the reference follows u: for |a| < 1 the expected share at U_CTRL[0] (phase 1, a wider sector) differs from the one at U_CTRL[1]
+      const [e0, e1] = [await expected(c.a, U_CTRL[0], await windowOf()), await expected(c.a, U_CTRL[1], await windowOf())];
+      R[c.name].expectedAt = { [U_CTRL[0]]: e0, [U_CTRL[1]]: e1 };
+      ok(`${c.name} plane: the expected share at u=${U_CTRL[0]} (${e0}) ${Math.abs(c.a) < 1 ? 'differs from' : 'equals'} the one at u=${U_CTRL[1]} (${e1})`, Math.abs(c.a) < 1 ? Math.abs(e0 - e1) > EXPECT_DIFF_MIN : e0 === 1 && e1 === 1, R[c.name].expectedAt);
     }
     if (v === 'land') {
       // the Landscape's end frames (Ruling C) read the shared refImage of the P0 suite (#1317), absent here: a loud failure
