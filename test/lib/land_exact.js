@@ -62,9 +62,6 @@
   // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
   // listed row fails if the control runs and bites)
   const CTL_NA = {
-    "Möbius, √|combo|0.0001": "the glide's ends are the parked planes' frames, whose colour the combo of the glide's interior does not reach (measured under the shifted combo: not over the bound)",
-    "Möbius, √|combo|0.002": "the glide's ends are the parked planes' frames, whose colour the combo of the glide's interior does not reach (measured under the shifted combo: not over the bound)",
-    "Möbius, √|combo|0.9999": "the glide's ends are the parked planes' frames, whose colour the combo of the glide's interior does not reach (measured under the shifted combo: not over the bound)",
     "Möbius, √|sheets": "the glide has one surface there",
     "Roots as preimages|sheets": "the glide has one surface there",
     "Joukowski airfoil|sheets": "the glide has one surface there",
