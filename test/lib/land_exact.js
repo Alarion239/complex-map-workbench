@@ -159,6 +159,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const COMBO_NA_PLACES = 20, COMBO_NA_TOL = 1e-9;   // (a map with one surface: its values under two combos are compared at this many places of the box, to this tolerance relative to 1 + |w|)
   const SURF_TOL = 1e-6;   // (a surface read back from its digits agrees with the member's value to this fraction of 1 + |f|)
   const CLAIM_SAMPLE = 8;   // (the layers a failing claim row lists)
   const CAP_EPS = 1e-4;   // (the block test's tolerance, as a fraction of the block bound: a drawn fragment is on the block's plane within it, beyond the block past it)
@@ -723,7 +724,12 @@
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
           // (a combo one off names a surface only where the glide's map H_u has more than one (window.__cmwLandSceneCombos, the scene's own count): with one, the control is not applicable)
           const sceneK = await ev('(__cmwLandSceneCombos() || {}).n || 0');
-          let ctl = sceneK > 1 ? undefined : { na: sceneK };
+          // (a map with one surface gives the same value for any combo: the largest |H_u(z; combo 1) - H_u(z; combo 0)| over COMBO_NA_PLACES places of the box, relative to 1 + |w|, is printed and must be at most COMBO_NA_TOL)
+          let ctl = undefined;
+          if (sceneK <= 1) {
+            const dd = await ev(`(() => { const b = __cmwLandCarry(true) || (window.__lxPick && window.__lxPick.box); if (!b) return null; let worst = 0, n = 0; for (let i = 0; i < ${COMBO_NA_PLACES}; i++) { const z = [b.x0 + (b.x1 - b.x0) * (0.05 + 0.9 * ((i * 7) % ${COMBO_NA_PLACES}) / (${COMBO_NA_PLACES} - 1)), b.y0 + (b.y1 - b.y0) * (0.05 + 0.9 * ((i * 13) % ${COMBO_NA_PLACES}) / (${COMBO_NA_PLACES} - 1))], a = __cmwLandScene(z, 0, z), c = __cmwLandScene(z, 1, z); if (!a || !c) continue; n++; worst = Math.max(worst, Math.hypot(a[0] - c[0], a[1] - c[1]) / (1 + Math.hypot(a[0], a[1]))); } return { worst, n }; })()`);
+            ctl = { na: sceneK, diff: dd };
+          }
           if (sceneK > 1) try {
             await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
             await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -1303,7 +1309,7 @@
       const nMax = Math.max(0, ...Object.values(comboN));
       for (const u of Object.keys(comboCtl).map(Number)) {
         const ctl = comboCtl[u], one = nMax <= 1, tt = `${name}, u=${u}`;
-        if (ctl && typeof ctl === 'object') { ok(`${tt}: control: not applicable: the glide's map has ${ctl.na} surface at u = ${u} (window.__cmwLandSceneCombos), so a combo one off names none`, ctl.na <= 1, ctl); continue; }
+        if (ctl && typeof ctl === 'object') { ok(`${tt}: control: not applicable: the glide's map has ${ctl.na} surface at u = ${u} (window.__cmwLandSceneCombos): its value under combo 1 differs from combo 0's by at most ${ctl.diff ? ctl.diff.worst : '?'} (relative, over ${ctl.diff ? ctl.diff.n : 0} places; at most ${COMBO_NA_TOL})`, ctl.na <= 1 && !!ctl.diff && ctl.diff.n > 0 && ctl.diff.worst <= COMBO_NA_TOL, ctl); continue; }
         ok(`${tt}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${one ? 'not over ' + HUE_OFF_MAX + ' (not applicable: the colour map has at most ' + nMax + ' distinct sheet combo over the row, window.__cmwLandRefSheets)' : 'over ' + HUE_OFF_MAX + ' (' + nMax + ' distinct sheet combos over the row)'} pixels off (${ctl} are)`, one ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, nMax, comboN });
       }
     }
