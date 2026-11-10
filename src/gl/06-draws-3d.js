@@ -519,6 +519,13 @@
   }
   // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
   // draws at its nearest grid vertex, [{ h, member, combo, shift, w, z }] (none where no layer is valid there; combo the layer's forward shifts)
+  // the own neighbour a continued texel (code CARRY_CONT_CODE plus CARRY_ANCHOR_STEP times its 1-based place in the 3 x 3 neighbourhood) was continued from: { w, z }, null where the code names none
+  function anchorOf(px, pz, i, j, code) {
+    const a = Math.round((code - CARRY_CONT_CODE) / CARRY_ANCHOR_STEP) - 1;
+    if (!(code > CARRY_CONT_CODE + CARRY_ANCHOR_STEP / 2) || a < 0 || a > 8 || !pz) return null;
+    const N = Math.round(Math.sqrt(px.length / 4)), qi = i + (a % 3) - 1, qj = j + Math.floor(a / 3) - 1, q = 4 * (qj * N + qi);
+    return qi < 0 || qj < 0 || qi >= N || qj >= N ? null : { w: [px[q], px[q + 1]], z: [pz[q], pz[q + 1]] };
+  }
   function landFrameVerts(pts, box) {
     if (!landC || !landC.tex1) return null;
     const N = landC.N, fbo = gl.createFramebuffer();
@@ -531,7 +538,7 @@
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i), out = [];
-      layers.forEach(({ px, pz, pe, combo, shift, layered }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, shift, layered, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
+      layers.forEach(({ px, pz, pe, combo, shift, layered }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, shift, layered, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null, anchor: anchorOf(px, pz, i, j, px[k + 3]) }); });
       return out;
     });
   }
