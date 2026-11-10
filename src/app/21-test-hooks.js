@@ -435,13 +435,17 @@
     return g ? g.map((ls) => ls.map((l) => {
       const ms = l.z ? (window.__cmwLandEnum([l.w]) || [[]])[0] : [], at = (m) => Math.hypot(m.z[0] - l.z[0], m.z[1] - l.z[1]) <= LAND_ENUM_Z_TOL * (Math.hypot(l.z[0], l.z[1]) + 1);
       const dz = (q) => Math.hypot(q.z[0] - l.z[0], q.z[1] - l.z[1]);
-      const cand = ms.filter((q) => at(q) && Math.abs(q.h - l.h) <= LAND_ENUM_H_TOL).sort((a, b) => dz(a) - dz(b)), m = cand[0];
+      const sat = [render3D.frameHeight(-HEIGHT_SAT_PROBE), render3D.frameHeight(HEIGHT_SAT_PROBE)];   // (a height beyond the colour map's saturation is drawn clipped by the parked frame: two heights past it on one side are one)
+      const hEq = (a, b) => Math.abs(a - b) <= LAND_ENUM_H_TOL || (a >= sat[1] - LAND_ENUM_H_TOL && b >= sat[1] - LAND_ENUM_H_TOL) || (a <= sat[0] + LAND_ENUM_H_TOL && b <= sat[0] + LAND_ENUM_H_TOL);
+      const atZ = ms.filter(at), cand = (atZ.some((q) => hEq(q.h, l.h)) ? atZ.filter((q) => hEq(q.h, l.h)) : atZ).sort((a, b) => dz(a) - dz(b)), m = cand[0];   // (the member's z is its sheet's: its height only tells apart members of one z)
       return Object.assign({}, l, { f: m ? m.f : null, sheet: m ? m.sheet : null, matches: m ? 1 + cand.filter((q) => q !== m && Math.hypot(q.z[0] - m.z[0], q.z[1] - m.z[1]) > LAND_ENUM_SAME_Z && dz(q) <= LAND_ENUM_NEAR * dz(m)).length : 0 });
     })) : g;
   };
-  // the sheet each layer the last carried frame drew claims at probe places (GLR.ownCombo, the one decoder the frame's own sheet code is read through), against the sheet the scene certifies there:
-  // per place [{ h, sat, member, layered, claimShift, claimFwd, sceneShift, opts }] (layered: the layer is one branch of its own, All sheets; the sheets-off frame merges the step's sheets and claims none): the claim is the layer's step sheet (shift) and its forward shifts (combo); sceneShift is the step sheet of the CPU enumerator's sheet
-  // that matches the layer's z and height, and opts the colour map's forward combos at the layer's z with their heights (__cmwLandRefSheets). bump adds 1 to the first forward shift of layer bump.layer (a control: a claim one sheet off); null with no carried frame
+  // the sheet each layer the last carried frame drew claims at probe places, as the frame composes its own sheet code (GLR.ownCombo: the layer's step sheet, then its forward shifts):
+  // per place [{ h, sat, member, layered, nParts, claimShift, claim, sceneShift, opts }] (layered: the layer is one branch of its own, All sheets; the sheets-off frame merges the step's sheets and claims none).
+  // claim decodes the whole, claimShift the step sheet alone; sceneShift is the step sheet of the CPU enumerator's sheet that holds the layer's z (its height tells apart members of one z), and opts the colour map's
+  // combos at the layer's z with their heights (__cmwLandRefSheets); sat the heights the colour map saturates at. bump adds 1 to the first entry of the claim of layer bump.layer (a control: a claim one sheet off);
+  // null with no carried frame
   const HEIGHT_SAT_PROBE = 1e12;   // (a value far past the range any height formula resolves: its height is the formula's saturation)
   window.__cmwLandClaims = (pts, bump) => {
     const g = window.__cmwLandFrameVerts(pts), inp = render3D.exactIn;
@@ -450,8 +454,9 @@
     const sat = [render3D.frameHeight(-HEIGHT_SAT_PROBE), render3D.frameHeight(HEIGHT_SAT_PROBE)];   // (the heights the colour map's height saturates at: a value far past either end of its range)
     const code = (shifts) => GLR.ownCombo(W, Infinity, shifts.filter(Boolean));
     return g.map((ls) => ls.map((l) => {
-      const fwd = (l.combo || []).map((x, i) => (bump && bump.layer === l.member && i === 0 ? Object.assign({}, x, { dk: x.dk + 1 }) : x));
-      return { h: l.h, sat, member: l.member, layered: !!l.layered, nCombo: (l.combo || []).length, claimShift: code([l.shift]), claimFwd: code(fwd), sceneShift: l.sheet == null ? null : code([sheets[l.sheet] && sheets[l.sheet].shift]), opts: l.z ? window.__cmwLandRefSheets(l.z).map((r) => ({ combo: r.combo, h: r.h })) : [] };
+      // (the layer's whole claim, as the frame's own sheet code is composed: its step sheet, then its forward shifts)
+      const parts = [l.shift].concat(l.combo || []).filter(Boolean), bumped = parts.map((x, i) => (bump && bump.layer === l.member && i === 0 ? Object.assign({}, x, { dk: x.dk + 1 }) : x));
+      return { h: l.h, sat, member: l.member, layered: !!l.layered, nParts: parts.length, claimShift: code([l.shift]), claim: code(bumped), sceneShift: l.sheet == null ? null : code([sheets[l.sheet] && sheets[l.sheet].shift]), opts: l.z ? window.__cmwLandRefSheets(l.z).map((r) => ({ combo: r.combo, h: r.h })) : [] };
     }));
   };
   // the last carried frame's cut edges per layer: [{ cuts, box, pp: [patch] }], each grid { n, jumps, w } (the jump texels of its three edge textures and the places of the first few); null with no carried frame
