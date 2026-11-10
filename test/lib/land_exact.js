@@ -924,8 +924,14 @@
           // (the frame's own record of its claimed sheet, window.__cmwLandClaims: each drawn layer's step sheet and forward shifts decoded through the one decoder the frame reads its own sheet code with (GLR.ownCombo),
           // against the sheet the scene certifies there: the step sheet of the enumerator's matching sheet and a forward combo of the colour map at the layer's z with the layer's height)
           const claims = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`), layersOf = (cl) => (cl || []).flat().filter((l) => l.layered), nMerged = ((claims || []).flat()).length - layersOf(claims).length;
-          // (a colour map with one combo is that combo; with several, the combos whose height at the layer's z is finite are told apart by the layer's height, and with none finite the claim cannot be read: it fails)
-          const fwdClaimOk = (l) => (l.opts.length <= 1 ? l.opts.length === 0 || l.opts[0].combo === l.claimFwd : l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claimFwd));
+          // (a colour map with one combo is that combo; with several, a layer below the colour map's saturation is told apart by its height, and one beyond it (the layer holds the true height, the colour map's is clipped
+          // there as the parked frame draws it) agrees with the combo saturated on its side, which must be the only one there: with two or none the claim cannot be read and it fails)
+          const fwdClaimOk = (l) => {
+            if (l.opts.length <= 1) return l.opts.length === 0 || l.opts[0].combo === l.claimFwd;
+            const hi = l.h >= l.sat[1] - HEIGHT_TOL, lo = l.h <= l.sat[0] + HEIGHT_TOL;
+            if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= l.sat[1] - HEIGHT_TOL) || (lo && o.h <= l.sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claimFwd; }
+            return l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claimFwd);
+          };
           const claimBad = (cl) => layersOf(cl).filter((l) => (l.sceneShift !== null && l.claimShift !== l.sceneShift) || !fwdClaimOk(l));
           const nLayers = layersOf(claims).length, cBad = claimBad(claims);
           if (nLayers === 0) ok(`${t}: the frame is one merged frame of the step's sheets (${nMerged} drawn places): it claims no single sheet (not applicable; the All sheets rows read each layer's claim)`, nMerged > 0, { nMerged });
