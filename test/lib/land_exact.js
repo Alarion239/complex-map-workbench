@@ -165,6 +165,7 @@
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
   const COMBO_NA_PLACES = 20, COMBO_NA_TOL = 1e-9;   // (a map with one surface: its values under two combos are compared at this many places of the box, to this tolerance relative to 1 + |w|)
+  const CONT_CODE_MIN = 10.15, RING_Z_TOL = 1e-4;   // (a drawn texel with a code from here up is a continued one (the product's CARRY_CONT_CODE less 0.1); a cross-layer texel's preimage is its owner's to this relative distance)
   const SURF_TOL = 1e-6;   // (a surface read back from its digits agrees with the member's value to this fraction of 1 + |f|)
   const CLAIM_SAMPLE = 8;   // (the layers a failing claim row lists)
   const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
@@ -960,8 +961,8 @@
           };
           // (a texel continued from an anchor (code CARRY_CONT_CODE plus the anchor's place) is read by where its anchor's own surface lands, continued from the anchor to the texel (CPU: the scene's
           // surfaces by value), against the surfaces that hold the texel's place; the claim rows read the others)
-          const anchored = (l) => !!l.anchor && !!l.w && !!l.z;
-          const claimBad = (cl) => layersOf(cl).filter((l) => !anchored(l)).filter((l) => l.sceneShift === null || l.claimShift !== l.sceneShift || !fwdClaimOk(l));
+          const anchored = (l) => !!l.anchor && !!l.w && !!l.z, continued = (l) => l.code >= CONT_CODE_MIN;
+          const claimBad = (cl) => layersOf(cl).filter((l) => !continued(l)).filter((l) => l.sceneShift === null || l.claimShift !== l.sceneShift || !fwdClaimOk(l));
           const nLayers = layersOf(claims).length, cBad = claimBad(claims);
           if (nLayers === 0) ok(`${t}: the frame is one merged frame of the step's sheets (${nMerged} drawn places): it claims no single sheet (not applicable; the All sheets rows read each layer's claim)`, nMerged > 0, { nMerged });
           else ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, CLAIM_SAMPLE) });
@@ -974,6 +975,17 @@
               ok(`${t}: every continued texel's anchor surface, continued from the anchor to the texel, lands on a surface that holds the texel's place (${bad.length} of ${cont.length} do not)`, bad.length === 0, { n: bad.length, sample: bad.slice(0, CLAIM_SAMPLE) });
               ok(`${t}: the control: an anchor across the cut lands elsewhere (${cross.length} of ${cont.length} texels)`, cross.length > 0, { cross: cross.length });
               ok(`${t}: the control: read as the layer's own surface, the continued texels are not on a surface that holds them (${own.length} of ${cont.length})`, own.length > 0, { own: own.length });
+            }
+          }
+          // (a texel the cross-layer pass wrote (code CARRY_CONT_CODE, no anchor) holds the geometry of another layer's member, so that the two layers' copies of a surface piece coincide: it is read through the layer
+          // that owns it, the one with an own texel at that place holding the same preimage and height, whose claim is the scene's sheet there; read as its own layer's claim it is the sheet beside it (control))
+          {
+            const rings = [];
+            (claims || []).forEach((ls) => (ls || []).forEach((l) => { if (l.layered && continued(l) && !anchored(l) && l.z) rings.push({ l, own: (ls || []).find((o) => o !== l && o.layered && !continued(o) && o.z && Math.hypot(o.z[0] - l.z[0], o.z[1] - l.z[1]) <= RING_Z_TOL * (1 + Math.hypot(l.z[0], l.z[1])) && Math.abs(o.h - l.h) <= HEIGHT_TOL) }); }));
+            if (rings.length) {
+              const bad = rings.filter((x) => !x.own || x.own.sceneShift === null || x.own.claimShift !== x.l.sceneShift), asOwn = rings.filter((x) => x.l.claimShift !== x.l.sceneShift);
+              ok(`${t}: every cross-layer texel (${rings.length}) is the geometry of a layer that owns it there, and that layer's claimed sheet is the scene's (${bad.length} are not)`, bad.length === 0, { n: bad.length, sample: bad.slice(0, CLAIM_SAMPLE).map((x) => ({ h: x.l.h, z: x.l.z, claim: x.l.claimShift, scene: x.l.sceneShift, own: x.own ? { claim: x.own.claimShift, member: x.own.member, h: x.own.h } : null })) });
+              ok(`${t}: the control: read as its own layer's claim a cross-layer texel is the sheet beside it (${asOwn.length} of ${rings.length})`, asOwn.length > 0, { n: asOwn.length });
             }
           }
           const bumpLayer = layersOf(claims).find((l) => l.nParts > 0);
