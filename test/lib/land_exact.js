@@ -425,9 +425,9 @@
         let c = iv.i, hit = false, lost = false, chain = 0, nonT = false;
         for (let g = 0; g <= setV.length; g++) {
           // (each step of the chain is a translation by the same T: the image of the member c is c + T; a step that is not makes the chain no certificate either way; opt.shiftStep moves the second step's image by one more T, the control that this check fires)
-          const lamC = opt && opt.nullLam && g === 1 ? null : tr[c].lam;   // (opt.nullLam: the second step's member has no log coordinate, the control that the check fires)
-          if (iv.lam0 && !(lamC && setV[c].lam)) { window.__lxCnt.noLam++; nonT = true; }   // (on a log chain a step with no log coordinate cannot be shown a translation: the chain is no certificate, and the row counts it)
-          else if (iv.lam0) {
+          const lamC = opt && ((opt.nullLam && g === 1) || (opt.nullFirst && g === 0)) ? null : tr[c].lam;   // (opt.nullLam, opt.nullFirst: the second step's, the first step's member has no log coordinate: the controls that the check fires)
+          if (window.__lxLogChain && !(opt && opt.zchart) && !(lamC && setV[c].lam)) { window.__lxCnt.noLam++; nonT = true; }   // (on a chain with a branch step a step with no log coordinate cannot be shown a translation: the chain is no certificate, and the row counts it; the z-chart control tracks in z, where members have none by construction, and compares verdicts only)
+          else if (iv.lam0 && lamC) {
             let sh = csub(lamC, setV[c].lam);
             if (opt && opt.shiftStep && g === 1) sh = cadd(sh, iv.lam0);
             if (cabs(csub(sh, iv.lam0)) > ${LAMBDA_SAME} * (1 + cabs(setV[c].lam))) nonT = true;
@@ -911,6 +911,8 @@
         // the flagged edges at an end of their chord: on the step's cut, a seam between two members of the glide's map (which the sheets-off two-layer
         // item (#1439) turns into layers) or a branch value in a cell at the vertex, each proved by the certificates of __lx.certEdge, never a cut
         // where there is none; the members are those of the scene's homotopy, so none of the page's seam constants is read
+        // (a chain with a branch step (a root or a logarithm: branchPoints) solves its members in the log coordinate, so a member of it with none is a failure of the check, never a skipped step; chains with no branch step have no loops to read and are out of scope here)
+        await ev(`window.__lxLogChain = ${brPts.length > 0}`);
         const prep = await ev('__lx.certPrep()');
         const certs = [];
         for (let k = 0; k < prep.pending; k++) certs.push(await ev(`__lx.certEdge(${k}, {})`));
@@ -1010,6 +1012,8 @@
             if (synSh.cls === 'unresolved' && synSh.why === 'nonTranslate') bit.nonT++;
             const synNl = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, nullLam: true })`);
             if (synNl.cls === 'unresolved' && synNl.why === 'nonTranslate') bit.noLam++;
+            const synNf = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, nullFirst: true })`);
+            ok(`${t}: control: with the first member of the chain having no log coordinate the made-up branch edge reads unresolved (${synNf.cls}, ${synNf.why})`, synNf.cls === 'unresolved' && synNf.why === 'nonTranslate', synNf);
             ok(`${t}: control: with one chain step's member having no log coordinate the made-up branch edge reads unresolved (${synNl.cls}, ${synNl.why})`, synNl.cls === 'unresolved' && synNl.why === 'nonTranslate', synNl);
             ok(`${t}: control: with one chain step shifted by one more T the made-up branch edge reads unresolved by its steps not being translations (${synSh.cls}, ${synSh.why})`, synSh.cls === 'unresolved' && synSh.why === 'nonTranslate', synSh);
           }
