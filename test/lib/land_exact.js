@@ -95,6 +95,7 @@
   };
   const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
   const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
+  const FRESH_U_STEP = 0.01;   // (the control of a fresh page's identity: parked this far from the frame's u it must differ)
   const POLE_R = 1e-7, POLE_BIG = 1e3;   // (a pole's ring: the radius it is read at and the |H| the map has there, the scene's own constants)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
@@ -523,7 +524,15 @@
   ok('the window count fails the same window for every sheet (control)', LAYER_PLACES.some((w) => windowLayers(w, 0.5, false) !== windowLayers(w, 0.5, true)), null);
   ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
-  const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
+  // the identity of the frame the references are judged on: the case's chain, the scope, the plane's box and camera, the plane record, the surfaces, the scene's
+  // poles and the homotopy's value at a fixed place (which moves with u)
+  const frameId = async (c, sheets) => {
+    const q = await ev(`(() => { if (window.__cmwLandRelief) __cmwLandRelief(); const r = window.__cmwLandRelief, s = __cmwLandSing(), h = __cmwLandHom([${HOM_PLACE}]); return { box: r && r.land && r.land.box || null, rest: { cam: __cmwCam('L'), plane: __cmwLandPlane(), surf: __cmwLandSurfaces(), poles: s && s.poles, hom: h && h[0] && h[0].H } }; })()`);
+    return { key: JSON.stringify([c.tag, sheets, q.rest]), box: q.box };
+  };
+  // (the plane's relief box is fitted to the view and differs by under BOX_REL_TOL of its width between two loads of one frame)
+  const BOX_REL_TOL = 1e-3;
+  const sameFrame = (a, b) => a.key === b.key && !!a.box && !!b.box && ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(a.box[k] - b.box[k]) <= BOX_REL_TOL * (b.box.x1 - b.box.x0));  const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   await view(VIEW_W, VIEW_H, false, false);
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
   for (const c of CASES.filter((x) => !process.env.CMW_ONLY || x.tag === process.env.CMW_ONLY)) for (const sheets of MODES) {
@@ -553,6 +562,7 @@
     const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
+    const deferred = [];   // (the controls of this case, run each on a freshly loaded page after the case's own checks)
     for (const u0 of GLIDE_U) {
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
@@ -1088,10 +1098,7 @@
       }
       // the controls, each a reference that must fail: too shallow a lattice at the thinnest feature, the nearest root taken as a member's
       // identity at the Newton glide's end, the seam of a boundary cell moved one cell, a branch point located one cell off
-      const control = async (name, extra, need) => {
-        const c = await runReference(sheets, Object.assign({}, REF, extra));
-        ok(`${t}: the control: ${name} fails the reference`, !!c && need(c), { off: c && c.off, failures: c && c.failures.slice(0, 3) });
-      };
+      const control = async (name, extra, need) => { deferred.push({ name, extra, need, u, t, camU, id: await frameId(c, sheets) }); };
       if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH}`, { CELL_DEPTH_MAX: CTL_DEPTH }, (c) => c.failures.some((f) => f.kind === 'cellDepth'));
       if (/Newton/.test(t) && u === END_U) await control('the nearest root taken as identity', { seed: true }, (c) => c.failures.length > 0 || c.off > RASTER_TOL);
       // (the rays decide fewer pixels than the tolerance in these frames: the seam control is armed where they decide at least SEAM_MIN_HITS, and fails the reference when the
@@ -1133,6 +1140,28 @@
       r.fixControl = { dOn, dOff };
       ok(`${name}: u=${1 - END_U}: with the sheet pass the frame is the next plane's parked frame (at most ${SAME_FRAC * 100} %)`, on && dOn <= SAME_FRAC, r.fixControl);
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
+    }
+    // the controls, each on a page loaded afresh and parked at its frame (the page that ran the case's references holds the heap of all of them): the frame's identity
+    // is asserted on every fresh page, and a page parked at u + FRESH_U_STEP must not have it (the control of the identity)
+    const freshAt = async (u, camU) => {
+      await load(c, sheets);
+      await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
+      await setU(u);
+      await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      await grab('ctl');
+      return frameId(c, sheets);
+    };
+    for (const d of deferred) {
+      const id = await freshAt(d.u, d.camU);
+      ok(`${d.t}: the fresh page the control is judged on is the frame's (same chain, scope, box, camera, plane, surfaces, poles and homotopy)`, sameFrame(id, d.id), { id, want: d.id });
+      if (d.extra.seam) await runReference(sheets, REF);   // (the seam control's difference is counted against the uncontrolled reference of the same page)
+      const cr = await runReference(sheets, Object.assign({}, REF, d.extra));
+      const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => null);
+      ok(`${d.t}: the control: ${d.name} fails the reference (page heap ${heap} MB)`, !!cr && d.need(cr), { off: cr && cr.off, failures: cr && cr.failures.slice(0, 3) });
+    }
+    if (deferred.length) {
+      const d = deferred[0], id = await freshAt(d.u + FRESH_U_STEP, d.camU);
+      ok(`${d.t}: control: a page parked at u + ${FRESH_U_STEP} is not the frame's`, !sameFrame(id, d.id), { id, want: d.id });
     }
   }
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);

@@ -97,6 +97,7 @@
     COUNT_STRIDE: 128,      // every this many accepted cells the completeness count is read at the cell's first corner (winding plus poles equals the members found, on every sheet); a calibration of the count's cost against the sweep's time
     COUNT_BND_MAX: 64,      // counts at most at cells whose members change (a fold's island or a cut's far side: the places the stride may miss), spread evenly over them
     COUNT_CRIT: 0.5,        // counts on each side of every critical value of H, at this share of the certificate's image radius from it
+    FAIL_KEEP: 64,          // failures kept per kind (the list a result carries)
     PLACES_MAX: 4e6,        // places looked up at most (a bound on the run)
   };
   const K = CONSTS;
@@ -118,7 +119,8 @@
     const why = (k) => { cells.why[k] = (cells.why[k] || 0) + 1; };
     const certs = [], failures = [];
     let singList = null;   // the plan's declared singular points, read once
-    const fail = (f) => { if (failures.length < 64) failures.push(f); };
+    const failKept = {};   // (each kind keeps its first FAIL_KEEP failures, so that one kind's flood does not hide another kind)
+    const fail = (f) => { failKept[f.kind] = (failKept[f.kind] || 0) + 1; if (failKept[f.kind] <= o.FAIL_KEEP) failures.push(f); };
     const tick = () => { if (frame.progress) frame.progress(cells, failures); };
     const FINE = 1 << o.CELL_DEPTH_MAX;                       // lattice steps of the finest cell, per initial cell
     const NXF = o.nx * FINE, NYF = o.ny * FINE;
