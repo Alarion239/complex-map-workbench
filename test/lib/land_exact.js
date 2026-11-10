@@ -1192,7 +1192,7 @@
         const rf = await ev('JSON.stringify({ refused: window.__lxRefused, status: GLR.frameStatus().error, cut: (__cmwLandCarry() || {}).stradTruncated || 0, count: (__cmwLandCarry() || {}).stradCount })').then(JSON.parse);
         await ev(`console.error = window.__lxCE; __svCarryProbe = null; 1`);
         info.refusal = rf;
-        ok(`${t}: control: a limit of ${CEIL_K} (no ceiling) under the cells of the frame at u=${u} refuses the frame with the count (the frame loop logs the throw and draws nothing), and cuts nothing off`, rf.refused.some((m) => /straddling cells' list needs \d+ cells, over the 4096/.test(m)) && rf.cut === kc, { rf, kc });
+        ok(`${t}: control: a limit of ${CEIL_K} (no ceiling) under the cells of the frame at u=${u} refuses the frame with the count (the frame loop logs the throw and draws nothing; the frame's error status says so with the count), and cuts nothing off`, rf.refused.some((m) => /straddling cells' list needs \d+ cells, over the 4096/.test(m)) && rf.cut === kc && rf.status === `This frame needs ${rf.count} cells in its list of cut cells, over the ${CEIL_K} a grid has, so it is not drawn.`, { rf, kc });
       }
       await ev('__svCarryProbe = null; 1');
     }

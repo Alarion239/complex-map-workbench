@@ -3376,5 +3376,6 @@
  "Computed numerically: there is no f₊ and f₋ to show apart": "Calcolato numericamente: f₊ e f₋ non si possono mostrare separati",
  "F is not finite on the curve: its Cauchy integral is not defined": "F non è finita sulla curva: il suo integrale di Cauchy non è definito",
  "Cauchy: on z only": "Cauchy: solo su z",
- "No curve selected": "Nessuna curva selezionata"
+ "No curve selected": "Nessuna curva selezionata",
+ "This frame needs {n} cells in its list of cut cells, over the {max} a grid has, so it is not drawn.": "Questo fotogramma richiede {n} celle nell'elenco delle celle tagliate, più delle {max} che una griglia ammette, quindi non viene disegnato."
 }

@@ -1822,7 +1822,10 @@
             if (L.stradCap0 !== strK0) { L.stradCap0 = strK0; L.stradCap = strK0; }   // (the capacity restarts when its first value changes: a control's)
             let cap = L.stradCap;
             const limit = carryProbe.stradLimit || LAND_STRAD_K_MAX;
-            if (!carryProbe.stradMax && count > limit) throw new Error('the straddling cells\' list needs ' + count + ' cells, over the ' + limit + ' a grid has');
+            if (!carryProbe.stradMax && count > limit) {
+              frameErr = $t('This frame needs {n} cells in its list of cut cells, over the {max} a grid has, so it is not drawn.', { n: count, max: limit });
+              throw new Error('the straddling cells\' list needs ' + count + ' cells, over the ' + limit + ' a grid has');
+            }
             const ceil = carryProbe.stradMax || limit;
             const want = carryProbe.stradNoGrow ? cap : Math.min(stradCapFor(cap, count), ceil);
             if (want > cap) { cap = want; stradGrows++; }

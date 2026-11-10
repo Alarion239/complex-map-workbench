@@ -710,5 +710,6 @@
  "Computed numerically: there is no f₊ and f₋ to show apart": "Вычислено численно: f₊ и f₋ раздельно не показать",
  "F is not finite on the curve: its Cauchy integral is not defined": "F не конечна на кривой: её интеграл Коши не определён",
  "Cauchy: on z only": "Коши: только на z",
- "No curve selected": "Кривая не выбрана"
+ "No curve selected": "Кривая не выбрана",
+ "This frame needs {n} cells in its list of cut cells, over the {max} a grid has, so it is not drawn.": "Этому кадру нужно %{n} ячеек в списке разрезанных ячеек, больше допустимых %{max} для сетки, поэтому он не рисуется."
 }
