@@ -924,7 +924,9 @@
           // (the frame's own record of its claimed sheet, window.__cmwLandClaims: each drawn layer's step sheet and forward shifts decoded through the one decoder the frame reads its own sheet code with (GLR.ownCombo),
           // against the sheet the scene certifies there: the step sheet of the enumerator's matching sheet and a forward combo of the colour map at the layer's z with the layer's height)
           const claims = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`), layersOf = (cl) => (cl || []).flat();
-          const claimBad = (cl) => layersOf(cl).filter((l) => (l.sceneShift !== null && l.claimShift !== l.sceneShift) || (l.opts.length > 0 && !l.opts.some((o) => Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claimFwd)));
+          // (a colour map with one combo is that combo; with several, the combos whose height at the layer's z is finite are told apart by the layer's height, and with none finite the claim cannot be read: it fails)
+          const fwdClaimOk = (l) => (l.opts.length <= 1 ? l.opts.length === 0 || l.opts[0].combo === l.claimFwd : l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claimFwd));
+          const claimBad = (cl) => layersOf(cl).filter((l) => (l.sceneShift !== null && l.claimShift !== l.sceneShift) || !fwdClaimOk(l));
           const nLayers = layersOf(claims).length, cBad = claimBad(claims);
           ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, nLayers > 0 && cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, 3) });
           const bumpLayer = layersOf(claims).find((l) => l.nCombo > 0);
