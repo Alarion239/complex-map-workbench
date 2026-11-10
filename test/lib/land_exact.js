@@ -363,7 +363,7 @@
   // layers, the others stay as they are
   window.__lxExpand = (o, refsOf) => o.flatMap((m) => {
     const rs = refsOf(m.z).filter((r) => r.f && r.h !== null);
-    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, member: m.member, src: m.src, lvl: m.lvl, cell: m.cell, front: m.front, combo: r.combo })) : [m];
+    return rs.length > 1 ? rs.map((r) => ({ z: m.z, f: r.f, h: r.h, sheet: m.sheet, digits: m.digits, member: m.member, src: m.src, lvl: m.lvl, cell: m.cell, front: m.front, combo: r.combo })) : [m];
   });
   window.__lxEnum = (pts, sheets) => {
     const e = typeof __cmwLandMembers === 'function' ? __cmwLandMembers(pts) : null;
