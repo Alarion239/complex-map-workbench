@@ -57,19 +57,19 @@ const run = async (exact) => {
   await ev(`__cmwSteps({ x: ${GLIDE_X} }); 1`);
   await settled({ max: DRAWN_WAIT, until: `(() => { const s = __cmwSteps(); return !s.moving && s.glide && s.glide.path; })()` });
   await drawn();
-  const glide = await points(), rec = await ev(`JSON.stringify((__cmwSteps().glide || {}))`);
+  const glide = await points(), glidePath = await ev(`(__cmwSteps().glide || {}).path`);
   await toPlane(0);
   const plane0 = await points();
-  return { rest, glide, plane0, rec: JSON.parse(rec) };
+  return { rest, glide, plane0, glidePath };
 };
 const on = await run(true), off = await run(false);
 info.n = on.rest.filter(Boolean).length;
 ok('the page reads the grid', info.n >= 0.9 * NX * NY && off.rest.filter(Boolean).length >= 0.9 * NX * NY, info);
 const restSame = differ(on.rest, off.rest), glideSame = differ(on.glide, off.glide), ctl = differ(on.rest, on.plane0);
-info.rest = restSame; info.glide = glideSame; info.control = ctl; info.glideRec = { on: on.rec.path, off: off.rec.path };
+info.rest = restSame; info.glide = glideSame; info.control = ctl; info.glideRec = { on: on.glidePath, off: off.glidePath };
 ok(`at rest the frame with the switch off is the frame with it on (at most ${SAME_SHARE * 100} % of the points differ)`, restSame.share <= SAME_SHARE, restSame);
 ok(`a glide frame under the switch off is the one under the switch on (at most ${SAME_SHARE * 100} % of the points differ)`, glideSame.share <= SAME_SHARE, glideSame);
-ok('a glide is drawn by the inverse pass under the switch off, as under the switch on', on.rec.path === 'inverse' && off.rec.path === 'inverse', info.glideRec);
+ok('a glide is drawn by the inverse pass under the switch off, as under the switch on', on.glidePath === 'inverse' && off.glidePath === 'inverse', info.glideRec);
 ok(`control: the measure tells plane 1's rest frame from plane 0's (over ${SAME_SHARE * 100} % of the points differ)`, ctl.share > SAME_SHARE, ctl);
 // the classic view: a region's path takes the switch
 const classicPath = async (exact) => {
@@ -80,7 +80,8 @@ const classicPath = async (exact) => {
   return JSON.parse(await ev(`JSON.stringify(__cmwPaths())`));
 };
 const cOn = await classicPath(true), cOff = await classicPath(false);
-const pick = (r) => r.filter((e) => e.id === 's1').map((e) => ({ role: e.role, path: e.path, reason: e.reason }));
+// (the classic left pane draws the source plane, an identity map that is always forward: the image is the right pane's)
+const pick = (r) => r.filter((e) => e.id === 's1' && e.role === 'R').map((e) => ({ role: e.role, path: e.path, reason: e.reason }));
 info.classic = { on: pick(cOn), off: pick(cOff) };
 ok('classic: with the switch on a region is drawn by the inverse pass', pick(cOn).length > 0 && pick(cOn).every((e) => e.path === 'inverse'), info.classic.on);
 ok("classic: with the switch off the same region is drawn forward ('exact images off')", pick(cOff).length > 0 && pick(cOff).every((e) => e.path === 'forward' && e.reason === 'exact images off'), info.classic.off);

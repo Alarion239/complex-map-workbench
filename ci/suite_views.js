@@ -94,6 +94,7 @@ const VIEWS = {
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
+  'steps_exact_switch_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
   'steps_regions_note_cmd.js': steps({ pin: true }),
