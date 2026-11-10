@@ -1674,6 +1674,7 @@
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
       u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
+      u1f(Pc, 'uCapEps', carryProbe.capEps == null ? -1 : carryProbe.capEps);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
