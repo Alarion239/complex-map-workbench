@@ -59,6 +59,11 @@ for (const [i, c] of CASES.entries()) {
   await seedCase(c, i);
   R[c.name] = {};
   for (const v of VIEWS) {
+    // control: the one-phase exponent blanks the frame near 1/(1 - a)
+    const r1 = await row(c, v, 'powOnePhase');
+    R[c.name][v + ' onePhase'] = r1;
+    ok(`${c.name} ${v}: control, the one-phase exponent leaves a blank frame near u = ${(1 / (1 - c.a)).toFixed(3)}`, r1.low.length > 0, r1);
+    await ev('__svCarryProbe = null; 1');
     const r = await row(c, v, null);
     R[c.name][v] = r;
     ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of the expected share of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
@@ -67,11 +72,6 @@ for (const [i, c] of CASES.entries()) {
       const ex = r.rows[U_CTRL[0]] && r.rows[U_CTRL[0]].exp;
       ok(`${c.name} plane: the expected share at u=${U_CTRL[0]} (${ex}) is ${Math.abs(c.a) < 1 ? 'below' : 'at'} ${EXPECT_FULL_MAX}`, Math.abs(c.a) < 1 ? ex < EXPECT_FULL_MAX : ex === 1, r.rows);
     }
-    // control: the one-phase exponent blanks the frame near 1/(1 - a)
-    const r1 = await row(c, v, 'powOnePhase');
-    R[c.name][v + ' onePhase'] = r1;
-    ok(`${c.name} ${v}: control, the one-phase exponent leaves a blank frame near u = ${(1 / (1 - c.a)).toFixed(3)}`, r1.low.length > 0, r1);
-    await ev('__svCarryProbe = null; 1');
     if (v === 'land') {
       // the Landscape's end frames (Ruling C) read the shared refImage of the P0 suite (#1317), absent here: a loud failure
       ok(`${c.name} land: the Landscape end frames need the shared refImage (test/lib/ref_image.js, #1317)`, fs.existsSync(path.join(DIR, '..', 'lib', 'ref_image.js')), 'test/lib/ref_image.js is missing');
