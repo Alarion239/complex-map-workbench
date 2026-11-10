@@ -442,6 +442,58 @@ void main() {
     }
     if (AN.failCount) R.failCount += AN.failCount;
   }
+  // ---- Repeat chains (#1472): the REPT walker's coverage against its CPU twin's (Inverse.enumerate) on the scenes of
+  // test/steps_parked_repeat_cmd.js (Newton's step for z^3 - 1: the gallery square at Repeat x 20, the bite box at x 2 and,
+  // pruned through its forward enclosures, at x 20), on a grid over the plane and over the bite box: at every point the
+  // verdict is the same (covered, empty, unresolved; a coverage below the leaves' 0.03 counts as either side of the edge)
+  // and U is within the leaves' 0.03 ----
+  if (opts.rept !== false) {
+    const RP = R.rept = { points: 0, compared: 0, failCount: 0, fails: [], verdicts: { covered: 0, empty: 0, unresolved: 0 } };
+    const MAIN_REPT = `
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
+  ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
+  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = t.xy;
+  invWalk(t.xy);
+  o = vec4(U, float(nCov), ixRepFail || ixRepCap || ixRepUnres ? 1.0 : 0.0, float(ixRepFull));
+}
+`;
+    const EXTRA_REPT = { pre: 'uniform highp sampler2D uW;\n', main: MAIN_REPT };
+    const EDGE_U = 0.03, PIX = 1 / 140, VIEW = { x0: -4.3, x1: 4.3, y0: -2.9, y1: 2.9 }, BOX = { x0: 0.5, x1: 1.7, y0: -0.6, y1: 0.6 };
+    const NEWTON = 'z-(z^3-1)/(3*z^2)';
+    const grid = (b, k) => { const out = []; for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(C(Math.fround(b.x0 + (i + 0.5) * (b.x1 - b.x0) / k), Math.fround(b.y0 + (j + 0.5) * (b.y1 - b.y0) / k))); return out; };
+    const SCENES = [['gallery square x 20', 20, { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] }, grid(VIEW, 32)],
+      ['bite x 2', 2, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(BOX, 22).concat(grid(VIEW, 23)).slice(0, 1024)],
+      ['bite x 20', 20, { id: 'bt', kind: 'rect', a: [0.6, -0.5], b: [1.6, 0.5] }, grid(VIEW, 32)]];
+    for (const [name, nRep, shape, pts] of SCENES) {
+      const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+      const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
+      if (!plan.ok || plan.ops[0].kind !== 'REPT') { RP.failCount++; RP.fails.push({ chain: name, bad: ['plan ' + (plan.reason || plan.ops.map((o) => o.kind).join('>'))] }); continue; }
+      GLR.setChain(GLChain.build(steps, built));
+      const prep = Inverse.prepare(plan, { win: VIEW, shape });
+      GLR.packShapes([shape], { debounce: false });
+      const px32 = Math.fround(PIX), alpha = 1, B = GLR.inverseB(alpha), K = Math.min(B, GLR.inverseK(alpha));
+      const data = new Float32Array(1024 * 2 * 4);
+      pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = px32; });
+      const st = { map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha, alphaOwn: alpha, pattern: 'checker', cell: 0.5 }, extra: EXTRA_REPT };
+      const g = await gpuRun(st, data, pts.length, 1);
+      if (g.error) { R.errors.push(`rept ${name}: gpu ${g.error}`); continue; }
+      pts.forEach((w, i) => {
+        RP.points++;
+        const q = g.out.subarray(4 * i, 4 * i + 4), vg = q[1] > 0 ? 1 : q[2] > 0 ? -1 : 0;
+        const cpu = Inverse.enumerate(plan, prep, w, px32, { K, B, leaves: false }), vc = cpu.rept.verdict;
+        RP.verdicts[vc > 0 ? 'covered' : vc < 0 ? 'unresolved' : 'empty']++;
+        RP.compared++;
+        const bad = [];
+        if (vg !== vc && !(vg >= 0 && vc >= 0 && Math.max(q[0], cpu.U) <= EDGE_U)) bad.push(`verdict gpu ${vg} cpu ${vc} (U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)})`);
+        if (Math.abs(q[0] - cpu.U) > EDGE_U) bad.push(`U gpu ${q[0].toFixed(3)} cpu ${cpu.U.toFixed(3)}`);
+        if (bad.length) { RP.failCount++; if (RP.fails.length < 30) RP.fails.push({ chain: name, w: [w.re, w.im], bad }); }
+      });
+    }
+    if (RP.failCount) R.failCount += RP.failCount;
+  }
   // ---- shapeClip vs Region.shapeClip ----
   {
     const steps = [St('mul', { c: '1' })], built = steps.map(Funcs.build);

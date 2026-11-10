@@ -632,7 +632,19 @@ const InvOps = (() => {
   // a cell whose disc meets a pole (or outgrows ENCL_R_MAX) at some level is cut in four and pushed again, while the
   // cells pushed stay within ENCL_CELLS_MAX. A cell that cannot be cut makes every level from its failure on the whole
   // plane. E_r is the box of every disc at level r (each cell's discs enclose its points' images, and the cells cover b).
+  // (cached by P, Q, n and the box, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
+  // prepares the shape again)
+  const ENCL_CACHE = 8, enclCache = new Map();
   function reptEnclose(P, Q, n, b) {
+    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1]);
+    const hit = enclCache.get(key);
+    if (hit) { enclCache.delete(key); enclCache.set(key, hit); return hit.map((e) => e && Object.assign({}, e)); }
+    const E = reptEncloseNew(P, Q, n, b);
+    enclCache.set(key, E.map((e) => e && Object.assign({}, e)));
+    if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
+    return E;
+  }
+  function reptEncloseNew(P, Q, n, b) {
     const E = [Object.assign({}, b)];
     for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
     if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);

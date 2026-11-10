@@ -34,7 +34,7 @@ const rf = (a, b) => a + rnd() * (b - a);
 const NEWTON = 'z-(z^3-1)/(3*z^2)';
 const St = (type, params, repeat) => Object.assign({ type, params: Object.assign(Funcs.defaults(type), params), on: true }, repeat ? { repeat } : {});
 const chainOf = (steps) => ({ steps, built: Funcs.applyRepeats(steps, steps.map((s) => Funcs.build(s))) });
-const newton = (n) => chainOf([St('custom', { expr: NEWTON, cut: 180 }, { n, len: 1 })]);
+const newton = (copies) => chainOf([St('custom', { expr: NEWTON, cut: 180 }, { n: copies, len: 1 })]);
 const kinds = (b) => { const r = InvOps.stepOps(b); return r.ok ? r.ops.map((o) => o.kind).join('>') : 'X: ' + r.reason; };
 
 const SQUARE = { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] };          // the gallery example's region

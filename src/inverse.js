@@ -1179,8 +1179,8 @@ const Inverse = (() => {
     // rounded outward to float32 as the GPU reads them; null for an unbounded shape (no prune)
     prep.rept = null;
     if (!reason && N === 1 && ops[0].kind === 'REPT') {
-      const o = ops[0], bb = shape.complement ? null : boundsOf(shape);
-      const E = bb ? reptEnclose(o.p.P, o.p.Q, o.p.n, bb) : Array.from({ length: o.p.n + 1 }, () => null);
+      const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
+      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb) : Array.from({ length: rp.n + 1 }, () => null);
       prep.rept = { E: E.map((e) => (e && [e.x0, e.x1, e.y0, e.y1].every(Number.isFinite) ? { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1) } : null)) };
     }
     prep.ok = !reason; prep.reason = reason;
