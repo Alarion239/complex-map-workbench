@@ -1816,7 +1816,8 @@
             gl.activeTexture(gl.TEXTURE31); runTF(baseP, empty(), gl.POINTS, N, 0, N * 16, L.rowBTex, N, 1, gl.RGBA32F, gl.RGBA);
             gl.activeTexture(gl.TEXTURE19); gl.bindTexture(gl.TEXTURE_2D, L.rowBTex);
             // (the count first, then the list sized to it)
-            const count = stradRead(L, N);
+            const count = carryProbe.stradNoRead ? L.stradCount || 0 : stradRead(L, N);   // (stradNoRead: a test control that skips the read)
+            L.stradCount = count;
             if (L.stradCap0 !== strK0) { L.stradCap0 = strK0; L.stradCap = strK0; }   // (the capacity restarts when its first value changes: a control's)
             let cap = L.stradCap;
             const ceil = carryProbe.stradMax || LAND_STRAD_K_MAX;
