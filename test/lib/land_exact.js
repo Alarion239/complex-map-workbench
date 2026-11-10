@@ -1281,7 +1281,7 @@
           ok(`${t}: control: with one member dropped from the first set the count check fails and nothing is tracked (${c3.cls}, ${c3.a})`, c3.cls === 'unresolved' && c3.a === 'shortfall', c3);
           ok(`${t}: control: with the first texel moved ${TEXEL_CTL} x END_Z_TOL the end has no member (${c5.cls}, ${c5.why})`, c5.cls === 'unresolved' && c5.why === 'ends', c5);
           r[u].c7 = { cls: c7.cls, a: c7.a, b: c7.b, N: c7.N, n: c7.n, base: useSyn ? 'syn' : 'edge' };
-          if (c7.cls === 'unresolved' && (c7.a === 'shortfall' || c7.b === 'shortfall' || c7.why === 'syn')) bit.seedShort++;
+          if (c7.cls === 'unresolved' && (c7.a === 'shortfall' || c7.b === 'shortfall' || c7.why === 'syn' || c7.why === 'synSet')) bit.seedShort++;
         } else ok(`${t}: control: this row has no certified edge for the completeness, texel and seeding controls, as the row's list expects (${certs.length} edges)`, (`${c.tag}@${u}` in CTL_NA_ROWS.cert) && certs.length === 0, { n: certs.length });
         if (kSeam >= 0) { const eb = await ev(`__lx.certEdge(${kSeam}, { emptyB: true })`); if (eb.cls === 'unresolved') bit.empty++; ok(`${t}: control: a seam edge whose second end has no certified member is unresolved (${eb.cls})`, eb.cls === 'unresolved', eb); }
         r[u].noSeam = kSeam < 0;
