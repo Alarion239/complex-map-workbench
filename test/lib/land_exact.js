@@ -302,8 +302,16 @@
   // plus the core's cells, certificates and failures (a result with failures is not exact)
   async function runReference(sheets, ref) {
     await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(ref)})`);
+    const t0 = Date.now();
     let st = { done: false };
-    for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+    for (let k = 0; !st.done && k < STEP_MAX; k++) {
+      // (a call that the browser refuses is a named failure with the step, the time into the reference and the page's heap, not a thrown suite)
+      try { st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`)); } catch (e) {
+        const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => 'page gone');
+        ok(`the raster step call ${k} was answered by the page (${String(e).slice(0, 120)}; heap ${heap} MB after ${((Date.now() - t0) / 1000).toFixed(0)} s)`, false, { k, heap });
+        return null;
+      }
+    }
     if (st.error) throw new Error('the reference threw: ' + st.error);
     return st.done ? st.res : null;
   }
