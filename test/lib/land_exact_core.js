@@ -162,6 +162,7 @@
     // ---- identity: continuation of every member of a place along the segment to another place
     let hofCut = false;   // the last Hof call found H jumping beside z
     const Hof = (m, z, lam) => {
+      if (lam === LAM_OUT) { hofCut = true; return { H: [0, 0], dH: [1, 0], cut: true }; }
       if (lam === LAM_FAIL) { newtWhy = 'transfer refused: ' + xferWhy; return null; }
       const st = lam && !Array.isArray(lam) ? lam : null, k = st ? st.k : m.sheet, r = frame.hom(z, st ? null : lam, k, st ? st.cell : m.cell)[k];
       hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null;
@@ -171,28 +172,33 @@
     // next surface at least SHEET_MARGIN times as far; anything else is LAM_FAIL (the step is refused). o.fixedCell keeps the cell, o.labelShift takes the next surface (controls).
     // A log coordinate (an array) moves by the frame's own step as before.
     const XFER_TAG = 'transfer refused', XFER_FREE = '[scale-free] ', XFER_NEAR = '[not unique] ';   // a refusal no finer cell can change, and one a finer cell may separate
-    const LAM_FAIL = { fail: true };
+    const LAM_FAIL = { fail: true }, LAM_OUT = { out: true };   // (LAM_OUT: the member walked off the carried surface: it ends there, as at a cut)
     let xferWhy = '';   // why the last transfer was refused (for the failure's text)
     const mv = (lam, a, b) => {
       if (!lam) return null;
-      if (lam === LAM_FAIL) return lam;
+      if (lam === LAM_FAIL || lam === LAM_OUT) return lam;
       if (Array.isArray(lam)) return cadd(lam, relLog(a, b));
       if (o.fixedCell || !frame.cellAt) return lam;
       const cb = frame.cellAt(b);
-      if (!cb || !cb.c) { xferWhy = XFER_FREE + 'no leaf holds the point'; return LAM_FAIL; }
-      if (dist2(cb.c, lam.cell) === 0) return lam;
+      // (a leaf no surface closes round (a branch leaf) has no centre: its members are read at the place itself, as the hook gives their cell)
+      const cNew = cb && (cb.c || (cb.closed === false ? b : null));
+      if (!cNew) {
+        if (frame.domain && !frame.domain(b)) return LAM_OUT;
+        xferWhy = XFER_FREE + 'no leaf holds the point inside the carried surface'; return LAM_FAIL;
+      }
+      if (dist2(cNew, lam.cell) === 0) return lam;
       const val = (cell, k, p) => { const r = frame.hom(p, null, k, cell)[k]; return r && fin(r.H) ? r.H : null; };
       const ref = val(lam.cell, lam.k, b);
       if (!ref) { xferWhy = XFER_FREE + 'the old surface has no finite value at the transfer point'; return LAM_FAIL; }
       const miss = [];
-      for (let k = 0; k < (frame.K || 1); k++) { const h = val(cb.c, k, b); if (h) miss.push({ k, d: cabs(csub(h, ref)) / (1 + cabs(ref)) }); }
+      for (let k = 0; k < (frame.K || 1); k++) { const h = val(cNew, k, b); if (h) miss.push({ k, d: cabs(csub(h, ref)) / (1 + cabs(ref)) }); }
       miss.sort((x, y) => x.d - y.d);
       if (!miss.length || miss[0].d > o.TRANSFER_TOL || (miss.length > 1 && miss[0].d * o.SHEET_MARGIN > miss[1].d)) {
         xferWhy = (miss.length ? XFER_NEAR : XFER_FREE + 'no new surface has a finite value: ') + 'surface ' + lam.k + ' at the transfer point ' + b[0].toExponential(3) + ',' + b[1].toExponential(3) + ': the nearest surface of the new leaf misses by ' + (miss.length ? miss[0].d.toExponential(2) : 'no finite value') + (miss.length > 1 ? ', the next by ' + miss[1].d.toExponential(2) : '');
         return LAM_FAIL;
       }
       const k = o.labelShift ? (miss[0].k + 1) % (frame.K || 1) : miss[0].k;
-      return { k, cell: cb.c };
+      return { k, cell: cNew };
     };
     let newtWhy = '', newtCut = false;   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
