@@ -1100,9 +1100,13 @@
     for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
     us.push(0.99, 1 - END_U);
     let prev = null, rise = 0, riseAt = null, fall = 0, fallAt = null, most = 0, mostAt = null, mostK = null, mostLayers = 0, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
-    const t0 = await truncatedDraws();
+    const t0 = await truncatedDraws(), syncsNow = async () => ev('(__cmwLandCarry() || {}).stradSync || 0');
+    let unread = 0, s0 = await syncsNow();
     for (const x of us) {
       await setU(x);
+      const s1 = await syncsNow();
+      if (!(s1 > s0)) unread++;
+      s0 = s1;
       const k = await classCounts();
       if (!k) continue;
       framesWithClasses++;
@@ -1120,6 +1124,7 @@
     if (!framesWithClasses) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
     ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most} of a grid of ${mostK && mostK.cells} cells, ${mostK && mostK.invalid} of them with a corner that is not a point, at u=${mostAt}, ${mostLayers} layers, one list each; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}, and the largest fall ${fall}, at u=${fallAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
     ok(`${t}: no draw of the scrub had its list cut off (${cut})`, cut === 0, { cut });
+    ok(`${t}: the count is read at every frame, a step of u as well as a jump (${unread} of ${us.length} frames without a read)`, unread === 0, { unread, frames: us.length });
     if (GROW_CONTROLS.some(([tag, sh]) => tag === c.tag && sh === sheets)) {
       const [, , u] = GROW_CONTROLS.find(([tag, sh]) => tag === c.tag && sh === sheets);
       await setU(u);
