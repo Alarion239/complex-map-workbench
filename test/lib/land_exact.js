@@ -848,6 +848,7 @@
     const L = (z, h) => ({ z, h }), a = L([1, 0], 0), b = L([1, 0], 1), c = L([-1, 0], 0);
     ok('the distinct layers count a duplicate copy once', distinctLayers([a, L([1, 0], 0.001), c]).length === 2, null);
     ok('the distinct layers keep two heights of one z apart', distinctLayers([a, b]).length === 2, null);
+    ok(`the distinct layers keep two members of one z ${10 * HEIGHT_TOL} apart in height as two`, distinctLayers([a, L([1, 0], 10 * HEIGHT_TOL)]).length === 2 && distinctLayers([a, L([1, 0], 0.5 * HEIGHT_TOL)]).length === 1, null);
     ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
   }
   const sameLayers = (have, want) => {
@@ -1417,7 +1418,7 @@
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
-        const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
+        const want = sheets ? distinctLayers(wantAll) : wantAll.slice(0, 1);   // (the reference lists a member once per forward combo or sheet that lands on the same z and height; the frame draws it once, as distinctLayers counts both sides)   // (sheets off: the front member, the enumerator's first)
         n++;
         const same = sheets ? sameLayers(haveAll, want) : frontSame(haveAll, wantAll);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
