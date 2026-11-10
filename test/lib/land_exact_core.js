@@ -86,6 +86,8 @@
     CERT_RHO_MIN: 1e-3,     // the smallest disc radius, relative to the members' distance
     CERT_LIP_SAFE: 1.25,    // the sampled maximum of H''' on the disc's circle is taken this much over (a calibration; the 2x re-sample below refuses a
                             // bound the finer sampling exceeds)
+    TRANSFER_TOL: 1e-6,     // the relative gap at which a member's surface in the next leaf is the one it was on in the old (the cert residual's scale)
+    SHEET_MARGIN: 4,        // the next surface's gap must be this many times the chosen one's, or the transfer is refused
     CERT_NEAR: 4,           // a declared singular point (a pole or a branch point, where H''' is unbounded) within this many disc radii of a
                             // certificate's disc refuses it: a sampled bound cannot see a blow-up just outside the circle
     CERT_CRIT_TOL: 1e-9,    // |H'(c)| of the located critical point
@@ -148,14 +150,41 @@
         const layers = drawn ? (frame.layers ? frame.layers(m) : [{ combo: '', h: m.h }]).filter((l) => Number.isFinite(l.h)) : [];
         for (const l of layers) l.P = frame.project(w[0], w[1], l.h);
         const ok = layers.filter((l) => l.P);
-        return { z: m.z, lam: m.lam || null, cell: m.cell || null, sheet: m.sheet || 0, idx, drawn: drawn && ok.length > 0, layers: ok };
+        return { z: m.z, lam: m.lam || (frame.cellAt && !o.fixedCell && m.cell ? { k: m.sheet || 0, cell: m.cell } : null), cell: m.cell || null, sheet: m.sheet || 0, idx, drawn: drawn && ok.length > 0, layers: ok };
       });
       return { w, all, masked };
     }
     const vert = (i, j) => verts.get(i * (NYF + 1) + j);
     // ---- identity: continuation of every member of a place along the segment to another place
     let hofCut = false;   // the last Hof call found H jumping beside z
-    const Hof = (m, z, lam) => { const r = frame.hom(z, lam, m.sheet, m.cell)[m.sheet]; hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null; };
+    const Hof = (m, z, lam) => {
+      if (lam === LAM_FAIL) return null;
+      const st = lam && !Array.isArray(lam) ? lam : null, k = st ? st.k : m.sheet, r = frame.hom(z, st ? null : lam, k, st ? st.cell : m.cell)[k];
+      hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null;
+    };
+    // The state a member carries between places is its surface k and the cell it is read on, { k, cell }, when the frame has cellAt(z) (the leaf that holds z): when z leaves the
+    // leaf, the member moves to the new leaf and keeps the surface whose value there equals the old surface's at a point of the shared edge, within TRANSFER_TOL and with the
+    // next surface at least SHEET_MARGIN times as far; anything else is LAM_FAIL (the step is refused). o.fixedCell keeps the cell, o.labelShift takes the next surface (controls).
+    // A log coordinate (an array) moves by the frame's own step as before.
+    const LAM_FAIL = { fail: true };
+    const mv = (lam, a, b) => {
+      if (!lam) return null;
+      if (lam === LAM_FAIL) return lam;
+      if (Array.isArray(lam)) return cadd(lam, relLog(a, b));
+      if (o.fixedCell || !frame.cellAt) return lam;
+      const cb = frame.cellAt(b);
+      if (!cb || !cb.c) return LAM_FAIL;
+      if (dist2(cb.c, lam.cell) === 0) return lam;
+      const val = (cell, k, p) => { const r = frame.hom(p, null, k, cell)[k]; return r && fin(r.H) ? r.H : null; };
+      const ref = val(lam.cell, lam.k, b);
+      if (!ref) return LAM_FAIL;
+      const miss = [];
+      for (let k = 0; k < (frame.K || 1); k++) { const h = val(cb.c, k, b); if (h) miss.push({ k, d: cabs(csub(h, ref)) / (1 + cabs(ref)) }); }
+      miss.sort((x, y) => x.d - y.d);
+      if (!miss.length || miss[0].d > o.TRANSFER_TOL || (miss.length > 1 && miss[0].d * o.SHEET_MARGIN > miss[1].d)) return LAM_FAIL;
+      const k = o.labelShift ? (miss[0].k + 1) % (frame.K || 1) : miss[0].k;
+      return { k, cell: cb.c };
+    };
     let newtWhy = '', newtCut = false;   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
       let d1 = null, d2 = null;
@@ -171,11 +200,11 @@
         const dz = cdiv(res, r.dH);
         if (it === 0) d1 = cabs(dz); else if (it === 1) d2 = cabs(dz);
         const z2 = csub(z, dz);
-        lam = lam ? cadd(lam, relLog(z, z2)) : null;   // (the continued log coordinate moves with z)
+        lam = mv(lam, z, z2);   // (the continued log coordinate moves with z)
         z = z2;
       }
-      const r0 = Hof(m, z, lam), dl = 1e-7 * (1 + cabs(z)), zp = cadd(z, [dl, 0]), rp = Hof(m, zp, lam ? cadd(lam, relLog(z, zp)) : null);
-      newtWhy = 'residuals ' + hist.join(' ') + '; sheet ' + m.sheet + ' z ' + z[0].toExponential(3) + ',' + z[1].toExponential(3) + ' lam ' + (lam ? lam[0].toFixed(4) + ',' + lam[1].toFixed(4) : 'null') + ' dH ' + (r0 ? r0.dH[0].toExponential(3) + ',' + r0.dH[1].toExponential(3) : '-') + ' fwd ' + (r0 && rp ? ((rp.H[0] - r0.H[0]) / dl).toExponential(3) + ',' + ((rp.H[1] - r0.H[1]) / dl).toExponential(3) : '-');
+      const r0 = Hof(m, z, lam), dl = 1e-7 * (1 + cabs(z)), zp = cadd(z, [dl, 0]), rp = Hof(m, zp, mv(lam, z, zp));
+      newtWhy = 'residuals ' + hist.join(' ') + '; sheet ' + m.sheet + ' z ' + z[0].toExponential(3) + ',' + z[1].toExponential(3) + ' lam ' + (Array.isArray(lam) ? lam[0].toFixed(4) + ',' + lam[1].toFixed(4) : lam ? 'k ' + lam.k : 'null') + ' dH ' + (r0 ? r0.dH[0].toExponential(3) + ',' + r0.dH[1].toExponential(3) : '-') + ' fwd ' + (r0 && rp ? ((rp.H[0] - r0.H[0]) / dl).toExponential(3) + ',' + ((rp.H[1] - r0.H[1]) / dl).toExponential(3) : '-');
       return null;
     }
     // the move of a member's continued log coordinate from z to a point z2 beside it: the frame's own (log of the ratio of the prefix's values, the ops before the plan's
@@ -188,9 +217,10 @@
     };
     // the member of place vb that the carried point z of a member m is: the nearest of m's own sheet (the same z repeats on
     // sheets beside the frame's own, as different surfaces), within MATCH_TOL; -1 when none
-    const matchIn = (vb, m, z) => {
+    const labelOf = (m, lam) => (lam && !Array.isArray(lam) && !lam.fail ? lam.k : m.sheet);   // (the surface a member is on after it was carried)
+    const matchIn = (vb, m, z, lab = m.sheet) => {
       let bj = -1, bd = Infinity;
-      vb.all.forEach((n, j) => { if (n.sheet !== m.sheet) return; const d = dist2(z, n.z); if (d < bd) { bd = d; bj = j; } });
+      vb.all.forEach((n, j) => { if (n.sheet !== lab) return; const d = dist2(z, n.z); if (d < bd) { bd = d; bj = j; } });
       return bj >= 0 && bd <= o.MATCH_TOL * (1 + cabs(vb.all[bj].z)) ? bj : -1;
     };
     // the members of place va matched to those of vb by displacement: each to the member of its sheet nearest to it, accepted only where the
@@ -239,7 +269,7 @@
           const near = Math.min(Infinity, ...pre.map((q, i) => (i !== k && from[i].sheet === from[k].sheet ? dist2(pre[k], q) : Infinity)));
           const step = dist2(pre[k], zs[k]);
           if (step >= o.CONT_NEAR * near && step > 0) { good = false; last = 'step ' + step.toExponential(2) + ' vs near ' + near.toExponential(2); break; }
-          const lam0 = lams[k] ? cadd(lams[k], relLog(zs[k], pre[k])) : null;
+          const lam0 = mv(lams[k], zs[k], pre[k]);
           const nw = newton(from[k], pre[k], lam0, w);
           if (!nw) { if (newtCut) { newtCut = false; return { ok: false, cut: true, why: 'H jumps beside an iterate at t=' + t.toExponential(2), steps }; } good = false; last = 'newton did not converge: ' + newtWhy; break; }
           if (nw.ratio > o.CONT_RATIO) { good = false; last = 'newton ratio ' + nw.ratio.toExponential(2); break; }
@@ -252,7 +282,7 @@
           if (dt < o.CONT_STEP_MIN) {
             // a step floor where H itself jumps (a cut of the map: the member crosses it) is not a branch point: the member leaves or enters
             if (kf >= 0 && pf) {
-              const r0 = Hof(from[kf], zs[kf], lams[kf]), r1 = Hof(from[kf], pf, lams[kf] ? cadd(lams[kf], relLog(zs[kf], pf)) : null);
+              const r0 = Hof(from[kf], zs[kf], lams[kf]), r1 = Hof(from[kf], pf, mv(lams[kf], zs[kf], pf));
               if (r0 && r1 && cabs(csub(csub(r1.H, r0.H), cmul(r0.dH, csub(pf, zs[kf])))) > o.CUT_JUMP * (1 + cabs(r0.H))) return { ok: false, cut: true, why: 'H jumps at t=' + t.toExponential(2), steps };
             }
             return { ok: false, why: 'step floor at t=' + t.toExponential(2) + ': ' + last, steps };
@@ -280,7 +310,7 @@
         if (!tr.ok && tr.cut) res = { map: va.all.map(() => -1), back: vb.all.map(() => -1), suspect: false, cut: true };
         else if (!tr.ok) res = { map: null, back: null, suspect: true, why: tr.why };
         else {
-          const map = tr.z.map((z, i) => matchIn(vb, va.all[i], z));
+          const map = tr.z.map((z, i) => matchIn(vb, va.all[i], z, labelOf(va.all[i], tr.lam[i])));
           const used = new Set(map.filter((j) => j >= 0));
           res = { map, back: vb.all.map((_, j) => map.indexOf(j)), suspect: used.size !== map.filter((j) => j >= 0).length, why: 'two members to one' };
         }
@@ -378,7 +408,7 @@
       const tr = track(va.all, va.w, vb.w);
       if (!tr.ok && tr.cut) return { map: va.all.map(() => -1), suspect: false, cut: true };
       if (!tr.ok) return { map: null, suspect: true, why: tr.why };
-      return { map: tr.z.map((z, i) => matchIn(vb, va.all[i], z)), suspect: false };
+      return { map: tr.z.map((z, i) => matchIn(vb, va.all[i], z, labelOf(va.all[i], tr.lam[i]))), suspect: false };
     }
     // the corners' pairings; chain(a, b, i): the member of corner b the member i of corner a continues to along the cell's edge
     function cornerPairs(ks, vs) {
@@ -610,7 +640,7 @@
     // of H - H(c) is m + 1, the local degree
     function certifyCluster(pair, sep, group, simple) {
       const m0 = pair[0], zc = group.reduce((a, q) => cadd(a, q.z), [0, 0]).map((x) => x / group.length);
-      const lam0 = m0.lam ? cadd(m0.lam, relLog(m0.z, zc)) : null, lamAt = (z) => (lam0 ? cadd(lam0, relLog(zc, z)) : null);
+      const lam0 = mv(m0.lam, m0.z, zc), lamAt = (z) => mv(lam0, zc, z);
       const dHat = (z) => { const r = Hof(m0, z, lamAt(z)); return r ? r.dH : null; };
       const R = 2 * Math.max(...group.map((q) => dist2(q.z, zc)), sep);
       // the winding and the centroid integral of f = H' about a circle (c0, r): adaptive steps of argument at most CERT_ARG
@@ -660,8 +690,8 @@
       return { ok: true, c, w: rc.H, r, rImage, d: dd, kantorovich: null, cluster: { zeros: mm, R }, winding: deg, inDisc };
     }
     function certifySimple(pair, sep) {
-      const m = pair[0], z0 = mid2(pair[0].z, pair[1].z), lam0 = m.lam ? cadd(m.lam, relLog(m.z, z0)) : null;
-      const lamAt = (z) => (lam0 ? cadd(lam0, relLog(z0, z)) : null);
+      const m = pair[0], z0 = mid2(pair[0].z, pair[1].z), lam0 = mv(m.lam, m.z, z0);
+      const lamAt = (z) => mv(lam0, z0, z);
       const dHat = (z) => { const r = Hof(m, z, lamAt(z)); return r ? r.dH : null; };
       const delta = o.CERT_DELTA * (1 + cabs(z0));
       const d2H = (z) => { const a = dHat(cadd(z, [delta, 0])), b = dHat(csub(z, [delta, 0])); return a && b ? cscale(csub(a, b), 1 / (2 * delta)) : null; };
@@ -832,7 +862,7 @@
         if (o.seed) return pairingTo(A.v, S.v).map;
         if (!A.v.all.length) return [];
         const tr = track(A.v.all, A.v.w, S.v.w);
-        if (tr.ok) return tr.z.map((z, i) => matchIn(S.v, A.v.all[i], z));
+        if (tr.ok) return tr.z.map((z, i) => matchIn(S.v, A.v.all[i], z, labelOf(A.v.all[i], tr.lam[i])));
         // (the continuation reached its step floor, beside a singular point of H: members are matched by displacement alone where
         // that is under half of the smallest separation of its sheet's members at both places, which makes the match unique)
         const near = displacementMap(A.v, S.v);

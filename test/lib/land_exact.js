@@ -192,6 +192,9 @@
       // (H and dH of the surface at the cell centred at z; a jump of H beside z is the core's own: its prediction check, CUT_JUMP)
       // (one surface read at the cell centred at cell, with the central difference)
       hom: (z, lam, sheet, cell) => { const h = __cmwLandHom(z, cell || null, { sheets: [sheet] }), out = []; if (h) out[sheet] = h[0]; return out; },
+      // (the scene's leaf that holds z, for the core's re-anchoring of a continued member: absent with no hook, the member then keeps its starting cell; K surfaces)
+      K: (typeof __cmwLandSurfaces === 'function' && __cmwLandSurfaces() || { K: 1 }).K,
+      cellAt: typeof __cmwLandCellAt === 'function' ? (z) => __cmwLandCellAt(z) : null,
       project: (x, y, h) => { const q = __cmwLandProject(x, y, h); return q && Number.isFinite(q[0] + q[1]) ? [q[0] * dpr / 2, q[1] * dpr / 2] : null; },
       mask: (x, y) => __cmwLandMask(x, y),
       // (the scene's branch points, each at the place every surface draws it: a pole is not a place and is left out)
