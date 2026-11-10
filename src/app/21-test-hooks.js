@@ -1271,8 +1271,8 @@
     // the seeded stratified grid: one random start in each stratum, the first covered pixel from it in the stratum
     let s = (o.seed | 0) || 1;
     const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-    const S = Math.ceil(Math.sqrt(o.uniform | 0)), sw = Math.floor(W / S), sh = Math.floor(H / S);
-    for (let sy = 0; sy < S && samples.length < (o.max | 0); sy++) for (let sx = 0; sx < S && samples.length < (o.max | 0); sx++) {
+    const strata = Math.ceil(Math.sqrt(o.uniform | 0)), sw = Math.floor(W / strata), sh = Math.floor(H / strata);
+    for (let sy = 0; sy < strata && samples.length < (o.max | 0); sy++) for (let sx = 0; sx < strata && samples.length < (o.max | 0); sx++) {
       const n = sw * sh, st = Math.floor(rnd() * n);
       for (let d = 0; d < n; d++) {
         const t = (st + d) % n, x = sx * sw + (t % sw), y = sy * sh + Math.floor(t / sw), k = y * W + x;
