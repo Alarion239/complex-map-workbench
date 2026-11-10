@@ -1150,16 +1150,18 @@
       ok(`${t}: control: a list of ${SHORT_K} that is not raised is cut off at u=${u} (${k1 - k0} draws, ${kf} cells to list), the failure the check above would report`, k1 > k0 && kf > SHORT_K, { k0, k1, kf });
       const near = await measureFrames([Math.max(u - SCRUB_STEP_U, 0.01), u, Math.min(u + SCRUB_STEP_U, 0.99)], ['stradShortFixed']);
       ok(`${t}: control: with the list's capacity forced to ${SHORT_K} and not raised, the capacity row and the cut-off row themselves are red (${near.over} of ${near.frames} frames over capacity, ${near.cut} draws cut off)`, !fitRow(near) && !cutRow(near), { near });
+      const kg = await truncatedDraws();   // (the cut-off draws so far: the growing list adds none)
       await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
       await grab('grown');
       const gr = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, grows: (__cmwLandCarry() || {}).stradGrows, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
       const dG = (await compare('full', 'grown')).frac;
-      ok(`${t}: control: a list of ${SHORT_K} that grows draws the frame of the list of ${LIST_K0}: ${dG} of pixels over ${DIFF_TOL} (identical frames differ by 0); its capacity grew to ${gr.cap} for ${gr.count} cells`, dG === 0 && gr.cap >= gr.count && gr.cap > SHORT_K && gr.cut === k1, { dG, gr, k1 });
+      ok(`${t}: control: a list of ${SHORT_K} that grows draws the frame of the list of ${LIST_K0}: ${dG} of pixels over ${DIFF_TOL} (identical frames differ by 0); its capacity grew to ${gr.cap} for ${gr.count} cells`, dG === 0 && gr.cap >= gr.count && gr.cap > SHORT_K && gr.cut === kg, { dG, gr, kg });
       // the ceiling: a list that needs more than it is cut off, loudly (console.error, counted in stradTruncated): a ceiling of 4096 under the count of the case at its u
       if (c.tag === 'log of an annulus') {
+        const kc = await truncatedDraws();
         await ev('__svCarryProbe = __svCarryProbeSettings.stradCeil; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const cc = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
-        ok(`${t}: control: a ceiling of ${CEIL_K} under the ${cc.count} cells of the frame at u=${u} cuts the list off (capacity ${cc.cap}, ${cc.cut - k1} more cut-off draws counted), which the checks above would fail`, cc.count > CEIL_K && cc.cap === CEIL_K && cc.cut > k1, { cc, k1 });
+        ok(`${t}: control: a ceiling of ${CEIL_K} under the ${cc.count} cells of the frame at u=${u} cuts the list off (capacity ${cc.cap}, ${cc.cut - kc} more cut-off draws counted), which the checks above would fail`, cc.count > CEIL_K && cc.cap === CEIL_K && cc.cut > kc, { cc, kc });
       }
       await ev('__svCarryProbe = null; 1');
     }
