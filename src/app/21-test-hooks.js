@@ -570,7 +570,8 @@
   const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5, SAME_V: 1e-9, SAME_PTS: 3, RAY_LIP: 1e-9 };
   // the steps whose path has no pole at 0 < t <= 1 (a polynomial's zoom is entire, a root, a power or a log is a branch step with no pole where its power is positive)
   const POLE_FREE = ['mul', 'add', 'affine', 'pown', 'root', 'powa', 'exp', 'log', 'poly'];
-  let sceneMemo = null;
+  // the scenes of the last SCENE_MEMO distinct (map, box, sheet width, chain) states, oldest dropped first: a caller that moves u between calls finds the earlier u's scene again
+  const SCENE_MEMO = 4, sceneMemos = new Map();
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
   // sheet), rank(k) how far k's last piece is from its own sheet (0 own, then 1, 1, 2, 2, ...: the order the page tries the sheets in)
@@ -578,8 +579,10 @@
     const bx = render3D.box;
     if (!bx || !render3D.carried || typeof Funcs.sheetMapEval !== 'function') return null;
     const map = sceneMap(), W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
-    const key = JSON.stringify([map, bx.x0, bx.x1, bx.y0, bx.y1, W, chainSig[nSteps()]]);
-    if (sceneMemo && sceneMemo.key === key) return sceneMemo;
+    // (the key is the map's own fields, joined: the map the steps view gives has six; a control's map override is keyed whole)
+    const key = sceneMapOver ? JSON.stringify([map, bx.x0, bx.x1, bx.y0, bx.y1, W, chainSig[nSteps()]]) : [map.mode, map.a, map.b, map.t, map.hi, map.base, bx.x0, bx.x1, bx.y0, bx.y1, W, chainSig[nSteps()]].join('|');
+    const memo = sceneMemos.get(key);
+    if (memo) return memo;
     const pcs = Funcs.sheetMapPieces(S.steps, built, map);
     if (!pcs) return null;
     const K = Funcs.sheetMapCombos(S.steps, built, map, W), radix = pcs.map((e) => (e.n > 0 ? e.n : 2 * W + 1));
@@ -688,7 +691,10 @@
       try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
       return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? CX.sub(f, e.node) : null; } catch (er) { return null; } } };
     });
-    return (sceneMemo = { key, map, W, K, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null });
+    const scene = { key, map, W, K, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
+    sceneMemos.set(key, scene);
+    if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
+    return scene;
   };
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
@@ -938,16 +944,20 @@
   // the frame's homotopy H_u at a point z of plane 0 on every surface of the scene, evaluated on the cell centred at cell ([re, im]; z when
   // omitted): [{ sheet: k, H: [re, im] | null, dH: [re, im] | null, exactD }]; dH is a central difference over HOM_DZ in z at the same cell, exactD false
   const HOM_DZ = 1e-6;
-  window.__cmwLandHom = (z, cell) => {
+  // opts: sheets, the surfaces to read (an array of k; default all K), and dH, false for no central difference (default true: three evaluations per
+  // surface; one without). __cmwLandHomMany(list) answers a list of [z, cell, opts] in one call
+  window.__cmwLandHom = (z, cell, opts) => {
     const sc = sceneOf();
     if (!sc) return null;
-    const zc = C(z[0], z[1]), cc = cell ? C(cell[0], cell[1]) : zc, a = C(z[0] + HOM_DZ, z[1]), b = C(z[0] - HOM_DZ, z[1]), out = [];
-    for (let k = 0; k < sc.K; k++) {
-      const h = sc.g(k, cc, zc), ha = sc.g(k, cc, a), hb = sc.g(k, cc, b);
+    const zc = C(z[0], z[1]), cc = cell ? C(cell[0], cell[1]) : zc, wantD = !opts || opts.dH !== false, ks = opts && opts.sheets ? opts.sheets : null, out = [];
+    const a = wantD ? C(z[0] + HOM_DZ, z[1]) : null, b = wantD ? C(z[0] - HOM_DZ, z[1]) : null;
+    for (let i = 0, n = ks ? ks.length : sc.K; i < n; i++) {
+      const k = ks ? ks[i] : i, h = sc.g(k, cc, zc), ha = wantD ? sc.g(k, cc, a) : null, hb = wantD ? sc.g(k, cc, b) : null;
       out.push({ sheet: k, H: h ? [h.re, h.im] : null, dH: ha && hb ? [(ha.re - hb.re) / (2 * HOM_DZ), (ha.im - hb.im) / (2 * HOM_DZ)] : null, exactD: false });
     }
     return out;
   };
+  window.__cmwLandHomMany = (list) => list.map(([z, cell, opts]) => window.__cmwLandHom(z, cell, opts));
   // the argument of the first branch step's input at z, continued from the cell centred at cell (z when omitted) along the straight segment on
   // surface k: { arg, lo, s, bad } with lo the start of the step's window at that cell (the argument at the cell's centre less pi: the anchored cut
   // lies opposite the centre's value) and s = (arg - lo) / 2 pi, in (0, 1] inside the window; principal reads the argument of the input's value at z
