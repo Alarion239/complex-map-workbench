@@ -196,12 +196,16 @@ vec2 cx_mobstep(vec2 z, vec4 ab, vec4 cd, vec4 q, vec4 r) {
   return cx_mob(ab.xy, ab.zw, cd.xy, cd.zw, z);
 }
 // Mobius one-parameter path A^t (A in SL2, Re tr A >= 0), as a matrix up to scale:
-// p0 = (mode, -, lam) with Re lam >= 0, p1 = (M0, M1), p2 = (M2, M3), p3 = (P0, P1), p4 = (P2, P3), p5 = (Q0, Q3).
+// p0 = (mode, -, lam) with Re lam >= 0, p1 = (M0, M1), p2 = (M2, M3), p3 = (P0, P1), p4 = (P2, P3), p5 = (Q0, Q3),
+// p6 = (cosh lam, sinh lam).
 // mode 1 (parabolic): M = N, A^t = I + tN.
 // mode 2: M = J, A^t = cosh(t lam) I + sinh(t lam) J = e^{t lam} (P + e^{-2 t lam} Q) with the spectral projectors
 // P = (I + J)/2, Q = (I - J)/2 (Q1 = -P1, Q2 = -P2). Once Re(t lam) is large, cosh - sinh cancels catastrophically
-// in float32, so the projector form is used there (it has no cancellation: |e^{-2 t lam}| < 1/e).
-void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5,
+// in float32, so the projector form is used there (it has no cancellation: |e^{-2 t lam}| < 1/e). For t > 1/2 the
+// reflected form A^t = A A^{-s}, s = 1 - t, is used otherwise: cosh(s lam) is near 1 and sinh(s lam) is small and by
+// series, so the absolute error of the GPU's cos and sin near cos(t pi/2) = 0 does not reach the relative error of the path:
+// A^t = U I + V J with U = ch C - sh S, V = sh C - ch S (ch = cosh lam, sh = sinh lam, C = cosh(s lam), S = sinh(s lam)).
+void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6,
                out vec2 m0, out vec2 m1, out vec2 m2, out vec2 m3) {
   if (p0.x < 1.5) {
     m0 = vec2(1.0, 0.0) + p1.xy * t; m1 = p1.zw * t; m2 = p2.xy * t; m3 = vec2(1.0, 0.0) + p2.zw * t;
@@ -214,19 +218,35 @@ void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5,
     m0 = p3.xy + cmul(e, p5.xy); m1 = cmul(p3.zw, oe); m2 = cmul(p4.xy, oe); m3 = p4.zw + cmul(e, p5.zw);
     return;
   }
+  if (t > 0.5) {
+    vec2 a = p0.zw * (1.0 - t), a2 = cmul(a, a);
+    vec2 ca = ccosh(a), sa;
+    if (dot(a, a) >= 0.01) sa = csinh(a);
+    else {
+      vec2 q = vec2(1.0 / 5040.0, 0.0);
+      q = vec2(1.0 / 120.0, 0.0) + cmul(a2, q);
+      q = vec2(1.0 / 6.0, 0.0) + cmul(a2, q);
+      q = vec2(1.0, 0.0) + cmul(a2, q);
+      sa = cmul(a, q);
+      ca = vec2(1.0, 0.0) + cmul(a2, vec2(0.5, 0.0) + cmul(a2, vec2(1.0 / 24.0, 0.0)));
+    }
+    vec2 u = cmul(p6.xy, ca) - cmul(p6.zw, sa), v = cmul(p6.zw, ca) - cmul(p6.xy, sa);
+    m0 = u + cmul(v, p1.xy); m1 = cmul(v, p1.zw); m2 = cmul(v, p2.xy); m3 = u + cmul(v, p2.zw);
+    return;
+  }
   vec2 ch = ccosh(l), st = csinh(l);
   m0 = ch + cmul(st, p1.xy); m1 = cmul(st, p1.zw); m2 = cmul(st, p2.xy); m3 = ch + cmul(st, p2.zw);
 }
-vec2 cx_mobpath(vec2 z, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5) {
+vec2 cx_mobpath(vec2 z, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6) {
   vec2 m0, m1, m2, m3;
-  cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
+  cx_mobmat(t, p0, p1, p2, p3, p4, p5, p6, m0, m1, m2, m3);
   return cx_mob(m0, m1, m2, m3, z);
 }
 // the path applied to u, or with inv to w = 1/u, for arguments whose reciprocal is the one representable in float32
 // (one function for both, so a caller that picks one at run time has the path inlined once)
-vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5) {
+vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6) {
   vec2 m0, m1, m2, m3;
-  cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
+  cx_mobmat(t, p0, p1, p2, p3, p4, p5, p6, m0, m1, m2, m3);
   return inv ? cx_mob(m1, m0, m3, m2, u) : cx_mob(m0, m1, m2, m3, u);
 }
 ` + natLib();
@@ -281,7 +301,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     const sh2 = CX.scale(sh, 2), ep = CX.exp(lam), em = CX.exp(CX.neg(lam));
     const A = [a, b, c, d];
     return {
-      mode: 2, lam, M: N.map((x) => CX.div(x, sh)),
+      mode: 2, lam, ch: half, sh, M: N.map((x) => CX.div(x, sh)),
       P: [CX.div(CX.sub(a, em), sh2), CX.div(b, sh2), CX.div(c, sh2), CX.div(CX.sub(d, em), sh2)],
       Q: [CX.div(CX.sub(ep, A[0]), sh2), CX.div(CX.sub(ep, A[3]), sh2)],
     };
@@ -335,10 +355,10 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   const exactAt1 = (pl) => !pl.h.startsWith('if (t == 0.0)');
   const withOne = (P, pl) => (!exactAt1(pl) || pl.own1 ? pl.h : `if (t == 1.0) return ${P}_f(z);\n  ${pl.h}`);
 
-  // Allocates six consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), callu(uExpr, tExpr, invExpr),
+  // Allocates seven consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), callu(uExpr, tExpr, invExpr),
   // write(put, data)}. call applies the path to z, callu to u, or to 1/u where inv.
   function pathSlots(A) {
-    const s = [A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot()];
+    const s = [A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot()];
     const args = s.map((x) => x.v).join(', ');
     const c0 = s[0].c;
     return {
@@ -346,7 +366,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       call: (z, t) => `cx_mobpath(${z}, ${t}, ${args})`,
       callu: (u, t, inv) => `cx_mobpathu(${u}, ${t}, ${inv}, ${args})`,
       write(put, d) {
-        for (let i = 0; i < 12; i++) put(c0 + i, 0, 0); // mode 0 (degenerate: linear fallback); no stale values
+        for (let i = 0; i < 14; i++) put(c0 + i, 0, 0); // mode 0 (degenerate: linear fallback); no stale values
         if (!d) return;
         put(c0, d.mode, 0);
         put(c0 + 1, d.lam.re, d.lam.im);
@@ -354,6 +374,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
         if (d.mode !== 2) return;
         for (let i = 0; i < 4; i++) put(c0 + 6 + i, d.P[i].re, d.P[i].im); // cells 6..9: slots 3, 4
         put(c0 + 10, d.Q[0].re, d.Q[0].im); put(c0 + 11, d.Q[1].re, d.Q[1].im); // slot 5
+        put(c0 + 12, d.ch.re, d.ch.im); put(c0 + 13, d.sh.re, d.sh.im); // slot 6: cosh lam, sinh lam
       },
     };
   }
