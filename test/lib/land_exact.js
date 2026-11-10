@@ -200,6 +200,7 @@
   const CONT_MARGIN = 2;   // a step's segment stays at least this many step lengths from every zero of a branch step's input: the continued surface is single-valued on it
   const Z_CONV = 1e-10;   // Newton's method on a member stops when its residual is within MONO_CERT and its next correction is within this share of 1 + |z|, so one member found twice agrees to far under SAME_Z
   const ARRIVE_Z = 1e-4;   // a tracked member is a member of the set it arrives at when their z agree within this share of 1 + |z| (and within ID_SHARE of the set's smallest separation)
+  const C4_R = 0.5;   // the separation probe's loop: half-side in grid steps
   const TEXEL_CTL = 10;   // the end-match control moves a texel's z by this many END_Z_TOL
   const CTL_NA_BRANCH = { 'log of an annulus@0.25': 'no pending edge', 'log of an annulus@0.5': 'no pending edge', 'log of an annulus@0.75': 'no pending edge', 'cube root@0.25': 'no pending edge', 'cube root@0.5': 'no pending edge', 'cube root@0.75': 'no pending edge' };   // the rows (case tag @ u) with no branch edge for the branch controls, with the reason
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
@@ -411,6 +412,15 @@
           const d = set.map((m, i) => ({ i, d: cabs(csub(m.z, z)) })).sort((p, q) => p.d - q.d);
           return d.length && d[0].d <= ${END_Z_TOL} * (1 + cabs(z)) && (d.length === 1 || d[0].d * scn.TIE <= d[1].d) ? d[0].i : -1;
         };
+        if (opt.c4) {
+          // (the separation probe: a square loop of half-side C4_R grid steps centred C4_R x 1.5 beside the branch value opt.c4, not enclosing it, read as the permutation it induces on the set at its base)
+          const R = ${C4_R} * h, c = [opt.c4[0] + 1.5 * R, opt.c4[1]], b = [c[0] - R, c[1] - R], pts = [b, [c[0] + R, c[1] - R], [c[0] + R, c[1] + R], [c[0] - R, c[1] + R], b], s4 = memberSet(b);
+          if (!s4.set) return { cls: 'unresolved', why: 'c4set', set: s4.why, N: s4.N, n: s4.n };
+          const tr4 = track(s4.set, pts);
+          if (!tr4) return { cls: 'unresolved', why: 'c4track', fail };
+          const perm = tr4.map((m) => match(s4.set, m));
+          return { cls: 'c4', perm, ident: perm.every((q, i) => q === i), n: s4.set.length };
+        }
         let e = window.__lxPend[k];
         if (opt.syn) {
           // (a made-up edge through the branch value bv, from one side of it to the other: its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the set there, the second end's the second of the set at the other vertex)
@@ -1261,7 +1271,7 @@
         for (const bv of bvs) {
           const syn = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)} })`), synSw = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, swapB: true })`);
           const synNL = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, noLoops: true })`), synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`);
-          const synOff = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, sep: false })`);
+          
           const key = `${c.tag}@${u}`, noSyn = syn.cls === 'unresolved' && syn.why === 'syn';
           ok(`${t}: control: with no loops to read the made-up branch edge is not certified (${synNL.cls})`, synNL.cls !== 'branch', synNL);
           if (noSyn) ok(`${t}: control: the made-up edge has no member at its end vertices, as the row's list expects: ${CTL_NA_SYN[key]}`, key in CTL_NA_SYN, syn);
@@ -1270,7 +1280,14 @@
             ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls}${syn.why ? ', ' + syn.why : ''})`, syn.cls === 'branch', syn);
             ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
             ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of ${LOOP_DIRS.length} still certify)`, synDp.cls === 'displaced' && synDp.loops < LOOP_DIRS.length, synDp);
-            if (synOff.cls !== syn.cls) bit.sepBite++;
+            if (syn.cls === 'branch') {
+              const cs = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, cellShift: true })`);
+              ok(`${t}: control: loops round the cells one cell off the made-up branch edge's vertex carry no cycle through both ends (${cs.cls}, ${cs.hits} of ${cs.read} loops read)`, cs.cls === 'shifted' && cs.hits === 0 && cs.read > 0, cs);
+            }
+            const c4on = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)} })`), c4off = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, sep: false })`);
+            if (c4on.cls === 'c4') ok(`${t}: control: a loop beside the branch value (not enclosing it) is the identity with the separation check (${JSON.stringify(c4on.perm)})`, c4on.ident, c4on);
+            if (c4on.cls === 'c4' && c4on.ident && c4off.cls === 'c4' && !c4off.ident) bit.sepBite++;
+            r[u].c4 = { on: c4on.cls + ':' + (c4on.ident ? 'id' : '?'), off: c4off.cls + ':' + (c4off.ident ? 'id' : c4off.cls === 'c4' ? 'swap' : '?') };
           }
           r[u].synRead = { syn: syn.cls, swap: synSw.cls, noSep: synOff.cls };
           if (!noSyn && synSw.cls === 'false') bit.synWrong++;
@@ -1695,7 +1712,7 @@
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the seeding control (2 x 2 seeds, no rings) falls short of the count on some row (${bit.seedShort} rows)`, bit.seedShort > 0, bit);
-  ok(`control: the separation-check probe (SEP_SHARE to infinity) changes the made-up edge's verdict on some row (${bit.sepBite} rows)`, bit.sepBite > 0, bit);
+  ok(`control: the separation-check probe (SEP_SHARE to infinity) swaps two members of a loop beside the branch value on some row (C4) (${bit.sepBite} rows)`, bit.sepBite > 0, bit);
   ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
   return { pass: !fails.length, fails, info };
 })
