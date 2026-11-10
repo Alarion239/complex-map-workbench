@@ -409,15 +409,15 @@
     }
     return bs;
   }
-  function invHomPath(s, a, k, t, singAt) {
+  function invHomPath(s, a, k, t, singAt, dk = 0) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared; whether the
     // step has a NEWT op at t is remembered, as finding out decomposes the step)
-    const bk = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    const bk = `${a}|${k}|${t}|${dk}|${chainSig[nSteps()]}`;
     let hk = null, byShape = invHomNewt.get(bk);
     if (byShape === undefined) {
-      try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t, dk); } catch (e) { hk = null; }
       byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
       if (invHomNewt.size >= 4096) invHomNewt.clear();
       invHomNewt.set(bk, byShape);
@@ -427,7 +427,7 @@
     if (!h) {
       const bs = invHomSkeleton(a, k), bh = bs.slice();
       // (ops of its own for each plan: the anchor is set on them)
-      if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t, dk); } catch (e) { hk = null; }
       let anchor = null;
       if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
@@ -437,7 +437,7 @@
       try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
       if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
       h = { plan, inv, preps: new Map(), sing: null };
-      if (invHoms.size >= 8) invHoms.clear();
+      if (invHoms.size >= 24) invHoms.clear();
       invHoms.set(ck, h);
     }
     if (!h.plan.ok) return F(h.plan.reason);

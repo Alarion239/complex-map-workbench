@@ -366,12 +366,36 @@
   // s → b). Across a d/dz step the points of z's plane move along the classic deformation's straight line from stage a
   // to stage b (mode 1 at a d/dz step), so the glide is continuous as everywhere else. At a plane, that plane's surface
   // at rest. False when the Landscape is not on the pane
+  // The inverse inputs of a glide frame's exact Landscape (GLR.landInverse): the front point z of plane 0 over each vertex of
+  // the shown plane's grid, from step b's homotopy at u inverted by its own ops (invHomPath). Null unless that path draws:
+  // a d/dz step, a chain with no inverse plan, a Newton inverse that is neither an exact-degree polynomial (all its roots) nor seeded
+  function svLandExact(b, u) {
+    if (!GLR.landInverse || !GLR.packShapes || derivIn(0, b)) return null;
+    packRecs([SV_ALL], true);
+    const p = invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
+    if (p.path !== 'inverse' || p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && (o.p.back || o.p.deg)))) return null;
+    // A log or root step has a sheet per branch: the sheets beside the step's own follow, nearest first, and a vertex
+    // takes the first that has a member there
+    const more = [];
+    if (p.plan.ops.some((o) => (o.kind === 'ROOTPOW' || o.kind === 'LOG') && o.p && Number.isFinite(o.p.k))) {
+      for (let j = 1; j <= SV_LAND_SHEETS; j++) for (const dk of [j, -j]) {
+        const q = invHomPath(SV_ALL, 0, b, u, null, dk);
+        if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk, k: b } });
+      }
+    }
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1 };
+  }
+  const SV_LAND_SHEETS = 4;
+  // Test-only (__cmwLandMeshOnly): a glide frame draws its carried mesh and never the exact inverse, the path a plane at rest still uses
+  let svLandMeshOnly = false;
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
     if (!g.all && (g.u <= 1e-6 || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u });
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    const c = svLandCarry(mapOf, g.a, g.b, g.u);
+    if (!g.all && !c.plain && !svLandMeshOnly) c.exact = svLandExact(g.b, g.u);
+    render3D(pane, c);
     return true;
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's

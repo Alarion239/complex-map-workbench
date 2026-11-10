@@ -173,7 +173,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         : k.map((i) => `uniform highp sampler2D uNrTex${i};\n`).join('') + 'uniform int uNrRead;\n');
   }
   // the part of an inverse program's key that its extra source adds
-  const extraKey = (extra) => (extra ? (extra.carry ? carryKey(extra) + '|' + (extra.nrPass ? 'nr:' + hashStr(extra.main) + '|' : '') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '');
+  const extraKey = (extra) => (extra ? (extra.land ? 'land|' : extra.carry ? carryKey(extra) + '|' + (extra.nrPass ? 'nr:' + hashStr(extra.main) + '|' : '') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '');
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
@@ -235,7 +235,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
-    const ik = inv.key + (extra && extra.carry ? '|' + carryKey(extra) : '') + (extra && extra.nrPass ? '|nr' : '');
+    const ik = inv.key + (extra && extra.carry ? '|' + carryKey(extra) : '') + (extra && extra.land ? '|land' : '') + (extra && extra.nrPass ? '|nr' : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
     const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
@@ -555,55 +555,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
-  function drawInverse(st) {
-    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
-    const globe = st.viewKind === 'globe';
-    const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
-    if (!rec || !rec.ok) return 'error';
-    const look = st.look || {};
-    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
-    // globe)
-    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
-    let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
-    // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
-    // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
-    // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
-    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider), else
-    // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
-    const defer = st.motion || st.coldOk === false;
-    if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
-      const alt = st.inv ? null : invAltProgram(B, globe, extra, true);
-      if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
-      else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
-    }
-    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
-    if (pr.state !== 'ready') return 'error';
-    const P = pr.P, inv = st.inv || cur.info.inverse;
-    P.warm = true;
-    const d = passData(inv, st.plan, st.prep);
-    if (!d.ok) return 'error';
-    const map = st.map || {};
-    // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
-    // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
-    let half = !!st.half && !globe;
-    if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
-    // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
-    const pre = !!st.halfPre && preActive;
-    if (st.halfPre && (!pre || !half)) return 'nohalf';
-    if (globe || !half) flushHalf();
-    const hw = half ? Math.max(1, Math.ceil(fw / 2)) : fw, hh = half ? Math.max(1, Math.ceil(fh / 2)) : fh;
-    gl.useProgram(P.p);
+  // The uniforms every inverse program takes: the inverse's slots (the glide's parameters), the map's stage range, the
+  // walk's plan data d (passData), the shape rec, the look and the program extra. inv is the plan's inverse (st.inv or the chain's)
+  function bindInverse(P, st, d, rec, look, extra) {
+    const inv = st.inv || cur.info.inverse, map = st.map || {};
     if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
     else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
     if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
     u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
-    // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
-    if (P.loc.uNrRead) {
-      const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;
-      u1i(P, 'uNrRead', R ? 1 : 0);
-      if (R) nrBind(nrSets[R.set], R.n);
-    }
     if (P.loc.uIxRef) gl.uniform2fv(P.loc.uIxRef, d.ref);
     if (P.loc.uIxN) gl.uniform1iv(P.loc.uIxN, d.N);
     if (P.loc.uIxRK) gl.uniform1iv(P.loc.uIxRK, d.RK);
@@ -672,13 +631,59 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     regionUniforms(P, Object.assign({ pattern: 'solid' }, look, { dpr: st.dpr || 1 }), [0, 0]);
     if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
-      if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+      if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, st.chainData || cur.data);
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
       bindLut(P);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
+  }
+  function drawInverse(st) {
+    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
+    const globe = st.viewKind === 'globe';
+    const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
+    if (!rec || !rec.ok) return 'error';
+    const look = st.look || {};
+    let B = invB(look.alphaOwn ?? look.alpha ?? 1);
+    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
+    // globe)
+    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
+    // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
+    // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
+    // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
+    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider), else
+    // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
+    const defer = st.motion || st.coldOk === false;
+    if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
+      const alt = st.inv ? null : invAltProgram(B, globe, extra, true);
+      if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
+      else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
+    }
+    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
+    if (pr.state !== 'ready') return 'error';
+    const P = pr.P, inv = st.inv || cur.info.inverse;
+    P.warm = true;
+    const d = passData(inv, st.plan, st.prep);
+    if (!d.ok) return 'error';
+    // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
+    // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
+    let half = !!st.half && !globe;
+    if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
+    // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
+    const pre = !!st.halfPre && preActive;
+    if (st.halfPre && (!pre || !half)) return 'nohalf';
+    if (globe || !half) flushHalf();
+    const hw = half ? Math.max(1, Math.ceil(fw / 2)) : fw, hh = half ? Math.max(1, Math.ceil(fh / 2)) : fh;
+    gl.useProgram(P.p);
+    // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
+    if (P.loc.uNrRead) {
+      const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;
+      u1i(P, 'uNrRead', R ? 1 : 0);
+      if (R) nrBind(nrSets[R.set], R.n);
+    }
+    bindInverse(P, st, d, rec, look, extra);
     if (globe) {
       // (the scissor of the image's w-box on the sphere, globeScissorOf: device px of the pane, intersected with the
       // pane's own scissor)
@@ -746,6 +751,121 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       if (scOn) gl.scissor(...prevSc); else gl.disable(gl.SCISSOR_TEST);
     }
     gl.bindVertexArray(null);
+    return 'drawn';
+  }
+
+  // ---- the Landscape's exact heights (drawLandscape's inverse path) ----
+  // INV_LAND: the inverse program's variant that reads one front member per grid vertex instead of shading a pixel. Pixel
+  // (i, j) of an N x N target is the shown plane's point w of vertex (i, j) over the box uLBox; the walk finds the front
+  // preimage z (on plane uGs) and the texel is (w, height, 1) (the carried landscape's places) and its twin in the second target (z, its depth key, 1), with the height of the stages (uGs, uGt] at z (blended over
+  // uHu into that of (uGs, uGt2] when uGt2 differs), both (0, 0, 0, 0) where no member covers w or the height is not finite. With uUsePrev a vertex the previous pass (uPrevA, uPrevZ) filled keeps its texels.
+  const INV_LAND_MAIN = `
+uniform vec4 uLBox; uniform int uLN; uniform bool uUsePrev; uniform sampler2D uPrevA; uniform sampler2D uPrevZ;
+layout(location = 1) out vec4 oZ;
+void main() {
+  vec2 g = floor(gl_FragCoord.xy);
+  vec4 pa = vec4(0.0), pz = vec4(0.0);
+  if (uUsePrev) { pa = texelFetch(uPrevA, ivec2(g), 0); pz = texelFetch(uPrevZ, ivec2(g), 0); }
+  bool had = pa.w > 0.5;
+  vec2 w = uLBox.xy + g / float(uLN - 1) * uLBox.zw;
+  ixDwX = vec2(uLBox.z / float(uLN - 1), 0.0); ixDwY = vec2(0.0, uLBox.w / float(uLN - 1));
+  ixPix = ixDwX.x;
+  nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+  invWalk(w);
+  o = vec4(0.0); oZ = vec4(0.0);
+  if (nb >= 1) {
+    vec2 z = bZ[0]; vec2 hv = carryHeight(z);
+    // a member found on an earlier sheet is kept: the sheets are taken in order, the frame's own first, and the depth keys
+    // of different sheets are never compared (they differ at first order for a box off the branch point)
+    bool take = !had;
+    if (hv.y > 0.5 && !(abs(hv.x) > 3e38) && take) { o = vec4(w, hv.x, 1.0); oZ = vec4(z, bD[0], 1.0); return; }
+  }
+  if (had) { o = pa; oZ = pz; }
+}
+`;
+  const INV_LAND = { carry: true, land: true, pre: '', main: HEIGHT + CARRY_HEIGHT + INV_LAND_MAIN };
+  let landSet = null;
+  // GLR.landInverse(st) -> 'drawn' | 'pending' | 'error'; it writes st.tex (the places) and st.zTex (the preimages), N x N RGBA32F textures. st: drawInverse's map, plan, prep, inv,
+  // shape, more ([{map, plan, prep, inv, shift: {vals, dk}}], the further sheets walked after it; shift: the step's values object and the sheet shift its branch takes), plus box {x0, x1, y0, y1} (the shown plane's), N, hMode, H, mu (the height's mode, scale and knee), carry (the
+  // carried colour's style, its s the plane z lies on) and heights {hT, hT2, hu}: the stages the height is of.
+  function landInverse(st) {
+    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok || !rtOK) return 'error';
+    const rec = pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id));
+    if (!rec || !rec.ok) return 'error';
+    // the sheets in order, the frame's own first: a vertex takes the first sheet's front member that covers it
+    const sheets = [st].concat((st.more || []).filter((m) => m && m.plan && m.prep && m.prep.ok));
+    const progs = [];
+    for (const sh of sheets) {
+      const pr = /** @type {any} */ (invProgram(3, false, true, INV_LAND, sh.inv || st.inv));
+      if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
+      if (pr.state !== 'ready') return 'error';
+      const d = passData(sh.inv || st.inv || cur.info.inverse, sh.plan, sh.prep);
+      if (!d.ok) return 'error';
+      // (a sheet's member continues the step's branch: the forward chain, which gives the member's height, is filled with the
+      // step's sheet k + dk)
+      let chainData = null;
+      if (sh.shift && sh.shift.vals && cur.info) {
+        const v = sh.shift.vals, k0 = v.k;
+        v.k = (k0 || 0) + sh.shift.dk;
+        try { chainData = cur.info.fillNow(new Float32Array(cur.data.length)); } finally { v.k = k0; }
+      }
+      progs.push({ P: pr.P, d, chainData });
+    }
+    const N = st.N;
+    if (!landSet) landSet = { fbo: gl.createFramebuffer(), size: new WeakMap(), scratch: null };
+    if (!landSet.scratch) {
+      const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return t; };
+      landSet.scratch = { tex: mk(), zTex: mk() };
+    }
+    // (the targets' storage, once per size: a texture the caller made with floatTex has none until a pass writes it)
+    for (const t of [st.tex, st.zTex, landSet.scratch.tex, landSet.scratch.zTex]) {
+      if (landSet.size.get(t) === N) continue;
+      gl.activeTexture(gl.TEXTURE15);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N, N, 0, gl.RGBA, gl.FLOAT, null);
+      landSet.size.set(t, N);
+    }
+    flushHalf();
+    const look = { alpha: 1, alphaOwn: 1, lastOpaque: true, pattern: 'carry', cell: 1, lines: false };
+    const c = st.heights;
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
+    // (the passes alternate between the two target pairs, each reading the other's result; the last writes st's)
+    const last = sheets.length - 1;
+    for (let i = 0; i <= last; i++) {
+      const sh = sheets[i], { P, d, chainData } = progs[i], toSt = (last - i) % 2 === 0;
+      const dst = toSt ? st : landSet.scratch, src = toSt ? landSet.scratch : st;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, landSet.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst.tex, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, dst.zTex, 0);
+      const fbOk = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      if (!fbOk) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return 'error'; }
+      P.warm = true;
+      gl.useProgram(P.p);
+      bindInverse(P, Object.assign({}, st, sh, { look, chainData }), d, rec, look, INV_LAND);
+      u1i(P, 'uGt2', c.hT2 == null ? c.hT : c.hT2); u1i(P, 'uGt', c.hT);
+      u1f(P, 'uHu', c.hu || 0);
+      u1i(P, 'uLN', N);
+      u4f(P, 'uLBox', st.box.x0, st.box.y0, st.box.x1 - st.box.x0, st.box.y1 - st.box.y0);
+      u1i(P, 'uHMode', st.hMode); u1f(P, 'uH', st.H); u1f(P, 'uMu', st.mu); u1f(P, 'uHClip', 0);
+      u4f(P, 'uVp', 0, 0, N, N);
+      u2f(P, 'uCenter', 0, 0); u2f(P, 'uCenterLo', 0, 0); u2f(P, 'uInvScale', 1, 1);
+      u1i(P, 'uUsePrev', i > 0 ? 1 : 0); u1i(P, 'uPrevA', 12); u1i(P, 'uPrevZ', 13);
+      // (bound on every pass, the first too: the sampled units must not hold the textures this pass renders into)
+      gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+      gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, src.zTex);
+      gl.activeTexture(gl.TEXTURE15);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.viewport(0, 0, N, N);
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
+      gl.bindVertexArray(empty());
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(null);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(vpX, vpY, fw, fh);
+    if (scOn) gl.enable(gl.SCISSOR_TEST);
+    if (blOn) gl.enable(gl.BLEND);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
@@ -953,9 +1073,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, landFrameVerts, landDrops, landCutEdges, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, landInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,

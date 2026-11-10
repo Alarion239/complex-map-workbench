@@ -1920,15 +1920,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
     src = specialLib(src + sh) + src;
     let cache = null;
-    function values() {
-      if (cache) return cache;
+    function compute() {
       const vals = new Float64Array(4 * slots);
       const put = (c, re, im) => { vals[2 * c] = re; vals[2 * c + 1] = im; };
       for (const { plan } of maps) plan.write(put);
       for (const { dp } of dpl) dp.write(put);
       for (const sp of spl.values()) sp.write(put);
-      return (cache = vals);
+      return vals;
     }
+    function values() { return cache || (cache = compute()); }
     const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken as they are at the call (stepOps reads only the built steps).
@@ -1948,6 +1948,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       },
       slots,
       fill(out) { const v = values(); for (let i = 0; i < v.length; i++) out[i] = v[i]; return out; },
+      // fill() from the steps' values as they are now, not as first filled (a caller that changes a step's sheet for one fill)
+      fillNow(out) { const v = compute(); for (let i = 0; i < v.length; i++) out[i] = v[i]; return out; },
       // live d/dz steps (chainIsDeriv), whether the first is the exact chain rule
       derivs: dks, derivExact: exact,
       cutKinds,

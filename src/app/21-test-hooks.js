@@ -264,6 +264,11 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
+  // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
+  // height, world units, within which an enumerated member is the one it draws)
+  const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02, LAND_ENUM_SAME_Z = 1e-5, LAND_ENUM_NEAR = 2;
+  // true: Steps-view Landscape glide frames draw the carried mesh instead of the exact inverse; false (the default) restores it
+  window.__cmwLandMeshOnly = (on) => { svLandMeshOnly = !!on; requestRender('L', 'R'); return svLandMeshOnly; };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
@@ -368,6 +373,45 @@
     const f = render3D.floor;
     return f ? landWorldPx(f, x, y, f.info.floorZ) : null;
   };
+  // the last Landscape frame's height reading: F (the shown plane's point -> the plane's value), height(w) (a value's drawn
+  // height, as the frame draws it) and the plane's box; null with no pick data
+  window.__cmwLandPick = () => {
+    const pk = render3D.pick;
+    return pk && pk.info ? { F: pk.F, height: (w) => pk.info.heightOf(landValue(w)), box: pk.box } : null;
+  };
+  // the height the last Landscape frame draws for the plane's value v (its own scale and knee, the glide's blend): [re, im] -> height
+  window.__cmwLandFrameHeight = (v) => (render3D.frameHeight ? render3D.frameHeight(landValue({ re: v[0], im: v[1] })) : null);
+  // the left pane's Landscape frame redrawn once as the relief alone on a transparent frame (the figure's coverage render, artRelief: no
+  // floor, plate, marks or labels), the same carry, view and camera: the alpha plane of the pane's canvas kept as window.__cmwLandRelief.cov
+  // (one byte a pixel, w x h; 255 where the relief covers the pixel), and the frame then drawn again as before. -> { w, h, n: covered pixels },
+  // or null with no Landscape frame
+  window.__cmwLandRelief = () => {
+    const cv = /** @type {HTMLCanvasElement | null} */ (document.getElementById('canvasL'));
+    if (!cv) return null;
+    const keep = { artMode, artRelief };
+    try {
+      artMode = true; artRelief = true;
+      // (the frame starts from a clear canvas: a transparent fill leaves what is drawn there)
+      paneL.ctx.setTransform(1, 0, 0, 1, 0, 0); paneL.ctx.clearRect(0, 0, cv.width, cv.height);
+      renderLeft();
+      const q = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, cov = new Uint8Array(cv.width * cv.height);
+      let n = 0;
+      for (let i = 0; i < cov.length; i++) { cov[i] = q[4 * i + 3]; if (cov[i] > 0) n++; }
+      Object.assign(window.__cmwLandRelief, { cov, w: cv.width, h: cv.height, land: artLand });
+      return { w: cv.width, h: cv.height, n };
+    } finally {
+      artMode = keep.artMode; artRelief = keep.artRelief;
+      renderLeft();
+    }
+  };
+  // the pane position (CSS px) of the point over (x, y) of the plane of the relief at height h, in the frame window.__cmwLandRelief last
+  // drew (its camera and box), null before it or where the point is behind the camera
+  window.__cmwLandProject = (x, y, h) => {
+    const L = window.__cmwLandRelief && window.__cmwLandRelief.land;
+    if (!L) return null;
+    const b = L.box, [ax, ay] = L.aspect;
+    return project(L, L.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
+  };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (v16.5 test/ux165_chain_cmd.js)
@@ -375,8 +419,217 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
+  // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f, sheet, matches }]; matches is 1 plus how many other members, of another z, fit the layer's z and height and lie within LAND_ENUM_NEAR times the nearest one's distance (the nearest is taken; more than 1 is ambiguous); f and sheet are
+  // those of the enumerator's member (__cmwLandEnum) at the vertex's own place that has its z and its height (null: none has)
+  // the last exact carried frame's edges crossed twice (a branch point on an edge): the triangles holding them are left out
+  window.__cmwLandDrops = () => (GLR.landDrops ? GLR.landDrops() : null);
+  window.__cmwLandCutEdges = () => (GLR.landCutEdges ? GLR.landCutEdges() : null);
+  window.__cmwLandFrameVerts = (pts) => {
+    const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null;
+    return g ? g.map((ls) => ls.map((l) => {
+      const ms = l.z ? (window.__cmwLandEnum([l.w]) || [[]])[0] : [], at = (m) => Math.hypot(m.z[0] - l.z[0], m.z[1] - l.z[1]) <= LAND_ENUM_Z_TOL * (Math.hypot(l.z[0], l.z[1]) + 1);
+      const dz = (q) => Math.hypot(q.z[0] - l.z[0], q.z[1] - l.z[1]);
+      const cand = ms.filter((q) => at(q) && Math.abs(q.h - l.h) <= LAND_ENUM_H_TOL).sort((a, b) => dz(a) - dz(b)), m = cand[0];
+      return Object.assign({}, l, { f: m ? m.f : null, sheet: m ? m.sheet : null, matches: m ? 1 + cand.filter((q) => q !== m && Math.hypot(q.z[0] - m.z[0], q.z[1] - m.z[1]) > LAND_ENUM_SAME_Z && dz(q) <= LAND_ENUM_NEAR * dz(m)).length : 0 });
+    })) : g;
+  };
+  // the CPU enumerator's members at probe places, from the inverse inputs the last carried frame drew from: per place
+  // [{ z, f, h, member, sheet, D, lvl, lam, front? }] sheet by sheet (the frame's own sheet first, then those beside it), each sheet's members
+  // front to back; f is the value of plane 0's map at z and h its drawn height, D the member's depth key. f and h are the drawn
+  // ones for the frame's own sheet (sheet 0); a member on a sheet beside it has its value on that sheet's branch of the step, so
+  // its z and D are the reference there, not f and h. lvl: the member's level inside its sheet's window in pixels (negative: a member of the range
+  // ramp just outside it); lam: [re, im] its continued log coordinate, the member's own sheet's H is exact there. front: true marks the one member the frame draws with sheets off. Null when the frame was not drawn by the inverse path
+  window.__cmwLandEnum = (pts) => {
+    const inp = render3D.exactIn, hOf = render3D.frameHeight, bx = render3D.box;
+    if (!inp || !hOf || !bx) return null;
+    const ex = inp.exact, F = inp.F;
+    const pix = (bx.x1 - bx.x0) / LAND_ENUM_PIX, sheets = [ex].concat(ex.more || []);
+    return pts.map(([x, y]) => {
+      const out = [];
+      sheets.forEach((sh, sheet) => {
+        let r = null;
+        try { r = Inverse.enumerate(sh.plan, sh.prep, C(x, y), pix, { K: LAND_ENUM_B, B: LAND_ENUM_B, all: true, leaves: false }); } catch (e) { r = null; }
+        // (a sheet beside the frame's own: the chain with that step's branch moved by the sheet's shift, a turn of the argument per
+        // shift for a root, 2 pi i per shift added for a log)
+        const at = sh.shift && sh.shift.vals ? built.findIndex((bb) => bb.vals === sh.shift.vals) : -1, id = at >= 0 ? built[at].def.id : null;
+        const ang = TAU * (sh.shift ? sh.shift.dk : 0), turn = id === 'root' ? C(Math.cos(ang / built[at].vals.n), Math.sin(ang / built[at].vals.n)) : null;
+        const Fs = at < 0 ? F : (z) => {
+          for (let i = 1; i <= svHT(0); i++) {
+            const f = stepFn(i);
+            if (!f) continue;
+            z = f(z);
+            if (i - 1 === at) z = turn ? CX.mul(z, turn) : id === 'log' ? CX.add(z, C(0, ang)) : z;
+          }
+          return z;
+        };
+        if (r) r.entries.forEach((e, member) => {
+          const f = Fs(e.z);
+          out.push({ z: [e.z.re, e.z.im], f: CX.isFin(f) ? [f.re, f.im] : null, h: CX.isFin(f) ? hOf(landValue(f)) : null, member, sheet, D: e.D, lvl: e.lvl, lam: e.lam ? [e.lam.re, e.lam.im] : null });
+        });
+      });
+      // the member the frame draws with sheets off: the first sheet's front member (the sheets are taken in order, the frame's own
+      // first; the depth keys of different sheets are never compared, they only order the members within one sheet)
+      if (out.length) out[0].front = true;
+      return out;
+    });
+  };
+  // the frame's homotopy H_u at a point z of plane 0, per sheet (the sheets as __cmwLandEnum takes them): the forward ops of the plan the frame
+  // inverts (Inverse.fwdOps), so H(z) is the w the frame draws z at. lam, the member's continued log coordinate (as __cmwLandEnum gives it), makes
+  // H the one the frame draws: the plan's first op is a log (its output is lam) or a power u^s (its output is e^(s lam)), taken on the branch lam
+  // is on, and the remaining ops are applied to that output instead of to the principal value at z (they differ at a member of the range ramp
+  // outside its sheet's window); without lam every op is applied to z. dH is a central difference of H over HOM_DZ in z (the plan's ops carry no
+  // derivative), exactD false. [{ sheet, H: [re, im] | null, dH: [re, im] | null, exactD }]
+  const HOM_DZ = 1e-6;
+  window.__cmwLandHom = (z, lam) => {
+    const inp = render3D.exactIn;
+    if (!inp) return null;
+    const zc = C(z[0], z[1]), lc = lam ? C(lam[0], lam[1]) : null;
+    // (the first op's output from the lifted log coordinate; null when that op is neither)
+    const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
+    const at = (sh, p, l) => {
+      try {
+        const o = sh.plan.ops[0], u = l && first(o, l), w = u ? Inverse.fwdOps({ ops: sh.plan.ops.slice(1) }, u) : Inverse.fwdOps(sh.plan, p);
+        return CX.isFin(w) ? w : null;
+      } catch (e) { return null; }
+    };
+    // (d lam = dz / z at the continued log)
+    const lamAt = (p) => (lc ? CX.add(lc, CX.div(CX.sub(p, zc), zc)) : null);
+    return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => {
+      const pa = C(z[0] + HOM_DZ, z[1]), pb = C(z[0] - HOM_DZ, z[1]);
+      const w = at(sh, zc, lc), a = at(sh, pa, lamAt(pa)), b = at(sh, pb, lamAt(pb));
+      return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * HOM_DZ), (a.im - b.im) / (2 * HOM_DZ)] : null, exactD: false };
+    });
+  };
+  // the log-coordinate window of each sheet's first op (a log or a power u^s): a member's continued log coordinate has its imaginary part in (lo, hi] when
+  // the member is inside its sheet's window. [{ sheet, kind, lo, hi }] ('LOG' / 'ROOTPOW', else lo and hi are null)
+  window.__cmwLandWin = () => {
+    const inp = render3D.exactIn;
+    if (!inp) return null;
+    return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => { const o = sh.plan.ops[0], p = o && o.p; return { sheet, kind: o ? o.kind : null, lo: p && Number.isFinite(p.lo) ? p.lo : null, hi: p && Number.isFinite(p.hi) ? p.hi : null }; });
+  };
+  // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of
+  // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in
+  // the continued log coordinate when the plan's first op is a log or a power, else in z), plus the plan's poles inside R, against the members
+  // __cmwLandEnum finds there. [{ sheet, N, P, members, ok, status }]; status 'ok', 'onContour' (w is on the boundary, the count is undefined),
+  // 'unresolved' (the winding's step fell below the minimum) or 'cutInR' (a later multivalued op's cut crosses R). opts: noPoles omits P,
+  // dropOne removes a member, hMin replaces WIND_H_MIN, onLip puts w on sheet 0's cut lip, nearContour puts w within WIND_NEAR of sheet 0's
+  // boundary
+  const WIND_ARG = Math.PI / 4, WIND_EPS_R = 1e-6, WIND_D_ON = 1e-9, WIND_H_MIN = 1e-12, WIND_CLOSE = 1e-6, WIND_PERIM = 4096, WIND_NEAR = 1e-4, WIND_SEG0 = 64, WIND_POLE_R = 1e-7, WIND_POLE_BIG = 1e3;
+  window.__cmwLandWind = (wIn, opts = {}) => {
+    const inp = render3D.exactIn, bx = render3D.box;
+    if (!inp || !bx) return null;
+    const hMin = opts.hMin == null ? WIND_H_MIN : opts.hMin;
+    const sheets = [inp.exact].concat(inp.exact.more || []), TAU2 = 2 * Math.PI;
+    const W = bx.x1 - bx.x0, Hh = bx.y1 - bx.y0, Lp = 2 * (W + Hh);
+    // (the box boundary counter-clockwise from its bottom-left corner, by arc length s)
+    const perim = (s) => {
+      s = ((s % Lp) + Lp) % Lp;
+      if (s < W) return C(bx.x0 + s, bx.y0);
+      if (s < W + Hh) return C(bx.x1, bx.y0 + s - W);
+      if (s < 2 * W + Hh) return C(bx.x1 - (s - W - Hh), bx.y1);
+      return C(bx.x0, bx.y1 - (s - 2 * W - Hh));
+    };
+    const first = (o, l) => (o.kind === 'LOG' ? l : o.kind === 'ROOTPOW' ? CX.exp(CX.mul(l, o.p.s)) : null);
+    const gAt = (sh, pt) => {
+      const o = sh.plan.ops[0], u = pt.lam && first(o, pt.lam);
+      const w = u ? Inverse.fwdOps({ ops: sh.plan.ops.slice(1) }, u) : Inverse.fwdOps(sh.plan, pt.z);
+      return w;
+    };
+    const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
+    // the winding of G - w along a piece t -> {z, lam}, t in [0, 1]: the sum of the wrapped arg steps, each at most WIND_ARG with its midpoint between
+    // the ends'; { sum, on, bad }
+    const windPiece = (sh, w, f, len) => {
+      let sum = 0, on = false;
+      const g = (t) => { const v = CX.sub(gAt(sh, f(t)), w); if (!CX.isFin(v)) throw new Error('nonfinite'); if (CX.abs(v) < WIND_D_ON * (1 + CX.abs(w))) on = true; return v; };
+      const stack = [];
+      for (let i = WIND_SEG0; i > 0; i--) stack.push([(i - 1) / WIND_SEG0, i / WIND_SEG0]);
+      while (stack.length) {
+        const [t0, t1] = stack.pop(), a = g(t0), b = g(t1), d = argd(a, b), tm = (t0 + t1) / 2, m = g(tm), d1 = argd(a, m), d2 = argd(m, b);
+        const ok = Math.abs(d) <= WIND_ARG && Math.abs(d1) <= Math.abs(d) + 1e-12 && Math.abs(d2) <= Math.abs(d) + 1e-12 && d1 * d >= 0 && d2 * d >= 0;
+        if (ok) { sum += d; continue; }
+        if ((t1 - t0) * len < hMin * len || (t1 - t0) < hMin) return { sum: 0, on, bad: true };
+        stack.push([tm, t1], [t0, tm]);
+      }
+      return { sum, on, bad: false };
+    };
+    const lamOf = (sh, z) => { const o = sh.plan.ops[0]; return CX.log(z, o.p.theta, o.p.k); };
+    return (() => {
+      const probe = wIn && !opts.onLip && !opts.nearContour ? C(wIn[0], wIn[1]) : null;
+      const ens = window.__cmwLandEnum([wIn || [0, 0]]), out = [];
+      sheets.forEach((sh, k) => {
+        const o = sh.plan.ops[0], multi = o && (o.kind === 'LOG' || o.kind === 'ROOTPOW');
+        let w = probe, status = 'ok', N = 0;
+        try {
+          // (where the sheet's cut ray leaves the origin: Im lam = hi, the cut lips are Im lam = lo and hi)
+          const lo = multi ? o.p.lo : 0, hi = multi ? o.p.hi : 0;
+          const zeroIn = bx.x0 < 0 && 0 < bx.x1 && bx.y0 < 0 && 0 < bx.y1;
+          // (the perimeter's crossings of the ray, by the jump of the windowed arg between neighbours)
+          const cross = [];
+          if (multi) {
+            let prev = lamOf(sh, perim(0)).im;
+            for (let i = 1; i <= WIND_PERIM; i++) {
+              const cur = lamOf(sh, perim(Lp * i / WIND_PERIM)).im;
+              if (Math.abs(cur - prev) > Math.PI) {
+                let a = Lp * (i - 1) / WIND_PERIM, b = Lp * i / WIND_PERIM; const upA = prev > (lo + hi) / 2;
+                for (let it = 0; it < 80; it++) { const m = (a + b) / 2; ((lamOf(sh, perim(m)).im > (lo + hi) / 2) === upA ? (a = m) : (b = m)); }
+                cross.push({ s: (a + b) / 2, upBefore: upA });
+              }
+              prev = cur;
+            }
+          }
+          const lip = (r0, r1, im) => (t) => { const lr = r0 + (r1 - r0) * t, z = C(Math.exp(lr) * Math.cos(im), Math.exp(lr) * Math.sin(im)); return { z, lam: C(lr, im) }; };
+          const arc = (s0, s1) => (t) => { const z = perim(s0 + (s1 - s0) * t); return { z, lam: multi ? lamOf(sh, z) : null }; };
+          const pieces = [];   // [[piece fns...] per component]
+          if (!multi) pieces.push([[arc(0, Lp), Lp]]);
+          else if (!cross.length) pieces.push([[arc(0, Lp), Lp]]);
+          else if (zeroIn) {
+            const c0 = cross[0], rc = CX.abs(perim(c0.s)), eps = WIND_EPS_R * Math.hypot(W, Hh), lr = Math.log(rc), le = Math.log(eps);
+            pieces.push([[(t) => { const z = perim(c0.s + Lp * t); const l = lamOf(sh, z); return { z, lam: l.im <= lo + 1e-9 && t > 1 - 1e-9 ? C(l.re, hi) : l }; }, Lp], [lip(lr, le, hi), lr - le], [(t) => { const im = hi + (lo - hi) * t; return { z: C(eps * Math.cos(im), eps * Math.sin(im)), lam: C(le, im) }; }, hi - lo], [lip(le, lr, lo), lr - le]]);
+          } else {
+            // (0 outside the box and the ray through it: each piece of the boundary between two crossings with the lip back along the ray)
+            for (let i = 0; i < cross.length; i++) {
+              const a = cross[i], b = cross[(i + 1) % cross.length];
+              const s1 = b.s > a.s ? b.s : b.s + Lp, ra = Math.log(CX.abs(perim(a.s))), rb = Math.log(CX.abs(perim(b.s)));
+              const im = lamOf(sh, perim(a.s + (s1 - a.s) * 1e-9)).im;
+              pieces.push([[arc(a.s, s1), s1 - a.s], [lip(rb, ra, im > (lo + hi) / 2 ? hi : lo), Math.abs(rb - ra)]]);
+            }
+          }
+          if (opts.onLip && !multi) { out.push({ sheet: k, N: 0, P: 0, members: 0, ok: true, status: 'noCut' }); return; }
+          if (opts.onLip && multi) { for (const lr of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) { const g0 = gAt(sh, { z: C(Math.exp(lr) * Math.cos(hi), Math.exp(lr) * Math.sin(hi)), lam: C(lr, hi) }); if (g0 && CX.isFin(g0)) { w = g0; break; } } }
+          if (opts.nearContour) { const z = perim(Lp / 3); w = CX.add(gAt(sh, { z, lam: multi ? lamOf(sh, z) : null }), C(WIND_NEAR, 0)); }
+          let total = 0;
+          for (const comp of pieces) {
+            let sum = 0;
+            for (const [f, len] of comp) { const r = windPiece(sh, w, f, len || 1); if (r.on) status = 'onContour'; if (r.bad) status = status === 'ok' ? 'unresolved' : status; sum += r.sum; }
+            const n = sum / TAU2;
+            if (Math.abs(n - Math.round(n)) > WIND_CLOSE) status = status === 'ok' ? 'unresolved' : status;
+            total += Math.round(n);
+          }
+          N = total;
+        } catch (e) { status = String(e.message) === 'nonfinite' ? 'onContour' : 'error: ' + e.message; }
+        // (the plan's poles inside the box, each counted by its order: the growth of |G| over WIND_POLE_R and ten times it. A singular point
+        // that G does not blow up at is no pole; a pole on the sheet's cut ray is on the contour)
+        let P = 0;
+        if (!opts.noPoles) {
+          try {
+            const at = (q, r) => { const z = C(q.re + r, q.im), l = multi ? lamOf(sh, z) : null; return CX.abs(gAt(sh, { z, lam: l })); };
+            for (const q of Inverse.singular(sh.plan, bx, ['pole'], 16)) {
+              if (!(q.z.re >= bx.x0 && q.z.re <= bx.x1 && q.z.im >= bx.y0 && q.z.im <= bx.y1)) continue;
+              const a = at(q.z, WIND_POLE_R), b = at(q.z, 10 * WIND_POLE_R), order = Math.log(a / b) / Math.log(10);
+              if (a > WIND_POLE_BIG && order > 0.5) P += Math.round(order);
+            }
+          } catch (e) { P = 0; }
+        }
+        const mem = ((ens && ens[0]) || []).filter((m) => m.sheet === k && m.z[0] >= bx.x0 && m.z[0] <= bx.x1 && m.z[1] >= bx.y0 && m.z[1] <= bx.y1 && (!multi || !m.lam || (m.lam[1] > o.p.lo && m.lam[1] <= o.p.hi))).length - (opts.dropOne && k === 0 ? 1 : 0);
+        out.push({ sheet: k, N, P, members: mem, ok: status === 'ok' && N + P === mem, status });
+      });
+      return out;
+    })();
+  };
+  // the range ramp (pixels) the inverse admits members outside a sheet's window by: a member's lvl is at least -RAMP
+  window.__cmwLandRamp = () => Inverse.RAMP;
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
-  /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
+  /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true }, noSeam: { noSeam: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());

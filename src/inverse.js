@@ -1584,8 +1584,8 @@ const Inverse = (() => {
   // inverse walk can end on a glide's plane: Möbius paths (one MOB / AFF), power paths (ROOTPOW between AFFs), and
   // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
   // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
-  // (newtOps). {ok, ops} | {ok: false, reason}
-  function homOps(b, t) {
+  // (newtOps); dk shifts the sheet k of a log or root step (and of such a sub-step) to k + dk. {ok, ops} | {ok: false, reason}
+  function homOps(b, t, dk = 0) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
     if (t >= 1) return stepOps(b);
@@ -1595,7 +1595,7 @@ const Inverse = (() => {
     if (nat && nat.kind === 'chain' && b.rec) {
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
       for (let i = 0; i < j; i++) { const r = stepOps(sub[i]); if (!r.ok) return r; ops.push(...r.ops); }
-      const r = homOps(sub[j], x - j);
+      const r = homOps(sub[j], x - j, dk);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(r.ops) };
     }
@@ -1616,13 +1616,13 @@ const Inverse = (() => {
     }
     // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
     if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
-      const { s, theta, k } = one.p, sv = add(ONE, scale(sub(s, ONE), t));
+      const { s, theta } = one.p, k = one.p.k + dk, sv = add(ONE, scale(sub(s, ONE), t));
       return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] };
     }
     // log on the cut theta, sheet k (logHom): (z^u - 1)/u + u, u = 1 - t, z^u on that branch; the logarithm itself
     // where u is below logHom's 1e-6
     if (one && one.kind === 'LOG' && !nat && id === 'log') {
-      const u = 1 - t, { theta, k } = one.p;
+      const u = 1 - t, theta = one.p.theta, k = one.p.k + dk;
       if (u < 1e-6) return own;
       return { ok: true, ops: [opRootPow(C(u, 0), theta, k, (z) => CX.powReal(z, u, theta, k)), aff(C(1 / u, 0), C(u - 1 / u, 0))] };
     }

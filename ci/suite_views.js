@@ -59,6 +59,8 @@ const VIEWS = {
   'steps_land_inregions_cmd.js': steps(),
   'steps_land_footprint_cmd.js': steps(),
   'steps_inregions_pending_cmd.js': steps(),
+  'steps_land_exact_cmd.js': steps({ pin: true }),
+  'steps_land_enum_cmd.js': steps({ pin: true }),
   'steps_land_3d_cmd.js': steps(),
   'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_poles_cmd.js': steps(),
