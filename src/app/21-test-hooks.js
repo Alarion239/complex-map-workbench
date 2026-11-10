@@ -1248,9 +1248,18 @@
       const li = Math.floor(key / CAP_CELL_MAX), cell = key - li * CAP_CELL_MAX, i = cell % M, j = Math.floor(cell / M), g = layers[li].g;
       return [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].map(([x, y]) => (g[4 * (y * N + x) + 3] > 0.5 ? g[4 * (y * N + x) + 2] : null));
     };
+    // the pixel's 8 neighbours that are not covered or are of another layer: a pixel on the rim of a cut bank has some
+    const edgeOf = (k) => {
+      let n = 0;
+      for (let d = 0; d < 9; d++) {
+        const x = (k % W) + (d % 3) - 1, y = Math.floor(k / W) + Math.floor(d / 3) - 1, q = 4 * (y * W + x);
+        if (d !== 4 && (x < 0 || y < 0 || x >= W || y >= H || p2[q + 3] !== 1 || p2[q + 1] !== p2[4 * k + 1])) n++;
+      }
+      return n;
+    };
     const samples = [], put = (k, kind, key) => {
       const q = 4 * k;
-      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], layer: p2[q + 1], own: layers[p2[q + 1]] ? layers[p2[q + 1]].own : null, kind, corners: key >= 0 ? cornersOf(key) : null });
+      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], layer: p2[q + 1], own: layers[p2[q + 1]] ? layers[p2[q + 1]].own : null, kind, corners: p2[q + 2] >= 0 && layers[p2[q + 1]] ? cornersOf(p2[q + 1] * CAP_CELL_MAX + p2[q + 2]) : null, edge: edgeOf(k) });
     };
     let nStrad = 0, truncated = 0;
     for (const key of keys) {
@@ -1271,7 +1280,7 @@
     }
     let constant = null;
     if (c) { for (let k = 0; k < W * H; k++) if (c.px[4 * k + 3] !== 0) { constant = [c.px[4 * k], c.px[4 * k + 1], c.px[4 * k + 2], c.px[4 * k + 3]]; break; } }
-    return { W, H, uH: b.uH, hc, blockK: GLR.BLOCK_K, clipFar: GLR.CLIP_FAR, covered, maxDrawn, nStradAll: strad.size, nStrad, truncated, samples, constant };
+    return { W, H, nCombos: new Set(layers.map((l) => l.own)).size, uH: b.uH, hc, blockK: GLR.BLOCK_K, clipFar: GLR.CLIP_FAR, covered, maxDrawn, nStradAll: strad.size, nStrad, truncated, samples, constant };
   };
   // TEMP-DEBUG-HOOK
 
