@@ -68,19 +68,37 @@
   const POLE_SHIFT = 3;   // (the pole control: far enough along the imaginary axis to leave the leaf that holds the dipole)
   // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
   // listed row fails if the control runs and bites)
+  // the rows with straddling cells where the clip-off control cannot bite because the cut is already tight there: the largest |hTrue| / Hc of the clip-off pixels is at most 1 + CAP_EPS (asserted two-sided: a listed row that bites fails)
+  // the cases whose clip-off count falls to 0 under the lowest-pixel sampling on some row (asserted in that case's own part of the suite: Möbius √ at u = .002)
+  const C2_ZERO_CASES = ['Möbius, √'];
+  // the other cases with straddling cells, listed with why their count does not reach 0 (asserted two-sided: a listed case that reaches 0 fails)
+  const C2_ZERO_NA = { 'Möbius dipole, √': 'the pixels over the bound fill their cells (the lowest-drawn pixels of a pole cell are over it too), so no row empties' };
+  const C1_TIGHT = { 'Möbius dipole, √|0.998': 'every straddling cell is cut within CAP_EPS of the block', 'Möbius dipole, √|0.9999': 'every straddling cell is cut within CAP_EPS of the block' };
   const CTL_NA = {
-    "Möbius, √|sheets": "the glide has one surface there",
-    "Roots as preimages|sheets": "the glide has one surface there",
-    "Joukowski airfoil|sheets": "the glide has one surface there",
-    "Möbius dipole, √|sheets": "the glide has one surface there",
-    "Möbius with a pole in the box|sheets": "the glide has one surface there",
-    "Möbius, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
-    "Roots as preimages|digits": "the glide has one surface there: no digit of the scene's surface table can move",
-    "Joukowski airfoil|digits": "the glide has one surface there: no digit of the scene's surface table can move",
-    "Möbius dipole, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
-    "Möbius with a pole in the box|digits": "the glide has one surface there: no digit of the scene's surface table can move",
-    "Partial sums of the exponential (Newton)|sheets": "the glide has one surface there",
-    "Partial sums of the exponential (Newton)|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Möbius with a pole in the box|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "log of an annulus|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "log, box centred at 1.5 + 0.5i|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "cube root|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Joukowski airfoil|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Roots as preimages|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Partial sums of the exponential (Newton)|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Möbius, √|capOff|0.998": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Möbius, √|capOff|0.9999": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Möbius, √|sheets": "the glide has one surface there (K ≤ 1)",
+    "z^(-1/2)|sheets": "the glide has one surface there (K ≤ 1)",
+    "z^(-1/2)|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
+    "z^(-1/2)|stripRead": "the scene's chain lists no branch step input at this u",
+    "Roots as preimages|sheets": "the glide has one surface there (K ≤ 1)",
+    "Joukowski airfoil|sheets": "the glide has one surface there (K ≤ 1)",
+    "Möbius dipole, √|sheets": "the glide has one surface there (K ≤ 1)",
+    "Möbius with a pole in the box|sheets": "the glide has one surface there (K ≤ 1)",
+    "Möbius, √|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
+    "Roots as preimages|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
+    "Joukowski airfoil|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
+    "Möbius dipole, √|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
+    "Möbius with a pole in the box|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
+    "Partial sums of the exponential (Newton)|sheets": "the glide has one surface there (K ≤ 1)",
+    "Partial sums of the exponential (Newton)|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
     "Partial sums of the exponential (Newton)|stripRead": "the scene's chain lists no branch step: the partial sums of the exponential are entire",
     "Möbius, √|stripRead": "the scene's chain lists no branch step input at this u",
     "Joukowski airfoil|stripRead": "the scene's chain lists no branch step input at this u",
@@ -101,7 +119,15 @@
     "Möbius dipole, √|farFront": "one preimage at each probe place: the farthest member is the nearest",
     "Möbius with a pole in the box|farFront": "one preimage at each probe place: the farthest member is the nearest",
   };
-  const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
+  // (every not-applicable answer a row reads is recorded; naK then prints the scene's K for them: K must be finite, and at most 1 for an entry whose reason is that the glide has one surface)
+  const naHits = new Map();
+  const ctlNA = (c, ctl, u) => { const r = CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null; if (r) naHits.set(`${c.tag}|${ctl}|${u}`, r); return r; };
+  const naK = async (t) => {
+    if (!naHits.size) return;
+    const K = await ev('(__cmwLandSceneCombos() || {}).n'), one = [...naHits].filter(([, r]) => /one surface/.test(r)).map(([k]) => k.split('|')[1]);
+    ok(`${t}: the scene's K is ${K} for the not-applicable controls (${[...naHits.keys()].map((k) => k.split('|')[1]).join(', ')}): finite${one.length ? ', and at most 1 for ' + one.join(', ') + ' (their reason is one surface)' : ''}`, Number.isFinite(K) && (!one.length || K <= 1), { K, one });
+    naHits.clear();
+  };
   const EDGE_ARG_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
   const ZERO_MOVE_MIN = 0.0025;   // (the branch point's drawn place moves with u by at least this: its two u's are far apart against the float noise of one place)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
@@ -230,6 +256,7 @@
     // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
     // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
     { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
+    { tag: 'z^(-1/2)', steps: [{ type: 'mobius', params: { a: '0', b: '1', c: '1', d: '0' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true },
     { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true, clipControls: true, surfaces: 3, surfacesAt: { 0.75: 2 } },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', cutControl: true },
     { tag: 'Roots as preimages', example: 'Roots as preimages', rayControl: true },
@@ -817,7 +844,7 @@
     ok(`the distinct layers keep two members of one z ${10 * HEIGHT_TOL} apart in height as two`, distinctLayers([a, L([1, 0], 10 * HEIGHT_TOL)]).length === 2 && distinctLayers([a, L([1, 0], 0.5 * HEIGHT_TOL)]).length === 1, null);
     ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
   }
-  const CLIPPED_ROWS = ['Möbius, √@0.0001', 'Möbius, √@0.002', 'Möbius, √@0.25', 'Möbius, √@0.75'];   // the rows (case@u, All sheets) at which a probe place holds a layer beyond the clip level, which the strict height compare fails: the control that the clip levels are what pairs it needs some, and a row off the list has none
+  const CLIPPED_ROWS = ['Möbius, √@0.0001', 'Möbius, √@0.002', 'Möbius, √@0.25', 'Möbius, √@0.75', 'z^(-1/2)@0.5', 'z^(-1/2)@0.75'];   // the rows (case@u, All sheets) at which a probe place holds a layer beyond the clip level, which the strict height compare fails: the control that the clip levels are what pairs it needs some, and a row off the list has none
   // The colour map's height clip levels [low, high] the frame draws at (the claims hook's sat, the one number both the claim check and the layer check read), null when the frame has none
   const satOf = (cl) => { const l = (cl || []).flat()[0]; return l && l.sat && l.sat.every(Number.isFinite) ? l.sat : null; };
   const onSide = (x, sat, hi) => (hi ? x.h >= sat[1] - HEIGHT_TOL : x.h <= sat[0] + HEIGHT_TOL);
@@ -958,6 +985,99 @@
       return await read();
     } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
   };
+  // ---- The cap at the block (All sheets' layered draw): what the draw puts on screen stays inside the clip's own bound ----
+  // For a drawn fragment of a layer, hTrue is the height of the scene's H_u at the fragment's preimage vZ, on the layer's own branch (its claim code, the anchor vZc: __cmwLandScene, the CPU
+  // reference, which reads no plan and evaluates nothing the shader does), and the bound is Hc = GLR.BLOCK_K times the block's height, the clip's own value. window.__cmwLandCapRead draws the
+  // frame into a float target with the fragment stage writing its geometry (no map evaluated in the shader) and picks, from the drawn heights, the pixels to evaluate: the CAP_PER_CELL pixels of the
+  // largest drawn |height| in each straddling cell (a grid cell with a corner past Hc), CAP_UNIFORM more on a seeded stratified grid (data only), CAP_MAX in all. The clip puts the
+  // cut where the true height is Hc, exactly in 1 / h for corners past CLIP_FAR block edges and linearly inside it, so the count of straddling pixels with |hTrue| over Hc (1 + CAP_EPS) is 0, CAP_EPS
+  // being the deviation the linear crossings inside CLIP_FAR leave. Controls: C1 the same count with the clip off (the layers cut at their drawn height, linearly interpolated) is over 0 in
+  // every row with a straddling cell, C2 the pixels of the smallest drawn |height| in place of the largest see fewer, C3 the layer's claim one digit off moves the clip-on maximum by more than
+  // CAP_EPS, C4 the float target returns the constant the probe writes
+  // CAP_MAX: the most pixels read in a frame, the straddling cells' pixels and the uniform ones (the worst frame, Möbius √ at u = .75, needs 564)
+  // REF_OUTLIER_MAX: the uniform pixels (of CAP_UNIFORM) over CAP_REF_TOL from the drawn height that are allowed, each classed as beside a cut bank (a neighbouring pixel is uncovered or of another layer) or interpolating (the cell's corner heights span at least the error)
+  // CAP_REF_TOL: the median |hTrue - drawn height| the reference may have at the uniform pixels (the same height function at the same z, up to the float interpolation of vZ; the pixels beside a pole or a cut, where the drawn height is the linear interpolation or the other bank's, are outliers a median leaves out and the largest shows as data)
+  const CAP_EPS = 0.05, CAP_PER_CELL = 2, CAP_UNIFORM = 64, CAP_MAX = 768, CAP_REF_TOL = 1e-3, CAP_CLAMP_TOL = 1e-9, REF_OUTLIER_MAX = 3, CAP_SEED = 20251110, CAP_BATCH = 20, CAP_WORST = 5, CAP_CONST = [1, 2, 3, 4];
+  const capRd = (o) => ev(`__cmwLandCapRead(${JSON.stringify(Object.assign({ perCell: CAP_PER_CELL, uniform: CAP_UNIFORM, max: CAP_MAX, seed: CAP_SEED }, o))})`);
+  const capEval = async (samples, shift) => {
+    const out = [];
+    for (let i = 0; i < samples.length; i += CAP_BATCH) {
+      const b = samples.slice(i, i + CAP_BATCH).map((q) => ({ z: q.z, zc: q.zc, own: q.own + shift }));
+      out.push(...await ev(`__cmwLandCapHeights(${JSON.stringify(b)})`));
+    }
+    return out;
+  };
+  const capStat = (rd, hs, hc) => {
+    const s = rd.samples.map((q, i) => Object.assign({ h: hs[i] }, q)), st = s.filter((q) => q.kind === 'strad'), un = s.filter((q) => q.kind === 'uniform');
+    const fin = (a) => a.filter((q) => q.h !== null);
+    return {
+      unresolved: s.filter((q) => q.h === null).length,
+      over: fin(st).filter((q) => Math.abs(q.h) > hc * (1 + CAP_EPS)).length,
+      maxRatio: fin(st).reduce((m, q) => Math.max(m, Math.abs(q.h) / hc), 0),
+      uniMax: fin(un).reduce((m, q) => Math.max(m, Math.abs(q.h - q.vz)), 0),
+      nStrad: st.length, nUni: un.length,
+      refErr: fin(un).reduce((m, q) => Math.max(m, Math.abs(q.h - q.vz)), 0),
+      outliers: un.filter((q) => q.h !== null && Math.abs(q.h - q.vz) > CAP_REF_TOL).map((q) => { const cs = (q.corners || []).filter((x) => x !== null), spread = cs.length ? Math.max(...cs) - Math.min(...cs) : 0, err = Math.abs(q.h - q.vz); return { err, vz: q.vz, spread, edge: q.edge, cls: q.edge > 0 ? 'cut bank' : err <= spread ? 'interpolation' : null }; }),
+      refMed: (() => { const e = fin(un).map((q) => Math.abs(q.h - q.vz)).sort((a, b) => a - b); return e.length ? e[Math.floor(e.length / 2)] : 0; })(),
+      worst: [...new Set(st.map((q) => q.layer))].map((ly) => fin(st).filter((q) => q.layer === ly && Math.abs(q.h) > hc * (1 + CAP_EPS)).sort((p, q) => Math.abs(q.h) - Math.abs(p.h)).slice(0, CAP_WORST).map((q) => ({ layer: q.layer, cell: q.cell, corners: q.corners, side: q.corners && Math.max(...q.corners.filter((x) => x !== null).map(Math.abs)) > rd.clipFar * hc ? 'far (1 / h)' : 'near (linear)', z: q.z, vz: q.vz, h: q.h }))).filter((a) => a.length)
+    };
+  };
+  const capBit = { c1: 0, c2fell: 0, c2zero: 0, c3: 0, c4: 0, rows: 0, strad: 0 }, capCase = {}, capC1 = {}, capC2Zero = {};
+  const capRow = async (c, u, t, rec) => {
+    const t0 = Date.now(), on = await capRd({});
+    ok(`${t}: the cap probe reads a float target and a layered frame (${on.err || 'read'})`, !on.err, on);
+    if (on.err) return;
+    capBit.rows++;
+    if (!capBit.c4 && !capBit.c4done) {
+      capBit.c4done = true;
+      const k = await capRd({ constant: true });
+      ok(`${t}: C4: the float target returns the constant the probe writes (${JSON.stringify(k.constant)})`, !!k.constant && k.constant.length === CAP_CONST.length && k.constant.every((x, i) => x === CAP_CONST[i]), k.constant);
+      if (k.constant && k.constant.every((x, i) => x === CAP_CONST[i])) capBit.c4++;
+    }
+    const hc = on.hc, tS = Date.now();
+    const hOn = await capEval(on.samples, 0), sOn = capStat(on, hOn, hc), tOn = Date.now() - tS;
+    ok(`${t}: cap: no sampled pixel is unresolved by the scene (${sOn.unresolved} of ${on.samples.length})`, sOn.unresolved === 0, sOn);
+    ok(`${t}: cap: the reference reproduces the drawn height at the ${sOn.nUni} uniform pixels (median |hTrue - drawn| ${sOn.refMed.toFixed(6)}, at most ${CAP_REF_TOL}; the largest, data: ${sOn.refErr.toFixed(6)})`, sOn.refMed <= CAP_REF_TOL, { refMed: sOn.refMed, refErr: sOn.refErr, nUni: sOn.nUni });
+    ok(`${t}: cap: at most ${REF_OUTLIER_MAX} of the ${sOn.nUni} uniform pixels are over ${CAP_REF_TOL} from the drawn height (${sOn.outliers.length}), each beside a cut bank or inside a cell that interpolates a height range as wide as its error (${sOn.outliers.filter((q) => !q.cls).length} are neither)`, sOn.outliers.length <= REF_OUTLIER_MAX && sOn.outliers.every((q) => q.cls), sOn.outliers);
+    ok(`${t}: cap: no straddling cell is left out of the sample (${on.truncated} of ${on.nStrad + on.truncated} cells; ${on.samples.length} of ${CAP_MAX} pixels)`, on.truncated === 0, { truncated: on.truncated, nStrad: on.nStrad });
+    ok(`${t}: cap: no drawn pixel's true height is over Hc (1 + ${CAP_EPS}), the ${sOn.nStrad} pixels of ${on.nStrad} straddling cells (${sOn.over} are; the largest |hTrue| / Hc is ${sOn.maxRatio.toFixed(4)}, Hc = ${hc})`, sOn.over === 0, sOn);
+    ok(`${t}: cap: the largest drawn |height| is inside Hc (1 + ${CAP_EPS}) (${(on.maxDrawn / hc).toFixed(4)} Hc)`, on.maxDrawn <= hc * (1 + CAP_EPS), { maxDrawn: on.maxDrawn, hc });
+    // C1, the clip off
+    const off = await capRd({ clipOff: true }), hOff = await capEval(off.samples, 0), sOff = capStat(off, hOff, hc);
+    const na = ctlNA(c, 'capOff', u);
+    if (off.nStrad > 0) {
+      capBit.strad++;
+      const tight = C1_TIGHT[`${c.tag}|${u}`], bites = sOff.over > 0;
+      if (tight) ok(`${t}: C1: the cut is tight here (${tight}): without the block clip the largest straddling |hTrue| is ${sOff.maxRatio.toFixed(4)} Hc, at most ${1 + CAP_EPS}, and ${sOff.over} pixels are over`, !bites && sOff.maxRatio <= 1 + CAP_EPS, sOff);
+      else ok(`${t}: C1: without the block clip ${sOff.over} straddling pixels (of ${sOff.nStrad}) have |hTrue| over Hc (1 + ${CAP_EPS}) (largest ${sOff.maxRatio.toFixed(4)} Hc)`, bites, sOff);
+      if (bites) { capBit.c1++; capC1[c.tag] = true; }
+    } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na && off.nStradAll === 0, { nStradAll: off.nStradAll });
+    // the frame's height function never gives a height past the bound the clip uses, and where it clamps the linear heights its saturation is BLOCK_K times the block's height (control: against the bound one CAP_EPS higher it fails)
+    {
+      const sat = [await ev('__cmwLandHeightOf(-1e12)'), await ev('__cmwLandHeightOf(1e12)')], top = Math.max(Math.abs(sat[0]), Math.abs(sat[1])), clampAt = (b) => Math.abs(top - b) <= CAP_CLAMP_TOL * b;
+      ok(`${t}: cap: the height function stays inside BLOCK_K times the block's height (${sat[0]}, ${sat[1]} against ${hc})`, top <= hc * (1 + CAP_CLAMP_TOL), { sat, hc });
+      if (off.nStrad > 0) {
+        ok(`${t}: cap: the height function saturates at BLOCK_K times the block's height (${sat[0]}, ${sat[1]} against ${hc})`, clampAt(hc), { sat, hc });
+        ok(`${t}: cap: control: a bound ${CAP_EPS} higher is not the height function's saturation`, !clampAt(hc * (1 + CAP_EPS)), { sat, hc });
+      }
+    }
+    // C2, the pixels of the smallest drawn height
+    const low = await capRd({ clipOff: true, lowest: true }), hLow = await capEval(low.samples, 0), sLow = capStat(low, hLow, hc);
+    if (off.nStrad > 0) {
+      if (sLow.over < sOff.over) capBit.c2fell++;
+      if (sLow.over === 0 && sOff.over > 0) { capBit.c2zero++; capC2Zero[c.tag] = (capC2Zero[c.tag] || 0) + 1; }
+      const k = capCase[c.tag] = capCase[c.tag] || { top: 0, low: 0 }; k.top += sOff.over; k.low += sLow.over;
+    }
+    // C3, the claim one digit off: the sample continued on another surface does not reproduce the drawn heights
+    const K = on.nCombos;
+    if (K > 1) {
+      const hSh = await capEval(on.samples, 1), dev = on.samples.reduce((m, q, i) => (hSh[i] === null ? m : Math.max(m, Math.abs(hSh[i] - q.vz))), 0), sSh = capStat(on, hSh, hc);
+      ok(`${t}: C3: continued on the claim one digit off (${K} combos) the sample's largest |hTrue - drawn height| is over ${10 * CAP_REF_TOL} (${dev.toFixed(4)}; the claim itself: median ${sOn.refMed.toFixed(6)} at the uniform pixels)`, dev > 10 * CAP_REF_TOL, { K, dev, claim: sOn.refMed });
+      if (dev > 10 * CAP_REF_TOL) capBit.c3++;
+    } else ok(`${t}: C3: not applicable: the layers claim ${K} combo (exactly one)`, K === 1, { K });
+    rec.cap = { hc, covered: on.covered, nStradAll: on.nStradAll, nStrad: on.nStrad, truncated: on.truncated, clipOn: sOn, clipOff: sOff, lowest: sLow, tOnMs: tOn, tRowMs: Date.now() - t0 };
+    info.capRows = (info.capRows || []).concat({ t, hc, ...rec.cap });
+  };
   await view(VIEW_W, VIEW_H, false, false);
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
   for (const c of CASES.filter((x) => !process.env.CMW_ONLY || x.tag === process.env.CMW_ONLY)) for (const sheets of MODES) {
@@ -1043,6 +1163,10 @@
           await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           ok(`${t}: ${what} the next plane's parked frame is not matched (control; ${dc} of pixels over ${DIFF_TOL})`, dc > SAME_FRAC, { dc });
         }
+      }
+      if (sheets) {
+        ok(`${t}: cap: the frame is on the inverse path, which the layered cap probe reads (path ${carry && carry.path})`, !!carry && carry.path !== 'mesh', carry);
+        if (carry && carry.path !== 'mesh') await capRow(c, u, t, r[u]);
       }
       // the end frames in the Top view, against the parked plane there
       if (first || lastU) {
@@ -1701,6 +1825,36 @@
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       const sat = sheets ? satOf(await ev(`__cmwLandClaims(${JSON.stringify(pts.slice(0, SAT_PLACES))})`)) : null; let clipped = 0, clippedAt = null;
+      // (the colour's frame side: each layer's F is the colour map's value of the reference sheet (__cmwLandRefSheets at the layer's z) whose height is the layer's (a height beyond the clip level on the
+      // layer's side is the sheet's clipped one); where two sheets with two values fit, the sheet whose combo is the layer's claim decides, on a row where the claim agrees with the height everywhere it is read; none, or two values left that the claim does not decide, is counted and fails the row. The frame's layers are the distinct ones. The hook's matched member's F is not read)
+      let nByClaim = 0, shiftBad = 0; const byClaimLs = [];
+      let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0, claimDis = 0, claimN = 0, noAnchor = 0; const noSheetAt = [];
+      if (sheets) {
+        const cl = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`);
+        const rsAll = await ev(`${JSON.stringify(got.map((ls) => (ls || []).map((l) => l.z || null)))}.map((ls) => ls.map((z) => (z ? __cmwLandRefSheets(z) : [])))`);
+        const rsAnch = await ev(`${JSON.stringify(got.map((ls, i) => (ls || []).map((l, j) => ({ z: l.z || null, a: cl && cl[i] && cl[i][j] && cl[i][j].anchor ? cl[i][j].anchor.z : null }))))}.map((ls) => ls.map((q) => (q.z && q.a ? __cmwLandRefSheets(q.z, q.a) : null)))`);
+        const sameF = (a2, b2) => Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) <= REL_FLOOR * (1 + Math.hypot(b2[0], b2[1]));
+        got.forEach((ls, i) => distinctLayers(ls || []).forEach((l) => {
+          const j = ls.indexOf(l), claim = cl && cl[i] && cl[i][j] ? cl[i][j].claim : null, opts = (rsAll && rsAll[i] && rsAll[i][j]) || [];
+          const hit = opts.filter((q) => q.f && q.h !== null && (Math.abs(q.h - l.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(q, sat, hi)))));
+          const vals = hit.filter((q, k) => hit.findIndex((q2) => sameF(q2.f, q.f)) === k);
+          const byClaim = hit.filter((q) => q.combo === claim);
+          l.f = null;
+          if (!hit.length) { noSheet++; if (noSheetAt.length < 4) noSheetAt.push({ z: l.z, h: l.h, claim }); }
+          else if (vals.length === 1) {
+            l.f = hit[0].f;
+            // (the claim's sheet is the height's sheet on every layer the height settles: the claim's label is read at the layer's anchor, the fragment's own corner; a layer without an anchor is counted and fails)
+            claimN++;
+            const an = rsAnch && rsAnch[i] && rsAnch[i][j] ? rsAnch[i][j].filter((q) => q.combo === claim && q.f) : [];
+            if (!rsAnch || !rsAnch[i] || !rsAnch[i][j]) noAnchor++; else if (!an.length || !an.every((q) => sameF(q.f, l.f))) claimDis++;
+          } else if (byClaim.length && byClaim.every((q) => sameF(q.f, byClaim[0].f))) byClaimLs.push({ l, f: byClaim[0].f, hit, claim });
+          else ambiguous++;
+        }));
+        // (two sheets with two values fit: the claim chooses only on a row where the claim agrees with the height on every layer the height settles (0 of the claimN disagree); on any other row the claim is not trusted and those layers are ambiguous, which fails the row)
+        if (claimDis === 0 && noAnchor === 0) { byClaimLs.forEach((q) => { q.l.f = q.f; }); nByClaim = byClaimLs.length; } else ambiguous += byClaimLs.length;
+        // (the claim-shift control: each layer the claim chose is also given the colour of another fitting sheet, and the colour row's own compare is run on those: it must go red at some layer)
+        byClaimLs.forEach((q) => { const other = q.hit.find((x) => x.combo !== q.claim && !sameF(x.f, q.f)); q.l.fShift = other ? other.f : null; });
+      }
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
@@ -1719,13 +1873,30 @@
           if (g.h && !(sat && Math.abs(l.h - m.h) > HEIGHT_TOL && heightsAgree(l, m, want, sat))) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
           if (g.noF) { noF++; return; }
           if (g.phN) phN++;
-          if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
+          if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f, dArg: phaseGap(l.f, m.f), dH: l.h - m.h }); }
+          if (l.fShift) { const g2 = layerGap(Object.assign({}, l, { f: l.fShift }), m, NEAR_U.includes(u) ? { h: NEAR_TOL, ph: NEAR_TOL } : undefined); if (g2.ph) shiftBad++; }
+          // (the control's pairs: the layer against the reference's other member of the place, whose colour must differ beyond the tolerance at some pair)
+          const other = want.find((x) => x !== m && x.f);
+          if (other && l.f) { pairN++; const go = phaseGap(l.f, other.f); if (go !== null && go > (NEAR_U.includes(u) ? NEAR_TOL : PHASE_TOL)) pairOff++; }
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      if (sheets && sat) {
+        // (the coupling of the clip exemption to the draw's block clip: the level the exemption reads (sat, the claims hook's) is the saturation of the frame's height function, which the cap rows hold to GLR.BLOCK_K times the block's height; control: a level CAP_EPS higher is not the saturation)
+        const satFn = [await ev('__cmwLandHeightOf(-1e12)'), await ev('__cmwLandHeightOf(1e12)')], same2 = (lv) => lv.every((x, k) => Math.abs(x - satFn[k]) <= CAP_CLAMP_TOL * Math.abs(satFn[k]));
+        ok(`${t}: the clip exemption's level (${sat[0]}, ${sat[1]}) is the height function's saturation (${satFn[0]}, ${satFn[1]}), which the cap rows tie to BLOCK_K times the block's height`, same2(sat), { sat, satFn });
+        ok(`${t}: control: a level ${CAP_EPS} higher is not the height function's saturation`, !same2(sat.map((x) => x * (1 + CAP_EPS))), { sat, satFn });
+      }
+      if (sheets) {
+        ok(`${t}: the claim's sheet is the height's sheet on every layer the height settles (${claimDis} of ${claimN} disagree; ${noAnchor} have no anchor)`, claimN > 0 && claimDis === 0 && noAnchor === 0, { claimDis, claimN, noAnchor });
+        ok(`${t}: ${nByClaim} layers took their colour from the claim's sheet; the control: the colour row's compare with the claim shifted to another fitting sheet fails at ${nByClaim ? shiftBad + ' members' : '(not applicable: no layer is chosen by the claim)'}`, nByClaim === 0 || shiftBad > 0, { nByClaim, shiftBad });
+        r.pairN = (r.pairN || 0) + pairN; r.pairOff = (r.pairOff || 0) + pairOff;
+        // (the control over the row: a layer paired with the reference's other member leaves the colour tolerance at some pair; a place with one member has no pair)
+        if (u === GLIDE_U[GLIDE_U.length - 1]) ok(`${name}: the control: a layer paired with the reference's other member leaves the colour tolerance at ${r.pairOff} of ${r.pairN} pairs over the row${r.pairN ? '' : ' (n/a at each u: one member per place)'}`, r.pairN > 0 && r.pairOff > 0, { pairN: r.pairN, pairOff: r.pairOff });
+      }
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, noSheet, ambiguous, noSheetAt, atPh });
       if (sheets) {
         ok(`${t}: control: with the clip levels off the places holding a layer beyond them fail (${clipped} places; the row is ${CLIPPED_ROWS.includes(`${c.tag}@${u}`) ? '' : 'not '}on the list of rows that have some)`, (clipped > 0) === CLIPPED_ROWS.includes(`${c.tag}@${u}`), { clipped, sat });
         if (clippedAt && sat) {
@@ -1735,6 +1906,7 @@
           ok(`${t}: control: a clipped layer on the other side from its member is not matched`, !sameLayers(flipped, clippedAt.want, sat), { sat });
         }
       }
+      await naK(t);
       (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
       // (Ruling C controls) a frame drawn at the wrong u is told apart by NEAR_TOL: the frame at REVERSED_FROM against the reference at 1 - REVERSED_FROM
       // (u reversed), and against the reference at the glide's middle (u frozen there), each more than NEAR_TOL off at some place
@@ -1744,15 +1916,17 @@
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
       }
-      // (the sheets' combo one off: the colour at the near probes leaves NEAR_TOL)
+      // (the sheets' combo one off, at the near probes: the Top view's hue is over HUE_OFF_MAX pixels off the parked frame at the same u's end, where the unshifted frame's count is at most HUE_OFF_MAX)
       if (NEAR_U.includes(u) && u >= REVERSED_FROM && u <= 1 - REVERSED_FROM && COMBO_CONTROL_K.includes(c.tag)) {
-        let nPh = 0;
+        let nHue;
         try {
           await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          const sh = await hook(pts);
-          (sh || []).forEach((hv, i) => (ref[i] || []).slice(0, 1).forEach((m) => { (hv || []).filter((x) => sameZ(x.z, m.z)).forEach((l) => { const g = phaseGap(l.f, m.f); if (g !== null && g > NEAR_TOL) nPh++; }); }));
-        } finally { await ev("window.__svCarryProbe = {}; 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
-        ok(`${t}: the control: with every sheet's combo one off the colour leaves ${NEAR_TOL} rad at ${nPh} members`, nPh > 0, { nPh });
+          await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          await grab('ctlT2');
+          nHue = await ev(`__lx.hueOff('ctlT2', ${first ? "'P0T'" : "'P1T'"})`);
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
+        const unshifted = r[u].top ? r[u].top.hueN : null;
+        ok(`${t}: the control: with every sheet's combo one off the Top view's hue is over ${HUE_OFF_MAX} pixels off the parked frame (${nHue} are; ${unshifted} unshifted)`, nHue > HUE_OFF_MAX, { nHue, unshifted });
       }
       // (control) the farthest member marked front: at the places where that is another z than the nearest, the frame's front is not the reference's
       if (!sheets && !r.farFront && ref.some((l) => l.length > 1)) {
@@ -1766,6 +1940,7 @@
         }
       }
       if (!sheets && u === 1 - END_U) ok(`${t}: the control: the farthest member marked front ran at some u${ctlNA(c, 'farFront') ? ' (not applicable: ' + ctlNA(c, 'farFront') + ')' : ''}`, r.farFront === undefined ? !!ctlNA(c, 'farFront') : r.farFront > 0 && !ctlNA(c, 'farFront'), { nBad: r.farFront, na: ctlNA(c, 'farFront') });
+      await naK(t);
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
@@ -1842,6 +2017,17 @@
       r.fixControl = { dOn, dOff };
       ok(`${name}: u=${1 - END_U}: with the sheet pass the frame is the next plane's parked frame (at most ${SAME_FRAC * 100} %)`, on && dOn <= SAME_FRAC, r.fixControl);
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
+    }
+  }
+  if (capBit.rows) ok(`control: the cap probe's float target returned its constant (${capBit.c4} reads)`, capBit.c4 > 0, capBit);
+  if (capBit.strad) {
+    ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.strad} rows with a straddling cell)`, capBit.c1 > 0, capBit);
+    ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
+    for (const [tag, k] of Object.entries(capCase)) ok(`control: C2: over the rows of ${tag} the clip-off count falls when each straddling cell's lowest drawn pixels are sampled in place of its highest (${k.low} against ${k.top})`, k.low < k.top, k);
+    for (const tag of Object.keys(capCase)) ok(`control: C1: the clip-off count is over 0 on some row of ${tag}`, !!capC1[tag], capC1);
+    for (const tag of Object.keys(capCase)) {
+      if (C2_ZERO_CASES.includes(tag)) ok(`control: C2: the clip-off count with the lowest pixels is 0 on some row of ${tag} (${capC2Zero[tag] || 0} rows)`, (capC2Zero[tag] || 0) > 0, capC2Zero);
+      else ok(`control: C2: ${tag} is listed as never reaching 0 (${C2_ZERO_NA[tag] || 'NOT LISTED'}; ${capC2Zero[tag] || 0} rows reach it)`, !!C2_ZERO_NA[tag] && !(capC2Zero[tag] > 0), capC2Zero);
     }
   }
   // (each case's aggregates bite on one of its rows, or the case is on the list of cases where the control has nothing to run on, with the reason)
