@@ -87,6 +87,7 @@
   return { n, none, max: Math.round(max), over: +(over / Math.max(1, n)).toFixed(5) };
 };`;
   const HOLD_EPS = 0.003;   // (a rail pixel is about 0.005 of a plane at 1200 px wide)
+  const SAME_FRAC = 0.005;  // (the share of pixels that may be over DIFF_TOL apart in a frame that is the same picture: #859's look suite)
   const DIFF_TOL = 32;      // (steps_sm_standin_cmd.js: a frame is the rest frame with at most 0.5 % of pixels > 32/255 apart)
   // (links: wait for every program to have linked too; false while links are held, GLR.holdLinks)
   const hold = async (x, links = true) => {
@@ -243,5 +244,5 @@ ${REF}`;
     }
     return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
   })()`);
-  return { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL, SAME_FRAC };
 })()

@@ -28,6 +28,24 @@ await go(`http://localhost:${PORT}/test.html?view=steps&ns=landfar${Date.now()}`
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
 await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
 await settled({ max: 60000 });
+// the far carry is the carried mesh's: a Möbius glide frame is drawn by the exact inverse path by default (a silent fallback to the mesh
+// fails the first check), so the frames below run with the mesh switch, with which the same frame is not exact (the control)
+await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+await settled({ max: 60000 });
+await hold(0.5);
+const pathOf = () => ev('(() => { const c = __cmwLandCarry(); return c ? c.path || "mesh" : null; })()');
+info.pathDefault = await pathOf();
+ok('a Möbius glide frame is drawn by the exact inverse path', info.pathDefault === 'inverse', info.pathDefault);
+await ev('window.__svScrubUp(), 1');
+await settled({ max: 60000 });
+await ev('__cmwLandMeshOnly(true); 1');
+await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+await settled({ max: 60000 });
+await hold(0.5);
+info.pathMesh = await pathOf();
+ok('the control: with the mesh switch the same frame is not drawn by the inverse path', info.pathMesh !== 'inverse', info.pathMesh);
+await ev('window.__svScrubUp(), 1');
+await settled({ max: 60000 });
 for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await ev(`__cmwSteps({ go: 0, now: true }); 1`);
   await settled({ max: 60000 });

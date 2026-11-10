@@ -191,4 +191,16 @@ console.log('z^2 then J:', Funcs.PROP_KEYS.filter((k) => cp[k]).join(','), cp.de
   const sv = [St('mobius'), St('sin')], bsv = sv.map(Funcs.build);
   check(CX.abs(CX.sub(Funcs.sheetEval(sv, bsv, 2, C(0.2, 0.1), C(0.3, 0.2), 0), Funcs.stageFunctions(sv, bsv)[2](C(0.3, 0.2)))) < 1e-15, 'single-valued sheet');
 }
+// a custom step whose formula cannot be compiled is compiled once: its formula is read once however often its sheets are asked, it has no sheets,
+// and an edited step (a new built object) is compiled afresh
+{
+  const check = (ok, ...msg) => { if (!ok) { bad++; console.log('FAIL', ...msg); } };
+  let reads = 0;
+  const broken = { def: { id: 'custom' }, vals: { get expr() { reads++; return 'z^{n}'; }, cut: 180 }, error: null, op: null };
+  const asked = [1, 2, 3, 4, 5].map(() => Funcs.stepSheets(broken));
+  check(reads === 1, 'a step that cannot be compiled is read once for 5 asks, read', reads);
+  check(asked.every((a) => a.length === 0), 'a step that cannot be compiled has no sheets');
+  const edited = Funcs.build({ type: 'custom', params: { expr: 'z^{1/2}', cut: 180 } });
+  check(Funcs.stepSheets(edited).length === 1 && Funcs.stepSheets(edited)[0].n === 2, 'an edited step is compiled afresh: its two sheets are read');
+}
 console.log('bad', bad);

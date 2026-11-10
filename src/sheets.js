@@ -122,9 +122,14 @@ const Sheets = (host) => {
     return { f, nodes };
   }
   const pairCache = new WeakMap();
+  // (a step that cannot be compiled keeps its error: every later read of its sheets throws the same one, with no new compile and no new stack)
   function pairOf(b) {
-    if (!pairCache.has(b)) pairCache.set(b, pairCompile(b.ast || Expr.parse(b.vals.expr), b.vals.cut * DEG));
-    return pairCache.get(b);
+    if (!pairCache.has(b)) {
+      try { pairCache.set(b, pairCompile(b.ast || Expr.parse(b.vals.expr), b.vals.cut * DEG)); } catch (e) { pairCache.set(b, { failed: e }); }
+    }
+    const p = pairCache.get(b);
+    if (p.failed) throw p.failed;
+    return p;
   }
   // the multivalued pieces of one built step, in the order their sheet digits are read: [{n, of}] (n sheets, 0: a
   // window of 2W + 1 sheets, 1: single-valued after all, e.g. an integer exponent; of: the piece's own number of

@@ -1613,7 +1613,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       const sOf = (s0) => `${s0} + floor((${rc.y} - carg(p.xy)) / (2.0 * CX_PI))`;
       return {
         rads: [rc.x],
-        apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
+        apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; float az = carg(p.zw), k = s + floor((th - az) / (2.0 * CX_PI)) - floor((${rc.y} - az) / (2.0 * CX_PI)); if (${rc.x} < 0.5) { cxs0_dk = k; if (abs(k) > float(uSheetW)) cxs0_out = true; } p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
         homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); }`,
         fn: '',
         write(put) {
@@ -1728,7 +1728,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
 
     const slots = A.slots;
-    let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\n`;
+    let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\nfloat cxs0_dk = 0.0; bool cxs0_out = false;   // (the last sheet step's branch digit off its centre, and whether it left the window: set by the sheets' steps, read by the carry's continuation)\n`;
     for (const { P, plan } of maps) {
       if (plan.pre) src += plan.pre;
       src += `vec2 ${P}_f(vec2 z) {\n  ${plan.f}\n}\n`;
@@ -1920,15 +1920,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
     src = specialLib(src + sh) + src;
     let cache = null;
-    function values() {
-      if (cache) return cache;
+    function compute() {
       const vals = new Float64Array(4 * slots);
       const put = (c, re, im) => { vals[2 * c] = re; vals[2 * c + 1] = im; };
       for (const { plan } of maps) plan.write(put);
       for (const { dp } of dpl) dp.write(put);
       for (const sp of spl.values()) sp.write(put);
-      return (cache = vals);
+      return vals;
     }
+    function values() { return cache || (cache = compute()); }
     const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken as they are at the call (stepOps reads only the built steps).
@@ -1948,6 +1948,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       },
       slots,
       fill(out) { const v = values(); for (let i = 0; i < v.length; i++) out[i] = v[i]; return out; },
+      // fill() from the steps' values as they are now, not as first filled (a caller that changes a step's sheet for one fill)
+      fillNow(out) { const v = compute(); for (let i = 0; i < v.length; i++) out[i] = v[i]; return out; },
       // live d/dz steps (chainIsDeriv), whether the first is the exact chain rule
       derivs: dks, derivExact: exact,
       cutKinds,

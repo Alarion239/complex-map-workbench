@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uZ: 13,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
   // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
@@ -216,8 +216,16 @@
     // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
+    landCarryEdge: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(), fs: () => TF_FS, tf: true },
+    // (the layered glide's variants, whose cuts are continued from an own vertex: see LAND_CARRY_CONT_VS)
+    landCarryEdgeL: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(true), fs: () => TF_FS, tf: true },
+    landCarryRing: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_RING_VS, fs: () => TF_FS, tf: true },
+    landCarryCont: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_CONT_VS, fs: () => TF_FS, tf: true },
+    landCarryFix: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_FIX_VS, fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
-    landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
+    landCarry: { chain: true, vs: () => LAND_CARRY_VS(), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
+    landCarryL: { chain: true, vs: () => LAND_CARRY_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true) },
+    landCarryLC: { chain: true, vs: () => LAND_CARRY_VS(true, true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     landB: { chain: false, vs: () => LAND_B_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
@@ -1437,7 +1445,9 @@ float wabs(vec2 w) {
   }
   const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid), rulerScale (a factor on the height ruler's labels' heights),
+  // comboShift (an integer added to each sheet's combo in the exact carried draw: the sheets' colour control), noCross (the exact glide's
+  // cross-sheet edge test finds every such edge continuous), midCut (the exact glide's edge pass puts every cut at the middle of its edge); reverseLayers (the layered glide draws its layers in reverse order), ringHOff (the cross-layer pass's continued heights offset by that share of H), {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

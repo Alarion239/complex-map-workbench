@@ -56,7 +56,8 @@
   // which way the shown plane is painted: 'pull' on a coloured plane (the colour is pulled back through the map), 'push' past it
   // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
   const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
-  const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
+  const svMapAt = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
+  const svMap = () => svMapAt(svStage());
   // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
   // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
   // no map from w_k (then the colour plane, or past it w_k itself)
@@ -366,12 +367,77 @@
   // s → b). Across a d/dz step the points of z's plane move along the classic deformation's straight line from stage a
   // to stage b (mode 1 at a d/dz step), so the glide is continuous as everywhere else. At a plane, that plane's surface
   // at rest. False when the Landscape is not on the pane
+  // The inverse inputs of a glide frame's exact Landscape (GLR.landInverse): the front point z of plane 0 over each vertex of
+  // the shown plane's grid, from step b's homotopy at u inverted by its own ops (invHomPath). Null unless that path draws:
+  // a d/dz step, a chain with no inverse plan, a Newton inverse that is neither an exact-degree polynomial (all its roots) nor seeded
+  function svLandExact(b, u, F) {
+    if (!GLR.landInverse || !GLR.packShapes || derivIn(0, b)) return null;
+    packRecs([SV_ALL], true);
+    const p = invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing);
+    if (p.path !== 'inverse' || p.plan.ops.some((o) => o.kind === 'NEWT' && !(o.p && (o.p.back || o.p.deg)))) return null;
+    // A log or root step has a sheet per branch: the sheets beside the step's own follow, nearest first, and a vertex
+    // takes the first that has a member there
+    const more = [];
+    if (p.plan.ops.some((o) => (o.kind === 'ROOTPOW' || o.kind === 'LOG') && o.p && Number.isFinite(o.p.k))) {
+      for (let j = 1; j <= SV_LAND_SHEETS; j++) for (const dk of [j, -j]) {
+        const q = invHomPath(SV_ALL, 0, b, u, null, dk);
+        if (q.path === 'inverse') more.push({ map: q.m, plan: q.plan, prep: q.prep, inv: q.inv, shift: { vals: built[b - 1].vals, dk, k: b } });
+      }
+    }
+    // All sheets: the step's own sheets are layers of their own (those that are distinct branches of the step: its k mod n for n
+    // sheets, within the window for a log), none when the step is single-valued
+    if (S.sheets) {
+      const e = Funcs.sheetSteps(S.steps, built).find((x) => x.k === b && !x.node), seen = new Set([0]), W = Math.max(1, Math.min(4, S.sheetW || 2));
+      const keep = (m) => {
+        const key = e && (e.n > 0 ? ((m.shift.dk % e.n) + e.n) % e.n : Math.abs(m.shift.dk) <= W ? m.shift.dk : null);
+        if (key == null || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      };
+      more.splice(0, more.length, ...more.filter(keep));
+    }
+    // All sheets: a layer per member of the inverse (GLR counts them) for each forward sheet: the combinations of the branches
+    // of the multivalued steps past step b (a step's k moved by dk, the principal branch first), up to LAND_LAYERS_MAX
+    let fwd = [[]];
+    if (S.sheets) {
+      const W = Math.max(1, Math.min(4, S.sheetW || 2)), top = Math.max(svT(), svHT(0), svHT(b));
+      for (const e of Funcs.sheetSteps(S.steps, built)) {
+        const bb = built[e.k - 1];
+        if (e.k <= b || e.k > top || e.node || !bb || !bb.vals || !['root', 'powa', 'log'].includes(bb.def && bb.def.id)) continue;
+        const dks = e.n > 0 ? Array.from({ length: e.n }, (_, i) => i) : [0].concat(...Array.from({ length: W }, (_, i) => [i + 1, -(i + 1)]));
+        fwd = fwd.flatMap((c) => dks.map((dk) => (dk ? c.concat([{ vals: bb.vals, dk, k: e.k }]) : c)));
+      }
+    }
+    return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, more, shape: SV_ALL, carry: svCarryStyle(svT()), dpr: 1, layered: !!S.sheets, sheetW: Math.max(1, Math.min(4, S.sheetW || 2)), fwd: fwd.slice(0, SV_LAND_LAYERS), hole: S.sheets ? svLandHoles(p.plan, F, built[b - 1] && built[b - 1].vals && ['root', 'powa', 'log'].includes(built[b - 1].def && built[b - 1].def.id) ? built[b - 1].vals.cut : null) : [] };
+  }
+  // The branch points of the glide's inverse ([x, y, cut] each, at most LAND_HOLES): the z-plane's branch points over the
+  // camera's window, x, y their place on the shown plane (the glide's map F). A layer draws a polar patch about each,
+  // where the box's cell holding the point would span a whole turn of the helicoid. cut: [re, im, angle] of the step's cut
+  // (cutDeg, degrees; null for none) leaving the point in the z-plane, whose image under a layer's own map is the curve a
+  // continuation of that layer must not cross
+  const LAND_HOLES = 4;
+  function svLandHoles(plan, F, cutDeg) {
+    if (!F) return [];
+    let sing;
+    try { sing = Inverse.singular(plan, clipWin, ['branch'], LAND_HOLES); } catch (e) { return []; }
+    const out = [];
+    for (const e of sing) {
+      const w = F(e.z);
+      if (w && Number.isFinite(w.re) && Number.isFinite(w.im)) out.push([w.re, w.im, cutDeg == null ? null : [e.z.re, e.z.im, cutDeg * Math.PI / 180]]);
+    }
+    return out;
+  }
+  const SV_LAND_SHEETS = 4, SV_LAND_LAYERS = 24;   // (the sheets' limit, SHEET_MAX)
+  // Test-only (__cmwLandMeshOnly): a glide frame draws its carried mesh and never the exact inverse, the path a plane at rest still uses
+  let svLandMeshOnly = false;
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
     if (!g.all && (g.u <= 1e-6 || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u });
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    const c = svLandCarry(mapOf, g.a, g.b, g.u);
+    if (!g.all && !c.plain && !svLandMeshOnly) c.exact = svLandExact(g.b, g.u, g.F);
+    render3D(pane, c);
     return true;
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's

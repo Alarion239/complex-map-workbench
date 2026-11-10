@@ -627,13 +627,17 @@
       const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
       mu = logLerp(ma, mb, carry.u);
     }
+    // (the height ruler's unit is of the median |value| over the shown planes' boxes, not of the scale the frame is fitted with)
+    const rulerMu = mu;
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
     // ones into stacked plates), so the height is nearly linear in the value and every turn keeps its pitch; the
     // block is made taller by how far the surfaces stack (the spread of the values over all of them against the
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
+    let scaleBox = null;   // (the box the height scale was sampled over: tests)
     render3D.linear = false;
+    render3D.mix = null;   // (the height mix of a carried frame whose two planes' height functions differ: {mu2, beta, endLin, muA})
     // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
     // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
@@ -671,19 +675,32 @@
         for (const a of [vals, sv, sv0]) a.sort((x, y) => x - y);
         // linear heights over all sheets: the scale is (nearly) the largest value, so the surfaces fill the block
         const s0 = sv0.length ? q(sv0, 0.95) - q(sv0, 0.05) : 0, s1 = sv.length ? q(sv, 0.95) - q(sv, 0.05) : 0;
-        r = { mu: vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu0, boost: lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1 };
+        r = { mu: vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu0, boost: lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1, bx: { x0: bx.x0, x1: bx.x1, y0: bx.y0, y1: bx.y1 } };
         if (cache.size > 16) cache.delete(cache.keys().next().value);
         cache.set(ck, r);
         return r;
       };
-      // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
-      // frames' are, so a frame depends on u alone
-      const ofPlane = (k, v) => scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v));
+      // a carried frame: each plane's own scale and boost, from plane a's to plane b's over u in log, as the rest
+      // frames' are, so a frame depends on u alone. A plane's rest frame draws its height by its own path: linear over its
+      // sheets when its map is multivalued, the compressed height with the box's median scale when it is single-valued;
+      // when the two planes' height functions differ, the frame's height is the mix of the two (modes 8, 9)
+      const restScaleOf = (k, v) => {
+        const m = svHeightMap(k <= carry.T ? k : carry.s), multi = !!GLR.sheetInfo(m, sheets.W);
+        if (multi) return Object.assign({ lin: true }, scaleOf(m, landBox(v)));
+        const b = landBox(v);
+        return { lin: false, mu: medianAbs(b, svHeightMap(k), svHeightF(k)), boost: 1, bx: { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 } };
+      };
+      let mix = null;
       const c = carry ? (() => {
-        const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
-        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
+        const ra = restScaleOf(carry.a, carry.va), rb = carry.b == null ? ra : restScaleOf(carry.b, carry.vb);
+        if (lin && ra.lin !== rb.lin) {
+          const pr = GLR.carryProbes && GLR.carryProbes();   // (the probes' controls: the weight frozen at plane a's height, or switched at u = 1/2)
+          mix = { mu2: rb.mu, beta: pr && pr.mixBeta0 ? 0 : pr && pr.mixSwitch ? (carry.u < 0.5 ? 0 : 1) : carry.u, endLin: (ra.lin ? 1 : 0) | (rb.lin ? 2 : 0), muA: ra.mu };
+        }
+        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u), bx: rb.bx };
       })() : scaleOf(fm, box);
       mu = c.mu;
+      scaleBox = c.bx;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
       // follows H_t: the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
@@ -751,6 +768,7 @@
       }
       lscale *= c.boost || 1;
       if (lin) render3D.linear = true;
+      render3D.mix = mix;
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
@@ -760,7 +778,7 @@
     const src = carry ? landBox(carry.vs) : null;
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // (the carried grid's patches about the glide map's poles: svLandPatches)
-    const polar = carry ? svLandPatches(carry.map, src, cells, svHeightF(carry.s), 'h' + carry.s + ':' + svHT(carry.s)) : null, far = carry ? svLandFar(src) : null;
+    const polar = carry && !carry.exact ? svLandPatches(carry.map, src, cells, svHeightF(carry.s), 'h' + carry.s + ':' + svHT(carry.s)) : carry ? [] : null, far = carry && !carry.exact ? svLandFar(src) : carry ? [] : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
     const mask = SV.on ? (carry ? (carry.plain ? svLandPlainMask() : svLandMask(carry.s, src)) : svLandMask(svStage(), box)) : null;
@@ -781,7 +799,7 @@
         : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const info = GLR.drawLandscape({
-      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, exact: carry.exact || null } : null, box, cam: view, heightMode: render3D.mix ? `${S.height}Mix` : render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu: render3D.mix ? render3D.mix.muA : mu, mix: render3D.mix, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
@@ -798,18 +816,21 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
-    if (info && !artMode) draw3DLabels(pane, info, box);
+    if (info && !artMode) draw3DLabels(pane, info, box, carry ? rulerMu : medianAbs(box));
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.exactIn = carry && carry.exact ? { exact: carry.exact, F: svHeightF(0) } : null;   // (the inverse inputs the last carried frame drew from, and plane 0's map, as z is a point of plane 0: tests)
+    render3D.carried = info && info.carried ? { path: info.exact === 'drawn' ? 'inverse' : 'mesh', exact: info.exact || null, u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, layers: info.layers || 1, landHoles: info.landHoles || 0, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
+    render3D.scale = { fmKey: mapKeyOf(fm), siK: si ? si.K : 0, mu, boost: lscale / (S.lscale || 1), lscale, bx: scaleBox };   // (the height scale and the block's boost the frame was fitted with: tests)
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
+    render3D.frameHeight = info ? info.heightOf : undefined;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.tickMarks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.scale = undefined; render3D.mix = undefined; render3D.exactIn = undefined; render3D.frameHeight = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -895,7 +916,7 @@
   // Labels of the landscape (spec 6.9), projected each frame: ticks on the two floor edges facing the camera, the
   // axis names, and a height ruler (values of the plotted quantity through the height map) on the back corner
   // that sits on the block's silhouette, so its labels never cover the relief.
-  function draw3DLabels(pane, info, box) {
+  function draw3DLabels(pane, info, box, mu) {
     const ctx = pane.ctx;
     const [ax, ay] = info.aspect || [1, 1];
     const z0 = info.floorZ, eye = info.eye;
@@ -991,26 +1012,29 @@
     ctx.globalAlpha = 0.85; ctx.strokeStyle = TH.landBox; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(r0[0], r0[1]); ctx.lineTo(r1[0], r1[1]); ctx.stroke();
     ctx.globalAlpha = 1;
-    const hOf = info.heightOf || ((v) => v);
+    // (the probes' control: the labels placed at the frame's height scaled by rulerScale, a scale error the own-height test must see)
+    const hOf0 = info.heightOf || ((v) => v), rulerScale = (GLR.carryProbes && GLR.carryProbes().rulerScale) || 1;
+    const hOf = (v) => hOf0(v) * rulerScale;
     const fmt = (v) => minus(CX.fmtNum(v, 3));
     let vals;                                     // [value, label], in order of priority
     if (S.height === 'log' || !S.height) vals = [1, 10, 0.1, 100, 0.01].map((m) => [m, fmt(m)]);
     else {
-      const b = Axes.niceStep(medianAbs(box));
+      const b = Axes.niceStep(mu);
       vals = (S.height === 'abs' ? [1, 0, 4, 2, 10, 0.5] : [0, 1, -1, 4, -4, 2, -2]).map((m) => [m * b, fmt(m * b)]);
     }
     ctx.strokeStyle = TH.rulerTick;
     // (a label closer than a line and a half to one already placed, in the order of priority, is left out, so the
     // decades of a compressed top read evenly)
-    const placed = [];
+    const placed = [], marks = [];
     render3D.ticks = placed;   // (the screen y of each label placed: tests)
+    render3D.tickMarks = marks;   // (the value and world height of each label placed: tests)
     for (const [v, lab] of vals) {
       const hz = hOf(v);
       if (!Number.isFinite(hz) || hz > top - 0.01 || hz < z0 + 0.01) continue;
       const a = P([rc[0], rc[1], hz]);
       if (!a || placed.some((y) => Math.abs(y - a[1]) < 18)) continue;
       if (!label([[lab, false]], a, [dir, 0], 8, micro, null, TH.label)) continue;
-      placed.push(a[1]);
+      placed.push(a[1]); marks.push({ v, hz });
       ctx.globalAlpha = 0.7;
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(a[0] + dir * 5, a[1]); ctx.stroke();
       ctx.globalAlpha = 1;
