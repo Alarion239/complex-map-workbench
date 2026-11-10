@@ -158,7 +158,7 @@
     // ---- identity: continuation of every member of a place along the segment to another place
     let hofCut = false;   // the last Hof call found H jumping beside z
     const Hof = (m, z, lam) => {
-      if (lam === LAM_FAIL) return null;
+      if (lam === LAM_FAIL) { newtWhy = 'transfer refused: ' + xferWhy; return null; }
       const st = lam && !Array.isArray(lam) ? lam : null, k = st ? st.k : m.sheet, r = frame.hom(z, st ? null : lam, k, st ? st.cell : m.cell)[k];
       hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null;
     };
@@ -166,33 +166,39 @@
     // leaf, the member moves to the new leaf and keeps the surface whose value there equals the old surface's at a point of the shared edge, within TRANSFER_TOL and with the
     // next surface at least SHEET_MARGIN times as far; anything else is LAM_FAIL (the step is refused). o.fixedCell keeps the cell, o.labelShift takes the next surface (controls).
     // A log coordinate (an array) moves by the frame's own step as before.
+    const XFER_TAG = 'transfer refused';
     const LAM_FAIL = { fail: true };
+    let xferWhy = '';   // why the last transfer was refused (for the failure's text)
     const mv = (lam, a, b) => {
       if (!lam) return null;
       if (lam === LAM_FAIL) return lam;
       if (Array.isArray(lam)) return cadd(lam, relLog(a, b));
       if (o.fixedCell || !frame.cellAt) return lam;
       const cb = frame.cellAt(b);
-      if (!cb || !cb.c) return LAM_FAIL;
+      if (!cb || !cb.c) { xferWhy = 'no leaf holds the point'; return LAM_FAIL; }
       if (dist2(cb.c, lam.cell) === 0) return lam;
       const val = (cell, k, p) => { const r = frame.hom(p, null, k, cell)[k]; return r && fin(r.H) ? r.H : null; };
       const ref = val(lam.cell, lam.k, b);
-      if (!ref) return LAM_FAIL;
+      if (!ref) { xferWhy = 'the old surface has no finite value at the transfer point'; return LAM_FAIL; }
       const miss = [];
       for (let k = 0; k < (frame.K || 1); k++) { const h = val(cb.c, k, b); if (h) miss.push({ k, d: cabs(csub(h, ref)) / (1 + cabs(ref)) }); }
       miss.sort((x, y) => x.d - y.d);
-      if (!miss.length || miss[0].d > o.TRANSFER_TOL || (miss.length > 1 && miss[0].d * o.SHEET_MARGIN > miss[1].d)) return LAM_FAIL;
+      if (!miss.length || miss[0].d > o.TRANSFER_TOL || (miss.length > 1 && miss[0].d * o.SHEET_MARGIN > miss[1].d)) {
+        xferWhy = 'surface ' + lam.k + ' at the transfer point ' + b[0].toExponential(3) + ',' + b[1].toExponential(3) + ': the nearest surface of the new leaf misses by ' + (miss.length ? miss[0].d.toExponential(2) : 'no finite value') + (miss.length > 1 ? ', the next by ' + miss[1].d.toExponential(2) : '');
+        return LAM_FAIL;
+      }
       const k = o.labelShift ? (miss[0].k + 1) % (frame.K || 1) : miss[0].k;
       return { k, cell: cb.c };
     };
     let newtWhy = '', newtCut = false;   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
+      newtWhy = '';
       let d1 = null, d2 = null;
       const hist = [];
       for (let it = 0; it < o.NEWT_ITER; it++) {
         const r = Hof(m, z, lam);
         if (r && r.cut) { newtCut = true; newtWhy = 'H jumps beside the iterate'; return null; }
-        if (!r) { newtWhy = 'H or dH not finite at iteration ' + it + ' (z ' + z[0].toExponential(2) + ',' + z[1].toExponential(2) + ')'; return null; }
+        if (!r) { if (!newtWhy.startsWith(XFER_TAG)) newtWhy = 'H or dH not finite at iteration ' + it + ' (z ' + z[0].toExponential(2) + ',' + z[1].toExponential(2) + ')'; return null; }
         const res = csub(r.H, w);
         hist.push(cabs(res).toExponential(1));
         if (cabs(res) <= o.NEWT_TOL * (1 + cabs(w))) return { z, lam, ratio: d1 === null || d1 <= o.NEWT_FLOOR * (1 + cabs(z)) || d2 === null ? 0 : d2 / d1 };
@@ -459,6 +465,12 @@
       if (vs.every((v) => !v.all.some((m) => m.drawn)) && vs.every((v) => !v.all.length || v.masked)) { cells.empty++; continue; }
       const cp = cornerPairs(ks, vs);
       const split = () => { const h = s / 2; work.push([i, j, h, d + 1], [i + h, j, h, d + 1], [i, j + h, h, d + 1], [i + h, j + h, h, d + 1]); cells.splits++; };
+      if (cp.suspect && cp.why.includes(XFER_TAG)) {
+        // a continued member's surface cannot be carried to the leaf that holds it (the value match is not unique): the cell is a failure of its own, never halved
+        why('transfer refused');
+        leaves.branch.push({ i, j, s, vs, why: cp.why, kind: 'transfer' });
+        continue;
+      }
       if (cp.suspect) {
         why('suspect: ' + cp.why);
         // a branch-suspect cell: halved until a certificate covers it, then decided at the boundary
