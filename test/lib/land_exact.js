@@ -69,6 +69,8 @@
   // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
   // listed row fails if the control runs and bites)
   // the rows with straddling cells where the clip-off control cannot bite because the cut is already tight there: the largest |hTrue| / Hc of the clip-off pixels is at most 1 + CAP_EPS (asserted two-sided: a listed row that bites fails)
+  // the cases whose clip-off count falls to 0 under the lowest-pixel sampling on some row (asserted in that case's own part of the suite: Möbius √ at u = .002)
+  const C2_ZERO_CASES = ['Möbius, √'];
   const C1_TIGHT = { 'Möbius dipole, √|0.998': 'every straddling cell is cut within CAP_EPS of the block', 'Möbius dipole, √|0.9999': 'every straddling cell is cut within CAP_EPS of the block' };
   const CTL_NA = {
     "Möbius with a pole in the box|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
@@ -1101,7 +1103,7 @@
       worst: [...new Set(st.map((q) => q.layer))].map((ly) => fin(st).filter((q) => q.layer === ly && Math.abs(q.h) > hc * (1 + CAP_EPS)).sort((p, q) => Math.abs(q.h) - Math.abs(p.h)).slice(0, CAP_WORST).map((q) => ({ layer: q.layer, cell: q.cell, corners: q.corners, side: q.corners && Math.max(...q.corners.filter((x) => x !== null).map(Math.abs)) > rd.clipFar * hc ? 'far (1 / h)' : 'near (linear)', z: q.z, vz: q.vz, h: q.h }))).filter((a) => a.length)
     };
   };
-  const capBit = { c1: 0, c2fell: 0, c2zero: 0, c3: 0, c4: 0, rows: 0, strad: 0 }, capCase = {}, capC1 = {};
+  const capBit = { c1: 0, c2fell: 0, c2zero: 0, c3: 0, c4: 0, rows: 0, strad: 0 }, capCase = {}, capC1 = {}, capC2Zero = {};
   const capRow = async (c, u, t, rec) => {
     const t0 = Date.now(), on = await capRd({});
     ok(`${t}: the cap probe reads a float target and a layered frame (${on.err || 'read'})`, !on.err, on);
@@ -1130,12 +1132,12 @@
       if (tight) ok(`${t}: C1: the cut is tight here (${tight}): without the block clip the largest straddling |hTrue| is ${sOff.maxRatio.toFixed(4)} Hc, at most ${1 + CAP_EPS}, and ${sOff.over} pixels are over`, !bites && sOff.maxRatio <= 1 + CAP_EPS, sOff);
       else ok(`${t}: C1: without the block clip ${sOff.over} straddling pixels (of ${sOff.nStrad}) have |hTrue| over Hc (1 + ${CAP_EPS}) (largest ${sOff.maxRatio.toFixed(4)} Hc)`, bites, sOff);
       if (bites) { capBit.c1++; capC1[c.tag] = true; }
-    } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na, { nStradAll: off.nStradAll });
+    } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na && off.nStradAll === 0, { nStradAll: off.nStradAll });
     // C2, the pixels of the smallest drawn height
     const low = await capRd({ clipOff: true, lowest: true }), hLow = await capEval(low.samples, 0), sLow = capStat(low, hLow, hc);
     if (off.nStrad > 0) {
       if (sLow.over < sOff.over) capBit.c2fell++;
-      if (sLow.over === 0 && sOff.over > 0) capBit.c2zero++;
+      if (sLow.over === 0 && sOff.over > 0) { capBit.c2zero++; capC2Zero[c.tag] = (capC2Zero[c.tag] || 0) + 1; }
       const k = capCase[c.tag] = capCase[c.tag] || { top: 0, low: 0 }; k.top += sOff.over; k.low += sLow.over;
     }
     // C3, the claim one digit off: the sample continued on another surface does not reproduce the drawn heights
@@ -1234,7 +1236,10 @@
           ok(`${t}: ${what} the next plane's parked frame is not matched (control; ${dc} of pixels over ${DIFF_TOL})`, dc > SAME_FRAC, { dc });
         }
       }
-      if (sheets && !(carry && carry.path === 'mesh')) await capRow(c, u, t, r[u]);
+      if (sheets) {
+        ok(`${t}: cap: the frame is on the inverse path, which the layered cap probe reads (path ${carry && carry.path})`, !!carry && carry.path !== 'mesh', carry);
+        if (carry && carry.path !== 'mesh') await capRow(c, u, t, r[u]);
+      }
       // the end frames in the Top view, against the parked plane there
       if (first || lastU) {
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -2047,8 +2052,7 @@
     ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
     for (const [tag, k] of Object.entries(capCase)) ok(`control: C2: over the rows of ${tag} the clip-off count falls when each straddling cell's lowest drawn pixels are sampled in place of its highest (${k.low} against ${k.top})`, k.low < k.top, k);
     for (const tag of Object.keys(capCase)) ok(`control: C1: the clip-off count is over 0 on some row of ${tag}`, !!capC1[tag], capC1);
-    if (!process.env.CMW_ONLY) ok(`control: the clip-off count with the lowest pixels is 0 on some row (${capBit.c2zero} rows)`, capBit.c2zero > 0, capBit);
-    else info.capC2Zero = capBit.c2zero;
+    for (const tag of C2_ZERO_CASES) if (capCase[tag]) ok(`control: C2: the clip-off count with the lowest pixels is 0 on some row of ${tag} (${capC2Zero[tag] || 0} rows)`, (capC2Zero[tag] || 0) > 0, capC2Zero);
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
