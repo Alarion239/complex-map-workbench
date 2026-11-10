@@ -1078,7 +1078,7 @@
   // CAP_MAX: the most pixels read in a frame, the straddling cells' pixels and the uniform ones (the worst frame, Möbius √ at u = .75, needs 564)
   // REF_OUTLIER_MAX: the uniform pixels (of CAP_UNIFORM) over CAP_REF_TOL from the drawn height that are allowed, each classed as beside a cut bank (a neighbouring pixel is uncovered or of another layer) or interpolating (the cell's corner heights span at least the error)
   // CAP_REF_TOL: the median |hTrue - drawn height| the reference may have at the uniform pixels (the same height function at the same z, up to the float interpolation of vZ; the pixels beside a pole or a cut, where the drawn height is the linear interpolation or the other bank's, are outliers a median leaves out and the largest shows as data)
-  const CAP_EPS = 0.05, CAP_PER_CELL = 2, CAP_UNIFORM = 64, CAP_MAX = 768, CAP_REF_TOL = 1e-3, REF_OUTLIER_MAX = 3, CAP_SEED = 20251110, CAP_BATCH = 20, CAP_WORST = 5, CAP_CONST = [1, 2, 3, 4];
+  const CAP_EPS = 0.05, CAP_PER_CELL = 2, CAP_UNIFORM = 64, CAP_MAX = 768, CAP_REF_TOL = 1e-3, CAP_CLAMP_TOL = 1e-9, REF_OUTLIER_MAX = 3, CAP_SEED = 20251110, CAP_BATCH = 20, CAP_WORST = 5, CAP_CONST = [1, 2, 3, 4];
   const capRd = (o) => ev(`__cmwLandCapRead(${JSON.stringify(Object.assign({ perCell: CAP_PER_CELL, uniform: CAP_UNIFORM, max: CAP_MAX, seed: CAP_SEED }, o))})`);
   const capEval = async (samples, shift) => {
     const out = [];
@@ -1133,6 +1133,12 @@
       else ok(`${t}: C1: without the block clip ${sOff.over} straddling pixels (of ${sOff.nStrad}) have |hTrue| over Hc (1 + ${CAP_EPS}) (largest ${sOff.maxRatio.toFixed(4)} Hc)`, bites, sOff);
       if (bites) { capBit.c1++; capC1[c.tag] = true; }
     } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na && off.nStradAll === 0, { nStradAll: off.nStradAll });
+    // the frame's height function clamps the linear heights at the bound the clip uses: its saturation is BLOCK_K times the block's height (control: against the bound one CAP_EPS higher it fails)
+    if (off.nStrad > 0) {
+      const sat = [await ev('__cmwLandHeightOf(-1e12)'), await ev('__cmwLandHeightOf(1e12)')], clampAt = (b) => Math.abs(Math.max(Math.abs(sat[0]), Math.abs(sat[1])) - b) <= CAP_CLAMP_TOL * b;
+      ok(`${t}: cap: the height function saturates at BLOCK_K times the block's height (${sat[0]}, ${sat[1]} against ${hc})`, clampAt(hc), { sat, hc });
+      ok(`${t}: cap: control: a bound ${CAP_EPS} higher is not the height function's saturation`, !clampAt(hc * (1 + CAP_EPS)), { sat, hc });
+    }
     // C2, the pixels of the smallest drawn height
     const low = await capRd({ clipOff: true, lowest: true }), hLow = await capEval(low.samples, 0), sLow = capStat(low, hLow, hc);
     if (off.nStrad > 0) {
@@ -1146,7 +1152,7 @@
       const hSh = await capEval(on.samples, 1), dev = on.samples.reduce((m, q, i) => (hSh[i] === null ? m : Math.max(m, Math.abs(hSh[i] - q.vz))), 0), sSh = capStat(on, hSh, hc);
       ok(`${t}: C3: continued on the claim one digit off (${K} combos) the sample's largest |hTrue - drawn height| is over ${10 * CAP_REF_TOL} (${dev.toFixed(4)}; the claim itself: median ${sOn.refMed.toFixed(6)} at the uniform pixels)`, dev > 10 * CAP_REF_TOL, { K, dev, claim: sOn.refMed });
       if (dev > 10 * CAP_REF_TOL) capBit.c3++;
-    } else ok(`${t}: C3: not applicable: the layers claim ${K} combo (one)`, true, { K });
+    } else ok(`${t}: C3: not applicable: the layers claim ${K} combo (exactly one)`, K === 1, { K });
     rec.cap = { hc, covered: on.covered, nStradAll: on.nStradAll, nStrad: on.nStrad, truncated: on.truncated, clipOn: sOn, clipOff: sOff, lowest: sLow, tOnMs: tOn, tRowMs: Date.now() - t0 };
     info.capRows = (info.capRows || []).concat({ t, hc, ...rec.cap });
   };

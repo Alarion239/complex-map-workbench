@@ -1556,13 +1556,13 @@
     const C = landColors(st);
     const material = MATERIALS[st.material] ?? (st.style === 'classic' ? 0 : 0);
     const lt = { sky: toLin3(C.hemiSky), ground: toLin3(C.hemiGround) };
-    // (raw: a linear height without the block's clamp at +-1.25 H, the height the layered draw puts on screen before its clip)
+    // (raw: a linear height without the block's clamp at +-BLOCK_K H, the height the layered draw puts on screen before its clip)
     const heightOf = (v, raw = false) => {
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
-      if (mode >= 8) { const g = (x, m, lin) => (lin ? (raw ? x / m : Math.max(-1.25, Math.min(1.25, x / m))) : (2 / Math.PI) * Math.atan(x / m)); return H * ((1 - mix.beta) * g(v, mu, mix.endLin & 1) + mix.beta * g(v, mix.mu2 > 0 ? mix.mu2 : mu, mix.endLin & 2)); }
+      if (mode >= 8) { const g = (x, m, lin) => (lin ? (raw ? x / m : Math.max(-BLOCK_K, Math.min(BLOCK_K, x / m))) : (2 / Math.PI) * Math.atan(x / m)); return H * ((1 - mix.beta) * g(v, mu, mix.endLin & 1) + mix.beta * g(v, mix.mu2 > 0 ? mix.mu2 : mu, mix.endLin & 2)); }
       if (mode >= 6) { const x = v / mu, a = Math.abs(x), c = 0.5 / Math.PI; return H * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
-      if (mode >= 4) return H * (raw ? v / mu : Math.max(-1.25, Math.min(1.25, v / mu)));
+      if (mode >= 4) return H * (raw ? v / mu : Math.max(-BLOCK_K, Math.min(BLOCK_K, v / mu)));
       return H * (2 / Math.PI) * Math.atan(v / mu);
     };
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
