@@ -998,6 +998,7 @@
         ok('the layer check pairs a layer holding the true height with the member clipped at the same side, where that member is the only one there', sameLayers([M(2), M(-2)], top, SAT), null);
         ok('the control: without the clip levels the clipped members are not matched', !sameLayers([M(2), M(-2)], top), null);
         ok('the control: a layer 2 x HEIGHT_TOL under the clip level is no clipped layer', !sameLayers([M(SAT[1] - 2 * HEIGHT_TOL), M(-2)], top, SAT), null);
+        ok('the control: a layer holding the true height on the other side from the member it is paired with is no match', !sameLayers([M(-2)], [M(0.6875)], SAT) && !sameLayers([M(2)], [M(-0.6875)], SAT), null);
         ok('the control: two members clipped on one side at one z are not told apart, so no layer pairs with them', !sameLayers([M(2), M(2)], [M(0.6875), M(0.6875)], SAT), null);
       }
     }
@@ -1760,18 +1761,24 @@
           const l = haveAll.filter((x) => sameZ(x.z, m.z)).sort((p, q) => Math.abs(p.h - m.h) - Math.abs(q.h - m.h))[0];   // (the layer at its z nearest in height: sheets of a step share z)
           if (!l) return;
           const g = layerGap(l, m, NEAR_U.includes(u) ? { h: NEAR_TOL, ph: NEAR_TOL } : undefined);
-          if (g.h) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
+          // (a layer beyond the clip level on the member's own side, where the member is clipped, is as high as the page draws it: the same side rule that paired it)
+          if (g.h && !(sat && Math.abs(l.h - m.h) > HEIGHT_TOL && heightsAgree(l, m, want, sat))) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
           if (g.noF) { noF++; return; }
           if (g.phN) phN++;
           if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
+      ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       if (sheets) {
         ok(`${t}: control: with the clip levels off the places holding a layer beyond them fail (${clipped} places; the row is ${CLIPPED_ROWS.includes(`${c.tag}@${u}`) ? '' : 'not '}on the list of rows that have some)`, (clipped > 0) === CLIPPED_ROWS.includes(`${c.tag}@${u}`), { clipped, sat });
         if (clippedAt && sat) {
           const hi = clippedAt.have.some((l) => onSide(l, sat, true)), moved = clippedAt.have.map((l) => (onSide(l, sat, hi) ? Object.assign({}, l, { h: hi ? sat[1] - 2 * HEIGHT_TOL : sat[0] + 2 * HEIGHT_TOL }) : l));
           ok(`${t}: control: a clipped layer moved 2 x HEIGHT_TOL under its clip level is not matched`, !sameLayers(moved, clippedAt.want, sat), { sat });
+          const pick = clippedAt.have.findIndex((l) => onSide(l, sat, true) || onSide(l, sat, false)), flipped = clippedAt.have.map((l, i) => (i === pick ? Object.assign({}, l, { h: -l.h }) : l));
+          ok(`${t}: control: a clipped layer on the other side from its member is not matched`, !sameLayers(flipped, clippedAt.want, sat), { sat });
         }
       }
       (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
