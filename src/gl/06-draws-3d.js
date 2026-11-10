@@ -2037,7 +2037,7 @@
         use(Up);
         uM4(Up, 'uMVP', MVP);
         u2f(Up, 'uAspect', ax, ay);
-        u1f(Up, 'uZ', heightOf(1));
+        u1f(Up, 'uLevelZ', heightOf(1));
         u3(Up, 'uColor', C.accent);
         u1f(Up, 'uDpr', dpr);
         gl.bindVertexArray(empty());

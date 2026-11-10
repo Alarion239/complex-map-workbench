@@ -1912,12 +1912,12 @@ void main() {
 }
 `;
   const ULEVEL_VS = `
-uniform mat4 uMVP; uniform vec2 uAspect; uniform float uZ;
+uniform mat4 uMVP; uniform vec2 uAspect; uniform float uLevelZ;
 out vec2 vC;
 void main() {
   int k = gl_VertexID;
   vC = vec2((k == 1 || k == 2 || k == 4) ? 1.0 : -1.0, (k == 2 || k == 4 || k == 5) ? 1.0 : -1.0);
-  gl_Position = uMVP * vec4(vC * uAspect, uZ, 1.0);
+  gl_Position = uMVP * vec4(vC * uAspect, uLevelZ, 1.0);
 }
 `;
   const ULEVEL_FS = `

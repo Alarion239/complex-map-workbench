@@ -795,7 +795,7 @@ void main() { emit(mapPoint(srcOf(bary(aT)))); }
 `;
   // The fill's point pass (drawRegionCarry, fillPoints): for every sub-triangle t of every instance (uSub: its three
   // template corners, regionTemplate's order; uSubI: their places in the map cache and its centroid's), REGION_VS's
-  // fill cull on the same cache texture (unit 1, uCW, uCP) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
+  // fill cull on the same cache texture (unit 1, uCW, uCPer) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
   // draws from the cache is not evaluated and its four points are written as 0, one it fills as point k = 0..3, its
   // onCentreSheet(zc, s_k) with zc its centroid's source point (s_3 the centroid), written as (w, side, 1) into texel
   // instance * uP + 4 t + k of an RGBA32F texture. The fill culls by that .w, so the two never disagree; the chain runs
@@ -808,14 +808,14 @@ layout(location = 4) in float aSkip;
 uniform vec2 uSub[12];
 uniform vec4 uSubI[4];
 uniform float uKPx; uniform float uKLim;
-uniform highp sampler2D uW; uniform int uCW; uniform int uCP;
+uniform highp sampler2D uW; uniform int uCW; uniform int uCPer;
 flat out vec4 tfOut4;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
 uniform int uFPass; uniform highp sampler2D uFA;
 ${SRC}
 ${BARY}
 ${VALID}
-vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
+vec2 WC(float k) { int i = gl_InstanceID * uCPer + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
 vec4 FA(int i) { return texelFetch(uFA, ivec2(i % uRtW, i / uRtW), 0); }
 ${ON_CENTRE}${FILL_DRAWN}void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;

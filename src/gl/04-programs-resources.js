@@ -1377,7 +1377,7 @@ float wabs(vec2 w) {
     if (P.loc.uSub) gl.uniform2fv(P.loc.uSub, tpl.subs);
     if (P.loc.uSubI) gl.uniform4fv(P.loc.uSubI, tpl.subI);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gate.e.tex);
-    u1i(P, 'uCW', gate.e.W); u1i(P, 'uCP', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
+    u1i(P, 'uCW', gate.e.W); u1i(P, 'uCPer', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
     // (uFA on unit 13: empty for the first run, which writes tex; tex for the second)
     u1i(P, 'uFA', 13); u1i(P, 'uFPass', 0);
     gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, null);
