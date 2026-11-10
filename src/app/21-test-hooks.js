@@ -270,6 +270,8 @@
   // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
   // height, world units, within which an enumerated member is the one it draws)
   const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02, LAND_ENUM_SAME_Z = 1e-5, LAND_ENUM_NEAR = 2;
+  // the enumerator's tolerances (the constants above): a vertex's z, relative to |z| + 1, and its height, within which an enumerated member is the one a frame draws
+  window.__cmwLandEnumTol = () => ({ z: LAND_ENUM_Z_TOL, h: LAND_ENUM_H_TOL });
   window.__cmwLandScale = () => render3D.scale || null;
   // true: Steps-view Landscape glide frames draw the carried mesh instead of the exact inverse; false (the default) restores it
   window.__cmwLandMeshOnly = (on) => { svLandMeshOnly = !!on; requestRender('L', 'R'); return svLandMeshOnly; };
@@ -425,6 +427,9 @@
   // (the test hooks go on: a second block, as t_publish caps a block's length)
   // the last carried frame's grid as drawn at probe places: per place the layers [{ h, member, w, z, f, sheet, matches }]; matches is 1 plus how many other members, of another z, fit the layer's z and height and lie within LAND_ENUM_NEAR times the nearest one's distance (the nearest is taken; more than 1 is ambiguous); f and sheet are
   // those of the enumerator's member (__cmwLandEnum) at the vertex's own place that has its z and its height (null: none has)
+  // the last exact carried frame's edges crossed twice (a branch point on an edge): the triangles holding them are left out
+  window.__cmwLandDrops = () => (GLR.landDrops ? GLR.landDrops() : null);
+  window.__cmwLandCutEdges = () => (GLR.landCutEdges ? GLR.landCutEdges() : null);
   window.__cmwLandFrameVerts = (pts) => {
     const g = render3D.box && render3D.carried ? GLR.landFrameVerts(pts, render3D.box) : null;
     return g ? g.map((ls) => ls.map((l) => {
@@ -436,6 +441,7 @@
   };
   // the last carried frame's cut edges per layer: [{ cuts, box, pp: [patch] }], each grid { n, jumps, w } (the jump texels of its three edge textures and the places of the first few); null with no carried frame
   window.__cmwLandEdgeCounts = () => (render3D.carried ? GLR.landEdgeCounts() : null);
+  window.__cmwLandSeamMiss = () => (render3D.carried ? GLR.landSeamMiss() : null);
   // the shown plane's map at a point z of plane 0 ([re, im] -> [re, im]), from the inverse inputs the last carried frame drew
   // from; null when there are none
   window.__cmwLandForward = (z) => { const F = render3D.exactIn && render3D.exactIn.F, f = F ? F(C(z[0], z[1])) : null; return f && CX.isFin(f) ? [f.re, f.im] : null; };
@@ -518,6 +524,13 @@
       const w = at(sh, zc, lc), a = at(sh, pa, lamAt(pa)), b = at(sh, pb, lamAt(pb));
       return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * HOM_DZ), (a.im - b.im) / (2 * HOM_DZ)] : null, exactD: false };
     });
+  };
+  // the log-coordinate window of each sheet's first op (a log or a power u^s): a member's continued log coordinate has its imaginary part in (lo, hi] when
+  // the member is inside its sheet's window. [{ sheet, kind, lo, hi }] ('LOG' / 'ROOTPOW', else lo and hi are null)
+  window.__cmwLandWin = () => {
+    const inp = render3D.exactIn;
+    if (!inp) return null;
+    return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => { const o = sh.plan.ops[0], p = o && o.p; return { sheet, kind: o ? o.kind : null, lo: p && Number.isFinite(p.lo) ? p.lo : null, hi: p && Number.isFinite(p.hi) ? p.hi : null }; });
   };
   // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of
   // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in

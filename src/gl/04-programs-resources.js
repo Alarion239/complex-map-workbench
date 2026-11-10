@@ -219,6 +219,7 @@
     landCarryEdge: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(), fs: () => TF_FS, tf: true },
     // (the layered glide's variants, whose cuts are continued from an own vertex: see LAND_CARRY_CONT_VS)
     landCarryEdgeL: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_EDGE_VS(true), fs: () => TF_FS, tf: true },
+    landCarryRing: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_RING_VS, fs: () => TF_FS, tf: true },
     landCarryCont: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_CONT_VS, fs: () => TF_FS, tf: true },
     landCarryFix: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_FIX_VS, fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
@@ -1452,7 +1453,8 @@ float wabs(vec2 w) {
   const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
   // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid), rulerScale (a factor on the height ruler's labels' heights),
-  // comboShift (an integer added to each sheet's combo in the exact carried draw: the sheets' colour control); {} otherwise
+  // comboShift (an integer added to each sheet's combo in the exact carried draw: the sheets' colour control), noCross (the exact glide's
+  // cross-sheet edge test finds every such edge continuous), midCut (the exact glide's edge pass puts every cut at the middle of its edge); reverseLayers (the layered glide draws its layers in reverse order), ringHOff (the cross-layer pass's continued heights offset by that share of H), {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

@@ -868,24 +868,30 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
   bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
   int J = int(j01) + int(j12) + int(j20);
-  if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  if (max(max(e01.w, e12.w), e20.w) > 1.5) return;
   int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
   ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
   // a corner of sub-triangle sub (kk 0, 1, 2): a grid corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
-  ivec2 srcs[3]; int xs[3]; vec3 vEd = vec3(0.0);
+  ivec2 srcs[3], xos[3]; int xs[3]; vec3 vEd = vec3(0.0);
   for (int kk = 0; kk < 3; kk++) {
-    ivec2 src = A; int x = 0;
+    ivec2 src = A, xo = A; int x = 0;
     if (J == 0) { if (sub > 0) return; src = kk == 0 ? A : (kk == 1 ? B : C); }
     else if (J == 1) {
       if (sub > 1) return;
       if (sub == 0) { src = A; x = kk == 1 ? 1 : 0; if (kk == 2) src = C; vEd = vec3(1.0, 0.0, 0.0); }
       else { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; vEd = vec3(0.0, 1.0, 0.0); }
+    } else if (J == 3) {
+      // (every edge crossed, where the cuts meet: each corner has its own piece, cut off by the chord between the crossings on its two edges)
+      if (sub > 2) return;
+      src = sub == 0 ? A : (sub == 1 ? B : C);
+      xo = kk == 1 ? (sub == 0 ? B : (sub == 1 ? C : A)) : (sub == 0 ? C : (sub == 1 ? A : B));
+      x = kk == 0 ? 0 : 1; vEd = vec3(1.0, 0.0, 0.0);
     } else {
       if (sub == 0) { src = A; x = kk; vEd = vec3(1.0, 0.0, 0.0); }
       else if (sub == 1) { src = kk == 0 ? B : (kk == 1 ? B : C); x = kk == 0 ? 1 : 0; }
       else { src = kk == 0 ? B : C; x = kk == 0 ? 1 : (kk == 2 ? 2 : 0); vEd = vec3(0.0, 1.0, 0.0); }
     }
-    srcs[kk] = src; xs[kk] = x;
+    srcs[kk] = src; xs[kk] = x; xos[kk] = xo;
   }
   // (layered: a layer's cut separates its bank from the same surface in the next layer, as between the parked sheets, which draw no cut ink)
   vEdge = ${L ? 'vec3(0.0)' : 'vEd'};
@@ -893,17 +899,17 @@ ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on
   vec2 cxy[3], cz[3]; float ch[3]; vec4 cnv[3];
   for (int kk = 0; kk < 3; kk++) {
     if (!(${clip ? 'true' : 'kk == k'})) continue;
-    ivec2 src = srcs[kk]; int x = xs[kk];
+    ivec2 src = srcs[kk], xo = xos[kk]; int x = xs[kk];
     vec4 t = texelFetch(uT1, src, 0);
     cnv[kk] = texelFetch(uT2, src, 0);
     cxy[kk] = t.xy; cz[kk] = uZOn == 1 ? texelFetch(uZ, src, 0).xy : carryZ(vec2(src));
     ch[kk] = t.z;
     if (x > 0) {
-      ivec2 E = x == 1 ? B : C;
-      vec4 e = edgeOf(A, E);
-      cxy[kk] = mix(texelFetch(uT1, A, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
-      cz[kk] = mix(texelFetch(uZ, A, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
-      ch[kk] = src == A ? e.y : e.z;
+      ivec2 F = J == 3 ? src : A, E = J == 3 ? xo : (x == 1 ? B : C);
+      vec4 e = edgeOf(F, E);
+      cxy[kk] = mix(texelFetch(uT1, F, 0).xy, texelFetch(uT1, E, 0).xy, e.x);
+      cz[kk] = mix(texelFetch(uZ, F, 0).xy, texelFetch(uZ, E, 0).xy, e.x);
+      ch[kk] = src == F ? e.y : e.z;
     }
   }
 ${clip ? `  vec3 Q[CLIP_N]; vec4 QA[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
@@ -920,10 +926,10 @@ ${clip ? `  vec3 Q[CLIP_N]; vec4 QA[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
   vNor = Nn[vi]; vAO = QA[vi].z;` : `  vZ = cz[k];
   vPos = vec3(((cxy[k] - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, ch[k]);
   vNor = cnv[k].xyz; vAO = cnv[k].w;`}
-${L ? '' : `  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
-  // the cut separates from the first piece's)
-  ivec2 anchor = (J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A;
-  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;`}
+  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
+  // the cut separates from the first piece's; layered: the bank's corner when it is the layer's own, else the triangle's first own corner)
+  ivec2 anchor = J == 3 ? (sub == 0 ? A : (sub == 1 ? B : C)) : ((J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A);
+${L ? '  if (texelFetch(uT1, anchor, 0).w < uDrawCode0 + 0.1) vZc = texelFetch(uZ, anchor, 0).xy;' : '  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;'}
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
@@ -954,14 +960,20 @@ void main() {
   // a end of the cut, at its b end, jump). The edge's preimages are joined by a chord and the height there bisected
   // while it steps: a step the bisection does not shrink, between heights that are not a pole's wall, is a cut. Only
   // the edges whose two vertices are on the sheet uCode (the texel's w, LAND_CARRY_FIX_VS) are looked at, with that
-  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none
+  // sheet's chain data; an edge whose end heights are not the chain's at its preimages has none. The edges whose ends are on
+  // different sheets, or on none, have their own test (uCode -1)
   // The member-seam test of the exact glide's edge pass: the places of an edge are carried SEAM_NEWT_CONT equal steps of the place
   // by SEAM_NEWT_POL Newton iterations each; the preimages are one member when the carried one is within SEAM_REL of their
   // distance (plus SEAM_ABS, relative to |z|) of the other; an edge whose preimages are within SEAM_FAR times the
   // distance one member's derivative gives them is one member and is not tested
+  // the place a sheet carried along a cross-sheet edge may miss the far end's by, relative to 1 + |w| (the tests' hook tolerance)
+  const CROSS_REL = '1.5e-3';
+  // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i; the cross-sheet edge test reads the combos of at most CARRY_SHEETS_MAX sheets
+  const CARRY_SHEET_CODE = 10, CARRY_SHEETS_MAX = 16;
   const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = (L = false) => `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
+uniform int uSheetCombos[${CARRY_SHEETS_MAX}]; uniform int uCrossOn; uniform int uMidOn;
 uniform highp sampler2D uT1; uniform highp sampler2D uZ; uniform highp sampler2D uE0;
 out vec4 tfOut;
 ` + CARRY_HEIGHT + (L ? CARRY_HEIGHT_ANCHORED + `
@@ -996,6 +1008,8 @@ vec2 seamCont(vec2 z0, vec2 wa, vec2 wb, out vec2 zMid) {
   }
   return z;
 }
+// where on its edge a bisection puts the cut (uMidOn 1, a test switch: the middle)
+float cutShare(float lo, float hi) { return uMidOn == 1 ? 0.5 : 0.5 * (lo + hi); }
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
@@ -1006,10 +1020,37 @@ void main() {
   ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
   if (q.x >= uN || q.y >= uN) return;
   vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
-  // (uCode -1: an edge between two sheets, whose vertices' heights step: the sheets' domains meet at a cut, which
-  // lies between the two places; mid-way)
+  // (uCode -1: an edge whose ends are not on one sheet: on two sheets, or on one and on none. The sheet of one end (a placed
+  // one first) is carried along the edge from that end's preimage to the other's, by the anchored chain, and read against
+  // the other end's own value there: its sheet's at its preimage, or its place where it is on none. The edge is
+  // continuous where they agree (the sheets' labels change at cuts of their own, not of the map). Where they do not, it
+  // crosses a cut, which is bisected along the chord of the preimages. A carried value that is not finite (a branch point on
+  // the edge), or a sheet code outside the combos, leaves the edge crossed twice, which drops the triangles that hold it)
   if (uCode < 0.0) {
-    if (a.w > 5.0 && b.w > 5.0 && abs(a.w - b.w) > 0.5 && abs(b.z - a.z) > 0.02 * uH) tfOut = vec4(0.5, a.z, b.z, 1.0);
+    if (uCrossOn == 0) return;
+    bool pa = a.w > 5.0, pb = b.w > 5.0;
+    if ((!pa && !pb) || (pa && pb && abs(a.w - b.w) < 0.5)) return;
+    vec2 zp = texelFetch(uZ, p, 0).xy, zq = texelFetch(uZ, q, 0).xy;
+    // (from the placed end; both placed: from a)
+    bool fwd = pa;
+    int cf = int((fwd ? a.w : b.w) + 0.5) - ${CARRY_SHEET_CODE}, ct = int((fwd ? b.w : a.w) + 0.5) - ${CARRY_SHEET_CODE};
+    if (cf < 0 || cf >= ${CARRY_SHEETS_MAX} || ((fwd ? pb : pa) && (ct < 0 || ct >= ${CARRY_SHEETS_MAX}))) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+    vec2 zf = fwd ? zp : zq, zt = fwd ? zq : zp;
+    vec2 cv = chainSheetRange(zf, zt, uGs, uGt, uSheetCombos[cf]);
+    vec2 own = (fwd ? pb : pa) ? chainSheetRange(zt, zt, uGs, uGt, uSheetCombos[ct]) : (fwd ? b.xy : a.xy);
+    if (!cfin(cv) || !cfin(own)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+    if (!(length(cv - own) > ${CROSS_REL} * (length(own) + 1.0))) return;
+    // the cut: along the chord of the preimages, the share m up to which the sheet of the first end is still its own piece (its
+    // value carried from the first end is the one anchored at m itself), bisected as a cut within one sheet is
+    float lo = 0.0, hi = 1.0;
+    for (int it = 0; it < uSteps - 1; it++) {
+      float m = 0.5 * (lo + hi);
+      vec2 zm = mix(zf, zt, m), c1 = chainSheetRange(zf, zm, uGs, uGt, uSheetCombos[cf]), c2 = chainSheetRange(zm, zm, uGs, uGt, uSheetCombos[cf]);
+      if (!cfin(c1) || !cfin(c2)) { tfOut = vec4(0.5, a.z, b.z, 2.0); return; }
+      if (length(c1 - c2) <= ${CROSS_REL} * (length(c2) + 1.0)) lo = m; else hi = m;
+    }
+    float tc = cutShare(lo, hi);
+    tfOut = vec4(fwd ? tc : 1.0 - tc, a.z, b.z, 1.0);
     return;
   }
   if (abs(a.w - uCode) > 0.5 || abs(b.w - uCode) > 0.5) return;
@@ -1041,7 +1082,7 @@ ${L ? `  // (the continuation from the own end does not give the other end's hei
   }
   float big = 1e3 * max(max(uMu, uMu2), 1e-30);
   jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
-  if (jump) { tfOut = vec4(0.5 * (lo + hi), hLo, hHi, 1.0); return; }
+  if (jump) { tfOut = vec4(cutShare(lo, hi), hLo, hHi, 1.0); return; }
   // a member seam (uSeam 1): neither end's preimage carried along the edge's place reaches the other's, so the two
   // places hold different members of the glide's inverse and the edge is a cut between them, whatever the chord of
   // their preimages shows; each bank's height at the middle of the edge is its own member's there
@@ -1111,6 +1152,72 @@ void main() {
   // (a continuation onto a branch outside the sheets' window is a surface the parked frame does not draw)
   if (cxs0_out) return;
   if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode);
+}
+`;
+  // The layered glide's cross-layer continuation (one pass per target layer, on the layers' texels once every layer is
+  // placed): a vertex of layer uK with no value or none confirmed (texel w under 5), beside an own vertex A (its first own
+  // neighbour), lies across the step's cut from A. The surface continues there onto the member of another layer: the
+  // layer whose own preimage at the vertex is nearest A's. It is that member when the two preimages are no farther apart
+  // than the glide's derivative at A allows for the distance of the two places (the seam test's criterion, SEAM_FAR), and
+  // the continuation of A's branch to it has the height that layer draws there (RING_GUARD). The vertex takes the place
+  // of the grid, that preimage and that layer's height (so the two layers' copies of a surface piece coincide exactly), texel w uContCode (uHOff: a probe's offset of it, in H). uOutZ 0 writes the texel, 1 the preimage.
+  const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
+  const LAND_CARRY_RING_VS = `
+uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard; uniform float uHOff;
+uniform int uGs; uniform int uGt;
+uniform highp sampler2D uRT1[${RING_LAYERS_MAX}]; uniform highp sampler2D uRZ[${RING_LAYERS_MAX}];
+out vec4 tfOut;
+` + CARRY_HEIGHT + CARRY_HEIGHT_ANCHORED + `
+// (uWhy 1, tests: a vertex the pass leaves off the layer has texel w minus the reason: 1 no own neighbour, 2 no own layer
+// there, 3 not one member, 4 no height on the branch, 5 the guard)
+void ringWhy(inout vec4 o, int why) { if (uWhy == 1 && uOutZ == 0) o.w = -float(why); }
+// (a sampler array is indexed by constants only: one case a layer)
+vec4 ringT(int j, ivec2 p) {
+${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRT1[${i}], p, 0);`).join('\n')}
+  return vec4(0.0);
+}
+vec4 ringZ(int j, ivec2 p) {
+${RING_CASES.map((i) => `  if (j == ${i}) return texelFetch(uRZ[${i}], p, 0);`).join('\n')}
+  return vec4(0.0);
+}
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  vec4 t = ringT(uK, p), z0 = ringZ(uK, p);
+  tfOut = uOutZ == 1 ? z0 : t;
+  if (t.w >= 5.0) return;
+  vec2 zA = vec2(0.0), pA = vec2(0.0);
+  bool found = false;
+  for (int j = 0; j < 9; j++) {
+    ivec2 q = p + ivec2(j % 3 - 1, j / 3 - 1);
+    if (j == 4 || q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
+    vec4 tq = ringT(uK, q);
+    if (tq.w > 5.0 && tq.w < uCode + 0.1) { zA = ringZ(uK, q).xy; pA = tq.xy; found = true; break; }
+  }
+  if (!found) { ringWhy(tfOut, 1); return; }
+  vec2 pP = uBox.xy + vec2(p) / float(uN - 1) * uBox.zw;
+  float hd = 1e-6 * (1.0 + length(zA));
+  vec2 dM = (mapPoint(zA + vec2(hd, 0.0)) - mapPoint(zA - vec2(hd, 0.0))) / (2.0 * hd);
+  float best = 1e30, hj = 0.0, hit = 0.0;
+  vec2 zj = vec2(0.0);
+  int why = 2;
+  for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
+    if (j >= uLayers || j == uK) continue;
+    vec4 tj = ringT(j, p);
+    if (!(tj.w > 5.0 && tj.w < uCode + 0.1)) continue;
+    vec2 zz = ringZ(j, p).xy;
+    float d = length(zz - zA);
+    // (the layers' preimages of a place can coincide: a candidate is taken by its height too)
+    if (!(d * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { why = max(why, 3); continue; }
+    cxs0_out = false;
+    vec2 h = carryHeightA(zA, zz);
+    if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { why = max(why, 4); continue; }
+    if (uGuard == 1 && abs(h.x - tj.z) > ${RING_GUARD} * uH) { why = max(why, 5); continue; }
+    if (d < best) { best = d; zj = zz; hj = tj.z; hit = 1.0; }
+  }
+  if (hit < 0.5) { ringWhy(tfOut, why); return; }
+  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, hj + uHOff * uH, uContCode);
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
