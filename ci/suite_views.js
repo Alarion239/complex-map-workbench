@@ -196,6 +196,7 @@ const VIEWS = {
   'example_try_events_cmd.js': steps({ pin: true }),
   'example_try_repeat_cmd.js': steps({ pin: true }),
   'fix152_cmd.js': steps({ pin: true }),
+  'inspector_parse_hint_cmd.js': steps(),
   'ux165_palette_cmd.js': steps({ pin: true }),
   'guide_nav_cmd.js': steps({ pin: true }),
   'i18n_cmd.js': steps({ pin: true }),
