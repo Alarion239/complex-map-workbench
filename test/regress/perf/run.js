@@ -2121,6 +2121,47 @@ unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a war
 // (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
 function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
 unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows (#1205)', svLandBytesUnit);
+// Diagnostic (#1466): the glides of z^(-1/2) (the powa step with alpha -1/2, and the Formula z^(-1/2)) and z^-2 (pown, n = -2)
+// on the plane, the sphere, Landscape with sheets off and Landscape with All sheets, Everywhere, at dpr 1 and 2; info rows
+// only. svNegHeldUnit adds the cost of a frame held at u = .5, .667 and .75: x is moved by SV_NEG_WOBBLE back and forth for
+// SV_NEG_FRAMES frames, each timed from one rAF to the next, and the p95 read
+const SV_NEG_STATE = (step, sheets) => Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: sheets ? '3d' : 'image', shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] }, sheets ? { sheets: true, height: 'im' } : {});
+const SV_NEG_MAPS = {
+  rhalf: { tex: 'z^(-1/2) (the powa step)', step: { type: 'powa', params: { alpha: '-1/2' } } },
+  rhalff: { tex: 'z^(-1/2) (the Formula)', step: { type: 'custom', params: { expr: 'z^(-1/2)', cut: 180 } } },
+  m2: { tex: 'z^-2 (pown)', step: { type: 'pown', params: { n: -2 } } },
+};
+const SV_NEG_VIEWS = { plane: { surf: 'plane', sheets: false }, sphere: { surf: 'sphere', sheets: false }, land: { surf: 'land', sheets: false }, lands: { surf: 'land', sheets: true } };
+const SV_NEG_U = [0.5, 0.667, 0.75], SV_NEG_FRAMES = 40, SV_NEG_WOBBLE = 0.0005;
+async function svNegHeldUnit(id, name, view) {
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer'); return; }
+  for (const dpr of [1, 2]) {
+    if (dpr !== 1) await setDpr(dpr);
+    try {
+      await openSteps(SV_NEG_STATE(SV_NEG_MAPS[name].step, view.sheets));
+      await settle(await pageNow());
+      await B.ev(`__cmwSteps({ scope: 'all', surf: '${view.surf}', go: 0, now: true }), 1`);
+      await settle(await pageNow());
+      for (const u of SV_NEG_U) {
+        const pre = `${id}${dpr === 2 ? '.dpr2' : ''}.u${String(u).replace('0.', '')}`;
+        await B.ev(`(window.__negHeld = null, (() => { const t = []; let last = 0, n = 0; const f = (ts) => { if (last) t.push(ts - last); last = ts; __cmwSteps({ x: ${u} + (n % 2) * ${SV_NEG_WOBBLE}, now: true }); if (++n < ${SV_NEG_FRAMES + 1}) requestAnimationFrame(f); else window.__negHeld = t; }; requestAnimationFrame(f); })(), 1)`);
+        const t = await B.until('window.__negHeld', 30000, 50);
+        const sorted = [...t].sort((a, b) => a - b);
+        put(`${pre}.frame_p95_ms`, 'info', 'ms', [sorted[Math.min(sorted.length - 1, Math.floor(0.95 * sorted.length))]]);
+        put(`${pre}.frame_med_ms`, 'info', 'ms', [sorted[sorted.length >> 1]]);
+      }
+    } finally { if (dpr !== 1) await setDpr(1); }
+  }
+}
+for (const name of Object.keys(SV_NEG_MAPS)) {
+  for (const [vn, view] of Object.entries(SV_NEG_VIEWS)) {
+    const id = `sv.glide.neg_${name}_${vn}`;
+    unit(id, `diagnostic: the steps view, ${SV_NEG_MAPS[name].tex}, ${vn}: a warm glide there and back at dpr 1 and 2; info rows only`, () => svGlideUnit(name, { id, surf: view.surf, state: SV_NEG_STATE(SV_NEG_MAPS[name].step, view.sheets), info: true }), { timeoutS: 900 });
+    const hid = `sv.neg_held.${name}_${vn}`;
+    unit(hid, `diagnostic: the steps view, ${SV_NEG_MAPS[name].tex}, ${vn}: the cost of a frame held at u = .5, .667 and .75, dpr 1 and 2; info rows only`, () => svNegHeldUnit(hid, name, view), { timeoutS: 600 });
+  }
+}
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
