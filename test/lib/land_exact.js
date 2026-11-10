@@ -186,6 +186,7 @@
   // across u (HIST, the combo counts) keep their values in a file per case, written by each part and read by the later ones; the part holding the
   // first u starts it afresh, and a later part that finds none fails its row. The judgments over the whole row run in the part holding the last u)
   const ONLY_U = process.env.CMW_ONLY_U ? process.env.CMW_ONLY_U.split(',').map(Number) : null;
+  const LAST_PART = !ONLY_U || ONLY_U.includes(GLIDE_U[GLIDE_U.length - 1]);
   const stateFile = (name) => path.join(process.env.TMPDIR || '/tmp', 'cmw_land_exact_' + name.replace(/[^A-Za-z0-9]+/g, '_') + '.json');
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
@@ -1202,13 +1203,12 @@
     const comboN = {}, comboCtl = {};   // (per u: the distinct sheet combos of the colour map; per near end: the shifted-combo hue count)
     const brPts = CUT_ROWS[c.tag] ? branchPoints(c.steps) : [];
     // (the cross-u values: in a part they come from the file of the parts before it)
-    const lastPart = !ONLY_U || ONLY_U.includes(GLIDE_U[GLIDE_U.length - 1]);
-    const saveState = () => { if (ONLY_U) fs.writeFileSync(stateFile(name), JSON.stringify({ HIST: HIST[name] || {}, comboN, comboCtl })); };
+    const saveState = () => { if (ONLY_U) fs.writeFileSync(stateFile(name), JSON.stringify({ HIST: HIST[name] || {}, comboN, comboCtl, bit, capBit, capCase, capC1, capC2Zero })); };
     if (ONLY_U) {
       let st = null;
       if (!ONLY_U.includes(GLIDE_U[0])) { try { st = JSON.parse(fs.readFileSync(stateFile(name), 'utf8')); } catch (e) { st = null; } }
       ok(`${name}: the part for u = ${ONLY_U.join(', ')} ${ONLY_U.includes(GLIDE_U[0]) ? 'starts the cross-u values' : 'finds the cross-u values of the parts before it'}`, ONLY_U.includes(GLIDE_U[0]) || !!st, { file: stateFile(name) });
-      if (st) { HIST[name] = st.HIST; Object.assign(comboN, st.comboN); Object.assign(comboCtl, st.comboCtl); }
+      if (st) { HIST[name] = st.HIST; for (const [o, v] of [[comboN, st.comboN], [comboCtl, st.comboCtl], [bit, st.bit], [capBit, st.capBit], [capCase, st.capCase], [capC1, st.capC1], [capC2Zero, st.capC2Zero]]) Object.assign(o, v); }
     }
     for (const u0 of GLIDE_U.filter((x) => !ONLY_U || ONLY_U.includes(x))) {
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
@@ -2045,7 +2045,7 @@
     }
     // (the combo control, judged over the row: the colour map's most distinct sheet combos at any u of it. With one, a combo one off is the same colour: the control cannot bite there and must not (a bite is a
     // contradiction); with two or more it must bite at every near end)
-    if (lastPart) {
+    if (LAST_PART) {
       const nMax = Math.max(0, ...Object.values(comboN));
       for (const u of Object.keys(comboCtl).map(Number)) {
         const ctl = comboCtl[u], one = nMax <= 1, tt = `${name}, u=${u}`;
@@ -2055,7 +2055,7 @@
     }
     // the distance to rest falls as u goes to 0 (and as it goes to 1, for the next plane): per end, d(k) for k in REST_STEPS from the plane
     const restOk = (d) => d[0] <= SAME_FRAC && d.every((x, i) => i === 0 || x >= d[i - 1] - MONO_SLACK);
-    for (const [end, ref] of lastPart ? [['plane z', 'P0'], ['the next plane', 'P1']] : []) {
+    for (const [end, ref] of LAST_PART ? [['plane z', 'P0'], ['the next plane', 'P1']] : []) {
       const d = [];
       for (const k of REST_STEPS) {
         await setU(ref === 'P0' ? k * END_U : 1 - k * END_U); await grab('rs');
@@ -2068,7 +2068,7 @@
     }
     // the glide's sheet pass (the image test that gives each vertex its step sheet's height) is what keeps the frame near the next plane's
     // parked one at the far end: with it off (the page's carry probe noFix) the same frame differs from the parked plane by more than the tolerance
-    if (c.fixControl && !sheets && lastPart) {
+    if (c.fixControl && !sheets && LAST_PART) {
       await setU(1 - END_U);
       const on = await grab('fixon'), dOn = (await compare('fixon', 'P1')).frac;
       await ev(`__svCarryProbe = __svCarryProbeSettings.noFix; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -2079,24 +2079,27 @@
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
     }
   }
-  if (capBit.rows) ok(`control: the cap probe's float target returned its constant (${capBit.c4} reads)`, capBit.c4 > 0, capBit);
-  if (capBit.strad) {
-    ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.strad} rows with a straddling cell)`, capBit.c1 > 0, capBit);
-    ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
-    for (const [tag, k] of Object.entries(capCase)) ok(`control: C2: over the rows of ${tag} the clip-off count falls when each straddling cell's lowest drawn pixels are sampled in place of its highest (${k.low} against ${k.top})`, k.low < k.top, k);
-    for (const tag of Object.keys(capCase)) ok(`control: C1: the clip-off count is over 0 on some row of ${tag}`, !!capC1[tag], capC1);
-    for (const tag of Object.keys(capCase)) {
-      if (C2_ZERO_CASES.includes(tag)) ok(`control: C2: the clip-off count with the lowest pixels is 0 on some row of ${tag} (${capC2Zero[tag] || 0} rows)`, (capC2Zero[tag] || 0) > 0, capC2Zero);
-      else ok(`control: C2: ${tag} is listed as never reaching 0 (${C2_ZERO_NA[tag] || 'NOT LISTED'}; ${capC2Zero[tag] || 0} rows reach it)`, !!C2_ZERO_NA[tag] && !(capC2Zero[tag] > 0), capC2Zero);
+  // (the controls that count rows over the whole case run in the part holding the last u, with the counts of the parts before it)
+  if (LAST_PART) {
+    if (capBit.rows) ok(`control: the cap probe's float target returned its constant (${capBit.c4} reads)`, capBit.c4 > 0, capBit);
+    if (capBit.strad) {
+      ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.strad} rows with a straddling cell)`, capBit.c1 > 0, capBit);
+      ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
+      for (const [tag, k] of Object.entries(capCase)) ok(`control: C2: over the rows of ${tag} the clip-off count falls when each straddling cell's lowest drawn pixels are sampled in place of its highest (${k.low} against ${k.top})`, k.low < k.top, k);
+      for (const tag of Object.keys(capCase)) ok(`control: C1: the clip-off count is over 0 on some row of ${tag}`, !!capC1[tag], capC1);
+      for (const tag of Object.keys(capCase)) {
+        if (C2_ZERO_CASES.includes(tag)) ok(`control: C2: the clip-off count with the lowest pixels is 0 on some row of ${tag} (${capC2Zero[tag] || 0} rows)`, (capC2Zero[tag] || 0) > 0, capC2Zero);
+        else ok(`control: C2: ${tag} is listed as never reaching 0 (${C2_ZERO_NA[tag] || 'NOT LISTED'}; ${capC2Zero[tag] || 0} rows reach it)`, !!C2_ZERO_NA[tag] && !(capC2Zero[tag] > 0), capC2Zero);
+      }
     }
+    ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
+    ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
+    ok(`control: the no-log-coordinate check bit on some row (${bit.noLam} rows)`, bit.noLam > 0, bit);
+    ok(`control: the translation check bit on some row (${bit.nonT} rows)`, bit.nonT > 0, bit);
+    ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
+    ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
+    ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
   }
-  ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
-  ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
-  ok(`control: the no-log-coordinate check bit on some row (${bit.noLam} rows)`, bit.noLam > 0, bit);
-  ok(`control: the translation check bit on some row (${bit.nonT} rows)`, bit.nonT > 0, bit);
-  ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
-  ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
-  ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
   if (process.env.CMW_ROWS) info.rows = rowNames;
   return { pass: !fails.length, fails, info };
 })
