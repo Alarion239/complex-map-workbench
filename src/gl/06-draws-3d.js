@@ -1632,56 +1632,22 @@
       // (each layer: its places, preimages and edges; the glide's sheets, one draw each with that sheet's chain data, its
       // colour being of the sheet's branch)
       // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
-      // (a test read: the cells' counts by class, and the MIX list's length, from the class texture and the rows' bases)
-      // (the classes again on the CPU, from the places and the cuts' jumps read back: the cells where it differs from the class texture; those with a corner
-      // within CLASS_BORDER_EPS (relative) of a plane, where the GPU's float arithmetic may take either side, are counted apart, with how many cells
-      // the grid's border holds: a border cell is one the box's sides run through)
-      const CLASS_BORDER_EPS = 1e-5;
-      const cpuCheck = (L, N, px) => {
-        const rd = (tex) => {
-          const fb = gl.createFramebuffer(), a = new Float32Array(N * N * 4);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-          gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, a);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
-          return a;
-        };
-        const t1 = rd(L.tex1), cutDraw = !!(L.exact && L.cuts), ed = cutDraw ? L.edges.map(rd) : null;
-        const Hb = contDraw ? LAND_BLOCK_K * H : 1e30, cx = box.x0 + 0.5 * BW, cy = box.y0 + 0.5 * BH;
-        const hx = 0.5 * BW * aspect[0] * (carryProbe.clipScale || 1) / aspect[0], hy = 0.5 * BH * aspect[1] * (carryProbe.clipScale || 1) / aspect[1];
-        const Sd = [cx - hx, cx + hx, cy - hy, cy + hy];
-        const jump = (e, x, y) => cutDraw && ed[e][4 * (y * N + x) + 3] > 0.5;
-        let differ = 0, near = 0;
-        for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) {
-          let mixed = jump(0, x, y) || jump(1, x, y) || jump(2, x, y) || jump(0, x, y + 1) || jump(1, x + 1, y), orC = 0, andC = 63, nearC = false;
-          for (let i = 0; i < 4; i++) {
-            const o = 4 * ((y + (i >= 2 ? 1 : 0)) * N + x + (i === 1 || i === 2 ? 1 : 0)), X = t1[o], Y = t1[o + 1], Z = t1[o + 2];
-            if (!(t1[o + 3] >= 0.5 && Math.abs(X) < 1e30 && Math.abs(Y) < 1e30 && Math.abs(Z) < 1e30)) { mixed = true; continue; }
-            const d = [Z - Hb, -Z - Hb, Sd[0] - X, X - Sd[1], Sd[2] - Y, Y - Sd[3]], sc = [Hb, Hb, X, X, Y, Y];
-            let cd = 0;
-            d.forEach((v, p) => { if (v > 0) cd |= 1 << p; if (Math.abs(v) <= CLASS_BORDER_EPS * (1 + Math.abs(sc[p])) && (p > 1 || Hb < 1e29)) nearC = true; });
-            orC |= cd; andC &= cd;
-          }
-          const want = mixed ? LAND_CLASS_MIX : (andC !== 0 ? LAND_CLASS_OUT : (orC === 0 ? LAND_CLASS_IN : LAND_CLASS_MIX));
-          if (Math.round(px[4 * (y * N + x)]) !== want) { if (nearC) near++; else differ++; }
-        }
-        return { cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * (N - 1) };
-      };
-      const classCounts = (L, N) => {
-        const fb = gl.createFramebuffer(), px = new Float32Array(N * N * 4);
+      // (a test read, for the probe classStats: the class texture, the places and the cuts' jumps of a layer's grid, the last row's base and count, and what the
+      // classes are against; the suites count and check them)
+      const readTex = (tex, N, W = N, H2 = N) => {
+        const fb = gl.createFramebuffer(), a = new Float32Array(W * H2 * 4);
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.clsTex, 0);
-        gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px);
-        const rb = new Float32Array(4);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.rowBTex, 0);
-        gl.readPixels(N - 2, 0, 1, 1, gl.RGBA, gl.FLOAT, rb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+        gl.readPixels(0, 0, W, H2, gl.RGBA, gl.FLOAT, a);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
-        const n = [0, 0, 0];
-        for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) n[Math.round(px[4 * (y * N + x)])]++;
-        return { cells: (N - 1) * (N - 1), out: n[LAND_CLASS_OUT], in: n[LAND_CLASS_IN], mix: n[LAND_CLASS_MIX], listed: rb[0] + rb[1], K: strK, ...cpuCheck(L, N, px) };
+        return a;
       };
+      const classRaw = (L, N, k) => ({
+        N, K: k, cls: readTex(L.clsTex, N), t1: readTex(L.tex1, N), edges: L.exact && L.cuts ? L.edges.map((e) => readTex(e, N)) : null,
+        rowB: readTex(L.rowBTex, N, N, 1), box: [box.x0, box.y0, BW, BH], aspect: [aspect[0], aspect[1]], clipScale: carryProbe.clipScale || 1,
+        clipH: contDraw ? LAND_BLOCK_K * H : null,
+      });
       const strK = carryProbe.stradK || LAND_STRAD_K;   // (stradK: a test control's short list)
       let mixK = 0;   // (over 0: the draw is mixK instances of one cell each, the MIX cells' list: LAND_CARRY_CLASS_VS)
       const drawCarryGrid = (G, n) => {
@@ -1756,7 +1722,7 @@
               if (over) stradOverflow++;
             } else stradAsk(L, N, strK);
             L.stradKey = key; L.stradU = du;
-            if (carryProbe.classStats) info.classCounts = classCounts(L, N);
+            if (carryProbe.classStats) info.classRaw = classRaw(L, N, strK);
             use(Pc, st.carry.map);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);

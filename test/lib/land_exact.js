@@ -78,13 +78,47 @@
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
   const SIDE_CASES = ['cube root', 'log of an annulus', 'Möbius, √'];   // (the cases whose extent at the glide's middle is checked against the side cut)
+  // the rows (case tag @ u) where the sides-wide control cannot bite, with the reason (asserted: the extent with the sides 2 % wide is the extent with the block's own sides)
+  const CTL_NA_WIDE = { 'cube root@0.5': 'the surface does not reach a side of the block at the glide\'s middle', 'log of an annulus@0.5': 'the surface does not reach a side of the block at the glide\'s middle', 'Möbius, √@0.5': 'the surface does not reach a side of the block at the glide\'s middle' };
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
   const UNCLIPPED_ALL = ['Möbius with a pole in the box', 'Roots as preimages'];   // (the cases whose All sheets draw is not clipped at the block: it has no classes)
-  const CLASS_BORDER_EPS = 1e-5;   // (CLASS_BORDER_EPS in src/gl/06-draws-3d.js: the distance, relative to the coordinate, within which a corner on a plane may be either side of it in the GPU's arithmetic: far under a pixel)
+  const CLASS_BORDER_EPS = 1e-5;   // (the distance, relative to the coordinate, within which a corner on a plane may be either side of it in the GPU's float arithmetic: 1e-5 of a coordinate of the box is far under 0.5 pixel at any size the page draws)
+  // The classes of the cells of a layer's grid against the block, from the places and the cuts' jumps read back (classRaw), derived here on their own: a cell is IN
+  // when its four corners are inside the block's planes and no cut passes its edges, OUT when all four are beyond one plane (with no cut), MIX otherwise; the block's sides are the box's
+  // centre plus and minus half its extent (scaled by the probe's clipScale), its top and bottom plus and minus clipH. Returns the counts by class, the list's length and the
+  // number of cells that differ from the class texture: those with a corner within eps (relative) of a plane apart (cpuNear), which are the grid's border cells. Runs in the page
+  const classCheck = (raw, eps) => {
+    if (!raw) return null;
+    const N = raw.N, M = N - 1, hx = 0.5 * raw.box[2] * raw.clipScale, hy = 0.5 * raw.box[3] * raw.clipScale, cx = raw.box[0] + 0.5 * raw.box[2], cy = raw.box[1] + 0.5 * raw.box[3];
+    const planes = (X, Y, Z) => {
+      const d = [X - (cx + hx), (cx - hx) - X, Y - (cy + hy), (cy - hy) - Y], sc = [X, X, Y, Y];
+      if (raw.clipH != null) { d.push(Z - raw.clipH, -Z - raw.clipH); sc.push(raw.clipH, raw.clipH); }
+      return { d, sc };
+    };
+    const jump = (e, x, y) => raw.edges && raw.edges[e][4 * (y * N + x) + 3] > 0.5;
+    let inn = 0, out = 0, mix = 0, differ = 0, near = 0;
+    for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
+      let mixed = jump(0, x, y) || jump(1, x, y) || jump(2, x, y) || jump(0, x, y + 1) || jump(1, x + 1, y), orC = 0, andC = -1, nearC = false;
+      for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
+        const o = 4 * ((y + dy) * N + x + dx), X = raw.t1[o], Y = raw.t1[o + 1], Z = raw.t1[o + 2];
+        if (!(raw.t1[o + 3] >= 0.5 && Math.abs(X) < 1e30 && Math.abs(Y) < 1e30 && Math.abs(Z) < 1e30)) { mixed = true; continue; }
+        const { d, sc } = planes(X, Y, Z);
+        let cd = 0;
+        d.forEach((v, p) => { if (v > 0) cd |= 1 << p; if (Math.abs(v) <= eps * (1 + Math.abs(sc[p]))) nearC = true; });
+        orC |= cd; andC &= cd;
+      }
+      const want = mixed ? 2 : (andC !== 0 ? 0 : (orC === 0 ? 1 : 2));
+      const got = Math.round(raw.cls[4 * (y * N + x)]);
+      if (got === 1) inn++; else if (got === 0) out++; else mix++;
+      if (got !== want) { if (nearC) near++; else differ++; }
+    }
+    return { cells: M * M, in: inn, out, mix, listed: raw.rowB[4 * (N - 2)] + raw.rowB[4 * (N - 2) + 1], K: raw.K, cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * M };
+  };
+  const classCounts = async () => JSON.parse(await ev(`JSON.stringify((${classCheck})(__cmwLandCarry() && __cmwLandCarry().classRaw, ${CLASS_BORDER_EPS}))`));
   const STRAD_STEP_U = 0.01, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.02)
-  const STRAD_DELTA_MAX = 128, SCRUB_STEP_U = 0.02;   // (the most the count of straddling cells moves between continuous frames, over the list's headroom of 256; the scrub's step of u)
+  const STRAD_SYNC_FRAC = 0.75, STRAD_DELTA_MAX = 128, SCRUB_STEP_U = 0.02;   // (STRAD_SYNC_FRAC in src/gl/06-draws-3d.js: the count is read at this share of the list's length. STRAD_DELTA_MAX: the most the count of straddling cells may move between continuous frames, half the headroom MIX_K * (1 - STRAD_SYNC_FRAC) = 256; SCRUB_STEP_U: the scrub's step of u)
   const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
@@ -532,7 +566,7 @@
       // the cells' classes against the block (LAND_CARRY_CLASS_VS): every cell has one, the straddling cells are all in the draw's list, which is not full
       if (u === GLIDE_MID) {
         await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-        const cc = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+        const cc = await classCounts();
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         if (!cc) ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets });
         else {
@@ -541,7 +575,7 @@
           ok(`${t}: the classes are the CPU's from the places and the cuts, but for border cells whose corner lies on a plane to within ${CLASS_BORDER_EPS} (${cc.cpuDiffer} other cells differ; ${cc.cpuNear} border cells differ, of ${cc.cpuBorder})`, cc.cpuDiffer === 0 && cc.cpuNear <= cc.cpuBorder, cc);
           if (u === GLIDE_MID && c.tag === ROW_CASE && cc && cc.mix > 0) {
             await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-            const cf = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+            const cf = await classCounts();
             await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             ok(`${t}: control: with every MIX cell taken as OUT the CPU's classes differ (${cf && cf.cpuDiffer} cells)`, !!cf && cf.cpuDiffer > 0, cf);
           }
@@ -575,14 +609,14 @@
           let prev = null, worst = 0, at = null;
           for (const x of us) {
             await setU(x);
-            const k = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+            const k = await classCounts();
             if (!k) continue;
             if (prev !== null && Math.abs(k.mix - prev) > worst) { worst = Math.abs(k.mix - prev); at = x; }
             prev = k.mix;
           }
           await ev('__svCarryProbe = null; 1');
           await setU(GLIDE_MID);
-          ok(`${t}: the count of straddling cells moves by at most ${STRAD_DELTA_MAX} between frames ${SCRUB_STEP_U} of u apart (the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX, { worst, at });
+          ok(`${t}: the count of straddling cells moves by at most ${STRAD_DELTA_MAX} between frames ${SCRUB_STEP_U} of u apart (the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && STRAD_DELTA_MAX <= MIX_K * (1 - STRAD_SYNC_FRAC) / 2, { worst, at });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
@@ -686,7 +720,7 @@
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
       }
       // the block's sides at the glide's middle, where the boxes differ, in the Top view: the frame's extent is that of the draw with the sides cut per
-      // fragment (the probe clipOff), to within SIDE_BOX_PX; the sides a little narrow move it (control; the surface does not reach past the block there, so a wide side moves nothing)
+      // fragment (the probe clipOff), to within SIDE_BOX_PX; the sides a little narrow move it (control; the surface does not reach past the block there, so a wide side moves nothing: CTL_NA_WIDE)
       if (SIDE_CASES.includes(c.tag) && !sheets && u === GLIDE_MID) {
         const boxWith = async (probe) => {
           await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -696,7 +730,7 @@
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         let boxes;
         try {
-          boxes = { own: await boxWith(null), frag: await boxWith('clipOff'), narrow: await boxWith('clipNarrow') };
+          boxes = { own: await boxWith(null), frag: await boxWith('clipOff'), narrow: await boxWith('clipNarrow'), wide: await boxWith('clipWide') };
         } finally {
           await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -704,6 +738,7 @@
         r[u].sideBoxes = boxes;
         ok(`${t}: in the Top view the frame's extent is the per-fragment side cut's, within ${SIDE_BOX_PX} pixel (${boxes.own} against ${boxes.frag})`, apart(boxes.own, boxes.frag) <= SIDE_BOX_PX, boxes);
         ok(`${t}: control: with the block sides 2 % narrow the extent moves by more than ${SIDE_BOX_PX} pixel (${boxes.narrow})`, apart(boxes.narrow, boxes.frag) > SIDE_BOX_PX, boxes);
+        ok(`${t}: control: the sides 2 % wide cannot bite on this row (${CTL_NA_WIDE[`${c.tag}@${u}`] || 'not listed'}): the extent is the block's own (${boxes.wide} against ${boxes.own})`, !!CTL_NA_WIDE[`${c.tag}@${u}`] && apart(boxes.wide, boxes.own) <= SIDE_BOX_PX, boxes);
       }
       // the surface pixels at the ends
       if (first || lastU) {
