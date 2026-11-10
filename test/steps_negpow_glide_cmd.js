@@ -32,6 +32,7 @@ const { paneOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.j
 // the plane window the left pane shows
 const windowOf = async () => { const P = await paneOf(); return { x0: P.v.cx - P.w / 2 / P.v.s, x1: P.v.cx + P.w / 2 / P.v.s, y0: P.v.cy - P.h / 2 / P.v.s, y1: P.v.cy + P.h / 2 / P.v.s }; };
 const U_CTRL = [0.25, 0.75];
+const followsU = (ea, eb) => Math.abs(ea - eb) > EXPECT_DIFF_MIN;
 // the u of a case's row: U_ROW and the places around the one-phase exponent's zero, u = 1/(1 - a)
 const rowOf = (c) => [...new Set([...U_ROW, ...NEAR_ZERO.map((d) => 1 / (1 - c.a) + d)].map((x) => +x.toFixed(6)))].sort((x, y) => x - y);
 await view(1200, 800, false, false);
@@ -69,9 +70,19 @@ for (const [i, c] of CASES.entries()) {
     ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of the expected share of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
     if (v === 'plane') {
       // the reference follows u: for |a| < 1 the expected share at U_CTRL[0] (phase 1, a wider sector) differs from the one at U_CTRL[1]
-      const [e0, e1] = [await expected(c.a, U_CTRL[0], await windowOf()), await expected(c.a, U_CTRL[1], await windowOf())];
-      R[c.name].expectedAt = { [U_CTRL[0]]: e0, [U_CTRL[1]]: e1 };
-      ok(`${c.name} plane: the expected share at u=${U_CTRL[0]} (${e0}) ${Math.abs(c.a) < 1 ? 'differs from' : 'equals'} the one at u=${U_CTRL[1]} (${e1})`, Math.abs(c.a) < 1 ? Math.abs(e0 - e1) > EXPECT_DIFF_MIN : e0 === 1 && e1 === 1, R[c.name].expectedAt);
+      const win = await windowOf(), e0 = await expected(c.a, U_CTRL[0], win), e1 = await expected(c.a, U_CTRL[1], win);
+      const exps = Object.entries(r.rows).map(([u, x]) => ({ u, exp: x.exp })), minExp = Math.min(...exps.map((x) => x.exp));
+      R[c.name].expectedAt = { [U_CTRL[0]]: e0, [U_CTRL[1]]: e1, minExpOverRow: minExp };
+      // (an expected share of 0 at some u makes that u's coverage row vacuous: n >= 0)
+      ok(`${c.name} plane: the expected share is above 0 at every u of the row (min ${minExp})`, minExp > 0, exps);
+      if (Math.abs(c.a) < 1) {
+        ok(`${c.name} plane: the expected share follows u (u=${U_CTRL[0]}: ${e0}, u=${U_CTRL[1]}: ${e1}, differing by more than ${EXPECT_DIFF_MIN})`, followsU(e0, e1), R[c.name].expectedAt);
+        // the negative control of that row: with u frozen at U_CTRL[1] at both ends the difference is 0, and the row's condition is false
+        ok(`${c.name} plane: control, with u frozen at ${U_CTRL[1]} the follows-u condition is false`, !followsU(e1, await expected(c.a, U_CTRL[1], win)), R[c.name].expectedAt);
+      } else {
+        R[c.name].frozenU = `not applicable: |a| > 1, every w has members, so the expected share is 1 at every u (${e0}, ${e1})`;
+        ok(`${c.name} plane: the expected share is 1 at every u (|a| > 1; the frozen-u control is not applicable: no u moves the share)`, e0 === 1 && e1 === 1, R[c.name].expectedAt);
+      }
     }
     if (v === 'land') {
       // the Landscape's end frames (Ruling C) read the shared refImage of the P0 suite (#1317), absent here: a loud failure
