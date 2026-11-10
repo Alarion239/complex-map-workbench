@@ -69,15 +69,15 @@
   // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
   // listed row fails if the control runs and bites)
   const CTL_NA = {
-    "Möbius, √|sheets": "the glide has one surface there",
-    "z^(-1/2)|sheets": "the glide has one surface there",
-    "z^(-1/2)|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Möbius, √|sheets": "the glide has one surface there (K ≤ 1: the scene counts at most one surface)",
+    "z^(-1/2)|sheets": "the glide has one surface there (K ≤ 1: the scene counts at most one surface)",
+    "z^(-1/2)|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
     "z^(-1/2)|stripRead": "the scene's chain lists no branch step input at this u",
     "Roots as preimages|sheets": "the glide has one surface there",
     "Joukowski airfoil|sheets": "the glide has one surface there",
     "Möbius dipole, √|sheets": "the glide has one surface there",
     "Möbius with a pole in the box|sheets": "the glide has one surface there",
-    "Möbius, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Möbius, √|digits": "the glide has one surface there (K ≤ 1): no digit of the scene's surface table can move",
     "Roots as preimages|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Joukowski airfoil|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Möbius dipole, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
@@ -1572,6 +1572,7 @@
             })()`);
             const { back, moved, tried } = r2;
             ok(`${t}: the digits round-trip through the scene's surface table to the member's place (${back} of ${have})`, have > 0 && back === have, { back, have });
+            if (ctlNA(c, 'digits', u)) { const kD = await ev('(__cmwLandSceneCombos() || {}).n'); ok(`${t}: the digits control's not-applicable reason holds: the scene's K is ${kD} (finite, at most 1)`, Number.isFinite(kD) && kD <= 1, { kD }); }
             ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u) });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
@@ -1594,7 +1595,8 @@
         // (each member is judged on its own sheet: read on the next surface it is not a preimage of its place wherever the sheets differ there)
         const sheetsDiffer = ms.length > 0 && (await ev(`__cmwLandHom(${JSON.stringify(ms[0].z)}, ${JSON.stringify(ms[0].cell)})`) || []).length > 1;
         if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL && !ctlNA(c, 'sheets', u), { worst: wr.worst, na: ctlNA(c, 'sheets', u) }); }
-        else ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u), { surfaces: 1 });
+        else { if (ctlNA(c, 'sheets', u)) { const kS = await ev('(__cmwLandSceneCombos() || {}).n'); ok(`${t}: the sheets control's not-applicable reason holds: the scene's K is ${kS} (finite, at most 1)`, Number.isFinite(kS) && kS <= 1, { kS }); }
+          ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u), { surfaces: 1 }); }
         // (a member of the range ramp, lvl < 0, is just outside its sheet's window: every member is within the ramp, and a ramp of 0 flags those that are outside)
         const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length, out = ms.filter((m) => !(m.lvl >= -ramp)).length;
         ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
@@ -1807,29 +1809,34 @@
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       const sat = sheets ? satOf(await ev(`__cmwLandClaims(${JSON.stringify(pts.slice(0, SAT_PLACES))})`)) : null; let clipped = 0, clippedAt = null;
       // (the colour's frame side: each layer's F is the colour map's value of the reference sheet (__cmwLandRefSheets at the layer's z) whose height is the layer's (a height beyond the clip level on the
-      // layer's side is the sheet's clipped one); where two sheets with two values fit, the sheet whose combo is the layer's claim decides; none, or two values left, is counted and fails the row,
-      // never a pick. The frame's layers are the distinct ones. The hook's matched member's F is not read)
+      // layer's side is the sheet's clipped one); where two sheets with two values fit, the sheet whose combo is the layer's claim decides, on a row where the claim agrees with the height everywhere it is read; none, or two values left that the claim does not decide, is counted and fails the row. The frame's layers are the distinct ones. The hook's matched member's F is not read)
+      let nByClaim = 0, shiftOff = 0; const byClaimLs = [];
       let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0, claimDis = 0, claimN = 0, noAnchor = 0; const noSheetAt = [];
       if (sheets) {
         const cl = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`);
         const rsAll = await ev(`${JSON.stringify(got.map((ls) => (ls || []).map((l) => l.z || null)))}.map((ls) => ls.map((z) => (z ? __cmwLandRefSheets(z) : [])))`);
         const rsAnch = await ev(`${JSON.stringify(got.map((ls, i) => (ls || []).map((l, j) => ({ z: l.z || null, a: cl && cl[i] && cl[i][j] && cl[i][j].anchor ? cl[i][j].anchor.z : null }))))}.map((ls) => ls.map((q) => (q.z && q.a ? __cmwLandRefSheets(q.z, q.a) : null)))`);
+        const sameF = (a2, b2) => Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) <= REL_FLOOR * (1 + Math.hypot(b2[0], b2[1]));
         got.forEach((ls, i) => distinctLayers(ls || []).forEach((l) => {
           const j = ls.indexOf(l), claim = cl && cl[i] && cl[i][j] ? cl[i][j].claim : null, opts = (rsAll && rsAll[i] && rsAll[i][j]) || [];
-          const sameF = (a2, b2) => Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) <= REL_FLOOR * (1 + Math.hypot(b2[0], b2[1]));
           const hit = opts.filter((q) => q.f && q.h !== null && (Math.abs(q.h - l.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(q, sat, hi)))));
           const vals = hit.filter((q, k) => hit.findIndex((q2) => sameF(q2.f, q.f)) === k);
           const byClaim = hit.filter((q) => q.combo === claim);
           l.f = null;
           if (!hit.length) { noSheet++; if (noSheetAt.length < 4) noSheetAt.push({ z: l.z, h: l.h, claim }); }
           else if (vals.length === 1) {
-            l.f = hit[0].f; claimN++;
+            l.f = hit[0].f;
             // (the claim's sheet is the height's sheet on every layer the height settles: the claim's label is read at the layer's anchor, the fragment's own corner; a layer without an anchor is counted and fails)
+            claimN++;
             const an = rsAnch && rsAnch[i] && rsAnch[i][j] ? rsAnch[i][j].filter((q) => q.combo === claim && q.f) : [];
             if (!rsAnch || !rsAnch[i] || !rsAnch[i][j]) noAnchor++; else if (!an.length || !an.every((q) => sameF(q.f, l.f))) claimDis++;
-          } else if (byClaim.length && byClaim.every((q) => sameF(q.f, byClaim[0].f))) l.f = byClaim[0].f;
+          } else if (byClaim.length && byClaim.every((q) => sameF(q.f, byClaim[0].f))) byClaimLs.push({ l, f: byClaim[0].f, hit, claim });
           else ambiguous++;
         }));
+        // (two sheets with two values fit: the claim chooses only on a row where the claim agrees with the height on every layer the height settles (0 of the claimN disagree); on any other row the claim is not trusted and those layers are ambiguous, which fails the row)
+        if (claimDis === 0 && noAnchor === 0) { byClaimLs.forEach((q) => { q.l.f = q.f; }); nByClaim = byClaimLs.length; } else ambiguous += byClaimLs.length;
+        // (the claim-shift control: a layer the claim chose, read with another fitting sheet's combo as the claim, takes another colour)
+        byClaimLs.forEach((q) => { const other = q.hit.find((x) => x.combo !== q.claim); if (other && !sameF(other.f, q.f)) shiftOff++; });
       }
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
@@ -1858,6 +1865,7 @@
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       if (sheets) {
         ok(`${t}: the claim's sheet is the height's sheet on every layer the height settles (${claimDis} of ${claimN} disagree; ${noAnchor} have no anchor)`, claimN > 0 && claimDis === 0 && noAnchor === 0, { claimDis, claimN, noAnchor });
+        ok(`${t}: ${nByClaim} layers took their colour from the claim's sheet; the control: with another fitting sheet's combo as the claim ${nByClaim ? shiftOff + ' of them take another colour' : '(not applicable: no layer is chosen by the claim)'}`, nByClaim === 0 || shiftOff > 0, { nByClaim, shiftOff });
         r.pairN = (r.pairN || 0) + pairN; r.pairOff = (r.pairOff || 0) + pairOff;
         // (the control over the row: a layer paired with the reference's other member leaves the colour tolerance at some pair; a place with one member has no pair)
         if (u === GLIDE_U[GLIDE_U.length - 1]) ok(`${name}: the control: a layer paired with the reference's other member leaves the colour tolerance at ${r.pairOff} of ${r.pairN} pairs over the row${r.pairN ? '' : ' (n/a at each u: one member per place)'}`, r.pairN > 0 && r.pairOff > 0, { pairN: r.pairN, pairOff: r.pairOff });
