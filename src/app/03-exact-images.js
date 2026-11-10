@@ -344,7 +344,8 @@
   // SPEC 2.2: the path of area shape s under map in a view (role 'R' | 'L' | null: thumbnail; viewKind 'flat' |
   // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e}. Drawing asks
   // without o.status ('inverse' = eligible: drawInverse decides between drawn, pending and error); fix-up gating and
-  // the test hooks ask with o.status (the program's state, without starting a compile).
+  // the test hooks ask with o.status (the program's state, without starting a compile). o.stepsRest marks the steps
+  // view's plane at rest, which the exactImages switch does not turn to forward.
   function pathOf(s, map, role, viewKind = 'flat', o = {}) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
