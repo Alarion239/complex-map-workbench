@@ -129,7 +129,8 @@
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
-  const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
+  const COMBO_PLACE = [0.3, 0.2];   // (a place of the box: the colour map's sheet combos are the map's, not the place's)
+  const COMBO_CONTROL = ['Möbius, √', 'Möbius dipole, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'];   // every case: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX, where the colour map has two or more sheet combos
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
@@ -698,6 +699,9 @@
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
         if (NEAR_U.includes(u) && COMBO_CONTROL.includes(c.tag) && !(r.comboControl || {})[u]) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
+          // (the control cannot bite where the colour map has one sheet combo: a combo one off is the same colour; the scene says so, window.__cmwLandRefSheets lists its distinct combos)
+          const nCombo = (await ev(`(__cmwLandRefSheets(${JSON.stringify(COMBO_PLACE)}) || []).length`)) || 0;
+          const naCombo = nCombo <= 1 ? `the colour map has ${nCombo} distinct sheet combo${nCombo === 1 ? '' : 's'} (window.__cmwLandRefSheets): a combo one off is the same colour` : ctlNA(c, 'combo', u);
           let ctl;
           try {
             await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
@@ -708,7 +712,8 @@
             await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
-          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${ctlNA(c, 'combo', u) ? 'not over ' + HUE_OFF_MAX + ' (not applicable: ' + ctlNA(c, 'combo', u) + ')' : 'over ' + HUE_OFF_MAX} pixels off (${ctl} are)`, ctlNA(c, 'combo', u) ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, na: ctlNA(c, 'combo', u) });
+          // (it passes by biting, or by the scene's own list of one sheet combo, where it cannot; with two or more combos a control that does not bite is a red)
+          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is over ${HUE_OFF_MAX} pixels off (${ctl} are${naCombo ? '; not applicable: ' + naCombo : ''})`, ctl > HUE_OFF_MAX || !!naCombo, { ctl, na: naCombo, nCombo });
         }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
@@ -916,6 +921,18 @@
           const lc = labelConflicts(ms), srcs = new Set(ms.map((m) => m.src));
           ok(`${t}: every member's plan label goes with the surface the scene certifies it on (${lc.length} of ${ms.length} do not)`, lc.length === 0, { n: lc.length, sample: lc.slice(0, 3).map((m) => ({ z: m.z, plan: m.src, scene: m.sheet })) });
           if (srcs.size > 1) { const pick = ms.findIndex((m) => m.src !== ms[0].src), moved = ms.map((m, i) => (i === 0 ? Object.assign({}, m, { src: ms[pick].src }) : m)); ok(`${t}: the control: a member relabelled with another sheet's label is a mislabel`, labelConflicts(moved).length > 0, { n: labelConflicts(moved).length }); }
+          // (the frame's own record of its claimed sheet, window.__cmwLandClaims: each drawn layer's step sheet and forward shifts decoded through the one decoder the frame reads its own sheet code with (GLR.ownCombo),
+          // against the sheet the scene certifies there: the step sheet of the enumerator's matching sheet and a forward combo of the colour map at the layer's z with the layer's height)
+          const claims = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`), layersOf = (cl) => (cl || []).flat().filter((l) => l.layered), nMerged = ((claims || []).flat()).length - layersOf(claims).length;
+          // (a colour map with one combo is that combo; with several, the combos whose height at the layer's z is finite are told apart by the layer's height, and with none finite the claim cannot be read: it fails)
+          const fwdClaimOk = (l) => (l.opts.length <= 1 ? l.opts.length === 0 || l.opts[0].combo === l.claimFwd : l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claimFwd));
+          const claimBad = (cl) => layersOf(cl).filter((l) => (l.sceneShift !== null && l.claimShift !== l.sceneShift) || !fwdClaimOk(l));
+          const nLayers = layersOf(claims).length, cBad = claimBad(claims);
+          if (nLayers === 0) ok(`${t}: the frame is one merged frame of the step's sheets (${nMerged} drawn places): it claims no single sheet (not applicable; the All sheets rows read each layer's claim)`, nMerged > 0, { nMerged });
+          else ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, 3) });
+          const bumpLayer = layersOf(claims).find((l) => l.nCombo > 0);
+          if (bumpLayer) { const bumped = await ev(`__cmwLandClaims(${JSON.stringify(pts)}, { layer: ${bumpLayer.member} })`), moved = claimBad(bumped).filter((l) => l.member === bumpLayer.member); ok(`${t}: the control: layer ${bumpLayer.member}'s claim one sheet off fails every layer of that member (${moved.length} fail)`, moved.length > 0, { moved: moved.length }); }
+          else ok(`${t}: the control: no layer claims a forward shift: nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nCombo === 0), { n: nLayers });
           // (the cheap paths of the homotopy hook, a surface alone and without the central difference, and the batch, give exactly the full call's values; the
           // scene it reads follows u: its value at a fixed place differs from the last u's)
           const eq = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, HOM_EQ_PAIRS))}; let bad = 0, n = 0, many = 0; for (const m of ms) { const full = __cmwLandHom(m.z, m.cell), b = __cmwLandHomMany([[m.z, m.cell]])[0]; if (JSON.stringify(b) !== JSON.stringify(full)) many++; for (const h of full) { const c = __cmwLandHom(m.z, m.cell, { sheets: [h.sheet], dH: false })[0]; n++; if (!(h.H === null ? c.H === null : c.H && c.H[0] === h.H[0] && c.H[1] === h.H[1])) bad++; } } return { bad, n, many }; })()`);
@@ -1063,6 +1080,18 @@
               const hm = lm && isI(lm) ? lm.zeros[0] : null, ha = la && isI(la) ? la.zeros[0] : null;
               ok(`${t}: the branch point is drawn at w = H_u(i) (${JSON.stringify(hm && hm.slice(3))} at u = ${GLIDE_MID}) and w moves with u (${JSON.stringify(ha && ha.slice(3))} at u = ${MID_U[0]})`, !!hm && !!ha && hm[3] !== null && Math.hypot(hm[3] - ha[3], hm[4] - ha[4]) > ZERO_MOVE_MIN, { hm, ha });
               ok(`${t}: the control: the list dropped is empty (${ld && ld.zeros.length}) and a step that is not a Möbius step before the root is unread (${JSON.stringify(ch)})`, !!ld && ld.zeros.length === 0 && ch === 'unread', { ld, ch });
+            }
+            if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
+              // (the lift's pole: where the value entering the root is infinity, the Möbius step's -d / c = -i at every u, drawn at w = H_u(-i) which moves with u; the list dropped is empty; no step before it has no pole, a non-Möbius step is unread)
+              const lp = async (tt, drop) => ev(`__cmwLandLiftPoles({ mode: 1, base: 0, hi: 1, t: ${tt} }${drop ? ', true' : ''})`);
+              const pm = await lp(GLIDE_MID), pa = await lp(MID_U[0]), pd = await lp(GLIDE_MID, true);
+              const MOB_SQRT = { id: 'mobius', m: [[1, 0], [0, -1], [1, 0], [0, 1]] };   // (the case's Möbius step: a = 1, b = -i, c = 1, d = i)
+              const p0 = await ev('__cmwLandPolesOf([])'), p1 = await ev(`__cmwLandPolesOf(${JSON.stringify([MOB_SQRT])})`), p2 = await ev(`__cmwLandPolesOf(${JSON.stringify([MOB_SQRT, { id: 'recip' }])})`);
+              const isMinusI = (r) => !!r && r.poles.length === 1 && Math.hypot(r.poles[0][0], r.poles[0][1] + 1) <= ZERO_TOL && r.unread.length === 0;
+              ok(`${t}: the lift's pole is -i at u = ${MID_U[0]} and ${GLIDE_MID} (${JSON.stringify(pa && pa.poles)}, ${JSON.stringify(pm && pm.poles)})`, isMinusI(pa) && isMinusI(pm), { pa, pm });
+              const wm = pm && isMinusI(pm) ? pm.poles[0] : null, wa = pa && isMinusI(pa) ? pa.poles[0] : null;
+              ok(`${t}: the pole is drawn at w = H_u(-i) (${JSON.stringify(wm && wm.slice(3))} at u = ${GLIDE_MID}) and w moves with u (${JSON.stringify(wa && wa.slice(3))} at u = ${MID_U[0]})`, !!wm && !!wa && wm[3] !== null && Math.hypot(wm[3] - wa[3], wm[4] - wa[4]) > ZERO_MOVE_MIN, { wm, wa });
+              ok(`${t}: the control: the list dropped is empty (${pd && pd.poles.length}), no step before the root has no pole (${JSON.stringify(p0)}), a Möbius step's is -d / c (${JSON.stringify(p1)}) and a step that is not a Möbius step before the root is unread (${JSON.stringify(p2)})`, !!pd && pd.poles.length === 0 && p0 === null && Array.isArray(p1) && Math.hypot(p1[0], p1[1] + 1) <= ZERO_TOL && p2 === 'unread', { pd, p0, p1, p2 });
             }
             if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
               // (w is H_u(z) through the scene's g at the current u: the hook's w at this u is the homotopy hook's value at z = i on the own surface)
