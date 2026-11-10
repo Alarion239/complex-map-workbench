@@ -264,7 +264,7 @@
         }
         // (every member re-converged to CONV_SHARE of its smallest separation to another member, the scale the tracker's steps are judged by; one that cannot be is not certified)
         if (opt && opt.absTol) return out;
-        const fine = out.map((m, i) => newton(m, w, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(out, i))));
+        const fine = out.map((m, i) => { const f = newton(m, w, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(out, i))); if (!f && nfail && nfail.why === 'cap') window.__lxCnt.cap++; return f; });   // (a member dropped here for want of convergence is counted like one dropped above)
         return out.map((m, i) => fine[i] && Object.assign({}, fine[i], { sheets: m.sheets, lvl: m.lvl })).filter(Boolean);
       };
       // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within STRIP_TOL; a member with no
@@ -422,15 +422,21 @@
         const tr = track(setV, pts);
         if (!tr) return null;
         iv.lam0 = tr[iv.i].lam && setV[iv.i].lam ? csub(tr[iv.i].lam, setV[iv.i].lam) : null;   // (the shift of a's log coordinate round the loop)
-        let c = iv.i, hit = false, lost = false, chain = 0;
+        let c = iv.i, hit = false, lost = false, chain = 0, nonT = false;
         for (let g = 0; g <= setV.length; g++) {
+          // (each step of the chain is a translation by the same T: the image of the member c is c + T; a step that is not makes the chain no certificate either way; opt.shiftStep moves the second step's image by one more T, the control that this check fires)
+          if (iv.lam0 && tr[c].lam && setV[c].lam) {
+            let sh = csub(tr[c].lam, setV[c].lam);
+            if (opt && opt.shiftStep && g === 1) sh = cadd(sh, iv.lam0);
+            if (cabs(csub(sh, iv.lam0)) > ${LAMBDA_SAME} * (1 + cabs(setV[c].lam))) nonT = true;
+          }
           const n = idMatches(setV, tr[c])[0] ?? -1;
           if (n < 0) { lost = true; chain = g; iv.lostInfo = { chain: g, nearest: Math.min(...setV.map((q) => dist(q, tr[c]))), sepMin: sepMinOf(setV), lam: tr[c].lam, tol: ${LAMBDA_SAME} * (1 + cabs(tr[c].lam || tr[c].z)) }; break; }
           if (n === ib) hit = true;
           if (n === iv.i) break;
           c = n;
         }
-        return { hit, lost, chain, shift: iv.lam0 };
+        return { hit: hit && !nonT, lost: lost || nonT, chain, shift: iv.lam0, nonT };
       };
       // (the two ends hold one member, the same root whatever sheets the page gave them: no cut, no branch)
       if (ib === iv.i) return { cls: 'false', why: 'one member', dl: dist(setV[iv.i], trO[io.i]) };
@@ -474,9 +480,9 @@
         if (r && r.hit) return r;
         if (!q || !r) return q || r;
         // (both directions leave the set: past kmax steps each without b, b is no member of the cycle: the loop holds no b, a read and not a loss; short of kmax, or with the reach capped, the chain is lost)
-        const done = reach && !reach.capped && q.lost && r.lost && q.chain >= reach.kmax && r.chain >= reach.kmax;
+        const done = reach && !reach.capped && !q.nonT && !r.nonT && q.lost && r.lost && q.chain >= reach.kmax && r.chain >= reach.kmax;
         window.__lxChain = (window.__lxChain || []).concat([[q.chain, r.chain, reach && reach.kmax, !!(reach && reach.capped)]]);
-        return Object.assign({}, q, { lost: done ? false : q.lost && r.lost, chain: [q.chain, r.chain] });
+        return Object.assign({}, q, { lost: done ? false : q.lost && r.lost, chain: [q.chain, r.chain], nonT: q.nonT || r.nonT });
       };
       if (opt && opt.noLoops) return { cls: 'false', why: 'no loops' };   // (the no-reach control: with no loop to read, a branch edge is not certified)
       let unres = false;
@@ -487,7 +493,7 @@
         if (q.lost) unres = true;
         if (q.hit) return { cls: 'branch', clear: synClear, cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * ${CELL_QUANT}), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * ${CELL_QUANT})] };
       }
-      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT}), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', ring: q && { hit: q.hit, lost: q.lost, shift: q.shift }, setN: setV.length, lostInfo: iv.lostInfo, fail: q ? null : fail }; }
+      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT}), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: q && q.nonT ? 'nonTranslate' : 'ring', ring: q && { hit: q.hit, lost: q.lost, shift: q.shift }, setN: setV.length, lostInfo: iv.lostInfo, fail: q ? null : fail }; }
       return { cls: 'false' };
     },
     // a place of the frame's region where the enumerator lists a range-ramp member (level below 0) on some sheet, found on a lattice of n x n places: null when there is none
@@ -813,7 +819,7 @@
     ok(`the raster check fails a wall of ${CTL.wallW} pixels`, o.wall > RASTER_TOL, o);
     ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
   }
-  const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
+  const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0, nonT: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
   const withProbe = async (probe, u, read) => {
@@ -996,6 +1002,11 @@
               if (synZoff.cls !== synZ.cls) bit.zchart++;
             }
           }
+          if (syn.cls === 'branch') {
+            const synSh = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, shiftStep: true })`);
+            if (synSh.cls === 'unresolved' && synSh.why === 'nonTranslate') bit.nonT++;
+            ok(`${t}: control: with one chain step shifted by one more T the made-up branch edge reads unresolved by its steps not being translations (${synSh.cls}, ${synSh.why})`, synSh.cls === 'unresolved' && synSh.why === 'nonTranslate', synSh);
+          }
           r[u].synRead = { syn: syn.cls, swap: synSw.cls, zNoBite };
           if (!noSyn && synSw.cls === 'false') bit.synWrong++;
         }
@@ -1018,7 +1029,7 @@
       const ref = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
       const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
-      ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
+      ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts${carry && carry.path === 'mesh' ? ': frame on the mesh path, which has none' : ''})`, Array.isArray(got) && Array.isArray(cgot), carry);
       if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
@@ -1122,6 +1133,7 @@
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
+  ok(`control: the translation check bit on some row (${bit.nonT} rows)`, bit.nonT > 0, bit);
   ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
   ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
   ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
