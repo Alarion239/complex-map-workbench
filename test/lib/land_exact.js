@@ -88,6 +88,7 @@
   };
   const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
   const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
+  const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
   const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
@@ -835,12 +836,12 @@
           // scene it reads follows u: its value at a fixed place differs from the last u's)
           const eq = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, HOM_EQ_PAIRS))}; let bad = 0, n = 0, many = 0; for (const m of ms) { const full = __cmwLandHom(m.z, m.cell), b = __cmwLandHomMany([[m.z, m.cell]])[0]; if (JSON.stringify(b) !== JSON.stringify(full)) many++; for (const h of full) { const c = __cmwLandHom(m.z, m.cell, { sheets: [h.sheet], dH: false })[0]; n++; if (!(h.H === null ? c.H === null : c.H && c.H[0] === h.H[0] && c.H[1] === h.H[1])) bad++; } } return { bad, n, many }; })()`);
           ok(`${t}: the homotopy hook's one-surface, no-difference path equals the full call (${eq.bad} of ${eq.n} surfaces differ) and so does the batch (${eq.many} members differ)`, eq.n > 0 && eq.bad === 0 && eq.many === 0, eq);
-          // (the cell the hook gives at a member's place is the cell the certificate read it on: the leaf's centre when closed, else the place itself; the control compares each with the next member's)
+          // (the cell the hook gives at a member's place is the cell the certificate read it on: the leaf's centre when closed, else the place itself; the control compares each with that cell shifted by one)
           {
             const sub = ms.slice(0, HOM_EQ_PAIRS), cells = await ev(`__cmwLandCellsAt(${JSON.stringify(sub.map((m) => m.z))})`), want = (i) => (cells && cells[i] && cells[i].c ? cells[i].c : sub[i].z);
-            const same = (x, y) => x[0] === y[0] && x[1] === y[1], bad = sub.filter((m, i) => !cells || !same(want(i), m.cell)).length, wrong = sub.filter((m, i) => !cells || !same(want(i), sub[(i + 1) % sub.length].cell)).length;
+            const same = (x, y) => x[0] === y[0] && x[1] === y[1], bad = sub.filter((m, i) => !cells || !same(want(i), m.cell)).length, wrong = sub.filter((m, i) => !cells || !same(want(i), [m.cell[0] + 1, m.cell[1]])).length;
             ok(`${t}: the scene's cell at a member's place (window.__cmwLandCellsAt) is the cell its certificate read, the leaf's centre when closed and else the place itself (${bad} of ${sub.length} differ)`, sub.length > 0 && bad === 0, { bad, n: sub.length });
-            if (sub.length > 1) ok(`${t}: the control: read against the next member's cell they differ (${wrong} of ${sub.length})`, wrong > 0, { wrong });
+            if (sub.length > 0) ok(`${t}: the control: read against the member's cell shifted by one they differ (${wrong} of ${sub.length})`, wrong === sub.length, { wrong });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
@@ -949,6 +950,22 @@
               // (a rational step after the root (1/z) may carry poles the scene does not read: its map's counts are unresolved, never closed on a pole list that may be short)
               const un2 = await ev(`__cmwLandPolesUnread(${JSON.stringify(c.dipole.map)})`), un3 = await ev(`__cmwLandPolesUnread(${JSON.stringify(Object.assign({}, c.dipole.map, { hi: 3 }))})`);
               ok(`${t}: the poles of the Möbius and the root are read (${JSON.stringify(un2)}), those of the reciprocal after them are not (${JSON.stringify(un3)})`, Array.isArray(un2) && un2.length === 0 && Array.isArray(un3) && un3.includes('recip'), { un2, un3 });
+            }
+            if (c.dipole && u === GLIDE_MID) {
+              // (the exact zero of the root's input, read from the Möbius matrix: -b / a, here 0.1i; a leaf round it is a branch leaf and one shifted by ZERO_SHIFT is closed; a list dropped is short; no step before the branch step gives the node, and a chain of two steps is read by no definition: unread)
+              const q = c.dipole, zs = await ev(`__cmwLandZeros(${JSON.stringify(q.map)})`), zd = await ev(`__cmwLandZeros(${JSON.stringify(q.map)}, true)`);
+              const z0 = zs && zs.zeros[0], near = (zr, x, y) => Math.hypot(zr[0] - x, zr[1] - y) <= ZERO_TOL;
+              ok(`${t}: the exact zero of the root's input is read from the Möbius matrix (${JSON.stringify(zs && zs.zeros)}, unread ${JSON.stringify(zs && zs.unread)})`, !!z0 && zs.zeros.length === 1 && near(z0, 0, 0.1) && zs.unread.length === 0, { zs });
+              if (z0) {
+                const at = (dx) => `__cmwLandLeafState(${z0[0] + dx - ZERO_BOX}, ${z0[0] + dx + ZERO_BOX}, ${z0[1] - ZERO_BOX}, ${z0[1] + ZERO_BOX}, { map: ${JSON.stringify(q.map)} })`;
+                const on = await ev(at(0)), off = await ev(at(ZERO_SHIFT));
+                ok(`${t}: the control: a leaf round the exact zero is a branch leaf (${on}) and one shifted by ${ZERO_SHIFT} is closed (${off})`, on === 'branch' && off === 'closed', { on, off });
+              }
+              ok(`${t}: the control: the list dropped leaves no zero (${zd && zd.zeros.length} against ${zs && zs.zeros.length})`, !!zd && !!zs && zd.zeros.length < zs.zeros.length, { zd, zs });
+              const MOB = { id: 'mobius', m: [[1, 0], [0, -0.1], [1, 0], [0, 0.1]] };
+              const z1 = await ev(`__cmwLandZerosOf([], [0, 0])`), z2 = await ev(`__cmwLandZerosOf(${JSON.stringify([MOB])}, [0, 0])`), z3 = await ev(`__cmwLandZerosOf(${JSON.stringify([MOB, { id: 'recip' }])}, [0, 0])`);
+              ok(`${t}: the zero of an input with no step before it is the node (${JSON.stringify(z1)}), after a Möbius step it is its inverse at the node (${JSON.stringify(z2)}), and after two steps it is unread (${JSON.stringify(z3)})`, Array.isArray(z1) && near(z1, 0, 0) && Array.isArray(z2) && near(z2, 0, 0.1) && z3 === 'unread', { z1, z2, z3 });
+              ok(`${t}: the control: a zero shifted by ${ZERO_SHIFT} is not the Möbius step's inverse at the node`, Array.isArray(z2) && !near([z2[0] + ZERO_SHIFT, z2[1]], 0, 0.1), { z2 });
             }
             if (c.dipole && u === MID_U[1]) {
               // (the dipole's pole lies between the pole search's grid points: with the pole read from the Möbius matrix the count is right, without it the closed leaf's winding is a zero less a pole)

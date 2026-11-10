@@ -570,6 +570,21 @@
   const SCN = { CERT: 1.5e-3, TIE: 4, ARG: Math.PI / 4, SEG: 16, DEPTH0: 2, DEPTH_MAX: 30, LEAF_MAX: 1024, SPLIT: 0.4713, JIT: 0.0137, SHRINK: 12, LIP: 2, CONV: 0.5, CUT_EDGE: 1e-9, MIN_STEP: 1e-12, CLOSE: 1e-6, ON: 1e-9, NEAR: 1e-4, REL: 0.25, POLE_BIG: 1e3, POLE_R: 1e-7, POLE_GRID: 16, SAME_Z: 1e-5, SAME_V: 1e-9, SAME_PTS: 3, RAY_LIP: 1e-9 };
   // the steps whose path has no pole at 0 < t <= 1 (a polynomial's zoom is entire, a root, a power or a log is a branch step with no pole where its power is positive)
   const POLE_FREE = ['mul', 'add', 'affine', 'pown', 'root', 'powa', 'exp', 'log', 'poly'];
+  // The z at which a branch step's input equals its node, pulled back through the steps before it from their definitions: chain lists those steps as
+  // [{ id, m }] (m the matrix [a, b, c, d] of a 'mobius' step, complex entries). No step: the node itself; one Möbius step: its inverse at the node,
+  // (d node - b) / (a - c node), null when that is at infinity; any other chain: 'unread' (no search stands in for it)
+  const zeroOf = (chain, node) => {
+    if (!chain.length) return node;
+    if (chain.length === 1 && chain[0].id === 'mobius' && chain[0].m) {
+      const [a, b, c, d] = chain[0].m, den = CX.sub(a, CX.mul(c, node));
+      return CX.isZero(den) ? null : CX.div(CX.sub(CX.mul(d, node), b), den);
+    }
+    return 'unread';
+  };
+  window.__cmwLandZerosOf = (chain, node) => {
+    const z = zeroOf(chain.map((s) => ({ id: s.id, m: s.m ? s.m.map((v) => C(v[0], v[1])) : null })), C(node[0], node[1]));
+    return z === 'unread' || z === null ? z : [z.re, z.im];
+  };
   // the scenes of the last SCENE_MEMO distinct (map, box, sheet width, chain) states, oldest dropped first: a caller that moves u between calls finds the earlier u's scene again
   const SCENE_MEMO = 4, sceneMemos = new Map();
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
@@ -691,7 +706,21 @@
       try { ip = e.k > 1 ? svDrain(svPolesIn(cpuMap({ mode: 0, a: 0, b: e.k - 1 }), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || [] : []; } catch (er) { ip = []; }
       return { poles: ip, f: (kk, zc, z) => { try { const f = Funcs.sheetMapEval(S.steps.slice(0, e.k - 1), built.slice(0, e.k - 1), map, zc, z, kk, W); return CX.isFin(f) ? CX.sub(f, e.node) : null; } catch (er) { return null; } } };
     });
-    const scene = { key, map, W, K, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
+    // The exact zeros of the branch steps' inputs (where a branch step's input meets its node) in the box, read from the definitions of the steps before it;
+    // zerosUnread lists the chains it cannot read, which fail loudly
+    const exactZeros = [], zerosUnread = [];
+    for (const e of bpts.filter((q, i, a) => a.findIndex((x) => x.k === q.k && CX.abs(CX.sub(x.node, q.node)) === 0) === i)) {
+      const before = [];
+      for (let j = 1; j < e.k; j++) {
+        if (!liveK(j) || !Funcs.sheetMapHow(map, j)) continue;
+        const bj = built[j - 1], id = bj.def ? bj.def.id : '?';
+        before.push({ id, m: id === 'mobius' && bj.vals ? [bj.vals.a, bj.vals.b, bj.vals.c, bj.vals.d] : null });
+      }
+      const z = zeroOf(before, e.node);
+      if (z === 'unread') zerosUnread.push(before.map((s) => s.id).join('>') + '>' + (built[e.k - 1].def ? built[e.k - 1].def.id : '?'));
+      else if (z && z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1) exactZeros.push({ k: e.k, z });
+    }
+    const scene = { key, map, W, K, exactZeros, zerosUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
     sceneMemos.set(key, scene);
     if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
     return scene;
@@ -1010,6 +1039,11 @@
   window.__cmwLandPolesUnread = (map) => {
     sceneMapOver = map || null;
     try { const sc = sceneOf(); return sc ? sc.polesUnread.slice() : null; } finally { sceneMapOver = null; }
+  };
+  // the exact zeros of the branch steps' inputs in the frame's box (the glide's map, or opts map): { zeros: [[re, im, k]], unread: [chain] }; drop: true leaves the list out (a control)
+  window.__cmwLandZeros = (map, drop) => {
+    sceneMapOver = map || null;
+    try { const sc = sceneOf(); return sc ? { zeros: drop ? [] : sc.exactZeros.map((q) => [q.z.re, q.z.im, q.k]), unread: sc.zerosUnread.slice() } : null; } finally { sceneMapOver = null; }
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
