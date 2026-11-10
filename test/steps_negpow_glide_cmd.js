@@ -17,6 +17,7 @@ const COLOUR_TOL = 32;       // of 255, per channel
 const WRONG_MAX = 0.02;      // of the pixels the glide colours
 const SAT_MIN = 60;          // max - min channel: a phase colour, not paper or a grey mark
 const U_ROW = [0.6, 0.65, 0.66, 2 / 3, 0.67, 0.68, 0.7, 0.75];
+const NEAR_ZERO = [-0.02, -0.005, 0, 0.005, 0.02];
 const U_END = [0.998, 0.9999];
 const SHIFT = 40;            // the control's colour shift, of 255
 const VIEWS = ['plane', 'sphere', 'land'];
@@ -45,13 +46,15 @@ const seedCase = async (c, i) => {
   await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && !!window.GLR` });
 };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await quiet(); };
+// the u of a case's row: U_ROW and the places around the one-phase exponent's zero, u = 1/(1 - a)
+const rowOf = (c) => [...new Set([...U_ROW, ...NEAR_ZERO.map((d) => 1 / (1 - c.a) + d)].map((x) => +x.toFixed(6)))].sort((x, y) => x - y);
 // the coverage row of one case and view, parked w1's frame as the reference; probe: a __svCarryProbeSettings name or null
 const row = async (c, v, probe) => {
   surf = v;
   await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 1 }); 1`); await quiet();
   await grab('p1'); const ref = await colouredN('p1');
   const low = [];
-  for (const u of U_ROW.filter((x) => c.a !== -1.5 || x !== 0.66)) {
+  for (const u of rowOf(c)) {
     await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
     await park(u); await grab('u'); const n = await colouredN('u');
     if (!(n >= COVER_MIN * ref)) low.push({ u, n, ref });
