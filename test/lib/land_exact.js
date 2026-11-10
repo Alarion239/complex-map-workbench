@@ -1419,7 +1419,7 @@
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         // (the reference lists a member once per forward combo or sheet that lands on the same z and height; the frame draws it once, so distinctLayers counts both sides)
-        const want = sheets ? distinctLayers(wantAll) : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)   // (sheets off: the front member, the enumerator's first)
+        const want = sheets ? distinctLayers(wantAll) : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
         const same = sheets ? sameLayers(haveAll, want) : frontSame(haveAll, wantAll);
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
