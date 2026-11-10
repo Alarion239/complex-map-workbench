@@ -27,7 +27,7 @@ const TOL = 8;
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
 const F1 = (expr, cut = 180) => ({ type: 'custom', params: { expr, cut }, on: true });
 const HINT = 'Read as (z⁻¹)/2. For the power −1/2, write z^(-1/2).';
-async function open(ns, steps, q = '') {
+async function open(ns, steps, q = '&view=steps') {
   await go(`http://localhost:${PORT}/blank-${ns}.html`);
   const o = { v3: true, v4: true, shapes: SHAPES, steps, nextId: 50, focus: 0, rightMode: 'image' };
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
