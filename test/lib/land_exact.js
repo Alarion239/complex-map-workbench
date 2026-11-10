@@ -1747,6 +1747,9 @@
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
+      ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
       (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
       // (Ruling C controls) a frame drawn at the wrong u is told apart by NEAR_TOL: the frame at REVERSED_FROM against the reference at 1 - REVERSED_FROM
       // (u reversed), and against the reference at the glide's middle (u frozen there), each more than NEAR_TOL off at some place
