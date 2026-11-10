@@ -103,11 +103,11 @@
   };
   // (every not-applicable answer a row reads is recorded; naK then prints the scene's K for them: K must be finite, and at most 1 for an entry whose reason is that the glide has one surface)
   const naHits = new Map();
-  const ctlNA = (c, ctl, u) => { const r = CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null; if (r) naHits.set(`${ctl}`, r); return r; };
+  const ctlNA = (c, ctl, u) => { const r = CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null; if (r) naHits.set(`${c.tag}|${ctl}|${u}`, r); return r; };
   const naK = async (t) => {
     if (!naHits.size) return;
-    const K = await ev('(__cmwLandSceneCombos() || {}).n'), one = [...naHits].filter(([, r]) => /one surface/.test(r)).map(([k]) => k);
-    ok(`${t}: the scene's K is ${K} for the not-applicable controls (${[...naHits.keys()].join(', ')}): finite${one.length ? ', and at most 1 for ' + one.join(', ') + ' (their reason is one surface)' : ''}`, Number.isFinite(K) && (!one.length || K <= 1), { K, one });
+    const K = await ev('(__cmwLandSceneCombos() || {}).n'), one = [...naHits].filter(([, r]) => /one surface/.test(r)).map(([k]) => k.split('|')[1]);
+    ok(`${t}: the scene's K is ${K} for the not-applicable controls (${[...naHits.keys()].map((k) => k.split('|')[1]).join(', ')}): finite${one.length ? ', and at most 1 for ' + one.join(', ') + ' (their reason is one surface)' : ''}`, Number.isFinite(K) && (!one.length || K <= 1), { K, one });
     naHits.clear();
   };
   const EDGE_ARG_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
@@ -1923,6 +1923,7 @@
         }
       }
       if (!sheets && u === 1 - END_U) ok(`${t}: the control: the farthest member marked front ran at some u${ctlNA(c, 'farFront') ? ' (not applicable: ' + ctlNA(c, 'farFront') + ')' : ''}`, r.farFront === undefined ? !!ctlNA(c, 'farFront') : r.farFront > 0 && !ctlNA(c, 'farFront'), { nBad: r.farFront, na: ctlNA(c, 'farFront') });
+      await naK(t);
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
