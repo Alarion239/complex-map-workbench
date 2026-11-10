@@ -59,6 +59,37 @@
   const CUT_PROBE_U = 0.002, LAYER_GAP_MIN = 0.5;   // (the glide's u of the cut probe; the layers' heights are about 0.9 apart at the fitted scale)
   const PLANE_BOX_TOL = 1e-9;   // (the scene's plane box and the drawn box are the same numbers read twice)
   const POLE_SHIFT = 3;   // (the pole control: far enough along the imaginary axis to leave the leaf that holds the dipole)
+  // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
+  // listed row fails if the control runs and bites)
+  const CTL_NA = {
+    "Möbius, √|combo|0.0001": "the glide's ends are the parked planes' frames, whose colour the combo of the glide's interior does not reach (measured under the shifted combo: not over the bound)",
+    "Möbius, √|combo|0.002": "the glide's ends are the parked planes' frames, whose colour the combo of the glide's interior does not reach (measured under the shifted combo: not over the bound)",
+    "Möbius, √|combo|0.9999": "the glide's ends are the parked planes' frames, whose colour the combo of the glide's interior does not reach (measured under the shifted combo: not over the bound)",
+    "Möbius, √|sheets": "the glide has one surface there",
+    "Roots as preimages|sheets": "the glide has one surface there",
+    "Joukowski airfoil|sheets": "the glide has one surface there",
+    "Möbius dipole, √|sheets": "the glide has one surface there",
+    "Möbius with a pole in the box|sheets": "the glide has one surface there",
+    "Möbius, √|stripRead": "the scene's chain lists no branch step input at this u",
+    "Joukowski airfoil|stripRead": "the scene's chain lists no branch step input at this u",
+    "Möbius dipole, √|stripRead": "the scene's chain lists no branch step input at this u",
+    "Möbius with a pole in the box|stripRead": "the scene's chain lists no branch step input at this u",
+    "Roots as preimages|stripRead|0.5": "the scene's chain lists no branch step input at this u",
+    "Roots as preimages|stripRead|0.75": "the scene's chain lists no branch step input at this u",
+    "Roots as preimages|stripRead|0.998": "the scene's chain lists no branch step input at this u",
+    "Roots as preimages|stripRead|0.9999": "the scene's chain lists no branch step input at this u",
+    "cube root|strip|0.25": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "cube root|strip|0.5": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "cube root|strip|0.998": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "cube root|strip|0.9999": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "Roots as preimages|strip|0.25": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "log of an annulus|strip|0.25": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "log of an annulus|strip|0.5": "every member's cell is its own point (an open leaf): its continued argument is the principal one",
+    "Möbius, √|farFront": "one preimage at each probe place: the farthest member is the nearest",
+    "Möbius dipole, √|farFront": "one preimage at each probe place: the farthest member is the nearest",
+    "Möbius with a pole in the box|farFront": "one preimage at each probe place: the farthest member is the nearest",
+  };
+  const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
   const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
   const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
@@ -603,7 +634,7 @@
             await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
-          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is over ${HUE_OFF_MAX} pixels off (${ctl} are)`, ctl > HUE_OFF_MAX, { ctl });
+          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${ctlNA(c, 'combo', u) ? 'not over ' + HUE_OFF_MAX + ' (not applicable: ' + ctlNA(c, 'combo', u) + ')' : 'over ' + HUE_OFF_MAX} pixels off (${ctl} are)`, ctlNA(c, 'combo', u) ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, na: ctlNA(c, 'combo', u) });
         }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
@@ -819,13 +850,15 @@
             const sTol = STRIP_TOL / (2 * Math.PI), at = ms.map((m, i) => [m, st[i], sp[i]]).filter(([, x]) => x);
             const out = at.filter(([, x]) => x.bad || !(x.s > sTol && x.s <= 1 - sTol)), edge = at.filter(([, x]) => !x.bad && (Math.abs(x.s) <= sTol || Math.abs(x.s - 1) <= sTol)), moved = at.filter(([, x, y]) => !x.bad && Math.abs(x.arg - y.arg) > STRIP_TOL);
             const flagged = moved.filter(([, , y]) => y.bad || !(y.s > sTol && y.s <= 1 - sTol)).length;
-            ok(`${t}: every member's continued argument is inside its step's window (${out.length} of ${at.length} are not; ${edge.length} within ${STRIP_TOL} of its end)`, out.length === 0, { n: out.length, sample: out.slice(0, 3).map(([m, x]) => ({ z: m.z, sheet: m.sheet, s: x.s, bad: x.bad })), edge: edge.length });
-            if (moved.length) ok(`${t}: the control: the principal argument flags the members the continuation moved (${flagged} of ${moved.length})`, flagged > 0, { flagged, moved: moved.length });
-          }
+            ok(`${t}: every member's continued argument is inside its step's window (${out.length} of ${at.length} are not; ${edge.length} within ${STRIP_TOL} of its end, lip members, failed)`, out.length === 0 && edge.length === 0, { n: out.length, sample: out.slice(0, 3).map(([m, x]) => ({ z: m.z, sheet: m.sheet, s: x.s, bad: x.bad })), edge: edge.length });
+            if (moved.length) ok(`${t}: the control: the principal argument flags the members the continuation moved (${flagged} of ${moved.length})`, flagged > 0 && !ctlNA(c, 'strip', u), { flagged, moved: moved.length, na: ctlNA(c, 'strip', u) });
+            else ok(`${t}: the control: the principal argument flags the members the continuation moved: none moved${ctlNA(c, 'strip', u) ? ' (not applicable: ' + ctlNA(c, 'strip', u) + ')' : ''}`, !!ctlNA(c, 'strip', u), { moved: 0 });
+          } else ok(`${t}: the scene's strip check: the scene has no branch step to read${ctlNA(c, 'stripRead', u) ? ' (not applicable: ' + ctlNA(c, 'stripRead', u) + ')' : ''}`, !!ctlNA(c, 'stripRead', u), { st: Array.isArray(st) });
         }
         // (each member is judged on its own sheet: read on the next surface it is not a preimage of its place wherever the sheets differ there)
         const sheetsDiffer = ms.length > 0 && (await ev(`__cmwLandHom(${JSON.stringify(ms[0].z)}, ${JSON.stringify(ms[0].cell)})`) || []).length > 1;
-        if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL, { worst: wr.worst }); }
+        if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL && !ctlNA(c, 'sheets', u), { worst: wr.worst, na: ctlNA(c, 'sheets', u) }); }
+        else ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u), { surfaces: 1 });
         // (a member of the range ramp, lvl < 0, is just outside its sheet's window: every member is within the ramp, and a ramp of 0 flags those that are outside)
         const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length, out = ms.filter((m) => !(m.lvl >= -ramp)).length, tight = ms.filter((m) => !(m.lvl >= 0)).length;
         ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
@@ -992,6 +1025,7 @@
           ok(`${t}: the control: with the farthest member marked front the frame's front is not the reference's (${nBad} of ${moved.length} places where it is another z)`, nBad > 0, { nBad, moved: moved.length });
         }
       }
+      if (!sheets && u === 1 - END_U) ok(`${t}: the control: the farthest member marked front ran at some u${ctlNA(c, 'farFront') ? ' (not applicable: ' + ctlNA(c, 'farFront') + ')' : ''}`, r.farFront === undefined ? !!ctlNA(c, 'farFront') : r.farFront > 0 && !ctlNA(c, 'farFront'), { nBad: r.farFront, na: ctlNA(c, 'farFront') });
       // the coverage: the places the frame draws against the places the reference covers
       const cref = await ev(`__lxEnum(${JSON.stringify(cw)}, false)`);   // (a place is covered when the enumerator has a member there)
       const cd = coverDiff(cgot.map((x) => !!(x && x.length)), cref.map((x) => x.length > 0));
