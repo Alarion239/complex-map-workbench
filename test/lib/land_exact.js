@@ -69,7 +69,6 @@
   // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
   // listed row fails if the control runs and bites)
   const CTL_NA = {
-    "Möbius dipole, √|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
     "Möbius with a pole in the box|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
     "log of an annulus|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
     "log, box centred at 1.5 + 0.5i|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
@@ -1110,7 +1109,6 @@
     // C2, the pixels of the smallest drawn height
     const low = await capRd({ clipOff: true, lowest: true }), hLow = await capEval(low.samples, 0), sLow = capStat(low, hLow, hc);
     if (off.nStrad > 0) {
-      ok(`${t}: C2: sampling each straddling cell's lowest drawn pixels, the clip-off count falls (${sLow.over} against ${sOff.over})`, sLow.over < sOff.over || sOff.over === 0, { low: sLow.over, top: sOff.over });
       if (sLow.over < sOff.over) capBit.c2fell++;
       const k = capCase[c.tag] = capCase[c.tag] || { top: 0, low: 0 }; k.top += sOff.over; k.low += sLow.over;
     }
@@ -1945,6 +1943,7 @@
   if (capBit.strad) {
     ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.strad} rows with a straddling cell)`, capBit.c1 > 0, capBit);
     ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
+    for (const [tag, k] of Object.entries(capCase)) ok(`control: C2: over the rows of ${tag} the clip-off count falls when each straddling cell's lowest drawn pixels are sampled in place of its highest (${k.low} against ${k.top})`, k.low < k.top, k);
     if (!process.env.CMW_ONLY) ok(`control: the clip-off count with the lowest pixels is 0 on some case (${JSON.stringify(capCase)})`, Object.values(capCase).some((k) => k.top > 0 && k.low === 0), capCase);
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
