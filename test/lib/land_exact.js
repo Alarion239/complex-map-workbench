@@ -132,9 +132,11 @@
     return { cells: M * M, in: inn, out, mix, listed: raw.rowB[4 * (N - 2)] + raw.rowB[4 * (N - 2) + 1], K: raw.K, cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * M };
   };
   const classCounts = async () => JSON.parse(await ev(`JSON.stringify((${classCheck})(__cmwLandCarry() && __cmwLandCarry().classRaw, ${CLASS_BORDER_EPS}))`));
-  const STRAD_STEP_U = 0.0015, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.003)
-  const STRAD_SYNC_FRAC = 0.75, STRAD_DELTA_MAX = 128, STRAD_DU_MAX = 0.003, SCRUB_STEP_U = 0.01, SCRUB_TAIL_U = 0.001;   // (STRAD_SYNC_FRAC and STRAD_DU_MAX mirror src/gl/06-draws-3d.js: the count is read at this share of the list's length, and a glide step over STRAD_DU_MAX is a jump. STRAD_DELTA_MAX: the most the count of straddling cells may change between continuous frames, half the headroom MIX_K * (1 - STRAD_SYNC_FRAC) = 256. The scrub's step of u, and its step where the surface settles onto the plane and the count drops fast)
-  const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
+  const STRAD_STEP_U = 0.01, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.02)
+  const MIX_K = 2048;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
+  const STRAD_SYNC_FRAC = 0.75, STRAD_DU_MAX = 0.02, SCRUB_STEP_U = 0.02;   // (STRAD_SYNC_FRAC and STRAD_DU_MAX mirror src/gl/06-draws-3d.js: the count is read at this share of the list's length, and a glide step over STRAD_DU_MAX is a jump)
+  const STRAD_DELTA_MAX = MIX_K * (1 - STRAD_SYNC_FRAC) / 2;   // (the most the count of straddling cells may rise between continuous frames: half the headroom between the read's trigger and the list's length, 256; a fall cannot overflow the list. SCRUB_STEP_U: the scrub's step of u)
+  const SMALL_K_DELTA_MAX = 1024 * (1 - STRAD_SYNC_FRAC) / 2;   // (the same bound for a list of 1024: 128, which the scrub's rise at the end of the glide exceeds, the control that the bound can fail)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
@@ -1105,26 +1107,29 @@
             ok(`${t}: the count is read after a jump of u (${STRAD_JUMP_U}) and not after a step (${STRAD_STEP_U}): ${s0}, ${s1}, ${s2} reads`, s1 === s0 && s2 > s1, { s0, s1, s2 });
           }
         }
-        // the count of straddling cells moves little between continuous frames (the list's headroom is over twice what it moves): a scrub of u in steps of SCRUB_STEP_U
+        // the count of straddling cells rises little between continuous frames (a step of at most STRAD_DU_MAX of u): a scrub in steps of SCRUB_STEP_U, up and back, the raw
+        // rises measured, none rescaled; a longer step is a jump, which reads the count
         if (c.tag === ROW_CASE && cc) {
           await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
-          const us = [END_U];
+          const us = [];
           for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
-          for (let x = 0.99; x < 1 - SCRUB_TAIL_U / 2; x += SCRUB_TAIL_U) us.push(Math.round(x * 1e4) / 1e4);
-          us.push(1 - END_U);
-          let prev = null, prevU = null, worst = 0, at = null;
-          for (const x of us) {
+          us.push(0.99, 1 - END_U);
+          let prev = null, prevU = null, worst = 0, at = null, steps = 0, longSteps = 0;
+          // (up and then back down: a fall one way is a rise the other)
+          for (const x of us.concat([...us].reverse().slice(1))) {
             await setU(x);
             const k = await classCounts();
             if (!k) continue;
-            // (the change over a step, taken over STRAD_DU_MAX when the step is longer than that)
-            const over = prev === null ? 0 : Math.abs(k.mix - prev) * Math.min(1, STRAD_DU_MAX / (x - prevU));
-            if (over > worst) { worst = over; at = x; }
+            if (prev !== null) {
+              if (Math.abs(x - prevU) > STRAD_DU_MAX + 1e-9) longSteps++;
+              else { steps++; if (k.mix - prev > worst) { worst = k.mix - prev; at = x; } }
+            }
             prev = k.mix; prevU = x;
           }
           await ev('__svCarryProbe = null; 1');
           await setU(GLIDE_MID);
-          ok(`${t}: the count of straddling cells changes by at most ${STRAD_DELTA_MAX} between continuous frames (over ${STRAD_DU_MAX} of u; the most: ${Math.round(worst)}, at u=${at}), under half the list's headroom`, worst <= STRAD_DELTA_MAX && STRAD_DELTA_MAX <= MIX_K * (1 - STRAD_SYNC_FRAC) / 2, { worst, at });
+          ok(`${t}: the count of straddling cells rises by at most ${STRAD_DELTA_MAX} between continuous frames (${steps} steps of at most ${STRAD_DU_MAX} of u, ${longSteps} longer ones read the count; the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && steps > 0, { worst, at, steps, longSteps });
+          ok(`${t}: control: the same bound for a list of 1024 (${SMALL_K_DELTA_MAX}) is broken by the largest rise (${worst}), so the premise is not vacuous`, worst > SMALL_K_DELTA_MAX, { worst });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
