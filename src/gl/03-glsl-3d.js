@@ -665,8 +665,9 @@ void main() {
   // cut at |h| = BLOCK_K H. The crossing of an edge with a corner far beyond the block, both ends on its side (a pole), is
   // interpolated in 1 / h, exact to first order at a simple pole, where linear interpolation hugs the near corner. The clipped
   // edges are marked by clipBoxE (the rim). Returns the number of corners left
+  const BLOCK_K = 1.25;   // the block's height bound in block heights H: |h| <= BLOCK_K H (the clip, the layered draw's discard and the cap probe read this one value)
   const LAND_CLIP = `
-const float BLOCK_K = 1.25;
+const float BLOCK_K = ${BLOCK_K.toFixed(4)};
 uniform int uClipLinear;   // (a test control: 1 takes every crossing linearly)
 const float CLIP_FAR = 2.0;   // (corners farther than this many block edges beyond the block use the 1 / h crossing)
 int blockClip(float Hb, int n, inout vec3 Q[5], inout vec4 A[5], inout vec3 Nn[5], inout float Fl[5]) {
@@ -725,7 +726,7 @@ uniform float uDrawCode; uniform float uDrawCode0;
 // the box's triangles whose centre is within uHoles[i].z of uHoles[i].xy are left out (uNHoles of them): polar patches draw there
 uniform vec4 uHoles[4]; uniform int uNHoles;
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
-flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc;
+flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc; flat out float vCell;
 ` + CARRY_Z + `
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
 vec4 edgeOf(ivec2 a, ivec2 b) {
@@ -741,6 +742,7 @@ void main() {
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
   int M = uN - 1;
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
+  vCell = uPolar.w > 0.0 ? -1.0 - float(cell) : float(cell);   // (the cap probe's cell index: a box cell is >= 0, a polar patch's cell is -1 - cell)
 ${clip ? '  // (clip: each sub-triangle is a fan of up to 3 triangles of the block-clipped polygon, 9 vertices)\n  int sub = loc / 9, fan = (loc - 9 * sub) / 3, k = loc - 9 * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
@@ -1604,12 +1606,16 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck. A layered draw (layered: a layer
   // is one member, the layers are depth-tested against each other) keeps the rasterised depth, which the key would push behind
   // the floor under the lowest layer
+  // The cap probe (uCapProbe over 0, set by the test hooks only): the layered fragment writes its geometry in place of its colour, with no
+  // map evaluated. 1: the preimage and the chain's anchor, vec4(vZ, vZc); 2: the drawn height, the layer's claim code, the grid cell
+  // (>= 0 a box cell, else -1 - the patch's cell) and 1 over the covered pixels; 3: a constant, for checking the float target
+  const CAP_PROBE_FS = `  if (uCapProbe != 0) { o = uCapProbe == 1 ? vec4(vZ, vZc) : uCapProbe == 2 ? vec4(vPos.z, float(uOwn), vCell, 1.0) : vec4(1.0, 2.0, 3.0, 4.0); return; }\n`;
   const LAND_FS = (sheet, plain, lite, carry = false, layered = false, clipped = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn; uniform int uCapProbe; flat in float vCell;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1663,7 +1669,7 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {
-${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' + (layered && !clipped ? '  // (the block ends at 1.25 H: the layer is cut there, as the sheets of the rest frame are, where a pole runs on past it)\n  if (abs(vPos.z) > 1.25 * uH) discard;\n' : '') : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' + (layered && !clipped ? '  // (the block ends at BLOCK_K H: the layer is cut there, as the sheets of the rest frame are, where a pole runs on past it)\n  if (abs(vPos.z) > ' + BLOCK_K.toFixed(4) + ' * uH) discard;\n' : '') + (layered ? CAP_PROBE_FS : '') : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);

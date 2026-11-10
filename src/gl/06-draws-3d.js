@@ -526,6 +526,52 @@
     const N = Math.round(Math.sqrt(px.length / 4)), qi = i + (a % 3) - 1, qj = j + Math.floor(a / 3) - 1, q = 4 * (qj * N + qi);
     return qi < 0 || qj < 0 || qi >= N || qj >= N ? null : { w: [px[q], px[q + 1]], z: [pz[q], pz[q + 1]] };
   }
+  // The cap probe's target (carryProbe.capProbe over 0, the layered carried draw): an RGBA32F frame the size of the drawing buffer with its own depth and
+  // stencil, cleared to 0, in which the carried draw writes its geometry (LAND_FS's uCapProbe). capEnd reads it back with the layers' grid heights;
+  // landCapTake returns what the last probe frame read ({ err: 'no float target' } where the extension is missing) and clears it
+  let capLast = null, capT = null;
+  function capBegin() {
+    capLast = null;
+    if (!gl.getExtension('EXT_color_buffer_float')) { capLast = { err: 'no float target' }; return false; }
+    const W = gl.drawingBufferWidth, Hh = gl.drawingBufferHeight, tex = gl.createTexture(), rb = gl.createRenderbuffer(), fbo = gl.createFramebuffer();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, Hh, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, W, Hh);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rb);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fbo); gl.deleteRenderbuffer(rb); gl.deleteTexture(tex);
+      capLast = { err: 'no float target' };
+      return false;
+    }
+    const cc = gl.getParameter(gl.COLOR_CLEAR_VALUE);
+    gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.clearStencil(0); gl.depthMask(true); gl.stencilMask(0xff);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+    gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
+    capT = { tex, rb, fbo, W, H: Hh };
+    return true;
+  }
+  function capEnd(drawn, H, N) {
+    const { tex, rb, fbo, W, H: Hh } = capT;
+    const px = new Float32Array(W * Hh * 4);
+    gl.readPixels(0, 0, W, Hh, gl.RGBA, gl.FLOAT, px);
+    const layers = carryProbe.capProbe === 2 ? drawn.map((L) => {
+      const g = new Float32Array(N * N * 4), f2 = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f2);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.tex1, 0);
+      gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, g);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(f2);
+      return { own: L.own, g };
+    }) : null;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo); gl.deleteRenderbuffer(rb); gl.deleteTexture(tex);
+    capT = null;
+    capLast = { pass: carryProbe.capProbe, W, H: Hh, px, uH: H, N, layers };
+  }
+  function landCapTake() { const r = capLast; capLast = null; return r; }
   function landFrameVerts(pts, box) {
     if (!landC || !landC.tex1) return null;
     const N = landC.N, fbo = gl.createFramebuffer();
@@ -1681,6 +1727,8 @@
       if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
       common(Pc);
       u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
+      const cap = contDraw && carryProbe.capProbe ? capBegin() : false;
+      u1i(Pc, 'uCapProbe', cap ? carryProbe.capProbe : 0);
       lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
@@ -1760,6 +1808,7 @@
       gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+      if (cap) capEnd(drawn, H, hd.N);
       info.refine = null;
       info.layers = landActive.length; info.landHoles = landHoles.length;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
