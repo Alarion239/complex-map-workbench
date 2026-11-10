@@ -227,6 +227,7 @@
   const R1_CORRUPT = ['shiftOut', 'labelShift'];   // the plan corruptions (__cmwLandCorruptPlan) the certificate's classes must survive
   const R1_NA_KIND = { labelShift: 1 };   // the corruptions a frame cannot take, with the reason
   const R1_NA = { 'log of an annulus@0.75': { kind: 'outside', why: 'no pending edge, and the branch value is outside the places the frame spans' }, 'cube root@0.75': { kind: 'empty', why: 'no pending edge, and the cut-edge pass lists no edge at all (the places the frame spans are empty), so the branch value [0, 0] is in none of them' } };   // the rows (case tag @ u) with no edge to class: the kind (prep.inPlaceWhy, asserted) and the reason
+  const r1KindIs = (key, why) => why === R1_NA[key].kind;   // (the kind of the region that explains a row with no edge to class)
   const MONO_PAD = 0.25;   // B', the box the member sets are counted and tracked in: the frame's box grown by this share of its width and height on each side
   const SEED_N = 16, SEED_RING = { n: 8, r: [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 4e-2] };   // the seeds of Newton's method for a place's members: a SEED_N x SEED_N grid over B' and SEED_RING.n points on rings of these shares of B's width round each singular place of the scene
   const SEP_SHARE = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member of its set in a step, so two members never swap
@@ -240,6 +241,7 @@
   const TEXEL_CTL = 10;   // the end-match control moves a texel's z by this many END_Z_TOL
   const CTL_NA_BRANCH = { 'log of an annulus@0.25': 'no pending edge', 'log of an annulus@0.5': 'no pending edge', 'log of an annulus@0.75': 'no pending edge', 'cube root@0.25': 'no pending edge', 'cube root@0.5': 'no pending edge', 'cube root@0.75': 'no pending edge' };   // the rows (case tag @ u) with no branch edge for the branch controls, with the reason
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
+  const aggNaWhy = (na, tag) => tag in na ? na[tag] : (tag in CUT_ROWS ? '' : 'no cut-edge pass runs');   // (the reason an aggregate control has nothing to run on: a case outside CUT_ROWS runs no cut-edge pass)
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -1409,7 +1411,8 @@
             ok(`${t}: R1: every edge's class is the same under the corruption ${kind} (${diff.length} of ${ids.length} changed${diff.length ? ': ' + JSON.stringify(diff.slice(0, 6)) : ''})`, diff.length === 0, cc.r1[kind]);
           }
           const na = `${c.tag}@${u}` in R1_NA;
-          ok(`${t}: R1: ${ids.length ? 'the row has edges to class (' + ids.length + ')' : 'the row has no edge to class, as the row\'s list expects: ' + (na ? R1_NA[`${c.tag}@${u}`].why + ' (' + prep.inPlaceWhy + ')' : '')}`, (ids.length > 0) !== na && (!na || prep.inPlaceWhy === R1_NA[`${c.tag}@${u}`].kind), { n: ids.length });
+          ok(`${t}: R1: ${ids.length ? 'the row has edges to class (' + ids.length + ')' : 'the row has no edge to class, as the row\'s list expects: ' + (na ? R1_NA[`${c.tag}@${u}`].why + ' (' + prep.inPlaceWhy + ')' : '')}`, (ids.length > 0) !== na && (!na || r1KindIs(`${c.tag}@${u}`, prep.inPlaceWhy)), { n: ids.length });
+          if (na) { const wrong = ['in', 'empty', 'outside', 'nonfinite'].find((k) => k !== R1_NA[`${c.tag}@${u}`].kind); ok(`${t}: R1: control: a row's listed kind ${R1_NA[`${c.tag}@${u}`].kind} is rejected when the region reads ${wrong}`, !r1KindIs(`${c.tag}@${u}`, wrong), { wrong }); }
         }
         r[u].seedsNewton = { seeds: cc.cnt.seeds, newton: cc.cnt.newton };   // (a print: the seeds and Newton iterations of the row's member sets)
         ok(`${t}: no tracked member hit Newton's iteration cap (${cc.cnt.cap})`, cc.cnt.cap === 0, cc.cnt);
@@ -2032,9 +2035,9 @@
   }
   // (each case's aggregates bite on one of its rows, or the case is on the list of cases where the control has nothing to run on, with the reason)
   for (const [what, n, na] of [['the emptied-second-end control', bit.empty, AGG_NA.empty], ['the seeding control (2 x 2 seeds, no rings), which falls short of the count', bit.seedShort, AGG_NA.seedShort], ['the separation probe (C4: a wrong member injected whole is rejected with the separation check and accepted without it)', bit.sepBite, AGG_NA.sepBite]]) {
-    const tag = process.env.CMW_ONLY || 'all';
-    ok(`control: ${what} bit on some row of this case (${n} rows)${tag in na ? ', and the case is on the list of cases it cannot: ' + na[tag] : ''}`, (n > 0) !== (tag in na), bit);
+    const tag = process.env.CMW_ONLY || 'all', why = aggNaWhy(na, tag);
+    ok(`control: ${what} bit on some row of this case (${n} rows)${why ? ', and the case is on the list of cases it cannot: ' + why : ''}`, (n > 0) !== !!why, bit);
   }
-  ok(`control: the wrong-second-member control of the made-up edge bit on some row of this case (${bit.synWrong} rows)${(process.env.CMW_ONLY || 'all') in AGG_NA.synWrong ? ', and the case is on the list of cases it cannot: ' + AGG_NA.synWrong[process.env.CMW_ONLY] : ''}`, (bit.synWrong > 0) !== ((process.env.CMW_ONLY || 'all') in AGG_NA.synWrong), bit);
+  { const tag = process.env.CMW_ONLY || 'all', why = aggNaWhy(AGG_NA.synWrong, tag); ok(`control: the wrong-second-member control of the made-up edge bit on some row of this case (${bit.synWrong} rows)${why ? ', and the case is on the list of cases it cannot: ' + why : ''}`, (bit.synWrong > 0) !== !!why, bit); }
   return { pass: !fails.length, fails, info };
 })
