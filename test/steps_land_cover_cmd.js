@@ -21,12 +21,12 @@ const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true 
 const LOG = [{ type: 'log', params: { cut: 180, k: 0 }, on: true }];
 const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
 // (min: the share of the plane's surface pixels the carried frame must have, at u = .002 and, with rest998, at .998; top:
-// also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All sheets)
+// also the topmost row within 3 px of the plane's; base: at the glide's far end the frame has at least 90 % of the pixels of that case's sheets-off frame, parked: of the parked All-sheets plane's)
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
   { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true },
   { name: 'Möbius, √, sheets off', steps: MOB, shapes: [], sheets: false, min: 0.95 },
-  { name: 'Möbius, √, All sheets', steps: MOB, shapes: [], sheets: true, min: 0.95, top: true, base: 'Möbius, √, sheets off' },
+  { name: 'Möbius, √, All sheets', steps: MOB, shapes: [], sheets: true, min: 0.95, top: true, parked: true },
   { name: 'z^3, sheets off', steps: [{ type: 'pown', params: { n: 3 }, on: true }], shapes: [], sheets: false, min: 0.95, top: true, rest998: true },
 ];
 for (const c of CASES) {
@@ -68,6 +68,7 @@ for (const c of CASES) {
       if (c.top) ok(`${name}, ${tag}: the topmost row within 3 px of the plane's`, Math.abs(got.top - rest.top) <= 3, r);
     } else {
       if (c.patched) ok(`${name}, ${tag}: the logarithm's singular point has its patch`, r.patches >= 1, r);
+      if (c.parked) ok(`${name}, ${tag}: >= 90 % of the pixels of the parked All-sheets plane (${rest.n})`, got.n >= 0.9 * rest.n, r);
       if (c.base) { const b = info[c.base][tag]; ok(`${name}, ${tag}: >= 90 % of the pixels of ${c.base} (${b.got.n})`, got.n >= 0.9 * b.got.n, r); }
     }
   }
