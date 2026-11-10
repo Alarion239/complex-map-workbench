@@ -200,6 +200,7 @@
   const CONT_MARGIN = 2;   // a step's segment stays at least this many step lengths from every zero of a branch step's input: the continued surface is single-valued on it
   const Z_CONV = 1e-10;   // Newton's method on a member stops when its residual is within MONO_CERT and its next correction is within this share of 1 + |z|, so one member found twice agrees to far under SAME_Z
   const ARRIVE_Z = 1e-4;   // a tracked member is a member of the set it arrives at when their z agree within this share of 1 + |z| (and within ID_SHARE of the set's smallest separation)
+  const C4_STEP_SIDE = 1;   // the c4Inject probe puts its wrong prediction on the first step of this side of the loop (0 based)
   const C4_R = 0.5;   // the separation probe's loop: half-side in grid steps
   const TEXEL_CTL = 10;   // the end-match control moves a texel's z by this many END_Z_TOL
   const CTL_NA_BRANCH = { 'log of an annulus@0.25': 'no pending edge', 'log of an annulus@0.5': 'no pending edge', 'log of an annulus@0.75': 'no pending edge', 'cube root@0.25': 'no pending edge', 'cube root@0.5': 'no pending edge', 'cube root@0.75': 'no pending edge' };   // the rows (case tag @ u) with no branch edge for the branch controls, with the reason
@@ -373,28 +374,30 @@
         const sepOf = (set, i) => { let d = Infinity; set.forEach((m, j) => { if (j !== i) d = Math.min(d, cabs(csub(m.z, set[i].z))); }); return d; };
         const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
         // one member carried from w0 to w1: predicted, corrected, relabelled; null with the reason in fail where a check does not hold
-        const step = (m, w0, w1, cur, i) => {
+        const step = (m, w0, w1, cur, i, bad) => {
           const o = hom(m.z, m.z, m.k);
           if (!o) { fail = { why: 'hom' }; return null; }
-          const dz = cdiv(csub(w1, w0), o.dH), z0 = [m.z[0] + dz[0], m.z[1] + dz[1]];
+          // (bad: the c4Inject probe's one deliberately wrong prediction, the nearest other member of the set and its surface, so that Newton lands on it; the margin check is not applied to it, so the separation check alone judges it)
+          const dz = cdiv(csub(w1, w0), o.dH), near = bad ? cur.filter((_, j) => j !== i).sort((p, q) => cabs(csub(p.z, m.z)) - cabs(csub(q.z, m.z)))[0] : null, z0 = near ? near.z : [m.z[0] + dz[0], m.z[1] + dz[1]];
           if (!(cabs(dz) < 1e30) || !inB(z0)) { fail = { why: 'left' }; return null; }
-          const r = solve(m.k, m.z, z0, w1);
+          const r = near ? solve(near.k, near.z, z0, w1) : solve(m.k, m.z, z0, w1);
           if (!r) { fail = { why: 'newton' }; return null; }
           const d = cabs(csub(r.z, m.z));
           if (opt.sep !== false && !(d <= ${SEP_SHARE} * sepOf(cur, i))) { fail = { why: 'sep' }; return null; }
-          if (sing.some((s) => segDist(s, m.z, r.z) < ${CONT_MARGIN} * d)) { fail = { why: 'margin' }; return null; }
+          if (!bad && sing.some((s) => segDist(s, m.z, r.z) < ${CONT_MARGIN} * d)) { fail = { why: 'margin' }; return null; }
           const lb = label(w1, r.z);
           if (lb < 0) { fail = { why: 'label' }; return null; }
           return { z: r.z, k: lb };
         };
         // the whole set carried along the path pts (a polyline of places): the set at its end, or null (fail says where)
         const track = (set, pts) => {
-          let cur = set, steps = 0;
+          let cur = set, steps = 0, injected = false;
           for (let s = 0; s + 1 < pts.length; s++) {
             let t0 = 0, dt = 1;
             while (t0 < 1) {
               if (++steps > ${TRACK_STEPS_MAX}) { fail = { why: 'steps', s, t0 }; return null; }
-              const t1 = Math.min(1, t0 + dt), w0 = mix(pts[s], pts[s + 1], t0), w1 = mix(pts[s], pts[s + 1], t1), nx = cur.map((m, i) => step(m, w0, w1, cur, i));
+              const t1 = Math.min(1, t0 + dt), w0 = mix(pts[s], pts[s + 1], t0), w1 = mix(pts[s], pts[s + 1], t1), bad = !!opt.c4Inject && !injected && s === ${C4_STEP_SIDE}, nx = cur.map((m, i) => { const q = step(m, w0, w1, cur, i, bad && i === 0); if (bad && i === 0) cnt.bad = q ? 'accepted' : fail.why; return q; });
+              if (bad && nx.slice(1).every(Boolean)) injected = true;   // (the wrong prediction is judged once the other members' steps hold: it is the step the separation check decides)
               if (nx.every(Boolean)) { cur = nx; t0 = t1; dt = Math.min(dt * 2, 1 - t0 || 1); } else { dt /= 2; if (dt < ${MONO_MIN_DT}) { fail = Object.assign({ s, t0 }, fail); return null; } }
             }
           }
@@ -419,7 +422,7 @@
           const tr4 = track(s4.set, pts);
           if (!tr4) return { cls: 'unresolved', why: 'c4track', fail };
           const perm = tr4.map((m) => match(s4.set, m));
-          return { cls: 'c4', perm, ident: perm.every((q, i) => q === i), n: s4.set.length };
+          return { cls: 'c4', bad: cnt.bad, perm, ident: perm.every((q, i) => q === i), n: s4.set.length };
         }
         let e = window.__lxPend[k];
         if (opt.syn) {
@@ -1284,12 +1287,13 @@
               const cs = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, cellShift: true })`);
               ok(`${t}: control: loops round the cells one cell off the made-up branch edge's vertex carry no cycle through both ends (${cs.cls}, ${cs.hits} of ${cs.read} loops read)`, cs.cls === 'shifted' && cs.hits === 0 && cs.read > 0, cs);
             }
-            const c4on = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)} })`), c4off = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, sep: false })`);
-            if (c4on.cls === 'c4') ok(`${t}: control: a loop beside the branch value (not enclosing it) is the identity with the separation check (${JSON.stringify(c4on.perm)})`, c4on.ident, c4on);
-            if (c4on.cls === 'c4' && c4on.ident && c4off.cls === 'c4' && !c4off.ident) bit.sepBite++;
-            r[u].c4 = { on: c4on.cls + ':' + (c4on.ident ? 'id' : '?'), off: c4off.cls + ':' + (c4off.ident ? 'id' : c4off.cls === 'c4' ? 'swap' : '?') };
+            const c4on = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)} })`), c4inj = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, c4Inject: true })`), c4off = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, c4Inject: true, sep: false })`);
+            if (c4on.cls === 'c4') ok(`${t}: control: a loop beside the branch value (not enclosing it) is the identity (${JSON.stringify(c4on.perm)})`, c4on.ident, c4on);
+            if (c4on.cls === 'c4') ok(`${t}: control: with one wrong prediction injected the separation check rejects the step and the loop is still the identity (${c4inj.cls}, ${JSON.stringify(c4inj.perm)})`, c4inj.cls === 'c4' && c4inj.ident, c4inj);
+            if (c4on.cls === 'c4' && c4on.ident && c4inj.ident && c4off.cls === 'c4' && !c4off.ident) bit.sepBite++;
+            r[u].c4 = { bad: [c4inj.bad, c4off.bad], n: c4on.n, perm: c4off.perm, on: c4on.cls + ':' + (c4on.ident ? 'id' : '?'), inj: c4inj.cls + ':' + (c4inj.ident ? 'id' : '?'), off: c4off.cls + ':' + (c4off.ident ? 'id' : c4off.cls === 'c4' ? 'swap' : '?') };
           }
-          r[u].synRead = { syn: syn.cls, swap: synSw.cls, noSep: synOff.cls };
+          r[u].synRead = { syn: syn.cls, swap: synSw.cls };
           if (!noSyn && synSw.cls === 'false') bit.synWrong++;
         }
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
