@@ -99,7 +99,7 @@
     "Möbius with a pole in the box|farFront": "one preimage at each probe place: the farthest member is the nearest",
   };
   const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
-  const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
+  const EDGE_ARG_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
   const ZERO_MOVE_MIN = 0.0025;   // (the branch point's drawn place moves with u by at least this: its two u's are far apart against the float noise of one place)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
@@ -384,7 +384,7 @@
         const fine = out.map((m, i) => { const f = newton(m, w, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(out, i))); if (!f && nfail && nfail.why === 'cap') window.__lxCnt.cap++; return f; });   // (a member dropped here for want of convergence is counted like one dropped above)
         return out.map((m, i) => fine[i] && Object.assign({}, fine[i], { sheets: m.sheets, lvl: m.lvl })).filter(Boolean);
       };
-      // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within STRIP_TOL; a member with no
+      // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within WIN_TOL; a member with no
       // log coordinate falls back to the enumerator's level; opt.countRamp counts the ramp members too: the control that the count catches them)
       const noData = (m) => !m.lam || !(m.sheets || [m.sheet]).some((sh) => window.__lxWin[sh] && window.__lxWin[sh].lo !== null);
       const inWin = (m) => {
@@ -1574,13 +1574,13 @@
           if (before !== undefined) ok(`${t}: the scene the hook reads follows u (H at a fixed place differs from the frame at u = ${before})`, !!hs && !!r.homSample[before] && (hs[0] !== r.homSample[before][0] || hs[1] !== r.homSample[before][1]), { hs, last: r.homSample[before] });
           ok(`${t}: no certified member is a lip member (a second surface within ${SHEET_MARGIN} x its residual; ${lip.length} are)`, lip.length === 0, { n: lip.length, sample: lip.slice(0, 3).map((m) => ({ z: m.z, sheet: m.sheet, miss: m.miss, miss2: m.miss2 })) });
           // (the scene-side strip: the first branch step's input, continued from the member's cell, is inside the step's window; read as principal, the members
-          // outside it are flagged. The members within STRIP_TOL of the window's end are lip members, listed)
+          // outside it are flagged. The members within EDGE_ARG_TOL of the window's end are lip members, listed)
           const st = await ev(`${JSON.stringify(ms)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet))`), sp = await ev(`${JSON.stringify(ms)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet, true))`);
           if (Array.isArray(st) && st.some((x) => x)) {
-            const sTol = STRIP_TOL / (2 * Math.PI), at = ms.map((m, i) => [m, st[i], sp[i]]).filter(([, x]) => x);
-            const out = at.filter(([, x]) => x.bad || !(x.s > sTol && x.s <= 1 - sTol)), edge = at.filter(([, x]) => !x.bad && (Math.abs(x.s) <= sTol || Math.abs(x.s - 1) <= sTol)), moved = at.filter(([, x, y]) => !x.bad && Math.abs(x.arg - y.arg) > STRIP_TOL);
+            const sTol = EDGE_ARG_TOL / (2 * Math.PI), at = ms.map((m, i) => [m, st[i], sp[i]]).filter(([, x]) => x);
+            const out = at.filter(([, x]) => x.bad || !(x.s > sTol && x.s <= 1 - sTol)), edge = at.filter(([, x]) => !x.bad && (Math.abs(x.s) <= sTol || Math.abs(x.s - 1) <= sTol)), moved = at.filter(([, x, y]) => !x.bad && Math.abs(x.arg - y.arg) > EDGE_ARG_TOL);
             const flagged = moved.filter(([, , y]) => y.bad || !(y.s > sTol && y.s <= 1 - sTol)).length;
-            ok(`${t}: every member's continued argument is inside its step's window (${out.length} of ${at.length} are not; ${edge.length} within ${STRIP_TOL} of its end, lip members, failed)`, out.length === 0 && edge.length === 0, { n: out.length, sample: out.slice(0, 3).map(([m, x]) => ({ z: m.z, sheet: m.sheet, s: x.s, bad: x.bad })), edge: edge.length });
+            ok(`${t}: every member's continued argument is inside its step's window (${out.length} of ${at.length} are not; ${edge.length} within ${EDGE_ARG_TOL} of its end, lip members, failed)`, out.length === 0 && edge.length === 0, { n: out.length, sample: out.slice(0, 3).map(([m, x]) => ({ z: m.z, sheet: m.sheet, s: x.s, bad: x.bad })), edge: edge.length });
             if (moved.length) ok(`${t}: the control: the principal argument flags the members the continuation moved (${flagged} of ${moved.length})`, flagged > 0 && !ctlNA(c, 'strip', u), { flagged, moved: moved.length, na: ctlNA(c, 'strip', u) });
             else ok(`${t}: the control: the principal argument flags the members the continuation moved: none moved${ctlNA(c, 'strip', u) ? ' (not applicable: ' + ctlNA(c, 'strip', u) + ')' : ''}`, !!ctlNA(c, 'strip', u), { moved: 0 });
           } else ok(`${t}: the scene's strip check: the scene has no branch step to read${ctlNA(c, 'stripRead', u) ? ' (not applicable: ' + ctlNA(c, 'stripRead', u) + ')' : ''}`, !!ctlNA(c, 'stripRead', u), { st: Array.isArray(st) });
