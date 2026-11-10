@@ -253,7 +253,8 @@
   // unresolved hatch's controls; o.tiles the root solves of a REPT draw's tile (GLR.setReptTileSolves; 0: its own),
   // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
   // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
-  // the next task (WEBGL_lose_context); o.land: the Landscape mask's unresolved pixels
+  // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
+  // o.land: the Landscape mask's unresolved pixels
   // (null: no mask); o.ws [[re, im]]: the CPU
   // twin of the left plane's REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the
   // most and the total root solves, the pruned children, and the pixels covered, empty and unresolved
@@ -265,6 +266,7 @@
       x.loseContext(); setTimeout(() => x.restoreContext(), 0);
       return true;
     }
+    if (o && 'ci' in o) { setShapes(S.shapes.map((s, i) => (i === 0 ? Object.assign({}, s, { ci: o.ci }) : s))); requestRender('L', 'R'); return 1; }
     if (o && ('nodes' in o || 'poison' in o || 'tiles' in o || 'fast' in o || 'holdB' in o)) {
       if ('fast' in o) GLR.setReptFastNodes(o.fast);
       if ('holdB' in o) GLR.holdReptB(o.holdB);

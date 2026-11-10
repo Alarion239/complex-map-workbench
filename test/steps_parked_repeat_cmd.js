@@ -28,7 +28,7 @@
 //   bound at TILE_TEST_SOLVES its second pass takes more than one tile, one a call, none past the bound, and the finished
 //   picture is pixel-identical to the same plane drawn with each pass in one tile (the bound at ONE_TILE_SOLVES); with
 //   the second pass held the frame stays pending; a redraw of the finished picture walks nothing (a cache hit), and a
-//   look setting changed (the plane's colour style) or a lost context walks again (__cmwRept({ tiles, fast, holdB, lose,
+//   look setting changed (the region's colour) or a lost context walks again (__cmwRept({ tiles, fast, holdB, lose,
 //   tileStats })).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -69,10 +69,11 @@ const VIETA_TOL = 1e-9;    // relative error of the roots' sum and product
 const CONTROL_SAMPLES = 20;   // grid samples the weak-iteration control reads
 const TILE_TEST_SOLVES = 2 ** 26;   // root solves of a tile in the tiled rows: 65,536 px at 1,024 solves a pixel, a few tiles of the plane
 const ONE_TILE_SOLVES = 2 ** 50;    // ... in the one-tile reference: one tile holds the whole plane
+const HELD_TILE_SOLVES = 2 ** 49;   // ... in the held rows: one tile too
 const FAST_TEST_NODES = 5;     // the first pass's budget in the tiled rows: the gallery's 20 solves go on in the second pass
 const HELD_FRAMES = 20;        // frames watched with the second pass held
 const PENDING_FRAMES = 40;     // frames watched for the pane's pending status while tiles remain
-const STYLE_TEST = 'phase';    // the plane's colour style in the cache-miss control (the plane's own: enhanced)
+const CI_TEST = 1;             // the region's colour index in the cache-miss control (the scene's own: 0)
 const ready = () => settled({ max: SETTLE_LONG, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
 await view(VIEW_W, VIEW_H, false, false);
 const stateFor = (rect, n) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: NEXT_ID, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
@@ -250,21 +251,23 @@ const hatchCount = () => ev(`(() => {
     ok('while tiles remain, the pane reports its frame as pending', pend === true, pend);
     ok('the tiled picture is pixel-identical to the one-tile picture', p1.hash === p2.hash && p1.pixels === p2.pixels, [p1, p2]);
     // the second pass held: the continue pixels are never shown, the frame stays pending; released, the same picture
-    await ev(`__cmwRept({ holdB: true, tiles: ${ONE_TILE_SOLVES} }); 1`);
+    // (a bound of its own: the signature is new, so the plane is walked again)
+    await ev(`__cmwRept({ holdB: true, tiles: ${HELD_TILE_SOLVES} }); 1`);
     let heldPending = 0;
     for (let i = 0; i < HELD_FRAMES; i++) { await frames(2); if (await pendingNow()) heldPending++; }
     const held = await ev('__cmwRept({ tileStats: true })');
     ok('with the second pass held the frame stays pending and no picture is drawn', heldPending >= HELD_FRAMES - 1 && held.composites === 0 && held.tilesB === 0, { heldPending, held });
     const rel = await redraw({ holdB: false }), p3 = await picture();
     ok('released, it draws the same picture', rel.tilesB >= 1 && p3.hash === p1.hash, [rel, p3, p1]);
+    // (a first redraw finishes any other REPT draw the release left partway, a step card's say; the second changes nothing)
+    await redraw({ nodes: 0 });
     const hit = await redraw({ nodes: 0 });
     ok('a redraw of the finished picture walks nothing (a cache hit)', hit.searches === 0 && hit.composites >= 1, hit);
     const look = await redraw({ fast: 0, tiles: 0 });
-    const style0 = await ev('__cmwFigureState().dc');
-    await ev(`__cmwSet('dc', ${JSON.stringify(STYLE_TEST)}); 1`); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
+    await ev(`__cmwRept({ ci: ${CI_TEST} }); 1`); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
     const miss = await ev('__cmwRept({ tileStats: true })');
-    await ev(`__cmwSet('dc', ${JSON.stringify(style0)}); 1`); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
-    ok('control: a changed look setting (the plane\'s colour style) walks again', miss.searches > 0, { look, miss, style0 });
+    await ev('__cmwRept({ ci: 0 }); 1'); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
+    ok('control: a changed look setting (the region\'s colour) walks again', miss.searches > 0, { look, miss });
     await ev('__cmwRept({ tileStats: true })');
     const lost = await ev('__cmwRept({ lose: true })');
     await frames(4); await settled({ max: SETTLE_LONG, panes: true });
