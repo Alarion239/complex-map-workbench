@@ -1210,13 +1210,13 @@
       const id = await freshAt(d.u, d.camU);
       ok(`${d.t}: the fresh page the control is judged on is the frame's (same chain, scope, box, camera, plane, surfaces, poles and homotopy)`, sameFrame(id, d.id), { id, want: d.id });
       if (d.extra.seam) await runReference(sheets, REF);   // (the seam control's difference is counted against the uncontrolled reference of the same page)
+      // (the control of the identity: a page parked FRESH_U_STEP from the frame's u (toward the middle of the glide) is not the frame)
+      const idOff = await freshAt(d.u < GLIDE_MID ? d.u + FRESH_U_STEP : d.u - FRESH_U_STEP, d.camU);
+      ok(`${d.t}: control: a page parked at u ${d.u < GLIDE_MID ? '+' : '-'} ${FRESH_U_STEP} is not the frame's`, !sameFrame(idOff, d.id), { id: idOff, want: d.id });
+      await freshAt(d.u, d.camU);
       const cr = await runReference(sheets, Object.assign({}, REF, d.extra));
       const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => null);
       ok(`${d.t}: ${d.passes ? `the counterpart: ${d.name} (page heap ${heap} MB)` : `the control: ${d.name} fails the reference (page heap ${heap} MB)`}`, !!cr && d.need(cr), { off: cr && cr.off, failures: cr && cr.failures.slice(0, 3) });
-    }
-    if (deferred.length) {
-      const d = deferred[0], id = await freshAt(d.u + FRESH_U_STEP, d.camU);
-      ok(`${d.t}: control: a page parked at u + ${FRESH_U_STEP} is not the frame's`, !sameFrame(id, d.id), { id, want: d.id });
     }
   }
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
