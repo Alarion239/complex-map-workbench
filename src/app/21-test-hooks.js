@@ -474,12 +474,12 @@
     try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, z, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
     return f && CX.isFin(f) ? f : null;
   };
-  window.__cmwLandRefSheets = (z) => {
+  window.__cmwLandRefSheets = (z, anchor) => {
     const hOf = render3D.frameHeight, ex = render3D.exactIn, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
     if (!hOf || !ex || typeof Funcs.sheetEval !== 'function') return [];
-    const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]);
+    const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]), za = anchor ? C(anchor[0], anchor[1]) : zc;   // (anchor: the point the sheet labels are relative to; the place itself by default)
     return sheetUniqOf(fm, W).map((combo) => {
-      const f = refValue(fm, W, zc, zc, combo);
+      const f = refValue(fm, W, za, zc, combo);
       return { combo, z: [z[0], z[1]], f: f && CX.isFin(f) ? [f.re, f.im] : null, h: f && CX.isFin(f) ? hOf(landValue(f)) : null };
     });
   };
