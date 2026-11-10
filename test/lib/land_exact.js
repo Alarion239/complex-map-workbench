@@ -1099,7 +1099,7 @@
     const us = [];
     for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
     us.push(0.99, 1 - END_U);
-    let prev = null, rise = 0, riseAt = null, most = 0, mostAt = null, mostK = null, mostLayers = 0, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
+    let prev = null, rise = 0, riseAt = null, fall = 0, fallAt = null, most = 0, mostAt = null, mostK = null, mostLayers = 0, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
     const t0 = await truncatedDraws();
     for (const x of us) {
       await setU(x);
@@ -1107,6 +1107,7 @@
       if (!k) continue;
       framesWithClasses++;
       if (prev !== null && k.mix - prev > rise) { rise = k.mix - prev; riseAt = x; }
+      if (prev !== null && prev - k.mix > fall) { fall = prev - k.mix; fallAt = x; }
       if (k.mix > most) { most = k.mix; mostAt = x; mostK = { cells: k.cells, invalid: k.invalid }; mostLayers = await ev('(__cmwLandCarry() || {}).layers || 1'); }
       if (k.mix > k.K) over++;
       if (k.listed !== k.mix) unlisted++;
@@ -1115,9 +1116,9 @@
     }
     const cut = (await truncatedDraws()) - t0;
     await ev('__svCarryProbe = null; 1');
-    info[`${t}: straddling cells`] = { frames: framesWithClasses, most, mostAt, mostCells: mostK && mostK.cells, mostInvalid: mostK && mostK.invalid, layers: mostLayers, rise, riseAt, capacity: capMax };
+    info[`${t}: straddling cells`] = { frames: framesWithClasses, most, mostAt, mostCells: mostK && mostK.cells, mostInvalid: mostK && mostK.invalid, layers: mostLayers, rise, riseAt, fall, fallAt, capacity: capMax };
     if (!framesWithClasses) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
-    ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most} of a grid of ${mostK && mostK.cells} cells, ${mostK && mostK.invalid} of them with a corner that is not a point, at u=${mostAt}, ${mostLayers} layers, one list each; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
+    ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most} of a grid of ${mostK && mostK.cells} cells, ${mostK && mostK.invalid} of them with a corner that is not a point, at u=${mostAt}, ${mostLayers} layers, one list each; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}, and the largest fall ${fall}, at u=${fallAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
     ok(`${t}: no draw of the scrub had its list cut off (${cut})`, cut === 0, { cut });
     if (GROW_CONTROLS.some(([tag, sh]) => tag === c.tag && sh === sheets)) {
       const [, , u] = GROW_CONTROLS.find(([tag, sh]) => tag === c.tag && sh === sheets);
@@ -1132,7 +1133,7 @@
       await grab('grown');
       const gr = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, grows: (__cmwLandCarry() || {}).stradGrows, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
       const dG = (await compare('full', 'grown')).frac;
-      ok(`${t}: control: a list of ${SHORT_K} that grows draws the frame of the list of ${LIST_K0}: ${dG} of pixels over ${DIFF_TOL} (at most ${SAME_FRAC}); its capacity grew to ${gr.cap} for ${gr.count} cells`, dG <= SAME_FRAC && gr.cap >= gr.count && gr.cap > SHORT_K && gr.cut === k1, { dG, gr, k1 });
+      ok(`${t}: control: a list of ${SHORT_K} that grows draws the frame of the list of ${LIST_K0}: ${dG} of pixels over ${DIFF_TOL} (identical frames differ by 0); its capacity grew to ${gr.cap} for ${gr.count} cells`, dG === 0 && gr.cap >= gr.count && gr.cap > SHORT_K && gr.cut === k1, { dG, gr, k1 });
       // the ceiling: a list that needs more than it is cut off, loudly (console.error, counted in stradTruncated): a ceiling of 4096 under the count of the case at its u
       if (c.tag === 'log of an annulus') {
         await ev('__svCarryProbe = __svCarryProbeSettings.stradCeil; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
