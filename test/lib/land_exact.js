@@ -79,6 +79,9 @@
     "Joukowski airfoil|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Möbius dipole, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Möbius with a pole in the box|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Partial sums of the exponential (Newton)|sheets": "the glide has one surface there",
+    "Partial sums of the exponential (Newton)|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Partial sums of the exponential (Newton)|stripRead": "the scene's chain lists no branch step: the partial sums of the exponential are entire",
     "Möbius, √|stripRead": "the scene's chain lists no branch step input at this u",
     "Joukowski airfoil|stripRead": "the scene's chain lists no branch step input at this u",
     "Möbius dipole, √|stripRead": "the scene's chain lists no branch step input at this u",
@@ -1549,6 +1552,7 @@
           // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's z is the place it was found for,
           // and the digits with one moved give a surface whose value there is another place)
           {
+            const surfK = ((await ev(`__cmwLandSurfaces()`)) || {}).K;   // (the scene's surface count K: a control is listed not applicable for one surface only where K is a number and at most 1)
             const sub = ms.slice(0, HOM_EQ_PAIRS), have = sub.filter((m) => Array.isArray(m.digits)).length;
             ok(`${t}: every member lists the digits of its scene-certified surface (${have} of ${sub.length})`, sub.length > 0 && have === sub.length, { have, n: sub.length });
             const r2 = await ev(`(() => {
@@ -1568,7 +1572,7 @@
             })()`);
             const { back, moved, tried } = r2;
             ok(`${t}: the digits round-trip through the scene's surface table to the member's place (${back} of ${have})`, have > 0 && back === have, { back, have });
-            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u) });
+            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) && Number.isFinite(surfK) && surfK <= 1 : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u), K: surfK });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
@@ -1590,7 +1594,7 @@
         // (each member is judged on its own sheet: read on the next surface it is not a preimage of its place wherever the sheets differ there)
         const sheetsDiffer = ms.length > 0 && (await ev(`__cmwLandHom(${JSON.stringify(ms[0].z)}, ${JSON.stringify(ms[0].cell)})`) || []).length > 1;
         if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL && !ctlNA(c, 'sheets', u), { worst: wr.worst, na: ctlNA(c, 'sheets', u) }); }
-        else ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u), { surfaces: 1 });
+        else { const surfK2 = ((await ev(`__cmwLandSurfaces()`)) || {}).K; ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u) && Number.isFinite(surfK2) && surfK2 <= 1, { K: surfK2 }); }
         // (a member of the range ramp, lvl < 0, is just outside its sheet's window: every member is within the ramp, and a ramp of 0 flags those that are outside)
         const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length, out = ms.filter((m) => !(m.lvl >= -ramp)).length;
         ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
