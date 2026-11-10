@@ -421,7 +421,7 @@
         let c = iv.i, hit = false, lost = false;
         for (let g = 0; g <= setV.length; g++) {
           const n = idMatches(setV, tr[c])[0] ?? -1;
-          if (n < 0) { lost = true; break; }
+          if (n < 0) { lost = true; iv.lostInfo = { chain: g, nearest: Math.min(...setV.map((q) => dist(q, tr[c]))), sepMin: sepMinOf(setV), lam: tr[c].lam, tol: ${LAMBDA_SAME} * (1 + cabs(tr[c].lam || tr[c].z)) }; break; }
           if (n === ib) hit = true;
           if (n === iv.i) break;
           c = n;
@@ -455,16 +455,20 @@
         if (added > 0 && !(opt && opt.absTol)) refine();
         return added > 0;
       };
-      const read = (pts) => { let q = cyc(pts); if (q && q.lost && enlarge(q.shift)) q = cyc(pts); return q; };
+      // (a loop is read in both directions: the chain a, a + T, a + 2T... runs off the end of the truncated orbit one way, and the other member of the cycle may lie the other way;
+      // a hit in either direction is a cycle holding both members, lost only where both directions lose the chain)
+      const read1 = (pts) => { let q = cyc(pts); if (q && q.lost && enlarge(q.shift)) q = cyc(pts); return q; };
+      const read = (pts) => { const q = read1(pts); if (q && q.hit) return q; const r = read1(pts.slice().reverse()); return r && r.hit ? r : (q && r ? Object.assign({}, q, { lost: q.lost && r.lost }) : q || r); };
       if (opt && opt.noLoops) return { cls: 'false', why: 'no loops' };   // (the no-reach control: with no loop to read, a branch edge is not certified)
       let unres = false;
+      fail = null;
       for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
         const q = read(loop(wv, sx, sy));
         if (!q) { unres = true; continue; }
         if (q.lost) unres = true;
         if (q.hit) return { cls: 'branch', clear: synClear, cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * ${CELL_QUANT}), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * ${CELL_QUANT})] };
       }
-      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT}), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', fail }; }
+      if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT}), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', ring: q && { hit: q.hit, lost: q.lost, shift: q.shift }, setN: setV.length, lostInfo: iv.lostInfo, fail: q ? null : fail }; }
       return { cls: 'false' };
     },
     // a place of the frame's region where the enumerator lists a range-ramp member (level below 0) on some sheet, found on a lattice of n x n places: null when there is none
