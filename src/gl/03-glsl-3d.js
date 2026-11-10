@@ -866,6 +866,7 @@ void main() {
   const CROSS_REL = '1.5e-3';
   // a vertex placed on the glide's i-th sheet has texel w CARRY_SHEET_CODE + i; the cross-sheet edge test reads the combos of at most CARRY_SHEETS_MAX sheets
   const CARRY_SHEET_CODE = 10, CARRY_SHEETS_MAX = 16;
+  const CARRY_ANCHOR_STEP = 0.01;   // (a continued texel's code is CARRY_CONT_CODE plus this times the 1-based place of its anchor in the 3 x 3 neighbourhood: LAND_CARRY_CONT_VS, landFrameVerts)
   const SEAM_NEWT_CONT = 2, SEAM_NEWT_POL = 4, SEAM_REL = '0.1', SEAM_ABS = '1e-5', SEAM_FAR = '4.0';
   const LAND_CARRY_EDGE_VS = (L = false) => `
 uniform int uN; uniform int uDir; uniform int uSteps; uniform int uGs; uniform int uGt; uniform float uCode; uniform int uUsePrev; uniform int uSeam;
@@ -1036,18 +1037,19 @@ void main() {
   if (t.w < 0.5 || t.w > 5.0) return;
   vec2 za = vec2(0.0);
   bool found = false;
+  int anchorAt = 0;
   for (int j = 0; j < 9; j++) {
     ivec2 q = p + ivec2(j % 3 - 1, j / 3 - 1);
     if (j == 4 || q.x < 0 || q.y < 0 || q.x >= uN || q.y >= uN) continue;
     vec4 tq = texelFetch(uT1, q, 0);
-    if (tq.w > 5.0 && tq.w < uCode + 0.1 && !crossesCut(tq.xy, t.xy)) { za = texelFetch(uZ, q, 0).xy; found = true; break; }
+    if (tq.w > 5.0 && tq.w < uCode + 0.1 && !crossesCut(tq.xy, t.xy)) { za = texelFetch(uZ, q, 0).xy; found = true; anchorAt = j + 1; break; }
   }
   if (!found) return;
   cxs0_out = false;
   vec2 h = carryHeightA(za, texelFetch(uZ, p, 0).xy);
   // (a continuation onto a branch outside the sheets' window is a surface the parked frame does not draw)
   if (cxs0_out) return;
-  if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode);
+  if (h.y > 0.5 && !(abs(h.x) > 3e38)) tfOut = vec4(t.xy, h.x, uContCode + ${CARRY_ANCHOR_STEP} * float(anchorAt));
 }
 `;
   // The layered glide's cross-layer continuation (one pass per target layer, on the layers' texels once every layer is

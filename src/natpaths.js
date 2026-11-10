@@ -200,7 +200,10 @@ const NatPaths = (() => {
   const joukAt = (t, inside) => (z) => (inside
     ? serS('tanh', CX.sub(sc(serS('atanh', z), 1 + t), C(0, HPI * t)))
     : cothX(sc(arcothS(z), 1 + t)));
-  const joukHom = (t) => (z) => joukAt(t, z.re * z.re + z.im * z.im < 1)(z);
+  // the side of the unit circle H_t takes a point to: the disk's formula inside, the exterior's outside
+  const JOUK_R = 1;
+  const joukInside = (z) => z.re * z.re + z.im * z.im < JOUK_R * JOUK_R;
+  const joukHom = (t) => (z) => joukAt(t, joukInside(z))(z);
   const ijoukHom = (sg) => (t) => (z) => cothX(CX.sub(sc(arcothS(z), 1 - t / 2), C(0, sg < 0 ? HPI * t : 0)));
   // names in a caption phrase: o = {f, p, c, a} (all at once and in turn, several steps: f_k, p_k, ..., so that one
   // sentence never gives one letter two meanings)
@@ -511,7 +514,7 @@ const NatPaths = (() => {
   function natData(b) { return b && b.natData ? b.natData : null; }
 
 
-  return { mobHom, mobHomTex, linHom, memoAt, powHom, expHom, expHomTex, logHom, logHomTex, joukAt, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
+  return { mobHom, mobHomTex, linHom, memoAt, powHom, expHom, expHomTex, logHom, logHomTex, joukAt, joukInside, JOUK_R, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
