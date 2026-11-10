@@ -482,7 +482,12 @@ void main() {
       const co = Array.from({ length: nco }, (_, i) => (i === 0 ? '1' : '0.001')).join(', ');
       const steps = [S('poly', { co })];
       const b = steps.map((s) => Funcs.build(s));
-      compileCheck(`poly with ${nco} coefficients (CPU build error: ${b[0].error || 'none'})`, GLChain.build(steps, b), HEAD, 'void main(){ gl_Position = vec4(chainStep(1, vec2(0.0)), 0.0, 1.0); }');
+      // the build's own cap refuses a chain whose slots (two coefficients each) leave no room for the program's other
+      // uniforms; the compile check below lifts it to show the GPU's own refusal of the same chain
+      let refusal = null;
+      try { GLChain.build(steps, b); } catch (e) { refusal = String(e && e.message); }
+      if ((nco === 200) === !!refusal) R.errors.push(`poly with ${nco} coefficients: the slot cap ${nco === 200 ? 'refused a chain well under the limit' : 'did not refuse a chain at or over the limit'} (${refusal || 'built'})`);
+      compileCheck(`poly with ${nco} coefficients (CPU build error: ${b[0].error || 'none'})`, GLChain.build(steps, b, 4 * maxU), HEAD, 'void main(){ gl_Position = vec4(chainStep(1, vec2(0.0)), 0.0, 1.0); }');
     }
   }
 
