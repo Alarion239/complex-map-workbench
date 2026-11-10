@@ -62,6 +62,7 @@ const VIEWS = {
   'steps_land_exact_cmd.js': steps({ pin: true }),
   'steps_land_exact_all_cmd.js': steps({ pin: true }),
   'steps_land_strad_cmd.js': steps({ pin: true }),
+  'steps_land_glerr_cmd.js': steps({ pin: true }),
   'steps_land_cracks_cmd.js': steps({ pin: true }),
   'steps_land_members_cmd.js': steps({ pin: true }),
   'steps_land_clip_cmd.js': steps({ pin: true }),
