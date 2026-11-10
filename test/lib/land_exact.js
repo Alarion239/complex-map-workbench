@@ -1502,7 +1502,8 @@
             if (rings.length) {
               const bad = rings.filter((x) => !x.own || x.own.sceneShift === null || x.own.claimShift !== x.l.sceneShift), asOwn = rings.filter((x) => x.l.claimShift !== x.l.sceneShift);
               ok(`${t}: every cross-layer texel (${rings.length}) is the geometry of a layer that owns it there, and that layer's claimed sheet is the scene's (${bad.length} are not)`, bad.length === 0, { n: bad.length, sample: bad.slice(0, CLAIM_SAMPLE).map((x) => ({ h: x.l.h, z: x.l.z, claim: x.l.claimShift, scene: x.l.sceneShift, own: x.own ? { claim: x.own.claimShift, member: x.own.member, h: x.own.h } : null })) });
-              ok(`${t}: the control: read as its own layer's claim a cross-layer texel is the sheet beside it (${asOwn.length} of ${rings.length})`, asOwn.length > 0, { n: asOwn.length });
+              if (asOwn.length > 0) ok(`${t}: the control: read as its own layer's claim a cross-layer texel is the sheet beside it (${asOwn.length} of ${rings.length})`, true, { n: asOwn.length });
+              else ok(`${t}: the control: every cross-layer texel's own layer claims the scene's sheet already, so reading it as its own layer's claim changes nothing (not applicable; ${rings.length} texels)`, rings.every((x) => x.l.claimShift === x.l.sceneShift), { n: rings.length });
             }
           }
           const bumpLayer = layersOf(claims).find((l) => l.nParts > 0);

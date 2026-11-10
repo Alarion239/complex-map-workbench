@@ -1181,6 +1181,10 @@
       return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * HOM_DZ), (a.im - b.im) / (2 * HOM_DZ)] : null, exactD: false };
     });
   };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a further block, as t_publish caps a block's length)
   // the plan's own completeness count, per sheet of the frame (the sheets an edge's ends hold are counted apart): for one place w (plane 0's map value) and each sheet of the frame, the number of
   // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in
   // the continued log coordinate when the plan's first op is a log or a power, else in z), plus the plan's poles inside R, against the members
