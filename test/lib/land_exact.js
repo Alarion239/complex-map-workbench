@@ -923,15 +923,16 @@
           if (srcs.size > 1) { const pick = ms.findIndex((m) => m.src !== ms[0].src), moved = ms.map((m, i) => (i === 0 ? Object.assign({}, m, { src: ms[pick].src }) : m)); ok(`${t}: the control: a member relabelled with another sheet's label is a mislabel`, labelConflicts(moved).length > 0, { n: labelConflicts(moved).length }); }
           // (the frame's own record of its claimed sheet, window.__cmwLandClaims: each drawn layer's step sheet and forward shifts decoded through the one decoder the frame reads its own sheet code with (GLR.ownCombo),
           // against the sheet the scene certifies there: the step sheet of the enumerator's matching sheet and a forward combo of the colour map at the layer's z with the layer's height)
-          const claims = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`), layersOf = (cl) => (cl || []).flat();
+          const claims = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`), layersOf = (cl) => (cl || []).flat().filter((l) => l.layered), nMerged = ((claims || []).flat()).length - layersOf(claims).length;
           // (a colour map with one combo is that combo; with several, the combos whose height at the layer's z is finite are told apart by the layer's height, and with none finite the claim cannot be read: it fails)
           const fwdClaimOk = (l) => (l.opts.length <= 1 ? l.opts.length === 0 || l.opts[0].combo === l.claimFwd : l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claimFwd));
           const claimBad = (cl) => layersOf(cl).filter((l) => (l.sceneShift !== null && l.claimShift !== l.sceneShift) || !fwdClaimOk(l));
           const nLayers = layersOf(claims).length, cBad = claimBad(claims);
-          ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, nLayers > 0 && cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, 3) });
+          if (nLayers === 0) ok(`${t}: the frame is one merged frame of the step's sheets (${nMerged} drawn places): it claims no single sheet (not applicable; the All sheets rows read each layer's claim)`, nMerged > 0, { nMerged });
+          else ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, 3) });
           const bumpLayer = layersOf(claims).find((l) => l.nCombo > 0);
           if (bumpLayer) { const bumped = await ev(`__cmwLandClaims(${JSON.stringify(pts)}, { layer: ${bumpLayer.member} })`), moved = claimBad(bumped).filter((l) => l.member === bumpLayer.member); ok(`${t}: the control: layer ${bumpLayer.member}'s claim one sheet off fails every layer of that member (${moved.length} fail)`, moved.length > 0, { moved: moved.length }); }
-          else ok(`${t}: the control: no layer claims a forward shift (one principal layer): nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nCombo === 0), { n: nLayers });
+          else ok(`${t}: the control: no layer claims a forward shift: nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nCombo === 0), { n: nLayers });
           // (the cheap paths of the homotopy hook, a surface alone and without the central difference, and the batch, give exactly the full call's values; the
           // scene it reads follows u: its value at a fixed place differs from the last u's)
           const eq = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, HOM_EQ_PAIRS))}; let bad = 0, n = 0, many = 0; for (const m of ms) { const full = __cmwLandHom(m.z, m.cell), b = __cmwLandHomMany([[m.z, m.cell]])[0]; if (JSON.stringify(b) !== JSON.stringify(full)) many++; for (const h of full) { const c = __cmwLandHom(m.z, m.cell, { sheets: [h.sheet], dH: false })[0]; n++; if (!(h.H === null ? c.H === null : c.H && c.H[0] === h.H[0] && c.H[1] === h.H[1])) bad++; } } return { bad, n, many }; })()`);
