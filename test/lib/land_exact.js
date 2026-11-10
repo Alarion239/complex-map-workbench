@@ -292,7 +292,7 @@
       // is inside the places the frame's edges span (null: not finite)
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
       for (const e of r.edges) for (const [x, y] of [[e[7], e[8]], [e[9], e[10]]]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-      const hb = window.__cmwLandHom([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
+      const hb = window.__cmwLandHomSheets([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
       window.__lxRegion = [x0, x1, y0, y1];
       window.__lxWin = window.__cmwLandWin() || []; window.__lxNoWin = 0; window.__lxNoWinWho = []; window.__lxOrbit = []; window.__lxCnt = { cap: 0, floor: 0, dbl: 0, sepOne: 0, noLam: 0 };
@@ -312,7 +312,7 @@
       // H on a sheet at a member's log coordinate lam (z = e^lam): a member is solved and tracked in lam, where H is smooth at a branch value and a far
       // sheet's z is not large; a member with no log coordinate is solved in z
       const expc = (l) => { const e = Math.exp(l[0]); return [e * Math.cos(l[1]), e * Math.sin(l[1])]; };
-      const homAt = (z, lam, sh) => { const q = window.__cmwLandHom(z, lam); const o = q && q[sh]; return o && o.H ? o : null; };
+      const homAt = (z, lam, sh) => { const q = window.__cmwLandHomSheets(z, lam); const o = q && q[sh]; return o && o.H ? o : null; };
       let nfail = null;   // (why the last Newton solve gave up: the step, the residual or the missing homotopy value)
       const newton = (m, w, inZ, dlTol) => {
         let z = m.z, lam = inZ ? null : m.lam;   // (inZ: the member is continued in z, where steps near a branch value may swap members)
@@ -363,7 +363,7 @@
       const dist = (p, q) => (p.lam && q.lam ? cabs(csub(p.lam, q.lam)) : cabs(csub(p.z, q.z)));
       // the members of the wanted sheets at w as many as the scene's count says (__cmwLandWind: the winding count N of each sheet's H - w); where the enumerator
       // finds fewer (near a branch value) the set is the one MONO_FAR cells away, counted likewise, continued to w in the log coordinate
-      const countAt = (w) => { const q = window.__cmwLandWind(w); return q ? q.reduce((n, r) => n + (want.includes(r.sheet) ? (r.status === 'ok' ? r.N : NaN) : 0), 0) : NaN; };
+      const countAt = (w) => { const q = window.__cmwLandWindSheets(w); return q ? q.reduce((n, r) => n + (want.includes(r.sheet) ? (r.status === 'ok' ? r.N : NaN) : 0), 0) : NaN; };
       // (the count N is of the members inside the frame's box in plane z: the set holds the members outside it too, and the enumerator's ramp members (level below 0, outside their sheet's window), a flagged edge's own member can be one)
       const box = (() => { const b = window.__cmwLandCarry(true); return b && { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 }; })();
       const inBox = (m) => !box || (m.z[0] >= box.x0 && m.z[0] <= box.x1 && m.z[1] >= box.y0 && m.z[1] <= box.y1);
@@ -421,7 +421,7 @@
       const nearest = (set, z, sheet) => { let b = -1, d = Infinity; set.forEach((m, i) => { const q = (m.sheets || [m.sheet]).includes(sheet) ? (z.lam ? dist(m, z) : cabs(csub(m.z, z.z || z))) : Infinity; if (q < d) { d = q; b = i; } }); return { i: b, d }; };
       if (opt && opt.countAt) {
         // (the scene's count of the members at a place against the certified members there: every sheet; countRamp counts the ramp members too)
-        want = (window.__cmwLandWind(opt.countAt) || []).map((r) => r.sheet);
+        want = (window.__cmwLandWindSheets(opt.countAt) || []).map((r) => r.sheet);
         return { N: countAt(opt.countAt), n: counted(listAt(opt.countAt)) };
       }
       if (opt && opt.idCtl) {
@@ -434,7 +434,7 @@
       if (opt && opt.dropWin) {
         // (the window control: the members counted with one sheet's window data removed are reported in __lxNoWin, so the per-row assertion that none is counted bites)
         const w0 = opt.dropWin;
-        want = (window.__cmwLandWind(w0) || []).map((r) => r.sheet);
+        want = (window.__cmwLandWindSheets(w0) || []).map((r) => r.sheet);
         const set0 = listAt(w0), before = window.__lxNoWin, save = window.__lxWin.slice();
         (set0[0] ? set0[0].sheets || [set0[0].sheet] : []).forEach((sh) => { if (window.__lxWin[sh]) window.__lxWin[sh] = { lo: null, hi: null }; });
         counted(set0);
@@ -447,7 +447,7 @@
         // value): its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the sheets with a member in
         // the box there, the second end's the next one at the other vertex; the sheets taken are those the scene counts a member of at the first vertex)
         const rg = window.__lxRegion, ang = Math.atan2((rg[2] + rg[3]) / 2 - opt.syn[1], (rg[0] + rg[1]) / 2 - opt.syn[0]), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
-        want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
+        want = (window.__cmwLandWindSheets(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
         const set0 = membersAt(wv0), setB0 = membersAt(wo0);
         if (set0.length < 2 || setB0.length < 2) return { cls: 'unresolved', why: 'syn', n: [set0.length, setB0.length], want, fail };
         const code = window.__lxSheetCode + set0[0].sheet, code1 = window.__lxSheetCode + setB0[1].sheet;
@@ -482,7 +482,7 @@
       // the branch value: the monodromy of the members round the cells at the vertex (based loops), and where a track fails round the 2 x 2 ring there
       const shV = atA ? shA : shB, shO = atA ? shB : shA;
       // (the sets the loops move hold the members of every sheet: a loop round a branch value carries a member to one of another sheet)
-      want = (window.__cmwLandWind(wv) || []).map((r) => r.sheet);
+      want = (window.__cmwLandWindSheets(wv) || []).map((r) => r.sheet);
       let setV = membersAt(wv); const iv = nearest(setV, zv, shV), setO = membersAt(wo), io = nearest(setO, zo, shO);
       if (iv.i < 0 || io.i < 0) return { cls: 'unresolved', why: 'members', sets: [setV.length, setO.length, iv.i, io.i] };
       // (the other end's member carried to the vertex: along the edge, or round it by a detour one grid step to the side where the edge's track fails)
