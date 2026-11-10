@@ -132,6 +132,7 @@
   // so its compiled programs can draw while the new ones compile.
   const sigsOf = (key) => { try { const k = JSON.parse(key); return Array.isArray(k[1]) ? k[1] : []; } catch (e) { return []; } };
   function setChain(info) {
+    if (!sideMode) chainRefused = '';
     if (sideMode) {
       // a side chain: its own version object (never the user's, whose parameter values it would overwrite)
       let ch = sideChs.get(info.key);

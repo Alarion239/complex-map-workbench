@@ -115,4 +115,43 @@ for (const [i, c] of CASES.entries()) {
 
   }
 }
+// The slot cap: GLChain.MAX_CHAIN_SLOTS plus the most uniform vectors any chain program's other uniforms take (counted from
+// the program sources, in each map mode) is within WebGL2's guaranteed fragment and vertex uniform vectors; the control
+// counts a source with a known uniform set and a chain-sized array
+{
+  const ev0 = await ev(`(() => {
+    const COST = { float: 1, int: 1, uint: 1, bool: 1, vec2: 1, vec3: 1, vec4: 1, ivec2: 1, ivec3: 1, ivec4: 1, uvec2: 1, uvec3: 1, uvec4: 1, bvec2: 1, bvec3: 1, bvec4: 1, mat2: 2, mat3: 3, mat4: 4 };
+    const count = (src) => { let n = 0; const re = /uniform\\s+(?:(?:highp|mediump|lowp)\\s+)?(\\w+)\\s+([^;]+);/g; let m; while ((m = re.exec(src))) { const c = COST[m[1]]; if (c == null) continue; for (const d of m[2].split(',')) { if (/\\buChain\\b/.test(d)) continue; const a = /\\[\\s*(\\d+)\\s*\\]/.exec(d); n += c * (a ? +a[1] : 1); } } return n; };
+    const ctl = count('uniform vec4 uChain[9];\\nuniform highp int a;\\nuniform mat3 b, c;\\nuniform sampler2D t;\\nuniform vec2 d[4];');
+    let worst = { n: 0 }, progs = 0;
+    for (const name of Object.keys(GLR._src.DEFS)) {
+      if (!GLR._src.DEFS[name].chain) continue;
+      for (let mode = 0; mode < 3; mode++) {
+        let pair; try { pair = GLR.landSrc(name, mode); } catch (e) { continue; }
+        if (!pair) continue;
+        progs++;
+        pair.forEach((src, k) => { const n = count(src); if (n > worst.n) worst = { n, name, mode, stage: k ? 'fs' : 'vs' }; });
+      }
+    }
+    return { ctl, worst, progs, cap: GLChain.MAX_CHAIN_SLOTS };
+  })()`);
+  R.slotCap = ev0;
+  const GUARANTEED = 224;
+  ok('slot cap: the counter reads the control source as 1 + 6 + 4 = 11 vectors (uChain and the sampler excluded)', ev0.ctl === 11, ev0);
+  ok(`slot cap: ${ev0.progs} chain programs counted; the cap ${ev0.cap} plus the most other uniform vectors of any program (${ev0.worst.n}, ${ev0.worst.name} mode ${ev0.worst.mode} ${ev0.worst.stage}) is within ${GUARANTEED}`, ev0.progs > 0 && ev0.cap + ev0.worst.n <= GUARANTEED, ev0);
+}
+// A chain the build refuses (60 Möbius steps, over the slot cap) is not drawn from an earlier version: the pane's GL status
+// reads the refusal in plain words, and the step is not accepted silently
+{
+  await seedCase(CASES[0], 0);
+  const defs = await ev("Funcs.defaults('mobius')");
+  const ns = 'npgcap' + Date.now();
+  await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [], steps: Array.from({ length: 60 }, () => ({ type: 'mobius', params: defs, on: true })) });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && !!window.GLR" });
+  await ev('1'); await new Promise((r) => setTimeout(r, 1500));
+  const st = await ev('JSON.stringify({ err: GLR.frameStatus().error, last: GLR.error })');
+  R.refusedChain = st;
+  ok(`refused chain: the pane's GL status says the chain needs more shader parameters (${st})`, /more shader parameters/.test(String(st)), st);
+}
 return { pass: fails.length === 0, fails, results: R };
