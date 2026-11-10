@@ -1264,7 +1264,7 @@
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
-    u1f(P1, 'uHClip', clipOf(mode));
+    u1f(P1, 'uHClip', clipOf(mode)); mixU(P1, st, mu);
     u1i(P1, 'uPass', 0);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
@@ -1362,7 +1362,7 @@
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1f(P1, 'uHClip', clipOf(mode));
+    u1f(P1, 'uHClip', clipOf(mode)); mixU(P1, st, mu);
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
     u1i(P1, 'uLat', move ? 0 : 1);
     // (the textures are made before the heights are bound: floatTex binds its new texture on the active unit, and the
