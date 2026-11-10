@@ -1137,7 +1137,9 @@
       }
       // the controls, each a reference that must fail: too shallow a lattice at the thinnest feature, the nearest root taken as a member's
       // identity at the Newton glide's end, the seam of a boundary cell moved one cell, a branch point located one cell off
-      const control = async (name, extra, need) => { deferred.push({ name, extra, need, u, t, camU, id: await frameId(c, sheets) }); };
+      const control = async (name, extra, need, passes) => { deferred.push({ name, extra, need, passes: !!passes, u, t, camU, id: await frameId(c, sheets) }); };
+      // (the cell-depth control's two facts: a lattice of depth 1 fails the reference on the kind 'cellDepth' on the Roots frame at u = 0.002, and one of depth 2 has no cellDepth failure)
+      if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH + 1} has no failure of the kind cellDepth (depth ${CTL_DEPTH} fails it, below)`, { CELL_DEPTH_MAX: CTL_DEPTH + 1 }, (cr) => !cr.failures.some((f) => f.kind === 'cellDepth'), true);
       if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH}`, { CELL_DEPTH_MAX: CTL_DEPTH }, (c) => c.failures.some((f) => f.kind === 'cellDepth'));
       if (/Newton/.test(t) && u === END_U) await control('the nearest root taken as identity', { seed: true }, (c) => c.failures.length > 0 || c.off > RASTER_TOL);
       // (the rays decide fewer pixels than the tolerance in these frames: the seam control is armed where they decide at least SEAM_MIN_HITS, and fails the reference when the
@@ -1207,7 +1209,7 @@
       if (d.extra.seam) await runReference(sheets, REF);   // (the seam control's difference is counted against the uncontrolled reference of the same page)
       const cr = await runReference(sheets, Object.assign({}, REF, d.extra));
       const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => null);
-      ok(`${d.t}: the control: ${d.name} fails the reference (page heap ${heap} MB)`, !!cr && d.need(cr), { off: cr && cr.off, failures: cr && cr.failures.slice(0, 3) });
+      ok(`${d.t}: ${d.passes ? `the counterpart: ${d.name} (page heap ${heap} MB)` : `the control: ${d.name} fails the reference (page heap ${heap} MB)`}`, !!cr && d.need(cr), { off: cr && cr.off, failures: cr && cr.failures.slice(0, 3) });
     }
     if (deferred.length) {
       const d = deferred[0], id = await freshAt(d.u + FRESH_U_STEP, d.camU);
