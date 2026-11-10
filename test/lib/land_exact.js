@@ -142,6 +142,8 @@
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
+  const WIND_HMIN_CTL = 0.1;   // (the control's step floor, as a fraction of a piece)
+  const COMBO_CONTROL_K = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   const WIND_PLACES = 12, CUT_DELTA = 0.5;   // (places counted per frame; the control's shift of the cut circle's radius)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
@@ -1165,6 +1167,20 @@
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
           comboCtl[u] = ctl;
         }
+        if (lastU && COMBO_CONTROL_K.includes(c.tag) && !r.comboControlK) {
+          // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
+          let ctl;
+          try {
+            await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
+            await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await grab('ctlT');
+            ctl = await ev("__lx.hueOff('ctlT', 'P1T')");
+          } finally {
+            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          }
+          r.comboControlK = ctl;
+          ok(`${t}: control: with every sheet's combo one off the Top view's hue is over ${HUE_OFF_MAX} pixels off (${ctl} are)`, ctl > HUE_OFF_MAX, { ctl });
+        }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
       }
@@ -1621,6 +1637,25 @@
             ok(`${t}: the control: a place on a leaf contour is not counted`, !!lipR && lipR.every((r) => r.status === 'onContour'), { lipR });
             const near = await ev(`__cmwLandWind(null, { nearContour: true })`);
             ok(`${t}: the control: a place near the boundary is unresolved, not counted`, !!near && near.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near });
+            {
+              // the per-sheet completeness count: the winding of the homotopy around each sheet's region (plus the plan's poles) equals the members found there on every sheet
+              let nBadS = 0, nCheckedS = 0; const badS = [];
+              for (const i of pick) {
+                const wr = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i])}, {})`);
+                for (const r of wr || []) { nCheckedS++; if (!r.ok) { nBadS++; if (badS.length < 4) badS.push(Object.assign({ place: vpts[i] }, r)); } }
+              }
+              ok(`${t}: the completeness count: the winding of the homotopy plus the poles equals the members found, on every sheet of ${pick.length} places (${nCheckedS} sheet counts)`, nCheckedS > 0 && nBadS === 0, { nBadS, nCheckedS, badS });
+              const dropS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i0])}, { dropOne: true })`);
+              ok(`${t}: the control: one member removed breaks the count`, !!dropS && dropS.some((r) => !r.ok), { dropS });
+              const lipS = await ev(`__cmwLandWindSheets(null, { onLip: true })`);
+              // (a place on a lip is a root on the contour: the count must report it, as on the contour or as an unresolved step, and never as a count)
+              const noCut = !!lipS && lipS.every((r) => r.status === 'noCut'), loud = !!lipS && lipS.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
+              ok(`${t}: the control: a place on a cut lip is not counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipS && loud && (noCut || lipS.some((r) => r.status === 'onContour' || r.status === 'unresolved')), { lipR: lipS && lipS.slice(0, 3) });
+              const nearS = await ev(`__cmwLandWindSheets(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
+              ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!nearS && nearS.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near: nearS });
+              const nopS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withPS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i0])}, {})`);
+              if (!!withPS && withPS.some((r) => r.P > 0)) ok(`${t}: the control: the poles omitted break the count`, !!nopS && nopS.some((r) => !r.ok), { nop: nopS });
+            }
             if (c.logControl) {
               const lw = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
               // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is huge there and the shrinking rim's values do not converge, so the count must say branchLog or kindDisagree, never ok)
