@@ -28,7 +28,8 @@
 (async (MODES) => {
   const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
   const fails = [], info = {};
-  const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+  const rowNames = [];   // (CMW_ROWS: the name of every row checked, in info.rows, so that the rows of the parts of a case can be set against the rows of its whole run)
+  const ok = (name, cond, got) => { if (process.env.CMW_ROWS) rowNames.push(name); if (!cond) fails.push({ name, got }); };
   const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
   const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const VIEW_W = 1440, VIEW_H = 900;
@@ -2096,5 +2097,6 @@
   ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
   ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
   ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
+  if (process.env.CMW_ROWS) info.rows = rowNames;
   return { pass: !fails.length, fails, info };
 })
