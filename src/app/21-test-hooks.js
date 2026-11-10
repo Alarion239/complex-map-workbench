@@ -596,6 +596,13 @@
     }
     return 'unread';
   };
+  // The z whose value through the steps listed (as in zeroOf) is infinity, the twin of zeroOf at the pole: no step: none (null: infinity is not a place of the plane); one
+  // Möbius step: -d / c, null when c is 0; any other chain: 'unread' (no search stands in for it)
+  const poleOf = (chain) => {
+    if (!chain.length) return null;
+    if (chain.length === 1 && chain[0].id === 'mobius' && chain[0].m) return CX.isZero(chain[0].m[2]) ? null : CX.neg(CX.div(chain[0].m[3], chain[0].m[2]));
+    return 'unread';
+  };
   window.__cmwLandZerosOf = (chain, node) => {
     const z = zeroOf(chain.map((s) => ({ id: s.id, m: s.m ? s.m.map((v) => C(v[0], v[1])) : null })), C(node[0], node[1]));
     return z === 'unread' || z === null ? z : [z.re, z.im];
@@ -640,6 +647,16 @@
     let poles = [];
     try { poles = svDrain(svPolesIn(cpuMap(map), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || []; } catch (e) { poles = []; }
     const liveK = (k) => S.steps[k - 1] && S.steps[k - 1].on !== false && built[k - 1] && !built[k - 1].error;
+    // the live steps before step k as zeroOf and poleOf read them: [{ id, m }], m the matrix of a Möbius step
+    const beforeOf = (k) => {
+      const out = [];
+      for (let j = 1; j < k; j++) {
+        if (!liveK(j)) continue;
+        const bj = built[j - 1], id = bj.def ? bj.def.id : '?';
+        out.push({ id, m: id === 'mobius' && bj.vals ? [bj.vals.a, bj.vals.b, bj.vals.c, bj.vals.d] : null });
+      }
+      return out;
+    };
     // The exact poles of a Möbius first step (the steps view's own search is a 16-point grid, which a pole between its points escapes): its path's matrix
     // M(t) has its pole at -M[3] / M[2]; { poles, exact } both: exactPoles, the ones read from the matrix, kept apart so that a control can drop them
     const exactPoles = [];
@@ -666,7 +683,13 @@
         if (!read) unread.push(id);
       }
     }
-    if (built.some((b, i) => b && liveK(i + 1) && Funcs.sheetMapHow(map, i + 1) && b.nat && b.nat.kind === 'jouk')) { const o = C(0, 0); if (!poles.some((p) => CX.abs(p) < SCN.SAME_Z)) exactPoles.push(o); }
+    // (a Joukowski step's pole is the origin of its own input: the z at which the steps before it give 0, in the glide's own domain; one at infinity is no place of the plane, a chain not read is unresolved)
+    built.forEach((b, i) => {
+      if (!(b && liveK(i + 1) && Funcs.sheetMapHow(map, i + 1) && b.nat && b.nat.kind === 'jouk')) return;
+      const o = zeroOf(beforeOf(i + 1), C(0, 0));
+      if (o === 'unread') unread.push('joukowski>pole');
+      else if (o && !poles.some((p) => CX.abs(CX.sub(p, o)) < SCN.SAME_Z * (1 + CX.abs(o)))) exactPoles.push(o);
+    });
     for (const q of exactPoles) if (!poles.some((p) => CX.abs(CX.sub(p, q)) < SCN.SAME_Z * (1 + CX.abs(q)))) poles.push(q);
     // The cut of H_u itself: a step with a Joukowski path, alone and last in the map (its input is the z-plane), takes its disk's formula inside
     // the circle |z| = JOUK_R (Funcs.joukInside) and the exterior's outside; cut = { side(inside)(z), R } then, with g of each side
@@ -738,23 +761,20 @@
     // The zeros of the inputs of the branch steps past the glide's span: the lift applies the later steps to the member's own z through the whole chain, so a
     // zero is a z-plane point pulled back through the steps' end matrices (it does not move with u) and w is where H_u draws it (it does); a non-Möbius
     // step before the branch step, or two steps, is unread
-    const liftZeros = [], liftUnread = [];
+    const liftZeros = [], liftUnread = [], liftPoles = [], liftPolesUnread = [];
     if (map.mode === 1 && map.hi >= 1) {
       for (let k = map.hi + 1; k <= S.steps.length; k++) {
         const bk = built[k - 1], idk = bk && bk.def ? bk.def.id : '?';
         if (!liveK(k) || !(idk === 'log' || idk === 'root' || idk === 'powa' || idk === 'pown')) continue;
-        const before = [];
-        for (let j = 1; j < k; j++) {
-          if (!liveK(j)) continue;
-          const bj = built[j - 1], id = bj.def ? bj.def.id : '?', m = id === 'mobius' && bj.vals ? [bj.vals.a, bj.vals.b, bj.vals.c, bj.vals.d] : null;
-          before.push({ id, m });
-        }
-        const z = zeroOf(before, C(0, 0));
+        const before = beforeOf(k), z = zeroOf(before, C(0, 0)), pl = poleOf(before);
         if (z === 'unread') liftUnread.push(before.map((s) => s.id).join('>') + '>' + idk);
         else if (z && z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1) liftZeros.push({ k, z, w: g(own, z, z) });
+        // (the twin at infinity: the z whose value entering the branch step is infinity, drawn where H_u draws it)
+        if (pl === 'unread') liftPolesUnread.push(before.map((s) => s.id).join('>') + '>' + idk);
+        else if (pl && pl.re >= bx.x0 && pl.re <= bx.x1 && pl.im >= bx.y0 && pl.im <= bx.y1) liftPoles.push({ k, z: pl, w: g(own, pl, pl) });
       }
     }
-    const scene = { key, map, W, K, exactZeros, zerosUnread, liftZeros, liftUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
+    const scene = { key, map, W, K, exactZeros, zerosUnread, liftZeros, liftUnread, liftPoles, liftPolesUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
     sceneMemos.set(key, scene);
     if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
     return scene;
@@ -1083,6 +1103,12 @@
   window.__cmwLandLiftZeros = (map, drop) => {
     sceneMapOver = map || null;
     try { const sc = sceneOf(); return sc ? { zeros: drop ? [] : sc.liftZeros.map((q) => [q.z.re, q.z.im, q.k, q.w ? q.w.re : null, q.w ? q.w.im : null]), unread: sc.liftUnread.slice() } : null; } finally { sceneMapOver = null; }
+  };
+  // the lift's branch points where the value entering a branch step is infinity (the twin of __cmwLandLiftZeros): the exact poles read from the steps' definitions
+  // (a Möbius first step: -d / c), as [re, im, k, w.re, w.im], w = H_u(z) through the scene's g; drop leaves the list empty (a control); unread lists the chains it cannot read
+  window.__cmwLandLiftPoles = (map, drop) => {
+    sceneMapOver = map || null;
+    try { const sc = sceneOf(); return sc ? { poles: drop ? [] : sc.liftPoles.map((q) => [q.z.re, q.z.im, q.k, q.w ? q.w.re : null, q.w ? q.w.im : null]), unread: sc.liftPolesUnread.slice() } : null; } finally { sceneMapOver = null; }
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
