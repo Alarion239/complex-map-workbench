@@ -145,9 +145,9 @@ async function runPage(base, p, side) {
       const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
-      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
+      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, maxSlots: R.maxSlots, maxSlotsChain: R.maxSlotsChain, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
-      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.singular ? `, ${r.singular.badCount} bad singular` : ''}`;
+      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed, max ${r.maxSlots} uniform slots (${r.maxSlotsChain})${r.singular ? `, ${r.singular.badCount} bad singular` : ''}`;
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');

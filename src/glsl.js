@@ -196,12 +196,16 @@ vec2 cx_mobstep(vec2 z, vec4 ab, vec4 cd, vec4 q, vec4 r) {
   return cx_mob(ab.xy, ab.zw, cd.xy, cd.zw, z);
 }
 // Mobius one-parameter path A^t (A in SL2, Re tr A >= 0), as a matrix up to scale:
-// p0 = (mode, -, lam) with Re lam >= 0, p1 = (M0, M1), p2 = (M2, M3), p3 = (P0, P1), p4 = (P2, P3), p5 = (Q0, Q3).
+// p0 = (mode, -, lam) with Re lam >= 0, p1 = (M0, M1), p2 = (M2, M3), p3 = (P0, P1), p4 = (P2, P3), p5 = (Q0, Q3),
+// p6 = (cosh lam, sinh lam).
 // mode 1 (parabolic): M = N, A^t = I + tN.
 // mode 2: M = J, A^t = cosh(t lam) I + sinh(t lam) J = e^{t lam} (P + e^{-2 t lam} Q) with the spectral projectors
 // P = (I + J)/2, Q = (I - J)/2 (Q1 = -P1, Q2 = -P2). Once Re(t lam) is large, cosh - sinh cancels catastrophically
-// in float32, so the projector form is used there (it has no cancellation: |e^{-2 t lam}| < 1/e).
-void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5,
+// in float32, so the projector form is used there (it has no cancellation: |e^{-2 t lam}| < 1/e). For t > 1/2 the
+// reflected form A^t = A A^{-s}, s = 1 - t, is used otherwise: cosh(s lam) is near 1 and sinh(s lam) is small and by
+// series, so the absolute error of the GPU's cos and sin near cos(t pi/2) = 0 does not reach the relative error of the path:
+// A^t = U I + V J with U = ch C - sh S, V = sh C - ch S (ch = cosh lam, sh = sinh lam, C = cosh(s lam), S = sinh(s lam)).
+void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6,
                out vec2 m0, out vec2 m1, out vec2 m2, out vec2 m3) {
   if (p0.x < 1.5) {
     m0 = vec2(1.0, 0.0) + p1.xy * t; m1 = p1.zw * t; m2 = p2.xy * t; m3 = vec2(1.0, 0.0) + p2.zw * t;
@@ -214,19 +218,35 @@ void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5,
     m0 = p3.xy + cmul(e, p5.xy); m1 = cmul(p3.zw, oe); m2 = cmul(p4.xy, oe); m3 = p4.zw + cmul(e, p5.zw);
     return;
   }
+  if (t > 0.5) {
+    vec2 a = p0.zw * (1.0 - t), a2 = cmul(a, a);
+    vec2 ca = ccosh(a), sa;
+    if (dot(a, a) >= 0.01) sa = csinh(a);
+    else {
+      vec2 q = vec2(1.0 / 5040.0, 0.0);
+      q = vec2(1.0 / 120.0, 0.0) + cmul(a2, q);
+      q = vec2(1.0 / 6.0, 0.0) + cmul(a2, q);
+      q = vec2(1.0, 0.0) + cmul(a2, q);
+      sa = cmul(a, q);
+      ca = vec2(1.0, 0.0) + cmul(a2, vec2(0.5, 0.0) + cmul(a2, vec2(1.0 / 24.0, 0.0)));
+    }
+    vec2 u = cmul(p6.xy, ca) - cmul(p6.zw, sa), v = cmul(p6.zw, ca) - cmul(p6.xy, sa);
+    m0 = u + cmul(v, p1.xy); m1 = cmul(v, p1.zw); m2 = cmul(v, p2.xy); m3 = u + cmul(v, p2.zw);
+    return;
+  }
   vec2 ch = ccosh(l), st = csinh(l);
   m0 = ch + cmul(st, p1.xy); m1 = cmul(st, p1.zw); m2 = cmul(st, p2.xy); m3 = ch + cmul(st, p2.zw);
 }
-vec2 cx_mobpath(vec2 z, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5) {
+vec2 cx_mobpath(vec2 z, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6) {
   vec2 m0, m1, m2, m3;
-  cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
+  cx_mobmat(t, p0, p1, p2, p3, p4, p5, p6, m0, m1, m2, m3);
   return cx_mob(m0, m1, m2, m3, z);
 }
 // the path applied to u, or with inv to w = 1/u, for arguments whose reciprocal is the one representable in float32
 // (one function for both, so a caller that picks one at run time has the path inlined once)
-vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5) {
+vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6) {
   vec2 m0, m1, m2, m3;
-  cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
+  cx_mobmat(t, p0, p1, p2, p3, p4, p5, p6, m0, m1, m2, m3);
   return inv ? cx_mob(m1, m0, m3, m2, u) : cx_mob(m0, m1, m2, m3, u);
 }
 ` + natLib();
@@ -281,7 +301,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     const sh2 = CX.scale(sh, 2), ep = CX.exp(lam), em = CX.exp(CX.neg(lam));
     const A = [a, b, c, d];
     return {
-      mode: 2, lam, M: N.map((x) => CX.div(x, sh)),
+      mode: 2, lam, ch: half, sh, M: N.map((x) => CX.div(x, sh)),
       P: [CX.div(CX.sub(a, em), sh2), CX.div(b, sh2), CX.div(c, sh2), CX.div(CX.sub(d, em), sh2)],
       Q: [CX.div(CX.sub(ep, A[0]), sh2), CX.div(CX.sub(ep, A[3]), sh2)],
     };
@@ -309,6 +329,19 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     return { mode: 1, k, alpha: CX.sub(a, CX.mul(k, c)), beta: CX.sub(b, CX.mul(k, d)) };
   }
 
+  // The uniform vectors the programs that embed uChain take besides it: the most over every chain program's vertex and
+  // fragment source, one vector per scalar or vecN, mat3 three, mat4 four, an array its length times that, samplers none
+  // (steps_negpow_glide_cmd.js counts them from the sources and asserts this value).
+  const OTHER_UNIFORM_VECS = 74;
+  // WebGL2's guaranteed minimum of the fragment and the vertex uniform vectors (224, 256): the limit when the page has no GL
+  const SPEC_UNIFORM_VECS = 224;
+  // The most vec4 slots a chain's uChain may take when the smaller of the GPU's fragment and vertex uniform-vector limits
+  // is `vecs`: the programs' other uniforms share those vectors, so a chain over this cannot link and is refused (the build
+  // throws) instead of failing to link
+  const maxChainSlots = (vecs) => (vecs > 0 ? vecs : SPEC_UNIFORM_VECS) - OTHER_UNIFORM_VECS;
+  // the limit builds use unless they are given one: set from the GPU's by the page that owns a context
+  let uniformVecs = 0;
+  const setUniformVecs = (vecs) => { uniformVecs = vecs > 0 ? vecs : 0; };
   // Uniform allocator in vec2 cells (two per vec4 slot). A writer fills cell values on demand.
   function makeAlloc() {
     let cells = 0;
@@ -335,10 +368,10 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   const exactAt1 = (pl) => !pl.h.startsWith('if (t == 0.0)');
   const withOne = (P, pl) => (!exactAt1(pl) || pl.own1 ? pl.h : `if (t == 1.0) return ${P}_f(z);\n  ${pl.h}`);
 
-  // Allocates six consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), callu(uExpr, tExpr, invExpr),
+  // Allocates seven consecutive slots for a Mobius path; returns {p0, call(zExpr, tExpr), callu(uExpr, tExpr, invExpr),
   // write(put, data)}. call applies the path to z, callu to u, or to 1/u where inv.
   function pathSlots(A) {
-    const s = [A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot()];
+    const s = [A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot(), A.slot()];
     const args = s.map((x) => x.v).join(', ');
     const c0 = s[0].c;
     return {
@@ -346,7 +379,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       call: (z, t) => `cx_mobpath(${z}, ${t}, ${args})`,
       callu: (u, t, inv) => `cx_mobpathu(${u}, ${t}, ${inv}, ${args})`,
       write(put, d) {
-        for (let i = 0; i < 12; i++) put(c0 + i, 0, 0); // mode 0 (degenerate: linear fallback); no stale values
+        for (let i = 0; i < 14; i++) put(c0 + i, 0, 0); // mode 0 (degenerate: linear fallback); no stale values
         if (!d) return;
         put(c0, d.mode, 0);
         put(c0 + 1, d.lam.re, d.lam.im);
@@ -354,6 +387,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
         if (d.mode !== 2) return;
         for (let i = 0; i < 4; i++) put(c0 + 6 + i, d.P[i].re, d.P[i].im); // cells 6..9: slots 3, 4
         put(c0 + 10, d.Q[0].re, d.Q[0].im); put(c0 + 11, d.Q[1].re, d.Q[1].im); // slot 5
+        put(c0 + 12, d.ch.re, d.ch.im); put(c0 + 13, d.sh.re, d.sh.im); // slot 6: cosh lam, sinh lam
       },
     };
   }
@@ -1227,11 +1261,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
         };
       }
       case 'powa': {
-        const cut = A.cell(), al = A.cell();
+        const cut = A.cell(), al = A.cell(), path = pathSlots(A);
+        // a real exponent a < 0 glides in two phases (NatPaths.powaHom): the Möbius path's mode is set only then
         return {
           sig: [type], f: `return cpow(z, ${al.v}, ${cut.x}, ${cut.y});`,
-          h: `return cpow(z, vec2(1.0 + (${al.x} - 1.0) * t, ${al.y} * t), ${cut.x}, ${cut.y});`,
-          write(put) { put(cut.c, v.cut * DEG, v.k); putC(put, al, v.alpha); },
+          h: `bool two = ${path.p0}.x > 0.5;
+  vec2 e = two ? vec2(t < 0.5 ? 1.0 + (-${al.x} - 1.0) * (2.0 * t) : -${al.x}, 0.0) : vec2(1.0 + (${al.x} - 1.0) * t, ${al.y} * t);
+  vec2 w = cpow(z, e, ${cut.x}, ${cut.y});
+  return two && t >= 0.5 ? ${path.call('w', '2.0 * t - 1.0')} : w;`,
+          write(put) { put(cut.c, v.cut * DEG, v.k); putC(put, al, v.alpha); path.write(put, Funcs.twoPhaseNeg(v.alpha) ? mobPathData(Funcs.NEG_INV) : null); },
         };
       }
       case 'exp':
@@ -1600,13 +1638,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
   function sheetPlan(P, b, A) {
     const v = b.vals, type = b.def.id;
     if (type === 'root' || type === 'powa' || type === 'log') {
-      const rc = A.cell(), al = type === 'log' ? null : A.cell();
+      const rc = A.cell(), al = type === 'log' ? null : A.cell(), path = type === 'powa' ? pathSlots(A) : null;
       const n = Math.max(2, v.n);
       const f = type === 'root' ? (x) => `cpowr(${x}, ${al.x}, th, s)` : type === 'powa' ? (x) => `cpow(${x}, ${al.v}, th, s)` : (x) => `clog(${x}, th, s)`;
       // the step's path at 0 < t < 1 on the same sheet and local cut (the deformation's sheets, Funcs' homPair): z^e
       // with e = 1 + (alpha - 1)t, log through cxs0_lh (P_h of the step, on (th, s))
       const g = type === 'root' ? (x) => `cpowr(${x}, e, th, s)` : type === 'powa' ? (x) => `cpow(${x}, e, th, s)` : (x) => `cxs0_lh(${x}, th, s, u)`;
-      const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `vec2 e = vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
+      const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `bool two = ${path.p0}.x > 0.5; vec2 e = two ? vec2(${t} < 0.5 ? 1.0 + (-${al.x} - 1.0) * (2.0 * ${t}) : -${al.x}, 0.0) : vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
       // the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
       // + 2 pi k, the digit shifted by floor((rc.y - arg c0) / 2 pi), c0 the input at the cell centre (0 by default)
       const kk = type === 'root' ? (((v.k | 0) % n) + n) % n : v.k | 0, Th = (v.cut ?? 180) * Math.PI / 180 + 2 * Math.PI * kk;
@@ -1614,11 +1652,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
       return {
         rads: [rc.x],
         apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
-        homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); }`,
+        homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); ${type === 'powa' ? `if (two && ${t} >= 0.5) p = vec4(${path.call('p.xy', `2.0 * ${t} - 1.0`)}, ${path.call('p.zw', `2.0 * ${t} - 1.0`)});` : ''} }`,
         fn: '',
         write(put) {
           if (type === 'root') { put(rc.c, n <= Funcs.SHEET_MAX ? n : 0, Th); put(al.c, 1 / n, 0); }
-          else if (type === 'powa') { put(rc.c, Funcs.sheetCount(v.alpha), Th); putC(put, al, v.alpha); }
+          else if (type === 'powa') { put(rc.c, Funcs.sheetCount(v.alpha), Th); putC(put, al, v.alpha); path.write(put, Funcs.twoPhaseNeg(v.alpha) ? mobPathData(Funcs.NEG_INV) : null); }
           else put(rc.c, 0, Th);
         },
       };
@@ -1680,7 +1718,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
   const GPU_REL = (L) => 1e-2 * Math.pow(3, Math.max(0, L - 1));
   const flt = (x) => { const s = String(Math.fround(x)); return /[.eE]/.test(s) ? s.replace(/e\+?/, 'e') : s + '.0'; };
 
-  function build(steps, built) {
+  // vecs: the GPU's smaller uniform-vector limit, by default the one setUniformVecs gave
+  function build(steps, built, vecs = uniformVecs) {
     const A = makeAlloc();
     const sigs = [], plans = [];
     steps.forEach((st, k) => {
@@ -1728,6 +1767,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
 
     const slots = A.slots;
+    const cap = maxChainSlots(vecs);
+    if (slots > cap) throw new Error(`GLChain: ${slots} uniform slots exceed the cap of ${cap}`);
     let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\n`;
     for (const { P, plan } of maps) {
       if (plan.pre) src += plan.pre;
@@ -2897,7 +2938,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
+  return { LIB, build, buildInverse, mobPathData, maxChainSlots, OTHER_UNIFORM_VECS, setUniformVecs, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

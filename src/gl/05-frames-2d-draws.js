@@ -7,6 +7,7 @@
       gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+      GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
       rtOK = !!gl.getExtension('EXT_color_buffer_float');
       ok = true;
@@ -36,6 +37,7 @@
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
         rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+        GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
         rtOK = !!gl.getExtension('EXT_color_buffer_float');
         ok = true; lost = false;
@@ -132,6 +134,7 @@
   // so its compiled programs can draw while the new ones compile.
   const sigsOf = (key) => { try { const k = JSON.parse(key); return Array.isArray(k[1]) ? k[1] : []; } catch (e) { return []; } };
   function setChain(info) {
+    if (!sideMode) chainRefused = '';
     if (sideMode) {
       // a side chain: its own version object (never the user's, whose parameter values it would overwrite)
       let ch = sideChs.get(info.key);

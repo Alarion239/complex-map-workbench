@@ -653,6 +653,7 @@ float wabs(vec2 w) {
   // exact: the current chain's own program or null, never an earlier chain version's (a program of another chain reads
   // the map's indices as its own steps and paints another picture)
   function program(name, map, exact) {
+    if (chainRefused && !sideMode) { frameErr = friendly(chainRefused); return null; }
     const P = getProg(name, cur, true, map);
     if (P) return P;
     const e = progs.get(progId(name, cur, map));

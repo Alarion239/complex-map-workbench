@@ -5,7 +5,7 @@
 const Sheets = (host) => {
   const { DEG, PI, circleAt, circleRel, isLive } = host;
   const { C } = CX;
-  const { joukAt, linHom, logHom, powHom, sc } = NatPaths;
+  const { joukAt, linHom, logHom, powHom, powaHom, sc } = NatPaths;
   // ---------------- whole Riemann surfaces: local cuts, every sheet ----------------
   // Each multivalued piece (an n-th root, log, a complex power, a branch node of a custom formula) is evaluated with
   // a LOCAL cut opposite the cell centre zc (cut angle = arg of the piece's input at zc + 180°, so the cut never
@@ -297,7 +297,7 @@ const Sheets = (host) => {
     }
     if (id === 'root' || id === 'powa' || id === 'log') {
       const th = Math.atan2(c0.im, c0.re) + PI, sh = s[0] + sheetOff(c0, stepTh(bb));
-      const H = id === 'log' ? logHom(th, sh)(t) : powHom(id === 'root' ? C(1 / Math.max(2, bb.vals.n), 0) : bb.vals.alpha, th, sh)(t);
+      const H = id === 'log' ? logHom(th, sh)(t) : (id === 'root' ? powHom(C(1 / Math.max(2, bb.vals.n), 0), th, sh) : powaHom(bb.vals.alpha, th, sh))(t);
       return [H(c0), H(w0)];
     }
     const H = bb.hom ? bb.hom(t) : linHom(bb.f)(t);
