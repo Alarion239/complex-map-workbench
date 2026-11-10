@@ -327,15 +327,9 @@
         // (a made-up edge through the branch value bv, from one side of it to the other (so the track along it cannot complete, as for a real edge at a branch
         // value): its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the sheets with a member in
         // the box there, the second end's the next one at the other vertex; the sheets taken are those the scene counts a member of at the first vertex)
-        // (the arm is along a diagonal, so the branch value is inside a cell of the loops and no loop's path runs through it; of the four diagonals the first, from the one toward the centre of the places, with a counted set of two members at both ends is taken)
-        const rg = window.__lxRegion, cx = Math.sign((rg[0] + rg[1]) / 2 - opt.syn[0]) || 1, cy = Math.sign((rg[2] + rg[3]) / 2 - opt.syn[1]) || 1;
-        let set0 = [], setB0 = [], wv0 = null, wo0 = null;
-        for (const [dx, dy] of [[cx, cy], [cx, -cy], [-cx, cy], [-cx, -cy]]) {
-          wv0 = [opt.syn[0] + dx * ${SYN_ARM} * h / Math.SQRT2, opt.syn[1] + dy * ${SYN_ARM} * h / Math.SQRT2]; wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
-          want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
-          set0 = membersAt(wv0); setB0 = membersAt(wo0);
-          if (set0.length >= 2 && setB0.length >= 2) break;
-        }
+        const rg = window.__lxRegion, ang = Math.atan2((rg[2] + rg[3]) / 2 - opt.syn[1], (rg[0] + rg[1]) / 2 - opt.syn[0]), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
+        want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
+        const set0 = membersAt(wv0), setB0 = membersAt(wo0);
         if (set0.length < 2 || setB0.length < 2) return { cls: 'unresolved', why: 'syn', n: [set0.length, setB0.length], want, fail };
         const code = window.__lxSheetCode + set0[0].sheet, code1 = window.__lxSheetCode + setB0[1].sheet;
         e = [set0[0].z[0], set0[0].z[1], setB0[1].z[0], setB0[1].z[1], 0, code, code1, wv0[0], wv0[1], wo0[0], wo0[1]];
@@ -354,7 +348,8 @@
       };
       const lA = shOf(ca, cb), lB = shOf(cb, ca), sA = sheetAt([wax, way], [ax, ay], lA), sB = sheetAt([wbx, wby], [bx, by], lB);
       want = [...new Set([sA, sB])];
-      const atA = t < 0.5, zv = atA ? [ax, ay] : [bx, by], wv = atA ? [wax, way] : [wbx, wby], zo = atA ? [bx, by] : [ax, ay], wo = atA ? [wbx, wby] : [wax, way];
+      const atA = t < 0.5, zv = atA ? [ax, ay] : [bx, by], zo = atA ? [bx, by] : [ax, ay], wo = atA ? [wbx, wby] : [wax, way];
+      let wv = atA ? [wax, way] : [wbx, wby];   // (the loops' base: the vertex, or for the made-up edge the point one half grid cell off it, see below)
       // the seam: the first end's member continued along the edge to the second end's place, by a completed track with its sheet kept by continuity; it is a
       // seam when it arrives at a member of that place other than the second end's (found by its z among the members there, whatever label the page gave it)
       const shA = sA, shB = sB, setA = membersAt([wax, way]), ia = nearest(setA, [ax, ay], shA);
@@ -369,7 +364,7 @@
       const shV = atA ? shA : shB, shO = atA ? shB : shA;
       // (the sets the loops move hold the members of every sheet: a loop round a branch value carries a member to one of another sheet)
       want = (window.__cmwLandWind(wv) || []).map((r) => r.sheet);
-      const setV = membersAt(wv), iv = nearest(setV, zv, shV), setO = membersAt(wo), io = nearest(setO, zo, shO);
+      let setV = membersAt(wv); const iv = nearest(setV, zv, shV), setO = membersAt(wo), io = nearest(setO, zo, shO);
       if (iv.i < 0 || io.i < 0) return { cls: 'unresolved', why: 'members', sets: [setV.length, setO.length, iv.i, io.i] };
       // (the other end's member carried to the vertex: along the edge, or round it by a detour one grid step to the side where the edge's track fails)
       let trO = track(setO, [wo, wv]);
@@ -385,6 +380,14 @@
         // (a member of the set at the same log coordinate is the same member whatever sheet the carried one is on; else the carried member joins the set)
         const tb = trO[io.i], same = opt && opt.noBJoin ? -1 : (idMatches(setV, tb)[0] ?? -1);   // (noBJoin: the carried member joins whatever the set holds: the control that the merge is what certifies)
         if (same >= 0) { ib = same; if (!setV[same].sheets.includes(tb.sheet)) setV[same].sheets.push(tb.sheet); } else { setV.push(tb); ib = setV.length - 1; }
+      }
+      if (opt && opt.syn) {
+        // (the made-up edge's loops are based half a grid cell off its end, across the axis the branch value is on, so the branch value is inside a cell of the loops
+        // and off every spoke and side: the members are carried there from the end along the segment between them, and the loops read from there)
+        const lc = [wv[0], wv[1] + ${SYN_ARM} * h], tr = track(setV, [wv, lc]);
+        if (!tr) return { cls: 'unresolved', why: 'base', fail };
+        setV = tr.map((m, i) => Object.assign({}, m, { sheets: setV[i].sheets, lvl: setV[i].lvl }));
+        wv = lc;
       }
       // (the set re-converged at the vertex to the scale of its own separations, which a member added above changes)
       const refine = () => setV.forEach((m, i) => { const f = newton(m, wv, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(setV, i))); if (f) Object.assign(m, f, { sheets: m.sheets, lvl: m.lvl }); });
