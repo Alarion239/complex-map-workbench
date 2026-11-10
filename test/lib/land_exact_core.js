@@ -51,7 +51,8 @@
     CONT_STEP_MIN: 1e-12,   // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
     CUT_JUMP: 1e-3,         // a step floor where H's linear prediction is off by more than this (relative to 1 + |H|) is a cut of H, not a branch point
     CONT_STEPS_MAX: 40000,  // steps a continuation may take: a glide near its start has members a spiral's pitch apart (about 1e-3 of |z| at u = 1e-4), and a step is a share of that
-    CONT_MS: 8000,          // milliseconds a single continuation may run: a longer one fails (a page call over its 20 s limit kills the session; the suite's raster step is 5 s)
+    YIELD_MS: 250,          // milliseconds of cells judged between two yields: a cell's judgement is several continuations, so a count of cells does not bound the time of a page call
+    CONT_MS: 8000,          // milliseconds a single continuation may run: a longer one fails (a page call over its limit fails)
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
     CONT_NEAR: 0.25,        // a continuation step is under this share of the distance to the nearest other member
     NEWT_ITER: 8,           // iterations of a Newton correction
@@ -465,7 +466,7 @@
     const work = [];
     for (let j = o.ny - 1; j >= 0; j--) for (let i = o.nx - 1; i >= 0; i--) work.push([i * FINE, j * FINE, FINE, 0]);
     const leaves = { boundary: [], branch: [] };
-    let spun = 0;
+    let lastYield = Date.now();
     while (work.length) {
       const [i, j, s, d] = work.pop();
       const ci = [[i, j], [i + s, j], [i, j + s], [i + s, j + s]];
@@ -525,7 +526,7 @@
           if (q.every((x) => x)) { fill(l.P, q[0].P, q[1].P); fill(q[0].P, q[1].P, q[2].P); }
         });
       });
-      if (++spun % 64 === 0) { tick(); yield; }
+      if (Date.now() - lastYield > o.YIELD_MS) { lastYield = Date.now(); tick(); yield; }
     }
     if (leaves.branch.length) yield* certifyBranches(leaves);
     yield* countHard(leaves);

@@ -161,7 +161,9 @@
   const COUNT_SCOPES = ['stride', 'boundary', 'critical'];
   const COUNT_WHERE = { stride: 'accepted cells', boundary: 'cells whose members change', critical: 'critical values of H' };
   const CTL_DEPTH = 1;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002 needs 2 halvings; at 1 it is over its bound at the cap)
-  const STEP_MS = 5000;   // a raster step's time in the page: a CDP call (20 s) stays under its limit with the core's longest unyielding stretch (CONT_MS) after it
+  const ANSWER_CHUNK = 1 << 20;   // (the characters of a raster step's answer one protocol message carries)
+  const STEP_CALL_MS = 120000;   // the time a raster step's page call may take: the step ends at the first yield after STEP_MS, and one cell's judgement (four corner continuations of CONT_MS each) does not yield
+  const STEP_MS = 5000;   // a raster step's time in the page before it ends at the next yield
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -351,18 +353,27 @@
   // the plane at index k parked and its frame kept as tag; its height reading kept for the references
   // the exact image reference at the current u (land_exact_core.js), run in steps; the result is the comparison with the frame's relief
   // plus the core's cells, certificates and failures (a result with failures is not exact)
+  let refMs = 0;
   async function runReference(sheets, ref) {
     await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(ref)})`);
     const t0 = Date.now();
-    let st = { done: false };
+    let st = { done: false }, answerMax = 0;
     for (let k = 0; !st.done && k < STEP_MAX; k++) {
       // (a call that the browser refuses is a named failure with the step, the time into the reference and the page's heap, not a thrown suite)
-      try { st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`)); } catch (e) {
+      try {
+        // (the step's answer is kept in the page and read in chunks of ANSWER_CHUNK characters: a message of the protocol has a size limit, and the answer holds every failure the step found)
+        const len = await ev(`(window.__lxAnswer = JSON.stringify(__lxRasterStep(${STEP_MS}))).length`, STEP_CALL_MS);
+        answerMax = Math.max(answerMax, len);
+        let text = '';
+        for (let at = 0; at < len; at += ANSWER_CHUNK) text += await ev(`window.__lxAnswer.slice(${at}, ${at + ANSWER_CHUNK})`);
+        st = JSON.parse(text);
+      } catch (e) {
         const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => 'page gone');
-        ok(`the raster step call ${k} was answered by the page (${String(e).slice(0, 120)}; heap ${heap} MB after ${((Date.now() - t0) / 1000).toFixed(0)} s)`, false, { k, heap });
+        ok(`the raster step call ${k} was answered by the page (${String(e).slice(0, 120)}; heap ${heap} MB after ${((Date.now() - t0) / 1000).toFixed(0)} s; the largest answer so far ${answerMax} characters)`, false, { k, heap, answerMax });
         return null;
       }
     }
+    refMs += Date.now() - t0;
     if (st.error) throw new Error('the reference threw: ' + st.error);
     return st.done ? st.res : null;
   }
@@ -541,7 +552,7 @@
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
   for (const c of CASES.filter((x) => !process.env.CMW_ONLY || x.tag === process.env.CMW_ONLY)) for (const sheets of MODES) {
     const name = `${c.tag}, ${sheets ? 'All sheets' : 'sheets off'}`;
-    const r = info[name] = {};
+    const r = info[name] = {}, caseT0 = Date.now(), refMs0 = refMs;
     await load(c, sheets);
     if (!rcDone) { rcDone = true; await rasterControls(); }
     const last = 1;   // (the glide from plane 0 to plane 1)
@@ -1218,6 +1229,7 @@
       const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => null);
       ok(`${d.t}: ${d.passes ? `the counterpart: ${d.name} (page heap ${heap} MB)` : `the control: ${d.name} fails the reference (page heap ${heap} MB)`}`, !!cr && d.need(cr), { off: cr && cr.off, failures: cr && cr.failures.slice(0, 3) });
     }
+    r.seconds = { case: Math.round((Date.now() - caseT0) / 1000), reference: Math.round((refMs - refMs0) / 1000) };   // (the case's time and the part of it the exact reference ran)
   }
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
