@@ -9,8 +9,8 @@
 //   and the same on both pages;
 // - control 1: on one page, the camera zoomed through the app's zoom at plane 0 scales the box at every u by the camera's own change (s before over s after), so
 //   a box frozen at any constant fails;
-// - control 2: on the long-lived page the mirror's view (V.left) multiplied by LEFT_CTL while parked at plane 0 does not change the box at any u (a box that
-//   reads the mirror fails).
+// - control 2: on the long-lived page the mirror's view (V.left) multiplied by LEFT_CTL while parked at plane 0 does not change the box at any u, nor the box of
+//   a park between planes (a box that reads the mirror fails).
 // Every read waits for the scene to be ready and settled. A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard
 // (ci/browser_shards.js). Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -61,6 +61,11 @@ const views0 = await ev('__cmwLandViews()');
 await ev(`__cmwLandViews({ leftScale: ${LEFT_CTL} }); 1`);
 const mirrored = {};
 for (const u of BOX_U) { await setU(u); mirrored[u] = await read(); }
+
+// a park between planes (svLetGo) with the mirror's view multiplied before the release has the camera's box too
+await ev(`__cmwSteps({ park: 0.5 }); 1`); await settled({ max: SETTLE_MS }); await ready();
+const parkedBetween = await read();
+ok('a park between planes with the mirror (V.left) x3 before the release has the camera\'s box', same(parkedBetween.box, long[0.5].box), { parked: half(parkedBetween.box), camera: half(long[0.5].box) });
 
 // the fresh page
 await loadPage();
