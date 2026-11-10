@@ -204,10 +204,6 @@ const SOFTWARE = {
 };
 
 const KNOWN = {
-  // the carried meshes order equal-depth sheets by a depth key finer than the interpolated source point's error, so the
-  // front sheet flips fragment to fragment on a symmetric map (#1245); the meshes' rest frame is the fallback #1321 removes,
-  // and the key is not tuned
-  'steps_mesh_tie_cmd.js': [{ re: /^the meshes' frame of z³ is as smooth as the exact pass's/, why: 'the meshes\' rest frame speckles where sheets tie (#1245), until #1321 draws the exact images at rest' }],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
