@@ -1230,7 +1230,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const cut = A.cell(), al = A.cell(), path = pathSlots(A);
         // a real exponent a < 0 glides in two phases (NatPaths.powaHom): the Möbius path's mode is set only then
         return {
-          sig: [type, Funcs.twoPhaseNeg(v.alpha)], f: `return cpow(z, ${al.v}, ${cut.x}, ${cut.y});`,
+          sig: [type], f: `return cpow(z, ${al.v}, ${cut.x}, ${cut.y});`,
           h: `bool two = ${path.p0}.x > 0.5;
   vec2 e = two ? vec2(t < 0.5 ? 1.0 + (-${al.x} - 1.0) * (2.0 * t) : -${al.x}, 0.0) : vec2(1.0 + (${al.x} - 1.0) * t, ${al.y} * t);
   vec2 w = cpow(z, e, ${cut.x}, ${cut.y});
