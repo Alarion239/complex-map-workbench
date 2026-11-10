@@ -327,9 +327,15 @@
         // (a made-up edge through the branch value bv, from one side of it to the other (so the track along it cannot complete, as for a real edge at a branch
         // value): its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the sheets with a member in
         // the box there, the second end's the next one at the other vertex; the sheets taken are those the scene counts a member of at the first vertex)
-        const rg = window.__lxRegion, ang = Math.atan2(Math.sign((rg[2] + rg[3]) / 2 - opt.syn[1]) || 1, Math.sign((rg[0] + rg[1]) / 2 - opt.syn[0]) || 1), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
-        want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
-        const set0 = membersAt(wv0), setB0 = membersAt(wo0);
+        // (the arm is along a diagonal, so the branch value is inside a cell of the loops and no loop's path runs through it; of the four diagonals the first, from the one toward the centre of the places, with a counted set of two members at both ends is taken)
+        const rg = window.__lxRegion, cx = Math.sign((rg[0] + rg[1]) / 2 - opt.syn[0]) || 1, cy = Math.sign((rg[2] + rg[3]) / 2 - opt.syn[1]) || 1;
+        let set0 = [], setB0 = [], wv0 = null, wo0 = null;
+        for (const [dx, dy] of [[cx, cy], [cx, -cy], [-cx, cy], [-cx, -cy]]) {
+          wv0 = [opt.syn[0] + dx * ${SYN_ARM} * h / Math.SQRT2, opt.syn[1] + dy * ${SYN_ARM} * h / Math.SQRT2]; wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
+          want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
+          set0 = membersAt(wv0); setB0 = membersAt(wo0);
+          if (set0.length >= 2 && setB0.length >= 2) break;
+        }
         if (set0.length < 2 || setB0.length < 2) return { cls: 'unresolved', why: 'syn', n: [set0.length, setB0.length], want, fail };
         const code = window.__lxSheetCode + set0[0].sheet, code1 = window.__lxSheetCode + setB0[1].sheet;
         e = [set0[0].z[0], set0[0].z[1], setB0[1].z[0], setB0[1].z[1], 0, code, code1, wv0[0], wv0[1], wo0[0], wo0[1]];
