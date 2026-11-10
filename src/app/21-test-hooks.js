@@ -264,6 +264,13 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
+  // The views the steps view's Landscape reads: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy); { srcScale, leftScale } multiplies the
+  // shared camera's s (S.srcView) and the mirror's (V.left) by those factors (the controls: the glide's box follows the camera and does not follow the mirror's history)
+  window.__cmwLandViews = (o) => {
+    if (o && o.srcScale) S.srcView.s *= o.srcScale;
+    if (o && o.leftScale) V.left.s *= o.leftScale;
+    return { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left) };
+  };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
