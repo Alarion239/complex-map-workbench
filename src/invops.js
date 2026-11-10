@@ -533,7 +533,7 @@ const InvOps = (() => {
     }
     const dz = (i, j) => abs(sub(z[i], z[j])) * (1 - REPT_ROUND * U);
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!(dz(i, j) > rho[i] + rho[j])) return null;
-    // the radii refined, each disc holding exactly one root r_i now: 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k),
+    // the radii refined, each disc holding exactly one root r_i (the discs are disjoint): 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k),
     // where |p'/p(z_i)| >= G_i (the true p's |p'| >= |p'(z_i)| - e', |p| <= |p(z_i)| + e) and |z_i - r_k| >= |z_i - z_k| - rho_k > 0
     // (the discs are disjoint), so 1 / |z_i - r_i| >= G_i - sum_(k != i) 1 / (|z_i - z_k| - rho_k); when that is not positive
     // the crude radius stays. Without it the radius is n |p/p'| and the chain error would grow n-fold at every level
