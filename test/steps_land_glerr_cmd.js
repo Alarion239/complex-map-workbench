@@ -85,7 +85,7 @@ const PROBE = `(() => {
   if (window.__glerr) return 1;
   const E = window.__glerr = { uniform1i: [], warns: [], other: [] };
   const P = WebGL2RenderingContext.prototype, orig = P.uniform1i;
-  P.uniform1i = function (loc, v) { this.getError(); orig.call(this, loc, v); const e = this.getError(); if (e) E.uniform1i.push(e); };
+  P.uniform1i = function (loc, v) { for (let e = this.getError(); e; e = this.getError()) E.other.push(e); orig.call(this, loc, v); const e = this.getError(); if (e) E.uniform1i.push(e); };
   const w = console.warn;
   console.warn = function (...a) { if (a[0] === 'shader') E.warns.push(a.slice(1).join(' ').slice(0, 200)); return w.apply(console, a); };
   return 1;
@@ -111,8 +111,9 @@ for (const sheets of [false, true]) for (const c of CASES) {
   await at('plane w', `{ go: 1, now: true, clock: 0 }`);
   const E = await ev('window.__glerr');
   const carry = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null');
-  info.cases[key] = { uniform1iErrors: E.uniform1i.length, linkWarnings: E.warns.length, drains: drawn.length };
+  info.cases[key] = { uniform1iErrors: E.uniform1i.length, pendingBefore: E.other.length, linkWarnings: E.warns.length, drains: drawn.length };
   ok(`${key}: no glUniform1i raised a GL error`, E.uniform1i.length === 0, E.uniform1i.slice(0, 4));
+  ok(`${key}: no GL error was pending before a glUniform1i`, E.other.length === 0, E.other.slice(0, 4));
   ok(`${key}: no program failed to link`, E.warns.length === 0, E.warns.slice(0, 4));
   ok(`${key}: no GL error is pending after a frame`, drawn.length === 0, drawn.slice(0, 4));
 }
@@ -131,4 +132,22 @@ const ctl = await ev(`(() => {
   return window.__glerr.uniform1i.length - n;
 })()`);
 ok('control: a glUniform1i on a float uniform is counted', ctl === 1, ctl);
+// control: an error pending before a glUniform1i is recorded apart, not swallowed
+const pend = await ev(`(() => {
+  const gl = GLR.gl, E = window.__glerr, n = E.other.length;
+  gl.activeTexture(0);   // (an invalid enum: INVALID_ENUM is pending)
+  gl.uniform1i(null, 0);
+  gl.getError();
+  return E.other.length - n;
+})()`);
+ok('control: an error pending before a glUniform1i is recorded', pend === 1, pend);
+// control: a program that fails to link reaches the app's 'shader' warning
+await ev(`GLR._src.DEFS.glerrBroken = { chain: false, vs: () => 'void main() { gl_Position = vec4(0.0); }', fs: () => 'not glsl' }; 1`);
+let warned = [];
+for (let k = 0; k < 40 && !warned.length; k++) {
+  await ev(`GLR._src.program('glerrBroken'); 1`); await ev(rAF2);
+  warned = (await ev('window.__glerr.warns')).filter((w) => /glerrBroken/.test(w));
+}
+await ev(`delete GLR._src.DEFS.glerrBroken; 1`);
+ok("control: a program that fails to link reaches the 'shader' warning", warned.length >= 1, warned);
 return { pass: fails.length === 0, fails, info };
