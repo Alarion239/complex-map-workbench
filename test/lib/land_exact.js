@@ -201,6 +201,7 @@
   const Z_CONV = 1e-10;   // Newton's method on a member stops when its residual is within MONO_CERT and its next correction is within this share of 1 + |z|, so one member found twice agrees to far under SAME_Z
   const ARRIVE_Z = 1e-4;   // a tracked member is a member of the set it arrives at when their z agree within this share of 1 + |z| (and within ID_SHARE of the set's smallest separation)
   const C4_STEP_SIDE = 1;   // the c4Inject probe puts its wrong prediction on the first step of this side of the loop (0 based)
+  const AGG_NA = { empty: { 'log of an annulus': 'no seam edge in any row (no pending edge at all)', 'cube root': 'no seam edge in any row (no pending edge at all)', 'Möbius, √': 'no cut-edge pass runs' }, seedShort: { 'log of an annulus': 'with 2 x 2 seeds and no rings the made-up edge at u = 0.25 still certifies a branch: Newton from the four seeds finds every member of its sets (3 members at the loop base, counted equal to the scene\'s count)', 'Möbius, √': 'no cut-edge pass runs' }, sepBite: { 'Möbius, √': 'no cut-edge pass runs' }, synWrong: { 'Möbius, √': 'no cut-edge pass runs' } };   // (case tag -> reason) where an aggregate control cannot bite
   const C4_R = 0.5;   // the separation probe's loop: half-side in grid steps
   const TEXEL_CTL = 10;   // the end-match control moves a texel's z by this many END_Z_TOL
   const CTL_NA_BRANCH = { 'log of an annulus@0.25': 'no pending edge', 'log of an annulus@0.5': 'no pending edge', 'log of an annulus@0.75': 'no pending edge', 'cube root@0.25': 'no pending edge', 'cube root@0.5': 'no pending edge', 'cube root@0.75': 'no pending edge' };   // the rows (case tag @ u) with no branch edge for the branch controls, with the reason
@@ -1260,7 +1261,8 @@
         if (kOk >= 0 || useSyn) {
           const c3 = await onEdge({ dropMember: true }), c5 = await onEdge({ texelShift: TEXEL_CTL }), c7 = await onEdge({ seeds: { n: 2, rings: false } });
           ok(`${t}: control: with one member dropped from the first set the count check fails and nothing is tracked (${c3.cls}, ${c3.a})`, c3.cls === 'unresolved' && c3.a === 'shortfall', c3);
-          if (!useSyn) ok(`${t}: control: with the first texel moved ${TEXEL_CTL} x END_Z_TOL the end has no member (${c5.cls}, ${c5.why})`, c5.cls === 'unresolved' && c5.why === 'ends', c5);
+          ok(`${t}: control: with the first texel moved ${TEXEL_CTL} x END_Z_TOL the end has no member (${c5.cls}, ${c5.why})`, c5.cls === 'unresolved' && c5.why === 'ends', c5);
+          r[u].c7 = { cls: c7.cls, a: c7.a, b: c7.b, N: c7.N, n: c7.n, base: useSyn ? 'syn' : 'edge' };
           if (c7.cls === 'unresolved' && (c7.a === 'shortfall' || c7.b === 'shortfall' || c7.why === 'syn')) bit.seedShort++;
         } else ok(`${t}: control: this row has no certified edge for the completeness, texel and seeding controls, as the row's list expects (${certs.length} edges)`, (`${c.tag}@${u}` in CTL_NA_ROWS.cert) && certs.length === 0, { n: certs.length });
         if (kSeam >= 0) { const eb = await ev(`__lx.certEdge(${kSeam}, { emptyB: true })`); if (eb.cls === 'unresolved') bit.empty++; ok(`${t}: control: a seam edge whose second end has no certified member is unresolved (${eb.cls})`, eb.cls === 'unresolved', eb); }
@@ -1714,9 +1716,11 @@
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
     }
   }
-  ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
-  ok(`control: the seeding control (2 x 2 seeds, no rings) falls short of the count on some row (${bit.seedShort} rows)`, bit.seedShort > 0, bit);
-  ok(`control: the separation-check probe (SEP_SHARE to infinity) swaps two members of a loop beside the branch value on some row (C4) (${bit.sepBite} rows)`, bit.sepBite > 0, bit);
-  ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
+  // (each case's aggregates bite on one of its rows, or the case is on the list of cases where the control has nothing to run on, with the reason)
+  for (const [what, n, na] of [['the emptied-second-end control', bit.empty, AGG_NA.empty], ['the seeding control (2 x 2 seeds, no rings), which falls short of the count', bit.seedShort, AGG_NA.seedShort], ['the separation probe (C4: a wrong member injected whole is rejected with the separation check and accepted without it)', bit.sepBite, AGG_NA.sepBite]]) {
+    const tag = process.env.CMW_ONLY || 'all';
+    ok(`control: ${what} bit on some row of this case (${n} rows)${tag in na ? ', and the case is on the list of cases it cannot: ' + na[tag] : ''}`, (n > 0) !== (tag in na), bit);
+  }
+  ok(`control: the wrong-second-member control of the made-up edge bit on some row of this case (${bit.synWrong} rows)${(process.env.CMW_ONLY || 'all') in AGG_NA.synWrong ? ', and the case is on the list of cases it cannot: ' + AGG_NA.synWrong[process.env.CMW_ONLY] : ''}`, (bit.synWrong > 0) !== ((process.env.CMW_ONLY || 'all') in AGG_NA.synWrong), bit);
   return { pass: !fails.length, fails, info };
 })
