@@ -720,7 +720,26 @@
       if (z === 'unread') zerosUnread.push(before.map((s) => s.id).join('>') + '>' + (built[e.k - 1].def ? built[e.k - 1].def.id : '?'));
       else if (z && z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1) exactZeros.push({ k: e.k, z });
     }
-    const scene = { key, map, W, K, exactZeros, zerosUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
+    // The zeros of the inputs of the branch steps past the glide's span (the lift the frame's height is read from): pulled back with the glide's own step at
+    // its progress, a Möbius through M(t) and not the end matrix; a non-Möbius step before the branch step, or two steps, is unread
+    const liftZeros = [], liftUnread = [];
+    if (map.mode === 1 && map.hi >= 1) {
+      for (let k = map.hi + 1; k <= S.steps.length; k++) {
+        const bk = built[k - 1], idk = bk && bk.def ? bk.def.id : '?';
+        if (!liveK(k) || !(idk === 'log' || idk === 'root' || idk === 'powa' || idk === 'pown')) continue;
+        const before = [];
+        for (let j = 1; j < k; j++) {
+          if (!liveK(j)) continue;
+          const bj = built[j - 1], id = bj.def ? bj.def.id : '?', m = id === 'mobius' && bj.vals ? [bj.vals.a, bj.vals.b, bj.vals.c, bj.vals.d] : null;
+          const path = m ? CX.mobPath(m) : null, at = j === map.hi && map.t < 1 ? (path ? path(map.t) : null) : m;
+          before.push({ id, m: id === 'mobius' && !at ? null : at });
+        }
+        const z = zeroOf(before, C(0, 0));
+        if (z === 'unread') liftUnread.push(before.map((s) => s.id).join('>') + '>' + idk);
+        else if (z && z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1) liftZeros.push({ k, z });
+      }
+    }
+    const scene = { key, map, W, K, exactZeros, zerosUnread, liftZeros, liftUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
     sceneMemos.set(key, scene);
     if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
     return scene;
@@ -1044,6 +1063,11 @@
   window.__cmwLandZeros = (map, drop) => {
     sceneMapOver = map || null;
     try { const sc = sceneOf(); return sc ? { zeros: drop ? [] : sc.exactZeros.map((q) => [q.z.re, q.z.im, q.k]), unread: sc.zerosUnread.slice() } : null; } finally { sceneMapOver = null; }
+  };
+  // the zeros of the branch steps' inputs past the glide's span, with the glide's step at its progress: { zeros: [[re, im, k]], unread: [chain] }; drop as above
+  window.__cmwLandLiftZeros = (map, drop) => {
+    sceneMapOver = map || null;
+    try { const sc = sceneOf(); return sc ? { zeros: drop ? [] : sc.liftZeros.map((q) => [q.z.re, q.z.im, q.k]), unread: sc.liftUnread.slice() } : null; } finally { sceneMapOver = null; }
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };

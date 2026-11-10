@@ -967,6 +967,15 @@
               ok(`${t}: the zero of an input with no step before it is the node (${JSON.stringify(z1)}), after a Möbius step it is its inverse at the node (${JSON.stringify(z2)}), and after two steps it is unread (${JSON.stringify(z3)})`, Array.isArray(z1) && near(z1, 0, 0) && Array.isArray(z2) && near(z2, 0, 0.1) && z3 === 'unread', { z1, z2, z3 });
               ok(`${t}: the control: a zero shifted by ${ZERO_SHIFT} is not the Möbius step's inverse at the node`, Array.isArray(z2) && !near([z2[0] + ZERO_SHIFT, z2[1]], 0, 0.1), { z2 });
             }
+            if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
+              // (the lift's branch point: the root's input zero past the glide's span, pulled back through the glide's Möbius at its progress: z = i at the middle, another z at another u; the list dropped is empty; a non-Möbius step before the root is unread)
+              const lz = async (tt, drop) => ev(`__cmwLandLiftZeros({ mode: 1, base: 0, hi: 1, t: ${tt} }${drop ? ', true' : ''})`);
+              const lm = await lz(GLIDE_MID), la = await lz(MID_U[0]), ld = await lz(GLIDE_MID, true);
+              const ch = await ev(`__cmwLandZerosOf([{ id: 'recip' }], [0, 0])`);
+              ok(`${t}: the lift's branch point at u = ${GLIDE_MID} is i (${JSON.stringify(lm && lm.zeros)}, unread ${JSON.stringify(lm && lm.unread)})`, !!lm && lm.zeros.length === 1 && Math.hypot(lm.zeros[0][0], lm.zeros[0][1] - 1) <= ZERO_TOL && lm.unread.length === 0, { lm });
+              ok(`${t}: the control: the lift's branch point follows u (${JSON.stringify(la && la.zeros)} at u = ${MID_U[0]})`, !!la && la.zeros.length === 1 && Math.hypot(la.zeros[0][0] - lm.zeros[0][0], la.zeros[0][1] - lm.zeros[0][1]) > ZERO_SHIFT / 100, { la, lm });
+              ok(`${t}: the control: the list dropped is empty (${ld && ld.zeros.length}) and a step that is not a Möbius step before the root is unread (${JSON.stringify(ch)})`, !!ld && ld.zeros.length === 0 && ch === 'unread', { ld, ch });
+            }
             if (c.dipole && u === MID_U[1]) {
               // (the dipole's pole lies between the pole search's grid points: with the pole read from the Möbius matrix the count is right, without it the closed leaf's winding is a zero less a pole)
               const dp = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, { noExactPoles: true })`), pn = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`);
