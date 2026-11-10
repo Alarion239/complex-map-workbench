@@ -81,8 +81,8 @@
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
-  const FALLBACK_DRAWS = 30;   // (STRAD_FALLBACK_FRAMES in src/gl/06-draws-3d.js: the carried draws that take every cell after an overflow)
-  let ovSeen = 0;   // (the overflows counted so far by the controls)
+  const UNCLIPPED_ALL = ['Möbius with a pole in the box', 'Roots as preimages'];   // (the cases whose All sheets draw is not clipped at the block: it has no classes)
+  const FALLBACK_DRAWS = 6;   // (STRAD_FALLBACK_FRAMES in src/gl/06-draws-3d.js: the carried draws that take every cell after an overflow)
   const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
@@ -499,6 +499,7 @@
   await view(VIEW_W, VIEW_H, false, false);
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
   for (const c of CASES.filter((x) => !process.env.CMW_ONLY || x.tag === process.env.CMW_ONLY)) for (const sheets of MODES) {
+    let ovSeen = 0;   // (the overflows the page has counted so far: the controls' own)
     const name = `${c.tag}, ${sheets ? 'All sheets' : 'sheets off'}`;
     const r = info[name] = {};
     await load(c, sheets);
@@ -532,36 +533,39 @@
         const cc = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         if (process.env.CMW_COUNTS) console.log('COUNTS', t, JSON.stringify(cc));
-        ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
-        ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
-        ok(`${t}: the classes are the CPU's from the places and the cuts (${cc && cc.cpuDiffer} cells differ; ${cc && cc.cpuNear} more have a corner on a plane)`, !!cc && cc.cpuDiffer === 0, cc);
-        if (u === GLIDE_MID && cc && cc.mix > 0) {
-          await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          const cf = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
-          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          ok(`${t}: control: with every MIX cell taken as OUT the CPU's classes differ (${cf && cf.cpuDiffer} cells)`, !!cf && cf.cpuDiffer > 0, cf);
-        }
-        // the list's overflow is counted, never silent: none in the suite, and a list of 8 cells counts one (control; the next draws then take every cell through the clip program)
-        const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0');
-        const ov0 = await overflow();
-        ok(`${t}: the straddling cells' list has not overflowed (${ov0} so far; ${ovSeen} expected)`, ov0 === ovSeen, { ov0, ovSeen });
-        if (u === GLIDE_MID && cc && cc.mix > 8) {
-          await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          await new Promise((r) => setTimeout(r, 600));
-          await ev('__svCarryProbe = Object.assign({ w: 0 }, __svCarryProbeSettings.stradShort); 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          const ov1 = await overflow();
-          ok(`${t}: control: a list of 8 cells overflows (${ov1} counted)`, ov1 > ov0, { ov0, ov1 });
-          // (the fallback's draws are used up, and no read of the short list is out, before the next frame is read)
-          let left = 1;
-          for (let i = 0; left > 0 && i < 4 * FALLBACK_DRAWS; i++) {
-            await ev(`__svCarryProbe = { w: ${i + 1} }; 1`); await settled({ max: LOAD_MAX_MS });
-            left = await ev('(__cmwLandCarry() || {}).stradFallback || 0');
+        if (!cc) ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets });
+        else {
+          ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
+          ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
+          ok(`${t}: the classes are the CPU's from the places and the cuts (${cc && cc.cpuDiffer} cells differ; ${cc && cc.cpuNear} more have a corner on a plane)`, !!cc && cc.cpuDiffer === 0, cc);
+          if (u === GLIDE_MID && cc && cc.mix > 0) {
+            await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            const cf = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+            await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            ok(`${t}: control: with every MIX cell taken as OUT the CPU's classes differ (${cf && cf.cpuDiffer} cells)`, !!cf && cf.cpuDiffer > 0, cf);
           }
-          await new Promise((r) => setTimeout(r, 600));
-          await ev('__svCarryProbe = { w: -1 }; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          ok(`${t}: the fallback ends (${left} draws left)`, left === 0, { left });
-          ovSeen = await overflow();
-          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          // the list's overflow is counted, never silent: none in the suite, and a list of 8 cells counts one (control; the next draws then take every cell through the clip program)
+          const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0');
+          const ov0 = await overflow();
+          ok(`${t}: the straddling cells' list has not overflowed (${ov0} so far; ${ovSeen} expected)`, ov0 === ovSeen, { ov0, ovSeen });
+          if (u === GLIDE_MID && cc && cc.mix > 8) {
+            await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await new Promise((r) => setTimeout(r, 600));
+            await ev('__svCarryProbe = Object.assign({ w: 0 }, __svCarryProbeSettings.stradShort); 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            const ov1 = await overflow();
+            ok(`${t}: control: a list of 8 cells overflows (${ov1} counted)`, ov1 > ov0, { ov0, ov1 });
+            // (the fallback's draws are used up, and no read of the short list is out, before the next frame is read)
+            let left = 1;
+            for (let i = 0; left > 0 && i < 4 * FALLBACK_DRAWS; i++) {
+              await ev(`__svCarryProbe = { w: ${i + 1} }; 1`); await settled({ max: LOAD_MAX_MS });
+              left = await ev('(__cmwLandCarry() || {}).stradFallback || 0');
+            }
+            await new Promise((r) => setTimeout(r, 600));
+            await ev('__svCarryProbe = { w: -1 }; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            ok(`${t}: the fallback ends (${left} draws left)`, left === 0, { left });
+            ovSeen = await overflow();
+            await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          }
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
@@ -619,7 +623,7 @@
           r.rowOver = ro;
           ok(`${t}: in the Top view no image row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} from the parked plane's (row ${ro.row} has ${ro.n})`, ro.n <= ROW_OVER_MAX, ro);
           // (controls: the per-fragment side discard put back, and the block's sides a little wide, each leave a row over the bound)
-          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide'], ['classOut', 'the cells over a side left out'], ['classAllIn', 'every cell drawn whole']]) {
+          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide'], ['classOut', 'the cells over a side left out']]) {
             let o;
             try {
               await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -642,9 +646,9 @@
               await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             }
           };
-          await narrow('clipNarrow', 'ctlN'); await narrow('classInNarrow', 'ctlI');
+          await narrow('clipNarrow', 'ctlN'); await narrow('classAllInNarrow', 'ctlI');
           const dI = (await compare('ctlN', 'ctlI')).frac;
-          ok(`${t}: control: with the sides narrow and every straddling cell taken as inside the frame is not the clipped one (${dI} of pixels over ${DIFF_TOL}; over ${IN_CONTROL_MIN})`, dI > IN_CONTROL_MIN, { dI });
+          ok(`${t}: control: with the sides narrow and every cell taken as inside the frame is not the clipped one (${dI} of pixels over ${DIFF_TOL}; over ${IN_CONTROL_MIN})`, dI > IN_CONTROL_MIN, { dI });
         }
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
         if (lastU && COMBO_CONTROL.includes(c.tag) && !r.comboControl) {

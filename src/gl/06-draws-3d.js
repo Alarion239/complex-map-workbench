@@ -784,7 +784,7 @@
   // The straddling cells' list (LAND_STRAD_K) holds a frame's MIX cells when there are no more than its length. The count is read back without a stall (the last
   // row's base and count, a frame or two late): a count over the list's length is counted (stradOverflow, which the suites assert 0) and
   // the next STRAD_FALLBACK_FRAMES carried draws take every cell through the clip program
-  const STRAD_FALLBACK_FRAMES = 30, STRAD_POLL_MS = 24;
+  const STRAD_FALLBACK_FRAMES = 6, STRAD_POLL_MS = 24;
   let stradLast = null, stradOverflow = 0, stradFallback = 0, stradPending = null, stradPbo = null, stradFbo = null, stradT = 0;
   const stradPoll = () => {
     stradT = 0;
