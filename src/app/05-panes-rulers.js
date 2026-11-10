@@ -514,7 +514,7 @@
       for (const s of S.shapes) {
         if (!outlineShown(s)) continue;
         const map = shapeMap(s, map0);
-        if (!map) continue;
+        if (!map || reptExact(map)) continue;
         const r = shapeGPU(s);
         if (!r.lineRes) continue;
         const dash = openDash(r, map);

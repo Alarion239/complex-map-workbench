@@ -1707,6 +1707,7 @@
           o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
+          reptHatch(mp, map, 'L');
           if (o.after) o.after();
           onPage = true;
         },
@@ -1722,7 +1723,7 @@
     if (!frame) GLR.begin(pane.pw, pane.ph);
     for (const s of hideStrokes ? [] : S.shapes) {
       if (!outlineShown(s, !col)) continue;
-      const map = svShapeMap(s, map0), r = map && shapeGPU(s);
+      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));

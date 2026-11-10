@@ -244,6 +244,27 @@
   window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
   window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
+  // a Repeat chain's exact plane (#1472): o.nodes sets the GPU's node budget of a REPT search (GLR.setReptNodes; 0: its
+  // own), for the unresolved hatch's control; o.ws [[re, im]]: the CPU twin of the left plane's REPT searches
+  // (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root solves, the
+  // pruned children, and the pixels covered, empty and unresolved
+  window.__cmwRept = (o) => {
+    if (o && 'nodes' in o) { GLR.setReptNodes(o.nodes); requestRender('L', 'R'); }
+    if (!o || !o.ws) return null;
+    const map0 = stageMap(leftStage()), pix = 1 / (paneL.view.s * paneL.dpr), out = [];
+    for (const s of S.shapes) {
+      const m = shapeMap(s, map0), p = m && pathOf(s, m, 'L');
+      if (!p || p.path !== 'inverse' || !p.plan.ops.some((x) => x.kind === 'REPT')) continue;
+      const r = { shape: s.id, nodesMax: 0, nodes: 0, pruned: 0, covered: 0, empty: 0, unresolved: 0 };
+      for (const [re, im] of o.ws) {
+        const e = Inverse.enumerate(p.plan, p.prep, C(re, im), pix, { leaves: false }).rept;
+        r.nodesMax = Math.max(r.nodesMax, e.nodes); r.nodes += e.nodes; r.pruned += e.pruned;
+        if (e.verdict > 0) r.covered++; else if (e.verdict === 0) r.empty++; else r.unresolved++;
+      }
+      out.push(r);
+    }
+    return out;
+  };
   // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
   window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { hear: SND && SND.hear ? SND.hear.state() : null, glide: SND ? !!SND.state().glide : false, rope: snd.rope ? [snd.rope.x, snd.rope.y, snd.rope.src] : null, ptype: snd.ptype, listenFn: snd.play && snd.play.fn ? { counts: snd.play.h.counts || null, dur: snd.play.dur, mode: snd.play.h.mode || '' } : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
   // v16 constructions (CORE): the graph's order, the forms, the last recompute, the events; o.call runs a cm call,

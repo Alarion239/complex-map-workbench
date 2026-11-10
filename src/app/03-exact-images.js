@@ -79,6 +79,32 @@
     }
     return p;
   }
+  // the unresolved pixels of the area shapes that map draws by a REPT plan, hatched over the frame open in pane (a region
+  // mask leaves them uncovered, drawScene's opt.fills: the picture painted through the mask then shows them here)
+  function reptHatch(pane, map, role) {
+    if (!reptExact(map)) return;
+    const recs = lastRecs;
+    for (const s of S.shapes) {
+      if (s.visible === false || kindType(s) !== 'area' || shapeMap(s, map) !== map) continue;
+      const p = pathOf(s, map, role, 'flat', { recs });
+      if (p.path !== 'inverse') continue;
+      const ink = shapeInk(s);
+      try {
+        GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
+          look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN() },
+          scissor: null, motion: false, coldOk: offRender, rept: 2 });
+      } catch (err) { /* the mask's own pass has reported a failure */ }
+    }
+  }
+  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
+  // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
+  // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
+  function reptExact(map) {
+    const m = normalizeMap(map);
+    if ((m.mode || 0) !== 0) return false;
+    const plan = invPlan(m.a || 0, m.b || 0);
+    return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
+  }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)
   const invPreps = new Map(), invSings = new Map();
@@ -641,7 +667,7 @@
           res = GLR.drawInverse({
             map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
             look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch: { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) } },
-            scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender,
+            scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0,
           });
         } catch (err) { res = 'error'; }
         if (res !== 'drawn') break;                             // drawn in the main pass, from here on
@@ -708,7 +734,7 @@
             res = GLR.drawInverse({
               map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch },
-              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender,
+              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0,
             });
           } catch (err) { if (!invThrew) { invThrew = true; console.error('exact images: inverse pass failed; drawing forward', err); } }
           if (res === 'drawn') {

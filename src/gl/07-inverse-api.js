@@ -147,6 +147,16 @@
     return DCOLOR.replace('uniform float uDpr;', '') + `
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
+#ifdef IX_REPT
+  // a REPT plan's member maps to the pixel's own w through its stages (uIxA, uIxB] (certified, InvOps' REPT section),
+  // so a colour plane at or after them reads w, not z carried forward (the copies' float32 error grows by the chain's
+  // expansion, up to 1 / |dz/dw|)
+  if (uGs <= uIxA && uGt >= uIxB) {
+    if (uIxB >= uGt) return dcolorD(ixRepW, ixDwX, ixDwY);
+    vec2 v = chainRange(ixRepW, uIxB, uGt), vx = chainRange(ixRepW + ixDwX, uIxB, uGt) - v;
+    return dcolorD(v, vx, uGan ? cmul(cdiv(vx, ixDwX), ixDwY) : chainRange(ixRepW + ixDwY, uIxB, uGt) - v);
+  }
+#endif
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   if (uGs >= uGt) return dcolorD(z, dX, dY);
   vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
@@ -280,6 +290,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     return null;
   }
+  // a REPT search's node budget (uIxRepNodes, min'd with REPEAT_NODES_MAX in the walker): the walker's own unless a test
+  // starves it (setReptNodes, the unresolved hatch's control)
+  let reptNodes = 1 << 30;
   // ---- per-pass data from Inverse.prepare (cached per prep object and program op list) ----
   const passCache = new WeakMap();
   const isFinC = (z) => !!z && Number.isFinite(z.re) && Number.isFinite(z.im);
@@ -321,6 +334,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       const sm = prep.stopMob, T = CX.mobScaled(sm.T);
       d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP ? 1 : 0;
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
+    }
+    // a REPT plan's forward enclosures E_r (x0, y0, x1, y1; already rounded outward to float32 by Inverse.prepare), the
+    // whole plane as x0 > x1
+    const nE = GLChain.reptLevels();
+    d.repE = new Float32Array(4 * nE);
+    for (let r = 0; r < nE; r++) {
+      const e = prep.rept && prep.rept.E[r];
+      d.repE.set(e ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
     }
     const sing = (prep.sing || []).slice(0, 4);
     sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
@@ -609,6 +630,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxRK) gl.uniform1iv(P.loc.uIxRK, d.RK);
     if (P.loc.uIxAB) gl.uniform4fv(P.loc.uIxAB, d.AB);
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
+    if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
+    u1i(P, 'uIxRepNodes', reptNodes);
+    // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out (a region mask), 2 alone hatched)
+    u1i(P, 'uIxRepHatch', st.rept || 0);
     u1i(P, 'uIxStopOp', d.stopOp);
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);
@@ -955,7 +980,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
