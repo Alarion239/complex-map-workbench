@@ -132,11 +132,9 @@
     return { cells: M * M, in: inn, out, mix, listed: raw.rowB[4 * (N - 2)] + raw.rowB[4 * (N - 2) + 1], K: raw.K, cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * M };
   };
   const classCounts = async () => JSON.parse(await ev(`JSON.stringify((${classCheck})(__cmwLandCarry() && __cmwLandCarry().classRaw, ${CLASS_BORDER_EPS}))`));
-  const STRAD_STEP_U = 0.01, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.02)
-  const MIX_K = 2048;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
-  const STRAD_SYNC_FRAC = 0.75, STRAD_DU_MAX = 0.02, SCRUB_STEP_U = 0.02;   // (STRAD_SYNC_FRAC and STRAD_DU_MAX mirror src/gl/06-draws-3d.js: the count is read at this share of the list's length, and a glide step over STRAD_DU_MAX is a jump)
-  const STRAD_DELTA_MAX = MIX_K * (1 - STRAD_SYNC_FRAC) / 2;   // (the most the count of straddling cells may rise between continuous frames: half the headroom between the read's trigger and the list's length, 256; a fall cannot overflow the list. SCRUB_STEP_U: the scrub's step of u)
-  const SMALL_K_DELTA_MAX = 1024 * (1 - STRAD_SYNC_FRAC) / 2;   // (the same bound for a list of 1024: 128, which the scrub's rise at the end of the glide exceeds, the control that the bound can fail)
+  const SCRUB_STEP_U = 0.02;   // (the scrub's step of u)
+  const LIST_K0 = 2048, SHORT_K = 64;   // (the straddling cells' list's first capacity: LAND_STRAD_K in src/gl/03-glsl-3d.js, which a frame with more cells doubles; a control's short first capacity)
+  const GROW_CONTROLS = [['log of an annulus', true, 0.64], ['cube root', false, 0.24]];   // (case, All sheets, u: frames whose straddling cells outnumber a list of SHORT_K, and LIST_K0 in the first)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
@@ -1018,30 +1016,52 @@
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
   const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0, nonT: 0, noLam: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
-  // the count of straddling cells rises little between continuous frames (a step of at most STRAD_DU_MAX of u): a scrub in steps of SCRUB_STEP_U, the raw
-  // changes measured, none rescaled, each u drawn once (the count is a function of u, so a fall one way is a rise the other: both directions); a longer step is a
-  // jump, which reads the count. Runs in steps_land_strad_cmd: every case, both modes
+  // The straddling cells' list holds every one of a frame's cells, however many: a scrub in steps of SCRUB_STEP_U (each u drawn once) reads each frame's count of
+  // them (classCounts) against the capacity the draw's list had, and the page's count of draws whose list was cut off; the count's rises between frames are printed as data
+  // (the largest per case, the capacity and the count at the end). The controls: a list of SHORT_K that is not raised is cut off on frames whose count is over it (the
+  // check's own failure, which the control asserts), and the same short list that grows draws the frame the list of LIST_K0 does. Runs in steps_land_strad_cmd: every case, both modes
+  const truncatedDraws = async () => ev('(__cmwLandCarry() || {}).stradTruncated || 0');
   const scrubRise = async (t, c, sheets) => {
     await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
     const us = [];
     for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
     us.push(0.99, 1 - END_U);
-    let prev = null, prevU = null, worst = 0, at = null, steps = 0, longSteps = 0, framesWithClasses = 0;
+    let prev = null, rise = 0, riseAt = null, most = 0, mostAt = null, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
+    const t0 = await truncatedDraws();
     for (const x of us) {
       await setU(x);
       const k = await classCounts();
       if (!k) continue;
       framesWithClasses++;
-      if (prev !== null) {
-        if (Math.abs(x - prevU) > STRAD_DU_MAX + 1e-9) longSteps++;
-        else { steps++; if (Math.abs(k.mix - prev) > worst) { worst = Math.abs(k.mix - prev); at = x; } }
-      }
-      prev = k.mix; prevU = x;
+      if (prev !== null && k.mix - prev > rise) { rise = k.mix - prev; riseAt = x; }
+      if (k.mix > most) { most = k.mix; mostAt = x; }
+      if (k.mix > k.K) over++;
+      if (k.listed !== k.mix) unlisted++;
+      capMax = Math.max(capMax, k.K);
+      prev = k.mix;
     }
+    const cut = (await truncatedDraws()) - t0;
     await ev('__svCarryProbe = null; 1');
+    info[`${t}: straddling cells`] = { frames: framesWithClasses, most, mostAt, rise, riseAt, capacity: capMax };
     if (!framesWithClasses) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
-    ok(`${t}: the count of straddling cells changes by at most ${STRAD_DELTA_MAX} between continuous frames, either way (${steps} steps of at most ${STRAD_DU_MAX} of u, ${longSteps} longer ones read the count; the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && steps > 0, { worst, at, steps, longSteps });
-    if (c.tag === ROW_CASE && !sheets) ok(`${t}: control: the same bound for a list of 1024 (${SMALL_K_DELTA_MAX}) is broken by the largest change (${worst}), so the premise is not vacuous`, worst > SMALL_K_DELTA_MAX, { worst });
+    ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most}, at u=${mostAt}; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
+    ok(`${t}: no draw of the scrub had its list cut off (${cut})`, cut === 0, { cut });
+    if (GROW_CONTROLS.some(([tag, sh]) => tag === c.tag && sh === sheets)) {
+      const [, , u] = GROW_CONTROLS.find(([tag, sh]) => tag === c.tag && sh === sheets);
+      await setU(u);
+      await grab('full');
+      await ev('__svCarryProbe = __svCarryProbeSettings.stradShortFixed; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      const k0 = await truncatedDraws(), kf = await ev('(__cmwLandCarry() || {}).stradCount || 0');
+      await ev('__svCarryProbe = __svCarryProbeSettings.stradShortFixed; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u);
+      const k1 = await truncatedDraws();
+      ok(`${t}: control: a list of ${SHORT_K} that is not raised is cut off at u=${u} (${k1 - k0} draws, ${kf} cells to list), the failure the check above would report`, k1 > k0 && kf > SHORT_K, { k0, k1, kf });
+      await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+      await grab('grown');
+      const gr = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, grows: (__cmwLandCarry() || {}).stradGrows, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
+      const dG = (await compare('full', 'grown')).frac;
+      ok(`${t}: control: a list of ${SHORT_K} that grows draws the frame of the list of ${LIST_K0}: ${dG} of pixels over ${DIFF_TOL} (at most ${SAME_FRAC}); its capacity grew to ${gr.cap} for ${gr.count} cells`, dG <= SAME_FRAC && gr.cap >= gr.count && gr.cap > SHORT_K && gr.cut === k1, { dG, gr, k1 });
+      await ev('__svCarryProbe = null; 1');
+    }
   };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
   const withProbe = async (probe, u, read) => {
@@ -1104,7 +1124,7 @@
         if (!cc) ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets });
         else {
           ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
-          ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
+          ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${cc && cc.K})`, !!cc && cc.listed === cc.mix && cc.mix <= cc.K, cc);
           ok(`${t}: the classes are the CPU's from the places and the cuts, but for border cells whose corner lies on a plane to within ${CLASS_BORDER_EPS} (${cc.cpuDiffer} other cells differ; ${cc.cpuNear} border cells differ, of ${cc.cpuBorder})`, cc.cpuDiffer === 0 && cc.cpuNear <= cc.cpuBorder, cc);
           if (u === GLIDE_MID && c.tag === ROW_CASE && cc && cc.mix > 0) {
             await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -1112,26 +1132,9 @@
             await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             ok(`${t}: control: with every MIX cell taken as OUT the CPU's classes differ (${cf && cf.cpuDiffer} cells)`, !!cf && cf.cpuDiffer > 0, cf);
           }
-          // the list's overflow is counted, never silent, and its frame is exact: none in the suite, and a list of 8 cells counts one, its frame the full list's (control)
-          const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0'), syncs = async () => ev('(__cmwLandCarry() || {}).stradSync || 0');
-          const ov0 = await overflow();
-          ok(`${t}: the straddling cells' list has not overflowed (${ov0} so far; ${ovSeen} expected)`, ov0 === ovSeen, { ov0, ovSeen });
-          if (c.tag === ROW_CASE && cc.mix > 8) {
-            await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-            const ov1 = await overflow();
-            ok(`${t}: control: a list of 8 cells overflows (${ov1} counted)`, ov1 > ov0, { ov0, ov1 });
-            await grab('ovf');
-            const dOv = (await compare('ovf', 'cur')).frac;
-            ok(`${t}: control: the frame of the overflow is the exact one (${dOv} of pixels over ${DIFF_TOL} from the frame with the full list; at most ${SAME_FRAC})`, dOv <= SAME_FRAC, { dOv });
-            ovSeen = ov1;
-            await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-            // the count is read when it can matter: a small step of u continues the frame (no read), a jump does not (a read)
-            const s0 = await syncs();
-            await setU(GLIDE_MID + STRAD_STEP_U); const s1 = await syncs();
-            await setU(GLIDE_MID + STRAD_JUMP_U); const s2 = await syncs();
-            await setU(GLIDE_MID);
-            ok(`${t}: the count is read after a jump of u (${STRAD_JUMP_U}) and not after a step (${STRAD_STEP_U}): ${s0}, ${s1}, ${s2} reads`, s1 === s0 && s2 > s1, { s0, s1, s2 });
-          }
+          // the list is never cut off: no draw of the suite had one that was
+          const cutNow = await truncatedDraws();
+          ok(`${t}: the straddling cells' list has never been cut off (${cutNow} draws so far)`, cutNow === 0, { cutNow });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
