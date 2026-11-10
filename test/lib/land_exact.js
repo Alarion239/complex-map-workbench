@@ -425,9 +425,10 @@
         let c = iv.i, hit = false, lost = false, chain = 0, nonT = false;
         for (let g = 0; g <= setV.length; g++) {
           // (each step of the chain is a translation by the same T: the image of the member c is c + T; a step that is not makes the chain no certificate either way; opt.shiftStep moves the second step's image by one more T, the control that this check fires)
-          if (!(iv.lam0 && tr[c].lam && setV[c].lam)) { window.__lxCnt.noLam++; nonT = true; }   // (a step with no log coordinate cannot be shown a translation: the chain is no certificate, and the row counts it)
-          else {
-            let sh = csub(tr[c].lam, setV[c].lam);
+          const lamC = opt && opt.nullLam && g === 1 ? null : tr[c].lam;   // (opt.nullLam: the second step's member has no log coordinate, the control that the check fires)
+          if (iv.lam0 && !(lamC && setV[c].lam)) { window.__lxCnt.noLam++; nonT = true; }   // (on a log chain a step with no log coordinate cannot be shown a translation: the chain is no certificate, and the row counts it)
+          else if (iv.lam0) {
+            let sh = csub(lamC, setV[c].lam);
             if (opt && opt.shiftStep && g === 1) sh = cadd(sh, iv.lam0);
             if (cabs(csub(sh, iv.lam0)) > ${LAMBDA_SAME} * (1 + cabs(setV[c].lam))) nonT = true;
           }
@@ -820,7 +821,7 @@
     ok(`the raster check fails a wall of ${CTL.wallW} pixels`, o.wall > RASTER_TOL, o);
     ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
   }
-  const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0, nonT: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
+  const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0, nonT: 0, noLam: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
   const withProbe = async (probe, u, read) => {
@@ -1007,6 +1008,9 @@
           if (syn.cls === 'branch') {
             const synSh = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, shiftStep: true })`);
             if (synSh.cls === 'unresolved' && synSh.why === 'nonTranslate') bit.nonT++;
+            const synNl = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, nullLam: true })`);
+            if (synNl.cls === 'unresolved' && synNl.why === 'nonTranslate') bit.noLam++;
+            ok(`${t}: control: with one chain step's member having no log coordinate the made-up branch edge reads unresolved (${synNl.cls}, ${synNl.why})`, synNl.cls === 'unresolved' && synNl.why === 'nonTranslate', synNl);
             ok(`${t}: control: with one chain step shifted by one more T the made-up branch edge reads unresolved by its steps not being translations (${synSh.cls}, ${synSh.why})`, synSh.cls === 'unresolved' && synSh.why === 'nonTranslate', synSh);
           }
           r[u].synRead = { syn: syn.cls, swap: synSw.cls, zNoBite };
@@ -1135,6 +1139,7 @@
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
+  ok(`control: the no-log-coordinate check bit on some row (${bit.noLam} rows)`, bit.noLam > 0, bit);
   ok(`control: the translation check bit on some row (${bit.nonT} rows)`, bit.nonT > 0, bit);
   ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
   ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
