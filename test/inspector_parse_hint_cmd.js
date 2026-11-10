@@ -1,5 +1,5 @@
 // The parse hint (#1470), in the built page (dist/test.html), English, desktop 1440 and phone 390 (Android Chrome):
-// a formula step whose field holds ^, a number with its optional sign, then / or *, with no bracket after the ^, reads
+// a formula step whose field holds ^, a number with its optional sign, then /, with no bracket after the ^, reads
 // z^-1/2 as (z⁻¹)/2 by the usual precedence. The step's Inspector card says so in a quiet hint under the parse preview
 // and offers the bracketed power; the reading and the plot do not change.
 //  1. z^-1/2: the hint reads "Read as (z⁻¹)/2. For the power −1/2, write z^(-1/2).", it is a polite live region, not an
@@ -7,7 +7,9 @@
 //  2. the button writes z^(-1/2) into the field, the hint goes, and F's plane is the plane of a step that was typed as
 //     z^(-1/2) (the negative control: it differs from the plane of z^-1/2, so the comparison can fail);
 //  3. typing the bracket takes the hint away at once, before the field is committed;
-//  4. controls: z^(-1/2) shows no hint, z^-2 shows no hint, z^-1/2 in a step that is not a formula (a power step) shows none.
+//  4. the readings: z^1/3 reads z/3, a bracketed base (z+1)^-1/2 gets the hint and its button writes (z+1)^(-1/2); each
+//     expression is one unbreakable span in the field's own monospace face, and the button has a border;
+//  5. controls: z^(-1/2), z^{-1/2}, z^-2 and the product z^2*3 (3z² as it stands) show no hint, and neither does a power step.
 // It runs in the steps view (ci/suite_views.js): a step opens in the Inspector from its chip on the thread, and F is the
 // last plane of the thread.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/inspector_parse_hint_cmd.js
@@ -38,6 +40,8 @@ const chip = async (k) => { await clickSel(`#svStrip .sv-step[data-k="${k}"] .sv
 const toF = () => ev(`(() => { const n = __cmwSteps().planes.length - 1; __cmwSteps({ go: n, now: true, T: n, scope: 'in' }); return 1; })()`);
 // the hint of the open step: its text, live region, buttons and their sizes, and the error line's text
 const hint = () => ev(`(() => { const card = document.querySelector('#propsPanel .insp-step'); const h = card && card.querySelector('.ihint'); if (!h) return { card: !!card, text: '', live: null, shown: false, buttons: [], err: card ? card.querySelector('.ierr').textContent : null }; const bs = [...h.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent, w: r.width, h: r.height }; }); const t = h.querySelector('span'); return { card: true, text: t ? t.textContent : '', live: h.getAttribute('aria-live'), shown: h.getClientRects().length > 0, buttons: bs, err: document.querySelector('#propsPanel .insp-step .ierr').textContent }; })()`);
+// how the hint looks: its expression spans (how many, how many keep their words together), their font against the formula field's, the button's border
+const look = () => ev(`(() => { const c = document.querySelector('#propsPanel .insp-step'); const h = c && c.querySelector('.ihint'); const f = c && c.querySelector('input[data-pkey="expr"]'); const b = h && h.querySelector('button'); if (!h || !f || !b) return null; const xs = [...h.querySelectorAll('.ihint-x')]; const bs = getComputedStyle(b); return { spans: xs.length, nowrap: xs.filter((x) => getComputedStyle(x).whiteSpace === 'nowrap').length, mono: xs.length ? getComputedStyle(xs[0]).fontFamily : '', field: getComputedStyle(f).fontFamily, border: parseFloat(bs.borderTopWidth), borderColor: bs.borderTopColor }; })()`);
 const field = () => ev(`document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]').value`);
 const typed = (v) => ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important}' : ''; return 1; })()`);
@@ -88,8 +92,27 @@ await chip(1); await settled();
   ok('3: and it is back when the bracket goes', (await hint()).text === HINT, await hint());
 }
 
-// ---- 4: controls ----
-for (const [name, expr, kind] of [['z^(-1/2)', 'z^(-1/2)', 'custom'], ['z^-2', 'z^-2', 'custom'], ['z^{-1/2}', 'z^{-1/2}', 'custom']]) {
+// ---- 4: readings ----
+for (const [expr, text, fix] of [['z^1/3', 'Read as z/3. For the power 1/3, write z^(1/3).', 'z^(1/3)'], ['(z+1)^-1/2', 'Read as ((z+1)⁻¹)/2. For the power −1/2, write (z+1)^(-1/2).', '(z+1)^(-1/2)']]) {
+  await open('phH', [F1(expr)]);
+  await chip(1); await settled();
+  const h = await hint();
+  ok(`4: ${expr}: the hint reads ${text}`, !!h && h.text === text, h);
+  await clickSel('#propsPanel .insp-step .ihint button'); await settled();
+  ok(`4: ${expr}: the button writes ${fix}`, (await field()) === fix, await field());
+}
+await open('phI', [F1('z^-1/2')]);
+await chip(1); await settled();
+{
+  const l = await look();
+  info.look = l;
+  ok('4: each expression is one unbreakable span (three of them)', !!l && l.spans === 3 && l.nowrap === 3, l);
+  ok('4: the expressions are in the formula field\'s monospace face', !!l && l.mono === l.field && /mono|Mono|Menlo|Consolas/.test(l.mono), l);
+  ok('4: the button has a border, so it reads as a button', !!l && l.border >= 1 && l.borderColor !== 'rgba(0, 0, 0, 0)', l);
+}
+
+// ---- 5: controls ----
+for (const [name, expr, kind] of [['z^(-1/2)', 'z^(-1/2)', 'custom'], ['z^-2', 'z^-2', 'custom'], ['z^{-1/2}', 'z^{-1/2}', 'custom'], ['z^2*3', 'z^2*3', 'custom']]) {
   await open('phD', [F1(expr)]);
   await chip(1); await settled();
   const h = await hint();

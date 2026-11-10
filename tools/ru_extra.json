@@ -712,5 +712,5 @@
  "Cauchy: on z only": "Коши: только на z",
  "No curve selected": "Кривая не выбрана",
  "Read as {read}. For the power {power}, write {fix}.": "Читается как %{read}. Для степени %{power} напишите %{fix}.",
- "Use {fix}": "Взять %{fix}"
+ "Use {fix}": "Заменить на %{fix}"
 }
