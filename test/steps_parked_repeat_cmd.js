@@ -13,6 +13,12 @@
 //   directions, so a drawing that colours everything, or nothing, fails;
 // - control: the same reference with one backward root dropped from every step must predict differently from the whole
 //   one, else the rows cannot see a missing root; each row records the plane's own path (__cmwSteps().paths).
+// A sample is coloured when its pixel lies nearer the same plane drawn Everywhere (scope 'all') than the paper (the plane
+// with no region); one within AMBIG_TOL of both (the colour plane's own light rings, near the paper) is ambiguous, not
+// scored, counted, and at most FAINT_MAX_SHARE of a row.
+// - the renderer's own unresolved pixels: the gallery plane holds none of the grey no-value hatch (#1444's measure), and,
+//   as its control, a search starved to STARVED_NODES root solves (__cmwRept({ nodes })) hatches most of it; each row's
+//   info carries the CPU twin's root solves and pruned children at its samples (__cmwRept({ ws }), info only).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -22,7 +28,12 @@ const PITCH = 20;          // px between the sampled pixels
 const AXIS_OFF = 10;       // px: the grid sits between the axis lines, whose ink is not the plane's colour
 const EDGE_PX = 1.5;       // px: a sample whose reference answer changes within this distance is on the image's edge and is not scored
 const EDGE_MAX_SHARE = 0.05;   // most samples of a row that may be unscored edge samples
-const COLOURED = 40;       // channel spread above which a pixel counts as coloured (the plane's grey is neutral)
+const AMBIG_TOL = 24;      // RGB distance: a pixel whose distances to the Everywhere colour and to the paper differ by less is ambiguous
+const FAINT_MAX_SHARE = 0.05;   // most samples of a row that may be ambiguous
+// the grey no-value hatch (#1444's measure): the channels within HATCH_SPREAD of each other, between HATCH_LO and HATCH_HI
+const HATCH_SPREAD = 3, HATCH_LO = 100, HATCH_HI = 130;
+const STARVED_NODES = 5;   // root solves per pixel of the control's starved search (the gallery needs 20)
+const STARVED_MIN_SHARE = 0.5;   // least share of the plane's pixels the starved search hatches
 const CHAIN_TOL = 1e-6;    // relative error of a certified backward link
 const NODE_CAP = 4e5;      // nodes of the backward search before it reads `unresolved`
 const CHAIN_N = 20;        // the repeat count of the scene
@@ -48,7 +59,7 @@ const CONTROL_SAMPLES = 20;   // grid samples the weak-iteration control reads
 const ready = () => settled({ max: SETTLE_LONG, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
 await view(VIEW_W, VIEW_H, false, false);
 const stateFor = (rect, n) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: NEXT_ID, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
-  shapes: [{ id: 's1', kind: 'rect', a: rect.a, b: rect.b, ci: 0, visible: true }],
+  shapes: rect === 'paper' ? [] : [{ id: 's1', kind: 'rect', a: rect.a, b: rect.b, ci: 0, visible: true }],
   steps: [{ type: 'custom', params: { expr: STEP_EXPR, cut: CUT_DEG }, on: true, repeat: { n, len: REPEAT_LEN } }] });
 const open = async (rect, n) => {
   const ns = 'sp' + Date.now();
@@ -68,10 +79,21 @@ const sample = (ws) => ev(`(() => {
     const p = __cmwW2S('L', re, im); if (!p) { out.push(null); continue; }
     const px = Math.round((p[0] - r.left) * c.width / r.width), py = Math.round((p[1] - r.top) * c.height / r.height);
     if (px < m || py < m || px >= c.width - m || py >= c.height - m) { out.push(null); continue; }
-    const d = x.getImageData(px, py, 1, 1).data; out.push(Math.max(d[0], d[1], d[2]) - Math.min(d[0], d[1], d[2]) > ${COLOURED} ? 1 : 0);
+    const d = x.getImageData(px, py, 1, 1).data; out.push([d[0], d[1], d[2]]);
   }
   return out;
 })()`);
+// the paper at plane points ws: the same chain and view with no region (every pixel the paper and its grid), cached per window
+const papers = new Map();
+const paperAt = async (win, reps, ws) => {
+  const key = JSON.stringify([win, reps]);
+  if (!papers.has(key)) {
+    await open('paper', reps);
+    const W = await ev('__cmwSteps().win');
+    papers.set(key, JSON.stringify(W) === JSON.stringify(win) ? await sample(ws) : ws.map(() => null));
+  }
+  return papers.get(key);
+};
 const grid = (win) => {
   const [cx, cy, s] = win, W = VIEW_W / 2, H = VIEW_H / 2, ws = [];
   for (let j = -Math.floor(H / PITCH); j <= Math.floor(H / PITCH); j++) for (let i = -Math.floor(W / PITCH); i <= Math.floor(W / PITCH); i++) ws.push([cx + (i * PITCH + AXIS_OFF) / s, cy - (j * PITCH + AXIS_OFF) / s]);
@@ -127,7 +149,19 @@ const row = async (label, rect, dropRoot, reps = CHAIN_N) => {
   await open(rect, reps);
   const B = await ev('(() => { const s = __cmwSteps(); return { win: s.win, paths: s.paths, scope: s.scope }; })()');
   if (!B || !B.win) { ok(label + ': plane window', false, JSON.stringify(B)); return null; }
-  const R = rect || SQUARE, ws = grid(B.win), got = await sample(ws);
+  const R = rect || SQUARE, ws = grid(B.win), pin = await sample(ws);
+  const twin = await ev(`__cmwRept ? __cmwRept({ ws: ${JSON.stringify(ws)} }) : null`);
+  await ev(`__cmwSteps({ scope: 'all' }); 1`); await settled({ max: SETTLE_LONG, panes: true });
+  const pall = await sample(ws), pap = await paperAt(B.win, reps, ws);
+  // coloured: nearer the Everywhere colour than the paper; null: off the canvas, or ambiguous (FAINT)
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  let faint = 0;
+  const got = pin.map((c, k) => {
+    if (!c || !pall[k] || !pap[k]) return null;
+    const da = dist(c, pall[k]), dp = dist(c, pap[k]);
+    if (Math.abs(da - dp) < AMBIG_TOL) { faint++; return null; }
+    return da < dp ? 1 : 0;
+  });
   let n = 0, agree = 0, pred1 = 0, got1 = 0, unres = 0, edge = 0; const bad = [];
   ws.forEach((w, k) => {
     if (got[k] == null) return;
@@ -137,8 +171,8 @@ const row = async (label, rect, dropRoot, reps = CHAIN_N) => {
     n++; pred1 += p; got1 += got[k];
     if (p === got[k]) agree++; else if (bad.length < LIST_MAX) bad.push({ w: w.map((v) => +v.toFixed(3)), predicted: p, plane: got[k] });
   });
-  info[label] = { samples: n, agree, predictedColoured: pred1, planeColoured: got1, unresolved: unres, edge, paths: B.paths, disagreements: bad };
-  return { n, agree, pred1, got1, unres, edge, ws, win: B.win, paths: B.paths };
+  info[label] = { samples: n, agree, predictedColoured: pred1, planeColoured: got1, unresolved: unres, edge, faint, twin, paths: B.paths, disagreements: bad };
+  return { n, agree, pred1, got1, unres, edge, faint, ws, win: B.win, paths: B.paths };
 };
 const main = await row('gallery square', null);
 if (main) {
@@ -146,6 +180,25 @@ if (main) {
   ok('gallery square: edge samples are few', main.edge <= EDGE_MAX_SHARE * (main.n + main.edge + main.unres), `${main.edge} edge of ${main.n + main.edge + main.unres}`);
   ok('gallery square: the reference predicts every sample coloured', main.pred1 === main.n, `${main.pred1}/${main.n}`);
   ok('gallery square: the plane colours what a chain of backward roots reaches', main.agree === main.n, `${main.agree}/${main.n} agree, plane colours ${main.got1}`);
+  ok('gallery square: ambiguous samples are few', main.faint <= FAINT_MAX_SHARE * (main.n + main.edge + main.unres + main.faint), `${main.faint} ambiguous`);
+}
+// the renderer's own unresolved pixels: the grey no-value hatch over the plane canvas (#1444's measure)
+const hatchCount = () => ev(`(() => {
+  const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let h = 0;
+  for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) <= ${HATCH_SPREAD} && d[i] >= ${HATCH_LO} && d[i] <= ${HATCH_HI}) h++;
+  return { hatch: h, pixels: d.length / 4 };
+})()`);
+{
+  await open(null, CHAIN_N);
+  const h0 = await hatchCount();
+  ok('gallery square: the plane draws no unresolved hatch', h0.hatch === 0, h0);
+  const hooked = await ev('typeof __cmwRept === "function"');
+  if (hooked) { await ev(`__cmwRept({ nodes: ${STARVED_NODES} }); 1`); await settled({ max: SETTLE_LONG, panes: true }); }
+  const h1 = await hatchCount();
+  if (hooked) { await ev('__cmwRept({ nodes: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
+  info['starved search'] = Object.assign({ nodes: STARVED_NODES, hooked }, h1);
+  ok(`control: a search starved to ${STARVED_NODES} root solves hatches at least ${STARVED_MIN_SHARE * 100} % of the plane`, hooked && h1.hatch >= STARVED_MIN_SHARE * h1.pixels, h1);
 }
 const bite = await row('bite region', BITE, -1, BITE_N);
 if (bite) {
@@ -153,6 +206,7 @@ if (bite) {
   ok('bite region: edge samples are few', bite.edge <= EDGE_MAX_SHARE * (bite.n + bite.edge + bite.unres), `${bite.edge} edge of ${bite.n + bite.edge + bite.unres}`);
   ok('bite region: the reference predicts both coloured and empty pixels', bite.pred1 > 0 && bite.pred1 < bite.n, `${bite.pred1}/${bite.n}`);
   ok('bite region: the plane matches the reference per pixel, both ways', bite.agree === bite.n, `${bite.agree}/${bite.n} agree ` + JSON.stringify(info["bite region"].disagreements));
+  ok('bite region: ambiguous samples are few', bite.faint <= FAINT_MAX_SHARE * (bite.n + bite.edge + bite.unres + bite.faint), `${bite.faint} ambiguous`);
 }
 // control: the reference with one backward root dropped must disagree with the exact plane (the row sees a missing root)
 const dropped = await row('bite region, root 0 dropped', BITE, 0, BITE_N);

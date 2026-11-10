@@ -2720,9 +2720,8 @@ vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
 bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
 uniform vec4 uIxRepE[${RS + 1}];
 uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
-// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 nothing (a region mask's
-// pass: it is not covered); 2 the hatch and nothing else (the pass over a masked picture that shows the mask's
-// unresolved pixels)
+// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 nothing, at depth 1 (a
+// region mask's pass: it is not covered, and the stencil marks it for GLR.reptHatchFill)
 uniform int uIxRepHatch;
 `;
   };
@@ -2763,7 +2762,9 @@ vec2 ${P}_rho(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec4 wk, vec2 z) {
   float r = 3.0 * (cx_abs(pz) + e) / den * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
   return r < 3.0e38 ? vec2(r, den / (cx_abs(pz) + e) * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U)) : vec2(-1.0);
 }
-// the radius refined once the discs are disjoint (InvOps.reptCert): 1 / (G - sum over the other roots of 1 / (d - rho))
+// the radius refined once the discs are disjoint (InvOps.reptCert): each disc holds one root r_i, and
+// 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k) with |p'/p(z_i)| >= G and |z_i - r_k| >= d_k - rho_k > 0, so
+// |z_i - r_i| <= 1 / (G - sum_(k != i) 1 / (d_k - rho_k)) when that is positive; else the crude radius stays
 float ${P}_ref(vec2 rg, float d1, float r1, float d2, float r2) {
   float g = rg.y - (1.0 / (d1 - r1) + 1.0 / (d2 - r2)) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
   return g > 0.0 ? min(rg.x, 1.0 / g * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U)) : rg.x;

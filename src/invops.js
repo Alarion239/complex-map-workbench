@@ -445,7 +445,8 @@ const InvOps = (() => {
   const REPT_DEG = 3;                // the step's degree (the solver is the closed-form cubic)
   const REPEAT_COPIES_MAX = 20;      // copies, the GPU stack's depth
   const REPEAT_NODES_MAX = 2048;     // root solves per pixel before it reads unresolved: at least 50 x the most the suite's
-                                     // scenes need (the gallery square 21, the bite scene 4, every pixel at dpr 1 and 2)
+                                     // scenes need (the CPU twin over every pixel at dpr 1 and 2: the gallery square 20,
+                                     // the bite box at Repeat x 2 3, at x 20 0)
   const REPT_U = 2 ** -24;           // float32's unit roundoff
   // REPT_GAMMA: |fl(p(z)) - p(z)| <= REPT_GAMMA REPT_U sum_k |a_k| |z|^k for Horner's rule of degree 3 in complex float32.
   // Each of the 3 steps is a complex product (relative error <= 2 sqrt 2 u for correctly rounded + and x, 4 sqrt 2 u
@@ -532,9 +533,11 @@ const InvOps = (() => {
     }
     const dz = (i, j) => abs(sub(z[i], z[j])) * (1 - REPT_ROUND * U);
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!(dz(i, j) > rho[i] + rho[j])) return null;
-    // the radii refined (each disc holds exactly one root now): |sum_k 1 / (z_i - r_k)| = |p'/p| >= G_i, and the other
-    // roots lie in their discs, so 1 / |z_i - r_i| >= G_i - sum_(k != i) 1 / (|z_i - z_k| - rho_k). Without it the
-    // radius is n times |p/p'| and the chain error would grow by n at every level
+    // the radii refined, each disc holding exactly one root r_i now: 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k),
+    // where |p'/p(z_i)| >= G_i (the true p's |p'| >= |p'(z_i)| - e', |p| <= |p(z_i)| + e) and |z_i - r_k| >= |z_i - z_k| - rho_k > 0
+    // (the discs are disjoint), so 1 / |z_i - r_i| >= G_i - sum_(k != i) 1 / (|z_i - z_k| - rho_k); when that is not positive
+    // the crude radius stays. Without it the radius is n |p/p'| and the chain error would grow n-fold at every level
+    const crude = rho.slice();
     const ref = z.map((_, i) => {
       let S = 0;
       for (let k = 0; k < n; k++) if (k !== i) S += 1 / (dz(i, k) - rho[k]);
@@ -542,6 +545,7 @@ const InvOps = (() => {
       return g > 0 ? Math.min(rho[i], 1 / g * (1 + REPT_ROUND * U)) : rho[i];
     });
     for (let i = 0; i < n; i++) rho[i] = ref[i];
+    rho.crude = crude;
     // Vieta: z1 + z2 + z3 = -a1/a0, z1 z2 z3 = -a3/a0 (high-first), within the discs and the coefficients' slack
     const a0 = abs(a[0]), zm = z.map(abs), b = div(a[1], a[0]), d = div(a[3], a[0]);
     const sum = add(add(z[0], z[1]), z[2]), prod = mul(mul(z[0], z[1]), z[2]);

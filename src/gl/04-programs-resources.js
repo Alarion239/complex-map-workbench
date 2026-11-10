@@ -239,6 +239,14 @@
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
     carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
+    // the grey no-value hatch of dcolorAt's NaN, opaque (GLR.reptHatchFill: over a REPT plan's unresolved pixels)
+    reptHatch: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + `uniform float uDpr;
+out vec4 o;
+void main() {
+  float h = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);
+  o = vec4(mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * uDpr), uDpr)), 1.0);
+}
+` },
   };
   // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
   // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets

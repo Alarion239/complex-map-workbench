@@ -79,22 +79,11 @@
     }
     return p;
   }
-  // the unresolved pixels of the area shapes that map draws by a REPT plan, hatched over the frame open in pane (a region
-  // mask leaves them uncovered, drawScene's opt.fills: the picture painted through the mask then shows them here)
-  function reptHatch(pane, map, role) {
-    if (!reptExact(map)) return;
-    const recs = lastRecs;
-    for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) !== 'area' || shapeMap(s, map) !== map) continue;
-      const p = pathOf(s, map, role, 'flat', { recs });
-      if (p.path !== 'inverse') continue;
-      const ink = shapeInk(s);
-      try {
-        GLR.drawInverse({ map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
-          look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN() },
-          scissor: null, motion: false, coldOk: offRender, rept: 2 });
-      } catch (err) { /* the mask's own pass has reported a failure */ }
-    }
+  // the unresolved pixels of the area shapes that map draws by a REPT plan, hatched over the frame open in pane: a region
+  // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
+  // through the mask shows them here
+  function reptHatch(pane, map) {
+    if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
   }
   // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
   // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;

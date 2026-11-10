@@ -632,7 +632,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
     u1i(P, 'uIxRepNodes', reptNodes);
-    // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out (a region mask), 2 alone hatched)
+    // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
     u1i(P, 'uIxRepHatch', st.rept || 0);
     u1i(P, 'uIxStopOp', d.stopOp);
     u4f(P, 'uIxStopMob', ...d.stopMob);
@@ -763,8 +763,18 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
       }
     }
+    // a REPT program's region-mask pass (st.rept 1): its unresolved pixels write depth 1, fail the depth test against a
+    // depth cleared to 1, and are marked 1 in the stencil (cleared at the frame's first mark) for reptHatchFill
+    const mark = st.rept === 1 && !half && !!P.loc.uIxRepHatch;
+    if (mark) {
+      if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
+      gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthMask(false);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
+      gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.REPLACE, gl.KEEP);
+    }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (mark) { gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.depthMask(true); }
     invDraws++;
     if (half) invHalfDraws++;   // the batch stays open: flushHalf upsamples it
     else if (sc) {
@@ -774,6 +784,23 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
+  // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
+  // opaque, then the marks cleared. False when its program is not ready
+  let repMarkFrame = -1;
+  function reptHatchFill(dpr) {
+    const Q = ok && program('reptHatch');
+    if (!Q || repMarkFrame !== invFrame) return false;
+    use(Q);
+    u1f(Q, 'uDpr', dpr || 1);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
+    repMarkFrame = -1;
+    return true;
+  }
   // draws the ready inverse programs that were never drawn into one pixel of the current target (their first draw
   // builds the Metal pipeline: a 75-200 ms stall of the GPU process), at a quiet moment chosen by the app, so the
   // frame that switches to them does not stall -> the number of programs warmed for full resolution (a frame drawn with
@@ -980,7 +1007,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, reptHatchFill, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,

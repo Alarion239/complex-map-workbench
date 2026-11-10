@@ -97,9 +97,20 @@ check('nearly every node certifies at v up to 1e3 (the certificate is not a refu
 check('every certified root lies within its radius of a float64 root', inRad === certN, `${inRad}/${certN}`);
 check('the radii are float32-sized', worst < 1e-5, worst);
 {
+  // the refined radius (the other roots' share taken out) is never above the crude n |p/p'| one
+  let refined = 0, above = 0;
+  for (let k = 0; k < 200; k++) {
+    const v = C(rf(-4, 4), rf(-4, 4)), a = P20.map((pk, i) => CX.sub(pk, CX.mul(v, Q20[i]))), rho = InvOps.reptCert(P20, Q20, v, rf(0, 1e-4), a, InvOps.reptSolve(a));
+    if (!rho) continue;
+    rho.forEach((r, i) => { if (r < rho.crude[i]) refined++; if (!(r <= rho.crude[i])) above++; });
+  }
+  check('every refined radius is at most its crude one, and refining shrinks them', above === 0 && refined > 300, `${above} above, ${refined} smaller`);
+}
+{
   const v = C(0.3, 0.2), a = P20.map((pk, i) => CX.sub(pk, CX.mul(v, Q20[i]))), z = InvOps.reptSolve(a);
   check('control: the solver\'s own roots certify', !!InvOps.reptCert(P20, Q20, v, 0, a, z));
   check('control: a duplicated root fails', !InvOps.reptCert(P20, Q20, v, 0, a, [z[0], z[0], z[2]]));
+  check('control: a root perturbed onto another\'s disc fails', !InvOps.reptCert(P20, Q20, v, 0, a, [z[0], CX.add(z[0], C(1e-6, 0)), z[2]]));
   // (a root moved off by FAR either fails or is certified with a radius that still reaches its root: a true statement)
   const FAR = 0.5, rf0 = InvOps.reptCert(P20, Q20, v, 0, a, [CX.add(z[0], C(FAR, 0)), z[1], z[2]]);
   check('control: a far-off root fails, or its radius reaches its root', !rf0 || rf0[0] >= FAR, rf0 && rf0[0]);
