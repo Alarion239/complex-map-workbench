@@ -729,10 +729,89 @@ vec3 clipBoxE(int i1, int i2, int n, float Fl[CLIP_N]) {
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form)
-  const LAND_CARRY_VS = (L = false, clip = false) => (clip ? LAND_CLIP : '') + `
+  // The class of each cell of the carried grid against the block (LAND_CARRY_CLASS_VS): the clipped polygon's corners all lie in the hull of the
+  // cell's corner places (a crossing is a mix of two of them, a cut's bank heights are the exception: a cell with a cut is never IN or OUT)
+  const LAND_CLASS_OUT = 0, LAND_CLASS_IN = 1, LAND_CLASS_MIX = 2;
+  // one texel (x) per cell: IN (the four corners inside every plane, no cut: drawn as the triangle it is), OUT (the four beyond one plane: no
+  // part of it is in the block), MIX (anything else, including a corner not placed or not finite: clipped)
+  const LAND_CARRY_CLASS_VS = LAND_CLIP + `
+uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform vec2 uClipA; uniform float uClipH; uniform int uCuts;
+uniform int uForce;   // (a test control: 1 takes every MIX cell as OUT, 2 takes every cell as IN)
+uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2;
+out vec4 tfOut;
+bool jumpAt(highp sampler2D e, ivec2 o) { return uCuts > 0 && texelFetch(e, o, 0).w > 0.5; }
+void main() {
+  tfOut = vec4(float(${LAND_CLASS_OUT}), 0.0, 0.0, 1.0);
+  int N = uN, M = N - 1;
+  int x = gl_VertexID % N, y = gl_VertexID / N;
+  if (x >= M || y >= M) return;
+  ivec2 c = ivec2(x, y);
+  vec2 sideC = uBox.xy + 0.5 * uBox.zw, sideH = 0.5 * uBox.zw * uClipA / uAspect;
+  vec4 Sd = vec4(sideC.x - sideH.x, sideC.x + sideH.x, sideC.y - sideH.y, sideC.y + sideH.y);
+  bool mixed = jumpAt(uE0, c) || jumpAt(uE1, c) || jumpAt(uE2, c) || jumpAt(uE0, c + ivec2(0, 1)) || jumpAt(uE1, c + ivec2(1, 0));
+  int orC = 0, andC = 63;
+  for (int i = 0; i < 4; i++) {
+    vec4 t = texelFetch(uT1, c + ivec2(i == 1 || i == 2 ? 1 : 0, i >= 2 ? 1 : 0), 0);
+    if (!(t.w >= 0.5 && all(lessThan(abs(t.xyz), vec3(1e30))))) { mixed = true; continue; }
+    int cd = 0;
+    for (int p = 0; p < 6; p++) if (clipD(p, uClipH, Sd, t.xyz) > 0.0) cd |= 1 << p;
+    orC |= cd; andC &= cd;
+  }
+  int cls = mixed ? ${LAND_CLASS_MIX} : (andC != 0 ? ${LAND_CLASS_OUT} : (orC == 0 ? ${LAND_CLASS_IN} : ${LAND_CLASS_MIX}));
+  if (uForce == 1 && cls == ${LAND_CLASS_MIX}) cls = ${LAND_CLASS_OUT};
+  else if (uForce == 2) cls = ${LAND_CLASS_IN};
+  tfOut = vec4(float(cls), 0.0, 0.0, 1.0);
+}
+`;
+  // The list of the MIX cells, in row-major order, by two scans and a gather: LAND_CLASS_ROWS_VS counts the MIX cells of each row, LAND_CLASS_BASE_VS
+  // gives each row's first rank (and its count), LAND_CLASS_LIST_VS finds the cell of each rank 0 .. LAND_STRAD_K - 1: (x, y, 1), or (0, 0, 0) beyond the count
+  // (the count is the last row's base plus its count; a count over LAND_STRAD_K is the caller's failure to report)
+  const LAND_STRAD_K = 1024, LAND_CLASS_LOOP = 1024;   // (the list's length, and the grid's width at most: the loops' bound)
+  const LAND_CLASS_ROWS_VS = `
+uniform int uN; uniform highp sampler2D uCls;
+out vec4 tfOut;
+void main() {
+  int y = gl_VertexID, M = uN - 1;
+  float n = 0.0;
+  if (y < M) for (int x = 0; x < ${LAND_CLASS_LOOP}; x++) { if (x >= M) break; if (int(texelFetch(uCls, ivec2(x, y), 0).x + 0.5) == ${LAND_CLASS_MIX}) n += 1.0; }
+  tfOut = vec4(n, 0.0, 0.0, 1.0);
+}
+`;
+  const LAND_CLASS_BASE_VS = `
+uniform int uN; uniform highp sampler2D uRowN;
+out vec4 tfOut;
+void main() {
+  int y = gl_VertexID;
+  float b = 0.0;
+  for (int j = 0; j < ${LAND_CLASS_LOOP}; j++) { if (j >= y) break; b += texelFetch(uRowN, ivec2(j, 0), 0).x; }
+  tfOut = vec4(b, texelFetch(uRowN, ivec2(y, 0), 0).x, 0.0, 1.0);
+}
+`;
+  const LAND_CLASS_LIST_VS = `
+uniform int uN; uniform highp sampler2D uCls; uniform highp sampler2D uRowB;
+out vec4 tfOut;
+void main() {
+  tfOut = vec4(0.0);
+  int s = gl_VertexID, N = uN, M = N - 1;
+  vec4 last = texelFetch(uRowB, ivec2(M - 1, 0), 0);
+  if (float(s) >= last.x + last.y) return;
+  // (the last row whose base is not over s)
+  int lo = 0, hi = M - 1;
+  for (int i = 0; i < 11; i++) { if (lo >= hi) break; int mid = (lo + hi + 1) / 2; if (texelFetch(uRowB, ivec2(mid, 0), 0).x <= float(s)) lo = mid; else hi = mid - 1; }
+  int y = lo, r = s - int(texelFetch(uRowB, ivec2(y, 0), 0).x + 0.5);
+  for (int x = 0; x < ${LAND_CLASS_LOOP}; x++) {
+    if (x >= M) break;
+    if (int(texelFetch(uCls, ivec2(x, y), 0).x + 0.5) == ${LAND_CLASS_MIX}) { if (r == 0) { tfOut = vec4(float(x), float(y), 1.0, 1.0); return; } r--; }
+  }
+}
+`;
+  const LAND_CARRY_VS = (L = false, clip = false, plain = false) => (clip ? LAND_CLIP : '') + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-${clip ? 'uniform vec2 uClipA; uniform float uClipH;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)' : ''}
+${clip ? `uniform vec2 uClipA; uniform float uClipH;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)
+uniform int uFanN;   // (CLIP_FAN: the fan's triangles a sub-triangle is drawn with)
+uniform highp sampler2D uMix; uniform int uMixOn;   // (uMixOn 1: an instance is a cell of class LAND_CLASS_MIX, from texel gl_InstanceID of uMix: (x, y, 1), or not a cell)
+` : plain ? `uniform highp sampler2D uCls; const int CLASS_IN = ${LAND_CLASS_IN};   // (the plain draw of the cells inside the block: no clip)` : ''}
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
 uniform highp sampler2D uZ; uniform int uZOn;
@@ -761,9 +840,12 @@ void main() {
   vEdge = vec3(0.0); vBoxE = vec3(0.0); vW = vec2(0.0); vZc = vec2(0.0);
   int M = uN - 1;
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
-${clip ? '  // (clip: each sub-triangle is a fan of up to CLIP_FAN triangles of the block-clipped polygon, 3 * CLIP_FAN vertices)\n  int sub = loc / (3 * CLIP_FAN), fan = (loc - 3 * CLIP_FAN * sub) / 3, k = loc - 3 * CLIP_FAN * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
-  ivec2 c = ivec2(cell % M, cell / M);
-  ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
+${clip ? '  // (clip: each sub-triangle is a fan of up to CLIP_FAN triangles of the block-clipped polygon, 3 * CLIP_FAN vertices)\n  int sub = loc / (3 * uFanN), fan = (loc - 3 * uFanN * sub) / 3, k = loc - 3 * uFanN * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
+${clip ? `  vec4 mx = vec4(0.0);
+  if (uMixOn == 1) { mx = texelFetch(uMix, ivec2(gl_InstanceID, 0), 0); if (mx.z < 0.5) return; hf = tri; }
+  ivec2 c = uMixOn == 1 ? ivec2(mx.xy) : ivec2(cell % M, cell / M);
+` : `  ivec2 c = ivec2(cell % M, cell / M);
+`}${plain ? '  if (int(texelFetch(uCls, c, 0).x + 0.5) != CLASS_IN) return;\n' : ''}  ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
 ${L ? `  // (layered: a triangle is a layer's when its corners are all placed on it, own or continued, and one is own; its
