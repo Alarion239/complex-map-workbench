@@ -81,7 +81,9 @@
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
-  const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_MIX_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
+  const FALLBACK_DRAWS = 30;   // (STRAD_FALLBACK_FRAMES in src/gl/06-draws-3d.js: the carried draws that take every cell after an overflow)
+  let ovSeen = 0;   // (the overflows counted so far by the controls)
+  const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
@@ -525,12 +527,42 @@
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
       // the cells' classes against the block (LAND_CARRY_CLASS_VS): every cell has one, the straddling cells are all in the draw's list, which is not full
-      if (u === GLIDE_MID) {
+      if (u === GLIDE_MID || process.env.CMW_COUNTS) {
         await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const cc = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        if (process.env.CMW_COUNTS) console.log('COUNTS', t, JSON.stringify(cc));
         ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
         ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
+        ok(`${t}: the classes are the CPU's from the places and the cuts (${cc && cc.cpuDiffer} cells differ; ${cc && cc.cpuNear} more have a corner on a plane)`, !!cc && cc.cpuDiffer === 0, cc);
+        if (u === GLIDE_MID && cc && cc.mix > 0) {
+          await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const cf = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: control: with every MIX cell taken as OUT the CPU's classes differ (${cf && cf.cpuDiffer} cells)`, !!cf && cf.cpuDiffer > 0, cf);
+        }
+        // the list's overflow is counted, never silent: none in the suite, and a list of 8 cells counts one (control; the next draws then take every cell through the clip program)
+        const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0');
+        const ov0 = await overflow();
+        ok(`${t}: the straddling cells' list has not overflowed (${ov0} so far; ${ovSeen} expected)`, ov0 === ovSeen, { ov0, ovSeen });
+        if (u === GLIDE_MID && cc && cc.mix > 8) {
+          await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          await new Promise((r) => setTimeout(r, 600));
+          await ev('__svCarryProbe = Object.assign({ w: 0 }, __svCarryProbeSettings.stradShort); 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const ov1 = await overflow();
+          ok(`${t}: control: a list of 8 cells overflows (${ov1} counted)`, ov1 > ov0, { ov0, ov1 });
+          // (the fallback's draws are used up, and no read of the short list is out, before the next frame is read)
+          let left = 1;
+          for (let i = 0; left > 0 && i < 4 * FALLBACK_DRAWS; i++) {
+            await ev(`__svCarryProbe = { w: ${i + 1} }; 1`); await settled({ max: LOAD_MAX_MS });
+            left = await ev('(__cmwLandCarry() || {}).stradFallback || 0');
+          }
+          await new Promise((r) => setTimeout(r, 600));
+          await ev('__svCarryProbe = { w: -1 }; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: the fallback ends (${left} draws left)`, left === 0, { left });
+          ovSeen = await overflow();
+          await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
       // repeats another layer's height there; the probe's noRay (no anchor is refused for lying across the cut) brings the repeat back
@@ -587,7 +619,7 @@
           r.rowOver = ro;
           ok(`${t}: in the Top view no image row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} from the parked plane's (row ${ro.row} has ${ro.n})`, ro.n <= ROW_OVER_MAX, ro);
           // (controls: the per-fragment side discard put back, and the block's sides a little wide, each leave a row over the bound)
-          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide'], ['classOut', 'the cells over a side left out']]) {
+          for (const [probe, what] of [['sideDiscard', 'the side discard per fragment'], ['clipScale', 'the block sides 0.4 % wide'], ['classOut', 'the cells over a side left out'], ['classAllIn', 'every cell drawn whole']]) {
             let o;
             try {
               await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
