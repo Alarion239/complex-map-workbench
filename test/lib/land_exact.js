@@ -162,6 +162,7 @@
   const NEAR_U = [END_U, 0.002, 0.998, 1 - END_U], NEAR_TOL = 0.005, REVERSED_FROM = 0.002;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
+  const SAT_PLACES = 8;   // the probe places the clip levels are read at (the claims hook reads them once a layer is drawn)
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
   const COMBO_NA_PLACES = 20, COMBO_NA_TOL = 1e-9;   // (a map with one surface: its values under two combos are compared at this many places of the box, to this tolerance relative to 1 + |w|)
@@ -908,16 +909,24 @@
     ok(`the distinct layers keep two members of one z ${10 * HEIGHT_TOL} apart in height as two`, distinctLayers([a, L([1, 0], 10 * HEIGHT_TOL)]).length === 2 && distinctLayers([a, L([1, 0], 0.5 * HEIGHT_TOL)]).length === 1, null);
     ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
   }
-  const sameLayers = (have, want) => {
+  const CLIPPED_ROWS = ['Möbius, √@0.0001', 'Möbius, √@0.002', 'Möbius, √@0.25', 'Möbius, √@0.75'];   // the rows (case@u, All sheets) at which a probe place holds a layer beyond the clip level, which the strict height compare fails: the control that the clip levels are what pairs it needs some, and a row off the list has none
+  // The colour map's height clip levels [low, high] the frame draws at (the claims hook's sat, the one number both the claim check and the layer check read), null when the frame has none
+  const satOf = (cl) => { const l = (cl || []).flat()[0]; return l && l.sat && l.sat.every(Number.isFinite) ? l.sat : null; };
+  const onSide = (x, sat, hi) => (hi ? x.h >= sat[1] - HEIGHT_TOL : x.h <= sat[0] + HEIGHT_TOL);
+  // a layer and a member of one z agree in height when they are within HEIGHT_TOL, or when both lie beyond the clip level on the same side (the layer holds the true height, the reference's
+  // is clipped there) and the member is the only one of its z on that side
+  const heightsAgree = (l, m, want, sat) => Math.abs(l.h - m.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(m, sat, hi) && want.filter((x) => sameZ(x.z, m.z) && onSide(x, sat, hi)).length === 1));
+  const sameLayers = (have, want, sat = null) => {
     if (have.length !== want.length) return false;
     const used = new Set();
     return want.every((m) => {
-      const k = have.findIndex((l, i) => !used.has(i) && sameZ(l.z, m.z) && Math.abs(l.h - m.h) <= HEIGHT_TOL);
+      const k = have.findIndex((l, i) => !used.has(i) && sameZ(l.z, m.z) && heightsAgree(l, m, want, sat));
       if (k < 0) return false;
       used.add(k);
       return true;
     });
   };
+
   {
     const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
     ok('the front check accepts the front member', frontSame([L([1, 0])], two), null);
@@ -984,6 +993,13 @@
       ok('the layer check passes a frame with both combos', sameLayers(ex.map(L), ex), null);
       ok('the layer check fails a frame drawing one of the two combos', !sameLayers(ex.slice(1).map(L), ex), null);
       ok('the layer check fails a frame drawing one combo twice (the combos share z, not height)', !sameLayers([ex[0], ex[0], ex[2]].map(L), ex), null);
+      {
+        const SAT = [-0.6875, 0.6875], M = (h) => ({ z: [1, 0], h }), top = [M(0.6875), M(-0.6875)];
+        ok('the layer check pairs a layer holding the true height with the member clipped at the same side, where that member is the only one there', sameLayers([M(2), M(-2)], top, SAT), null);
+        ok('the control: without the clip levels the clipped members are not matched', !sameLayers([M(2), M(-2)], top), null);
+        ok('the control: a layer 2 x HEIGHT_TOL under the clip level is no clipped layer', !sameLayers([M(SAT[1] - 2 * HEIGHT_TOL), M(-2)], top, SAT), null);
+        ok('the control: two members clipped on one side at one z are not told apart, so no layer pairs with them', !sameLayers([M(2), M(2)], [M(0.6875), M(0.6875)], SAT), null);
+      }
     }
     // the branch points of a scene's steps: none for a Möbius map, the origin for a root, and an unknown type is refused
     ok('the branch points of a Möbius pole scene are none', JSON.stringify(branchPoints(CASES.find((x) => x.tag === 'Möbius with a pole in the box').steps)) === '[]', null);
@@ -1472,8 +1488,10 @@
           const fwdClaimOk = (l) => {
             if (l.opts.length === 0) return false;   // (no colour-map combo to read the claim against: it fails)
             if (l.opts.length === 1) return l.opts[0].combo === l.claim;
-            const hi = l.h >= l.sat[1] - HEIGHT_TOL, lo = l.h <= l.sat[0] + HEIGHT_TOL;
-            if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= l.sat[1] - HEIGHT_TOL) || (lo && o.h <= l.sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claim; }
+            const sat = satOf([[l]]);
+            if (!sat) return false;
+            const hi = l.h >= sat[1] - HEIGHT_TOL, lo = l.h <= sat[0] + HEIGHT_TOL;
+            if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= sat[1] - HEIGHT_TOL) || (lo && o.h <= sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claim; }
             return l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claim);
           };
           // (a texel continued from an anchor (code CARRY_CONT_CODE plus the anchor's place) is read by where its anchor's own surface lands, continued from the anchor to the texel (CPU: the scene's
@@ -1727,13 +1745,15 @@
         }
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
+      const sat = sheets ? satOf(await ev(`__cmwLandClaims(${JSON.stringify(pts.slice(0, SAT_PLACES))})`)) : null; let clipped = 0, clippedAt = null;
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         // (the reference lists a member once per forward combo or sheet that lands on the same z and height; the frame draws it once, so distinctLayers counts both sides)
         const want = sheets ? distinctLayers(wantAll) : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
-        const same = sheets ? sameLayers(haveAll, want) : frontSame(haveAll, wantAll);
+        const same = sheets ? sameLayers(haveAll, want, sat) : frontSame(haveAll, wantAll);
+        if (sheets && same && !sameLayers(haveAll, want)) { clipped++; clippedAt = clippedAt || { have: haveAll, want }; }
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
         // (every member the layers match by z, on a side sheet or on the real axis too: the drawn height and the colour)
         want.forEach((m) => {
@@ -1747,6 +1767,13 @@
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      if (sheets) {
+        ok(`${t}: control: with the clip levels off the places holding a layer beyond them fail (${clipped} places; the row is ${CLIPPED_ROWS.includes(`${c.tag}@${u}`) ? '' : 'not '}on the list of rows that have some)`, (clipped > 0) === CLIPPED_ROWS.includes(`${c.tag}@${u}`), { clipped, sat });
+        if (clippedAt && sat) {
+          const hi = clippedAt.have.some((l) => onSide(l, sat, true)), moved = clippedAt.have.map((l) => (onSide(l, sat, hi) ? Object.assign({}, l, { h: hi ? sat[1] - 2 * HEIGHT_TOL : sat[0] + 2 * HEIGHT_TOL }) : l));
+          ok(`${t}: control: a clipped layer moved 2 x HEIGHT_TOL under its clip level is not matched`, !sameLayers(moved, clippedAt.want, sat), { sat });
+        }
+      }
       (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
       // (Ruling C controls) a frame drawn at the wrong u is told apart by NEAR_TOL: the frame at REVERSED_FROM against the reference at 1 - REVERSED_FROM
       // (u reversed), and against the reference at the glide's middle (u frozen there), each more than NEAR_TOL off at some place
