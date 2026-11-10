@@ -76,6 +76,7 @@
   const END_Z_TOL = 1e-3;   // an edge end's z is the frame's float32 inverse: a member of the enumerator is at it within this share of 1 + |z|
   const LAMBDA_SAME = 1e-4;   // two certified roots are one member when their log coordinates agree within this share of 1 + |lam| (whatever sheets list them): Newton's certificate is 1e-5 of H, and distinct members of a set are far apart in lam
   const BRANCH_CLEAR = 0.25;   // grid cells: a loop or ring read for the made-up edge keeps every point of its path at least this far from the branch value (a path through it has no member to follow: the residual cannot tell which member a point is); a path closer is a test failure
+  const SYN_BASE = 0.3;   // grid cells: the made-up edge's loops are based this far off its end, along one of the four axes, so that the branch value is inside a cell of the loops (clear of every spoke and side by BRANCH_CLEAR) wherever the arm points
   const SYN_ARM = 0.5;   // the made-up edge through a branch value: half its length in grid cells (its direction runs from the branch value toward the centre of the places the frame spans, so both its ends are in them)
   const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
   const STRIP_TOL = 1e-9;   // radians: a member whose log coordinate's imaginary part is this far outside its sheet's window (lo, hi] of the first op (__cmwLandWin) is a range-ramp member the scene's count (a winding inside the window) leaves out; the enumerator's own level test (lvl >= 0, src/inverse.js) is the same rule
@@ -381,26 +382,39 @@
         const tb = trO[io.i], same = opt && opt.noBJoin ? -1 : (idMatches(setV, tb)[0] ?? -1);   // (noBJoin: the carried member joins whatever the set holds: the control that the merge is what certifies)
         if (same >= 0) { ib = same; if (!setV[same].sheets.includes(tb.sheet)) setV[same].sheets.push(tb.sheet); } else { setV.push(tb); ib = setV.length - 1; }
       }
+      const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+      const pathMin = (p, pts) => Math.min(...pts.slice(0, -1).map((q, i) => segDist(p, q, pts[i + 1])));   // (the least distance of a point to a path)
+      const loopOf = (b, c0, sx, sy) => [b, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, b];
+      const ringOf = (b) => [b, [b[0] + h, b[1]], [b[0] + h, b[1] + h], [b[0] - h, b[1] + h], [b[0] - h, b[1] - h], [b[0] + h, b[1] - h], [b[0] + h, b[1]], b];
+      let synClear = null;
       if (opt && opt.syn) {
-        // (the made-up edge's loops are based half a grid cell off its end, across the axis the branch value is on, so the branch value is inside a cell of the loops
-        // and off every spoke and side: the members are carried there from the end along the segment between them, and the loops read from there)
-        const lc = [wv[0], wv[1] + ${SYN_ARM} * h], tr = track(setV, [wv, lc]);
-        if (!tr) return { cls: 'unresolved', why: 'base', fail };
-        setV = tr.map((m, i) => Object.assign({}, m, { sheets: setV[i].sheets, lvl: setV[i].lvl }));
-        wv = lc;
+        // (the made-up edge's loops are based off its end, along the axis (of the four, the first) that leaves the branch value inside a cell of the loops, at least BRANCH_CLEAR
+        // cells from every spoke, side and the access path to the base; the members are carried there along that path. Where no axis does, or the members cannot be carried to
+        // the base, the row fails by its own class, never as unresolved)
+        let best = 0, base = null;
+        for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const lc = [wv[0] + ex * ${SYN_BASE} * h, wv[1] + ey * ${SYN_BASE} * h];
+          const paths = [[wv, lc], ringOf(lc), ...[[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([sx, sy]) => loopOf(lc, lc, sx, sy))];
+          const mn = Math.min(...paths.map((q) => pathMin(opt.syn, q))) / h;
+          best = Math.max(best, mn);
+          if (mn < ${BRANCH_CLEAR}) continue;
+          const tr = track(setV, [wv, lc]);
+          if (tr) { base = { lc, tr, mn }; break; }
+        }
+        if (!base) return { cls: best >= ${BRANCH_CLEAR} ? 'nobase' : 'noclear', why: best >= ${BRANCH_CLEAR} ? 'no members at loop base' : 'no axis keeps the branch value clear of the loops', best, fail };
+        setV = base.tr.map((m, i) => Object.assign({}, m, { sheets: setV[i].sheets, lvl: setV[i].lvl }));
+        wv = base.lc; synClear = base.mn;
       }
       // (the set re-converged at the vertex to the scale of its own separations, which a member added above changes)
       const refine = () => setV.forEach((m, i) => { const f = newton(m, wv, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(setV, i))); if (f) Object.assign(m, f, { sheets: m.sheets, lvl: m.lvl }); });
       if (!(opt && opt.absTol)) refine();
-      const loop = (c0, sx, sy) => [wv, c0, [c0[0] + sx * h, c0[1]], [c0[0] + sx * h, c0[1] + sy * h], [c0[0], c0[1] + sy * h], c0, wv];
-      const ring = [wv, [wv[0] + h, wv[1]], [wv[0] + h, wv[1] + h], [wv[0] - h, wv[1] + h], [wv[0] - h, wv[1] - h], [wv[0] + h, wv[1] - h], [wv[0] + h, wv[1]], wv];
+      const loop = (c0, sx, sy) => loopOf(wv, c0, sx, sy), ring = ringOf(wv);
       // (the member a tracked member has arrived at, by its log coordinate whatever sheets list it: the monodromy of a loop is read along the chain from a; the
       // chain is lost where an image is no member of the set, and the loop is then no certificate of either answer)
       // (the made-up edge's loops and ring: a path with a point within BRANCH_CLEAR cells of the branch value is a failure of the test's geometry, never a verdict)
-      const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
-      const clearOK = (pts) => !(opt && opt.syn) || pts.every((q, i) => i + 1 >= pts.length || segDist(opt.syn, q, pts[i + 1]) >= ${BRANCH_CLEAR} * h);
+      const clearOK = (pts) => !(opt && opt.syn) || pathMin(opt.syn, pts) >= ${BRANCH_CLEAR} * h;
       const cyc = (pts) => {
-        if (!clearOK(pts)) { fail = { why: 'clear', min: Math.min(...pts.slice(0, -1).map((q, i) => segDist(opt.syn, q, pts[i + 1]))) / h }; return null; }
+        if (!clearOK(pts)) { fail = { why: 'clear', min: pathMin(opt.syn, pts) / h }; return null; }
         const tr = track(setV, pts);
         if (!tr) return null;
         iv.lam0 = tr[iv.i].lam && setV[iv.i].lam ? csub(tr[iv.i].lam, setV[iv.i].lam) : null;   // (the shift of a's log coordinate round the loop)
@@ -448,7 +462,7 @@
         const q = read(loop(wv, sx, sy));
         if (!q) { unres = true; continue; }
         if (q.lost) unres = true;
-        if (q.hit) return { cls: 'branch', cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * ${CELL_QUANT}), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * ${CELL_QUANT})] };
+        if (q.hit) return { cls: 'branch', clear: synClear, cell: [Math.round(Math.min(wv[0], wv[0] + sx * h) / h * ${CELL_QUANT}), Math.round(Math.min(wv[1], wv[1] + sy * h) / h * ${CELL_QUANT})] };
       }
       if (unres) { const q = read(ring); if (q && q.hit) return { cls: 'branch', cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT}), 'ring'] }; if (!q || q.lost) return { cls: 'unresolved', why: 'ring', fail }; }
       return { cls: 'false' };
@@ -942,7 +956,7 @@
           ok(`${t}: control: with no loops to read the made-up branch edge is not certified (${synNL.cls})`, synNL.cls !== 'branch', synNL);
           const synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`);
           const synZ = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true })`), synZoff = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true, sep: false })`);
-          ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls})`, syn.cls === 'branch', syn);
+          ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls}${syn.clear != null ? '; the branch value is ' + syn.clear.toFixed(2) + ' cells from the nearest loop path' : ''})`, syn.cls === 'branch', syn);
           ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
           ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of ${LOOP_DIRS.length} still certify)`, synDp.cls === 'displaced' && synDp.loops < LOOP_DIRS.length, synDp);
           ok(`${t}: control: in the z chart (steps near the branch value swap members) the verdict without the separation check (${synZoff.cls}) differs from the one with it (${synZ.cls})`, synZoff.cls !== synZ.cls, { synZ, synZoff });
