@@ -264,7 +264,7 @@
         }
         // (every member re-converged to CONV_SHARE of its smallest separation to another member, the scale the tracker's steps are judged by; one that cannot be is not certified)
         if (opt && opt.absTol) return out;
-        const fine = out.map((m, i) => newton(m, w, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(out, i))));
+        const fine = out.map((m, i) => { const f = newton(m, w, false, Math.min(${LAMBDA_SAME}, ${CONV_SHARE} * sepOf(out, i))); if (!f && nfail && nfail.why === 'cap') window.__lxCnt.cap++; return f; });   // (a member dropped here for want of convergence is counted like one dropped above)
         return out.map((m, i) => fine[i] && Object.assign({}, fine[i], { sheets: m.sheets, lvl: m.lvl })).filter(Boolean);
       };
       // (a member is in a sheet's window when the imaginary part of its log coordinate is in (lo, hi] of that sheet's first op, within STRIP_TOL; a member with no
