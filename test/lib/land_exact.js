@@ -1607,7 +1607,7 @@
             ok(`${t}: the control: the principal branch misses the ramp members (worst ${prWorst} turn, scene strip; ${nDiff} of ${nRamp} differ); a ramp of 0 flags ${tight}`, prWorst > STRIP_TURN_MIN && tight === nRamp, { prWorst, nDiff, tight, nRamp });
             ok(`${t}: the control of the ramp row: two continued reads of the strip differ by ${ctlWorst} turn, which the row rejects`, !(ctlWorst > STRIP_TURN_MIN), { ctlWorst });
           } else ok(`${t}: the control: the principal branch misses the ramp members: the scene has no branch step to read${ctlNA(c, 'stripRead', u) ? ' (not applicable: ' + ctlNA(c, 'stripRead', u) + ')' : ''}`, !!ctlNA(c, 'stripRead', u), { sc: Array.isArray(sc) });
-        }
+        } else ok(`${t}: the control: the principal branch misses the ramp members: none of the ${ms.length} certified members is in the range ramp (level below 0), so there is no ramp member to read (not applicable)`, nRamp === 0 && ms.length > 0, { nRamp, members: ms.length });
         // the plan read by the candidate generator corrupted (the output of its last op moved, on every sheet): its candidates are preimages under
         // the shortened plan, not under the scene, so the scene must refuse them: candidates are rejected, the members that are left are fewer than
         // the winding counts, and the case fails. A reference that took its homotopy from the plan would answer the corrupted plan consistently
@@ -1662,7 +1662,8 @@
               ok(`${t}: the control: one member removed breaks the count`, !!dropS && dropS.some((r) => !r.ok), { dropS });
               const lipS = await ev(`__cmwLandWindSheets(null, { onLip: true })`);
               // (a place on a lip is a root on the contour: the count must report it, as on the contour or as an unresolved step, and never as a count)
-              const oneSurface = (await ev('(__cmwLandSceneCombos() || {}).n || 0')) <= 1;   // (a plan with no cut: the scene has one surface; a plan with a cut that returns noCut fails)
+              const nSurf = await ev('(__cmwLandSceneCombos() || {}).n'), oneSurface = Number.isFinite(nSurf) && nSurf <= 1;   // (a plan with no cut: the scene has one surface; a plan with a cut that returns noCut fails, and so does a scene that reports no count)
+              ok(`${t}: the scene reports its number of surfaces (${nSurf})`, Number.isFinite(nSurf) && nSurf >= 1, { nSurf });
               const noCut = !!lipS && oneSurface && lipS.every((r) => r.status === 'noCut'), loud = !!lipS && lipS.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
               ok(`${t}: the control: a place on a cut lip is not counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipS && loud && (noCut || lipS.some((r) => r.status === 'onContour' || r.status === 'unresolved')), { lipR: lipS && lipS.slice(0, 3) });
               const nearS = await ev(`__cmwLandWindSheets(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
@@ -1673,7 +1674,7 @@
               if (ip !== null) {
                 const nopS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[ip])}, { noPoles: true })`);
                 ok(`${t}: the control: the poles omitted break the count`, !!nopS && nopS.some((r) => !r.ok), { nop: nopS });
-              } else ok(`${t}: the control: the poles omitted break the count: no counted place has a pole (not applicable)`, ip === null && pick.length > 0, { places: pick.length });
+              } else ok(`${t}: the control: the poles omitted break the count: no counted place has a pole: the count's pole number is 0 at each of the ${pick.length} counted places (not applicable)`, ip === null && pick.length > 0, { places: pick.length });
             }
             if (c.logControl) {
               const lw = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
@@ -1843,6 +1844,16 @@
         const rev = worst(HIST[name][REVERSED_FROM], HIST[name][u]), froz = worst(HIST[name][REVERSED_FROM], HIST[name][GLIDE_MID]);
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
+      }
+      // (the sheets' combo one off: the colour at the near probes leaves NEAR_TOL)
+      if (NEAR_U.includes(u) && u >= REVERSED_FROM && u <= 1 - REVERSED_FROM && COMBO_CONTROL_K.includes(c.tag)) {
+        let nPh = 0;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const sh = await hook(pts);
+          (sh || []).forEach((hv, i) => (ref[i] || []).slice(0, 1).forEach((m) => { (hv || []).filter((x) => sameZ(x.z, m.z)).forEach((l) => { const g = phaseGap(l.f, m.f); if (g !== null && g > NEAR_TOL) nPh++; }); }));
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
+        ok(`${t}: the control: with every sheet's combo one off the colour leaves ${NEAR_TOL} rad at ${nPh} members`, nPh > 0, { nPh });
       }
       // (control) the farthest member marked front: at the places where that is another z than the nearest, the frame's front is not the reference's
       if (!sheets && !r.farFront && ref.some((l) => l.length > 1)) {
