@@ -1290,8 +1290,8 @@
               ok(`${t}: control: loops round the cells one cell off the made-up branch edge's vertex carry no cycle through both ends (${cs.cls}, ${cs.hits} of ${cs.read} loops read)`, cs.cls === 'shifted' && cs.hits === 0 && cs.read > 0, cs);
             }
             const c4on = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)} })`), c4inj = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, c4Inject: true })`), c4off = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, c4Inject: true, sep: false })`);
-            if (c4on.cls === 'c4') ok(`${t}: control: a loop beside the branch value (not enclosing it) is the identity (${JSON.stringify(c4on.perm)})`, c4on.ident, c4on);
-            if (c4on.cls === 'c4') ok(`${t}: control: with one wrong prediction injected the separation check rejects the step and the loop is still the identity (${c4inj.cls}, ${JSON.stringify(c4inj.perm)})`, c4inj.cls === 'c4' && c4inj.ident, c4inj);
+            ok(`${t}: control: a loop beside the branch value (not enclosing it) is read, and is the identity (${c4on.cls}, ${JSON.stringify(c4on.perm)})`, c4on.cls === 'c4' && c4on.ident, c4on);
+            ok(`${t}: control: with one wrong prediction injected the separation check rejects the step and the loop is still the identity (${c4inj.cls}, ${JSON.stringify(c4inj.perm)})`, c4inj.cls === 'c4' && c4inj.ident, c4inj);
             if (c4on.cls === 'c4' && c4on.ident && c4inj.ident && c4off.cls === 'c4' && !c4off.ident) bit.sepBite++;
             r[u].c4 = { bad: [c4inj.bad, c4off.bad], n: c4on.n, perm: c4off.perm, on: c4on.cls + ':' + (c4on.ident ? 'id' : '?'), inj: c4inj.cls + ':' + (c4inj.ident ? 'id' : '?'), off: c4off.cls + ':' + (c4off.ident ? 'id' : c4off.cls === 'c4' ? 'swap' : '?') };
           }
