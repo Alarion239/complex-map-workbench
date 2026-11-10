@@ -341,13 +341,25 @@
   addNeg('negpow formula z^(-1/2)', [S('custom', { expr: 'z^{-1/2}' })]);
   addNeg('negpow powa -3/2', [S('powa', { alpha: '-1.5' })]);
   addNeg('negpow formula (z-0.5)^(-2)', [S('custom', { expr: '(z-0.5)^{-2}' })]);
-  // the cap on a chain's uniform slots: a chain over GLChain.MAX_CHAIN_SLOTS is refused by the build, with an error
+  // the cap on a chain's uniform slots (GLChain.maxChainSlots(vecs), vecs the GPU's smaller uniform-vector limit): the
+  // largest chain above (series d/dz e^z 0.2z+1) is refused at the spec minimum and built at LIMIT_BIG vectors; a chain of
+  // MANY_STEPS Möbius steps (11 slots each) is refused even at LIMIT_BIG
   {
-    const many = Array.from({ length: 60 }, () => S('mobius'));
-    let msg = '';
-    try { GLChain.build(many, many.map((st) => Funcs.build(st))); } catch (e) { msg = String(e && e.message); }
-    R.slotCapControl = msg;
-    if (!/exceed the cap of/.test(msg)) R.errors.push(`slot cap control: a chain of 60 Möbius steps was not refused (${msg || 'built'})`);
+    const SPEC_MIN = 224, LIMIT_BIG = 1024, MANY_STEPS = 100;
+    const tryBuild = (steps, vecs) => { try { return { slots: GLChain.build(steps, steps.map((st) => Funcs.build(st)), vecs).slots }; } catch (e) { return { err: String(e && e.message) }; } };
+    const big = chains.find((c) => c.name === 'series d/dz e^z 0.2z+1');
+    const many = Array.from({ length: MANY_STEPS }, () => S('mobius'));
+    const rows = { big: big && tryBuild(big.steps, LIMIT_BIG), bigMin: big && tryBuild(big.steps, SPEC_MIN), noGl: big && tryBuild(big.steps), many: tryBuild(many, LIMIT_BIG) };
+    R.slotCap = { rows, other: GLChain.OTHER_UNIFORM_VECS, capMin: GLChain.maxChainSlots(SPEC_MIN), capBig: GLChain.maxChainSlots(LIMIT_BIG) };
+    const refused = (r) => !!(r && r.err && /exceed the cap of/.test(r.err));
+    if (!big) R.errors.push('slot cap: the largest series chain is missing from the list');
+    else {
+      if (!(rows.big && rows.big.slots > GLChain.maxChainSlots(SPEC_MIN))) R.errors.push(`slot cap: the series chain must take more slots than the spec minimum allows (${JSON.stringify(rows.big)})`);
+      if (!refused(rows.bigMin)) R.errors.push(`slot cap: the series chain (${rows.big && rows.big.slots} slots) was not refused at ${SPEC_MIN} vectors (${JSON.stringify(rows.bigMin)})`);
+      if (!refused(rows.noGl)) R.errors.push(`slot cap: without a GPU limit the series chain was not refused at the spec minimum (${JSON.stringify(rows.noGl)})`);
+      if (rows.big.err) R.errors.push(`slot cap: the series chain was refused at ${LIMIT_BIG} vectors (${rows.big.err})`);
+    }
+    if (!refused(rows.many)) R.errors.push(`slot cap: a chain of ${MANY_STEPS} Möbius steps was not refused at ${LIMIT_BIG} vectors (${JSON.stringify(rows.many)})`);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -704,6 +716,7 @@
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl2');
   if (!gl) { R.errors.push('no webgl2'); R.done = true; return; }
+  GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
   if (!gl.getExtension('EXT_color_buffer_float')) { R.errors.push('no EXT_color_buffer_float'); R.done = true; return; }
   R.renderer = (() => { const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })();
   const VS = '#version 300 es\nvoid main(){ vec2 p = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0); gl_Position = vec4(p, 0.0, 1.0); }';

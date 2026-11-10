@@ -191,6 +191,7 @@
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl2');
   if (!gl) { R.errors.push('no webgl2'); R.done = true; return; }
+  GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
   if (!gl.getExtension('EXT_color_buffer_float')) { R.errors.push('no EXT_color_buffer_float'); R.done = true; return; }
   R.renderer = (() => { const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })();
   R.limits = { maxFragUniformVectors: gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), maxVertUniformVectors: gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) };
