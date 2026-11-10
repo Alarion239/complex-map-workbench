@@ -267,7 +267,7 @@
   // The views the steps view's Landscape reads: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy); { srcScale, leftScale } multiplies the
   // shared camera's s (S.srcView) and the mirror's (V.left) by those factors (the controls: the glide's box follows the camera and does not follow the mirror's history)
   window.__cmwLandViews = (o) => {
-    if (o && o.srcScale) S.srcView.s *= o.srcScale;
+    if (o && o.srcScale) setOpt('srcView', Object.assign({}, S.srcView, { s: S.srcView.s * o.srcScale }));
     if (o && o.leftScale) V.left.s *= o.leftScale;
     return { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left) };
   };
