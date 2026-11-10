@@ -446,9 +446,10 @@ const InvOps = (() => {
   const REPEAT_COPIES_MAX = 20;      // copies, the GPU stack's depth
   const REPEAT_NODES_MAX = 1024;     // root solves per pixel before it reads unresolved: at least 50 x the most the suite's
                                      // scenes need (the CPU twin over every pixel at dpr 1 and 2: the gallery square 20,
-                                     // the bite box at Repeat x 2 3, at x 20 0)
+                                     // the bite box at Repeat x 2 3, at x 20 1)
   // root solves in one GPU submission of a REPT draw at most (GLR's reptDraw tiles a pane by it, counting every pixel
-  // at its whole budget): RATE_NOTE
+  // at its whole budget): 5.0 s on llvmpipe (4 cores, about 2.7e7 solves a second, measured where every pixel spends
+  // the whole budget: z^3 x 20 on a disc tangent to |z| = 1 from inside); within 100 ms on a GPU of 1.3e9 a second
   const REPT_TILE_SOLVES = 2 ** 27;
   // the node budget of a REPT draw's first pass over the whole pane (GLR's reptDraw): a pixel whose search ends within
   // it is final, one that does not goes on in the tiled second pass at REPEAT_NODES_MAX. 32 is at least 1.5 x the most
