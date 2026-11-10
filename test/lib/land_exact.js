@@ -202,6 +202,24 @@
       }
       return { n, coloured, diff };
     },
+    // the relief's coverage (window.__satCov.on with the block clip, .off without it, each a raster of the pane) at the projected places of items [{ w, h }] in the camera the relief was drawn from:
+    // n of them lie inside the pane, on and off count those the relief covers, bite those covered without the clip and not with it
+    covPx: (items) => {
+      const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, dpr = W / cv.getBoundingClientRect().width, C = window.__satCov;
+      let n = 0, on = 0, off = 0, bite = 0;
+      for (const it of items) {
+        const q = __cmwLandProject(it.w[0], it.w[1], it.h);
+        if (!q || !Number.isFinite(q[0] + q[1])) continue;
+        const x = Math.round(q[0] * dpr), y = Math.round(q[1] * dpr);
+        if (x < 0 || x >= W || y < 0 || y >= H) continue;
+        n++;
+        const a = C.on[y * W + x] > 0, b = C.off[y * W + x] > 0;
+        if (a) on++;
+        if (b) off++;
+        if (b && !a) bite++;
+      }
+      return { n, on, off, bite };
+    },
     // the pixels where both frames are coloured (saturation over SAT_MIN) and their hues are more than HUE_OFF_DEG apart: a row the
     // colour of the wrong branch draws across a sheet boundary shows here, a shifted contour line (the same hue, lighter or darker) does not
     hueOff: (a, b) => {
@@ -955,33 +973,33 @@
           const bumpLayer = layersOf(claims).find((l) => l.nParts > 0);
           if (bumpLayer) { const bumped = await ev(`__cmwLandClaims(${JSON.stringify(pts)}, { layer: ${bumpLayer.member} })`), moved = claimBad(bumped).filter((l) => l.member === bumpLayer.member); ok(`${t}: the control: layer ${bumpLayer.member}'s claim one sheet off fails every layer of that member (${moved.length} fail)`, moved.length > 0, { moved: moved.length }); }
           else ok(`${t}: the control: no layer claims a sheet but the principal one: nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nParts === 0), { n: nLayers });
-          // (a layer read through the saturation branch holds the true height beyond the colour map's clamp: the parked frame draws the block's cap there, not the surface above it. The Top view's pixel at the place, at the
-          // clamp height, is the cap's: it is coloured, it equals the parked plane's at the near-end probes, and without the block clip (probe clipOff) it is another, so the frame did clip. The control must bite at every case)
+          // (a layer read through the saturation branch holds the true height beyond the colour map's clamp: the parked frame draws the block's cap there, not the surface above it. The relief's coverage at the place, at the
+          // layer's true height, shows the cut: the surface is there without the block clip (probe clipOff) and not with it, so the frame did clip, and the control bites at every case. At the near-end probes the Top view's
+          // pixel at the place, at the clamp height, is the cap's: it equals the parked plane's)
           {
             const items = [];
             (claims || []).forEach((ls, i) => (ls || []).forEach((l, j) => {
               if (!l.layered || l.opts.length < 2 || !got[i] || !got[i][j] || !got[i][j].w) return;
               const hi = l.h >= l.sat[1] - HEIGHT_TOL, lo = l.h <= l.sat[0] + HEIGHT_TOL;
-              if (hi || lo) items.push({ w: got[i][j].w, h: hi ? l.sat[1] : l.sat[0] });
+              if (hi || lo) items.push({ w: got[i][j].w, h: l.h, hs: hi ? l.sat[1] : l.sat[0] });
             }));
             if (items.length) {
-              await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-              await grab('satOn');
-              let offPx;
+              const relief = () => ev('(() => { const r = __cmwLandRelief(); return r ? r.n : null; })()');
+              await relief(); await ev('window.__satCov = { on: window.__cmwLandRelief.cov.slice(), off: null }; 1');
               try {
                 await ev(`__svCarryProbe = __svCarryProbeSettings.clipOff; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-                await grab('satOff');
-                offPx = await ev(`__lx.capPx('satOn', 'satOff', ${JSON.stringify(items)})`);
-              } finally {
-                await ev('__svCarryProbe = null; 1'); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-              }
-              const onPx = await ev(`__lx.capPx('satOn', null, ${JSON.stringify(items)})`);
-              r[u].satCap = { items: items.length, onPx, offPx };
-              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: the Top view's pixel there is coloured (${onPx.coloured} of ${onPx.n})`, onPx.n > 0 && onPx.coloured >= (1 - COVER_TOL) * onPx.n, r[u].satCap);
-              ok(`${t}: the control: without the block clip the pixel at the saturated texels changes (${offPx.diff} of ${offPx.n})`, offPx.diff > 0, r[u].satCap);
+                await relief(); await ev('window.__satCov.off = window.__cmwLandRelief.cov.slice(); 1');
+              } finally { await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
+              const cp = await ev(`__lx.covPx(${JSON.stringify(items)})`);
+              r[u].satCap = { items: items.length, cp };
+              ok(`${t}: the control: without the block clip the relief covers the saturated texels' places at their true height and with it not (${cp.bite} of ${cp.n} bitten)`, cp.n > 0 && cp.bite > 0, r[u].satCap);
+              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: the relief covers their places at the true height at only a fraction of those it covers without the clip (${cp.on} with it, ${cp.off} without)`, cp.n > 0 && cp.on < cp.off, r[u].satCap);
               if (NEAR_U.includes(u)) {
-                const pk = await ev(`__lx.capPx('satOn', ${first ? "'P0T'" : "'P1T'"}, ${JSON.stringify(items)})`);
-                ok(`${t}: the pixel at the saturated texels equals ${first ? "plane z's" : "the next plane's"} parked frame (${pk.diff} of ${pk.n} differ; at most ${SAME_FRAC * 100} %)`, pk.n > 0 && pk.diff <= SAME_FRAC * pk.n, pk);
+                await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+                await grab('satOn'); await relief();
+                const pk = await ev(`__lx.capPx('satOn', ${first ? "'P0T'" : "'P1T'"}, ${JSON.stringify(items.map((it) => ({ w: it.w, h: it.hs })))})`);
+                await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+                ok(`${t}: the Top view's pixel at the saturated texels' places, at the clamp height, equals ${first ? "plane z's" : "the next plane's"} parked frame (${pk.diff} of ${pk.n} differ; at most ${SAME_FRAC * 100} %)`, pk.n > 0 && pk.diff <= SAME_FRAC * pk.n, pk);
               }
             }
           }
