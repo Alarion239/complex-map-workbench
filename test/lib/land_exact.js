@@ -71,6 +71,8 @@
   // the rows with straddling cells where the clip-off control cannot bite because the cut is already tight there: the largest |hTrue| / Hc of the clip-off pixels is at most 1 + CAP_EPS (asserted two-sided: a listed row that bites fails)
   // the cases whose clip-off count falls to 0 under the lowest-pixel sampling on some row (asserted in that case's own part of the suite: Möbius √ at u = .002)
   const C2_ZERO_CASES = ['Möbius, √'];
+  // the other cases with straddling cells, listed with why their count does not reach 0 (asserted two-sided: a listed case that reaches 0 fails)
+  const C2_ZERO_NA = { 'Möbius dipole, √': 'the pixels over the bound fill their cells (the lowest-drawn pixels of a pole cell are over it too), so no row empties' };
   const C1_TIGHT = { 'Möbius dipole, √|0.998': 'every straddling cell is cut within CAP_EPS of the block', 'Möbius dipole, √|0.9999': 'every straddling cell is cut within CAP_EPS of the block' };
   const CTL_NA = {
     "Möbius with a pole in the box|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
@@ -1133,11 +1135,14 @@
       else ok(`${t}: C1: without the block clip ${sOff.over} straddling pixels (of ${sOff.nStrad}) have |hTrue| over Hc (1 + ${CAP_EPS}) (largest ${sOff.maxRatio.toFixed(4)} Hc)`, bites, sOff);
       if (bites) { capBit.c1++; capC1[c.tag] = true; }
     } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na && off.nStradAll === 0, { nStradAll: off.nStradAll });
-    // the frame's height function clamps the linear heights at the bound the clip uses: its saturation is BLOCK_K times the block's height (control: against the bound one CAP_EPS higher it fails)
-    if (off.nStrad > 0) {
-      const sat = [await ev('__cmwLandHeightOf(-1e12)'), await ev('__cmwLandHeightOf(1e12)')], clampAt = (b) => Math.abs(Math.max(Math.abs(sat[0]), Math.abs(sat[1])) - b) <= CAP_CLAMP_TOL * b;
-      ok(`${t}: cap: the height function saturates at BLOCK_K times the block's height (${sat[0]}, ${sat[1]} against ${hc})`, clampAt(hc), { sat, hc });
-      ok(`${t}: cap: control: a bound ${CAP_EPS} higher is not the height function's saturation`, !clampAt(hc * (1 + CAP_EPS)), { sat, hc });
+    // the frame's height function never gives a height past the bound the clip uses, and where it clamps the linear heights its saturation is BLOCK_K times the block's height (control: against the bound one CAP_EPS higher it fails)
+    {
+      const sat = [await ev('__cmwLandHeightOf(-1e12)'), await ev('__cmwLandHeightOf(1e12)')], top = Math.max(Math.abs(sat[0]), Math.abs(sat[1])), clampAt = (b) => Math.abs(top - b) <= CAP_CLAMP_TOL * b;
+      ok(`${t}: cap: the height function stays inside BLOCK_K times the block's height (${sat[0]}, ${sat[1]} against ${hc})`, top <= hc * (1 + CAP_CLAMP_TOL), { sat, hc });
+      if (off.nStrad > 0) {
+        ok(`${t}: cap: the height function saturates at BLOCK_K times the block's height (${sat[0]}, ${sat[1]} against ${hc})`, clampAt(hc), { sat, hc });
+        ok(`${t}: cap: control: a bound ${CAP_EPS} higher is not the height function's saturation`, !clampAt(hc * (1 + CAP_EPS)), { sat, hc });
+      }
     }
     // C2, the pixels of the smallest drawn height
     const low = await capRd({ clipOff: true, lowest: true }), hLow = await capEval(low.samples, 0), sLow = capStat(low, hLow, hc);
@@ -2058,7 +2063,10 @@
     ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
     for (const [tag, k] of Object.entries(capCase)) ok(`control: C2: over the rows of ${tag} the clip-off count falls when each straddling cell's lowest drawn pixels are sampled in place of its highest (${k.low} against ${k.top})`, k.low < k.top, k);
     for (const tag of Object.keys(capCase)) ok(`control: C1: the clip-off count is over 0 on some row of ${tag}`, !!capC1[tag], capC1);
-    for (const tag of C2_ZERO_CASES) if (capCase[tag]) ok(`control: C2: the clip-off count with the lowest pixels is 0 on some row of ${tag} (${capC2Zero[tag] || 0} rows)`, (capC2Zero[tag] || 0) > 0, capC2Zero);
+    for (const tag of Object.keys(capCase)) {
+      if (C2_ZERO_CASES.includes(tag)) ok(`control: C2: the clip-off count with the lowest pixels is 0 on some row of ${tag} (${capC2Zero[tag] || 0} rows)`, (capC2Zero[tag] || 0) > 0, capC2Zero);
+      else ok(`control: C2: ${tag} is listed as never reaching 0 (${C2_ZERO_NA[tag] || 'NOT LISTED'}; ${capC2Zero[tag] || 0} rows reach it)`, !!C2_ZERO_NA[tag] && !(capC2Zero[tag] > 0), capC2Zero);
+    }
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
