@@ -525,6 +525,13 @@
       return { sheet, H: w ? [w.re, w.im] : null, dH: a && b ? [(a.re - b.re) / (2 * HOM_DZ), (a.im - b.im) / (2 * HOM_DZ)] : null, exactD: false };
     });
   };
+  // the log-coordinate window of each sheet's first op (a log or a power u^s): a member's continued log coordinate has its imaginary part in (lo, hi] when
+  // the member is inside its sheet's window. [{ sheet, kind, lo, hi }] ('LOG' / 'ROOTPOW', else lo and hi are null)
+  window.__cmwLandWin = () => {
+    const inp = render3D.exactIn;
+    if (!inp) return null;
+    return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => { const o = sh.plan.ops[0], p = o && o.p; return { sheet, kind: o ? o.kind : null, lo: p && Number.isFinite(p.lo) ? p.lo : null, hi: p && Number.isFinite(p.hi) ? p.hi : null }; });
+  };
   // the completeness count of the frame's reference: for one place w (plane 0's map value) and each sheet of the frame, the number of
   // preimages of w inside the box that the sheet's homotopy G has, by the winding of G - w around the boundary of the sheet's region R (in
   // the continued log coordinate when the plan's first op is a log or a power, else in z), plus the plan's poles inside R, against the members
