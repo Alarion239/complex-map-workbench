@@ -1806,15 +1806,26 @@
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       const sat = sheets ? satOf(await ev(`__cmwLandClaims(${JSON.stringify(pts.slice(0, SAT_PLACES))})`)) : null; let clipped = 0, clippedAt = null;
-      // (the colour's frame side: each layer's F is the colour map's value of the reference sheet whose height is the layer's (__cmwLandRefSheets at the layer's z; a height beyond the clip level on the layer's side
-      // is the sheet's clipped one), exactly one sheet or all of them with one value; none or two values is counted and fails the row, never a pick; the hook's matched member's F is not read)
-      let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0;
+      // (the colour's frame side: each layer's F is the colour map's value of the reference sheet (__cmwLandRefSheets at the layer's z) whose height is the layer's (a height beyond the clip level on the
+      // layer's side is the sheet's clipped one); where two sheets with two values fit, the sheet whose combo is the layer's claim decides; none, or two values left, is counted and fails the row,
+      // never a pick. The frame's layers are the distinct ones. The hook's matched member's F is not read)
+      let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0, claimDis = 0, claimN = 0; const noSheetAt = [];
       if (sheets) {
+        const cl = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`);
         const rsAll = await ev(`${JSON.stringify(got.map((ls) => (ls || []).map((l) => l.z || null)))}.map((ls) => ls.map((z) => (z ? __cmwLandRefSheets(z) : [])))`);
-        got.forEach((ls, i) => (ls || []).forEach((l, j) => {
-          const hit = ((rsAll && rsAll[i] && rsAll[i][j]) || []).filter((q) => q.f && q.h !== null && (Math.abs(q.h - l.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(q, sat, hi)))));
-          const vals = hit.filter((q, k) => hit.findIndex((q2) => Math.hypot(q2.f[0] - q.f[0], q2.f[1] - q.f[1]) <= REL_FLOOR * (1 + Math.hypot(q.f[0], q.f[1]))) === k);
-          if (!hit.length) { noSheet++; l.f = null; } else if (vals.length > 1) { ambiguous++; l.f = null; } else l.f = hit[0].f;
+        got.forEach((ls, i) => distinctLayers(ls || []).forEach((l) => {
+          const j = ls.indexOf(l), claim = cl && cl[i] && cl[i][j] ? cl[i][j].claim : null, opts = (rsAll && rsAll[i] && rsAll[i][j]) || [];
+          const sameF = (a2, b2) => Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) <= REL_FLOOR * (1 + Math.hypot(b2[0], b2[1]));
+          const hit = opts.filter((q) => q.f && q.h !== null && (Math.abs(q.h - l.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(q, sat, hi)))));
+          const vals = hit.filter((q, k) => hit.findIndex((q2) => sameF(q2.f, q.f)) === k);
+          const byClaim = hit.filter((q) => q.combo === claim);
+          l.f = null;
+          if (!hit.length) { noSheet++; if (noSheetAt.length < 4) noSheetAt.push({ z: l.z, h: l.h, claim }); }
+          else if (vals.length === 1) {
+            l.f = hit[0].f; claimN++;
+            if (!byClaim.length || !byClaim.every((q) => sameF(q.f, l.f))) claimDis++;   // (the claim's sheet is the height's sheet on every layer the height settles)
+          } else if (byClaim.length && byClaim.every((q) => sameF(q.f, byClaim[0].f))) l.f = byClaim[0].f;
+          else ambiguous++;
         }));
       }
       pts.forEach((p, i) => {
@@ -1835,17 +1846,22 @@
           if (g.h && !(sat && Math.abs(l.h - m.h) > HEIGHT_TOL && heightsAgree(l, m, want, sat))) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
           if (g.noF) { noF++; return; }
           if (g.phN) phN++;
-          if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
+          if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f, dArg: phaseGap(l.f, m.f), dH: l.h - m.h }); }
           // (the control's pairs: the layer against the reference's other member of the place, whose colour must differ beyond the tolerance at some pair)
           const other = want.find((x) => x !== m && x.f);
           if (other && l.f) { pairN++; const go = phaseGap(l.f, other.f); if (go !== null && go > (NEAR_U.includes(u) ? NEAR_TOL : PHASE_TOL)) pairOff++; }
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
-      if (sheets) ok(`${t}: the control: a layer paired with the reference's other member leaves the colour tolerance at ${pairOff} of ${pairN} pairs`, pairN > 0 && pairOff > 0, { pairN, pairOff });
+      if (sheets) {
+        ok(`${t}: the claim's sheet is the height's sheet on every layer the height settles (${claimDis} of ${claimN} disagree)`, claimN > 0 && claimDis === 0, { claimDis, claimN });
+        r.pairN = (r.pairN || 0) + pairN; r.pairOff = (r.pairOff || 0) + pairOff;
+        // (the control over the row: a layer paired with the reference's other member leaves the colour tolerance at some pair; a place with one member has no pair)
+        if (u === GLIDE_U[GLIDE_U.length - 1]) ok(`${name}: the control: a layer paired with the reference's other member leaves the colour tolerance at ${r.pairOff} of ${r.pairN} pairs over the row${r.pairN ? '' : ' (n/a at each u: one member per place)'}`, r.pairN > 0 && r.pairOff > 0, { pairN: r.pairN, pairOff: r.pairOff });
+      }
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, noSheet, ambiguous, atPh });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, noSheet, ambiguous, noSheetAt, atPh });
       if (sheets) {
         ok(`${t}: control: with the clip levels off the places holding a layer beyond them fail (${clipped} places; the row is ${CLIPPED_ROWS.includes(`${c.tag}@${u}`) ? '' : 'not '}on the list of rows that have some)`, (clipped > 0) === CLIPPED_ROWS.includes(`${c.tag}@${u}`), { clipped, sat });
         if (clippedAt && sat) {
