@@ -101,6 +101,10 @@
   const WIND_PLACES = 12;   // (places counted per frame)
   const DOM_EPS = 1e-9;   // (the slack of a box's edge)
   const CUT_DELTA = 0.5;   // (the control's shift of the cut circle's radius)
+  // (Ruling C) where the glide is next to a plane (u = END_U, 0.002, 0.998, 1 - END_U) the frame is judged against the exact reference at its own u,
+  // far tighter than the 0.02 and 2 degrees of the rest: NEAR_TOL is the largest difference of a drawn height (world units) and of a colour's
+  // argument (radians) from the reference's; a frame drawn at the wrong u (reversed, frozen) is told apart by it
+  const NEAR_U = [END_U, 0.002, 0.998, 1 - END_U], NEAR_TOL = 0.005, REVERSED_FROM = 0.002;
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
   // the exact image reference (test/lib/land_exact_core.js, one implementation for every suite): the box's lattice of nx x ny cells, each
