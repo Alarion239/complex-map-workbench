@@ -468,13 +468,18 @@
   // the parked All-sheets reference at a point z of plane 0 ([re, im]): per forward combo of the colour map's distinct sheets
   // (sheetUniqOf, window S.sheetW) [{ combo, z, f, h }], f the sheet's value at z (Funcs.sheetEval, as the parked frame draws it)
   // and h its height at the last frame's scale; [] with no frame or no sheets
+  // plane 0's map (fm) on surface number combo of the cell centred at zc, at z: the value whose height the layered draw gives a fragment (null where not finite)
+  const refValue = (fm, W, zc, z, combo) => {
+    let f = null;
+    try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, z, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+    return f && CX.isFin(f) ? f : null;
+  };
   window.__cmwLandRefSheets = (z) => {
     const hOf = render3D.frameHeight, ex = render3D.exactIn, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
     if (!hOf || !ex || typeof Funcs.sheetEval !== 'function') return [];
     const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]);
     return sheetUniqOf(fm, W).map((combo) => {
-      let f = null;
-      try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, zc, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+      const f = refValue(fm, W, zc, zc, combo);
       return { combo, z: [z[0], z[1]], f: f && CX.isFin(f) ? [f.re, f.im] : null, h: f && CX.isFin(f) ? hOf(landValue(f)) : null };
     });
   };
@@ -1182,6 +1187,104 @@
     });
   };
   // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // The cap probe's read (the layered carried draw, LAND_FS's uCapProbe): the frame at the current u is drawn twice into a float target, once writing each fragment's
+  // preimage and chain anchor (pass 1), once its drawn height, layer index and grid cell (pass 2), and the pixels to evaluate are chosen from pass 2:
+  //  - every straddling cell (a cell of a layer's grid with a corner whose height has |h| above BLOCK_K times the block's height) that a pixel covers gives its o.perCell
+  //    covered pixels of the largest drawn |height| (o.lowest: of the smallest), the cells taken in order of their largest corner |h|;
+  //  - o.uniform pixels on a seeded (o.seed) stratified grid of the covered pixels, read as data;
+  //  - at most o.max pixels in all; the straddling cells left out are counted in truncated.
+  // o.clipOff draws the layers without the block's geometric clip; o.constant adds the float target's check (pass 3: every fragment writes vec4(1, 2, 3, 4)).
+  // -> { err } where no float target or no layered frame, else { W, H, nCombos (the distinct claim codes of the layers), uH, hc, blockK, clipFar, covered, maxDrawn, nStradAll (the straddling cells), nStrad (those
+  // sampled), truncated, samples: [{ x, y, vz (drawn height), layer, own (the layer's claim code), cell, z, zc, corners (the cell's corner heights), edge (neighbours uncovered or of another layer), kind }], constant }
+  // The height the layered draw gives a fragment of preimage z (the anchor zc, the layer's claim code own): the frame's own height function, unclamped, of plane 0's map
+  // F on the claim's surface (refValue, as __cmwLandRefSheets reads it; the draw's landW is the same chain over the same stages) -> [height | null], null where F
+  // is not finite. list: [{ z, zc, own }]
+  window.__cmwLandCapHeights = (list) => {
+    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), fm = SV.on ? svMapAt(0) : endMap();
+    return list.map((q) => {
+      const f = refValue(fm, W, C(q.zc[0], q.zc[1]), C(q.z[0], q.z[1]), q.own);
+      return f && render3D.frameHeight ? render3D.frameHeight(landValue(f), true) : null;
+    });
+  };
+  const CAP_CELL_MAX = 16777216;   // (a cell index is written as a float: exact below 2^24)
+  window.__cmwLandCapRead = (o) => {
+    o = o || {};
+    const keep = GLR.carryProbes();
+    const take = (p) => { GLR.carryProbes(Object.assign({}, keep, { capProbe: p, clipOff: !!o.clipOff })); renderLeft(); return GLR.landCapTake(); };
+    let a, b, c = null;
+    try { a = take(1); b = take(2); if (o.constant) c = take(3); } finally { GLR.carryProbes(keep); renderLeft(); }
+    for (const r of [a, b, c]) if (r && r.err) return { err: r.err };
+    if (!a || !b || !b.layers) return { err: 'no layered frame' };
+    const { W, H, N, px: p2, layers } = b, p1 = a.px, hc = GLR.BLOCK_K * b.uH, M = N - 1;
+    if (M * M >= CAP_CELL_MAX) return { err: 'cell index past 2^24' };
+    // the straddling cells of each layer: key layer * CAP_CELL_MAX + cell -> the largest corner |h|
+    const strad = new Map();
+    layers.forEach((l, li) => {
+      for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) {
+        let m = 0;
+        for (const q of [4 * (j * N + i), 4 * (j * N + i + 1), 4 * ((j + 1) * N + i), 4 * ((j + 1) * N + i + 1)]) if (l.g[q + 3] > 0.5) m = Math.max(m, Math.abs(l.g[q + 2]));
+        if (m > hc) strad.set(li * CAP_CELL_MAX + j * M + i, m);
+      }
+    });
+    const best = new Map();
+    let covered = 0, maxDrawn = 0;
+    const per = o.perCell | 0, sgn = o.lowest ? -1 : 1;
+    for (let k = 0; k < W * H; k++) {
+      const q = 4 * k;
+      if (p2[q + 3] !== 1) continue;
+      covered++;
+      const vz = Math.abs(p2[q]);
+      if (vz > maxDrawn) maxDrawn = vz;
+      const li = p2[q + 1], cell = p2[q + 2];
+      if (!layers[li] || cell < 0) continue;
+      const key = li * CAP_CELL_MAX + cell;
+      if (!strad.has(key)) continue;
+      const arr = best.get(key) || []; best.set(key, arr);
+      arr.push({ k, vz }); arr.sort((u, v) => sgn * (v.vz - u.vz)); if (arr.length > per) arr.pop();
+    }
+    const keys = [...best.keys()].sort((u, v) => strad.get(v) - strad.get(u)), room = Math.max(0, (o.max | 0) - (o.uniform | 0));
+    const cornersOf = (key) => {
+      const li = Math.floor(key / CAP_CELL_MAX), cell = key - li * CAP_CELL_MAX, i = cell % M, j = Math.floor(cell / M), g = layers[li].g;
+      return [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].map(([x, y]) => (g[4 * (y * N + x) + 3] > 0.5 ? g[4 * (y * N + x) + 2] : null));
+    };
+    // the pixel's 8 neighbours that are not covered or are of another layer: a pixel on the rim of a cut bank has some
+    const edgeOf = (k) => {
+      let n = 0;
+      for (let d = 0; d < 9; d++) {
+        const x = (k % W) + (d % 3) - 1, y = Math.floor(k / W) + Math.floor(d / 3) - 1, q = 4 * (y * W + x);
+        if (d !== 4 && (x < 0 || y < 0 || x >= W || y >= H || p2[q + 3] !== 1 || p2[q + 1] !== p2[4 * k + 1])) n++;
+      }
+      return n;
+    };
+    const samples = [], put = (k, kind, key) => {
+      const q = 4 * k;
+      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], layer: p2[q + 1], own: layers[p2[q + 1]] ? layers[p2[q + 1]].own : null, kind, corners: p2[q + 2] >= 0 && layers[p2[q + 1]] ? cornersOf(p2[q + 1] * CAP_CELL_MAX + p2[q + 2]) : null, edge: edgeOf(k) });
+    };
+    let nStrad = 0, truncated = 0;
+    for (const key of keys) {
+      if (samples.length + best.get(key).length > room) { truncated++; continue; }
+      nStrad++;
+      for (const e of best.get(key)) put(e.k, 'strad', key);
+    }
+    // the seeded stratified grid: one random start in each stratum, the first covered pixel from it in the stratum
+    let s = (o.seed | 0) || 1;
+    const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const strata = Math.ceil(Math.sqrt(o.uniform | 0)), sw = Math.floor(W / strata), sh = Math.floor(H / strata);
+    for (let sy = 0; sy < strata && samples.length < (o.max | 0); sy++) for (let sx = 0; sx < strata && samples.length < (o.max | 0); sx++) {
+      const n = sw * sh, st = Math.floor(rnd() * n);
+      for (let d = 0; d < n; d++) {
+        const t = (st + d) % n, x = sx * sw + (t % sw), y = sy * sh + Math.floor(t / sw), k = y * W + x;
+        if (p2[4 * k + 3] === 1) { put(k, 'uniform', -1); break; }
+      }
+    }
+    let constant = null;
+    if (c) { for (let k = 0; k < W * H; k++) if (c.px[4 * k + 3] !== 0) { constant = [c.px[4 * k], c.px[4 * k + 1], c.px[4 * k + 2], c.px[4 * k + 3]]; break; } }
+    return { W, H, nCombos: new Set(layers.map((l) => l.own)).size, uH: b.uH, hc, blockK: GLR.BLOCK_K, clipFar: GLR.CLIP_FAR, covered, maxDrawn, nStradAll: strad.size, nStrad, truncated, samples, constant };
+  };
+  // TEMP-DEBUG-HOOK
+
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a further block, as t_publish caps a block's length)
