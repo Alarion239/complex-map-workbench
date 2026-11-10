@@ -51,6 +51,9 @@
     CONT_STEP_MIN: 1e-12,   // the smallest share of a path a continuation step may be: below it the cell is branch-suspect
     CUT_JUMP: 1e-3,         // a step floor where H's linear prediction is off by more than this (relative to 1 + |H|) is a cut of H, not a branch point
     CONT_STEPS_MAX: 40000,  // steps a continuation may take: a glide near its start has members a spiral's pitch apart (about 1e-3 of |z| at u = 1e-4), and a step is a share of that
+    SING_Z_ABS: 1e-3,       // a continuation is refused (the cell is not halved, the place's certificate decides it) when its member's z is within this share of 1 + |z| of a declared singular place's z ...
+    SING_W_PX: 12,          // ... and an end of its edge within this many half-resolution pixels of the place's drawn w (the cells that crawl at the logarithm's branch point, where w - w0 goes as z^0.14, lie 3 to 10 pixels from it; 0: no such stop, the control)
+    PROBE_MS: 0,            // milliseconds a reference may run before it stops with a 'probe' failure (0: no stop; the control that shows a crawl without finishing it)
     YIELD_MS: 250,          // milliseconds of cells judged between two yields: a cell's judgement is several continuations, so a count of cells does not bound the time of a page call
     CONT_MS: 8000,          // milliseconds a single continuation may run: a longer one fails (a page call over its limit fails)
     CONT_RATIO: 0.5,        // a continuation step's Newton must contract at least this much
@@ -172,6 +175,8 @@
     // leaf, the member moves to the new leaf and keeps the surface whose value there equals the old surface's at a point of the shared edge, within TRANSFER_TOL and with the
     // next surface at least SHEET_MARGIN times as far; anything else is LAM_FAIL (the step is refused). o.fixedCell keeps the cell, o.labelShift takes the next surface (controls).
     // A log coordinate (an array) moves by the frame's own step as before.
+    const singTagged = [];   // the cells a continuation was refused for beside a declared singular place (SING_W_PX)
+    const SING_TAG = 'a member within reach of a declared singular place';   // a continuation refused beside a declared singular place (SING_Z_CELLS)
     const XFER_TAG = 'transfer refused', XFER_FREE = '[scale-free] ', XFER_NEAR = '[not unique] ';   // a refusal no finer cell can change, and one a finer cell may separate
     const LAM_FAIL = { fail: true }, LAM_OUT = { out: true };   // (LAM_OUT: the member walked off the carried surface: it ends there, as at a cut)
     let xferWhy = '';   // why the last transfer was refused (for the failure's text)
@@ -277,6 +282,12 @@
           const r = Hof(from[k], zs[k], lams[k]);
           if (r && r.cut) return { ok: false, cut: true, why: 'H jumps beside a member at t=' + t.toExponential(2), steps };
           if (!r) { pre.push(null); continue; }
+          if (o.SING_W_PX > 0) {
+            if (singList === null) singList = frame.sing && !o.singDrop ? frame.sing() || [] : [];
+            const wR = o.SING_W_PX * (box.x1 - box.x0) / W2;
+            const q = singList.find((p) => p.z && p.w && dist2(p.z, zs[k]) <= o.SING_Z_ABS * (1 + cabs(p.z)) && Math.min(dist2(p.w, wA), dist2(p.w, wB)) <= wR);
+            if (q) return { ok: false, why: SING_TAG + ' (' + q.kind + ') at z ' + q.z[0].toExponential(2) + ',' + q.z[1].toExponential(2) + ', t=' + t.toExponential(2), steps };
+          }
           pre.push(cadd(zs[k], cdiv(cscale(dw, tn - t), r.dH)));
         }
         let good = pre.every((p) => p);
@@ -467,7 +478,9 @@
     for (let j = o.ny - 1; j >= 0; j--) for (let i = o.nx - 1; i >= 0; i--) work.push([i * FINE, j * FINE, FINE, 0]);
     const leaves = { boundary: [], branch: [] };
     let lastYield = Date.now();
+    const probeT0 = Date.now();
     while (work.length) {
+      if (o.PROBE_MS > 0 && Date.now() - probeT0 > o.PROBE_MS) { fail({ kind: 'probe', ms: o.PROBE_MS, left: work.length }); break; }
       const [i, j, s, d] = work.pop();
       const ci = [[i, j], [i + s, j], [i, j + s], [i + s, j + s]];
       yield* lookup(ci);
@@ -480,6 +493,17 @@
         // a continued member's surface cannot be carried to the leaf that holds it and no finer cell changes that: the cell is a failure of its own, never halved
         why('transfer refused (scale-free)');
         leaves.branch.push({ i, j, s, vs, why: cp.why, kind: 'transfer' });
+        continue;
+      }
+      if (cp.suspect && cp.why.includes(SING_TAG)) {
+        // a member within reach of a declared singular place: the cell is not halved, the place's certificate decides it or it stays a failure
+        why('singular disc');
+        const leaf = { i, j, s, vs, why: cp.why, singTag: true };
+        singTagged.push(leaf);
+        // (the tag stays local: every corner of a tagged cell but its own are within reach of a place's w, none farther than twice SING_W_PX)
+        const wr2 = 2 * o.SING_W_PX * (box.x1 - box.x0) / W2;
+        if (!vs.some((v) => singList && singList.some((p) => p.w && dist2(p.w, v.w) <= wr2))) cells.singFar = (cells.singFar || 0) + 1;
+        leaves.branch.push(leaf);
         continue;
       }
       if (cp.suspect) {
@@ -529,6 +553,7 @@
       if (Date.now() - lastYield > o.YIELD_MS) { lastYield = Date.now(); tick(); yield; }
     }
     if (leaves.branch.length) yield* certifyBranches(leaves);
+    cells.singTagged = singTagged.length; cells.singCert = singTagged.filter((c) => c.certified).length; cells.singFail = cells.singTagged - cells.singCert; cells.singFar = cells.singFar || 0;
     yield* countHard(leaves);
     yield* boundaryRays(leaves.boundary.concat(leaves.branch.filter((c) => c.certified)));
     for (const c of leaves.branch) if (!c.certified) fail(Object.assign({ kind: c.kind || 'branch', i: c.i, j: c.j, w: wAt(c.i, c.j), why: c.certWhy || c.why }, c.info));

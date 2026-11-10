@@ -162,6 +162,7 @@
   const COUNT_WHERE = { stride: 'accepted cells', boundary: 'cells whose members change', critical: 'critical values of H' };
   const CTL_DEPTH = 1;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002 needs 2 halvings; at 1 it is over its bound at the cap)
   const ANSWER_CHUNK = 1 << 20;   // (the characters of a raster step's answer one protocol message carries)
+  const SING_PROBE_MS = 120000;   // the singular-disc control's reference stops after this long
   const STEP_CALL_MS = 120000;   // the time a raster step's page call may take: the step ends at the first yield after STEP_MS, and one cell's judgement (four corner continuations of CONT_MS each) does not yield
   const STEP_MS = 5000;   // a raster step's time in the page before it ends at the next yield
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
@@ -272,7 +273,7 @@
     }
     window.__lxMasks = { ref: r.px, frame, W2, H2 };
     // (a control's reference against the last uncontrolled one: the pixels that differ)
-    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.singDrop || g.fixedCell || g.labelShift || g.CELL_DEPTH_MAX !== undefined;
+    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.singDrop || g.SING_W_PX !== undefined || g.fixedCell || g.labelShift || g.CELL_DEPTH_MAX !== undefined;
     let diff = 0;
     if (!ctl) window.__lxBaseRef = r.px;
     else if (window.__lxBaseRef && window.__lxBaseRef.length === r.px.length) for (let i = 0; i < r.px.length; i++) if (window.__lxBaseRef[i] !== r.px[i]) diff++;
@@ -1143,6 +1144,7 @@
       // above, and the reference's result there is kept in the info)
       const refOk = u <= END_U || u >= 1 - END_U ? () => {} : ok;
       refOk(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference exact: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk: rk && Object.assign({}, rk, { failures: fl.slice(0, 4) }) });
+      refOk(`${t}: the singular stop stays local: no tagged cell has no corner within twice SING_W_PX of a declared place (${rk ? rk.cells.singFar : '?'} of ${rk ? rk.cells.singTagged : '?'} tagged; ${rk ? rk.cells.singCert : '?'} decided by a certificate, ${rk ? rk.cells.singFail : '?'} failed)`, !!rk && rk.cells.singFar === 0, { cells: rk && rk.cells });
       refOk(`${t}: the reference decides every cell (${rk ? JSON.stringify(rk.cells) : '?'}; ${rk ? rk.certs.length : '?'} branch certificates): no failure`, !!rk && fl.length === 0, { failures: fl && fl.slice(0, 4) });
       // (a pole of the scene is where the map is unbounded: |H| at POLE_R from it is at least POLE_BIG; a pole placed elsewhere is 'pole misplaced')
       if (u > END_U && u < 1 - END_U) {
@@ -1153,6 +1155,7 @@
       // identity at the Newton glide's end, the seam of a boundary cell moved one cell, a branch point located one cell off
       const control = async (name, extra, need, passes) => { deferred.push({ name, extra, need, passes: !!passes, u, t, camU, id: await frameId(c, sheets) }); };
       // (the cell-depth control's two facts: a lattice of depth 1 fails the reference on the kind 'cellDepth' on the Roots frame at u = 0.002, and one of depth 2 has no cellDepth failure)
+      if (c.logControl && u === MID_U[1]) await control(`the singular stop off (SING_W_PX 0): the reference is still running after ${SING_PROBE_MS / 1000} s (the crawl beside the logarithm's branch point)`, { SING_W_PX: 0, PROBE_MS: SING_PROBE_MS }, (cr) => cr.failures.some((f) => f.kind === 'probe'));
       if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH + 1} has no failure of the kind cellDepth (depth ${CTL_DEPTH} fails it, below)`, { CELL_DEPTH_MAX: CTL_DEPTH + 1 }, (cr) => !cr.failures.some((f) => f.kind === 'cellDepth'), true);
       if (/Roots as preimages/.test(t) && u === 0.002) await control(`a cell depth of ${CTL_DEPTH}`, { CELL_DEPTH_MAX: CTL_DEPTH }, (c) => c.failures.some((f) => f.kind === 'cellDepth'));
       if (/Newton/.test(t) && u === END_U) await control('the nearest root taken as identity', { seed: true }, (c) => c.failures.length > 0 || c.off > RASTER_TOL);
