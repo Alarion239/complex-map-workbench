@@ -241,7 +241,7 @@
   const TEXEL_CTL = 10;   // the end-match control moves a texel's z by this many END_Z_TOL
   const CTL_NA_BRANCH = { 'log of an annulus@0.25': 'no pending edge', 'log of an annulus@0.5': 'no pending edge', 'log of an annulus@0.75': 'no pending edge', 'cube root@0.25': 'no pending edge', 'cube root@0.5': 'no pending edge', 'cube root@0.75': 'no pending edge' };   // the rows (case tag @ u) with no branch edge for the branch controls, with the reason
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
-  const aggNaWhy = (na, tag) => tag in na ? na[tag] : (tag in CUT_ROWS ? '' : 'no cut-edge pass runs');   // (the reason an aggregate control has nothing to run on: a case outside CUT_ROWS runs no cut-edge pass)
+  const aggNaWhy = (na, tag) => { if (tag in na) return na[tag]; if (tag in CUT_ROWS) return ''; const ks = [...new Set(rowK)]; return ks.length && ks.every((k) => Number.isFinite(k) && k <= 1) ? 'no cut-edge pass runs, and the scene has ' + ks.join('/') + ' surface(s) on every row read' : ''; };   // (the reason an aggregate control has nothing to run on: a case outside CUT_ROWS runs no cut-edge pass, which is no excuse where the scene has more than one surface or K is unknown, so that case stays red until it is listed in AGG_NA with its reason)
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
   // of the box's extent above and below the axis, so both sides have the same density.
@@ -976,6 +976,7 @@
   ok('the window count fails the same window for every sheet (control)', LAYER_PLACES.some((w) => windowLayers(w, 0.5, false) !== windowLayers(w, 0.5, true)), null);
   ok('the match check counts a layer two members fit', ambiguous([{ matches: 1 }, { matches: 2 }]) === 1, null);
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
+  const rowK = [];   // the scene's surface count K read on each row of the case
   const bit = { empty: 0, seedShort: 0, sepBite: 0, synWrong: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
@@ -1574,7 +1575,7 @@
           // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's z is the place it was found for,
           // and the digits with one moved give a surface whose value there is another place)
           {
-            const surfK = ((await ev(`__cmwLandSurfaces()`)) || {}).K;   // (the scene's surface count K: a control is listed not applicable for one surface only where K is a number and at most 1)
+            const surfK = ((await ev(`__cmwLandSurfaces()`)) || {}).K; rowK.push(surfK);   // (the scene's surface count K: a control is listed not applicable for one surface only where K is a number and at most 1)
             const sub = ms.slice(0, HOM_EQ_PAIRS), have = sub.filter((m) => Array.isArray(m.digits)).length;
             ok(`${t}: every member lists the digits of its scene-certified surface (${have} of ${sub.length})`, sub.length > 0 && have === sub.length, { have, n: sub.length });
             const r2 = await ev(`(() => {
