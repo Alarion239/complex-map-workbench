@@ -11,8 +11,8 @@
 //
 // The frame (what the page's hooks provide; the node check passes a synthetic one):
 //   box: { x0, x1, y0, y1 }, the places w the lattice covers;   W2, H2: the size of px;
-//   enumAt(ws): per place the enumerator's members [{ z: [re, im], lam: [re, im] | null, h, sheet, front? }];
-//   hom(z, lam, sheet): per sheet (only `sheet`'s entry is needed) { H: [re, im] | null, dH: [re, im] | null, cut }, cut: H jumps within the derivative's step of z; the map the frame draws z at (the preimage's forward map);
+//   enumAt(ws): per place the enumerator's members [{ z: [re, im], lam: [re, im] | null, cell: [re, im] | null (the cell centre the member's surface is read on), h, sheet, front? }];
+//   hom(z, lam, sheet, cell): per sheet (only `sheet`'s entry is needed) { H: [re, im] | null, dH: [re, im] | null, cut }, cut: H jumps within the derivative's step of z; the map the frame draws z at (the preimage's forward map);
 //   lamStep(z, z2): optional, the move of a member's continued log coordinate from z to a point z2 beside it (default: the log of z2 / z), null where undefined;
 //   project(x, y, h): the half-resolution pixel [px, py] of the point (x, y, h) of the surface;
 //   mask(x, y): 0..1 (the Inside-regions mask) or null;   all: every member is drawn (All sheets), else the front one;
@@ -148,14 +148,14 @@
         const layers = drawn ? (frame.layers ? frame.layers(m) : [{ combo: '', h: m.h }]).filter((l) => Number.isFinite(l.h)) : [];
         for (const l of layers) l.P = frame.project(w[0], w[1], l.h);
         const ok = layers.filter((l) => l.P);
-        return { z: m.z, lam: m.lam || null, sheet: m.sheet || 0, idx, drawn: drawn && ok.length > 0, layers: ok };
+        return { z: m.z, lam: m.lam || null, cell: m.cell || null, sheet: m.sheet || 0, idx, drawn: drawn && ok.length > 0, layers: ok };
       });
       return { w, all, masked };
     }
     const vert = (i, j) => verts.get(i * (NYF + 1) + j);
     // ---- identity: continuation of every member of a place along the segment to another place
     let hofCut = false;   // the last Hof call found H jumping beside z
-    const Hof = (m, z, lam) => { const r = frame.hom(z, lam, m.sheet)[m.sheet]; hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null; };
+    const Hof = (m, z, lam) => { const r = frame.hom(z, lam, m.sheet, m.cell)[m.sheet]; hofCut = !!(r && r.cut); return r && fin(r.H) && fin(r.dH) ? r : null; };
     let newtWhy = '', newtCut = false;   // why the last Newton correction gave up (for the failure's text)
     function newton(m, z, lam, w) {
       let d1 = null, d2 = null;
