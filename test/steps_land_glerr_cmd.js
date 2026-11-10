@@ -1,8 +1,7 @@
 // The Landscape's programs agree with themselves and with the GL driver: no uniform name is declared with two types in one linked program, and drawing the
 // Landscape (parked and mid-glide, Inside regions' sheets off and All sheets) raises no GL error.
 // - static: over every program (chain and plain) in every map mode it builds for, the vertex and fragment stages declare each uniform name with one type, and a
-//   stage declares it once; over every land program, a name that has a texture unit (SAMPLER_UNITS: finishLink sets it with glUniform1i) is a sampler wherever a
-//   program declares it (the other programs' names with a unit, fillPts uCP and ulevel uZ, are filed apart).
+//   stage declares it once; a name that has a texture unit (SAMPLER_UNITS: finishLink sets it with glUniform1i) is a sampler wherever a program declares it.
 //   GLSL ES 3.00 makes a name with two types a link error, which a strict driver (ANGLE on Metal) enforces by refusing the program;
 //   a lenient one links it and fails the first glUniform call on it (GL_INVALID_OPERATION), which is the second check;
 // - GL errors: every glUniform1i call of a draw is followed by getError, and the draws' links are read from the app's own warnings ("shader <name> <log>"):
@@ -68,7 +67,7 @@ const STATIC = `(() => {
     try { s = GLR._src.programSources(n, mode); } catch (e) { continue; }
     built.push(n);
     for (const c of T.clashes(s[0], s[1])) bad.push(n + '/' + mode + ' ' + c);
-    if (/^land/i.test(n)) for (const c of T.units(s[0], s[1], GLR._src.SAMPLER_UNITS)) bad.push(n + '/' + mode + ' ' + c);
+    for (const c of T.units(s[0], s[1], GLR._src.SAMPLER_UNITS)) bad.push(n + '/' + mode + ' ' + c);
   }
   return { names, built: [...new Set(built)], bad: [...new Set(bad)] };
 })()`;
@@ -108,6 +107,8 @@ for (const sheets of [false, true]) for (const c of CASES) {
   };
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
   await at('plane z', `{ go: 0, now: true, clock: 0 }`);
+  await ev(`__cmwSet('unitLevel', true); 1`);   // (the unit level's own program draws from here on)
+  await at('plane z, unit level', `{ go: 0, now: true, clock: 0 }`);
   for (const u of GLIDE_U) await at('u = ' + u, `{ park: ${u} }`);
   await at('plane w', `{ go: 1, now: true, clock: 0 }`);
   const E = await ev('window.__glerr');
@@ -121,7 +122,7 @@ for (const sheets of [false, true]) for (const c of CASES) {
 const landNames = staticNames.filter((n) => /^land/i.test(n));
 info.static = { programs: staticNames.length, built: staticBuilt.size, land: landNames.length };
 ok('every land program is read in some case', landNames.length >= 10 && landNames.every((n) => staticBuilt.has(n)), landNames.filter((n) => !staticBuilt.has(n)));
-ok('no program declares a uniform name with two types, and no land program a name with a texture unit as a non-sampler', staticBad.size === 0, [...staticBad].slice(0, 12));
+ok('no program declares a uniform name with two types, or a name with a texture unit as a non-sampler', staticBad.size === 0, [...staticBad].slice(0, 12));
 // control: a uniform1i on a float uniform is counted by the probe
 const ctl = await ev(`(() => {
   const gl = GLR.gl, mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); return sh; };
