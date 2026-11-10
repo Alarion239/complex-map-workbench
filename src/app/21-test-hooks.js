@@ -1192,6 +1192,8 @@
   //  - at most o.max pixels in all; the straddling cells left out are counted in truncated.
   // o.clipOff draws the layers without the block's geometric clip; o.constant adds the float target's check (pass 3: every fragment writes vec4(1, 2, 3, 4)).
   // -> { err } where no float target or no layered frame, else { W, H, uH, hc, blockK, covered, maxDrawn, nStrad, truncated, samples: [{ x, y, vz, own, cell, z, zc, kind }], constant }
+  // the height the layered draw puts on screen at the value of the plane w = [re, im] before the block's clip: the frame's own height function without its clamp at the block's top and bottom
+  window.__cmwLandRawHeight = (w) => (render3D.frameHeight ? render3D.frameHeight(landValue({ re: w[0], im: w[1] }), true) : null);
   const CAP_CELL_MAX = 16777216;   // (a cell index is written as a float: exact below 2^24)
   window.__cmwLandCapRead = (o) => {
     o = o || {};

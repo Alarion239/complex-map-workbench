@@ -1047,7 +1047,7 @@
     const out = [];
     for (let i = 0; i < samples.length; i += CAP_BATCH) {
       const b = samples.slice(i, i + CAP_BATCH).map((q) => ({ z: q.z, zc: q.zc, own: q.own }));
-      out.push(...await ev(`${JSON.stringify(b)}.map((q) => { const v = __cmwLandScene(q.z, q.own + ${shift}, q.zc); return v ? __cmwLandFrameHeight(v) : null; })`));
+      out.push(...await ev(`${JSON.stringify(b)}.map((q) => { const v = __cmwLandScene(q.z, q.own + ${shift}, q.zc); return v ? __cmwLandRawHeight(v) : null; })`));
     }
     return out;
   };
