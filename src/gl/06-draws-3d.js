@@ -906,7 +906,7 @@
   // not continue the grid's last (no count yet, a different key, or a glide step over STRAD_DU_MAX), and otherwise without a stall, a frame or two
   // late. Between continuous frames the count moves by at most STRAD_DELTA_MAX, under the headroom (the suites assert it), so a frame that overflows
   // follows one whose count was read in time; a frame that does not (the premise failing) is counted in stradOverflow, which the suites assert 0
-  const STRAD_SYNC_FRAC = 0.75, STRAD_DU_MAX = 0.02, STRAD_POLL_MS = 24;   // (the bound on the count's change between continuous frames, 128, is the suite's)
+  const STRAD_SYNC_FRAC = 0.75, STRAD_DU_MAX = 0.003, STRAD_POLL_MS = 24;   // (the bound on the count's change between continuous frames, 128, is the suite's)
   let stradLast = null, stradOverflow = 0, stradSyncs = 0, stradPending = null, stradPbo = null, stradFbo = null, stradT = 0;
   const stradPoll = () => {
     stradT = 0;

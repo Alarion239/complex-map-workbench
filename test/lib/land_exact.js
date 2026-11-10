@@ -132,8 +132,8 @@
     return { cells: M * M, in: inn, out, mix, listed: raw.rowB[4 * (N - 2)] + raw.rowB[4 * (N - 2) + 1], K: raw.K, cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * M };
   };
   const classCounts = async () => JSON.parse(await ev(`JSON.stringify((${classCheck})(__cmwLandCarry() && __cmwLandCarry().classRaw, ${CLASS_BORDER_EPS}))`));
-  const STRAD_STEP_U = 0.01, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.02)
-  const STRAD_SYNC_FRAC = 0.75, STRAD_DELTA_MAX = 128, SCRUB_STEP_U = 0.02;   // (STRAD_SYNC_FRAC in src/gl/06-draws-3d.js: the count is read at this share of the list's length. STRAD_DELTA_MAX: the most the count of straddling cells may move between continuous frames, half the headroom MIX_K * (1 - STRAD_SYNC_FRAC) = 256; SCRUB_STEP_U: the scrub's step of u)
+  const STRAD_STEP_U = 0.0015, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.003)
+  const STRAD_SYNC_FRAC = 0.75, STRAD_DELTA_MAX = 128, STRAD_DU_MAX = 0.003, SCRUB_STEP_U = 0.01, SCRUB_TAIL_U = 0.001;   // (STRAD_SYNC_FRAC and STRAD_DU_MAX mirror src/gl/06-draws-3d.js: the count is read at this share of the list's length, and a glide step over STRAD_DU_MAX is a jump. STRAD_DELTA_MAX: the most the count of straddling cells may change between continuous frames, half the headroom MIX_K * (1 - STRAD_SYNC_FRAC) = 256. The scrub's step of u, and its step where the surface settles onto the plane and the count drops fast)
   const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
@@ -253,6 +253,7 @@
         if (t && 2 * n >= t) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       }
       return [x0, y0, x1, y1];
+    },
     // where the cut was found on each flagged edge, against the step's own cut (the negative real axis of its input plane, which is plane
     // z here): the worst distance of a crossing's preimage z* = a + t (b - a) to the ray, in shares of the edge's chord |b - a|, over the edges whose
     // crossing is inside the chord (n), and how many sit at an end of it (atEnd: the vertex itself is taken as the cut)
@@ -1108,19 +1109,22 @@
         if (c.tag === ROW_CASE && cc) {
           await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
           const us = [END_U];
-          for (let x = SCRUB_STEP_U; x < 1 - SCRUB_STEP_U / 2; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
+          for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
+          for (let x = 0.99; x < 1 - SCRUB_TAIL_U / 2; x += SCRUB_TAIL_U) us.push(Math.round(x * 1e4) / 1e4);
           us.push(1 - END_U);
-          let prev = null, worst = 0, at = null;
+          let prev = null, prevU = null, worst = 0, at = null;
           for (const x of us) {
             await setU(x);
             const k = await classCounts();
             if (!k) continue;
-            if (prev !== null && Math.abs(k.mix - prev) > worst) { worst = Math.abs(k.mix - prev); at = x; }
-            prev = k.mix;
+            // (the change over a step, taken over STRAD_DU_MAX when the step is longer than that)
+            const over = prev === null ? 0 : Math.abs(k.mix - prev) * Math.min(1, STRAD_DU_MAX / (x - prevU));
+            if (over > worst) { worst = over; at = x; }
+            prev = k.mix; prevU = x;
           }
           await ev('__svCarryProbe = null; 1');
           await setU(GLIDE_MID);
-          ok(`${t}: the count of straddling cells moves by at most ${STRAD_DELTA_MAX} between frames ${SCRUB_STEP_U} of u apart (the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && STRAD_DELTA_MAX <= MIX_K * (1 - STRAD_SYNC_FRAC) / 2, { worst, at });
+          ok(`${t}: the count of straddling cells changes by at most ${STRAD_DELTA_MAX} between continuous frames (over ${STRAD_DU_MAX} of u; the most: ${Math.round(worst)}, at u=${at}), under half the list's headroom`, worst <= STRAD_DELTA_MAX && STRAD_DELTA_MAX <= MIX_K * (1 - STRAD_SYNC_FRAC) / 2, { worst, at });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
@@ -1185,7 +1189,7 @@
               await grab('ctlR');
               o = await ev(`__lx.rowOver('ctlR', 'P1T', ${DIFF_TOL})`);
             } finally {
-              await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+              await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(camP1)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             }
             ok(`${t}: control: with ${what} a Top view row has more than ${ROW_OVER_MAX} pixels over ${DIFF_TOL} (row ${o.row} has ${o.n})`, o.n > ROW_OVER_MAX, o);
           }
@@ -1198,7 +1202,7 @@
               await ev(`__svCarryProbe = __svCarryProbeSettings.${probe}; __cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
               await grab(name2);
             } finally {
-              await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+              await ev(`__svCarryProbe = null; __cmwCam('L', ${JSON.stringify(camP1)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             }
           };
           await narrow('clipNarrow', 'ctlN'); await narrow('classAllInNarrow', 'ctlI');
@@ -1237,7 +1241,7 @@
           boxes = { own: await boxWith(null), frag: await boxWith('clipOff'), narrow: await boxWith('clipNarrow'), wide: await boxWith('clipWide') };
         } finally {
           await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          await ev(`__cmwCam('L', ${JSON.stringify(camP1)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         }
         r[u].sideBoxes = boxes;
         ok(`${t}: in the Top view the frame's extent is the per-fragment side cut's, within ${SIDE_BOX_PX} pixel (${boxes.own} against ${boxes.frag})`, apart(boxes.own, boxes.frag) <= SIDE_BOX_PX, boxes);
