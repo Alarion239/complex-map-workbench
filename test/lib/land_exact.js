@@ -1940,6 +1940,12 @@
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      if (sheets && sat) {
+        // (the coupling of the clip exemption to the draw's block clip: the level the exemption reads (sat, the claims hook's) is the saturation of the frame's height function, which the cap rows hold to GLR.BLOCK_K times the block's height; control: a level CAP_EPS higher is not the saturation)
+        const satFn = [await ev('__cmwLandHeightOf(-1e12)'), await ev('__cmwLandHeightOf(1e12)')], same2 = (lv) => lv.every((x, k) => Math.abs(x - satFn[k]) <= CAP_CLAMP_TOL * Math.abs(satFn[k]));
+        ok(`${t}: the clip exemption's level (${sat[0]}, ${sat[1]}) is the height function's saturation (${satFn[0]}, ${satFn[1]}), which the cap rows tie to BLOCK_K times the block's height`, same2(sat), { sat, satFn });
+        ok(`${t}: control: a level ${CAP_EPS} higher is not the height function's saturation`, !same2(sat.map((x) => x * (1 + CAP_EPS))), { sat, satFn });
+      }
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
       ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
