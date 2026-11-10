@@ -329,9 +329,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     return { mode: 1, k, alpha: CX.sub(a, CX.mul(k, c)), beta: CX.sub(b, CX.mul(k, d)) };
   }
 
-  // The most vec4 slots a chain's uChain may take: WebGL2 guarantees 224 fragment uniform vectors in all, and the program's
-  // other uniforms share them; a chain over the cap is refused (the build throws) instead of failing to link
-  const MAX_CHAIN_SLOTS = 200;
+  // The most vec4 slots a chain's uChain may take: WebGL2 guarantees 224 fragment uniform vectors in all, so a chain over
+  // that cannot link anywhere; it is refused (the build throws) instead of failing to link
+  const MAX_CHAIN_SLOTS = 224;
   // Uniform allocator in vec2 cells (two per vec4 slot). A writer fills cell values on demand.
   function makeAlloc() {
     let cells = 0;
