@@ -545,7 +545,7 @@ const InvOps = (() => {
       return g > 0 ? Math.min(rho[i], 1 / g * (1 + REPT_ROUND * U)) : rho[i];
     });
     for (let i = 0; i < n; i++) rho[i] = ref[i];
-    rho.crude = crude;
+    /** @type {any} */ (rho).crude = crude;
     // Vieta: z1 + z2 + z3 = -a1/a0, z1 z2 z3 = -a3/a0 (high-first), within the discs and the coefficients' slack
     const a0 = abs(a[0]), zm = z.map(abs), b = div(a[1], a[0]), d = div(a[3], a[0]);
     const sum = add(add(z[0], z[1]), z[2]), prod = mul(mul(z[0], z[1]), z[2]);
