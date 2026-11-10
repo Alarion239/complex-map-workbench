@@ -206,6 +206,9 @@
     if (i > 0) throw new Error('branchPoints: the forward chain before step ' + i + ' is not defined');
     return [[0, 0]];
   });
+  const R1_CORRUPT = ['shiftOut'];   // the plan corruptions (__cmwLandCorruptPlan) the certificate's classes must survive
+  const R1_NA_KIND = {};   // the corruptions a frame cannot take, with the reason
+  const R1_NA = {};   // the rows (case tag @ u) with no edge to class, with the reason
   const CUT_ROWS = { 'cube root': [0.25, 0.5, 0.75], 'log of an annulus': [0.25, 0.5, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
@@ -1330,6 +1333,26 @@
         cc.orbit = await ev('window.__lxOrbit');   // (the roots a + kT the orbit enlargement tried: k(lam) against the vertex's cell, and whether Newton certified each)
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a certified member seam (${cc.seam}) or a certified branch cell (${cc.branch} edges in ${cc.cells} cells); ${cc.falseN} are none and ${cc.unresolved} unresolved`, cc.falseN === 0 && cc.unresolved === 0, cc);
+        // (R1, independence) the certificate never reads the plan: with the plan corrupted (__cmwLandCorruptPlan) every edge it classes, the frame's pending
+        // edges and the made-up edge at the branch value alike, has the class and cell of the true plan's run. A row with no edge to class is on R1_NA
+        {
+          const key = (q) => q.cls + (q.cell ? '@' + q.cell.join(',') : '');
+          const bvR = prep.inPlace ? prep.wb : null, ids = certs.map((_, k) => k).concat(bvR ? ['syn'] : []);
+          const run = (id) => ev(id === 'syn' ? `__lx.certEdge(0, { syn: ${JSON.stringify(bvR)} })` : `__lx.certEdge(${id}, {})`);
+          const base = certs.concat(bvR ? [await run('syn')] : []);
+          cc.r1 = {};
+          for (const kind of R1_CORRUPT) {
+            const applied = await ev(`__cmwLandCorruptPlan(${JSON.stringify(kind)})`), bad = [];
+            ok(`${t}: R1: the plan corruption ${kind} applies for the certificate's independence check`, applied === true || kind in R1_NA_KIND, { applied });
+            if (applied !== true) continue;
+            try { for (const id of ids) bad.push(await run(id)); } finally { await ev(`__cmwLandCorruptPlan('restore')`); }
+            const diff = ids.map((id, n) => ({ edge: id, true: key(base[n]), corrupt: key(bad[n]) })).filter((x) => x.true !== x.corrupt);
+            cc.r1[kind] = { n: ids.length, changed: diff.length, diff: diff.slice(0, 20) };
+            ok(`${t}: R1: every edge's class is the same under the corruption ${kind} (${diff.length} of ${ids.length} changed${diff.length ? ': ' + JSON.stringify(diff.slice(0, 6)) : ''})`, diff.length === 0, cc.r1[kind]);
+          }
+          const na = `${c.tag}@${u}` in R1_NA;
+          ok(`${t}: R1: ${ids.length ? 'the row has edges to class (' + ids.length + ')' : 'the row has no edge to class, as the row\'s list expects: ' + R1_NA[`${c.tag}@${u}`]}`, (ids.length > 0) !== na, { n: ids.length });
+        }
         ok(`${t}: no member is counted without window data (${cc.noWin}${cc.noWin ? ': ' + JSON.stringify(cc.noWinWho.slice(0, 3)) : ''})`, cc.noWin === 0, { noWin: cc.noWin, who: cc.noWinWho });
         ok(`${t}: every chain step read has a log coordinate to be shown a translation (${cc.cnt.noLam} have none)`, cc.cnt.noLam === 0, cc.cnt);
         ok(`${t}: no tracked member hit Newton's iteration cap (${cc.cnt.cap}) or asked for a convergence finer than float64 holds (${cc.cnt.floor})`, cc.cnt.cap === 0 && cc.cnt.floor === 0, cc.cnt);
