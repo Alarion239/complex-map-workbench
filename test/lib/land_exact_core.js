@@ -564,7 +564,7 @@
     }
     // the certificates a frame may hold: its declared singular places and CERT_SLACK more, at least CERT_MAX, never over CERT_HARD_MAX
     function certCap() {
-      if (singList === null) singList = frame.sing ? frame.sing() || [] : [];
+      if (singList === null) singList = frame.sing && !o.singDrop ? frame.sing() || [] : [];
       return Math.min(o.CERT_HARD_MAX, Math.max(o.CERT_MAX, singList.length + o.CERT_SLACK));
     }
     function* certifyBranches(lv) {
@@ -622,7 +622,7 @@
     // leaf cells of the place it is drawn at. The control displaces the point beyond that reach, so that the cells are not covered.
     function issueSingular(lv) {
       if (!frame.sing) return;
-      if (singList === null) singList = frame.sing() || [];
+      if (singList === null) singList = o.singDrop ? [] : frame.sing() || [];
       const wPx = (box.x1 - box.x0) / W2, reach = o.SING_REACH_PX * wPx, shift = o.branch ? o.branch * 4 * reach : 0;
       for (const q of singList) {
         if (!q.w) continue;
@@ -731,7 +731,7 @@
       // refuses it, and so does a bound that the midpoints between the samples exceed once it is taken CERT_LIP_SAFE over. What remains unproved is a
       // feature of H''' narrower than the spacing of the samples that is no declared singular point and that the midpoints miss as well)
       if (frame.sing) {
-        if (singList === null) singList = frame.sing() || [];
+        if (singList === null) singList = o.singDrop ? [] : frame.sing() || [];
         const near = singList.find((q) => q.z && dist2(q.z, z0) <= (o.CERT_NEAR + 1) * rho);
         if (near) return { ok: false, why: 'a declared singular point (' + near.kind + ') within ' + o.CERT_NEAR + ' disc radii: the sampled bound of H\'\'\' is not safe' };
       }
@@ -855,7 +855,7 @@
       // is defined): the track is split there. The samples on each side stop SING_GAP short of it and are continued from their own ends, and at the
       // point itself the members coincide in one height per combo, so the ray meets the surface there by a plain comparison of heights
       if (frame.sing && !o.apexOld) {
-        if (singList === null) singList = frame.sing() || [];
+        if (singList === null) singList = o.singDrop ? [] : frame.sing() || [];
         const on = o.SING_PX * wPx, places = [];
         for (const q of singList) if (q.w && !places.some((p) => dist2(p, q.w) <= on)) places.push(q.w);
         for (const pw of places) {
@@ -879,7 +879,7 @@
       }
       // (the old rule: a sample at a declared point decides the pixel with no height comparison; kept only as a control)
       if (frame.sing && o.apexOld) {
-        if (singList === null) singList = frame.sing() || [];
+        if (singList === null) singList = o.singDrop ? [] : frame.sing() || [];
         for (const sm of smp) for (const q of singList) {
           if (q.w && dist2(sm.v.w, q.w) <= o.SING_PX * wPx && sm.v.all.some((m) => m.drawn)) { cells.apex++; return true; }
         }

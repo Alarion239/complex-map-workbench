@@ -241,13 +241,14 @@
       // (the scene's singular points, each at the place the surfaces draw it: the leaves' branch points, the poles at the scene's own coordinates (the places
       // the plane-0 map has them), and the lift's branch points (liftZeros) at their w = H_u(z); a chain the hook cannot read is a failure of the reference)
       sing: () => {
-        const s = __cmwLandSing(), lz = __cmwLandLiftZeros();
-        if (!s || !lz) return [];
-        if (lz.unread.length) throw new Error('the lift zeros are unread: ' + JSON.stringify(lz.unread));
+        const s = __cmwLandSing(), lz = __cmwLandLiftZeros(), lp = __cmwLandLiftPoles();
+        if (!s || !lz || !lp) return [];
+        if (lz.unread.length || lp.unread.length) throw new Error('the lift zeros or poles are unread: ' + JSON.stringify([lz.unread, lp.unread]));
         const o = [];
         for (const q of s.branch) { const hs = __cmwLandHom([q[0], q[1]]) || []; for (const h of hs) o.push({ sheet: h.sheet, z: [q[0], q[1]], w: h.H, kind: q[2] }); }
         for (const q of s.poles) o.push({ sheet: 0, z: [q[0], q[1]], w: [q[0], q[1]], kind: 'pole' });
         for (const q of lz.zeros) o.push({ sheet: q[2], z: [q[0], q[1]], w: q[3] === null ? null : [q[3], q[4]], kind: 'lift' });
+        for (const q of lp.poles) o.push({ sheet: q[2], z: [q[0], q[1]], w: q[3] === null ? null : [q[3], q[4]], kind: 'lift' });
         return o;
       },      count: (w, opt) => __cmwLandWind(w, opt || {}),
       // (the preimage lies on the carried surface: the plane record's box, read from the scene, never from the carry; opts.domainOff at the core ignores this)
@@ -269,7 +270,7 @@
     }
     window.__lxMasks = { ref: r.px, frame, W2, H2 };
     // (a control's reference against the last uncontrolled one: the pixels that differ)
-    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.fixedCell || g.labelShift || g.CELL_DEPTH_MAX !== undefined;
+    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.singDrop || g.fixedCell || g.labelShift || g.CELL_DEPTH_MAX !== undefined;
     let diff = 0;
     if (!ctl) window.__lxBaseRef = r.px;
     else if (window.__lxBaseRef && window.__lxBaseRef.length === r.px.length) for (let i = 0; i < r.px.length; i++) if (window.__lxBaseRef[i] !== r.px[i]) diff++;
@@ -1147,6 +1148,8 @@
         if (rk && rk.cells.countedBy && rk.cells.countedBy[scope] && !controlsDone['count:' + scope]) { controlsDone['count:' + scope] = 1; await control(`a member removed from the completeness counts at ${COUNT_WHERE[scope]}`, { countDrop: scope }, (c) => c.failures.some((f) => f.kind === 'count' && f.scope === scope)); }
       }
       if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone.apex) { controlsDone.apex = 1; await control('a pixel at a branch point decided with no height comparison', { apexOld: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
+      // (the scene's singular places dropped: the cells round the lift's branch points are then uncertified)
+      if (c.tag === 'Möbius, √' && u === GLIDE_MID && !controlsDone.singDrop) { controlsDone.singDrop = 1; await control('the scene\'s singular places dropped', { singDrop: 1 }, (cr) => cr.failures.some((f) => f.kind === 'cellDepth' || f.kind === 'branch')); }
       // (the re-anchoring controls: a member that keeps the cell it started in across the cut, or takes the next surface where it leaves the cell, must fail the reference)
       for (const [key, what] of [['fixedCell', 'a member that keeps its starting cell across the cut'], ['labelShift', 'a member that takes the next surface where it changes cell']]) {
         if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone[key]) { controlsDone[key] = 1; await control(what, { [key]: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
