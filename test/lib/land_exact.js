@@ -103,6 +103,7 @@
   const ZERO_MOVE_MIN = 0.0025;   // (the branch point's drawn place moves with u by at least this: its two u's are far apart against the float noise of one place)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
+  const STRIP_TURN_MIN = 0.5;   // (turns: a branch off by one sheet differs by a whole turn, so half a turn separates it from rounding)
   const RAMP_CTL_STEP = 1;   // (the ramp control moves one member this many levels past the ramp: any whole level is outside it)
   const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
@@ -1596,6 +1597,17 @@
         // (the control on the check itself: one member moved RAMP_CTL_STEP levels past the ramp is flagged, whether or not the row has a ramp member)
         const rampOut = (arr) => arr.filter((m) => !(m.lvl >= -ramp)).length, pushed = ms.map((m, i) => (i === 0 ? Object.assign({}, m, { lvl: -ramp - RAMP_CTL_STEP }) : m));
         ok(`${t}: the control: a member ${RAMP_CTL_STEP} level past the ramp is flagged (${rampOut(pushed)} flagged; ${out} before it)`, ms.length > 0 && rampOut(pushed) > 0, { flagged: rampOut(pushed), out });
+        if (nRamp) {
+          // (the principal branch does not hold the ramp members: the first branch step's input read at the principal argument is a turn or more from the continued one, and a ramp of 0 flags exactly the ramp members)
+          const rm = ms.filter((m) => !(m.lvl >= 0)), tight = rm.length;
+          const sc = await ev(`${JSON.stringify(rm)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet))`), sp = await ev(`${JSON.stringify(rm)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet, true))`);
+          if (Array.isArray(sc) && sc.some((x) => x)) {
+            const dOf = (a2, b2) => a2.map((x, i) => (x && b2[i] && !x.bad && !b2[i].bad ? Math.abs(x.arg - b2[i].arg) / (2 * Math.PI) : 0));
+            const d = dOf(sc, sp), prWorst = Math.max(0, ...d), nDiff = d.filter((x) => x > STRIP_TURN_MIN).length, dCtl = dOf(sc, sc), ctlWorst = Math.max(0, ...dCtl);
+            ok(`${t}: the control: the principal branch misses the ramp members (worst ${prWorst} turn, scene strip; ${nDiff} of ${nRamp} differ); a ramp of 0 flags ${tight}`, prWorst > STRIP_TURN_MIN && tight === nRamp, { prWorst, nDiff, tight, nRamp });
+            ok(`${t}: the control of the ramp row: two continued reads of the strip differ by ${ctlWorst} turn, which the row rejects`, !(ctlWorst > STRIP_TURN_MIN), { ctlWorst });
+          } else ok(`${t}: the control: the principal branch misses the ramp members: the scene has no branch step to read${ctlNA(c, 'stripRead', u) ? ' (not applicable: ' + ctlNA(c, 'stripRead', u) + ')' : ''}`, !!ctlNA(c, 'stripRead', u), { sc: Array.isArray(sc) });
+        }
         // the plan read by the candidate generator corrupted (the output of its last op moved, on every sheet): its candidates are preimages under
         // the shortened plan, not under the scene, so the scene must refuse them: candidates are rejected, the members that are left are fewer than
         // the winding counts, and the case fails. A reference that took its homotopy from the plan would answer the corrupted plan consistently
@@ -1650,12 +1662,18 @@
               ok(`${t}: the control: one member removed breaks the count`, !!dropS && dropS.some((r) => !r.ok), { dropS });
               const lipS = await ev(`__cmwLandWindSheets(null, { onLip: true })`);
               // (a place on a lip is a root on the contour: the count must report it, as on the contour or as an unresolved step, and never as a count)
-              const noCut = !!lipS && lipS.every((r) => r.status === 'noCut'), loud = !!lipS && lipS.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
+              const oneSurface = (await ev('(__cmwLandSceneCombos() || {}).n || 0')) <= 1;   // (a plan with no cut: the scene has one surface; a plan with a cut that returns noCut fails)
+              const noCut = !!lipS && oneSurface && lipS.every((r) => r.status === 'noCut'), loud = !!lipS && lipS.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
               ok(`${t}: the control: a place on a cut lip is not counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipS && loud && (noCut || lipS.some((r) => r.status === 'onContour' || r.status === 'unresolved')), { lipR: lipS && lipS.slice(0, 3) });
               const nearS = await ev(`__cmwLandWindSheets(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
               ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!nearS && nearS.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near: nearS });
-              const nopS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i0])}, { noPoles: true })`), withPS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i0])}, {})`);
-              if (!!withPS && withPS.some((r) => r.P > 0)) ok(`${t}: the control: the poles omitted break the count`, !!nopS && nopS.some((r) => !r.ok), { nop: nopS });
+              // (the place for the poles control: the first of the counted places whose count holds a pole; with none, the row asserts that no counted place has one)
+              let ip = null, withPS = null;
+              for (const i of pick) { const w = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i])}, {})`); if (w && w.some((r) => r.P > 0)) { ip = i; withPS = w; break; } }
+              if (ip !== null) {
+                const nopS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[ip])}, { noPoles: true })`);
+                ok(`${t}: the control: the poles omitted break the count`, !!nopS && nopS.some((r) => !r.ok), { nop: nopS });
+              } else ok(`${t}: the control: the poles omitted break the count: no counted place has a pole (not applicable)`, ip === null && pick.length > 0, { places: pick.length });
             }
             if (c.logControl) {
               const lw = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
