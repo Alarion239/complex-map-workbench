@@ -318,9 +318,23 @@
   const mixOf = (st) => st.mix || { mu2: 0, beta: 0, endLin: 0 };
   const clipOf = (m) => (m === 4 || m === 5 || m >= 8 ? 1e4 : 0);
   const mixU = (P, st, mu) => { const mix = mixOf(st); u1f(P, 'uMu2', mix.mu2 > 0 ? mix.mu2 : mu); u1f(P, 'uMix', mix.beta); u1i(P, 'uEndLin', mix.endLin); };
+  // the members an op's inverse has at a point: a finite family's count; a 'log' family (ROOTPOW: members L_m = beta (Log w + 2 pi i m)
+  // with Im L_m in a strip of width 2 pi, which Im L steps through 2 pi |beta.re| at a time) 1 / |beta.re| members, rounded up unless it
+  // is an integer within LAND_MEMBERS_INT; a family with infinitely many members (beta.re 0) has no count (Infinity)
+  const LAND_MEMBERS_INT = 1e-12;
+  const opMembers = (o) => {
+    if (!o.fam) return 1;
+    if (o.fam.type === 'fin') return o.fam.count;
+    if (o.fam.type !== 'log') return 1;
+    if (o.fam.inf || !(Math.abs(o.fam.beta.re) > 0)) return Infinity;
+    const r = 1 / Math.abs(o.fam.beta.re), ri = Math.round(r);
+    return Math.abs(r - ri) < LAND_MEMBERS_INT ? ri : Math.ceil(r);
+  };
+  let landMembersFail = null;   // the last frame's member count when it has none or is over LAND_MEMBERS_MAX ({ n, reason }), else null: the layers are then the first LAND_MEMBERS_MAX members
   const landMembers = (st) => {
     const ex = st.carry.exact, plans = [ex.plan].concat((ex.more || []).map((m) => m.plan));
-    const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * (o.fam && o.fam.type === 'fin' ? o.fam.count : 1), 1)));
+    const n = Math.max(...plans.map((p) => p.ops.reduce((k, o) => k * opMembers(o), 1)));
+    landMembersFail = !Number.isFinite(n) ? { n, reason: 'infinite' } : n > LAND_MEMBERS_MAX ? { n, reason: 'over the cap' } : null;
     return clamp(Math.round(n) || 1, 1, LAND_MEMBERS_MAX);
   };
   function landLayer(k, N) {
@@ -465,10 +479,13 @@
   }
   // The cross-layer continuation of the layered glide's layers (LAND_CARRY_RING_VS): each layer's texels and preimages
   // are read by the pass of every layer, so the layers are all placed first
+  let landRingSkipped = 0;   // the layer count of the last frame whose cross-layer pass was left out (more than RING_LAYERS_MAX), else 0
   function landRing(st, N, mode, H, mu, aspect) {
     const c = st.carry, b = st.box, bytes = N * N * 16, n = landActive.length;
-    if (n < 2) return;
-    if (n > RING_LAYERS_MAX) throw new Error('the glide has ' + n + ' layers; the cross-layer pass reads at most ' + RING_LAYERS_MAX);
+    if (n < 2) { landRingSkipped = 0; return; }
+    // (more layers than the pass reads: the frame is drawn without it, and the hook says so)
+    landRingSkipped = 0;
+    if (n > RING_LAYERS_MAX) { landRingSkipped = n; return; }
     const P = program('landCarryRing', c.map);
     if (!P) return;
     const h0 = c.hT == null ? c.T : c.hT;
@@ -482,7 +499,7 @@
       u1i(P, 'uGs', 0); u1i(P, 'uGt', h0); u1i(P, 'uGt2', c.hT2 == null ? h0 : c.hT2); u1f(P, 'uHu', c.u || 0);
       u1i(P, 'uSheetW', ex.sheetW || 2); u1i(P, 'uOwn', L.own);
       u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1i(P, 'uGuard', carryProbe.noGuard ? 0 : 1); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
+      u1i(P, 'uK', k); u1i(P, 'uLayers', n); u1i(P, 'uWhy', carryProbe.ringWhy ? 1 : 0); u1i(P, 'uGuard', carryProbe.noGuard ? 0 : 1); u1f(P, 'uHOff', carryProbe.ringHOff || 0); u1f(P, 'uCode', CARRY_SHEET_CODE); u1f(P, 'uContCode', CARRY_CONT_CODE);
       const units = [];
       for (let j = 0; j < RING_LAYERS_MAX; j++) {
         const Lj = landActive[Math.min(j, n - 1)];
@@ -545,7 +562,7 @@
     });
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
-    return out;
+    return { layers: out, skipped: landRingSkipped, membersFail: landMembersFail };
   }
   // The last carried frame's cut edges (tests): per layer of landActive, its box grid's and each polar patch's [{ n, jumps, w }]: the grid's
   // side, how many of its three edge textures' texels hold a jump, and the places of the first few of those texels
@@ -1247,7 +1264,7 @@
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
-    u1f(P1, 'uHClip', clipOf(mode));
+    u1f(P1, 'uHClip', clipOf(mode)); mixU(P1, st, mu);
     u1i(P1, 'uPass', 0);
     gl.activeTexture(gl.TEXTURE15);
     runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
@@ -1345,7 +1362,7 @@
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    u1f(P1, 'uHClip', clipOf(mode));
+    u1f(P1, 'uHClip', clipOf(mode)); mixU(P1, st, mu);
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
     u1i(P1, 'uLat', move ? 0 : 1);
     // (the textures are made before the heights are bound: floatTex binds its new texture on the active unit, and the
@@ -1702,7 +1719,8 @@
         landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
         gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
       }
-      for (const L of landActive.length ? landActive : [landC]) {
+      const drawn = landActive.length ? landActive : [landC];
+      for (const L of carryProbe.reverseLayers ? drawn.slice().reverse() : drawn) {
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
         u1i(Pc, 'uZOn', exact ? 1 : 0);
         if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));

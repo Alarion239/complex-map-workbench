@@ -40,6 +40,13 @@
   // frame's real scale gap against the parked plane (1.6e-4 of the ruler's length at 1 - END_U, a few hundredths of a pixel) adds to that, so
   // two frames' labels are at most TICK_PX = 1 px apart; the gap itself is not absorbed here: the own-height check below sees it.
   const TICK_PX = 1;
+  // The labels are screen heights, so they follow the camera. park() fits the camera to its plane: with All sheets the two end planes of the log cases
+  // are parked with cameras about 0.4 apart in distance (11.9 and 7.16), with sheets off and in the other cases with the same one. The control that
+  // pins the other plane's camera therefore needs a gap of at least CAM_GAP_MIN, and CAM_GAP_CASES with All sheets must have it.
+  const CAM_GAP_MIN = 0.1, CAM_GAP_CASES = ['log of an annulus', 'log, box centred at 1.5 + 0.5i'];
+  // (the cases whose two end planes are parked with one camera distance, within CAM_SAME_TOL: the labels agree under either camera; and the distance a
+  // plane's Top-view reference is parked at is that plane's own, within CAM_DIST_TOL: no distance is carried over from the other plane)
+  const CAM_SAME_CASES = ['Möbius, √'], CAM_SAME_TOL = 1e-3, CAM_DIST_TOL = 1e-3;
   // The cut's seam: parked draws the cut as one continuous surface with no dark line, so the pixels of a near-end frame that differ from
   // the next plane's parked frame form no run of connected pixels as long as a seam. The rim's anti-aliasing dots are runs of at most 27.
   const SEAM_RUN = 40;
@@ -215,16 +222,25 @@
     const L = window.__cmwLandRelief && window.__cmwLandRelief.land, cv = document.getElementById('canvasL');
     if (!L || !window.__cmwLandRelief.cov) return null;
     const b = L.box, dpr = cv.width / cv.getBoundingClientRect().width, W2 = Math.ceil(cv.width / 2), H2 = Math.ceil(cv.height / 2);
-    const NX = g.nx << g.depth, NY = g.ny << g.depth, S = 1 << g.depth, cache = new Map();
+    const NX = g.nx << g.depth, NY = g.ny << g.depth, S = 1 << g.depth;
+    // (the places' members are looked up once for all the depths of a refine: the lattice of depth d holds the lattice of depth d - 1, at the same
+    // coordinates, so the cache (window.__lxShared, one for each refine) is keyed by the place's index on the finest lattice, depthMax; g.brute: a
+    // cache of this run alone and every entry of a list looked up, the control the shared one is compared with)
+    const FIN = 1 << (g.depthMax - g.depth), NYF = g.ny << g.depthMax, cache = g.brute ? new Map() : window.__lxShared, used = new Set();
+    let drift = 0;   // (places found in the cache whose stored coordinates are not the lattice's: the key is wrong)
     const xy = (i, j) => [b.x0 + i * (b.x1 - b.x0) / NX, b.y0 + j * (b.y1 - b.y0) / NY];
-    const key = (i, j) => i * (NY + 1) + j;
+    const key = (i, j) => (i * FIN) * (NYF + 1) + j * FIN;
     let capped = false;
     const levels = g.levels || g.depth + 1;   // each level halves the cells: depth + 1 levels judge every cell down to one lattice step
     // the places' members projected, in half-resolution pixels: [] where the place has none, null where unknown (not looked up yet)
     function* look(list) {
-      const need = list.filter(([i, j]) => !cache.has(key(i, j)));
-      if (!need.length) return true;
-      if (cache.size + need.length > g.cap) { capped = true; return false; }
+      // (cap counts the places this run touches: the entries of the list not touched yet, a place twice if it is listed twice)
+      const fresh = list.filter(([i, j]) => !used.has(key(i, j)));
+      if (!g.brute) for (const [i, j] of list) { const c = window.__lxCoords.get(key(i, j)), q = xy(i, j); if (c && (c[0] !== q[0] || c[1] !== q[1])) drift++; }
+      if (!fresh.length) return true;
+      if (used.size + fresh.length > g.cap) { capped = true; return false; }
+      const need = g.brute ? fresh : [...new Map(fresh.map(([i, j]) => [key(i, j), [i, j]])).values()].filter(([i, j]) => !cache.has(key(i, j)));
+      for (const [i, j] of fresh) used.add(key(i, j));
       for (let at = 0; at < need.length; at += g.batch) {
         const part = need.slice(at, at + g.batch), e = __cmwLandMembers(part.map(([i, j]) => xy(i, j)));
         if (!e) return false;
@@ -238,6 +254,7 @@
           const pts = [];
           for (const m of ms) { const q = __cmwLandProject(...xy(i, j), m.h); if (q && Number.isFinite(q[0] + q[1])) pts.push([q[0] * dpr / 2, q[1] * dpr / 2, m.sheet + ':' + m.member + ':' + m.src + ':' + (m.combo || '')]); }
           cache.set(key(i, j), pts);
+          if (!g.brute) window.__lxCoords.set(key(i, j), xy(i, j));
         });
         yield;
       }
@@ -294,7 +311,7 @@
       frame[y * W2 + x] = t && 2 * n >= t ? 1 : 0;
     }
     window.__lxMasks = { ref: mark, frame, W2, H2 };
-    const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = cache.size; return res;
+    const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = used.size; res.drift = drift; return res;
   }
   // the raster in steps of at most ms milliseconds a call (a CDP call that runs too long fails): start, then step until done
   window.__lxRasterStart = (sheets, g) => { window.__lxRun = lxRaster(sheets, g); return 1; };
@@ -373,6 +390,9 @@
   // first pair's, calm the unchanged levels in a row; a result not calm for ref.calm levels is not converged
   async function refine(sheets, ref) {
     let rk = null, conv = null, firstConv = null, calm = 0, depth = ref.depth;
+    await ev('window.__lxShared = new Map(); window.__lxCoords = new Map(); 1');
+    const startSize = await ev('window.__lxShared.size');
+    let drift = 0;
     for (; depth <= ref.depthMax; depth++) {
       if (depth > ref.depth) await ev('window.__lxPrev = window.__lxMasks');
       await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(Object.assign({}, ref, { depth }))})`);
@@ -380,12 +400,41 @@
       for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
       rk = st.done ? st.res : null;
       if (!rk) break;
+      drift += rk.drift || 0;
       if (depth > ref.depth) { conv = await ev(`__lxConv(${ref.slack})`); if (firstConv === null) firstConv = conv; calm = conv === 0 ? calm + 1 : 0; if (calm >= ref.calm) break; }
     }
     depth = Math.min(depth, ref.depthMax);
     if (rk) Object.assign(rk, { depth, conv, firstConv, calm });
-    return { rk, conv, firstConv, calm, depth };
+    return { rk, conv, firstConv, calm, depth, startSize, drift };
   }
+  // one depth of the raster, run to its end: the result (null when it never finishes)
+  async function rasterAt(sheets, g) {
+    await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(g)})`);
+    let st = { done: false };
+    for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+    return st.done ? st.res : null;
+  }
+  // the shared cache against the cache of one run alone, at every depth of a refine: the two masks agree at every pixel, with the same places
+  // touched, pixels and cap; emptyEvery: every that-many-th place of the shared cache emptied before the depth after the first (the control)
+  const CACHE_CTL_EVERY = 7, CACHE_CTL_TAGS = ['Roots as preimages', 'log of an annulus', 'cube root'];
+  async function cacheControl(sheets, emptyEvery) {
+    await ev('window.__lxShared = new Map(); window.__lxCoords = new Map(); window.__lxCtl = { fast: [], brute: [] }; 1');
+    const rows = [];
+    for (let depth = REF.depth; depth <= REF.depthMax; depth++) {
+      if (emptyEvery && depth === REF.depth + 1) await ev(`window.__lxShared.forEach((v, k) => { if (k % ${emptyEvery} === 0) window.__lxShared.set(k, []); }); 1`);
+      const fast = await rasterAt(sheets, Object.assign({}, REF, { depth }));
+      await ev('window.__lxFast = Uint8Array.from(window.__lxMasks.ref); window.__lxCtl.fast.push(window.__lxMasks); 1');
+      const brute = await rasterAt(sheets, Object.assign({}, REF, { depth, brute: true }));
+      await ev('window.__lxCtl.brute.push(window.__lxMasks); 1');
+      const same = fast && brute && await ev('window.__lxFast.length === window.__lxMasks.ref.length && window.__lxFast.every((v, i) => v === window.__lxMasks.ref[i])');
+      // (the distance of this depth's mask to the one before, of each run: the numbers calm and firstConv are made of)
+      const conv = depth > REF.depth && fast && brute ? await ev(`(() => { const d = (a) => window.__lxCompare(a[a.length - 2].ref, a[a.length - 1].ref, a[0].W2, a[0].H2, ${REF.slack}, false).off; return [d(window.__lxCtl.fast), d(window.__lxCtl.brute)]; })()`) : null;
+      rows.push({ depth, same: !!same, places: fast && brute ? [fast.places, brute.places] : null, n: fast && brute ? [fast.n, brute.n] : null, capped: fast && brute ? [fast.capped, brute.capped] : null, conv, drift: fast ? fast.drift : null });
+      if (!fast || !brute || brute.capped) break;
+    }
+    return rows;
+  }
+  const cacheControlOk = (rows) => rows.length > 1 && rows.every((r) => r.same && r.places && r.places[0] === r.places[1] && r.n[0] === r.n[1] && r.capped[0] === r.capped[1] && r.drift === 0 && (!r.conv || r.conv[0] === r.conv[1]));
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
     const still = await grab(tag);   // (the kit's grab: the first pixels that stay the same from one read to the next)
@@ -429,6 +478,20 @@
   const frontSame = (have, wantAll) => have.length === 1 && sameZ(have[0].z, wantAll[0].z);
   // All sheets at one place: the layers and the members pair one to one, a layer with a member at its z and (the forward combos of one z are
   // told apart by height) its drawn height within HEIGHT_TOL
+  // The members the frame draws at one place: every drawn texel, own or continued onto another layer, counted once. A texel is a copy of
+  // an earlier one when it agrees with it in z within Z_TOL and in height within HEIGHT_TOL (a layer's continued vertex repeats the member
+  // its neighbour draws; the forward combos of one z differ in height, so they stay apart)
+  const distinctLayers = (list) => {
+    const out = [];
+    for (const l of list) if (!l.z || !out.some((o) => o.z && sameZ(o.z, l.z) && Math.abs(o.h - l.h) <= HEIGHT_TOL)) out.push(l);
+    return out;
+  };
+  {
+    const L = (z, h) => ({ z, h }), a = L([1, 0], 0), b = L([1, 0], 1), c = L([-1, 0], 0);
+    ok('the distinct layers count a duplicate copy once', distinctLayers([a, L([1, 0], 0.001), c]).length === 2, null);
+    ok('the distinct layers keep two heights of one z apart', distinctLayers([a, b]).length === 2, null);
+    ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
+  }
   const sameLayers = (have, want) => {
     if (have.length !== want.length) return false;
     const used = new Set();
@@ -547,13 +610,23 @@
     await load(c, sheets);
     if (!rcDone) { rcDone = true; await rasterControls(); }
     const last = 1;   // (the glide from plane 0 to plane 1)
-    const p0 = await park(0, 'P0'), p1 = await park(last, 'P1');
+    const p0 = await park(0, 'P0');
+    const camP0 = await ev("__cmwCam('L')");
+    const p1 = await park(last, 'P1');
     ok(`${name}: the parked frames are still and have a height reading`, p0.still && p1.still && p0.pick && p1.pick, { p0, p1 });
     // the parked end planes again in the Top view
-    const cam0 = await ev("__cmwCam('L')");
+    const camP1 = await ev("__cmwCam('L')");   // (the camera plane 1 was parked with: park() fits the camera to its plane, so plane 0's can be another)
+    const camGap = Math.abs(camP1.dist - camP0.dist) / camP0.dist;
+    if (CAM_SAME_CASES.includes(c.tag) || (!sheets && CAM_GAP_CASES.includes(c.tag))) ok(`${name}: the two end planes are parked with the same camera distance (${camGap} apart; within ${CAM_SAME_TOL}: the labels agree under either camera)`, camGap <= CAM_SAME_TOL, { camP0, camP1 });
+    if (sheets && CAM_GAP_CASES.includes(c.tag)) ok(`${name}: the two end planes are parked with cameras ${camGap} apart in distance (at least ${CAM_GAP_MIN}: the premise of the tick label control)`, camGap >= CAM_GAP_MIN, { camP0, camP1 });
     await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`);
-    const p0T = await park(0, 'P0T'), p1T = await park(last, 'P1T');
-    await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`);
+    const p0T = await park(0, 'P0T');
+    const distP0T = (await ev("__cmwCam('L')")).dist;
+    const p1T = await park(last, 'P1T');
+    const distP1T = (await ev("__cmwCam('L')")).dist;
+    await ev(`__cmwCam('L', ${JSON.stringify(camP1)}); 1`);
+    ok(`${name}: the Top-view references are parked at each plane's own camera distance (${distP0T} for plane 0 against ${camP0.dist}, ${distP1T} for plane 1 against ${camP1.dist}; within ${CAM_DIST_TOL})`,
+      Math.abs(distP0T - camP0.dist) <= CAM_DIST_TOL * camP0.dist && Math.abs(distP1T - camP1.dist) <= CAM_DIST_TOL * camP1.dist, { distP0T, distP1T, camP0, camP1 });
     ok(`${name}: the parked frames are still in the Top view`, p0T.still && p1T.still, { p0T, p1T });
     const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
@@ -562,6 +635,7 @@
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
+      const camU = await ev("__cmwCam('L')");   // (the camera this frame is drawn with: the camera follows the frame, and every Top-view trip returns to it)
       const still = await grab('cur');
       const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u, holes: c.landHoles }; })()');
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
@@ -616,7 +690,7 @@
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const stillT = await grab('curT');
         const dT = (await compare('curT', first ? 'P0T' : 'P1T')).frac;
-        await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const hueN = await ev(`__lx.hueOff('curT', ${first ? "'P0T'" : "'P1T'"})`);
         r[u].top = { still: stillT, d: dT, hueN };
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
@@ -629,7 +703,7 @@
             await grab('ctlT');
             ctl = await ev(`__lx.hueOff('ctlT', ${first ? "'P0T'" : "'P1T'"})`);
           } finally {
-            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(cam0)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
           ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${ctlNA(c, 'combo', u) ? 'not over ' + HUE_OFF_MAX + ' (not applicable: ' + ctlNA(c, 'combo', u) + ')' : 'over ' + HUE_OFF_MAX} pixels off (${ctl} are)`, ctlNA(c, 'combo', u) ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, na: ctlNA(c, 'combo', u) });
@@ -741,6 +815,14 @@
         const ref = (first ? p0 : p1).ticks, got = await ev('__cmwLandTicks()');
         ok(`${t}: the height ruler's tick labels are the parked plane's (${got && got.length} against ${ref && ref.length}; each within ${TICK_PX} px)`,
           !!got && !!ref && got.length === ref.length && ref.every((y, i) => Math.abs(y - got[i]) <= TICK_PX), { got, ref });
+        if (first && camGap >= CAM_GAP_MIN) {
+          // (the control: the labels are screen heights, so the camera plane 1 was parked with, in place of this frame's, moves them off the parked plane's)
+          await ev(`__cmwCam('L', ${JSON.stringify(camP1)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const pinned = await ev('__cmwLandTicks()');
+          await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          ok(`${t}: control: under plane 1's camera the tick labels are not the parked plane's (${pinned && pinned.length} against ${ref && ref.length}; one over ${TICK_PX} px)`,
+            !!pinned && !!ref && (pinned.length !== ref.length || ref.some((y, i) => Math.abs(y - pinned[i]) > TICK_PX)), { pinned, ref });
+        }
       }
       // the scale and the block's boost the frame is fitted with are the parked plane's at the ends, and not at the middle
       {
@@ -1024,7 +1106,7 @@
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       pts.forEach((p, i) => {
-        const wantAll = ref[i] || [], haveAll = got[i] || [];
+        const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         const want = sheets ? wantAll : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
@@ -1072,9 +1154,10 @@
       // (the lattice is refined, REF.depth up to REF.depthMax, until REF.calm consecutive levels change no checked pixel (a feature thinner than a
       // cell shows first at a deeper level): conv is the last pair's distance, firstConv the first pair's, calm the unchanged levels in a row; the
       // frame is judged against the finest. A reference not converged at depthMax fails)
-      const { rk, conv, firstConv, calm, depth } = await refine(sheets, REF);
+      const { rk, conv, firstConv, calm, depth, drift } = await refine(sheets, REF);
       r[u].raster = rk;
       ok(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference complete: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk });
+      ok(`${t}: the reference's places keep their coordinates in the shared cache (${drift} drifted)`, drift === 0, { drift });
       ok(`${t}: the reference is converged: ${REF.calm} levels in a row change no pixel within ${REF.slack} (depth ${rk ? rk.depth : '?'} of at most ${REF.depthMax}; last pair off ${conv}, first pair ${firstConv})`, !!rk && calm >= REF.calm, { depth: rk && rk.depth, conv, firstConv, calm });
       if (c.tag === 'cube root' && u === MID_U[0]) {
         // the control: with every cross-sheet edge taken as continuous (probe noCross) the whole triangles across the cuts between sheets
@@ -1086,6 +1169,18 @@
           ctl = (await refine(sheets, REF)).rk;
         } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); }
         ok(`${t}: control: with every cross-sheet edge taken as continuous the relief is over ${RASTER_TOL * 100} % off (${ctl ? ctl.extra : '?'} extra, ${ctl ? ctl.missing : '?'} missing of ${ctl ? ctl.n : '?'})`, !!ctl && ctl.off > RASTER_TOL, { ctl });
+      }
+      if (CACHE_CTL_TAGS.includes(c.tag) && u === 0.002 && (sheets || c.tag === 'Roots as preimages')) {
+        // the shared cache of the depths of a refine gives the single run's mask, conv, places and cap at every depth; a refine after another starts empty
+        const cc = await cacheControl(sheets, 0);
+        ok(`${t}: the shared cache gives the single run's mask, conv, places and cap at every depth (${cc.length} depths; places shared/single ${cc.map((r) => (r.places ? r.places[0] + '/' + r.places[1] : '?')).join(', ')})`, cacheControlOk(cc), { cc });
+        const sz = await ev('window.__lxShared.size');
+        const re = await refine(sheets, Object.assign({}, REF, SHALLOW));
+        ok(`${t}: control: a refine after another starts with an empty cache (${re.startSize} places; the last one's held ${sz})`, sz > 0 && re.startSize === 0, { sz, start: re.startSize });
+        if (c.tag === 'Roots as preimages') {
+          const cb = await cacheControl(sheets, CACHE_CTL_EVERY);
+          ok(`${t}: the control: with every ${CACHE_CTL_EVERY}th place of the shared cache emptied a later depth's mask is not the single run's`, cb.some((r) => !r.same), { cb });
+        }
       }
       if (/Roots as preimages/.test(t) && u === 0.002) {
         // controls: a reference refined only over the SHALLOW levels is not converged (its pair still moves checked pixels), and
