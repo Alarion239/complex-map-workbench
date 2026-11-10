@@ -5,7 +5,9 @@
 //   exactly, and the clip interpolates 1 / h along the edge, which is linear in x, so it finds that x; a linear crossing hugs the inside corner;
 // - an edge one corner of which is beyond but not far: the linear crossing;
 // - an edge across zero (h from -3 to 3): the linear crossing on each side (the 1 / h rule is for corners on the block's own side);
-// - the clipped edges' flags (+1 on the top, -1 on the bottom), the others 0.
+// - the clipped edges' flags (+1 on the top, -1 on the bottom), the others 0;
+// - the sides: a crossing of a side plane lies exactly on it (flag 0), and a triangle cut by all six planes keeps its nine corners, as a plain polygon
+//   clip (Sutherland-Hodgman, linear crossings) reads them.
 // Controls: with uClipLinear 1 (every crossing linear) the pole's crossing is far from x = 1 / H_B; a triangle inside the block comes back unchanged.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -16,15 +18,17 @@ const LINEAR_MISS = 0.2;  // (the linear crossing of the pole's edge is at least
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await go(`http://localhost:${PORT}/test.html?ns=landclip${Date.now()}`);
 await settled({ max: 60000, until: '!!window.GLR && !!GLR.landClipGlsl' });
-const run = (tri, linear) => ev(`(() => {
+const NO_SIDES = [-1e30, 1e30, -1e30, 1e30];   // (CLIP_NO_SIDES)
+const CLIP_N = 9;   // (LAND_CLIP_CORNERS: the polygon's room)
+const run = (tri, linear, sides = NO_SIDES) => ev(`(() => {
   const gl = document.createElement('canvas').getContext('webgl2');
   const src = '#version 300 es\\nprecision highp float; precision highp int;\\n' + GLR.landClipGlsl + \`
-uniform vec3 uQ[3]; uniform float uHb; out vec4 o;
+uniform vec3 uQ[3]; uniform float uHb; uniform vec4 uSd; out vec4 o;
 void main() {
-  vec3 Q[5]; vec4 A[5]; vec3 Nn[5]; float Fl[5];
-  for (int i = 0; i < 5; i++) { Q[i] = vec3(0.0); A[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
+  vec3 Q[CLIP_N]; vec4 A[CLIP_N]; vec3 Nn[CLIP_N]; float Fl[CLIP_N];
+  for (int i = 0; i < CLIP_N; i++) { Q[i] = vec3(0.0); A[i] = vec4(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
   Q[0] = uQ[0]; Q[1] = uQ[1]; Q[2] = uQ[2];
-  int n = blockClip(uHb, 3, Q, A, Nn, Fl);
+  int n = blockClip(uHb, uSd, 3, Q, A, Nn, Fl);
   o = vec4(Q[gl_VertexID].xy, Q[gl_VertexID].z, float(n) * 10.0 + Fl[gl_VertexID] + 1.0);
   gl_PointSize = 1.0;
 }\`;
@@ -36,11 +40,12 @@ void main() {
   gl.useProgram(p);
   gl.uniform3fv(gl.getUniformLocation(p, 'uQ'), new Float32Array(${JSON.stringify(tri.flat())}));
   gl.uniform1f(gl.getUniformLocation(p, 'uHb'), ${HB});
+  gl.uniform4fv(gl.getUniformLocation(p, 'uSd'), new Float32Array(${JSON.stringify(sides)}));
   gl.uniform1i(gl.getUniformLocation(p, 'uClipLinear'), ${linear ? 1 : 0});
-  const buf = gl.createBuffer(); gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, buf); gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, 5 * 16, gl.DYNAMIC_READ);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, buf); gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER, ${CLIP_N} * 16, gl.DYNAMIC_READ);
   gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buf);
-  gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, 5); gl.endTransformFeedback();
-  const out = new Float32Array(20); gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
+  gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, ${CLIP_N}); gl.endTransformFeedback();
+  const out = new Float32Array(${4 * CLIP_N}); gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
   const n = Math.round(out[3] / 10);
   return { n, v: [...Array(n).keys()].map((i) => ({ x: out[4 * i], y: out[4 * i + 1], z: out[4 * i + 2], fl: Math.round(out[4 * i + 3] - 10 * n - 1) })) };
 })()`);
@@ -71,4 +76,32 @@ ok('across zero: the top and the bottom crossings are linear, flagged +1 and -1'
 const inn = [[0, 0, 0.5], [1, 0, -0.5], [0, 1, 1.0]];
 const I = await run(inn, false);
 ok('control: a triangle inside the block comes back unchanged', I.n === 3 && inn.every((q) => has(I, { x: q[0], y: q[1], z: q[2], fl: 0 })), { I });
+// (the sides: x <= SIDE_X cuts a flat triangle at the plane exactly, the new corners flagged 0)
+const SIDE_X = 1, SIDES = [-1e30, SIDE_X, -1e30, 1e30];
+const side = [[0, 0, 0.5], [2, 0, 0.5], [0, 1, 0.5]];
+const S = await run(side, false, SIDES);
+ok('a side plane: the triangle cut at x = 1 has four corners, the new ones on the plane, flagged 0', S.n === 4 && has(S, { x: SIDE_X, y: 0, z: 0.5, fl: 0 }) && has(S, { x: SIDE_X, y: 0.5, z: 0.5, fl: 0 }) && has(S, { x: 0, y: 1, z: 0.5, fl: 0 }), { S });
+const SO = await run(side, false);
+ok('control: without the side planes the same triangle comes back unchanged', SO.n === 3, { SO });
+// (all six planes: a triangle cut by the top, the bottom and the four sides of the box |x|, |y| <= BOX_SIDE keeps nine corners, as a plain polygon clip reads them)
+const BOX_SIDE = 1, BOX = [-BOX_SIDE, BOX_SIDE, -BOX_SIDE, BOX_SIDE];
+const clipRef = (tri) => {
+  const planes = [(q) => q[2] - HB, (q) => -q[2] - HB, (q) => BOX[0] - q[0], (q) => q[0] - BOX[1], (q) => BOX[2] - q[1], (q) => q[1] - BOX[3]];
+  let poly = tri;
+  for (const d of planes) {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], da = d(a), db = d(b);
+      if (da <= 0) out.push(a);
+      if ((da <= 0) !== (db <= 0)) out.push(a.map((v, k) => v + da / (da - db) * (b[k] - v)));
+    }
+    poly = out;
+  }
+  return poly;
+};
+const nine = [[1.5, 1.5, 1.8], [-2.25, -3.75, -1.5], [-0.5, 0.5, -1.2]];
+const want9 = clipRef(nine);
+const N9 = await run(nine, false, BOX);
+info.nine = { N9, want9 };
+ok(`all six planes: ${want9.length} corners, each where the plain polygon clip puts it`, N9.n === want9.length && want9.length === CLIP_N && want9.every((w) => N9.v.some((v) => Math.abs(v.x - w[0]) <= FLOAT_TOL && Math.abs(v.y - w[1]) <= FLOAT_TOL && Math.abs(v.z - w[2]) <= FLOAT_TOL)), { N9, want9 });
 return { pass: fails.length === 0, fails, info };

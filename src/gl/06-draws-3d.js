@@ -908,6 +908,29 @@
     return out;
   }
   // a transform-feedback pass of count points into rows y0.. of tex (W wide, already allocated)
+  // The straddling cells' list (LAND_CLASS_LIST_VS) holds every one of a frame's MIX cells, whatever their count: the count (the last row's base and its
+  // count) is read back each frame, after the rows' passes and before the list's, and a layer's list capacity is raised to the next power of two over it
+  // when it is short (it is never lowered), so a frame's list is never cut off. The list is LAND_STRAD_W wide and capacity / LAND_STRAD_W rows high;
+  // a count over the ceiling (LAND_STRAD_K_MAX, or a control's carryProbe.stradMax), which no one layer's grid reaches (the list is a layer's: a grid has at most (LAND_CLASS_LOOP - 1)^2 cells), is reported by
+  // console.error and stradTruncated, and its list is cut at the ceiling. A control (carryProbe.stradNoGrow) keeps the capacity, counting the frames whose list is cut off
+  let stradSyncs = 0, stradGrows = 0, stradTruncated = 0, stradCount = 0, stradCapLast = 0;
+  // the count of the list built from L.rowBTex (N x 1), read now: the frame waits for it
+  function stradRead(L, N) {
+    const fb = gl.createFramebuffer(), f = new Float32Array(4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.rowBTex, 0);
+    gl.readPixels(N - 2, 0, 1, 1, gl.RGBA, gl.FLOAT, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
+    stradSyncs++;
+    return f[0] + f[1];
+  }
+  // the capacity a list of count cells needs, from the layer's current one: the next power of two over the count
+  const stradCapFor = (cap, count) => {
+    let c = cap;
+    while (c < count) c *= 2;
+    return c;
+  };
   function runTFRows(P, count, tex, W, y0) {
     const rows = Math.ceil(count / W), bytes = rows * W * 16;
     if (!tfObj) tfObj = gl.createTransformFeedback();
@@ -1673,27 +1696,38 @@
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
       const contDraw = !!(landC && landC.cont);
-      // (the layered draw of linear heights runs the layers past the block and clips them there exactly: LAND_CLIP; clipOff is a probe's control)
-      const clipC = contDraw && clipOf(mode) > 0 && !carryProbe.clipOff;
-      const fan = clipC ? 3 : 1;
-      const Pc = program(clipC ? 'landCarryLC' : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
-      use(Pc, st.carry.map);
-      if (contDraw) u1i(Pc, 'uSheetW', st.carry.exact.sheetW || 2);
-      common(Pc);
-      u1i(Pc, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
-      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
-      u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uH', H); u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pc, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pc, 'uGt', st.carry.T);
-      u1i(Pc, 'uZOn', landC && landC.exact ? 1 : 0);
-      u1f(Pc, 'uDrawCode0', CARRY_SHEET_CODE);
-      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
-      // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
-      // a key's push of the depth would only put a layer behind the floor plate)
-      keyUniforms(Pc, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pc, 'uKeyEps', 1e-1);
-      u2f(Pc, 'uClipA', aspect[0], aspect[1]);
-      const sb = st.carry.src || box;
-      u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      // (the exact single layer and the layered draw of linear heights are clipped at the block's sides, and the layered one at its top and bottom
+      // too, where the layers run on past it: LAND_CLIP; clipOff is a probe's control)
+      const clipC = (contDraw ? clipOf(mode) > 0 : !!(landC && landC.exact)) && !carryProbe.clipOff;
+      let fan = clipC ? LAND_CLIP_CORNERS - 2 : 1;
+      let Pc = program(clipC ? (contDraw ? 'landCarryLC' : 'landCarryC') : contDraw ? 'landCarryL' : 'landCarry', st.carry.map);
+      const Pc0 = Pc;
+      // (the carried draw's uniforms, for the program that draws: the clipped one, or the plain one of the cells inside the block)
+      const carryUniforms = (Pq) => {
+        use(Pq, st.carry.map);
+        if (contDraw) u1i(Pq, 'uSheetW', st.carry.exact.sheetW || 2);
+        common(Pq);
+        if (clipC) { u1i(Pq, 'uFanN', fan); u1i(Pq, 'uMixOn', 0); }
+        u1i(Pq, 'uClipLinear', carryProbe.clipLinear ? 1 : 0);
+        lightUniforms(Pq, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        u3(Pq, 'uCut', C.cut);
+        u1f(Pq, 'uH', H); u1f(Pq, 'uLim', st.carry.lim); u1f(Pq, 'uStep', carryStep(mode, H, landC && landC.exact)); u1i(Pq, 'uGs', landC && landC.exact ? 0 : st.carry.s); u1i(Pq, 'uGt', st.carry.T);
+        u1i(Pq, 'uZOn', landC && landC.exact ? 1 : 0);
+        u1f(Pq, 'uDrawCode0', CARRY_SHEET_CODE);
+        // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
+        // (the exact glide on one layer has one member on each place and orders its cut banks by geometry, as the surface at rest does, so it has no key:
+        // a key's push of the depth would only put a layer behind the floor plate)
+        keyUniforms(Pq, landC && landC.exact && !contDraw && landActive.length === 1 ? null : (st.carry.key || null)); u1f(Pq, 'uKeyEps', 1e-1);
+        // (the clipped draw has no per-fragment side discard; the probes' controls: sideDiscard puts it back, clipScale scales the block's sides)
+        u1i(Pq, 'uSideDiscard', clipC && !carryProbe.sideDiscard ? 0 : 1);
+        // (the single layer has no top or bottom plane: it is one open sheet, as the parked plane draws it)
+        if (clipC) u1f(Pq, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30);
+        u2f(Pq, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
+        const sb = st.carry.src || box;
+        u4f(Pq, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+        u4f(Pq, 'uPolar', 0, 0, 0, 0);
+      };
+      carryUniforms(Pc);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -1701,6 +1735,24 @@
       // (each layer: its places, preimages and edges; the glide's sheets, one draw each with that sheet's chain data, its
       // colour being of the sheet's branch)
       // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
+      // (a test read, for the probe classStats: the class texture, the places and the cuts' jumps of a layer's grid, the last row's base and count, and what the
+      // classes are against; the suites count and check them)
+      const readTex = (tex, N, W = N, H2 = N) => {
+        const fb = gl.createFramebuffer(), a = new Float32Array(W * H2 * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+        gl.readPixels(0, 0, W, H2, gl.RGBA, gl.FLOAT, a);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
+        return a;
+      };
+      const classRaw = (L, N, k) => ({
+        N, K: k, cls: readTex(L.clsTex, N), t1: readTex(L.tex1, N), edges: L.exact && L.cuts ? L.edges.map((e) => readTex(e, N)) : null,
+        rowB: readTex(L.rowBTex, N, N, 1), box: [box.x0, box.y0, BW, BH], aspect: [aspect[0], aspect[1]], clipScale: carryProbe.clipScale || 1,
+        clipH: contDraw ? LAND_BLOCK_K * H : null,
+      });
+      const strK0 = carryProbe.stradK || LAND_STRAD_K;   // (the list's first capacity; stradK: a test control's short one)
+      let mixK = 0;   // (over 0: the draw is mixK instances of one cell each, the MIX cells' list: LAND_CARRY_CLASS_VS)
       const drawCarryGrid = (G, n) => {
         const cutDraw = !!(G.exact && G.cuts);
         u1i(Pc, 'uN', n); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
@@ -1718,7 +1770,8 @@
           if (datas && G.cont) gl.uniform4fv(Pc.loc.uChain, datas[i] || Pc.ch.data);
           if (datas && !G.cont) u1i(Pc, 'uSheetCombo', G.combos[i] + (carryProbe.comboShift | 0));
           u1f(Pc, 'uDrawCode', datas ? CARRY_SHEET_CODE + i : 0);
-          gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
+          if (mixK) gl.drawArraysInstanced(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan, mixK);
+          else gl.drawArrays(gl.TRIANGLES, 0, (cutDraw ? 18 : 6) * fan * (n - 1) * (n - 1));
         }
         if (datas || own) gl.uniform4fv(Pc.loc.uChain, Pc.ch.data);
       };
@@ -1737,7 +1790,77 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
-        drawCarryGrid(L, hd.N);
+        let classDrawn = false;
+        if (!carryProbe.classOff && clipC && exact) {
+          // (the cells' classes against the block: the plain draw of the cells inside it, the clipped draw of the straddling ones from their list)
+          const Pk = program('landCarryClass'), PcI = program(contDraw ? 'landCarryLI' : 'landCarryI', st.carry.map);
+          const rowsP = program('landClassRows'), baseP = program('landClassBase'), listP = program('landClassList');
+          if (Pk && PcI && rowsP && baseP && listP) {
+            const N = hd.N;
+            if (N > LAND_CLASS_LOOP) throw new Error('the class passes loop over at most ' + LAND_CLASS_LOOP + ' cells; the grid is ' + N);
+            if (!L.clsTex) { L.clsTex = floatTex(); L.rowNTex = floatTex(); L.rowBTex = floatTex(); L.mixTex = floatTex(); }
+            use(Pk);
+            u1i(Pk, 'uN', N); u4f(Pk, 'uBox', box.x0, box.y0, BW, BH); u2f(Pk, 'uAspect', aspect[0], aspect[1]);
+            u2f(Pk, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
+            u1f(Pk, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pk, 'uCuts', cutDraw ? 1 : 0); u1i(Pk, 'uForce', carryProbe.classForce | 0);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+            for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, cutDraw ? L.edges[d] : L.tex1); }
+            gl.activeTexture(gl.TEXTURE31);
+            runTF(Pk, empty(), gl.POINTS, N * N, 0, N * N * 16, L.clsTex, N, N, gl.RGBA32F, gl.RGBA);
+            // (the list of the straddling cells: the rows' counts, their bases, the cell of each rank)
+            gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
+            use(rowsP); u1i(rowsP, 'uN', N);
+            gl.activeTexture(gl.TEXTURE31); runTF(rowsP, empty(), gl.POINTS, N, 0, N * 16, L.rowNTex, N, 1, gl.RGBA32F, gl.RGBA);
+            gl.activeTexture(gl.TEXTURE18); gl.bindTexture(gl.TEXTURE_2D, L.rowNTex);
+            use(baseP); u1i(baseP, 'uN', N);
+            gl.activeTexture(gl.TEXTURE31); runTF(baseP, empty(), gl.POINTS, N, 0, N * 16, L.rowBTex, N, 1, gl.RGBA32F, gl.RGBA);
+            gl.activeTexture(gl.TEXTURE19); gl.bindTexture(gl.TEXTURE_2D, L.rowBTex);
+            // (the count first, then the list sized to it)
+            const count = stradRead(L, N);
+            if (L.stradCap0 !== strK0) { L.stradCap0 = strK0; L.stradCap = strK0; }   // (the capacity restarts when its first value changes: a control's)
+            let cap = L.stradCap;
+            const ceil = carryProbe.stradMax || LAND_STRAD_K_MAX;
+            const want = carryProbe.stradNoGrow ? cap : Math.min(stradCapFor(cap, count), ceil);
+            if (want > cap) { cap = want; stradGrows++; }
+            if (count > cap) { stradTruncated++; console.error('the straddling cells\' list holds ' + cap + ' of ' + count + ' cells (ceiling ' + ceil + '): the frame is cut off'); }
+            L.stradCap = cap; stradCount = count; stradCapLast = cap;
+            const lw = Math.min(cap, LAND_STRAD_W);
+            use(listP); u1i(listP, 'uN', N);
+            gl.activeTexture(gl.TEXTURE31); runTF(listP, empty(), gl.POINTS, cap, 0, cap * 16, L.mixTex, lw, cap / lw, gl.RGBA32F, gl.RGBA);
+            if (carryProbe.classStats) info.classRaw = classRaw(L, N, cap);
+            use(Pc, st.carry.map);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+            gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
+            if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
+            if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+            {
+              gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
+              fan = 1; Pc = PcI; carryUniforms(Pc);
+              {
+                const hv = new Float32Array(16);
+                landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
+                gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
+              }
+              u1i(Pc, 'uZOn', 1); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+              if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
+              drawCarryGrid(L, hd.N);
+              fan = LAND_CLIP_CORNERS - 2; Pc = Pc0; use(Pc, st.carry.map);
+              if (!carryProbe.classNoMix) {
+                gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
+                gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
+                if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
+                if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
+                gl.activeTexture(gl.TEXTURE17); gl.bindTexture(gl.TEXTURE_2D, L.mixTex);
+                u1i(Pc, 'uMixOn', 1); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan); mixK = cap;
+                drawCarryGrid(L, hd.N);
+                mixK = 0; u1i(Pc, 'uMixOn', 0);
+              }
+              classDrawn = true;
+            }
+          }
+        }
+        // (every cell through the clip program: with the classes off)
+        if (!classDrawn) drawCarryGrid(L, hd.N);
         // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
         if (L.pp && L.pp.length) {
           gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 4);
@@ -1761,7 +1884,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.layers = landActive.length; info.landHoles = landHoles.length;
+      info.layers = landActive.length; info.landHoles = landHoles.length; info.stradCount = stradCount; info.stradCap = stradCapLast; info.stradGrows = stradGrows; info.stradTruncated = stradTruncated; info.stradSync = stradSyncs;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
