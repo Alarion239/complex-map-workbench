@@ -6,9 +6,9 @@
 //   link certified by evaluating N forward on it (|N(z) − w| ≤ CHAIN_TOL (1 + |w|)); a search that hits its node cap is
 //   `unresolved` and fails the row, never counts as empty. For the example's square [−2, 2]² every pixel is predicted
 //   coloured (the square holds the near-pole preimages of every w);
-// - a region that bites both ways, [0.6, 1.6] × [−0.5, 0.5] around the root 1 (no pole inside; the image of the region under
-//   twenty steps is a bounded set), predicts some pixels coloured and some not, and the plane matches per pixel in both
-//   directions, so a drawing that colours everything fails;
+// - a region that bites both ways, [0.6, 1.6] × [−0.5, 0.5] around the root 1 repeated twice (no pole inside, so the image
+//   is a bounded set): the reference predicts some pixels coloured and some not, and the plane matches per pixel in both
+//   directions, so a drawing that colours everything, or nothing, fails;
 // - control: the same reference with one backward root dropped from every step must predict differently from the whole
 //   one, else the rows cannot see a missing root; each row records the plane's own path (__cmwSteps().paths).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
@@ -17,22 +17,25 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const PITCH = 20;          // px between the sampled pixels
+const AXIS_OFF = 10;       // px: the grid sits between the axis lines, whose ink is not the plane's colour
+const EDGE_PX = 1.5;       // px: a sample whose reference answer changes within this distance is on the image's edge and is not scored
 const COLOURED = 40;       // channel spread above which a pixel counts as coloured (the plane's grey is neutral)
 const CHAIN_TOL = 1e-6;    // relative error of a certified backward link
 const NODE_CAP = 4e5;      // nodes of the backward search before it reads `unresolved`
 const CHAIN_N = 20;        // the repeat count of the scene
 const MARGIN = 0.14;       // share of the canvas, as the rulers' margin, left out of the sample
 const STEP_EXPR = 'z-(z^3-1)/(3*z^2)';
+const BITE_N = 2;          // the bite scene's repeat count: its image is a bounded set the grid resolves
 const BITE = { a: [0.6, -0.5], b: [1.6, 0.5] };
 const ready = () => settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
 await view(1200, 800, false, false);
-const stateFor = (rect) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 140 },
+const stateFor = (rect, n) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 140 },
   shapes: [{ id: 's1', kind: 'rect', a: rect.a, b: rect.b, ci: 0, visible: true }],
-  steps: [{ type: 'custom', params: { expr: STEP_EXPR, cut: 180 }, on: true, repeat: { n: CHAIN_N, len: 1 } }] });
-const open = async (rect) => {
+  steps: [{ type: 'custom', params: { expr: STEP_EXPR, cut: 180 }, on: true, repeat: { n, len: 1 } }] });
+const open = async (rect, n) => {
   const ns = 'sp' + Date.now();
   await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
-  if (rect) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stateFor(rect)))}); 1`);
+  if (rect) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stateFor(rect, n)))}); 1`);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=en`);
   await ready();
   if (!rect) { await ev(`__cmwExample(${names.indexOf('Newton’s method for z³ − 1')}); 1`); await settled({ max: 60000, panes: false }); await ready(); }
@@ -53,7 +56,7 @@ const sample = (ws) => ev(`(() => {
 })()`);
 const grid = (win) => {
   const [cx, cy, s] = win, W = 1200 / 2, H = 800 / 2, ws = [];
-  for (let j = -Math.floor(H / PITCH); j <= Math.floor(H / PITCH); j++) for (let i = -Math.floor(W / PITCH); i <= Math.floor(W / PITCH); i++) ws.push([cx + i * PITCH / s, cy - j * PITCH / s]);
+  for (let j = -Math.floor(H / PITCH); j <= Math.floor(H / PITCH); j++) for (let i = -Math.floor(W / PITCH); i <= Math.floor(W / PITCH); i++) ws.push([cx + (i * PITCH + AXIS_OFF) / s, cy - (j * PITCH + AXIS_OFF) / s]);
   return ws;
 };
 // roots of 2z³ − 3wz² + 1 = 0 (Durand–Kerner)
@@ -71,11 +74,11 @@ const Nfwd = (z) => { const z2r = z[0] * z[0] - z[1] * z[1], z2i = 2 * z[0] * z[
 const inRect = (z, R) => z[0] >= R.a[0] && z[0] <= R.b[0] && z[1] >= R.a[1] && z[1] <= R.b[1];
 // the forward images' bounding boxes of a region without a pole (N^k of a grid of it, grown by 25 %): a backward link outside
 // the box of its depth cannot reach the region; a region holding the pole has none
-const boxes = (R) => {
+const boxes = (R, n) => {
   if (R.a[0] <= 0 && R.b[0] >= 0 && R.a[1] <= 0 && R.b[1] >= 0) return null;
   let pts = []; for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) pts.push([R.a[0] + (R.b[0] - R.a[0]) * i / 40, R.a[1] + (R.b[1] - R.a[1]) * j / 40]);
   const out = [];
-  for (let k = 0; k <= CHAIN_N; k++) {
+  for (let k = 0; k <= n; k++) {
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), gx = 0.25 * (x1 - x0) + 1e-3, gy = 0.25 * (y1 - y0) + 1e-3;
     out.push({ a: [x0 - gx, y0 - gy], b: [x1 + gx, y1 + gy] });
     pts = pts.map(Nfwd);
@@ -83,7 +86,7 @@ const boxes = (R) => {
   return out;
 };
 // -> 1 (a certified chain into R), 0 (the search is exhausted), -1 (the node cap: unresolved); drop: the root index left out of every step
-const chain = (w, R, bx, drop) => {
+const chain = (w, R, bx, drop, n) => {
   let nodes = 0, cap = false;
   const go = (v, depth) => {
     if (depth === 0) return inRect(v, R);
@@ -98,23 +101,24 @@ const chain = (w, R, bx, drop) => {
     }
     return false;
   };
-  const r = go(w, CHAIN_N);
+  const r = go(w, n);
   return r ? 1 : cap ? -1 : 0;
 };
-const row = async (label, rect, dropRoot) => {
-  await open(rect);
+const row = async (label, rect, dropRoot, reps = CHAIN_N) => {
+  await open(rect, reps);
   const B = await ev('(() => { const s = __cmwSteps(); return { win: s.win, paths: s.paths, scope: s.scope }; })()');
   if (!B || !B.win) { ok(label + ': plane window', false, JSON.stringify(B)); return null; }
-  const R = rect || { a: [-2, -2], b: [2, 2] }, bx = boxes(R), ws = grid(B.win), got = await sample(ws);
-  let n = 0, agree = 0, pred1 = 0, got1 = 0, unres = 0; const bad = [];
+  const R = rect || { a: [-2, -2], b: [2, 2] }, bx = boxes(R, reps), ws = grid(B.win), got = await sample(ws);
+  let n = 0, agree = 0, pred1 = 0, got1 = 0, unres = 0, edge = 0; const bad = [];
   ws.forEach((w, k) => {
     if (got[k] == null) return;
-    const p = chain(w, R, bx, dropRoot);
+    const p = chain(w, R, bx, dropRoot, reps), e = EDGE_PX / B.win[2];
+    if (p >= 0 && [[e, 0], [-e, 0], [0, e], [0, -e]].some(([dx, dy]) => chain([w[0] + dx, w[1] + dy], R, bx, dropRoot, reps) !== p)) { edge++; return; }
     if (p < 0) { unres++; return; }
     n++; pred1 += p; got1 += got[k];
     if (p === got[k]) agree++; else if (bad.length < 8) bad.push({ w: w.map((v) => +v.toFixed(3)), predicted: p, plane: got[k] });
   });
-  info[label] = { samples: n, agree, predictedColoured: pred1, planeColoured: got1, unresolved: unres, paths: B.paths, disagreements: bad };
+  info[label] = { samples: n, agree, predictedColoured: pred1, planeColoured: got1, unresolved: unres, edge, paths: B.paths, disagreements: bad };
   return { n, agree, pred1, got1, unres, paths: B.paths };
 };
 const main = await row('gallery square', null);
@@ -123,13 +127,13 @@ if (main) {
   ok('gallery square: the reference predicts every sample coloured', main.pred1 === main.n, `${main.pred1}/${main.n}`);
   ok('gallery square: the plane colours what a chain of backward roots reaches', main.agree === main.n, `${main.agree}/${main.n} agree, plane colours ${main.got1}`);
 }
-const bite = await row('bite region', BITE);
+const bite = await row('bite region', BITE, -1, BITE_N);
 if (bite) {
   ok('bite region: no unresolved reference sample', bite.unres === 0, bite.unres);
   ok('bite region: the reference predicts both coloured and empty pixels', bite.pred1 > 0 && bite.pred1 < bite.n, `${bite.pred1}/${bite.n}`);
-  ok('bite region: the plane matches the reference per pixel, both ways', bite.agree === bite.n, `${bite.agree}/${bite.n} agree`);
+  ok('bite region: the plane matches the reference per pixel, both ways', bite.agree === bite.n, `${bite.agree}/${bite.n} agree ` + JSON.stringify(info["bite region"].disagreements));
 }
 // control: the reference with one backward root dropped must disagree with the exact plane (the row sees a missing root)
-const dropped = await row('bite region, root 0 dropped', BITE, 0);
+const dropped = await row('bite region, root 0 dropped', BITE, 0, BITE_N);
 if (dropped && bite) ok('control: a dropped root changes the reference', dropped.agree < bite.agree || dropped.pred1 !== bite.pred1, JSON.stringify({ dropped: dropped.agree, whole: bite.agree }));
 return { pass: fails.length === 0, fails, info };
