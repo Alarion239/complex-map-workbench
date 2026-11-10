@@ -221,7 +221,7 @@
           z = csub(z, dz);
           nfail = { i, res: cabs(res), dz: cabs(dz), sheet: m.sheet };
         }
-        window.__lxCnt.cap++; nfail = Object.assign({ why: 'cap' }, nfail);   // (the iteration cap is hit: the member is unresolved)
+        nfail = Object.assign({ why: 'cap' }, nfail);   // (the iteration cap is hit: no certified member)
         return null;
       };
       // (the glide's sheets an edge's ends hold: sheet i has the code sheetCode + i; an end on no sheet takes the other's)
@@ -252,7 +252,7 @@
         for (const e of (window.__cmwLandEnum([w]) || [[]])[0]) {
           if (!want.includes(e.sheet)) continue;   // (the sheets the edge's ends hold; the others only crowd the separation check)
           const m = newton({ z: e.z, lam: e.lam, sheet: e.sheet, sheets: [e.sheet], lvl: e.lvl }, w);
-          if (!m) continue;
+          if (!m) { if (nfail && nfail.why === 'cap') window.__lxCnt.cap++; continue; }   // (an enumerated member that Newton cannot certify within its cap is a member the set lacks: counted, and the row fails)
           const q = !(opt && opt.countRamp) && out[idMatches(out, m)[0]];   // (countRamp: every sheet's entry is its own member, so the ramp sheets of a member count again)
           if (q) { if (!q.sheets.includes(m.sheet)) q.sheets.push(m.sheet); if (!(m.lvl < 0)) q.lvl = m.lvl; } else out.push(m);   // (a member any of whose sheets has it in its window is counted)
         }
@@ -933,6 +933,7 @@
           ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of ${LOOP_DIRS.length} still certify)`, synDp.cls === 'displaced' && synDp.loops < LOOP_DIRS.length, synDp);
           ok(`${t}: control: in the z chart (steps near the branch value swap members) the verdict without the separation check (${synZoff.cls}) differs from the one with it (${synZ.cls})`, synZoff.cls !== synZ.cls, { synZ, synZoff });
         }
+        r[u].orbitSyn = await ev('window.__lxOrbit');   // (the orbit roots the controls and the made-up edges tried, with the vertex cell: k(lam) against the branch cell)
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
         const ctlC = await withProbe({ midCut: true }, u, () => ev('__lx.cutT()'));
         ok(`${t}: control: with every cut at the middle of its edge the worst distance is over ${tol.toExponential(2)} of the chord (${ctlC ? ctlC.worst.toExponential(2) : '?'})`, !!ctlC && ctlC.worst > tol, ctlC);
