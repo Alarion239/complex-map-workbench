@@ -635,6 +635,9 @@
   // dcolor(f_T ∘ … ∘ f_1(z)), wherever the map takes it. Where several points land on one pixel, the one in front is
   // the tiling's own: the one nearest the window's centre, away from the map's poles (Inverse.sheetKey, svSheetKey)
   const SV_ALL = { id: '__svAll', kind: 'disc', c: [1e9, 0], r: 1e-6, complement: true, visible: true };
+  // the reason svInvPaths gives when Inside regions has no area shape to draw (a curve, a point: strokes only): nothing
+  // region-wise is drawn then, so a glide frame's path reads 'none'
+  const SV_NO_AREA = 'no area region to draw';
   // hom: a glide's frame, where a region of plane k holds the points z of plane 0 whose F_{0->k}(z) it holds (the inverse
   // pass tests it there), so the regions of later planes are drawn too. null: a region of a later plane the frame cannot
   // take (at rest, any; in a glide, one behind a d/dz step)
@@ -946,7 +949,7 @@
   // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
     const hom = u != null, list = svCarryShapes(hom);
-    if (!list || !list.length) { why.r = hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
+    if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
     if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
@@ -1565,7 +1568,7 @@
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
         if (drew) return;
       }
       // (meshed: drawn by the carried meshes, which nothing is drawn under or blended over)
