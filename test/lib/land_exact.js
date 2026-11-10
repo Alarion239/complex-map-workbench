@@ -1002,8 +1002,8 @@
             ok(`${t}: the scene's cell at a member's place (window.__cmwLandCellsAt) is the cell its certificate read, the leaf's centre when closed and else the place itself (${bad} of ${sub.length} differ)`, sub.length > 0 && bad === 0, { bad, n: sub.length });
             if (sub.length > 0) ok(`${t}: the control: read against the member's cell shifted by one they differ (${wrong} of ${sub.length})`, wrong === sub.length, { wrong });
           }
-          // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's place is the member's f,
-          // and the digits with one moved give a surface whose value there is not)
+          // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's z is the place it was found for,
+          // and the digits with one moved give a surface whose value there is another place)
           {
             const sub = ms.slice(0, HOM_EQ_PAIRS), have = sub.filter((m) => Array.isArray(m.digits)).length;
             ok(`${t}: every member lists the digits of its scene-certified surface (${have} of ${sub.length})`, sub.length > 0 && have === sub.length, { have, n: sub.length });
@@ -1012,15 +1012,15 @@
             let back = 0, moved = 0, tried = 0;
             for (const m of sub) {
               if (!Array.isArray(m.digits)) continue;
-              if (agree(await val(m, m.digits), m.f)) back++;
+              if (agree(await val(m, m.digits), m.w)) back++;
               for (let i = 0; i < m.digits.length; i++) {
                 const ds = m.digits.slice(); ds[i] += 1;
                 const v = await val(m, ds);
-                if (v) { tried++; if (!agree(v, m.f)) moved++; break; }
+                if (v) { tried++; if (!agree(v, m.w)) moved++; break; }
               }
             }
-            ok(`${t}: the digits round-trip through the scene's surface table to the member's value (${back} of ${have})`, have > 0 && back === have, { back, have });
-            ok(`${t}: the control: one digit moved gives another value than the member's (${moved} of ${tried} members)`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0, { moved, tried, na: ctlNA(c, 'digits', u) });
+            ok(`${t}: the digits round-trip through the scene's surface table to the member's place (${back} of ${have})`, have > 0 && back === have, { back, have });
+            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0, { moved, tried, na: ctlNA(c, 'digits', u) });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
