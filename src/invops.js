@@ -444,9 +444,12 @@ const InvOps = (() => {
   // cannot be reached: a pixel outside the n-th enclosure is empty without a solve.
   const REPT_DEG = 3;                // the step's degree (the solver is the closed-form cubic)
   const REPEAT_COPIES_MAX = 20;      // copies, the GPU stack's depth
-  const REPEAT_NODES_MAX = 2048;     // root solves per pixel before it reads unresolved: at least 50 x the most the suite's
+  const REPEAT_NODES_MAX = 1024;     // root solves per pixel before it reads unresolved: at least 50 x the most the suite's
                                      // scenes need (the CPU twin over every pixel at dpr 1 and 2: the gallery square 20,
                                      // the bite box at Repeat x 2 3, at x 20 0)
+  // root solves in one GPU submission of a REPT draw (GLR's reptDraw tiles a pane by it): one tile stays within
+  // REPT_TILE_MS_MAX at the slowest solve rate measured (TILE_RATE_NOTE)
+  const REPT_TILE_SOLVES = 2 ** 27;
   const REPT_U = 2 ** -24;           // float32's unit roundoff
   // REPT_GAMMA: |fl(p(z)) - p(z)| <= REPT_GAMMA REPT_U sum_k |a_k| |z|^k for Horner's rule of degree 3 in complex float32.
   // Each of the 3 steps is a complex product (relative error <= 2 sqrt 2 u for correctly rounded + and x, 4 sqrt 2 u
@@ -468,6 +471,8 @@ const InvOps = (() => {
   const ENCL_POLE_F = 2;             // a disc D(c, r) is inverted only when |c| > ENCL_POLE_F r (else it meets a pole)
   const ENCL_GRID = 8;               // cells per side of the region's box at the start
   const ENCL_CELLS_MAX = 4096;       // cells pushed through the steps, the cut ones included
+  const REPT_ESC_GROW = 2;           // the escape set's growth per step: |R(z)| > REPT_ESC_GROW |z| on |z| >= REPT_ESC_R
+  const REPT_ESC_BISECT = 60;        // bisection steps of the escape radius (float64 halves its bracket to the last bit)
   const ENCL_R_MAX = 1e15;           // an enclosure wider than this is the whole plane (float32 bounds stay finite)
   const OMEGA = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
   // P, Q high-first, padded to REPT_DEG + 1 coefficients
@@ -632,26 +637,66 @@ const InvOps = (() => {
     }
     return { c: C(cr, ci), r: cR };
   }
-  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1} or null (the whole
-  // plane). The box is cut into ENCL_GRID x ENCL_GRID cells, each pushed through the n steps as its circumscribed disc;
-  // a cell whose disc meets a pole (or outgrows ENCL_R_MAX) at some level is cut in four and pushed again, while the
-  // cells pushed stay within ENCL_CELLS_MAX. A cell that cannot be cut makes every level from its failure on the whole
-  // plane. E_r is the box of every disc at level r (each cell's discs enclose its points' images, and the cells cover b).
+  // ---- the escape radius REPT_ESC_R of R = P/Q, deg P = n >= deg Q + 2 ----
+  // f(r) = |p_n| r^n - sum_{k<n} |p_k| r^k - REPT_ESC_GROW r sum_k |q_k| r^k. |P(z)| >= |p_n| |z|^n - sum_{k<n} |p_k| |z|^k
+  // and |Q(z)| <= sum_k |q_k| |z|^k, so f(|z|) > 0 gives |P(z)| > REPT_ESC_GROW |z| |Q(z)|: |R(z)| > REPT_ESC_GROW |z|
+  // (a zero of Q there is a pole, no finite point). f's coefficients change sign once (the leading one is positive; the
+  // others are <= 0, as deg Q + 1 < n), so by Descartes' rule f has exactly one positive root, and f(R) > 0 gives f > 0 on
+  // [R, inf): {|z| >= s} maps into {|z| >= REPT_ESC_GROW s} for every s >= R. reptEscF evaluates f with every term
+  // rounded against it (ENCL_EPS: the positive term rounded down, the negative ones up); R is found by doubling from 1,
+  // then by REPT_ESC_BISECT bisections, and kept only where that evaluation is positive. null when deg P < deg Q + 2
+  // (Newton's step: no escape set) or when no R below ENCL_R_MAX passes
+  function reptEscF(P, Q, r) {
+    const n = P.length - 1;
+    let lead = 0, neg = 0;
+    for (let k = 0; k <= n; k++) {
+      const rk = r ** (n - k), pk = abs(P[k]) * rk, qk = abs(Q[k]) * rk * r;
+      if (k === 0) lead = pk; else neg += pk;
+      neg += REPT_ESC_GROW * qk;
+    }
+    return lead * (1 - ENCL_EPS) - neg * (1 + ENCL_EPS);
+  }
+  function reptEscR(P, Q) {
+    const n = P.length - 1, dq = Q.length - 1 - Q.findIndex((q) => !isZero(q));
+    if (isZero(P[0]) || (dq <= n && dq > n - 2)) return null;
+    let hi = 1;
+    while (!(reptEscF(P, Q, hi) > 0)) { hi *= 2; if (!(hi < ENCL_R_MAX)) return null; }
+    let lo = hi === 1 ? 0 : hi / 2;
+    for (let i = 0; i < REPT_ESC_BISECT; i++) { const m = (lo + hi) / 2; if (reptEscF(P, Q, m) > 0) hi = m; else lo = m; }
+    return hi;
+  }
+  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1, esc} or null (the
+  // whole plane): the points of the box (empty when x0 > x1) and, when esc > 0, of {|z| >= esc}. The box is cut into
+  // ENCL_GRID x ENCL_GRID cells, each pushed through the n steps as its circumscribed disc; a cell whose disc meets a
+  // pole (or outgrows ENCL_R_MAX) at some level is cut in four and pushed again, while the cells pushed stay within
+  // ENCL_CELLS_MAX. A cell that cannot be cut makes every level from its failure on the whole plane. A cell whose disc
+  // D(c, rho) lies in {|z| >= s}, s = (|c| - rho) rounded down and s >= escR (reptEscR), is pushed no further: at every
+  // later level r' it lies in {|z| >= s REPT_ESC_GROW^(r' - r)} (each step rounded down, at most ENCL_R_MAX). E_r's box
+  // holds every disc pushed to level r and its esc is the least escape bound at r (each cell's discs and escape sets
+  // enclose its points' images, and the cells cover b).
   // (cached by P, Q, n and the box, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
   // prepares the shape again)
   const ENCL_CACHE = 8, enclCache = new Map();
-  function reptEnclose(P, Q, n, b) {
-    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1]);
+  function reptEnclose(P, Q, n, b, escR = null) {
+    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1, escR]);
     const hit = enclCache.get(key);
     if (hit) { enclCache.delete(key); enclCache.set(key, hit); return hit.map((e) => e && Object.assign({}, e)); }
-    const E = reptEncloseNew(P, Q, n, b);
+    const E = reptEncloseNew(P, Q, n, b, escR);
     enclCache.set(key, E.map((e) => e && Object.assign({}, e)));
     if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
     return E;
   }
-  function reptEncloseNew(P, Q, n, b) {
-    const E = [Object.assign({}, b)];
-    for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+  function reptEncloseNew(P, Q, n, b, escR) {
+    const E = [Object.assign({ esc: 0 }, b)];
+    for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, esc: 0 });
+    // the escape bounds of a cell in {|z| >= s} at level r0, at r0 and every later level
+    const escape = (s, r0) => {
+      for (let r = r0; r <= n; r++, s *= REPT_ESC_GROW * (1 - ENCL_EPS)) {
+        if (r === 0) continue;
+        const sr = Math.min(s, ENCL_R_MAX);
+        E[r].esc = E[r].esc > 0 ? Math.min(E[r].esc, sr) : sr;
+      }
+    };
     if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);
     let open = n + 1;                         // levels from here on are the whole plane
     const Pa = Float64Array.from(P.flatMap((c) => [c.re, c.im])), Qa = Float64Array.from(Q.flatMap((c) => [c.re, c.im])), o = new Float64Array(24);
@@ -664,11 +709,16 @@ const InvOps = (() => {
       pushed++;
       let cr = x + w / 2, ci = y + h / 2, cR = (Math.hypot(w, h) / 2 + ENCL_EPS * size) * ENCL_UP, fail = 0;
       const discs = [];
-      for (let r = 1; r < open; r++) {
-        if (!dStep(o, Pa, Qa, cr, ci, cR) || !(mag(o[0], o[1]) + o[2] < ENCL_R_MAX)) { fail = r; break; }
+      let esc = -1;
+      for (let r = 0; r < open; r++) {
+        const s = (mag(cr, ci) - cR) * (1 - ENCL_EPS);
+        if (escR != null && s >= escR) { esc = r; escape(s, r); if (r > 0) discs.length -= 4; break; }
+        if (r + 1 >= open) break;
+        if (!dStep(o, Pa, Qa, cr, ci, cR) || !(mag(o[0], o[1]) + o[2] < ENCL_R_MAX)) { fail = r + 1; break; }
         cr = o[0]; ci = o[1]; cR = o[2];
         discs.push(cr - cR, cr + cR, ci - cR, ci + cR);
       }
+      if (esc >= 0) fail = 0;
       if (fail && pushed + queue.length - qi - 1 + 4 <= ENCL_CELLS_MAX) {
         const w2 = w / 2, h2 = h / 2;
         queue.push([x, y, w2, h2], [x + w2, y, w2, h2], [x, y + h2, w2, h2], [x + w2, y + h2, w2, h2]);
@@ -705,7 +755,7 @@ const InvOps = (() => {
     if (P.length - 1 !== REPT_DEG || Q.length - 1 >= REPT_DEG || isZero(P[0]) || !P.concat(Q).every(isFin)) return null;
     return { P: padTo(P, REPT_DEG + 1), Q: padTo(Q, REPT_DEG + 1) };
   }
-  // the op: p = {P, Q, n}; its members come from Inverse.enumerate's search (rept), not from pre(); pre lists the leaves
+  // the op: p = {P, Q, n, escR (reptEscR)}; its members come from Inverse.enumerate's search (rept), not from pre(); pre lists the leaves
   // of a point's search, first certified ones in search order, at most REPT_PRE_CAP (the singular points' pull-backs)
   const REPT_PRE_CAP = 64;
   function opRept(P, Q, n, fwd) {
@@ -723,7 +773,7 @@ const InvOps = (() => {
       if (isFin(w)) go(w, 0, 0, ONE);
       return out;
     };
-    return op('REPT', { P, Q, n }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
+    return op('REPT', { P, Q, n, escR: reptEscR(P, Q) }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
   }
 
   // =====================================================================================================
@@ -1291,8 +1341,8 @@ const InvOps = (() => {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm,
-    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    ENCL_EPS, ENCL_CELLS_MAX, opRept, reptForm, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEval
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    ENCL_EPS, ENCL_CELLS_MAX, REPT_ESC_GROW, opRept, reptForm, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEval, reptEscR, reptEscF
   };
 })();
 import { CX } from './cx.js';

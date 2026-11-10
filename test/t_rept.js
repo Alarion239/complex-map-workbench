@@ -9,6 +9,10 @@
 //     out with every leaf resolved, unresolved otherwise;
 //  4. the forward enclosures E_r: the images of points of the box, iterated in float64, lie in E_r (a sample: a test of
 //     the enclosure, never its certificate); a box that holds the pole has no enclosure past E_0; reptDisc likewise;
+//  4b. the escape set (deg P >= deg Q + 2): REPT_ESC_R passes its bound with every term rounded against it, and half of
+//     it does not (the control); |R(z)| >= REPT_ESC_GROW |z| at sampled |z| >= REPT_ESC_R (a test, never the
+//     certificate); Newton's step has none; z^3 x 20 on a disc off the unit circle is empty with no root solved at every
+//     pixel; at Repeat x 2 with escaped cells every pixel's verdict equals the brute force over its 9 chains;
 //  5. the search against brute force: at Repeat x 2 every pixel's verdict equals the one from all 9 chains, unpruned;
 //     at Repeat x 20 a box in the basin of 1 is empty outside E_20 with no root solved;
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
@@ -170,8 +174,70 @@ const Nf = (z) => CX.sub(z, CX.div(CX.sub(CX.mul(CX.mul(z, z), z), C(1, 0)), CX.
   check('reptDisc encloses the sampled image of its disc', dOut === 0, dOut);
 }
 
-// ---- 5. the search against brute force
+// ---- 4b. the escape set
 const gridOf = (win, k) => { const out = []; for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(C(win.x0 + (i + 0.5) * (win.x1 - win.x0) / k, win.y0 + (j + 0.5) * (win.y1 - win.y0) / k)); return out; };
+const ESC_SAMPLES = 4000;                                                    // sampled |z| >= R per map
+const ESC_FAR = 64;                                                          // ... out to ESC_FAR R
+const ESC_DISC = { id: 'ed', kind: 'disc', c: [1.5, 0], r: 0.1 };            // landconsult's worst case for z^3 x 20
+const repOf = (expr, copies) => chainOf([St('custom', { expr, cut: 180 }, { n: copies, len: 1 })]);
+const planOf = (ch) => Inverse.planChain(ch.steps, ch.built, 0, 1);
+// a pixel's verdict from every chain of two backward roots, no prune, each leaf scored at its own point; null when a
+// leaf lies within a pixel's ramp of the edge (the twin scores those by the ramp)
+const brute2 = (o, L, w) => {
+  let brute = 0;
+  const n1 = InvOps.reptNode(o.p.P, o.p.Q, w, 0);
+  for (let i = 0; n1 && i < 3; i++) {
+    const n2 = InvOps.reptNode(o.p.P, o.p.Q, n1.z[i], n1.rho[i]);
+    for (let k = 0; n2 && k < 3; k++) {
+      const lv = L(n2.z[k]) / (CX.abs(CX.mul(n1.d[i], n2.d[k])) * PIX);
+      if (Math.abs(lv) <= 1) return null;
+      if (lv > 0) brute = 1;
+    }
+  }
+  return brute;
+};
+{
+  for (const expr of ['z^3', 'z^3-0.5', 'z^3+0.3+0.5i', 'z^3/(z+2)']) {
+    const o = planOf(repOf(expr, 20)).ops[0], R = o && o.p.escR;
+    check(`${expr}: one REPT op with an escape radius`, o && o.kind === 'REPT' && R > 0, R);
+    if (!(R > 0)) continue;
+    check(`${expr}: its bound holds at REPT_ESC_R, rounded against it`, InvOps.reptEscF(o.p.P, o.p.Q, R) > 0);
+    check(`${expr}: control: half of it fails the bound`, !(InvOps.reptEscF(o.p.P, o.p.Q, R / 2) > 0));
+    const Rf = (z) => CX.div(o.p.P.reduce((a, c) => CX.add(CX.mul(a, z), c), C(0, 0)), o.p.Q.reduce((a, c) => CX.add(CX.mul(a, z), c), C(0, 0)));
+    let low = 0;
+    for (let k = 0; k < ESC_SAMPLES; k++) {
+      const m = R * Math.exp(rf(0, Math.log(ESC_FAR))), t = rf(0, 2 * Math.PI), z = C(m * Math.cos(t), m * Math.sin(t));
+      if (!(CX.abs(Rf(z)) >= InvOps.REPT_ESC_GROW * m)) low++;
+    }
+    check(`${expr}: |R(z)| >= ${InvOps.REPT_ESC_GROW} |z| at every sampled |z| >= REPT_ESC_R (a test, not the certificate)`, low === 0, low);
+  }
+  check('Newton\'s step (deg P = deg Q + 1) has no escape radius', op20.p.escR === null, op20.p.escR);
+  const plan = planOf(repOf('z^3', 20)), prep = Inverse.prepare(plan, { win: WIN, shape: ESC_DISC });
+  let solves = 0, notEmpty = 0;
+  const pts = gridOf(WIN, GRID);
+  for (const w of pts) {
+    const e = Inverse.enumerate(plan, prep, w, PIX, { leaves: false }).rept;
+    solves += e.nodes; if (e.verdict !== 0) notEmpty++;
+  }
+  check('z^3 x 20 on the disc (1.5, 0.1): every pixel empty with no root solved', solves === 0 && notEmpty === 0, `${solves} solves, ${notEmpty} not empty`);
+  check('... its E_20 is the escape set alone', prep.rept.E[20] && prep.rept.E[20].empty && prep.rept.E[20].esc > 1e5, JSON.stringify(prep.rept.E[20]));
+  const prepNo = Inverse.prepare(Object.assign({}, plan, { ops: [Object.assign({}, plan.ops[0], { p: Object.assign({}, plan.ops[0].p, { escR: null }) })] }), { win: WIN, shape: ESC_DISC });
+  check('control: without the escape radius E_20 is the whole plane (nothing prunes)', prepNo.rept.E[20] === null, JSON.stringify(prepNo.rept.E[20]));
+  for (const [expr, shape] of [['z^3', { id: 'e1', kind: 'disc', c: [1.2, 0.3], r: 0.15 }], ['z^3-0.5', { id: 'e2', kind: 'rect', a: [1.15, -0.15], b: [1.35, 0.15] }]]) {
+    const p2 = planOf(repOf(expr, 2)), pr2 = Inverse.prepare(p2, { win: WIN, shape }), L = Region.levelOf(shape);
+    let same = 0, scored = 0, covered = 0, pruned = 0;
+    for (const w of gridOf(WIN, GRID)) {
+      const e = Inverse.enumerate(p2, pr2, w, PIX, { leaves: false }).rept, b = brute2(p2.ops[0], L, w);
+      pruned += e.pruned;
+      if (b === null) continue;
+      scored++; covered += b;
+      if (e.verdict === b) same++;
+    }
+    check(`${expr} x 2, ${shape.kind} with escaped cells: every pixel's verdict equals the brute force over its 9 chains`, same === scored && scored > 1000 && covered > 20 && covered < scored - 20 && pruned > 100 && pr2.rept.E[2].esc > 0, `${same}/${scored}, ${covered} covered, ${pruned} pruned, esc ${pr2.rept.E[2].esc}`);
+  }
+}
+
+// ---- 5. the search against brute force
 {
   const N2 = newton(2), plan = Inverse.planChain(N2.steps, N2.built, 0, 1), prep = Inverse.prepare(plan, { win: WIN, shape: BITE });
   const L = Region.levelOf(BITE), o = plan.ops[0];

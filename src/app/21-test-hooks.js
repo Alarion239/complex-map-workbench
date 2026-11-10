@@ -250,13 +250,17 @@
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // a Repeat chain's exact plane (#1472): o.nodes sets the GPU's node budget of a REPT search (GLR.setReptNodes; 0: its
   // own), o.poison a non-finite root at every first node ('nan' | 'inf'; null: none; GLR.setReptPoison), for the
-  // unresolved hatch's controls; o.land: the Landscape mask's unresolved pixels (null: no mask); o.ws [[re, im]]: the CPU
+  // unresolved hatch's controls; o.tiles the root solves of a REPT draw's tile (GLR.setReptTileSolves; 0: its own);
+  // o.tileStats: the tile account since the last read (GLR.reptTiles); o.land: the Landscape mask's unresolved pixels
+  // (null: no mask); o.ws [[re, im]]: the CPU
   // twin of the left plane's REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the
   // most and the total root solves, the pruned children, and the pixels covered, empty and unresolved
   window.__cmwRept = (o) => {
-    if (o && ('nodes' in o || 'poison' in o)) {
+    if (o && o.tileStats) return GLR.reptTiles();
+    if (o && ('nodes' in o || 'poison' in o || 'tiles' in o)) {
       if ('nodes' in o) GLR.setReptNodes(o.nodes);
       if ('poison' in o) GLR.setReptPoison(o.poison);
+      if ('tiles' in o) GLR.setReptTileSolves(o.tiles);
       svLandMaskC = null; requestRender('L', 'R');
     }
     if (o && o.land) return { unresolved: svLandMaskC ? svLandMaskC.unres : null };

@@ -2710,7 +2710,8 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // (-1: the level's node is not solved yet), dz/dw at the level's point), its account (a failed certificate, the node
   // budget, a leaf unresolved by its chain error, the full covers), the leaf's chain error (-1: not a REPT leaf) and
   // the pixel's w (the carried colour's point, 07-inverse-api.js ixCarryCol);
-  // uIxRepE: the forward enclosures E_r of the shape's box (x0, y0, x1, y1; x0 > x1: the whole plane)
+  // uIxRepE, uIxRepS: the forward enclosures E_r of the shape's box (Inverse.prepare's rept.E): the box (x0, y0, x1, y1)
+  // and (the escape bound, -1 for none; 1 when E_r has no box). x0 > x1 with no escape bound and a box: the whole plane
   const reptGlobals = () => {
     const RS = Inverse.REPEAT_COPIES_MAX;
     return `#define IX_REPT 1
@@ -2722,14 +2723,15 @@ const float IX_REP_FIN = ${glf(Inverse.REPT_FIN)};
 bool ixRepOk(vec2 z) { return max(abs(z.x), abs(z.y)) < IX_REP_FIN; }
 vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
 bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
-uniform vec4 uIxRepE[${RS + 1}];
+uniform vec4 uIxRepE[${RS + 1}]; uniform vec2 uIxRepS[${RS + 1}];
 uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
 // uIxRepPoison 1: a test's control (GLR.setReptPoison) puts uIxRepBad (a NaN or an infinity) in place of root 1 of every
 // level-0 node; 0 otherwise
 uniform int uIxRepPoison; uniform float uIxRepBad;
+uniform vec2 uIxRepFc;   // the draw target's origin in the pane's framebuffer, device px (the hatch's phase)
 vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's read-back)
-// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 nothing, at depth 1 (a
-// region mask's pass: it is not covered, and the stencil marks it for GLR.reptHatchFill)
+// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0) (a
+// region mask's pass: it is not covered, and drawInverse's composite marks it in the stencil for GLR.reptHatchFill)
 uniform int uIxRepHatch;
 `;
   };
@@ -2829,10 +2831,15 @@ vec2 ${P}_dudv(vec2 z) {
   return cdiv(cmul(q, q), cmul(dp, q) - cmul(p, dq));
 }
 bool ${P}_out(vec2 v, float dv, int r, float js) {
-  vec4 e = uIxRepE[r];
-  if (!(e.x <= e.z)) return false;
-  float m = (dv + ${R(Inverse.REPT_AA_REACH)} * ixPix * js) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U) + ${R(Inverse.REPT_ROUND)} * IX_REP_U * max(max(abs(e.x), abs(e.z)), max(abs(e.y), abs(e.w)));
-  return v.x < e.x - m || v.x > e.z + m || v.y < e.y - m || v.y > e.w + m;
+  vec4 e = uIxRepE[r]; vec2 es = uIxRepS[r];
+  bool box = es.y < 0.5;
+  if (box && !(e.x <= e.z)) return false;
+  float m = (dv + ${R(Inverse.REPT_AA_REACH)} * ixPix * js) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  if (box) {
+    float mb = m + ${R(Inverse.REPT_ROUND)} * IX_REP_U * max(max(abs(e.x), abs(e.z)), max(abs(e.y), abs(e.w)));
+    if (!(v.x < e.x - mb || v.x > e.z + mb || v.y < e.y - mb || v.y > e.w + mb)) return false;
+  }
+  return !(es.x > 0.0 && cx_abs(v) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U) + m >= es.x * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U));
 }
 `;
   }
@@ -3079,7 +3086,9 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 
   // uIxRepE's length: the levels of the deepest REPT search, its point included
   const reptLevels = () => Inverse.REPEAT_COPIES_MAX + 1;
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust, reptLevels };
+  // a REPT draw's tile bound and node budget (GLR's reptDraw): root solves of one tile, and at most a pixel
+  const reptTile = () => ({ solves: Inverse.REPT_TILE_SOLVES, nodes: Inverse.REPEAT_NODES_MAX });
+  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust, reptLevels, reptTile };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

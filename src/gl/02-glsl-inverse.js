@@ -724,17 +724,17 @@ ${globe ? `  vec3 P = normalize(vP);
 #endif
 #ifdef IX_REPT
   ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
-  gl_FragDepth = gl_FragCoord.z;
 #endif
   invWalk(w);
 ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}#ifdef IX_REPT
   // a pixel of a REPT search with no cover and no certified answer (a failed certificate, the node budget, a leaf
-  // unresolved by its chain error): the grey no-value hatch of the plane's colouring (dcolorAt's NaN), opaque; in a
-  // region mask's pass (uIxRepHatch 1) no coverage, and depth 1, which fails the pass's depth test and marks the pixel
-  // in the stencil (drawInverse) for the hatch drawn over the masked picture (GLR.reptHatchFill)
+  // unresolved by its chain error): the grey no-value hatch of the plane's colouring (dcolorAt's NaN), opaque, in the
+  // pane's own pixel phase (uIxRepFc: this target's origin in the pane's framebuffer); in a region mask's pass
+  // (uIxRepHatch 1) the mark (1, 0, 0, 0), which no premultiplied colour is: drawInverse's composite turns it into the
+  // stencil mark for the hatch drawn over the masked picture (GLR.reptHatchFill)
   if (nCov == 0 && (ixRepFail || ixRepCap || ixRepUnres)) {
-    if (uIxRepHatch == 1) { gl_FragDepth = 1.0; o = vec4(0.0); return; }
-    float hh = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);
+    if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, 0.0, 0.0); return; }
+    float hh = (gl_FragCoord.x + uIxRepFc.x + gl_FragCoord.y + uIxRepFc.y) * 0.70710678 / (6.0 * uDpr);
     o = vec4(mix(vec3(0.49804), vec3(0.41569), iso(hh, 1.0 / (6.0 * uDpr), uDpr)), 1.0);
     return;
   }

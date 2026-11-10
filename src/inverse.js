@@ -37,7 +37,7 @@ const Inverse = (() => {
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm,
-    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     reptNode, reptEnclose, reptDisc
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
@@ -1175,20 +1175,38 @@ const Inverse = (() => {
         }
       }
     }
-    // a REPT op (the plan's only op): the forward enclosures E_r of the shape's box (InvOps.reptEnclose), every bound
-    // rounded outward to float32 as the GPU reads them; null for an unbounded shape (no prune)
+    // a REPT op (the plan's only op): the forward enclosures E_r of the shape's box (InvOps.reptEnclose, with the op's
+    // escape radius), each {x0, x1, y0, y1, empty, esc} or null (the whole plane): the box's bounds rounded outward to
+    // float32 as the GPU reads them (empty: no box), esc the escape bound rounded down (0: none); all null for an
+    // unbounded shape (no prune)
     prep.rept = null;
     if (!reason && N === 1 && ops[0].kind === 'REPT') {
       const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
-      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb) : Array.from({ length: rp.n + 1 }, () => null);
-      prep.rept = { E: E.map((e) => (e && [e.x0, e.x1, e.y0, e.y1].every(Number.isFinite) ? { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1) } : null)) };
+      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR) : Array.from({ length: rp.n + 1 }, () => null);
+      prep.rept = {
+        E: E.map((e) => {
+          if (!e) return null;
+          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0;
+          if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
+          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc };
+        }),
+      };
     }
     prep.ok = !reason; prep.reason = reason;
     return prep;
   }
-  // a REPT prune's margin around E_r (the GLSL ixRepOut's): the point's chain error dv and REPT_AA_REACH pixels of size
-  // px (|dz/dw| pix), with REPT_ROUND ulps for the GPU's float32 subtraction from the box's bounds
-  const reptMargin = (dv, px, e) => (dv + REPT_AA_REACH * px) * (1 + REPT_ROUND * REPT_U) + REPT_ROUND * REPT_U * Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1));
+  // a REPT prune (the GLSL walker's _out): no point within m of v lies in E_r, m the point's chain error dv and
+  // REPT_AA_REACH pixels of size px (|dz/dw| pix); REPT_ROUND ulps cover the GPU's float32 steps (the subtraction from the
+  // box's bounds, |v| and the comparison with the escape bound)
+  function reptPruned(e, v, dv, px) {
+    if (!e) return false;
+    const m = (dv + REPT_AA_REACH * px) * (1 + REPT_ROUND * REPT_U);
+    if (!e.empty) {
+      const mb = m + REPT_ROUND * REPT_U * Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1));
+      if (!(v.re < e.x0 - mb || v.re > e.x1 + mb || v.im < e.y0 - mb || v.im > e.y1 + mb)) return false;
+    }
+    return !(e.esc > 0 && abs(v) * (1 + REPT_ROUND * REPT_U) + m >= e.esc * (1 - REPT_ROUND * REPT_U));
+  }
   // the float32 at or below (above) x
   function f32dn(x) { const y = Math.fround(x); return y <= x ? y : Math.fround(y - Math.max(Math.abs(y) * 2 ** -23, 2 ** -149)); }
   function f32up(x) { return -f32dn(-x); }
@@ -1314,12 +1332,7 @@ const Inverse = (() => {
     // (rst.fail); REPEAT_NODES_MAX solves end the search (rst.cap)
     const reptRec = (j, Lf) => {
       const o = ops[j], { P, Q, n } = o.p, E = prep.rept ? prep.rept.E : null;
-      const pruned = (v, dv, r, J) => {
-        const e = E && E[r];
-        if (!e) return false;
-        const m = reptMargin(dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])), e);
-        return v.re < e.x0 - m || v.re > e.x1 + m || v.im < e.y0 - m || v.im > e.y1 + m;
-      };
+      const pruned = (v, dv, r, J) => reptPruned(E && E[r], v, dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])));
       if (pruned(Lf.u, 0, n, Lf.J)) { rst.pruned++; return null; }
       const full0 = nFull;
       const go = (v, dv, depth, J, path) => {
@@ -1802,7 +1815,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc

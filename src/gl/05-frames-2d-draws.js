@@ -32,6 +32,7 @@
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
         peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
+        reptAccs.clear();
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
         rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;

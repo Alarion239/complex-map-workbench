@@ -337,13 +337,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP ? 1 : 0;
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
-    // a REPT plan's forward enclosures E_r (x0, y0, x1, y1; already rounded outward to float32 by Inverse.prepare), the
-    // whole plane as x0 > x1
+    // a REPT plan's forward enclosures E_r (already rounded to float32 by Inverse.prepare): the box (x0, y0, x1, y1) and
+    // (the escape bound or -1, 1 when there is no box); the whole plane as x0 > x1 with no escape bound
     const nE = GLChain.reptLevels();
-    d.repE = new Float32Array(4 * nE);
+    d.repE = new Float32Array(4 * nE); d.repS = new Float32Array(2 * nE);
     for (let r = 0; r < nE; r++) {
       const e = prep.rept && prep.rept.E[r];
-      d.repE.set(e ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
+      d.repE.set(e && !e.empty ? [e.x0, e.y0, e.x1, e.y1] : [1, 0, -1, 0], 4 * r);
+      d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0] : [-1, 0], 2 * r);
     }
     const sing = (prep.sing || []).slice(0, 4);
     sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
@@ -609,7 +610,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const map = st.map || {};
     // half resolution draws into another target format: a program's first half draw builds another Metal pipeline (a
     // stall), so a program not yet warm for it draws full resolution this frame and is warmed at the next quiet moment
-    let half = !!st.half && !globe;
+    // (a REPT program draws in tiles through its accumulation target, reptDraw: never at half resolution)
+    const isRept = !!P.loc.uIxRepHatch;
+    let half = !!st.half && !globe && !isRept;
     if (half && (!P.warmHalf || !invUpWarm)) { half = false; P.warmHalfWanted = true; P.warmHalf = P.warmHalf && invUpWarm; }
     // a pre-pass draw (beginHalfPre) is a half-resolution draw or none
     const pre = !!st.halfPre && preActive;
@@ -633,6 +636,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxAB) gl.uniform4fv(P.loc.uIxAB, d.AB);
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
+    if (P.loc.uIxRepS) gl.uniform2fv(P.loc.uIxRepS, d.repS);
     u1i(P, 'uIxRepNodes', reptNodes);
     u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
@@ -759,25 +763,22 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       u4f(P, 'uVp', 0, 0, hw, hh);
     } else {
       u4f(P, 'uVp', vpX, vpY, fw, fh);
-      if (sc) {
-        let x0 = vpX + sc[0], y0 = vpY + sc[1], x1 = x0 + sc[2], y1 = y0 + sc[3];
+      if (sc || isRept) {
+        let x0 = vpX, y0 = vpY, x1 = vpX + fw, y1 = vpY + fh;
+        if (sc) { x0 = vpX + sc[0]; y0 = vpY + sc[1]; x1 = x0 + sc[2]; y1 = y0 + sc[3]; }
         if (prevSc) { x0 = Math.max(x0, prevSc[0]); y0 = Math.max(y0, prevSc[1]); x1 = Math.min(x1, prevSc[0] + prevSc[2]); y1 = Math.min(y1, prevSc[1] + prevSc[3]); }
+        if (isRept) {
+          // (within the viewport too: a direct caller's may be smaller than the pane's)
+          const vp = gl.getParameter(gl.VIEWPORT);
+          x0 = Math.max(x0, vp[0]); y0 = Math.max(y0, vp[1]); x1 = Math.min(x1, vp[0] + vp[2]); y1 = Math.min(y1, vp[1] + vp[3]);
+        }
         if (x1 <= x0 || y1 <= y0) return 'drawn';
+        if (isRept) return reptDraw(P, st, d, rec, [x0, y0, x1, y1], scOn, prevSc);
         gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
       }
     }
-    // a REPT program's region-mask pass (st.rept 1): its unresolved pixels write depth 1, fail the depth test against a
-    // depth cleared to 1, and are marked 1 in the stencil (cleared at the frame's first mark) for reptHatchFill
-    const mark = st.rept === 1 && !half && !!P.loc.uIxRepHatch;
-    if (mark) {
-      if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
-      gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthMask(false);
-      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS);
-      gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.REPLACE, gl.KEEP);
-    }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (mark) { gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.depthMask(true); }
     invDraws++;
     if (half) invHalfDraws++;   // the batch stays open: flushHalf upsamples it
     else if (sc) {
@@ -787,6 +788,118 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
+  // ---- a REPT draw (flat): tiles of at most REPT_TILE_SOLVES root solves into an accumulation target, then the target
+  // into the pane ----
+  // A REPT program's walk costs up to REPEAT_NODES_MAX root solves a pixel, so one draw of a pane could run for seconds
+  // and trip a GPU watchdog (a reset, a lost context). It renders into an accumulation target of the rect's size
+  // (RGBA32F under a float target, RGBA8 otherwise; cleared to 0), at most one tile of REPT_TILE_SOLVES /
+  // REPEAT_NODES_MAX pixels per call, as a submission of its own (flushed before and after). Until the last tile is in,
+  // the call answers 'pending' (frameStatus().pending: the caller's stand-in, and ready / settled wait) and asks the
+  // app for a redraw (GLR.onReptPending). The complete target is drawn into the pane by reptAcc, the same pixels however
+  // many tiles made it, and a later draw with the same signature (everything the walk reads, reptSig) draws it again
+  // with no walk. st.whole (an export) draws every tile in the one call, each its own submission. A region mask's pass
+  // (st.rept 1): the walk writes its unresolved pixels as the mark (1, 0, 0, 0), which the composite leaves out of the
+  // picture and marks 1 in the stencil (cleared at the frame's first mark) for reptHatchFill.
+  const REPT_ACC_KEEP = 4;        // accumulation targets kept (least recently drawn dropped)
+  const reptAccs = new Map();     // signature -> {tex, fbo, w, h, ts, nx, ny, next}
+  let reptTileSolves = GLChain.reptTile().solves;
+  const reptStat = { calls: 0, tiles: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0 };
+  const progIds = new WeakMap();
+  let progIdN = 0;
+  const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
+  function reptSig(P, st, d, rec, rect, flt) {
+    if (!progIds.has(P)) progIds.set(P, ++progIdN);
+    const r = rec;
+    return JSON.stringify([progIds.get(P), cur.invData, st.map && st.map.a, st.map && st.map.b, d, reptNodes, reptPoison, st.rept || 0,
+      st.look, st.dpr || 1, st.view, rect, vpX, vpY, fw, fh, flt, reptTileSolves, invTexKey, palId,
+      [r.offset, r.kind, r.complement, r.nPts, r.ptsOff, r.A, r.B, r.C, r.formSlot, r.clipH, r.clipU, r.box, r.stage],
+      st.prep.win, st.prep.R, st.prep.rs, st.carry || null, st.carry ? cur.data : null, st.edge || null, st.grow || 0], sigVal);
+  }
+  function reptAccFree(A) { gl.deleteTexture(A.tex); gl.deleteFramebuffer(A.fbo); }
+  let reptKickT = 0;
+  function reptKick() {
+    if (reptKickT) return;
+    reptKickT = setTimeout(() => { reptKickT = 0; if (api.onReptPending) api.onReptPending(); }, 0);
+  }
+  function reptDraw(P, st, d, rec, rect, scOn, prevSc) {
+    const [ax0, ay0, ax1, ay1] = rect, w = ax1 - ax0, h = ay1 - ay0, mark = st.rept === 1;
+    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    let flt = false;
+    try { flt = !!prevFb && gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE) === gl.FLOAT; } catch (e) { flt = false; }
+    const sig = reptSig(P, st, d, rec, rect, flt);
+    reptStat.calls++;
+    gl.activeTexture(gl.TEXTURE15);
+    const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+    let A = reptAccs.get(sig);
+    if (A) { reptAccs.delete(sig); reptAccs.set(sig, A); }
+    else {
+      const tpx = Math.max(1, Math.floor(reptTileSolves / GLChain.reptTile().nodes)), ts = Math.max(1, Math.floor(Math.sqrt(tpx)));
+      A = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w, h, ts, nx: Math.ceil(w / ts), ny: Math.ceil(h / ts), next: 0 };
+      gl.bindTexture(gl.TEXTURE_2D, A.tex);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, flt ? gl.RGBA32F : gl.RGBA8, w, h);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, A.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, A.tex, 0);
+      gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
+      reptAccs.set(sig, A);
+      for (const [k, B] of reptAccs) { if (reptAccs.size <= REPT_ACC_KEEP) break; reptAccFree(B); reptAccs.delete(k); }
+    }
+    gl.bindTexture(gl.TEXTURE_2D, prevTex);
+    const n = A.nx * A.ny;
+    if (A.next < n) {
+      const vp = gl.getParameter(gl.VIEWPORT), blend = gl.isEnabled(gl.BLEND);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, A.fbo);
+      gl.viewport(0, 0, A.w, A.h);
+      gl.disable(gl.BLEND); gl.enable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
+      gl.useProgram(P.p);
+      // (the walk's w at a pixel of the target: the pane's pixel ax0 + x, ay0 + y; the hatch's phase the pane's)
+      u4f(P, 'uVp', vpX - ax0, vpY - ay0, fw, fh); u2f(P, 'uIxRepFc', ax0, ay0); u1i(P, 'uIxRepHatch', mark ? 1 : 0);
+      gl.bindVertexArray(empty());
+      let k = 0;
+      do {
+        const tx = (A.next % A.nx) * A.ts, ty = Math.floor(A.next / A.nx) * A.ts, tw = Math.min(A.ts, A.w - tx), th = Math.min(A.ts, A.h - ty);
+        gl.flush();
+        gl.scissor(tx, ty, tw, th);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.flush();
+        A.next++; k++;
+        reptStat.tiles++; reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * GLChain.reptTile().nodes);
+      } while (st.whole && A.next < n);
+      reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
+      gl.bindVertexArray(null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
+      gl.viewport(vp[0], vp[1], vp[2], vp[3]);
+      if (blend) gl.enable(gl.BLEND);
+      gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+      if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
+      invDraws++;
+    }
+    const Q = A.next >= n && ok && program('reptAcc');
+    if (!Q) { framePending = true; reptKick(); return 'pending'; }
+    use(Q);
+    gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, A.tex);
+    u2f(Q, 'uAccOff', ax0, ay0);
+    gl.enable(gl.SCISSOR_TEST); gl.scissor(ax0, ay0, w, h);
+    gl.bindVertexArray(empty());
+    u1i(Q, 'uAccMode', mark ? 1 : 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (mark) {
+      if (repMarkFrame !== invFrame) { repMarkFrame = invFrame; gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); }
+      gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+      gl.colorMask(false, false, false, false);
+      u1i(Q, 'uAccMode', 2);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+      gl.disable(gl.STENCIL_TEST);
+    }
+    gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, prevTex);
+    if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
+    reptStat.composites++;
+    return 'drawn';
+  }
   // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
   // opaque, then the marks cleared. False when its program is not ready
   let repMarkFrame = -1;
@@ -1033,6 +1146,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
+    // (tests: the tile bound, null for REPT_TILE_SOLVES; the tile account since the last read, reset by it)
+    setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : GLChain.reptTile().solves; },
+    reptTiles: () => { const r = Object.assign({ tileSolves: reptTileSolves, kept: reptAccs.size }, reptStat); Object.assign(reptStat, { calls: 0, tiles: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0 }); return r; },
     setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, reptHatchFill, reptMarkCount, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
@@ -1167,7 +1283,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },
-    onRestore: null, onLost: null, onReady: null,
+    onRestore: null, onLost: null, onReady: null, onReptPending: null,
   };
   // a half-resolution batch is upsampled before any other draw (drawInverse flushes it itself)
   for (const k of ['begin', 'viewport', 'blit', 'drawGrid', 'drawRegion', 'drawPreMapped', 'drawLines', 'drawColorPlot', 'drawLandscape', 'drawSphere', 'drawPreimage']) {

@@ -723,7 +723,7 @@
             res = GLR.drawInverse({
               map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch },
-              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0,
+              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0, whole: offRender,
             });
           } catch (err) { if (!invThrew) { invThrew = true; console.error('exact images: inverse pass failed; drawing forward', err); } }
           if (res === 'drawn') {
