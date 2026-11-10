@@ -42,6 +42,23 @@ const NatPaths = (() => {
     const s = CX.add(C(1, 0), CX.scale(CX.sub(alpha, C(1, 0)), t));
     return (z) => CX.pow(z, s, theta, k);
   };
+  // A real exponent a < 0 glides in two phases: z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2 (the exponent runs
+  // from 1 to |a|, never 0), then the elliptic Möbius arc from the identity to w -> 1/w applied to z^|a|; at t = 1 that is
+  // 1/z^|a| = z^a on the same branch. The test hook's powOnePhase restores the one-phase exponent 1 + (a - 1) t, which is
+  // the constant map z^0 at t = 1/(1 - a).
+  let onePhase = false;
+  const setOnePhase = (on) => { onePhase = !!on; };
+  const twoPhaseNeg = (alpha) => !onePhase && alpha.im === 0 && alpha.re < 0;
+  const NEG_INV = [C(0, 0), C(1, 0), C(1, 0), C(0, 0)];
+  const powaHom = (alpha, theta, k) => {
+    const one = powHom(alpha, theta, k), e = C(-alpha.re, 0), h1 = powHom(e, theta, k), inv = mobHom(NEG_INV);
+    return (t) => {
+      if (!twoPhaseNeg(alpha)) return one(t);
+      if (t < 0.5) return h1(2 * t);
+      const g = inv(2 * t - 1);
+      return (z) => g(CX.pow(z, e, theta, k));
+    };
+  };
   // ---- homotopy phrases for the deformation caption (notes/ui-design/morph-figure.md 5) ----
   // homTex(v) -> {tex, mobius}: text with inline $math$ in the variable v; mobius: the paths are arcs of circles or
   // segments (the caption measures them before it says so). A Möbius path F^t (CX.mobPath) is named by its fixed points
@@ -511,7 +528,7 @@ const NatPaths = (() => {
   function natData(b) { return b && b.natData ? b.natData : null; }
 
 
-  return { mobHom, mobHomTex, linHom, memoAt, powHom, expHom, expHomTex, logHom, logHomTex, joukAt, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
+  return { mobHom, mobHomTex, linHom, memoAt, powHom, powaHom, twoPhaseNeg, setOnePhase, NEG_INV, expHom, expHomTex, logHom, logHomTex, joukAt, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, sc, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

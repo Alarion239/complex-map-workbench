@@ -1227,11 +1227,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
         };
       }
       case 'powa': {
-        const cut = A.cell(), al = A.cell();
+        const cut = A.cell(), al = A.cell(), path = pathSlots(A);
+        // a real exponent a < 0 glides in two phases (NatPaths.powaHom): the Möbius path's mode is set only then
         return {
           sig: [type], f: `return cpow(z, ${al.v}, ${cut.x}, ${cut.y});`,
-          h: `return cpow(z, vec2(1.0 + (${al.x} - 1.0) * t, ${al.y} * t), ${cut.x}, ${cut.y});`,
-          write(put) { put(cut.c, v.cut * DEG, v.k); putC(put, al, v.alpha); },
+          h: `bool two = ${path.p0}.x > 0.5;
+  vec2 e = two ? vec2(t < 0.5 ? 1.0 + (-${al.x} - 1.0) * (2.0 * t) : -${al.x}, 0.0) : vec2(1.0 + (${al.x} - 1.0) * t, ${al.y} * t);
+  vec2 w = cpow(z, e, ${cut.x}, ${cut.y});
+  return two && t >= 0.5 ? ${path.call('w', '2.0 * t - 1.0')} : w;`,
+          write(put) { put(cut.c, v.cut * DEG, v.k); putC(put, al, v.alpha); path.write(put, Funcs.twoPhaseNeg(v.alpha) ? mobPathData(Funcs.NEG_INV) : null); },
         };
       }
       case 'exp':
@@ -1600,13 +1604,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
   function sheetPlan(P, b, A) {
     const v = b.vals, type = b.def.id;
     if (type === 'root' || type === 'powa' || type === 'log') {
-      const rc = A.cell(), al = type === 'log' ? null : A.cell();
+      const rc = A.cell(), al = type === 'log' ? null : A.cell(), path = type === 'powa' ? pathSlots(A) : null;
       const n = Math.max(2, v.n);
       const f = type === 'root' ? (x) => `cpowr(${x}, ${al.x}, th, s)` : type === 'powa' ? (x) => `cpow(${x}, ${al.v}, th, s)` : (x) => `clog(${x}, th, s)`;
       // the step's path at 0 < t < 1 on the same sheet and local cut (the deformation's sheets, Funcs' homPair): z^e
       // with e = 1 + (alpha - 1)t, log through cxs0_lh (P_h of the step, on (th, s))
       const g = type === 'root' ? (x) => `cpowr(${x}, e, th, s)` : type === 'powa' ? (x) => `cpow(${x}, e, th, s)` : (x) => `cxs0_lh(${x}, th, s, u)`;
-      const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `vec2 e = vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
+      const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `bool two = ${path.p0}.x > 0.5; vec2 e = two ? vec2(${t} < 0.5 ? 1.0 + (-${al.x} - 1.0) * (2.0 * ${t}) : -${al.x}, 0.0) : vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
       // the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
       // + 2 pi k, the digit shifted by floor((rc.y - arg c0) / 2 pi), c0 the input at the cell centre (0 by default)
       const kk = type === 'root' ? (((v.k | 0) % n) + n) % n : v.k | 0, Th = (v.cut ?? 180) * Math.PI / 180 + 2 * Math.PI * kk;
@@ -1614,11 +1618,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
       return {
         rads: [rc.x],
         apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
-        homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); }`,
+        homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); ${type === 'powa' ? `if (two && ${t} >= 0.5) p = vec4(${path.call('p.xy', `2.0 * ${t} - 1.0`)}, ${path.call('p.zw', `2.0 * ${t} - 1.0`)});` : ''} }`,
         fn: '',
         write(put) {
           if (type === 'root') { put(rc.c, n <= Funcs.SHEET_MAX ? n : 0, Th); put(al.c, 1 / n, 0); }
-          else if (type === 'powa') { put(rc.c, Funcs.sheetCount(v.alpha), Th); putC(put, al, v.alpha); }
+          else if (type === 'powa') { put(rc.c, Funcs.sheetCount(v.alpha), Th); putC(put, al, v.alpha); path.write(put, Funcs.twoPhaseNeg(v.alpha) ? mobPathData(Funcs.NEG_INV) : null); }
           else put(rc.c, 0, Th);
         },
       };

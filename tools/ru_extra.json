@@ -45,6 +45,7 @@
   "other": "%{n} раза"
  },
  "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (главная ветвь), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
+ "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (%{cut}), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (%{cut}), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
  "A zero and a pole cancel at {at}": "Нуль и полюс сокращаются в точке %{at}",
  "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {
   "one": "%{n} пара «нуль — полюс» сокращается (%{at})",

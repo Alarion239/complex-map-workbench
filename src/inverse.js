@@ -1614,6 +1614,14 @@ const Inverse = (() => {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
+    // a real exponent a < 0 (powaHom): z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2, then z^|a| and the Möbius
+    // arc from the identity to 1/w
+    if (one && one.kind === 'ROOTPOW' && !nat && id === 'powa' && b.twoPhase && b.twoPhase()) {
+      const { s, theta, k } = one.p, e = C(-s.re, 0), pw = (z) => CX.pow(z, e, theta, k);
+      if (t < 0.5) { const sv = C(1 + (-s.re - 1) * 2 * t, 0); return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] }; }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      return { ok: true, ops: [opRootPow(e, theta, k, pw), mobOf(path(2 * t - 1))] };
+    }
     // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
     if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
       const { s, theta, k } = one.p, sv = add(ONE, scale(sub(s, ONE), t));
