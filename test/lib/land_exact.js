@@ -129,7 +129,8 @@
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
-  const COMBO_CONTROL = ['Möbius, √', 'Möbius dipole, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
+  const COMBO_PLACE = [0.3, 0.2];   // (a place of the box: the colour map's sheet combos are the map's, not the place's)
+  const COMBO_CONTROL = ['Möbius, √', 'Möbius dipole, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'];   // every case: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX, where the colour map has two or more sheet combos
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
@@ -698,6 +699,9 @@
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
         if (NEAR_U.includes(u) && COMBO_CONTROL.includes(c.tag) && !(r.comboControl || {})[u]) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
+          // (the control cannot bite where the colour map has one sheet combo: a combo one off is the same colour; the scene says so, window.__cmwLandRefSheets lists its distinct combos)
+          const nCombo = (await ev(`(__cmwLandRefSheets(${JSON.stringify(COMBO_PLACE)}) || []).length`)) || 0;
+          const naCombo = nCombo <= 1 ? `the colour map has ${nCombo} distinct sheet combo${nCombo === 1 ? '' : 's'} (window.__cmwLandRefSheets): a combo one off is the same colour` : ctlNA(c, 'combo', u);
           let ctl;
           try {
             await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
@@ -708,7 +712,8 @@
             await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
-          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${ctlNA(c, 'combo', u) ? 'not over ' + HUE_OFF_MAX + ' (not applicable: ' + ctlNA(c, 'combo', u) + ')' : 'over ' + HUE_OFF_MAX} pixels off (${ctl} are)`, ctlNA(c, 'combo', u) ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, na: ctlNA(c, 'combo', u) });
+          // (it passes by biting, or by the scene's own list of one sheet combo, where it cannot; with two or more combos a control that does not bite is a red)
+          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is over ${HUE_OFF_MAX} pixels off (${ctl} are${naCombo ? '; not applicable: ' + naCombo : ''})`, ctl > HUE_OFF_MAX || !!naCombo, { ctl, na: naCombo, nCombo });
         }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
