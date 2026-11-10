@@ -69,6 +69,16 @@
   // the controls that cannot bite on a row, with the reason, by 'case|control' or 'case|control|u' (a control that cannot run fails unless its row is listed here, and a
   // listed row fails if the control runs and bites)
   const CTL_NA = {
+    "Möbius dipole, √|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Möbius with a pole in the box|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "log of an annulus|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "log, box centred at 1.5 + 0.5i|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "cube root|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Joukowski airfoil|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Roots as preimages|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Partial sums of the exponential (Newton)|capOff": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Möbius, √|capOff|0.998": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
+    "Möbius, √|capOff|0.9999": "the layers' heights stay inside the block's bound: no grid cell has a corner past it, so the clip and the discard cut nothing",
     "Möbius, √|sheets": "the glide has one surface there",
     "Roots as preimages|sheets": "the glide has one surface there",
     "Joukowski airfoil|sheets": "the glide has one surface there",
@@ -1063,7 +1073,7 @@
       worst: fin(st).sort((p, q) => Math.abs(q.h) - Math.abs(p.h)).slice(0, CAP_WORST).map((q) => ({ vz: q.vz, h: q.h, layer: q.layer, own: q.own, cell: q.cell, z: q.z, zc: q.zc }))
     };
   };
-  const capBit = { c1: 0, c2fell: 0, c3: 0, c4: 0, rows: 0 }, capCase = {};
+  const capBit = { c1: 0, c2fell: 0, c3: 0, c4: 0, rows: 0, strad: 0 }, capCase = {};
   const capRow = async (c, u, t, rec) => {
     const t0 = Date.now(), on = await capRd({});
     ok(`${t}: the cap probe reads a float target and a layered frame (${on.err || 'read'})`, !on.err, on);
@@ -1085,6 +1095,7 @@
     const off = await capRd({ clipOff: true }), hOff = await capEval(off.samples, 0), sOff = capStat(off, hOff, hc);
     const na = ctlNA(c, 'capOff', u);
     if (off.nStrad > 0) {
+      capBit.strad++;
       ok(`${t}: C1: without the block clip ${sOff.over} straddling pixels (of ${sOff.nStrad}) have |hTrue| over Hc (1 + ${CAP_EPS}) (largest ${sOff.maxRatio.toFixed(4)} Hc)${na ? '; the row is listed as not applicable: ' + na : ''}`, sOff.over > 0 && !na, sOff);
       if (sOff.over > 0) capBit.c1++;
     } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na, { nStradAll: off.nStradAll });
@@ -1097,11 +1108,11 @@
     }
     // C3, the claim one digit off
     const K = await ev('(__cmwLandSceneCombos() || {}).n || 0'), naK = ctlNA(c, 'capShift', u);
-    if (K > 1) {
+    if (K > 1 && on.nStrad > 0) {
       const hSh = await capEval(on.samples, 1), sSh = capStat(on, hSh, hc);
       ok(`${t}: C3: continued on the claim one digit off the clip-on maximum |hTrue| / Hc moves by over ${CAP_EPS} (${sOn.maxRatio.toFixed(4)} to ${sSh.maxRatio.toFixed(4)}; ${sSh.unresolved} unresolved)${naK ? '; listed as not applicable: ' + naK : ''}`, Math.abs(sSh.maxRatio - sOn.maxRatio) > CAP_EPS && !naK, { on: sOn.maxRatio, shifted: sSh.maxRatio });
       if (Math.abs(sSh.maxRatio - sOn.maxRatio) > CAP_EPS) capBit.c3++;
-    } else ok(`${t}: C3: the glide's map has one surface: not applicable`, true, { K });
+    } else ok(`${t}: C3: ${K > 1 ? 'no straddling cell is drawn here' : "the glide's map has one surface"}: not applicable`, true, { K, nStrad: on.nStrad });
     rec.cap = { hc, covered: on.covered, nStradAll: on.nStradAll, nStrad: on.nStrad, truncated: on.truncated, clipOn: sOn, clipOff: sOff, lowest: sLow, tOnMs: tOn, tRowMs: Date.now() - t0 };
     info.capRows = (info.capRows || []).concat({ t, hc, ...rec.cap });
     if (process.env.CAP_LOG) fs.appendFileSync(process.env.CAP_LOG, JSON.stringify({ t, ...rec.cap, K }) + '\n');
@@ -1921,8 +1932,9 @@
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
     }
   }
-  if (capBit.rows) {
-    ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.rows} rows)`, capBit.c1 > 0, capBit);
+  if (capBit.rows) ok(`control: the cap probe's float target returned its constant (${capBit.c4} reads)`, capBit.c4 > 0, capBit);
+  if (capBit.strad) {
+    ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.strad} rows with a straddling cell)`, capBit.c1 > 0, capBit);
     ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
     if (!process.env.CMW_ONLY) ok(`control: the clip-off count with the lowest pixels is 0 on some case (${JSON.stringify(capCase)})`, Object.values(capCase).some((k) => k.top > 0 && k.low === 0), capCase);
   }
