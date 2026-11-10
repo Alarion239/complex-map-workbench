@@ -822,10 +822,10 @@ ${clip ? `  vec3 Q[5]; vec4 QA[5]; vec3 Nn[5]; float Fl[5];
   vNor = Nn[vi]; vAO = QA[vi].z;` : `  vZ = cz[k];
   vPos = vec3(((cxy[k] - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, ch[k]);
   vNor = cnv[k].xyz; vAO = cnv[k].w;`}
-${L ? '' : `  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
-  // the cut separates from the first piece's)
+  // (the anchor of the sheet-continued colour is the first corner of this piece: the piece beyond a cut is on the other bank, whose value
+  // the cut separates from the first piece's; layered: the bank's corner when it is the layer's own, else the triangle's first own corner)
   ivec2 anchor = J == 3 ? (sub == 0 ? A : (sub == 1 ? B : C)) : ((J == 1 && sub == 1) || (J == 2 && sub >= 1) ? B : A);
-  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;`}
+${L ? '  if (texelFetch(uT1, anchor, 0).w < uDrawCode0 + 0.1) vZc = texelFetch(uZ, anchor, 0).xy;' : '  vZc = uZOn == 1 ? texelFetch(uZ, anchor, 0).xy : vZ;'}
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
 }
@@ -1054,10 +1054,10 @@ void main() {
   // layer whose own preimage at the vertex is nearest A's. It is that member when the two preimages are no farther apart
   // than the glide's derivative at A allows for the distance of the two places (the seam test's criterion, SEAM_FAR), and
   // the continuation of A's branch to it has the height that layer draws there (RING_GUARD). The vertex takes the place
-  // of the grid, that preimage and that height, texel w uContCode. uOutZ 0 writes the texel, 1 the preimage.
+  // of the grid, that preimage and that layer's height (so the two layers' copies of a surface piece coincide exactly), texel w uContCode (uHOff: a probe's offset of it, in H). uOutZ 0 writes the texel, 1 the preimage.
   const RING_LAYERS_MAX = 7, RING_GUARD = '2e-3', RING_CASES = Array.from({ length: RING_LAYERS_MAX }, (_, i) => i);
   const LAND_CARRY_RING_VS = `
-uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard;
+uniform int uN; uniform vec4 uBox; uniform int uK; uniform int uLayers; uniform float uCode; uniform float uContCode; uniform int uOutZ; uniform int uWhy; uniform int uGuard; uniform float uHOff;
 uniform int uGs; uniform int uGt;
 uniform highp sampler2D uRT1[${RING_LAYERS_MAX}]; uniform highp sampler2D uRZ[${RING_LAYERS_MAX}];
 out vec4 tfOut;
@@ -1091,25 +1091,27 @@ void main() {
   }
   if (!found) { ringWhy(tfOut, 1); return; }
   vec2 pP = uBox.xy + vec2(p) / float(uN - 1) * uBox.zw;
-  float best = 1e30, hj = 0.0;
+  float hd = 1e-6 * (1.0 + length(zA));
+  vec2 dM = (mapPoint(zA + vec2(hd, 0.0)) - mapPoint(zA - vec2(hd, 0.0))) / (2.0 * hd);
+  float best = 1e30, hj = 0.0, hit = 0.0;
   vec2 zj = vec2(0.0);
+  int why = 2;
   for (int j = 0; j < ${RING_LAYERS_MAX}; j++) {
     if (j >= uLayers || j == uK) continue;
     vec4 tj = ringT(j, p);
     if (!(tj.w > 5.0 && tj.w < uCode + 0.1)) continue;
     vec2 zz = ringZ(j, p).xy;
     float d = length(zz - zA);
-    if (d < best) { best = d; zj = zz; hj = tj.z; }
+    // (the layers' preimages of a place can coincide: a candidate is taken by its height too)
+    if (!(d * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { why = max(why, 3); continue; }
+    cxs0_out = false;
+    vec2 h = carryHeightA(zA, zz);
+    if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { why = max(why, 4); continue; }
+    if (uGuard == 1 && abs(h.x - tj.z) > ${RING_GUARD} * uH) { why = max(why, 5); continue; }
+    if (d < best) { best = d; zj = zz; hj = tj.z; hit = 1.0; }
   }
-  if (!(best < 1e29)) { ringWhy(tfOut, 2); return; }
-  float hd = 1e-6 * (1.0 + length(zA));
-  vec2 dM = (mapPoint(zA + vec2(hd, 0.0)) - mapPoint(zA - vec2(hd, 0.0))) / (2.0 * hd);
-  if (!(best * length(dM) <= ${SEAM_FAR} * length(pP - pA))) { ringWhy(tfOut, 3); return; }
-  cxs0_out = false;
-  vec2 h = carryHeightA(zA, zj);
-  if (cxs0_out || !(h.y > 0.5) || abs(h.x) > 3e38) { ringWhy(tfOut, 4); return; }
-  if (uGuard == 1 && abs(h.x - hj) > ${RING_GUARD} * uH) { ringWhy(tfOut, 5); return; }
-  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, h.x, uContCode);
+  if (hit < 0.5) { ringWhy(tfOut, why); return; }
+  tfOut = uOutZ == 1 ? vec4(zj, z0.zw) : vec4(pP, hj + uHOff * uH, uContCode);
 }
 `;
   // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
