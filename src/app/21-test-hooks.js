@@ -565,6 +565,14 @@
       planKept = null;
       return true;
     }
+    // 'labelShift' gives each sheet the plan of the next one (the sheet labels of the plan and of the frame disagree); one sheet: false
+    if (kind === 'labelShift' && inp && !planKept) {
+      const sh = [inp.exact].concat(inp.exact.more || []);
+      if (sh.length < 2) return false;
+      planKept = sh.map((x) => ({ sh: x, plan: x.plan, prep: x.prep }));
+      sh.forEach((x, i) => { x.plan = planKept[(i + 1) % sh.length].plan; x.prep = planKept[(i + 1) % sh.length].prep; });
+      return true;
+    }
     if (!inp || planKept || kind !== 'shiftOut') return false;
     const sheets = [inp.exact].concat(inp.exact.more || []), d = C(PLAN_SHIFT, 0), back = (w) => CX.sub(w, d);
     const moved = (o) => {
@@ -635,8 +643,10 @@
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
   // there is no carried frame. K surfaces (Funcs.sheetMapCombos), own the combo of the frame's own sheet (every piece on its own cut's
   // sheet), rank(k) how far k's last piece is from its own sheet (0 own, then 1, 1, 2, 2, ...: the order the page tries the sheets in)
+  // (sceneBoxOver: a box a control reads the scene over instead of the frame's, set only by __cmwLandWithBox and restored on every exit)
+  let sceneBoxOver = null;
   const sceneOf = () => {
-    const bx = render3D.box;
+    const bx = sceneBoxOver || render3D.box;
     if (!bx || !render3D.carried || typeof Funcs.sheetMapEval !== 'function') return null;
     const map = sceneMap(), W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
     // (the key is the map's own fields, joined: the map the steps view gives has six; a control's map override is keyed whole)
@@ -1143,7 +1153,7 @@
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandKOf = (digits) => { const sc = sceneOf(); return sc ? sc.kOf(digits) : null; };   // (the scene's surface of a digit vector, as __cmwLandMembers lists a member's digits; null out of range)
-  window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
+  window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length, ks: sc.ks.slice() } : null; };
   // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest, noContinuity (leafState)
   // opts.map: the scene of that map spec ({ mode: 1, base: 0, hi, t }) instead of the glide's
   window.__cmwLandLeafState = (x0, x1, y0, y1, opts) => {
@@ -1154,6 +1164,20 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a further block, as t_publish caps a block's length)
+  // The scene read over a box [x0, x1, y0, y1] in place of the frame's: fn() runs with every scene hook (__cmwLandSurfaces, __cmwLandHom, __cmwLandCertify,
+  // __cmwLandZeros, __cmwLandSing, __cmwLandWind) on that box, and its answer is returned; the frame's box is back whatever fn does
+  window.__cmwLandWithBox = (box, fn) => {
+    const kept = sceneBoxOver;
+    sceneBoxOver = box ? { x0: box[0], x1: box[1], y0: box[2], y1: box[3] } : null;
+    try { return fn(); } finally { sceneBoxOver = kept; }
+  };
+  // the scene's certificate constants: CERT (the relative |H_u(z) - w| a member is within) and TIE (how much nearer the best surface must be than the next)
+  window.__cmwLandScn = () => ({ CERT: SCN.CERT, TIE: SCN.TIE });
+  // the surface the scene certifies the candidate z ([re, im]) as a member of w on (sceneCertify): { k, miss, miss2 } or null
+  window.__cmwLandCertify = (w, z) => {
+    const sc = sceneOf(), c = sc ? sceneCertify(sc, C(w[0], w[1]), C(z[0], z[1])) : null;
+    return c ? { k: c.k, miss: c.miss, miss2: c.miss2 } : null;
+  };
   // the scene's singular points over the frame's box: { poles: [[re, im]], branch: [[re, im]] }, the poles the steps view finds on the glide's
   // map and the centres of the leaves no surface closes round (a branch point inside) with their kind, [re, im, 'algebraic' | 'log']
   window.__cmwLandSing = () => {
@@ -1415,7 +1439,9 @@
   // count is undefined there), 'branchLog' (a leaf holds a log-type branch point: G is unbounded in it, so no bound excludes w), 'kindDisagree' (the shrinking rim's values do not converge where the steps say the branch point is algebraic: no enclosure is trusted) or 'unresolved' (a step fell below MIN_STEP, a closed contour did not close, or an unresolved leaf may hold a pair).
   // opts: poleShift moves the exact poles by that much along the imaginary axis, noExactPoles drops the poles read from a Möbius step's matrix, noRay cuts no leaf at the cut of a custom power path, noInputs cuts the leaves without the winding of the branch steps' inputs, noPoleTest without the test for a pole in a closed leaf, noDedupe counts coincident surfaces each, noPoles omits P, dropOne removes a member, cutDelta moves the cut circle's radius for the parts' loops by that much, onContour puts w on a leaf contour, nearContour puts w within NEAR of one with MIN_STEP
   // unreachable
+  // opts.box [x0, x1, y0, y1]: the count over that box (the enumerator's members are not read: members is null, ok is the status alone)
   window.__cmwLandWind = (wIn, opts = {}) => {
+    if (opts.box) return window.__cmwLandWithBox(opts.box, () => window.__cmwLandWind(wIn, Object.assign({}, opts, { box: null, boxed: true })));
     const sc0 = sceneOf();
     if (!sc0) return null;
     // (noInputs: the leaves are cut by the continuity of the surfaces alone, so a leaf that holds a branch point with a tiny cut jump counts as closed)
@@ -1427,7 +1453,7 @@
       w = !v ? w : opts.onContour ? v : CX.add(v, C(SCN.NEAR * cmax(v), 0));
     }
     if (!w) return null;
-    const ms = window.__cmwLandMembers([[w.re, w.im]])[0] || [];
+    const ms = opts.boxed ? [] : window.__cmwLandMembers([[w.re, w.im]])[0] || [];
     let status = 'ok', N = 0, P = 0, branchLeaves = 0, bad = 0;
     const tally = [];
     const minStep = opts.nearContour ? 1 : SCN.MIN_STEP;
@@ -1518,7 +1544,7 @@
     // (a certified member in a branch leaf contradicts the leaf's exclusion of w: the count is unresolved)
     if (ms.some((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && !l.closed && !l.two; })) status = status === 'ok' ? 'unresolved' : status;
     const mem = ms.filter((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l && (l.closed || l.two); }).length - (opts.dropOne ? 1 : 0);
-    return [{ sheet: 'all', N, P, members: mem, ok: status === 'ok' && N === mem, status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad, polesUnread: sc.polesUnread, tally, memberLeaves: ms.map((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l ? { x: [l.x0, l.x1], y: [l.y0, l.y1], closed: l.closed } : null; }) }];
+    return [{ sheet: 'all', N, P, members: opts.boxed ? null : mem, ok: status === 'ok' && (opts.boxed || N === mem), status, leaves: leaves.length, branchLeaves, cutLeaves: leaves.filter((l) => l.two).length, bad, polesUnread: sc.polesUnread, tally, memberLeaves: ms.map((m) => { const l = leafOf(sc, C(m.z[0], m.z[1])); return l ? { x: [l.x0, l.x1], y: [l.y0, l.y1], closed: l.closed } : null; }) }];
   };
   /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true }, oldGrid: { oldGrid: true }, noFix: { noFix: true }, noRay: { noRay: true }, mixBeta0: { mixBeta0: true }, mixSwitch: { mixSwitch: true }, clipOff: { clipOff: true }, clipLinear: { clipLinear: true }, noSeam: { noSeam: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
