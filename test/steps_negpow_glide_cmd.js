@@ -139,6 +139,22 @@ for (const [i, c] of CASES.entries()) {
   ok('slot cap: the counter reads the control source as mat4 + vec4[3] = 7 vectors', ev0.ctl === 7, ev0);
   ok(`slot cap: ${ev0.progs} chain programs counted; the most other uniform vectors of any program is ${ev0.worst.n} (${ev0.worst.name} mode ${ev0.worst.mode} ${ev0.worst.stage}), equal to GLChain.OTHER_UNIFORM_VECS (${ev0.named})`, ev0.progs > 0 && ev0.worst.n === ev0.named, ev0);
 }
+// A fresh load of the largest chain (d/dz e^z 0.2z+1, 208 slots: over the cap the spec minimum of 224 vectors would give)
+// draws with no refusal, and the build used the page's GPU limit, not the default
+{
+  await seedCase(CASES[0], 0);
+  const spec = await ev(`(() => { const d = (t, o) => ({ type: t, params: Object.assign(Funcs.defaults(t), o), on: true }); return [d('affine', { a: '0.2', b: '1' }), d('custom', { expr: '\\\\sum_{n=0}^{\\\\infty} \\\\frac{z^n}{n!}' }), d('deriv', {})]; })()`);
+  const ns = 'npgbig' + Date.now();
+  await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [], steps: spec });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && !!window.GLR" });
+  await quiet();
+  const got = await ev(`(() => { const st = __cmwSteps(); const steps = ${JSON.stringify(spec)}; let slots = null, err = ''; try { slots = GLChain.build(steps, steps.map((x) => Funcs.build(x))).slots; } catch (e) { err = String(e.message); } const vecs = Math.min(GLR.gl.getParameter(GLR.gl.MAX_FRAGMENT_UNIFORM_VECTORS), GLR.gl.getParameter(GLR.gl.MAX_VERTEX_UNIFORM_VECTORS)); return JSON.stringify({ slots, err, vecs, minCap: GLChain.maxChainSlots(224), frame: GLR.frameStatus().error }); })()`);
+  const g = JSON.parse(got);
+  R.bigChain = g;
+  ok(`208-slot chain: built with the page's limit (${g.vecs} vectors; ${g.slots} slots over the ${g.minCap} the spec minimum allows; ${g.err || 'no error'})`, g.slots > g.minCap && !g.err && g.vecs > 224, g);
+  ok(`208-slot chain: the pane draws with no refusal (frame status "${g.frame}")`, g.frame === '', g);
+}
 // A chain the build refuses (Möbius steps, 11 slots each, over the GPU's slot cap) is not drawn from an earlier version: the pane's GL status
 // reads the refusal in plain words, and the step is not accepted silently
 {
