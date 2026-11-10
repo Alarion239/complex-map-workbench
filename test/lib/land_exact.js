@@ -736,7 +736,10 @@
       {
         const ownTicks = async () => {
           const marks = await ev('__cmwLandTickMarks()');
-          const own = JSON.parse(await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`));
+          const raw = await ev(`JSON.stringify(__cmwLandTickMarks().map((m) => __cmwLandHeightOf(m.v)))`);
+          // (a page that answers with its error and not the text names it: the suite's failure carries what the page said)
+          if (typeof raw !== 'string') throw new Error('the page answered the tick heights with ' + JSON.stringify(raw).slice(0, 400));
+          const own = JSON.parse(raw);
           const nz = marks.map((m, i) => i).filter((i) => own[i]);   // (a label at height 0 has no scale)
           return { marks, own, nz, bad: nz.filter((i) => !(relDiff(marks[i].hz, own[i]) <= TICK_H_TOL)) };
         };
