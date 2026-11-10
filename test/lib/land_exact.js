@@ -70,6 +70,9 @@
   // listed row fails if the control runs and bites)
   const CTL_NA = {
     "Möbius, √|sheets": "the glide has one surface there",
+    "z^(-1/2)|sheets": "the glide has one surface there",
+    "z^(-1/2)|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "z^(-1/2)|stripRead": "the scene's chain lists no branch step input at this u",
     "Roots as preimages|sheets": "the glide has one surface there",
     "Joukowski airfoil|sheets": "the glide has one surface there",
     "Möbius dipole, √|sheets": "the glide has one surface there",
@@ -227,6 +230,7 @@
     // a box centred off the branch point: the depth keys of different sheets differ at first order there (D = log2(1 + |z - centre| / R)), so a front-by-D rule
     // across sheets takes the sheet nearest the centre where the frame's own sheet (plane 0 parked) is the answer
     { tag: 'log, box centred at 1.5 + 0.5i', steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }], shapes: ANN, srcView: { cx: 1.5, cy: 0.5, s: 110 }, offCentre: true },
+    { tag: 'z^(-1/2)', steps: [{ type: 'mobius', params: { a: '0', b: '1', c: '1', d: '0' }, on: true }, { type: 'root', params: { n: 2 }, on: true }], shapes: [], clipControls: true },
     { tag: 'cube root', steps: [{ type: 'root', params: { n: 3 }, on: true }], shapes: [], fixControl: true, clipControls: true, surfaces: 3, surfacesAt: { 0.75: 2 } },
     { tag: 'Joukowski airfoil', example: 'Joukowski airfoil', cutControl: true },
     { tag: 'Roots as preimages', example: 'Roots as preimages', rayControl: true },
@@ -912,7 +916,7 @@
     ok(`the distinct layers keep two members of one z ${10 * HEIGHT_TOL} apart in height as two`, distinctLayers([a, L([1, 0], 10 * HEIGHT_TOL)]).length === 2 && distinctLayers([a, L([1, 0], 0.5 * HEIGHT_TOL)]).length === 1, null);
     ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
   }
-  const CLIPPED_ROWS = ['Möbius, √@0.0001', 'Möbius, √@0.002', 'Möbius, √@0.25', 'Möbius, √@0.75'];   // the rows (case@u, All sheets) at which a probe place holds a layer beyond the clip level, which the strict height compare fails: the control that the clip levels are what pairs it needs some, and a row off the list has none
+  const CLIPPED_ROWS = ['Möbius, √@0.0001', 'Möbius, √@0.002', 'Möbius, √@0.25', 'Möbius, √@0.75', 'z^(-1/2)@0.5', 'z^(-1/2)@0.75'];   // the rows (case@u, All sheets) at which a probe place holds a layer beyond the clip level, which the strict height compare fails: the control that the clip levels are what pairs it needs some, and a row off the list has none
   // The colour map's height clip levels [low, high] the frame draws at (the claims hook's sat, the one number both the claim check and the layer check read), null when the frame has none
   const satOf = (cl) => { const l = (cl || []).flat()[0]; return l && l.sat && l.sat.every(Number.isFinite) ? l.sat : null; };
   const onSide = (x, sat, hi) => (hi ? x.h >= sat[1] - HEIGHT_TOL : x.h <= sat[0] + HEIGHT_TOL);
