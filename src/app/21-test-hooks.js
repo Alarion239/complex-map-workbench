@@ -607,6 +607,10 @@
     const z = zeroOf(chain.map((s) => ({ id: s.id, m: s.m ? s.m.map((v) => C(v[0], v[1])) : null })), C(node[0], node[1]));
     return z === 'unread' || z === null ? z : [z.re, z.im];
   };
+  window.__cmwLandPolesOf = (chain) => {
+    const z = poleOf(chain.map((s) => ({ id: s.id, m: s.m ? s.m.map((v) => C(v[0], v[1])) : null })));
+    return z === 'unread' || z === null ? z : [z.re, z.im];
+  };
   // the scenes of the last SCENE_MEMO distinct (map, box, sheet width, chain) states, oldest dropped first: a caller that moves u between calls finds the earlier u's scene again
   const SCENE_MEMO = 4, sceneMemos = new Map();
   // the scene of the last frame: { map, W, K, own, rank, g(k, zc, z), box, leaves, poles }; null when the map cannot be drawn as sheets or
@@ -779,6 +783,10 @@
     if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
     return scene;
   };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a further block, as t_publish caps a block's length)
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
   // the loop round a rectangle r, counter-clockwise from its lower left corner: its four edges as pieces t -> z, t in [0, 1]
