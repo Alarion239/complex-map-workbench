@@ -911,7 +911,8 @@
   // The straddling cells' list (LAND_CLASS_LIST_VS) holds every one of a frame's MIX cells, whatever their count: the count (the last row's base and its
   // count) is read back each frame, after the rows' passes and before the list's, and a layer's list capacity is raised to the next power of two over it
   // when it is short (it is never lowered), so a frame's list is never cut off. The list is LAND_STRAD_W wide and capacity / LAND_STRAD_W rows high;
-  // a count over LAND_STRAD_K_MAX, which no grid reaches, throws. A control (carryProbe.stradNoGrow) keeps the capacity, counting the frames whose list is cut off
+  // a count over the ceiling (LAND_STRAD_K_MAX, or a control's carryProbe.stradMax), which no one layer's grid reaches (the list is a layer's: a grid has at most (LAND_CLASS_LOOP - 1)^2 cells), is reported by
+  // console.error and stradTruncated, and its list is cut at the ceiling. A control (carryProbe.stradNoGrow) keeps the capacity, counting the frames whose list is cut off
   let stradSyncs = 0, stradGrows = 0, stradTruncated = 0, stradCount = 0, stradCapLast = 0;
   // the count of the list built from L.rowBTex (N x 1), read now: the frame waits for it
   function stradRead(L, N) {
@@ -928,7 +929,6 @@
   const stradCapFor = (cap, count) => {
     let c = cap;
     while (c < count) c *= 2;
-    if (c > LAND_STRAD_K_MAX) throw new Error('the straddling cells\' list needs ' + c + ' cells, over the ' + LAND_STRAD_K_MAX + ' a grid has');
     return c;
   };
   function runTFRows(P, count, tex, W, y0) {
@@ -1819,8 +1819,10 @@
             const count = stradRead(L, N);
             if (L.stradCap0 !== strK0) { L.stradCap0 = strK0; L.stradCap = strK0; }   // (the capacity restarts when its first value changes: a control's)
             let cap = L.stradCap;
-            if (count > cap && !carryProbe.stradNoGrow) { cap = stradCapFor(cap, count); stradGrows++; }
-            if (count > cap) stradTruncated++;
+            const ceil = carryProbe.stradMax || LAND_STRAD_K_MAX;
+            const want = carryProbe.stradNoGrow ? cap : Math.min(stradCapFor(cap, count), ceil);
+            if (want > cap) { cap = want; stradGrows++; }
+            if (count > cap) { stradTruncated++; console.error('the straddling cells\' list holds ' + cap + ' of ' + count + ' cells (ceiling ' + ceil + '): the frame is cut off'); }
             L.stradCap = cap; stradCount = count; stradCapLast = cap;
             const lw = Math.min(cap, LAND_STRAD_W);
             use(listP); u1i(listP, 'uN', N);

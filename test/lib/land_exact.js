@@ -154,27 +154,28 @@
       return { d, sc };
     };
     const jump = (e, x, y) => raw.edges && raw.edges[e][4 * (y * N + x) + 3] > 0.5;
-    let inn = 0, out = 0, mix = 0, differ = 0, near = 0;
+    let inn = 0, out = 0, mix = 0, differ = 0, near = 0, invalid = 0;
     for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
-      let mixed = jump(0, x, y) || jump(1, x, y) || jump(2, x, y) || jump(0, x, y + 1) || jump(1, x + 1, y), orC = 0, andC = -1, nearC = false;
+      let mixed = jump(0, x, y) || jump(1, x, y) || jump(2, x, y) || jump(0, x, y + 1) || jump(1, x + 1, y), orC = 0, andC = -1, nearC = false, bad = false;
       for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
         const o = 4 * ((y + dy) * N + x + dx), X = raw.t1[o], Y = raw.t1[o + 1], Z = raw.t1[o + 2];
-        if (!(raw.t1[o + 3] >= 0.5 && Math.abs(X) < 1e30 && Math.abs(Y) < 1e30 && Math.abs(Z) < 1e30)) { mixed = true; continue; }
+        if (!(raw.t1[o + 3] >= 0.5 && Math.abs(X) < 1e30 && Math.abs(Y) < 1e30 && Math.abs(Z) < 1e30)) { mixed = true; bad = true; continue; }
         const { d, sc } = planes(X, Y, Z);
         let cd = 0;
         d.forEach((v, p) => { if (v > 0) cd |= 1 << p; if (Math.abs(v) <= eps * (1 + Math.abs(sc[p]))) nearC = true; });
         orC |= cd; andC &= cd;
       }
+      if (bad) invalid++;
       const want = mixed ? 2 : (andC !== 0 ? 0 : (orC === 0 ? 1 : 2));
       const got = Math.round(raw.cls[4 * (y * N + x)]);
       if (got === 1) inn++; else if (got === 0) out++; else mix++;
       if (got !== want) { if (nearC) near++; else differ++; }
     }
-    return { cells: M * M, in: inn, out, mix, listed: raw.rowB[4 * (N - 2)] + raw.rowB[4 * (N - 2) + 1], K: raw.K, cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * M };
+    return { cells: M * M, in: inn, out, mix, listed: raw.rowB[4 * (N - 2)] + raw.rowB[4 * (N - 2) + 1], K: raw.K, invalid, cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * M };
   };
   const classCounts = async () => JSON.parse(await ev(`JSON.stringify((${classCheck})(__cmwLandCarry() && __cmwLandCarry().classRaw, ${CLASS_BORDER_EPS}))`));
   const SCRUB_STEP_U = 0.02;   // (the scrub's step of u)
-  const LIST_K0 = 2048, SHORT_K = 64;   // (the straddling cells' list's first capacity: LAND_STRAD_K in src/gl/03-glsl-3d.js, which a frame with more cells doubles; a control's short first capacity)
+  const LIST_K0 = 2048, SHORT_K = 64, CEIL_K = 4096;   // (the straddling cells' list's first capacity: LAND_STRAD_K in src/gl/03-glsl-3d.js, which a frame with more cells doubles; a control's short first capacity)
   const GROW_CONTROLS = [['log of an annulus', true, 0.64], ['cube root', false, 0.24]];   // (case, All sheets, u: frames whose straddling cells outnumber a list of SHORT_K, and LIST_K0 in the first)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_PLACE = [0.3, 0.2];   // (a place of the box: the colour map's sheet combos are the map's, not the place's)
@@ -1098,7 +1099,7 @@
     const us = [];
     for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
     us.push(0.99, 1 - END_U);
-    let prev = null, rise = 0, riseAt = null, most = 0, mostAt = null, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
+    let prev = null, rise = 0, riseAt = null, most = 0, mostAt = null, mostK = null, mostLayers = 0, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
     const t0 = await truncatedDraws();
     for (const x of us) {
       await setU(x);
@@ -1106,7 +1107,7 @@
       if (!k) continue;
       framesWithClasses++;
       if (prev !== null && k.mix - prev > rise) { rise = k.mix - prev; riseAt = x; }
-      if (k.mix > most) { most = k.mix; mostAt = x; }
+      if (k.mix > most) { most = k.mix; mostAt = x; mostK = { cells: k.cells, invalid: k.invalid }; mostLayers = await ev('(__cmwLandCarry() || {}).layers || 1'); }
       if (k.mix > k.K) over++;
       if (k.listed !== k.mix) unlisted++;
       capMax = Math.max(capMax, k.K);
@@ -1114,9 +1115,9 @@
     }
     const cut = (await truncatedDraws()) - t0;
     await ev('__svCarryProbe = null; 1');
-    info[`${t}: straddling cells`] = { frames: framesWithClasses, most, mostAt, rise, riseAt, capacity: capMax };
+    info[`${t}: straddling cells`] = { frames: framesWithClasses, most, mostAt, mostCells: mostK && mostK.cells, mostInvalid: mostK && mostK.invalid, layers: mostLayers, rise, riseAt, capacity: capMax };
     if (!framesWithClasses) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
-    ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most}, at u=${mostAt}; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
+    ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most} of a grid of ${mostK && mostK.cells} cells, ${mostK && mostK.invalid} of them with a corner that is not a point, at u=${mostAt}, ${mostLayers} layers, one list each; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
     ok(`${t}: no draw of the scrub had its list cut off (${cut})`, cut === 0, { cut });
     if (GROW_CONTROLS.some(([tag, sh]) => tag === c.tag && sh === sheets)) {
       const [, , u] = GROW_CONTROLS.find(([tag, sh]) => tag === c.tag && sh === sheets);
@@ -1132,6 +1133,12 @@
       const gr = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, grows: (__cmwLandCarry() || {}).stradGrows, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
       const dG = (await compare('full', 'grown')).frac;
       ok(`${t}: control: a list of ${SHORT_K} that grows draws the frame of the list of ${LIST_K0}: ${dG} of pixels over ${DIFF_TOL} (at most ${SAME_FRAC}); its capacity grew to ${gr.cap} for ${gr.count} cells`, dG <= SAME_FRAC && gr.cap >= gr.count && gr.cap > SHORT_K && gr.cut === k1, { dG, gr, k1 });
+      // the ceiling: a list that needs more than it is cut off, loudly (console.error, counted in stradTruncated): a ceiling of 4096 under the count of the case at its u
+      if (c.tag === 'log of an annulus') {
+        await ev('__svCarryProbe = __svCarryProbeSettings.stradCeil; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+        const cc = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
+        ok(`${t}: control: a ceiling of ${CEIL_K} under the ${cc.count} cells of the frame at u=${u} cuts the list off (capacity ${cc.cap}, ${cc.cut - k1} more cut-off draws counted), which the checks above would fail`, cc.count > CEIL_K && cc.cap === CEIL_K && cc.cut > k1, { cc, k1 });
+      }
       await ev('__svCarryProbe = null; 1');
     }
   };
