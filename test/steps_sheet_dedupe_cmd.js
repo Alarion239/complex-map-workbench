@@ -66,26 +66,34 @@ const split = (ls, tol) => {
   return Math.max(...hs[0].map((h, i) => Math.abs(h - (hs[1][i] === undefined ? h : hs[1][i]))));
 };
 // A continued texel (code CONT_CODE) is vertex data for the triangles that straddle a cut: its z can be a member of the bank past the cut and no member of its
-// own place. It is a certified continuation, and no layer at that place, when the enumerator at the texel's OWN vertex (the layer's w) has a member at its z (within
-// CERT_Z_TOL, relative to 1 + |z|, the hook's LAND_ENUM_Z_TOL); any other texel is a layer and is counted. The frame draws it only where its own bank's reference
-// surface is (the read in the PR body: its drawn pixels at the u .9 place are all covered by the reference of its own sheet, none by the other sheet's)
-const CERT_Z_TOL = 1.5e-3, CERT_Z_MISS = 0.1;   // (the z of a texel put out of reach of every member: the control of a continuation that is no member's)
+// own place. It is a certified continuation, and no layer at that place, when the enumerator at the texel's OWN vertex (the layer's w) has a member at its z whose
+// height, on the layer's log sheet dk (the member's value moved by 2 pi i dk, the log step's own sheet spacing), is the texel's, both within the enumerator's
+// tolerances (the hook's, relative to 1 + |z| for z); any other texel is a layer and is counted. The frame draws it only where its own bank's reference surface
+// is (the read in the PR body: its drawn pixels at the u .9 place are all covered by the reference of its own sheet, none by the other sheet's)
+const LOG_PERIOD = 2 * Math.PI;   // (the log step's sheets are its value's 2 pi i apart)
+const CERT_Z_MISS = 0.1, CERT_H_MISS = 0.2;   // (a texel's z put out of reach of every member, relative to 1 + |z|; one texel's height off by this, ten times the tolerance: the controls of a continuation that is no member's)
+const TOL = JSON.parse(await ev('JSON.stringify(__cmwLandEnumTol())'));
 const probeGlide = async (u) => {
   await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
   const gl = JSON.parse(await ev('JSON.stringify((() => { const c = __cmwLandCarry(); return { carried: !!c, path: c && c.path }; })())'));
-  const all = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(PROBES)}).map((ls) => ls.map((l) => ({ z: l.z || null, h: l.h, c: l.c, w: l.w }))))`));
+  const all = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(PROBES)}).map((ls) => ls.map((l) => ({ z: l.z || null, h: l.h, c: l.c, w: l.w, dk: l.combo && l.combo[0] ? l.combo[0].dk : 0 }))))`));
   const noZ = all.reduce((n, ls) => n + ls.filter((l) => !l.z).length, 0);   // (a texel with no preimage is no layer: the frame has none at a probe place)
   const raw = all.map((ls) => ls.filter((l) => l.z));
-  // the continued texels' own vertices: the enumerator's members there, once for each distinct vertex
-  const ws = [], wAt = new Map();
-  for (const ls of raw) for (const l of ls) if (l.c >= CONT_CODE) { const k = l.w.join(); if (!wAt.has(k)) { wAt.set(k, ws.length); ws.push(l.w); } }
-  const enAt = ws.length ? JSON.parse(await ev(`JSON.stringify(__cmwLandEnum(${JSON.stringify(ws)}).map((ms) => ms.map((m) => m.z)))`)) : [];
-  const has = (l, dz) => enAt[wAt.get(l.w.join())].some((z) => Math.hypot(z[0] - (l.z[0] + dz[0]), z[1] - (l.z[1] + dz[1])) <= CERT_Z_TOL * (1 + Math.hypot(l.z[0], l.z[1])));
-  const cert = (l, dz) => l.c >= CONT_CODE && has(l, dz);
-  const fv = raw.map((ls) => ls.filter((l) => !cert(l, [0, 0])));
-  const missed = raw.map((ls) => ls.filter((l) => !cert(l, [CERT_Z_MISS * (1 + Math.hypot(l.z[0], l.z[1])), 0])));
+  // the continued texels' certificates in one call: each texel's own vertex's members, the texel's z and height moved by (dz, dh) (dh on the first continued texel of a place only)
+  const cont = raw.map((ls) => ls.filter((l) => l.c >= CONT_CODE));
+  const certs = async (dz, dh) => JSON.parse(await ev(`JSON.stringify((() => {
+    const cont = ${JSON.stringify(cont)}, en = __cmwLandEnum([].concat(...cont.map((ls) => ls.map((l) => l.w))));
+    let at = 0;
+    return cont.map((ls) => ls.map((l, i) => {
+      const ms = en[at++], z = [l.z[0] + ${dz} * (1 + Math.hypot(l.z[0], l.z[1])), l.z[1]], h = l.h + (i === 0 ? ${dh} : 0);
+      return ms.some((m) => Math.hypot(m.z[0] - z[0], m.z[1] - z[1]) <= ${TOL.z} * (1 + Math.hypot(z[0], z[1])) && Math.abs(h - __cmwLandFrameHeight([m.f[0], m.f[1] + ${LOG_PERIOD} * l.dk])) <= ${TOL.h});
+    }));
+  })())`));
+  const keep = (cs) => raw.map((ls, i) => { let k = 0; return ls.filter((l) => l.c < CONT_CODE || !cs[i][k++]); });
+  const fv = keep(await certs(0, 0));
+  const zMiss = keep(await certs(CERT_Z_MISS, 0)), hMiss = keep(await certs(0, CERT_H_MISS));
   const en = JSON.parse(await ev(`JSON.stringify(__cmwLandEnum(${JSON.stringify(PROBES)}).map((ms) => ms.map((m) => ({ z: m.z, h: m.h }))))`));
-  return { gl, fv, raw, missed, en, noZ };
+  return { gl, fv, raw, zMiss, hMiss, en, noZ };
 };
 const GLIDE_AT = [0.002, 0.02, 0.2, 0.5, 0.9, 0.98, 0.998];
 const G = {};
@@ -116,8 +124,10 @@ ok('control: leaving the continued layers out hides that layer, which is what th
 // (the frame at u .9 has continued texels that are certified continuations: counted as layers they would make the row red, so the rule is what keeps it green)
 const cCount = badAt({ fv: G[0.9].raw, en: G[0.9].en }, (ls) => distinct(ls, LAYER_SAME), LAYER_SAME);
 ok('control: counting the certified continued texels as layers at u .9 turns the row red', cCount.bad > 0, cCount);
-const cMiss = badAt({ fv: G[0.9].missed, en: G[0.9].en }, (ls) => distinct(ls, LAYER_SAME), LAYER_SAME);
+const cMiss = badAt({ fv: G[0.9].zMiss, en: G[0.9].en }, (ls) => distinct(ls, LAYER_SAME), LAYER_SAME);
 ok('control: continued texels whose z is no member of their own vertex are counted at u .9, so the row goes red', cMiss.bad > 0, cMiss);
+const cHMiss = badAt({ fv: G[0.9].hMiss, en: G[0.9].en }, (ls) => distinct(ls, LAYER_SAME), LAYER_SAME);
+ok('control: a continued texel whose height is off by ' + CERT_H_MISS + ' from its member\'s on its sheet is counted at u .9, so the row goes red', cHMiss.bad > 0, cHMiss);
 // the u .9 place (2.25, -4.375): its frame has its own member's five sheets and the other bank's member continued past the cut, five more texels
 const P90 = PROBES.findIndex((q) => Math.abs(q[0] - 2.25) < 1e-9 && Math.abs(q[1] + 4.375) < 1e-9);
 ok('√, cos, log, u=.9: the place (2.25, -4.375) has its member\'s ' + SHEETS + ' sheets as layers and the continued texels certified', P90 >= 0 && G[0.9].fv[P90].length === SHEETS && G[0.9].raw[P90].length > SHEETS && G[0.9].raw[P90].filter((l) => l.c >= CONT_CODE).length === G[0.9].raw[P90].length - SHEETS, { n: P90 >= 0 ? [G[0.9].fv[P90].length, G[0.9].raw[P90].length] : null });
