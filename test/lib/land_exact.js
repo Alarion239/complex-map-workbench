@@ -163,8 +163,12 @@
   const CTL_DEPTH = 1;   // the control's cell depth: too shallow for the thinnest feature (Roots as preimages at 0.002 needs 2 halvings; at 1 it is over its bound at the cap)
   const ANSWER_CHUNK = 1 << 20;   // (the characters of a raster step's answer one protocol message carries)
   const SING_PROBE_MS = 120000;   // the singular-disc control's reference stops after this long
-  const STEP_CALL_MS = 120000;   // the time a raster step's page call may take: the step ends at the first yield after STEP_MS, and one cell's judgement (four corner continuations of CONT_MS each) does not yield
   const STEP_MS = 5000;   // a raster step's time in the page before it ends at the next yield
+  // The time a raster step's page call may take (the kit's evaluate limit is 20 s; every other call here keeps it): the step ends at the first yield after STEP_MS,
+  // and the longest stretch without a yield is one cell's judgement, CORNER_PATHS continuations of the core's CONT_MS each; STEP_HEADROOM times that sum. A call that
+  // runs over fails its row (the call named) and is never retried.
+  const CORNER_PATHS = 4, CORE_CONT_MS = 8000, STEP_HEADROOM = 3;
+  const STEP_CALL_MS = STEP_HEADROOM * (STEP_MS + CORNER_PATHS * CORE_CONT_MS);
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
@@ -354,13 +358,14 @@
   // the plane at index k parked and its frame kept as tag; its height reading kept for the references
   // the exact image reference at the current u (land_exact_core.js), run in steps; the result is the comparison with the frame's relief
   // plus the core's cells, certificates and failures (a result with failures is not exact)
-  let refMs = 0;
+  let refMs = 0, longestStepMs = 0, casesRun = 0;
   async function runReference(sheets, ref) {
     await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(ref)})`);
     const t0 = Date.now();
-    let st = { done: false }, answerMax = 0;
+    let st = { done: false }, answerMax = 0, stepTop = 0;
     for (let k = 0; !st.done && k < STEP_MAX; k++) {
       // (a call that the browser refuses is a named failure with the step, the time into the reference and the page's heap, not a thrown suite)
+      const tStep = Date.now();
       try {
         // (the step's answer is kept in the page and read in chunks of ANSWER_CHUNK characters: a message of the protocol has a size limit, and the answer holds every failure the step found)
         const len = await ev(`(window.__lxAnswer = JSON.stringify(__lxRasterStep(${STEP_MS}))).length`, STEP_CALL_MS);
@@ -368,13 +373,14 @@
         let text = '';
         for (let at = 0; at < len; at += ANSWER_CHUNK) text += await ev(`window.__lxAnswer.slice(${at}, ${at + ANSWER_CHUNK})`);
         st = JSON.parse(text);
+        stepTop = Math.max(stepTop, Date.now() - tStep);
       } catch (e) {
         const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => 'page gone');
-        ok(`the raster step call ${k} was answered by the page (${String(e).slice(0, 120)}; heap ${heap} MB after ${((Date.now() - t0) / 1000).toFixed(0)} s; the largest answer so far ${answerMax} characters)`, false, { k, heap, answerMax });
+        ok(`the raster step call ${k} (limit STEP_CALL_MS ${STEP_CALL_MS} ms) was answered by the page (${String(e).slice(0, 120)}; heap ${heap} MB after ${((Date.now() - t0) / 1000).toFixed(0)} s; the largest answer so far ${answerMax} characters)`, false, { k, heap, answerMax });
         return null;
       }
     }
-    refMs += Date.now() - t0;
+    refMs += Date.now() - t0; longestStepMs = Math.max(longestStepMs, stepTop);
     if (st.error) throw new Error('the reference threw: ' + st.error);
     return st.done ? st.res : null;
   }
@@ -1232,8 +1238,11 @@
       const heap = await ev('performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null').catch(() => null);
       ok(`${d.t}: ${d.passes ? `the counterpart: ${d.name} (page heap ${heap} MB)` : `the control: ${d.name} fails the reference (page heap ${heap} MB)`}`, !!cr && d.need(cr), { off: cr && cr.off, failures: cr && cr.failures.slice(0, 3) });
     }
-    r.seconds = { case: Math.round((Date.now() - caseT0) / 1000), reference: Math.round((refMs - refMs0) / 1000) };   // (the case's time and the part of it the exact reference ran)
+    casesRun++;
+    r.seconds = { case: Math.round((Date.now() - caseT0) / 1000), reference: Math.round((refMs - refMs0) / 1000), longestStepMs };   // (the case's time and the part of it the exact reference ran)
   }
+  ok(`a case ran (CMW_ONLY ${JSON.stringify(process.env.CMW_ONLY || '')} matched ${casesRun} cases)`, casesRun > 0, { only: process.env.CMW_ONLY || null });
+  ok(`the longest raster step call took ${longestStepMs} ms (the limit ${STEP_CALL_MS} ms)`, longestStepMs < STEP_CALL_MS, { longestStepMs });
   ok(`the seam control ran: some frame had at least ${SEAM_MIN_HITS} pixels only the rays decide`, !!controlsDone.seam, controlsDone);
   ok('the branch-point control ran: some frame had a certified branch point', !!controlsDone.branch, controlsDone);
   for (const scope of COUNT_SCOPES) ok(`the completeness-count control ran: some frame had a count read at ${COUNT_WHERE[scope]}`, !!controlsDone['count:' + scope], controlsDone);
