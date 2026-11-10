@@ -957,7 +957,24 @@
     }
     return out;
   };
-  window.__cmwLandHomMany = (list) => list.map(([z, cell, opts]) => window.__cmwLandHom(z, cell, opts));
+  const BATCH_MAX = 2000;   // (the entries of one __cmwLandHomMany call: its reply crosses the debugging protocol in one message)
+  window.__cmwLandHomMany = (list) => {
+    if (list.length > BATCH_MAX) throw new Error('__cmwLandHomMany: ' + list.length + ' entries, at most ' + BATCH_MAX);
+    return list.map(([z, cell, opts]) => window.__cmwLandHom(z, cell, opts));
+  };
+  // the scene's leaf holding z ([re, im]) and the cell the scene reads there: { c: [re, im] | null, closed, x0, x1, y0, y1 } (c the leaf's centre when it is closed,
+  // else null: a point reads its own cell); null with no scene or no leaf. __cmwLandCellsAt answers a list of z, at most CELLS_MAX, in one call
+  const CELLS_MAX = 5000;
+  const cellAt = (sc, z) => {
+    const l = leafOf(sc, C(z[0], z[1]));
+    return l ? { c: l.closed ? [l.c.re, l.c.im] : null, closed: !!l.closed, x0: l.x0, x1: l.x1, y0: l.y0, y1: l.y1 } : null;
+  };
+  window.__cmwLandCellAt = (z) => { const sc = sceneOf(); return sc ? cellAt(sc, z) : null; };
+  window.__cmwLandCellsAt = (list) => {
+    if (list.length > CELLS_MAX) throw new Error('__cmwLandCellsAt: ' + list.length + ' places, at most ' + CELLS_MAX);
+    const sc = sceneOf();
+    return sc ? list.map((z) => cellAt(sc, z)) : null;
+  };
   // the argument of the first branch step's input at z, continued from the cell centred at cell (z when omitted) along the straight segment on
   // surface k: { arg, lo, s, bad } with lo the start of the step's window at that cell (the argument at the cell's centre less pi: the anchored cut
   // lies opposite the centre's value) and s = (arg - lo) / 2 pi, in (0, 1] inside the window; principal reads the argument of the input's value at z

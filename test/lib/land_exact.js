@@ -835,6 +835,13 @@
           // scene it reads follows u: its value at a fixed place differs from the last u's)
           const eq = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, HOM_EQ_PAIRS))}; let bad = 0, n = 0, many = 0; for (const m of ms) { const full = __cmwLandHom(m.z, m.cell), b = __cmwLandHomMany([[m.z, m.cell]])[0]; if (JSON.stringify(b) !== JSON.stringify(full)) many++; for (const h of full) { const c = __cmwLandHom(m.z, m.cell, { sheets: [h.sheet], dH: false })[0]; n++; if (!(h.H === null ? c.H === null : c.H && c.H[0] === h.H[0] && c.H[1] === h.H[1])) bad++; } } return { bad, n, many }; })()`);
           ok(`${t}: the homotopy hook's one-surface, no-difference path equals the full call (${eq.bad} of ${eq.n} surfaces differ) and so does the batch (${eq.many} members differ)`, eq.n > 0 && eq.bad === 0 && eq.many === 0, eq);
+          // (the cell the hook gives at a member's place is the cell the certificate read it on: the leaf's centre when closed, else the place itself; the control compares each with the next member's)
+          {
+            const sub = ms.slice(0, HOM_EQ_PAIRS), cells = await ev(`__cmwLandCellsAt(${JSON.stringify(sub.map((m) => m.z))})`), want = (i) => (cells && cells[i] && cells[i].c ? cells[i].c : sub[i].z);
+            const same = (x, y) => x[0] === y[0] && x[1] === y[1], bad = sub.filter((m, i) => !cells || !same(want(i), m.cell)).length, wrong = sub.filter((m, i) => !cells || !same(want(i), sub[(i + 1) % sub.length].cell)).length;
+            ok(`${t}: the scene's cell at a member's place (window.__cmwLandCellsAt) is the cell its certificate read, the leaf's centre when closed and else the place itself (${bad} of ${sub.length} differ)`, sub.length > 0 && bad === 0, { bad, n: sub.length });
+            if (sub.length > 1) ok(`${t}: the control: read against the next member's cell they differ (${wrong} of ${sub.length})`, wrong > 0, { wrong });
+          }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
           const before = Object.keys(r.homSample).map(Number).filter((x) => x < u).sort((x, y) => y - x)[0];
