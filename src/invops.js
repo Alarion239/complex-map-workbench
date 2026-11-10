@@ -447,9 +447,13 @@ const InvOps = (() => {
   const REPEAT_NODES_MAX = 1024;     // root solves per pixel before it reads unresolved: at least 50 x the most the suite's
                                      // scenes need (the CPU twin over every pixel at dpr 1 and 2: the gallery square 20,
                                      // the bite box at Repeat x 2 3, at x 20 0)
-  // root solves in one GPU submission of a REPT draw (GLR's reptDraw tiles a pane by it): one tile stays within
-  // REPT_TILE_MS_MAX at the slowest solve rate measured (TILE_RATE_NOTE)
+  // root solves in one GPU submission of a REPT draw at most (GLR's reptDraw tiles a pane by it, counting every pixel
+  // at its whole budget): RATE_NOTE
   const REPT_TILE_SOLVES = 2 ** 27;
+  // the node budget of a REPT draw's first pass over the whole pane (GLR's reptDraw): a pixel whose search ends within
+  // it is final, one that does not goes on in the tiled second pass at REPEAT_NODES_MAX. 32 is at least 1.5 x the most
+  // the suite's scenes and the gallery need (20, the CPU twin over every pixel at dpr 1 and 2), so they draw in one pass
+  const REPT_FAST_NODES = 32;
   const REPT_U = 2 ** -24;           // float32's unit roundoff
   // REPT_GAMMA: |fl(p(z)) - p(z)| <= REPT_GAMMA REPT_U sum_k |a_k| |z|^k for Horner's rule of degree 3 in complex float32.
   // Each of the 3 steps is a complex product (relative error <= 2 sqrt 2 u for correctly rounded + and x, 4 sqrt 2 u
@@ -1341,7 +1345,7 @@ const InvOps = (() => {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm,
-    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     ENCL_EPS, ENCL_CELLS_MAX, REPT_ESC_GROW, opRept, reptForm, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEval, reptEscR, reptEscF
   };
 })();

@@ -22,11 +22,14 @@
 //   never covered or empty; the gallery's Landscape counts no unresolved pixel in its region mask, and its starved
 //   control counts some (__cmwRept({ land: true })); each row's info carries the CPU twin's root solves and pruned
 //   children at its samples (__cmwRept({ ws }), info only).
-// - the tiled draw (landconsult's condition 3 (b)): a REPT draw renders at most one tile of the tile bound per call, as
-//   its own submission, and the pane reports its frame pending until the last tile is in: with the bound at
-//   TILE_TEST_SOLVES the gallery plane takes more than one tile, one per call, none past the bound, and its finished
-//   picture is pixel-identical to the same plane drawn in one tile (the bound at ONE_TILE_SOLVES); a redraw of the
-//   finished picture walks no tile (__cmwRept({ tiles, tileStats })).
+// - the tiled draw (landconsult's condition 3 (b)): a REPT draw renders in passes of at most the tile bound, one tile a
+//   call, its own submission, and the pane reports its frame pending until the picture is complete: the gallery plane
+//   draws in one tile of the first pass and none of the second; with the first pass's budget at FAST_TEST_NODES and the
+//   bound at TILE_TEST_SOLVES its second pass takes more than one tile, one a call, none past the bound, and the finished
+//   picture is pixel-identical to the same plane drawn with each pass in one tile (the bound at ONE_TILE_SOLVES); with
+//   the second pass held the frame stays pending; a redraw of the finished picture walks nothing (a cache hit), and a
+//   look setting changed (the plane's colour style) or a lost context walks again (__cmwRept({ tiles, fast, holdB, lose,
+//   tileStats })).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -65,8 +68,11 @@ const ROOT_RES = 1e-9;     // relative residual a certified root may have
 const VIETA_TOL = 1e-9;    // relative error of the roots' sum and product
 const CONTROL_SAMPLES = 20;   // grid samples the weak-iteration control reads
 const TILE_TEST_SOLVES = 2 ** 26;   // root solves of a tile in the tiled rows: 65,536 px at 1,024 solves a pixel, a few tiles of the plane
-const ONE_TILE_SOLVES = 2 ** 50;    // ... in the single-pass reference: one tile holds the whole plane
+const ONE_TILE_SOLVES = 2 ** 50;    // ... in the one-tile reference: one tile holds the whole plane
+const FAST_TEST_NODES = 5;     // the first pass's budget in the tiled rows: the gallery's 20 solves go on in the second pass
+const HELD_FRAMES = 20;        // frames watched with the second pass held
 const PENDING_FRAMES = 40;     // frames watched for the pane's pending status while tiles remain
+const STYLE_TEST = 'phase';    // the plane's colour style in the cache-miss control (the plane's own: enhanced)
 const ready = () => settled({ max: SETTLE_LONG, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
 await view(VIEW_W, VIEW_H, false, false);
 const stateFor = (rect, n) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: NEXT_ID, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
@@ -217,8 +223,8 @@ const hatchCount = () => ev(`(() => {
     info[`${poison} root`] = hp;
     ok(`control: a ${poison === 'nan' ? 'NaN' : 'infinite'} root in every first node reads unresolved (the hatch on at least ${STARVED_MIN_SHARE * 100} % of the plane)`, hooked && hp.hatch >= STARVED_MIN_SHARE * hp.pixels, hp);
   }
-  // the tiled draw: the plane in one tile, then in tiles of TILE_TEST_SOLVES, with the pane's pending status while they
-  // draw; the two pictures pixel-identical; then a redraw that walks no tile
+  // the tiled draw: the gallery in one tile; then the second pass in one tile and in tiles of TILE_TEST_SOLVES, with the
+  // pane's pending status while they draw, the two pictures pixel-identical; the second pass held; a cache hit; a miss
   if (hooked) {
     const picture = () => ev(`(() => {
       const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
@@ -226,31 +232,45 @@ const hatchCount = () => ev(`(() => {
       for (let i = 0; i < d.length; i++) h = Math.imul(h ^ d[i], 16777619);
       return { hash: h >>> 0, pixels: d.length / 4 };
     })()`);
-    const pendingSeen = async () => {
-      for (let i = 0; i < PENDING_FRAMES; i++) {
-        await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-        const st = await ev(`(() => { const s = __cmwPaneStatus('L'); return !!(s && s.pending); })()`);
-        if (st) return true;
-      }
-      return false;
-    };
-    await ev(`__cmwRept({ tiles: ${ONE_TILE_SOLVES} }); 1`); await settled({ max: SETTLE_LONG, panes: true });
-    const one = await ev('__cmwRept({ tileStats: true })'), p1 = await picture();
+    const frames = (n) => ev(`new Promise((r) => { let k = ${n}; const f = () => (--k > 0 ? requestAnimationFrame(f) : r(1)); requestAnimationFrame(f); })`);
+    const pendingNow = () => ev(`(() => { const s = __cmwPaneStatus('L'); return !!(s && s.pending); })()`);
+    const pendingSeen = async () => { for (let i = 0; i < PENDING_FRAMES; i++) { await frames(2); if (await pendingNow()) return true; } return false; };
+    const redraw = async (o) => { await ev(`__cmwRept(${JSON.stringify(o)}); 1`); await frames(2); await settled({ max: SETTLE_LONG, panes: true }); return ev('__cmwRept({ tileStats: true })'); };
+    // (the gallery as drawn: a fresh walk, the bound one past its own so the signature is new)
+    await ev('__cmwRept({ tileStats: true })');
+    const gal = await redraw({ tiles: ONE_TILE_SOLVES });
+    ok('the gallery plane draws in one tile of the first pass and none of the second', gal.tilesA === 1 && gal.tilesB === 0 && gal.composites >= 1, gal);
+    const one = await redraw({ fast: FAST_TEST_NODES }), p1 = await picture();
+    ok(`with the first pass at ${FAST_TEST_NODES} solves the second pass draws, in one tile a call`, one.tilesB >= 1 && one.maxTilesPerCall === 1, one);
     await ev(`__cmwRept({ tiles: ${TILE_TEST_SOLVES} }); 1`);
     const pend = await pendingSeen();
     await settled({ max: SETTLE_LONG, panes: true });
     const tiled = await ev('__cmwRept({ tileStats: true })'), p2 = await picture();
-    // (a redraw that changes nothing the walk reads: the node budget set to its own again)
-    await ev('__cmwRept({ nodes: 0 }); 1');
-    await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); await settled({ max: SETTLE_LONG, panes: true });
-    const again = await ev('__cmwRept({ tileStats: true })');
-    await ev('__cmwRept({ tiles: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true });
-    info['tiled draw'] = { one, tiled, again, pendingSeen: pend, pictures: [p1, p2] };
-    ok('the plane in one tile: one tile a call', one.tiles >= 1 && one.maxTilesPerCall === 1 && one.composites >= 1, one);
-    ok(`the plane in tiles of ${TILE_TEST_SOLVES} root solves: more than one tile, one a call, none past the bound`, tiled.tiles > 1 && tiled.maxTilesPerCall === 1 && tiled.maxTileSolves <= TILE_TEST_SOLVES, tiled);
+    ok(`in tiles of ${TILE_TEST_SOLVES} root solves: more than one tile, one a call, none past the bound`, tiled.tilesB > 1 && tiled.maxTilesPerCall === 1 && tiled.maxTileSolves <= TILE_TEST_SOLVES, tiled);
     ok('while tiles remain, the pane reports its frame as pending', pend === true, pend);
     ok('the tiled picture is pixel-identical to the one-tile picture', p1.hash === p2.hash && p1.pixels === p2.pixels, [p1, p2]);
-    ok('a redraw of the finished picture walks no tile', again.tiles === 0 && again.composites >= 1, again);
+    // the second pass held: the continue pixels are never shown, the frame stays pending; released, the same picture
+    await ev(`__cmwRept({ holdB: true, tiles: ${ONE_TILE_SOLVES} }); 1`);
+    let heldPending = 0;
+    for (let i = 0; i < HELD_FRAMES; i++) { await frames(2); if (await pendingNow()) heldPending++; }
+    const held = await ev('__cmwRept({ tileStats: true })');
+    ok('with the second pass held the frame stays pending and no picture is drawn', heldPending >= HELD_FRAMES - 1 && held.composites === 0 && held.tilesB === 0, { heldPending, held });
+    const rel = await redraw({ holdB: false }), p3 = await picture();
+    ok('released, it draws the same picture', rel.tilesB >= 1 && p3.hash === p1.hash, [rel, p3, p1]);
+    const hit = await redraw({ nodes: 0 });
+    ok('a redraw of the finished picture walks nothing (a cache hit)', hit.searches === 0 && hit.composites >= 1, hit);
+    const look = await redraw({ fast: 0, tiles: 0 });
+    const style0 = await ev('__cmwFigureState().dc');
+    await ev(`__cmwSet('dc', ${JSON.stringify(STYLE_TEST)}); 1`); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
+    const miss = await ev('__cmwRept({ tileStats: true })');
+    await ev(`__cmwSet('dc', ${JSON.stringify(style0)}); 1`); await frames(2); await settled({ max: SETTLE_LONG, panes: true });
+    ok('control: a changed look setting (the plane\'s colour style) walks again', miss.searches > 0, { look, miss, style0 });
+    await ev('__cmwRept({ tileStats: true })');
+    const lost = await ev('__cmwRept({ lose: true })');
+    await frames(4); await settled({ max: SETTLE_LONG, panes: true });
+    const after = await ev('__cmwRept({ tileStats: true })');
+    ok('control: after a lost context the plane walks again', lost === true && after.searches > 0, { lost, after });
+    info['tiled draw'] = { gal, one, tiled, pendingSeen: pend, held, rel, hit, miss, after, pictures: [p1, p2, p3] };
   }
   // the Landscape's region mask (svLandMask) cannot draw the hatch: it counts the unresolved pixels instead
   await ev(`__cmwSteps({ surf: 'land' }); 1`); await settled({ max: SETTLE_LONG, panes: true });

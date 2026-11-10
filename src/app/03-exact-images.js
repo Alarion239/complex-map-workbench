@@ -522,7 +522,9 @@
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
-    paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
+    const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
+    paneGl[role] = { pending: !!(st && st.pending) || rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);

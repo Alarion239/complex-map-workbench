@@ -723,7 +723,8 @@ ${globe ? `  vec3 P = normalize(vP);
   ixEdge = 0.0;
 #endif
 #ifdef IX_REPT
-  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  if (ixRepKeep()) discard;
 #endif
   invWalk(w);
 ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}#ifdef IX_REPT
@@ -732,6 +733,9 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
   // pane's own pixel phase (uIxRepFc: this target's origin in the pane's framebuffer); in a region mask's pass
   // (uIxRepHatch 1) the mark (1, 0, 0, 0), which no premultiplied colour is: drawInverse's composite turns it into the
   // stencil mark for the hatch drawn over the masked picture (GLR.reptHatchFill)
+  // a pixel of a first pass whose search did not end: the continue mark (0, 1, 0, 0), no premultiplied colour either,
+  // for the second pass
+  if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
   if (nCov == 0 && (ixRepFail || ixRepCap || ixRepUnres)) {
     if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, 0.0, 0.0); return; }
     float hh = (gl_FragCoord.x + uIxRepFc.x + gl_FragCoord.y + uIxRepFc.y) * 0.70710678 / (6.0 * uDpr);

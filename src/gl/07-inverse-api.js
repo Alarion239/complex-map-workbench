@@ -223,6 +223,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       if (name in SAMPLER_UNITS) gl.uniform1i(loc[name], SAMPLER_UNITS[name]);
     }
     programConstants(loc, p);
+    // (a REPT program: its uniform values are recorded as set, for reptSig)
+    if (loc.uIxRepHatch) /** @type {any} */ (p).reptShadow = new Map();
     e.loc = loc; e.state = 'ready'; e.readyAt = performance.now();
   }
   function evictInv() {
@@ -773,7 +775,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
           x0 = Math.max(x0, vp[0]); y0 = Math.max(y0, vp[1]); x1 = Math.min(x1, vp[0] + vp[2]); y1 = Math.min(y1, vp[1] + vp[3]);
         }
         if (x1 <= x0 || y1 <= y0) return 'drawn';
-        if (isRept) return reptDraw(P, st, d, rec, [x0, y0, x1, y1], scOn, prevSc);
+        if (isRept) return reptDraw(P, st, [x0, y0, x1, y1], scOn, prevSc);
         gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
       }
     }
@@ -788,98 +790,219 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return 'drawn';
   }
   let invDraws = 0, invHalfDraws = 0, invAltUsed = false, invGlobeSc = 0, invGlobeScPx = 0;
-  // ---- a REPT draw (flat): tiles of at most REPT_TILE_SOLVES root solves into an accumulation target, then the target
-  // into the pane ----
+  // ---- a REPT draw (flat): passes of at most REPT_TILE_SOLVES root solves into accumulation targets, then into the pane
   // A REPT program's walk costs up to REPEAT_NODES_MAX root solves a pixel, so one draw of a pane could run for seconds
-  // and trip a GPU watchdog (a reset, a lost context). It renders into an accumulation target of the rect's size
-  // (RGBA32F under a float target, RGBA8 otherwise; cleared to 0), at most one tile of REPT_TILE_SOLVES /
-  // REPEAT_NODES_MAX pixels per call, as a submission of its own (flushed before and after). Until the last tile is in,
-  // the call answers 'pending' (frameStatus().pending: the caller's stand-in, and ready / settled wait) and asks the
-  // app for a redraw (GLR.onReptPending). The complete target is drawn into the pane by reptAcc, the same pixels however
-  // many tiles made it, and a later draw with the same signature (everything the walk reads, reptSig) draws it again
-  // with no walk. st.whole (an export) draws every tile in the one call, each its own submission. A region mask's pass
-  // (st.rept 1): the walk writes its unresolved pixels as the mark (1, 0, 0, 0), which the composite leaves out of the
-  // picture and marks 1 in the stencil (cleared at the frame's first mark) for reptHatchFill.
+  // and trip a GPU watchdog (a reset, a lost context). It renders into accumulation targets of the rect's size (RGBA8,
+  // cleared to 0), each call drawing at most one tile as a submission of its own (flushed before and after):
+  //  - pass A, the whole rect at the budget REPT_FAST_NODES (in tiles of REPT_TILE_SOLVES / REPT_FAST_NODES px when
+  //    larger): a pixel whose search ends is final, one that does not reads the continue mark (uIxRepPass 1);
+  //  - then one occlusion query per tile of pass B (REPT_TILE_SOLVES / REPEAT_NODES_MAX px) over the continue marks,
+  //    read at a later call (WebGL answers a query no sooner);
+  //  - pass B, the tiles that hold continue marks, at the whole budget: target B starts as a copy of A, and the walk
+  //    runs only at the continue marks (uIxRepPass 2, A read as uIxRepPrev).
+  // Until the picture is complete the call answers 'pending' (frameStatus().pending: the caller's stand-in, and ready /
+  // settled wait) and asks the app for a redraw (GLR.onReptPending). The complete target is drawn into the pane by
+  // reptAcc (the same pixels however many tiles made it), and a later draw with the same signature draws it again with no
+  // walk. The signature is what the draw binds (reptSig): the program, the value of every uniform set on it (recorded as
+  // set, shadowUniforms), the texture bound to each of its samplers with its contents' version, the viewport, the rect
+  // and the context's generation; a sampler bound to a texture whose version is not known makes the draw uncacheable,
+  // and it then draws whole. st.whole (an export) draws every tile in the one call, pass B over every tile (no query).
+  // A region mask's pass (st.rept 1): the walk writes its unresolved pixels as the mark (1, 0, 0, 0), which the
+  // composite leaves out of the picture and marks 1 in the stencil (cleared at the frame's first mark) for
+  // reptHatchFill. st.direct (a test's read-back of raw values): one pass at the whole budget straight into the caller's
+  // target, no accumulation.
   const REPT_ACC_KEEP = 4;        // accumulation targets kept (least recently drawn dropped)
-  const reptAccs = new Map();     // signature -> {tex, fbo, w, h, ts, nx, ny, next}
-  let reptTileSolves = GLChain.reptTile().solves;
-  const reptStat = { calls: 0, tiles: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0 };
+  const reptAccs = new Map();     // signature -> {w, h, A: {tex, fbo}, B, phase, next, tilesA, tilesB, q}
+  let reptTileSolves = 0, reptFastNodes = 0, reptHoldB = false, ctxGen = 0;
+  // a REPT draw answered 'pending' since the last GLR.reptPendingTake (a pane's frame begins and ends several GL frames,
+  // and each begin clears frameStatus().pending: the pane's status takes this once a frame)
+  let reptPendFlag = false;
+  const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0 };
+  const reptTileOf = () => GLChain.reptTile();
+  const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
+  // the uniform setters record the values set on a REPT program (its WebGLProgram's reptShadow: location -> value)
+  let glProg = null;
+  function shadowUniforms(g) {
+    const use0 = g.useProgram.bind(g);
+    g.useProgram = (p) => { glProg = p; use0(p); };
+    for (const f of Object.getOwnPropertyNames(Object.getPrototypeOf(g)).filter((k) => /^uniform(Matrix)?[1-4]/.test(k))) {
+      const f0 = g[f].bind(g);
+      g[f] = (loc, ...a) => { if (loc && glProg && glProg.reptShadow) glProg.reptShadow.set(loc, JSON.stringify(a, sigVal)); return f0(loc, ...a); };
+    }
+  }
   const progIds = new WeakMap();
   let progIdN = 0;
-  const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
-  function reptSig(P, st, d, rec, rect, flt) {
-    if (!progIds.has(P)) progIds.set(P, ++progIdN);
-    const r = rec;
-    return JSON.stringify([progIds.get(P), cur.invData, st.map && st.map.a, st.map && st.map.b, d, reptNodes, reptPoison, st.rept || 0,
-      st.look, st.dpr || 1, st.view, rect, vpX, vpY, fw, fh, flt, reptTileSolves, invTexKey, palId,
-      [r.offset, r.kind, r.complement, r.nPts, r.ptsOff, r.A, r.B, r.C, r.formSlot, r.clipH, r.clipU, r.box, r.stage],
-      st.prep.win, st.prep.R, st.prep.rs, st.carry || null, st.carry ? cur.data : null, st.edge || null, st.grow || 0], sigVal);
+  // a texture's contents' version, null when not known
+  function texVer(t) {
+    if (!t) return 'none';
+    if (t === invTex) return 'pack:' + invTexKey;
+    if (t === palTex) return 'pal:' + palId;
+    if (t === lutTex) return 'lut';
+    return null;
   }
-  function reptAccFree(A) { gl.deleteTexture(A.tex); gl.deleteFramebuffer(A.fbo); }
+  function reptSig(P, st, rect, mark) {
+    const p = P.p;
+    if (!progIds.has(p)) progIds.set(p, ++progIdN);
+    const vals = Object.values(P.loc).map((l) => (l && p.reptShadow ? p.reptShadow.get(l) ?? null : null));
+    const unit0 = gl.getParameter(gl.ACTIVE_TEXTURE), tex = [];
+    let known = true;
+    for (const n of Object.keys(P.loc)) {
+      if (!(n in SAMPLER_UNITS) || n === 'uIxRepPrev') continue;
+      gl.activeTexture(gl.TEXTURE0 + SAMPLER_UNITS[n]);
+      const v = texVer(gl.getParameter(gl.TEXTURE_BINDING_2D));
+      if (v === null) known = false;
+      tex.push(n + '=' + v);
+    }
+    gl.activeTexture(unit0);
+    if (!known) return null;
+    const t = reptTileOf();
+    return JSON.stringify([progIds.get(p), vals, tex, Array.from(gl.getParameter(gl.VIEWPORT)), st.dpr || 1, rect, mark, ctxGen,
+      reptTileSolves || t.solves, reptFastNodes || t.fast, reptNodes, reptPoison]);
+  }
+  function reptTarget(w, h) {
+    const T = { tex: gl.createTexture(), fbo: gl.createFramebuffer() };
+    gl.bindTexture(gl.TEXTURE_2D, T.tex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, w, h);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, T.tex, 0);
+    return T;
+  }
+  function reptAccFree(E) {
+    for (const T of [E.A, E.B]) if (T) { gl.deleteTexture(T.tex); gl.deleteFramebuffer(T.fbo); }
+    for (const q of E.q || []) gl.deleteQuery(q);
+  }
+  // the tiles of a w x h rect of at most px pixels each: [x, y, w, h]
+  function reptTiles(w, h, px) {
+    if (w * h <= px) return [[0, 0, w, h]];
+    const ts = Math.max(1, Math.floor(Math.sqrt(px))), out = [];
+    for (let y = 0; y < h; y += ts) for (let x = 0; x < w; x += ts) out.push([x, y, Math.min(ts, w - x), Math.min(ts, h - y)]);
+    return out;
+  }
   let reptKickT = 0;
   function reptKick() {
     if (reptKickT) return;
     reptKickT = setTimeout(() => { reptKickT = 0; if (api.onReptPending) api.onReptPending(); }, 0);
   }
-  function reptDraw(P, st, d, rec, rect, scOn, prevSc) {
+  function reptDraw(P, st, rect, scOn, prevSc) {
     const [ax0, ay0, ax1, ay1] = rect, w = ax1 - ax0, h = ay1 - ay0, mark = st.rept === 1;
-    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
-    let flt = false;
-    try { flt = !!prevFb && gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE) === gl.FLOAT; } catch (e) { flt = false; }
-    const sig = reptSig(P, st, d, rec, rect, flt);
     reptStat.calls++;
+    const restoreSc = () => { if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST); };
+    if (st.direct) {
+      u1i(P, 'uIxRepPass', 0); u2f(P, 'uIxRepFc', 0, 0); u1i(P, 'uIxRepHatch', mark ? 1 : 0);
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(ax0, ay0, w, h);
+      gl.bindVertexArray(empty());
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(null);
+      restoreSc();
+      reptStat.searches++; invDraws++;
+      return 'drawn';
+    }
+    const t = reptTileOf(), S = reptTileSolves || t.solves, fast = Math.min(reptFastNodes || t.fast, t.nodes);
+    const sig = reptSig(P, st, rect, mark), whole = !!st.whole || sig === null;
+    if (sig === null) reptStat.uncached++;
+    const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT), blend = gl.isEnabled(gl.BLEND);
     gl.activeTexture(gl.TEXTURE15);
     const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
-    let A = reptAccs.get(sig);
-    if (A) { reptAccs.delete(sig); reptAccs.set(sig, A); }
+    let E = sig === null ? null : reptAccs.get(sig);
+    if (E) { reptAccs.delete(sig); reptAccs.set(sig, E); }
     else {
-      const tpx = Math.max(1, Math.floor(reptTileSolves / GLChain.reptTile().nodes)), ts = Math.max(1, Math.floor(Math.sqrt(tpx)));
-      A = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w, h, ts, nx: Math.ceil(w / ts), ny: Math.ceil(h / ts), next: 0 };
-      gl.bindTexture(gl.TEXTURE_2D, A.tex);
-      gl.texStorage2D(gl.TEXTURE_2D, 1, flt ? gl.RGBA32F : gl.RGBA8, w, h);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, A.fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, A.tex, 0);
+      E = { w, h, A: reptTarget(w, h), B: null, phase: 'A', next: 0, tilesA: reptTiles(w, h, Math.max(1, Math.floor(S / fast))), tilesB: null, q: null };
       gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
-      reptAccs.set(sig, A);
-      for (const [k, B] of reptAccs) { if (reptAccs.size <= REPT_ACC_KEEP) break; reptAccFree(B); reptAccs.delete(k); }
+      if (sig !== null) {
+        reptAccs.set(sig, E);
+        for (const [k, F] of reptAccs) { if (reptAccs.size <= REPT_ACC_KEEP) break; reptAccFree(F); reptAccs.delete(k); }
+      }
     }
-    gl.bindTexture(gl.TEXTURE_2D, prevTex);
-    const n = A.nx * A.ny;
-    if (A.next < n) {
-      const vp = gl.getParameter(gl.VIEWPORT), blend = gl.isEnabled(gl.BLEND);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, A.fbo);
-      gl.viewport(0, 0, A.w, A.h);
+    const tilesB = () => reptTiles(w, h, Math.max(1, Math.floor(S / t.nodes)));
+    // (the walk's w at a pixel of a target: the pane's pixel ax0 + x, ay0 + y; the hatch's phase the pane's)
+    const walk = (T, pass, list, many) => {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+      gl.viewport(0, 0, w, h);
       gl.disable(gl.BLEND); gl.enable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
       gl.useProgram(P.p);
-      // (the walk's w at a pixel of the target: the pane's pixel ax0 + x, ay0 + y; the hatch's phase the pane's)
       u4f(P, 'uVp', vpX - ax0, vpY - ay0, fw, fh); u2f(P, 'uIxRepFc', ax0, ay0); u1i(P, 'uIxRepHatch', mark ? 1 : 0);
+      u1i(P, 'uIxRepPass', pass); u1i(P, 'uIxRepFast', fast);
+      // (unit 15, uIxRepPrev: A in pass B; else nothing, as the target drawn into may not be bound to a sampler)
+      gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, pass === 2 ? E.A.tex : null);
       gl.bindVertexArray(empty());
       let k = 0;
       do {
-        const tx = (A.next % A.nx) * A.ts, ty = Math.floor(A.next / A.nx) * A.ts, tw = Math.min(A.ts, A.w - tx), th = Math.min(A.ts, A.h - ty);
+        const [tx, ty, tw, th] = list[E.next];
         gl.flush();
         gl.scissor(tx, ty, tw, th);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.flush();
-        A.next++; k++;
-        reptStat.tiles++; reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * GLChain.reptTile().nodes);
-      } while (st.whole && A.next < n);
+        E.next++; k++;
+        reptStat.searches++; reptStat[pass === 1 ? 'tilesA' : 'tilesB']++;
+        reptStat.maxTileSolves = Math.max(reptStat.maxTileSolves, tw * th * (pass === 1 ? fast : t.nodes));
+      } while (many && E.next < list.length);
       reptStat.maxTilesPerCall = Math.max(reptStat.maxTilesPerCall, k);
       gl.bindVertexArray(null);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
-      gl.viewport(vp[0], vp[1], vp[2], vp[3]);
-      if (blend) gl.enable(gl.BLEND);
-      gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
-      if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
       invDraws++;
+    };
+    let progress = true;
+    while (progress && E.phase !== 'done') {
+      progress = false;
+      if (E.phase === 'A') {
+        walk(E.A, 1, E.tilesA, whole);
+        if (E.next < E.tilesA.length) break;
+        E.phase = 'Q'; E.next = 0; E.tilesB = tilesB(); E.B = reptTarget(w, h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, E.B.fbo); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+        if (whole) { E.phase = 'B'; progress = true; continue; }
+        // one query per tile of pass B: any continue mark in it
+        const Q = ok && program('reptAcc');
+        if (!Q) break;
+        use(Q);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, E.B.fbo); gl.viewport(0, 0, w, h);
+        gl.colorMask(false, false, false, false); gl.enable(gl.SCISSOR_TEST);
+        gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, E.A.tex);
+        u2f(Q, 'uAccOff', 0, 0); u1i(Q, 'uAccMode', 3);
+        gl.bindVertexArray(empty());
+        E.q = E.tilesB.map(([tx, ty, tw, th]) => {
+          const q = gl.createQuery();
+          gl.scissor(tx, ty, tw, th);
+          gl.beginQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE, q);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE);
+          return q;
+        });
+        gl.bindVertexArray(null);
+        gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+        break;
+      }
+      if (E.phase === 'Q') {
+        if (!E.q.every((q) => gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE))) break;
+        E.tilesB = E.tilesB.filter((_, i) => gl.getQueryParameter(E.q[i], gl.QUERY_RESULT));
+        for (const q of E.q) gl.deleteQuery(q);
+        E.q = null;
+        if (!E.tilesB.length) { E.phase = 'done'; E.src = E.A; break; }
+        E.phase = 'B'; progress = true;
+        continue;
+      }
+      if (E.phase === 'B') {
+        if (E.next === 0) {
+          // (B starts as a copy of A: the pixels the second pass leaves are the first's)
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, E.A.fbo); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, E.B.fbo);
+          gl.disable(gl.SCISSOR_TEST);
+          gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+          gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+        }
+        if (reptHoldB && !whole) break;
+        walk(E.B, 2, E.tilesB, whole);
+        if (E.next >= E.tilesB.length) { E.phase = 'done'; E.src = E.B; }
+      }
     }
-    const Q = A.next >= n && ok && program('reptAcc');
-    if (!Q) { framePending = true; reptKick(); return 'pending'; }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, prevFb);
+    gl.viewport(vp[0], vp[1], vp[2], vp[3]);
+    if (blend) gl.enable(gl.BLEND); else gl.disable(gl.BLEND);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, prevTex);
+    const Q = E.phase === 'done' && ok && program('reptAcc');
+    if (!Q) { restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending'; }
     use(Q);
-    gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, A.tex);
+    gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, E.src.tex);
     u2f(Q, 'uAccOff', ax0, ay0);
     gl.enable(gl.SCISSOR_TEST); gl.scissor(ax0, ay0, w, h);
     gl.bindVertexArray(empty());
@@ -896,7 +1019,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     gl.bindVertexArray(null);
     gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, prevTex);
-    if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST);
+    restoreSc();
+    if (sig === null) reptAccFree(E);
     reptStat.composites++;
     return 'drawn';
   }
@@ -1147,8 +1271,11 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     // (tests: the tile bound, null for REPT_TILE_SOLVES; the tile account since the last read, reset by it)
-    setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : GLChain.reptTile().solves; },
-    reptTiles: () => { const r = Object.assign({ tileSolves: reptTileSolves, kept: reptAccs.size }, reptStat); Object.assign(reptStat, { calls: 0, tiles: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0 }); return r; },
+    // (tests: the tile bound and the first pass's budget, 0 for their own; pass B held; the tile account since the last
+    // read, reset by it)
+    setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
+    holdReptB: (on) => { reptHoldB = !!on; }, reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
+    reptTiles: () => { const r = Object.assign({ kept: reptAccs.size }, reptStat); for (const k of Object.keys(reptStat)) reptStat[k] = 0; return r; },
     setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, reptHatchFill, reptMarkCount, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },

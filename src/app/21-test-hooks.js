@@ -250,14 +250,24 @@
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // a Repeat chain's exact plane (#1472): o.nodes sets the GPU's node budget of a REPT search (GLR.setReptNodes; 0: its
   // own), o.poison a non-finite root at every first node ('nan' | 'inf'; null: none; GLR.setReptPoison), for the
-  // unresolved hatch's controls; o.tiles the root solves of a REPT draw's tile (GLR.setReptTileSolves; 0: its own);
-  // o.tileStats: the tile account since the last read (GLR.reptTiles); o.land: the Landscape mask's unresolved pixels
+  // unresolved hatch's controls; o.tiles the root solves of a REPT draw's tile (GLR.setReptTileSolves; 0: its own),
+  // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
+  // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
+  // the next task (WEBGL_lose_context); o.land: the Landscape mask's unresolved pixels
   // (null: no mask); o.ws [[re, im]]: the CPU
   // twin of the left plane's REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the
   // most and the total root solves, the pruned children, and the pixels covered, empty and unresolved
   window.__cmwRept = (o) => {
     if (o && o.tileStats) return GLR.reptTiles();
-    if (o && ('nodes' in o || 'poison' in o || 'tiles' in o)) {
+    if (o && o.lose) {
+      const x = GLR.gl && GLR.gl.getExtension('WEBGL_lose_context');
+      if (!x) return false;
+      x.loseContext(); setTimeout(() => x.restoreContext(), 0);
+      return true;
+    }
+    if (o && ('nodes' in o || 'poison' in o || 'tiles' in o || 'fast' in o || 'holdB' in o)) {
+      if ('fast' in o) GLR.setReptFastNodes(o.fast);
+      if ('holdB' in o) GLR.holdReptB(o.holdB);
       if ('nodes' in o) GLR.setReptNodes(o.nodes);
       if ('poison' in o) GLR.setReptPoison(o.poison);
       if ('tiles' in o) GLR.setReptTileSolves(o.tiles);
