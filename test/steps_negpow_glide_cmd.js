@@ -17,6 +17,7 @@ const WRONG_MAX = 0.02;      // of the pixels the glide colours
 const U_ROW = [0.6, 0.65, 0.66, 2 / 3, 0.67, 0.68, 0.7, 0.75];
 const NEAR_ZERO = [-0.02, -0.005, 0, 0.005, 0.02];
 const U_END = [0.998, 0.9999];
+const EXPECT_DIFF_MIN = 0.01;  // the expected share at two different u differ by at least this
 const COMPARE_MIN_SHARE = 0.4; // of parked w1's coloured pixels: the compare reads at least this many
 const SHIFT = 40;            // the control's colour shift, of 255
 const VIEWS = ['plane', 'sphere', 'land'];
@@ -26,7 +27,11 @@ const CASES = [
   { name: 'K3 powa -3/2', step: { type: 'powa', params: { alpha: '-1.5', cut: 180, k: 0 }, on: true }, a: -1.5 },
 ];
 const quiet = () => settled({ max: 60000 });
-const { grab, coloured: colouredN, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'frame_compare.js'), 'utf8'));
+const { grab, coloured: colouredN, compare, expected } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'frame_compare.js'), 'utf8'));
+const { paneOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the plane window the left pane shows
+const windowOf = async () => { const P = await paneOf(); return { x0: P.v.cx - P.w / 2 / P.v.s, x1: P.v.cx + P.w / 2 / P.v.s, y0: P.v.cy - P.h / 2 / P.v.s, y1: P.v.cy + P.h / 2 / P.v.s }; };
+const U_CTRL = [0.75, 0.95];   // the control: the .75 frame judged against the .95 expected count
 // the u of a case's row: U_ROW and the places around the one-phase exponent's zero, u = 1/(1 - a)
 const rowOf = (c) => [...new Set([...U_ROW, ...NEAR_ZERO.map((d) => 1 / (1 - c.a) + d)].map((x) => +x.toFixed(6)))].sort((x, y) => x - y);
 await view(1200, 800, false, false);
@@ -41,13 +46,15 @@ const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await qui
 const row = async (c, v, probe) => {
   await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 1 }); 1`); await quiet();
   await grab('p1'); const ref = await colouredN('p1');
-  const low = [];
+  const win = await windowOf(), low = [], rows = {};
   for (const u of rowOf(c)) {
     await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
-    await park(u); await grab('u'); const n = await colouredN('u');
-    if (!(n >= COVER_MIN * ref)) low.push({ u, n, ref });
+    await park(u); await grab('u'); const n = await colouredN('u'), exp = await expected(c.a, u, win);
+    rows[u] = { n, exp };
+    if (!(n >= COVER_MIN * exp * ref)) low.push({ u, n, exp, ref });
   }
-  return { ref, low };
+  if (rows[U_CTRL[0]]) rows.ctrl = { n: rows[U_CTRL[0]].n, exp: await expected(c.a, U_CTRL[1], win) };
+  return { ref, low, rows };
 };
 for (const [i, c] of CASES.entries()) {
   await seedCase(c, i);
@@ -55,7 +62,8 @@ for (const [i, c] of CASES.entries()) {
   for (const v of VIEWS) {
     const r = await row(c, v, null);
     R[c.name][v] = r;
-    ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
+    ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of the expected share of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
+    if (v === 'plane') ok(`${c.name} plane: control, the .75 frame judged against the .95 expected count (${r.rows.ctrl && r.rows.ctrl.exp}) differs from its own (${r.rows[U_CTRL[0]] && r.rows[U_CTRL[0]].exp})`, !!r.rows.ctrl && Math.abs(r.rows.ctrl.exp - r.rows[U_CTRL[0]].exp) > EXPECT_DIFF_MIN, r.rows);
     // control: the one-phase exponent blanks the frame near 1/(1 - a)
     const r1 = await row(c, v, 'powOnePhase');
     R[c.name][v + ' onePhase'] = r1;
