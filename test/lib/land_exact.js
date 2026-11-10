@@ -81,6 +81,9 @@
   const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
   const STRIP_TOL = 1e-9;   // radians: a member whose log coordinate's imaginary part is this far outside its sheet's window (lo, hi] of the first op (__cmwLandWin) is a range-ramp member the scene's count (a winding inside the window) leaves out; the enumerator's own level test (lvl >= 0, src/inverse.js) is the same rule
   const CTL_NA = { seam: { 'log of an annulus@0.5': 'no seam edge in the row (its one edge is a false cut)', 'log of an annulus@0.75': 'no seam edge in the row (its edges are false cuts or unresolved)' }, ramp: { 'log of an annulus@0.75': 'no place of the lattice holds a range-ramp member inside the box' } };   // the rows (case tag @ u) where a control has nothing to run on, so it is listed and checked: a row off the list that cannot run fails, and so does a row on it that can
+  // the rows (case tag @ u) where the made-up edge's controls cannot run, with the trace that explains it: syn, the scene counts no member at the made-up edge's end vertices (asserted from the scene's count); z, the
+  // z-chart control's two runs (with and without the separation check) both end in the edge's own track, before any step is judged for separation (asserted from the failure of both runs)
+  const CTL_NA_SYN = { syn: { 'log of an annulus@0.75': 'the scene counts no member at the made-up edge\'s end vertices (the branch value -3.75 is outside the places the scene counts members at)' }, z: { 'log of an annulus@0.5': 'both runs end in the edge track (Newton cap, sheet 7)', 'cube root@0.5': 'both runs end in the edge track (separation at t0 = 2e-4, sheet 8)', 'cube root@0.75': 'both runs end in the edge track (Newton cap, sheet 7)' } };
   const RAMP_LATTICE = 40;   // places on a side of the lattice the ramp-member control searches
   const ID_SHARE = 0.1;   // two points are one member when their log coordinates agree within this share of the set's smallest separation (and within LAMBDA_SAME of 1 + |lam|): below 1/2 a point cannot be one member of two, and a set whose members are closer than the absolute tolerance still keeps them apart
   const CONV_FLOOR = 1e-13;   // the smallest correction (share of 1 + |lam|) a tracked member can be asked to converge to: about 500 ulp of lam in float64; a set that needs a finer one is unresolved
@@ -89,6 +92,7 @@
   const CONV_SHARE = 1e-3;   // a tracked member is converged when the correction Newton still implies is within this share of the smallest separation to another member of its set (and never above LAMBDA_SAME)
   const LOOP_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];   // the directions the displaced control moves its loops: each of the eight neighbours of the vertex
   const CELL_QUANT = 8;   // a branch cell is named by its lower-left corner in eighths of a grid cell
+  const ORBIT_REACH_MAX = 40;   // the most roots a + kT on each side of a an orbit is enlarged by (each is a Newton solve and a tracked member in every loop, about 1 ms of page time apiece on llvmpipe): a row whose members span more is unresolved and fails
   const ORBIT_EXTRA = 2;   // the roots of an orbit added for a loop's image are at most the scene's member count here plus this many (past it the loop is unresolved)
   const MONO_FAR = 8;   // grid cells: a member set the enumerator does not complete is counted and certified this far from the place, and continued in
   const MONO_SEP = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member in a step, so two members never swap
@@ -418,15 +422,15 @@
         const tr = track(setV, pts);
         if (!tr) return null;
         iv.lam0 = tr[iv.i].lam && setV[iv.i].lam ? csub(tr[iv.i].lam, setV[iv.i].lam) : null;   // (the shift of a's log coordinate round the loop)
-        let c = iv.i, hit = false, lost = false;
+        let c = iv.i, hit = false, lost = false, chain = 0;
         for (let g = 0; g <= setV.length; g++) {
           const n = idMatches(setV, tr[c])[0] ?? -1;
-          if (n < 0) { lost = true; iv.lostInfo = { chain: g, nearest: Math.min(...setV.map((q) => dist(q, tr[c]))), sepMin: sepMinOf(setV), lam: tr[c].lam, tol: ${LAMBDA_SAME} * (1 + cabs(tr[c].lam || tr[c].z)) }; break; }
+          if (n < 0) { lost = true; chain = g; iv.lostInfo = { chain: g, nearest: Math.min(...setV.map((q) => dist(q, tr[c]))), sepMin: sepMinOf(setV), lam: tr[c].lam, tol: ${LAMBDA_SAME} * (1 + cabs(tr[c].lam || tr[c].z)) }; break; }
           if (n === ib) hit = true;
           if (n === iv.i) break;
           c = n;
         }
-        return { hit, lost, shift: iv.lam0 };
+        return { hit, lost, chain, shift: iv.lam0 };
       };
       // (the two ends hold one member, the same root whatever sheets the page gave them: no cut, no branch)
       if (ib === iv.i) return { cls: 'false', why: 'one member', dl: dist(setV[iv.i], trO[io.i]) };
@@ -440,25 +444,40 @@
       }
       // (the orbit of a: where a loop carries a to a member the set does not list, the roots a + k T, T the shift of its log coordinate round the loop, are certified
       // on the scene's H at the vertex and added, at most ORBIT_MAX of them: the loop is then read on the larger set, past the cap it stays unresolved)
-      const orbitMax = Math.round(countAt(wv)) + ${ORBIT_EXTRA};
-      let enlarged = false;
+      // (the orbit enlargement: the members of the cycle through a are a + kT (T the shift of a's log coordinate round the loop) for every integer k; the other end's member b is a member
+      // of the set and so within the set's own span of a in the imaginary part of lam: kmax = that span in shares of |T|, plus one. The roots with |k| up to the larger of kmax + 1
+      // and the scene's member count plus ORBIT_EXTRA are certified and added, at most ORBIT_REACH_MAX of them each way (a wider span is unresolved), so a chain that leaves the set
+      // after kmax steps in both directions without reaching b shows b is no member of a's cycle)
+      let enlarged = false, reach = null;
       const enlarge = (T) => {
         if (enlarged || !T || !(cabs(T) > 0)) return false;
         enlarged = true;
+        const a0 = setV[iv.i];
+        const span = Math.max(...setV.filter((x) => x.lam).map((x) => Math.abs(x.lam[1] - a0.lam[1])));
+        const kmax = Math.ceil(span / cabs(T)) + 1, want0 = Math.round(countAt(wv)) + ${ORBIT_EXTRA}, orbitMax = Math.min(${ORBIT_REACH_MAX}, Math.max(want0, kmax + 1));
+        reach = { kmax, orbitMax, capped: kmax + 1 > ${ORBIT_REACH_MAX}, span, T };
         let added = 0;
-        for (let k = 1; added < orbitMax && k <= orbitMax; k++) for (const sg of [1, -1]) {
-          const lam = [setV[iv.i].lam[0] + sg * k * T[0], setV[iv.i].lam[1] + sg * k * T[1]];
-          const m = newton({ z: expc(lam), lam, sheet: setV[iv.i].sheet, sheets: setV[iv.i].sheets, lvl: setV[iv.i].lvl }, wv);
+        for (let k = 1; k <= orbitMax; k++) for (const sg of [1, -1]) {
+          const lam = [a0.lam[0] + sg * k * T[0], a0.lam[1] + sg * k * T[1]];
+          const m = newton({ z: expc(lam), lam, sheet: a0.sheet, sheets: a0.sheets, lvl: a0.lvl }, wv);
           if (m && idMatches(setV, m).length === 0) { setV.push(m); added++; }
           window.__lxOrbit.push({ k: sg * k, lam, ok: !!m, nfail: m ? null : nfail, cell: [Math.round(wv[0] / h * ${CELL_QUANT}), Math.round(wv[1] / h * ${CELL_QUANT})] });
         }
         if (added > 0 && !(opt && opt.absTol)) refine();
         return added > 0;
       };
-      // (a loop is read in both directions: the chain a, a + T, a + 2T... runs off the end of the truncated orbit one way, and the other member of the cycle may lie the other way;
-      // a hit in either direction is a cycle holding both members, lost only where both directions lose the chain)
       const read1 = (pts) => { let q = cyc(pts); if (q && q.lost && enlarge(q.shift)) q = cyc(pts); return q; };
-      const read = (pts) => { const q = read1(pts); if (q && q.hit) return q; const r = read1(pts.slice().reverse()); return r && r.hit ? r : (q && r ? Object.assign({}, q, { lost: q.lost && r.lost }) : q || r); };
+      const read = (pts) => {
+        const q = read1(pts);
+        if (q && q.hit) return q;
+        const r = read1(pts.slice().reverse());
+        if (r && r.hit) return r;
+        if (!q || !r) return q || r;
+        // (both directions leave the set: past kmax steps each without b, b is no member of the cycle: the loop holds no b, a read and not a loss; short of kmax, or with the reach capped, the chain is lost)
+        const done = reach && !reach.capped && q.lost && r.lost && q.chain >= reach.kmax && r.chain >= reach.kmax;
+        window.__lxChain = (window.__lxChain || []).concat([[q.chain, r.chain, reach && reach.kmax, !!(reach && reach.capped)]]);
+        return Object.assign({}, q, { lost: done ? false : q.lost && r.lost, chain: [q.chain, r.chain] });
+      };
       if (opt && opt.noLoops) return { cls: 'false', why: 'no loops' };   // (the no-reach control: with no loop to read, a branch edge is not certified)
       let unres = false;
       fail = null;
@@ -794,7 +813,7 @@
     ok(`the raster check fails a wall of ${CTL.wallW} pixels`, o.wall > RASTER_TOL, o);
     ok(`the raster check fails a mask ${CTL.shift} pixels off`, o.shift > RASTER_TOL, o);
   }
-  const bit = { empty: 0, ramp: 0, noBJoin: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
+  const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
   const withProbe = async (probe, u, read) => {
@@ -960,11 +979,27 @@
           ok(`${t}: control: with no loops to read the made-up branch edge is not certified (${synNL.cls})`, synNL.cls !== 'branch', synNL);
           const synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`);
           const synZ = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true })`), synZoff = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, zchart: true, sep: false })`);
-          ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls}${syn.clear != null ? '; the branch value is ' + syn.clear.toFixed(2) + ' cells from the nearest loop path' : ''})`, syn.cls === 'branch', syn);
-          ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
-          ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of ${LOOP_DIRS.length} still certify)`, synDp.cls === 'displaced' && synDp.loops < LOOP_DIRS.length, synDp);
-          ok(`${t}: control: in the z chart (steps near the branch value swap members) the verdict without the separation check (${synZoff.cls}) differs from the one with it (${synZ.cls})`, synZoff.cls !== synZ.cls, { synZ, synZoff });
+          const key = `${c.tag}@${u}`, noSyn = syn.cls === 'unresolved' && syn.why === 'syn' && syn.n.every((x) => x === 0) && syn.want.length === 0;
+          let zNoBite = false;
+          if (noSyn) {
+            ok(`${t}: control: the made-up edge has no member at its end vertices (the scene counts none there: ${JSON.stringify(syn.want)}), as the row's list expects: ${CTL_NA_SYN.syn[key]}`, key in CTL_NA_SYN.syn, syn);
+          } else {
+            ok(`${t}: control: a row whose made-up edge has members at its ends is not on the list of rows that have none`, !(key in CTL_NA_SYN.syn), syn);
+            ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls}${syn.clear != null ? '; the branch value is ' + syn.clear.toFixed(2) + ' cells from the nearest loop path' : ''})`, syn.cls === 'branch', syn);
+            ok(`${t}: control: with a wrong second member it certifies none (${synSw.cls})`, synSw.cls === 'false', synSw);
+            ok(`${t}: control: with the loops moved ${MONO_DISPLACE} cells away some loop of every direction fails to hold the branch value (${synDp.loops} of ${LOOP_DIRS.length} still certify)`, synDp.cls === 'displaced' && synDp.loops < LOOP_DIRS.length, synDp);
+            zNoBite = synZoff.cls === synZ.cls && synZ.cls === 'unresolved' && !!synZ.fail && !!synZoff.fail;
+            if (zNoBite) ok(`${t}: control: in the z chart both runs (${synZoff.cls}, ${synZ.cls}) end before any step is judged for separation, as the row's list expects: ${CTL_NA_SYN.z[key]}`, key in CTL_NA_SYN.z, { synZ, synZoff });
+            else {
+              ok(`${t}: control: a row whose z-chart control runs is not on the list of rows where it cannot`, !(key in CTL_NA_SYN.z), { synZ, synZoff });
+              ok(`${t}: control: in the z chart (steps near the branch value swap members) the verdict without the separation check (${synZoff.cls}) differs from the one with it (${synZ.cls})`, synZoff.cls !== synZ.cls, { synZ, synZoff });
+              if (synZoff.cls !== synZ.cls) bit.zchart++;
+            }
+          }
+          r[u].synRead = { syn: syn.cls, swap: synSw.cls, zNoBite };
+          if (!noSyn && synSw.cls === 'false') bit.synWrong++;
         }
+        r[u].chains = await ev('window.__lxChain');   // ([forward chain, backward chain, kmax, reach capped] of each loop read that left the set both ways)
         r[u].orbitSyn = await ev('window.__lxOrbit');   // (the orbit roots the controls and the made-up edges tried, with the vertex cell: k(lam) against the branch cell)
         // the control: with every cut forced to the middle of its edge (probe midCut) the distance is about half the chord
         const ctlC = await withProbe({ midCut: true }, u, () => ev('__lx.cutT()'));
@@ -1087,6 +1122,8 @@
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
+  ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
+  ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
   ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
   return { pass: !fails.length, fails, info };
 })
