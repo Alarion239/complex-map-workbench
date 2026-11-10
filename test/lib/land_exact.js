@@ -247,7 +247,7 @@
     }
     window.__lxMasks = { ref: r.px, frame, W2, H2 };
     // (a control's reference against the last uncontrolled one: the pixels that differ)
-    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.CELL_DEPTH_MAX !== undefined;
+    const ctl = g.seam || g.branch || g.seed || g.apexOld || g.fixedCell || g.labelShift || g.CELL_DEPTH_MAX !== undefined;
     let diff = 0;
     if (!ctl) window.__lxBaseRef = r.px;
     else if (window.__lxBaseRef && window.__lxBaseRef.length === r.px.length) for (let i = 0; i < r.px.length; i++) if (window.__lxBaseRef[i] !== r.px[i]) diff++;
@@ -1014,6 +1014,10 @@
         if (rk && rk.cells.countedBy && rk.cells.countedBy[scope] && !controlsDone['count:' + scope]) { controlsDone['count:' + scope] = 1; await control(`a member removed from the completeness counts at ${COUNT_WHERE[scope]}`, { countDrop: scope }, (c) => c.failures.some((f) => f.kind === 'count' && f.scope === scope)); }
       }
       if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone.apex) { controlsDone.apex = 1; await control('a pixel at a branch point decided with no height comparison', { apexOld: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
+      // (the re-anchoring controls: a member that keeps the cell it started in across the cut, or takes the next surface where it leaves the cell, must fail the reference)
+      for (const [key, what] of [['fixedCell', 'a member that keeps its starting cell across the cut'], ['labelShift', 'a member that takes the next surface where it changes cell']]) {
+        if (/cube root/.test(t) && u === GLIDE_MID && !controlsDone[key]) { controlsDone[key] = 1; await control(what, { [key]: 1 }, (c) => c.failures.length > 0 || c.off > RASTER_TOL); }
+      }
       if (rk && rk.certs.length > 0 && !controlsDone.branch) { controlsDone.branch = 1; await control('a branch point moved one cell', { branch: 1 }, (c) => c.failures.some((f) => f.kind === 'branch' || f.kind === 'cellDepth')); }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
     }
