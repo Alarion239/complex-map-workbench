@@ -1193,7 +1193,17 @@
   // o.clipOff draws the layers without the block's geometric clip; o.constant adds the float target's check (pass 3: every fragment writes vec4(1, 2, 3, 4)).
   // -> { err } where no float target or no layered frame, else { W, H, uH, hc, blockK, covered, maxDrawn, nStrad, truncated, samples: [{ x, y, vz, own, cell, z, zc, kind }], constant }
   // the height the layered draw puts on screen at the value of the plane w = [re, im] before the block's clip: the frame's own height function without its clamp at the block's top and bottom
-  window.__cmwLandRawHeight = (w) => (render3D.frameHeight ? render3D.frameHeight(landValue({ re: w[0], im: w[1] }), true) : null);
+  // The height the layered draw gives a fragment of preimage z (the anchor zc, the layer's claim code own): the frame's own height function, unclamped, of plane 0's map
+  // F on the claim's surface (Funcs.sheetEval, the scene's own evaluation of the chain; the draw's landW is the same chain over the same stages) -> [height | null], null where F
+  // is not finite. list: [{ z, zc, own }]
+  window.__cmwLandCapHeights = (list) => {
+    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), fm = SV.on ? svMapAt(0) : endMap();
+    return list.map((q) => {
+      let f = null;
+      try { f = Funcs.sheetEval(S.steps, built, fm.b, C(q.zc[0], q.zc[1]), C(q.z[0], q.z[1]), q.own, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+      return f && CX.isFin(f) && render3D.frameHeight ? render3D.frameHeight(landValue(f), true) : null;
+    });
+  };
   const CAP_CELL_MAX = 16777216;   // (a cell index is written as a float: exact below 2^24)
   window.__cmwLandCapRead = (o) => {
     o = o || {};

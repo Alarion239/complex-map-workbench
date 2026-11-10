@@ -1046,8 +1046,8 @@
   const capEval = async (samples, shift) => {
     const out = [];
     for (let i = 0; i < samples.length; i += CAP_BATCH) {
-      const b = samples.slice(i, i + CAP_BATCH).map((q) => ({ z: q.z, zc: q.zc, own: q.own }));
-      out.push(...await ev(`${JSON.stringify(b)}.map((q) => { const v = __cmwLandScene(q.z, q.own + ${shift}, q.zc); return v ? __cmwLandRawHeight(v) : null; })`));
+      const b = samples.slice(i, i + CAP_BATCH).map((q) => ({ z: q.z, zc: q.zc, own: q.own + shift }));
+      out.push(...await ev(`__cmwLandCapHeights(${JSON.stringify(b)})`));
     }
     return out;
   };
@@ -1076,10 +1076,6 @@
       if (k.constant && k.constant.every((x, i) => x === CAP_CONST[i])) capBit.c4++;
     }
     const hc = on.hc, tS = Date.now();
-    if (process.env.CAP_DBG && (u === 0.25 || u === 0.9999)) {
-      const dbg = await ev(`(() => { const b = __cmwLandCarry(true), pts = []; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) pts.push([b.x0 + (b.x1 - b.x0) * (0.15 + 0.23 * i), b.y0 + (b.y1 - b.y0) * (0.15 + 0.23 * j)]); const g = __cmwLandFrameVerts(pts); return g.map((ls) => ls.map((l) => { const v = __cmwLandScene(l.z, 0, l.z); return { w: l.w, h: l.h, z: l.z, hw: __cmwLandRawHeight(l.w), v, hv: v ? __cmwLandRawHeight(v) : null, f: l.f, hf: l.f ? __cmwLandRawHeight(l.f) : null }; })); })()`);
-      fs.appendFileSync(process.env.CAP_DBG, JSON.stringify({ t, dbg }) + '\n');
-    }
     const hOn = await capEval(on.samples, 0), sOn = capStat(on, hOn, hc), tOn = Date.now() - tS;
     ok(`${t}: cap: no sampled pixel is unresolved by the scene (${sOn.unresolved} of ${on.samples.length})`, sOn.unresolved === 0, sOn);
     ok(`${t}: cap: no straddling cell is left out of the sample (${on.truncated} of ${on.nStrad + on.truncated} cells; ${on.samples.length} of ${CAP_MAX} pixels)`, on.truncated === 0, { truncated: on.truncated, nStrad: on.nStrad });
