@@ -9,7 +9,8 @@
 //  3. typing the bracket takes the hint away at once, before the field is committed;
 //  4. the readings: z^1/3 reads z/3, a bracketed base (z+1)^-1/2 gets the hint and its button writes (z+1)^(-1/2); each
 //     expression is one unbreakable span in the field's own monospace face, and the button has a border;
-//  5. controls: z^(-1/2), z^{-1/2}, z^-2 and the product z^2*3 (3z² as it stands) show no hint, and neither does a power step.
+//  5. Italian and Russian: the sentence has all three expressions (the power −1/2 too) and the button reads in that language;
+//  6. controls: z^(-1/2), z^{-1/2}, z^-2 and the product z^2*3 (3z² as it stands) show no hint, and neither does a power step.
 // It runs in the steps view (ci/suite_views.js): a step opens in the Inspector from its chip on the thread, and F is the
 // last plane of the thread.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/inspector_parse_hint_cmd.js
@@ -24,6 +25,8 @@ const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KH
 const DESKUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 // the least size of a touch target, in CSS px (the phone's buttons)
 const TOUCH_MIN = 44;
+// the hint's three expressions (the reading, the power, the fix), and the button's border width, the outlined button's own 1 px
+const HINT_EXPRS = 3, BORDER_MIN = 1;
 // the pixels a plane may differ in, per channel, and how many (JPEG-free screenshots of one GPU frame)
 const TOL = 8;
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
@@ -45,6 +48,14 @@ const look = () => ev(`(() => { const c = document.querySelector('#propsPanel .i
 const field = () => ev(`document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]').value`);
 const typed = (v) => ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important}' : ''; return 1; })()`);
+// a language switch reloads the page: wait until the new page is in that language (data-lang, which English leaves unset)
+// and shows the element `sel`
+const relang = async (lang, sel) => {
+  await ev(`I18N.setPref('${lang}'), 1`);
+  const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
+  for (let i = 0; i < 100; i++) { let r = false; try { r = await ev(there); } catch (e) { r = false; } if (r === true) break; await sleep(200); }
+  ok(`${lang}: the page reloaded in ${lang} and shows ${sel}`, (await settled({ max: 8000, until: there })).ok, { lang, sel });
+};
 // F's plane pictures, without the colour legend and the thread's strip
 const LEGEND_W = 170, STRIP_H = 100;
 const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; out.push({ x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width - ${LEGEND_W}), height: Math.round(r.height - ${STRIP_H}) }); } return out; })()`);
@@ -106,23 +117,35 @@ await chip(1); await settled();
 {
   const l = await look();
   info.look = l;
-  ok('4: each expression is one unbreakable span (three of them)', !!l && l.spans === 3 && l.nowrap === 3, l);
-  ok('4: the expressions are in the formula field\'s monospace face', !!l && l.mono === l.field && /mono|Mono|Menlo|Consolas/.test(l.mono), l);
-  ok('4: the button has a border, so it reads as a button', !!l && l.border >= 1 && l.borderColor !== 'rgba(0, 0, 0, 0)', l);
+  ok('4: each expression is one unbreakable span (HINT_EXPRS of them)', !!l && l.spans === HINT_EXPRS && l.nowrap === HINT_EXPRS, l);
+  ok('4: the expressions are in the formula field\'s monospace face', !!l && l.mono === l.field && /JetBrains Mono.*monospace/.test(l.mono), l);
+  ok('4: the button has a border, so it reads as a button', !!l && l.border >= BORDER_MIN && l.borderColor !== 'rgba(0, 0, 0, 0)', l);
 }
 
-// ---- 5: controls ----
+// ---- 5: Italian and Russian ----
+const LANG_HINT = { it: ['Letto come (z⁻¹)/2. Per la potenza −1/2, scrivi z^(-1/2).', 'Usa z^(-1/2)'], ru: ['Читается как (z⁻¹)/2. Для степени −1/2 напишите z^(-1/2).', 'Заменить на z^(-1/2)'] };
+await open('phJ', [F1('z^-1/2')]);
+for (const lang of ['it', 'ru']) {
+  await relang(lang, '#svStrip .sv-step[data-k="1"] .sv-fchip');
+  await chip(1); await settled();
+  const h = await hint();
+  ok(`${lang}: the hint says all three expressions`, !!h && h.text === LANG_HINT[lang][0], h);
+  ok(`${lang}: the button reads in ${lang}`, !!h && h.buttons.length === 1 && h.buttons[0].t === LANG_HINT[lang][1], h);
+}
+await relang('en', '#svStrip .sv-step[data-k="1"] .sv-fchip');
+
+// ---- 6: controls ----
 for (const [name, expr, kind] of [['z^(-1/2)', 'z^(-1/2)', 'custom'], ['z^-2', 'z^-2', 'custom'], ['z^{-1/2}', 'z^{-1/2}', 'custom'], ['z^2*3', 'z^2*3', 'custom']]) {
   await open('phD', [F1(expr)]);
   await chip(1); await settled();
   const h = await hint();
-  ok(`4: control ${name}: the card is open and has no hint`, !!h && h.card && h.text === '' && h.buttons.length === 0 && !h.shown, h);
+  ok(`6: control ${name}: the card is open and has no hint`, !!h && h.card && h.text === '' && h.buttons.length === 0 && !h.shown, h);
 }
 await open('phE', [{ type: 'pown', params: { n: 2 }, on: true }]);
 await chip(1); await settled();
 {
   const h = await hint();
-  ok('4: control: a power step has no hint', !!h && h.card && h.text === '' && !h.shown, h);
+  ok('6: control: a power step has no hint', !!h && h.card && h.text === '' && !h.shown, h);
 }
 
 // ---- phone ----

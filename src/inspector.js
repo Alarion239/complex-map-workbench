@@ -469,11 +469,12 @@ const Inspector = (() => {
       return null;
     }
     // the sentence with each expression in a span that does not break and keeps the field's monospace face
-    const HINT_MARK = ['\uE000', '\uE001', '\uE002'];
+    // (private-use characters nothing else in a translation uses: Italian's own marker is U+E001)
+    const HINT_MARK = ['\uE010', '\uE011', '\uE012'];
     function hintSentence(p) {
       const s = $t('Read as {read}. For the power {power}, write {fix}.', { read: HINT_MARK[0], power: HINT_MARK[1], fix: HINT_MARK[2] });
       const val = [p.read, p.power, p.fix], out = [];
-      for (const part of s.split(/([\uE000-\uE002])/)) {
+      for (const part of s.split(/([\uE010-\uE012])/)) {
         const at = HINT_MARK.indexOf(part);
         out.push(at < 0 ? part : h('span', { class: 'ihint-x' }, val[at]));
       }
