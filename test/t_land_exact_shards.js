@@ -10,10 +10,9 @@ const { SHARDS } = require('../ci/browser_shards.js');
 let n = 0, fails = 0;
 const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name, info === undefined ? '' : JSON.stringify(info)); } };
 
-// the cases that a suite's runs do not list, each with the reason (a case in this list must be one the suite would run)
-const ALL_EXEMPT = {
-  'Möbius dipole, √': 'steps_land_exact_all_cmd.js would run it, and it is red there: 68 lip members at every u, a hue-shifted row at u = 0.002 and a coverage raster row at u = 0.002 (407 s on lavapipe); All sheets #1342 adds the run, red, and empties this list',
-};
+// the cases that a suite's runs do not list, each with the reason (a case in this list must be one the suite would run, and
+// has no run); empty: every case has a run
+const ALL_EXEMPT = {};
 
 const lib = fs.readFileSync(path.join(__dirname, 'lib', 'land_exact.js'), 'utf8');
 const TAGS = [...lib.matchAll(/^\s*\{ tag: '([^']+)'/gm)].map((m) => m[1]);

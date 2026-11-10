@@ -53,7 +53,7 @@ const SHARDS = [
   { id: 'land-exact-3', suites: ['steps_land_exact_cmd.js#log, box centred at 1.5 + 0.5i', 'steps_land_exact_cmd.js#Möbius with a pole in the box', 'steps_land_exact_cmd.js#Roots as preimages'] },   // 803 + 176 + 298
   { id: 'land-exact-4', suites: ['steps_land_exact_cmd.js#Partial sums of the exponential (Newton)', 'steps_land_exact_cmd.js#Joukowski airfoil'] },         // 750 + 412
   { id: 'land-exact-5', suites: ['steps_land_exact_cmd.js#Möbius, √'] },                                                                  // 518
-  // (the same cases with All sheets, one run per shard until their times are known; the dipole has no run: test/t_land_exact_shards.js)
+  // (the same cases with All sheets, one run per shard until their times are known)
   { id: 'land-all-1', suites: ['steps_land_exact_all_cmd.js#Möbius, √'] },
   { id: 'land-all-2', suites: ['steps_land_exact_all_cmd.js#Möbius with a pole in the box'] },
   { id: 'land-all-3', suites: ['steps_land_exact_all_cmd.js#log of an annulus'] },
@@ -62,6 +62,7 @@ const SHARDS = [
   { id: 'land-all-6', suites: ['steps_land_exact_all_cmd.js#Joukowski airfoil'] },
   { id: 'land-all-7', suites: ['steps_land_exact_all_cmd.js#Roots as preimages'] },
   { id: 'land-all-8', suites: ['steps_land_exact_all_cmd.js#Partial sums of the exponential (Newton)'] },
+  { id: 'land-all-9', suites: ['steps_land_exact_all_cmd.js#Möbius dipole, √'] },
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_learn_classic_cmd.js', 'ux165_learn_phone_classic_cmd.js', 'ux165_learn_first_run_cmd.js', 'ux165_learn_sound_cmd.js', 'ux165_rail_cmd.js', 'd1_replace_cmd.js', 'ux165_plane_classic_cmd.js'] },            // 210 + 169 + 195 (ux165_rail: the steps view and the classic view) + 116
   { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_phone_classic_cmd.js', 'ux165_plane_cmd.js', 'key_popup_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js', 'phone_ctx_tex_cmd.js', 'phone_ctx_slide_cmd.js', 'phone_palette_cmd.js', 'ux165_merge_classic_cmd.js', 'phone_export_steps_cmd.js'] },   // 149 (ux165_phone and ux165_phone_classic together) + 108 + 130 (key_popup) + 70 + 63 (it threw)
