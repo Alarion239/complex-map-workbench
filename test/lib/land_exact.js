@@ -917,6 +917,7 @@
   const onSide = (x, sat, hi) => (hi ? x.h >= sat[1] - HEIGHT_TOL : x.h <= sat[0] + HEIGHT_TOL);
   // a layer and a member of one z agree in height when they are within HEIGHT_TOL, or when both lie beyond the clip level on the same side (the layer holds the true height, the reference's
   // is clipped there) and the member is the only one of its z on that side
+  // (the exemption holds because the draw clips the layer's height at BLOCK_K times the height scale uH, which is the level sat; CLIPPED_ROWS lists the rows whose controls rest on it)
   const heightsAgree = (l, m, want, sat) => Math.abs(l.h - m.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(m, sat, hi) && want.filter((x) => sameZ(x.z, m.z) && onSide(x, sat, hi)).length === 1));
   const sameLayers = (have, want, sat = null) => {
     if (have.length !== want.length) return false;
