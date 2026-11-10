@@ -2121,6 +2121,16 @@ unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a war
 // (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
 function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
 unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows (#1205)', svLandBytesUnit);
+// Diagnostic: the glides of z^(-1/2) (a complex power, powa) and z^-2 (a negative integer power, pown) on the plane, the
+// sphere and Landscape, Everywhere, at dpr 1 and 2; info rows only
+const SV_NEG_STATE = (step) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] });
+const SV_NEG_MAPS = { rhalf: SV_NEG_STATE({ type: 'powa', params: { alpha: '-1/2' } }), m2: SV_NEG_STATE({ type: 'pown', params: { n: -2 } }) };
+for (const [name, state] of Object.entries(SV_NEG_MAPS)) {
+  for (const surf of ['plane', 'sphere', 'land']) {
+    const id = `sv.glide.neg_${name}_${surf}`;
+    unit(id, `diagnostic: the steps view, z^${name === 'rhalf' ? '(-1/2)' : '-2'} on the ${surf}: a warm glide there and back at dpr 1 and 2; info rows only`, () => svGlideUnit(name, { id, surf, state, info: true }), { timeoutS: 900 });
+  }
+}
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
