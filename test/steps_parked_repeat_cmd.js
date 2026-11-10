@@ -17,8 +17,11 @@
 // with no region); one within AMBIG_TOL of both (the colour plane's own light rings, near the paper) is ambiguous, not
 // scored, counted, and at most FAINT_MAX_SHARE of a row.
 // - the renderer's own unresolved pixels: the gallery plane holds none of the grey no-value hatch (#1444's measure), and,
-//   as its control, a search starved to STARVED_NODES root solves (__cmwRept({ nodes })) hatches most of it; each row's
-//   info carries the CPU twin's root solves and pruned children at its samples (__cmwRept({ ws }), info only).
+//   as its control, a search starved to STARVED_NODES root solves (__cmwRept({ nodes })) hatches most of it, and so does a
+//   non-finite root (NaN, then an infinity) forced into every first node (__cmwRept({ poison })): it reads unresolved,
+//   never covered or empty; the gallery's Landscape counts no unresolved pixel in its region mask, and its starved
+//   control counts some (__cmwRept({ land: true })); each row's info carries the CPU twin's root solves and pruned
+//   children at its samples (__cmwRept({ ws }), info only).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -199,6 +202,23 @@ const hatchCount = () => ev(`(() => {
   if (hooked) { await ev('__cmwRept({ nodes: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
   info['starved search'] = Object.assign({ nodes: STARVED_NODES, hooked }, h1);
   ok(`control: a search starved to ${STARVED_NODES} root solves hatches at least ${STARVED_MIN_SHARE * 100} % of the plane`, hooked && h1.hatch >= STARVED_MIN_SHARE * h1.pixels, h1);
+  for (const poison of ['nan', 'inf']) {
+    if (hooked) { await ev(`__cmwRept({ poison: '${poison}' }); 1`); await settled({ max: SETTLE_LONG, panes: true }); }
+    const hp = await hatchCount();
+    if (hooked) { await ev('__cmwRept({ poison: null }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
+    info[`${poison} root`] = hp;
+    ok(`control: a ${poison === 'nan' ? 'NaN' : 'infinite'} root in every first node reads unresolved (the hatch on at least ${STARVED_MIN_SHARE * 100} % of the plane)`, hooked && hp.hatch >= STARVED_MIN_SHARE * hp.pixels, hp);
+  }
+  // the Landscape's region mask (svLandMask) cannot draw the hatch: it counts the unresolved pixels instead
+  await ev(`__cmwSteps({ surf: 'land' }); 1`); await settled({ max: SETTLE_LONG, panes: true });
+  const l0 = hooked ? await ev('__cmwRept({ land: true })') : null;
+  ok('gallery square, Landscape: the region mask counts no unresolved pixel', !!l0 && l0.unresolved === 0, l0);
+  if (hooked) { await ev(`__cmwRept({ nodes: ${STARVED_NODES} }); 1`); await settled({ max: SETTLE_LONG, panes: true }); }
+  const l1 = hooked ? await ev('__cmwRept({ land: true })') : null;
+  if (hooked) { await ev('__cmwRept({ nodes: 0 }); 1'); await settled({ max: SETTLE_LONG, panes: true }); }
+  info['landscape mask'] = { whole: l0, starved: l1 };
+  ok(`control: the Landscape's mask under a search starved to ${STARVED_NODES} root solves counts unresolved pixels`, !!l1 && l1.unresolved > 0, l1);
+  await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settled({ max: SETTLE_LONG, panes: true });
 }
 const bite = await row('bite region', BITE, -1, BITE_N);
 if (bite) {

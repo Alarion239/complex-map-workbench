@@ -492,6 +492,101 @@ void main() {
         if (bad.length) { RP.failCount++; if (RP.fails.length < 30) RP.fails.push({ chain: name, w: [w.re, w.im], bad }); }
       });
     }
+    // control: a non-finite root (NaN, then an infinity) forced into every first node (GLR.setReptPoison) reads
+    // unresolved at every point of the gallery scene, never covered or empty
+    {
+      const [name, nRep, shape, pts] = SCENES[0];
+      const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: nRep, len: 1 } })];
+      const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built);
+      GLR.setChain(GLChain.build(steps, built));
+      const prep = Inverse.prepare(plan, { win: VIEW, shape });
+      GLR.packShapes([shape], { debounce: false });
+      const data = new Float32Array(1024 * 2 * 4);
+      pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(PIX); });
+      RP.poison = {};
+      for (const poison of ['nan', 'inf']) {
+        GLR.setReptPoison(poison);
+        const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, extra: EXTRA_REPT }, data, pts.length, 1);
+        GLR.setReptPoison(null);
+        if (g.error) { R.errors.push(`rept ${name} ${poison}: gpu ${g.error}`); continue; }
+        let unres = 0;
+        for (let i = 0; i < pts.length; i++) if (g.out[4 * i + 1] === 0 && g.out[4 * i + 2] > 0) unres++;
+        RP.poison[poison] = `${unres}/${pts.length} unresolved`;
+        if (unres !== pts.length) { RP.failCount++; RP.fails.push({ chain: name, bad: [`a ${poison} root: ${unres} of ${pts.length} points unresolved`] }); }
+      }
+    }
+    // the certificate on the GPU itself: the GPU's roots z_i, refined radii rho_i and crude radii of one node at each
+    // (v, dv), read back; every float64 Durand-Kerner root of the true P - v Q lies within the GPU's rho_i of its z_i.
+    // The v: the CPU twin's nodes of the scenes' pixels, and adversarial ones (near the double roots at the cube roots of
+    // unity, where |p'| meets its slack and the discs nearly touch; far out; near 0), with chain errors up to the
+    // roots' separation. Control: rho scaled by CERT_CONTROL must show misses
+    const CERT_CONTROL = 1e-3, DK_ITER = 400, DK_TOL = 1e-13, NODE_PIX = 40;
+    const MAIN_NODE = `
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 t = texelFetch(uW, ivec2(c.x, 0), 0);
+  ixPix = 1.0; ixRepCrude = vec3(-1.0);
+  bool ok = ix0_node(t.xy, t.z, 0);
+  if (c.y == 0) o = vec4(ixRZ[0], ixRZ[1]);
+  else if (c.y == 1) o = vec4(ixRZ[2], ok ? 1.0 : 0.0, 0.0);
+  else if (c.y == 2) o = vec4(ixRR[0], ixRR[1], ixRR[2], 0.0);
+  else o = vec4(ixRepCrude, 0.0);
+}
+`;
+    const dkRoots = (a) => {
+      const m = a.map((x) => CX.div(x, a[0])), p = (z) => CX.add(CX.mul(CX.add(CX.mul(CX.add(z, m[1]), z), m[2]), z), m[3]);
+      let z = [C(0.4, 0.9), C(-0.9, 0.3), C(0.7, -0.6)].map((s) => CX.scale(s, 1 + CX.abs(m[1]) + Math.cbrt(CX.abs(m[3]))));
+      for (let it = 0; it < DK_ITER; it++) {
+        const nz = z.map((zi, i) => { let d = C(1, 0); z.forEach((zj, j) => { if (j !== i) d = CX.mul(d, CX.sub(zi, zj)); }); return CX.sub(zi, CX.div(p(zi), d)); });
+        const mv = Math.max(...nz.map((x, i) => CX.abs(CX.sub(x, z[i]))));
+        z = nz;
+        if (mv < DK_TOL * (1 + Math.max(...z.map(CX.abs)))) break;
+      }
+      return z;
+    };
+    const CERT = RP.cert = { nodes: 0, certified: 0, misses: 0, controlMisses: 0, refinedAboveCrude: 0, fails: [] };
+    const steps = [Object.assign(St('custom', { expr: NEWTON, cut: 180 }), { repeat: { n: 20, len: 1 } })];
+    const built = Funcs.applyRepeats(steps, steps.map(Funcs.build)), plan = Inverse.planChain(steps, built), op = plan.ops[0];
+    // the nodes: the twin's search at NODE_PIX pixels of each scene (InvOps' reptNode, the v and chain error of each node)
+    const nodes = [];
+    const walk = (v, dv, depth) => {
+      if (nodes.length >= 700) return;
+      nodes.push([v, dv]);
+      const nd = depth < 20 ? InvOps.reptNode(op.p.P, op.p.Q, v, dv) : null;
+      if (nd) for (let i = 0; i < 3 && depth < 3; i++) walk(nd.z[i], nd.rho[i], depth + 1);
+      if (nd && depth >= 3) walk(nd.z[0], nd.rho[0], depth + 1);
+    };
+    for (const w of grid(VIEW, 7).slice(0, NODE_PIX)) walk(w, 0, 0);
+    const adv = [];
+    for (const r0 of [C(1, 0), C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)]) for (let k = 1; k <= 8; k++) for (let a = 0; a < 8; a++) adv.push([CX.add(r0, C(10 ** -k * Math.cos(a * 0.785 + 0.1), 10 ** -k * Math.sin(a * 0.785 + 0.1))), 0]);
+    for (const R0 of [1e-6, 1e-3, 30, 1e3, 1e5]) for (let a = 0; a < 8; a++) adv.push([C(R0 * Math.cos(a * 0.785 + 0.3), R0 * Math.sin(a * 0.785 + 0.3)), 0]);
+    for (const dv of [1e-7, 1e-5, 1e-3, 1e-2, 0.1, 0.3]) for (let a = 0; a < 8; a++) adv.push([C(0.8 * Math.cos(a * 0.785), 0.8 * Math.sin(a * 0.785)), dv]);
+    const all = nodes.concat(adv).slice(0, 1024).map(([v, dv]) => [C(Math.fround(v.re), Math.fround(v.im)), Math.fround(dv)]);
+    GLR.setChain(GLChain.build(steps, built));
+    const shape = { id: 'sq', kind: 'rect', a: [-2, -2], b: [2, 2] };
+    const prep = Inverse.prepare(plan, { win: VIEW, shape });
+    GLR.packShapes([shape], { debounce: false });
+    const data = new Float32Array(1024 * 2 * 4);
+    all.forEach(([v, dv], i) => { data[4 * i] = v.re; data[4 * i + 1] = v.im; data[4 * i + 2] = dv; });
+    const g = await gpuRun({ map: { mode: 0, a: 0, b: 1 }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1 }, extra: { pre: 'uniform highp sampler2D uW;\n', main: MAIN_NODE } }, data, all.length, 4);
+    if (g.error) R.errors.push(`rept certificate: gpu ${g.error}`);
+    else {
+      const n = all.length, at = (row, i) => g.out.subarray(4 * (row * n + i), 4 * (row * n + i) + 4);
+      all.forEach(([v], i) => {
+        CERT.nodes++;
+        const r0 = at(0, i), r1 = at(1, i), rr = at(2, i), rc = at(3, i);
+        if (r1[2] !== 1) return;
+        CERT.certified++;
+        const z = [C(r0[0], r0[1]), C(r0[2], r0[3]), C(r1[0], r1[1])], rho = [rr[0], rr[1], rr[2]];
+        const ref = dkRoots(op.p.P.map((pk, k) => CX.sub(pk, CX.mul(v, op.p.Q[k]))));
+        const within = (s) => z.every((zi, k) => ref.some((r) => CX.abs(CX.sub(zi, r)) <= s * rho[k]));
+        if (!within(1)) { CERT.misses++; if (CERT.fails.length < 10) CERT.fails.push({ v: [v.re, v.im], z: z.map((q) => [q.re, q.im]), rho, ref: ref.map((q) => [q.re, q.im]) }); }
+        if (!within(CERT_CONTROL)) CERT.controlMisses++;
+        if (rho.some((r, k) => !(r <= rc[k]))) CERT.refinedAboveCrude++;
+      });
+      if (CERT.misses || CERT.refinedAboveCrude) RP.failCount++;
+      if (!(CERT.controlMisses > 0)) { RP.failCount++; CERT.fails.push({ control: `rho x ${CERT_CONTROL} shows no miss` }); }
+    }
     if (RP.failCount) R.failCount += RP.failCount;
   }
   // ---- shapeClip vs Region.shapeClip ----

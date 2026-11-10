@@ -293,6 +293,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a REPT search's node budget (uIxRepNodes, min'd with REPEAT_NODES_MAX in the walker): the walker's own unless a test
   // starves it (setReptNodes, the unresolved hatch's control)
   let reptNodes = 1 << 30;
+  // a test's non-finite root at every level-0 node (setReptPoison 'nan' | 'inf'; null: none): the pixel must read unresolved
+  let reptPoison = null;
   // ---- per-pass data from Inverse.prepare (cached per prep object and program op list) ----
   const passCache = new WeakMap();
   const isFinC = (z) => !!z && Number.isFinite(z.re) && Number.isFinite(z.im);
@@ -632,6 +634,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (P.loc.uIxBox) gl.uniform4fv(P.loc.uIxBox, d.box);
     if (P.loc.uIxRepE) gl.uniform4fv(P.loc.uIxRepE, d.repE);
     u1i(P, 'uIxRepNodes', reptNodes);
+    u1i(P, 'uIxRepPoison', reptPoison ? 1 : 0); u1f(P, 'uIxRepBad', reptPoison === 'inf' ? Infinity : NaN);
     // (st.rept: a REPT program's unresolved pixels: 0 hatched, 1 left out and marked (a region mask's pass, below))
     u1i(P, 'uIxRepHatch', st.rept || 0);
     u1i(P, 'uIxStopOp', d.stopOp);
@@ -800,6 +803,29 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
     return true;
+  }
+  // the pixels the frame's stencil marks unresolved (a REPT plan's region-mask pass, drawInverse), counted by a read-back
+  // of the frame (its picture is overwritten: the caller has copied it), then the marks cleared. 0 without marks
+  function reptMarkCount() {
+    const Q = ok && program('keepA');
+    if (!Q || repMarkFrame !== invFrame) return 0;
+    use(Q);
+    gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true);
+    gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.clearColor(0, 0, 0, 0);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    const px = new Uint8Array(4 * fw * fh);
+    gl.readPixels(vpX, vpY, fw, fh, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let n = 0;
+    for (let i = 3; i < px.length; i += 4) if (px[i] === 0) n++;
+    gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    repMarkFrame = -1;
+    return n;
   }
   // draws the ready inverse programs that were never drawn into one pixel of the current target (their first draw
   // builds the Metal pipeline: a 75-200 ms stall of the GPU process), at a quiet moment chosen by the app, so the
@@ -1007,7 +1033,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, reptHatchFill, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, reptHatchFill, reptMarkCount, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,

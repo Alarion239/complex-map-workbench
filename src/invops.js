@@ -458,6 +458,7 @@ const InvOps = (() => {
   // product v Q_k (2 sqrt 2 with 1-ulp ops, < 3) and the difference (1): |fl(a_k) - a_k| <= REPT_FORM u (|P_k| + |v| |Q_k|)
   const REPT_FORM = 6;
   const REPT_ROUND = 16;             // ulps of slack on the certificate's own float steps (rho, the distances, the sums)
+  const REPT_FIN = 1e30;             // a certificate's value (coefficient, root, radius) is finite below this magnitude
   const REPT_VIETA = 64;             // ulps of the roots' sum and product beyond the discs' slack
   const REPT_POL = 2;                // Newton steps polishing each closed-form root
   const REPT_AA_TOL = 0.25;          // px: a leaf whose chain error is wider than this, within it of the region's edge, is unresolved
@@ -515,8 +516,8 @@ const InvOps = (() => {
   // the certificate of a root set z of p_v (a: its coefficients as computed from P, Q and v; dv: the chain error of v):
   // the radii rho (each z_i within rho_i of its own root of the true p_v), or null. See the section's head.
   function reptCert(P, Q, v, dv, a, z) {
-    const U = REPT_U, n = REPT_DEG, av = abs(v);
-    if (z.length !== n || !z.every(isFin) || !isFin(a[0]) || isZero(a[0])) return null;
+    const U = REPT_U, n = REPT_DEG, av = abs(v), fin = (x) => isFin(x) && Math.max(Math.abs(x.re), Math.abs(x.im)) < REPT_FIN;
+    if (z.length !== n || !z.every(fin) || !a.every(fin) || isZero(a[0])) return null;
     // w_k: the slack of coefficient a_k (high-first: a_k multiplies z^(n - k)), forming and evaluation
     const wk = a.map((x, k) => REPT_GAMMA * U * abs(x) + abs(Q[k]) * dv + REPT_FORM * U * (abs(P[k]) + av * abs(Q[k])));
     const rho = [], G = [];
@@ -526,10 +527,10 @@ const InvOps = (() => {
       for (let k = 0; k <= n; k++) { const pw = n - k; e += wk[k] * m ** pw; if (pw > 0) e1 += pw * wk[k] * m ** (pw - 1); }
       const [pz, dz] = reptEval(a, x);
       const den = abs(dz) - e1;
-      if (!(den > 0)) return null;
-      const r = 3 * (abs(pz) + e) / den * (1 + REPT_ROUND * U);
-      if (!Number.isFinite(r)) return null;
-      rho.push(r); G.push(den / (abs(pz) + e) * (1 - REPT_ROUND * U));
+      if (!(den > 0 && den < REPT_FIN)) return null;
+      const r = 3 * (abs(pz) + e) / den * (1 + REPT_ROUND * U), g = den / (abs(pz) + e) * (1 - REPT_ROUND * U);
+      if (!(r >= 0 && r < REPT_FIN && g >= 0 && g < REPT_FIN)) return null;
+      rho.push(r); G.push(g);
     }
     const dz = (i, j) => abs(sub(z[i], z[j])) * (1 - REPT_ROUND * U);
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!(dz(i, j) > rho[i] + rho[j])) return null;
@@ -542,7 +543,7 @@ const InvOps = (() => {
       let S = 0;
       for (let k = 0; k < n; k++) if (k !== i) S += 1 / (dz(i, k) - rho[k]);
       const g = G[i] - S * (1 + REPT_ROUND * U);
-      return g > 0 ? Math.min(rho[i], 1 / g * (1 + REPT_ROUND * U)) : rho[i];
+      return g > 0 && g < REPT_FIN ? Math.min(rho[i], 1 / g * (1 + REPT_ROUND * U)) : rho[i];
     });
     for (let i = 0; i < n; i++) rho[i] = ref[i];
     /** @type {any} */ (rho).crude = crude;
@@ -552,7 +553,7 @@ const InvOps = (() => {
     const sumTol = rho[0] + rho[1] + rho[2] + (wk[1] + abs(b) * wk[0]) / a0 + REPT_VIETA * U * (zm[0] + zm[1] + zm[2] + abs(b));
     const pm = zm[0] * zm[1] * zm[2];
     const prodTol = (zm[0] + rho[0]) * (zm[1] + rho[1]) * (zm[2] + rho[2]) - pm + (wk[3] + abs(d) * wk[0]) / a0 + REPT_VIETA * U * (pm + abs(d));
-    if (!(abs(add(sum, b)) <= sumTol) || !(abs(add(prod, d)) <= prodTol)) return null;
+    if (!(sumTol < REPT_FIN && prodTol < REPT_FIN) || !(abs(add(sum, b)) <= sumTol) || !(abs(add(prod, d)) <= prodTol)) return null;
     return rho;
   }
   // one node: the certified roots of p_v with their radii and du/dv = 1 / R'(u) = Q^2 / (P'Q - PQ'), or null
@@ -1290,7 +1291,7 @@ const InvOps = (() => {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm,
-    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     ENCL_EPS, ENCL_CELLS_MAX, opRept, reptForm, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEval
   };
 })();

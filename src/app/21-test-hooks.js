@@ -249,11 +249,17 @@
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // a Repeat chain's exact plane (#1472): o.nodes sets the GPU's node budget of a REPT search (GLR.setReptNodes; 0: its
-  // own), for the unresolved hatch's control; o.ws [[re, im]]: the CPU twin of the left plane's REPT searches
-  // (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root solves, the
-  // pruned children, and the pixels covered, empty and unresolved
+  // own), o.poison a non-finite root at every first node ('nan' | 'inf'; null: none; GLR.setReptPoison), for the
+  // unresolved hatch's controls; o.land: the Landscape mask's unresolved pixels (null: no mask); o.ws [[re, im]]: the CPU
+  // twin of the left plane's REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the
+  // most and the total root solves, the pruned children, and the pixels covered, empty and unresolved
   window.__cmwRept = (o) => {
-    if (o && 'nodes' in o) { GLR.setReptNodes(o.nodes); requestRender('L', 'R'); }
+    if (o && ('nodes' in o || 'poison' in o)) {
+      if ('nodes' in o) GLR.setReptNodes(o.nodes);
+      if ('poison' in o) GLR.setReptPoison(o.poison);
+      svLandMaskC = null; requestRender('L', 'R');
+    }
+    if (o && o.land) return { unresolved: svLandMaskC ? svLandMaskC.unres : null };
     if (!o || !o.ws) return null;
     const map0 = stageMap(leftStage()), pix = 1 / (paneL.view.s * paneL.dpr), out = [];
     for (const s of S.shapes) {

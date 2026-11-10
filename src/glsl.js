@@ -2716,10 +2716,18 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
     return `#define IX_REPT 1
 const float IX_REP_U = ${glf(Inverse.REPT_U)};
 const float IX_REP_AA_TOL = ${glf(Inverse.REPT_AA_TOL)};
+// a value is finite when its magnitude is below IX_REP_FIN (InvOps.REPT_FIN): a NaN fails every comparison and an
+// infinity fails this one, without isnan, which a GPU compiler may fold away
+const float IX_REP_FIN = ${glf(Inverse.REPT_FIN)};
+bool ixRepOk(vec2 z) { return max(abs(z.x), abs(z.y)) < IX_REP_FIN; }
 vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
 bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
 uniform vec4 uIxRepE[${RS + 1}];
 uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
+// uIxRepPoison 1: a test's control (GLR.setReptPoison) puts uIxRepBad (a NaN or an infinity) in place of root 1 of every
+// level-0 node; 0 otherwise
+uniform int uIxRepPoison; uniform float uIxRepBad;
+vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's read-back)
 // uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 nothing, at depth 1 (a
 // region mask's pass: it is not covered, and the stencil marks it for GLR.reptHatchFill)
 uniform int uIxRepHatch;
@@ -2752,27 +2760,28 @@ vec2 ${P}_polish(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z) {
 // one root's radius 3 (|p| + e) / (|p'| - e') and G = (|p'| - e') / (|p| + e) (wk: the coefficients' slack); x < 0 when
 // |p'| <= e' or it overflows
 vec2 ${P}_rho(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec4 wk, vec2 z) {
-  if (!ixFin(z)) return vec2(-1.0);
+  if (!ixRepOk(z)) return vec2(-1.0);
   float m = cx_abs(z);
   float e = ((wk.x * m + wk.y) * m + wk.z) * m + wk.w, e1 = (3.0 * wk.x * m + 2.0 * wk.y) * m + wk.z;
   vec2 pz, dz;
   ${P}_eval(a0, a1, a2, a3, z, pz, dz);
   float den = cx_abs(dz) - e1;
-  if (!(den > 0.0)) return vec2(-1.0);
+  if (!(den > 0.0 && den < IX_REP_FIN)) return vec2(-1.0);
   float r = 3.0 * (cx_abs(pz) + e) / den * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
-  return r < 3.0e38 ? vec2(r, den / (cx_abs(pz) + e) * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U)) : vec2(-1.0);
+  float g = den / (cx_abs(pz) + e) * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  return r >= 0.0 && r < IX_REP_FIN && g >= 0.0 && g < IX_REP_FIN ? vec2(r, g) : vec2(-1.0);
 }
 // the radius refined once the discs are disjoint (InvOps.reptCert): each disc holds one root r_i, and
 // 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k) with |p'/p(z_i)| >= G and |z_i - r_k| >= d_k - rho_k > 0, so
 // |z_i - r_i| <= 1 / (G - sum_(k != i) 1 / (d_k - rho_k)) when that is positive; else the crude radius stays
 float ${P}_ref(vec2 rg, float d1, float r1, float d2, float r2) {
   float g = rg.y - (1.0 / (d1 - r1) + 1.0 / (d2 - r2)) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
-  return g > 0.0 ? min(rg.x, 1.0 / g * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U)) : rg.x;
+  return g > 0.0 && g < IX_REP_FIN ? min(rg.x, 1.0 / g * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U)) : rg.x;
 }
 bool ${P}_node(vec2 v, float dv, int l) {
   ${co}
   vec2 a0 = P0 - cmul(v, Q0), a1 = P1 - cmul(v, Q1), a2 = P2 - cmul(v, Q2), a3 = P3 - cmul(v, Q3);
-  if (!ixFin(a0) || (a0.x == 0.0 && a0.y == 0.0)) return false;
+  if (!ixRepOk(a0) || !ixRepOk(a1) || !ixRepOk(a2) || !ixRepOk(a3) || (a0.x == 0.0 && a0.y == 0.0)) return false;
   vec2 b = cdiv(a1, a0), cc = cdiv(a2, a0), dd = cdiv(a3, a0), b3 = b / 3.0;
   vec2 p = cc - cmul(b, b3), q = ${R(2 / 27)} * cmul(cmul(b, b), b) - cmul(b3, cc) + dd;
   float aq = cx_abs(q), s = max(sqrt(cx_abs(p)), aq > 0.0 ? exp2(log2(aq) / 3.0) : 0.0);
@@ -2789,6 +2798,7 @@ bool ${P}_node(vec2 v, float dv, int l) {
     z2 = ${P}_cardT(cmul(c0, vec2(-0.5, ${R(-Math.sqrt(3) / 2)})), ps) * s - b3;
   }
   z0 = ${P}_polish(a0, a1, a2, a3, z0); z1 = ${P}_polish(a0, a1, a2, a3, z1); z2 = ${P}_polish(a0, a1, a2, a3, z2);
+  if (uIxRepPoison == 1 && l == 0) z1 = vec2(uIxRepBad, 0.0);
   // the slack of each coefficient: evaluation (REPT_GAMMA), v's chain error, forming (REPT_FORM)
   float av = cx_abs(v);
   vec4 wk = ${R(Inverse.REPT_GAMMA)} * IX_REP_U * vec4(cx_abs(a0), cx_abs(a1), cx_abs(a2), cx_abs(a3))
@@ -2800,12 +2810,13 @@ bool ${P}_node(vec2 v, float dv, int l) {
   float d01 = cx_abs(z0 - z1) * sh, d02 = cx_abs(z0 - z2) * sh, d12 = cx_abs(z1 - z2) * sh;
   if (!(d01 > g0.x + g1.x) || !(d02 > g0.x + g2.x) || !(d12 > g1.x + g2.x)) return false;
   float r0 = ${P}_ref(g0, d01, g1.x, d02, g2.x), r1 = ${P}_ref(g1, d01, g0.x, d12, g2.x), r2 = ${P}_ref(g2, d02, g0.x, d12, g1.x);
+  ixRepCrude = vec3(g0.x, g1.x, g2.x);
   // Vieta within the discs' and the coefficients' slack
   float m0 = cx_abs(z0), m1 = cx_abs(z1), m2 = cx_abs(z2), aa = cx_abs(a0), ab = cx_abs(b), ad = cx_abs(dd);
   float sumTol = r0 + r1 + r2 + (wk.y + ab * wk.x) / aa + ${R(Inverse.REPT_VIETA)} * IX_REP_U * (m0 + m1 + m2 + ab);
   float pm = m0 * m1 * m2;
   float prodTol = (m0 + r0) * (m1 + r1) * (m2 + r2) - pm + (wk.w + ad * wk.x) / aa + ${R(Inverse.REPT_VIETA)} * IX_REP_U * (pm + ad);
-  if (!(cx_abs(z0 + z1 + z2 + b) <= sumTol) || !(cx_abs(cmul(cmul(z0, z1), z2) + dd) <= prodTol)) return false;
+  if (!(sumTol < IX_REP_FIN && prodTol < IX_REP_FIN) || !(cx_abs(z0 + z1 + z2 + b) <= sumTol) || !(cx_abs(cmul(cmul(z0, z1), z2) + dd) <= prodTol)) return false;
   int k = 3 * l;
   ixRZ[k] = z0; ixRZ[k + 1] = z1; ixRZ[k + 2] = z2; ixRR[k] = r0; ixRR[k + 1] = r1; ixRR[k + 2] = r2;
   return true;
