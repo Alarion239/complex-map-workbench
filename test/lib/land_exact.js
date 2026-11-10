@@ -83,7 +83,8 @@
   const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
   const UNCLIPPED_ALL = ['Möbius with a pole in the box', 'Roots as preimages'];   // (the cases whose All sheets draw is not clipped at the block: it has no classes)
   const CLASS_BORDER_EPS = 1e-5;   // (CLASS_BORDER_EPS in src/gl/06-draws-3d.js: the distance, relative to the coordinate, within which a corner on a plane may be either side of it in the GPU's arithmetic: far under a pixel)
-  const FALLBACK_DRAWS = 6;   // (STRAD_FALLBACK_FRAMES in src/gl/06-draws-3d.js: the carried draws that take every cell after an overflow)
+  const STRAD_STEP_U = 0.01, STRAD_JUMP_U = 0.3;   // (a glide step the straddling cells' count continues over, and a jump it does not: STRAD_DU_MAX in src/gl/06-draws-3d.js is 0.02)
+  const STRAD_DELTA_MAX = 128, SCRUB_STEP_U = 0.02;   // (the most the count of straddling cells moves between continuous frames, over the list's headroom of 256; the scrub's step of u)
   const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
   const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
@@ -544,31 +545,44 @@
             await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             ok(`${t}: control: with every MIX cell taken as OUT the CPU's classes differ (${cf && cf.cpuDiffer} cells)`, !!cf && cf.cpuDiffer > 0, cf);
           }
-          // the list's overflow is counted, never silent: none in the suite, and a list of 8 cells counts one (control; the next draws then take every cell through the clip program)
-          const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0');
+          // the list's overflow is counted, never silent, and its frame is exact: none in the suite, and a list of 8 cells counts one, its frame the full list's (control)
+          const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0'), syncs = async () => ev('(__cmwLandCarry() || {}).stradSync || 0');
           const ov0 = await overflow();
           ok(`${t}: the straddling cells' list has not overflowed (${ov0} so far; ${ovSeen} expected)`, ov0 === ovSeen, { ov0, ovSeen });
-          if (u === GLIDE_MID && c.tag === ROW_CASE && cc && cc.mix > 8) {
+          if (c.tag === ROW_CASE && cc.mix > 8) {
             await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-            await new Promise((r) => setTimeout(r, 600));
-            await ev('__svCarryProbe = Object.assign({ w: 0 }, __svCarryProbeSettings.stradShort); 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             const ov1 = await overflow();
             ok(`${t}: control: a list of 8 cells overflows (${ov1} counted)`, ov1 > ov0, { ov0, ov1 });
             await grab('ovf');
             const dOv = (await compare('ovf', 'cur')).frac;
-            ok(`${t}: after the overflow the frame is the exact one (${dOv} of pixels over ${DIFF_TOL} from the frame with the full list; at most ${SAME_FRAC})`, dOv <= SAME_FRAC, { dOv });
-            // (the fallback's draws are used up, and no read of the short list is out, before the next frame is read)
-            let left = 1;
-            for (let i = 0; left > 0 && i < 4 * FALLBACK_DRAWS; i++) {
-              await ev(`__svCarryProbe = { w: ${i + 1} }; 1`); await settled({ max: LOAD_MAX_MS });
-              left = await ev('(__cmwLandCarry() || {}).stradFallback || 0');
-            }
-            await new Promise((r) => setTimeout(r, 600));
-            await ev('__svCarryProbe = { w: -1 }; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-            ok(`${t}: the fallback ends (${left} draws left)`, left === 0, { left });
-            ovSeen = await overflow();
+            ok(`${t}: control: the frame of the overflow is the exact one (${dOv} of pixels over ${DIFF_TOL} from the frame with the full list; at most ${SAME_FRAC})`, dOv <= SAME_FRAC, { dOv });
+            ovSeen = ov1;
             await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            // the count is read when it can matter: a small step of u continues the frame (no read), a jump does not (a read)
+            const s0 = await syncs();
+            await setU(GLIDE_MID + STRAD_STEP_U); const s1 = await syncs();
+            await setU(GLIDE_MID + STRAD_JUMP_U); const s2 = await syncs();
+            await setU(GLIDE_MID);
+            ok(`${t}: the count is read after a jump of u (${STRAD_JUMP_U}) and not after a step (${STRAD_STEP_U}): ${s0}, ${s1}, ${s2} reads`, s1 === s0 && s2 > s1, { s0, s1, s2 });
           }
+        }
+        // the count of straddling cells moves little between continuous frames (the list's headroom is over twice what it moves): a scrub of u in steps of SCRUB_STEP_U
+        if (c.tag === ROW_CASE && cc) {
+          await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
+          const us = [END_U];
+          for (let x = SCRUB_STEP_U; x < 1 - SCRUB_STEP_U / 2; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
+          us.push(1 - END_U);
+          let prev = null, worst = 0, at = null;
+          for (const x of us) {
+            await setU(x);
+            const k = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
+            if (!k) continue;
+            if (prev !== null && Math.abs(k.mix - prev) > worst) { worst = Math.abs(k.mix - prev); at = x; }
+            prev = k.mix;
+          }
+          await ev('__svCarryProbe = null; 1');
+          await setU(GLIDE_MID);
+          ok(`${t}: the count of straddling cells moves by at most ${STRAD_DELTA_MAX} between frames ${SCRUB_STEP_U} of u apart (the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX, { worst, at });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut

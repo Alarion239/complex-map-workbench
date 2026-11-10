@@ -781,11 +781,14 @@
     return out;
   }
   // a transform-feedback pass of count points into rows y0.. of tex (W wide, already allocated)
-  // The straddling cells' list (LAND_STRAD_K) holds a frame's MIX cells when there are no more than its length. The count is read back without a stall (the last
-  // row's base and count, a frame or two late): a count over the list's length is counted (stradOverflow, which the suites assert 0) and
-  // the next STRAD_FALLBACK_FRAMES carried draws take every cell through the clip program
-  const STRAD_FALLBACK_FRAMES = 6, STRAD_POLL_MS = 24;
-  let stradLast = null, stradOverflow = 0, stradFallback = 0, stradPending = null, stradPbo = null, stradFbo = null, stradT = 0;
+  // The straddling cells' list (LAND_STRAD_K) holds a frame's MIX cells when there are no more than its length, and a frame that overflows it must still be
+  // exact. The count (the last row's base and count) is known only after the list's passes, so a read of it stalls the frame; it is read
+  // when it can matter: synchronously when the grid's last count is within the headroom of the length (STRAD_SYNC_FRAC of it), or when the frame does
+  // not continue the grid's last (no count yet, a different key, or a glide step over STRAD_DU_MAX), and otherwise without a stall, a frame or two
+  // late. Between continuous frames the count moves by at most STRAD_DELTA_MAX, under the headroom (the suites assert it), so a frame that overflows
+  // follows one whose count was read in time; a frame that does not (the premise failing) is counted in stradOverflow, which the suites assert 0
+  const STRAD_SYNC_FRAC = 0.75, STRAD_DU_MAX = 0.02, STRAD_POLL_MS = 24;   // (the bound on the count's change between continuous frames, 128, is the suite's)
+  let stradLast = null, stradOverflow = 0, stradSyncs = 0, stradPending = null, stradPbo = null, stradFbo = null, stradT = 0;
   const stradPoll = () => {
     stradT = 0;
     if (!stradPending) return;
@@ -793,26 +796,40 @@
     const f = new Float32Array(4);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, stradPbo); gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, f); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     gl.deleteSync(stradPending.sync);
-    const over = f[0] + f[1] > stradPending.k;
+    const total = f[0] + f[1], over = total > stradPending.k;
     stradLast = [f[0], f[1], stradPending.k];
+    stradPending.L.stradN = total;
     stradPending = null;
-    if (over) { stradOverflow++; stradFallback = STRAD_FALLBACK_FRAMES; if (api.onReady) api.onReady({ main: true }); }
+    if (over) { stradOverflow++; if (api.onReady) api.onReady({ main: true }); }
   };
   // asks for the count of the list built from rowB (the rows' bases, N x 1) against length k, unless a read is out
-  function stradAsk(rowB, N, k) {
+  function stradAsk(L, N, k) {
     if (stradPending) return;
     if (!stradPbo) { stradPbo = gl.createBuffer(); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, stradPbo); gl.bufferData(gl.PIXEL_PACK_BUFFER, 16, gl.STREAM_READ); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null); stradFbo = gl.createFramebuffer(); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, stradFbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rowB, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.rowBTex, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, stradPbo);
     gl.readPixels(N - 2, 0, 1, 1, gl.RGBA, gl.FLOAT, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    stradPending = { sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), k };
+    stradPending = { sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), k, L };
     gl.flush();
     if (!stradT) stradT = setTimeout(stradPoll, STRAD_POLL_MS);
   }
+  // the count of the list built from L.rowBTex (N x 1), read now: the frame waits for it
+  function stradRead(L, N) {
+    const fb = gl.createFramebuffer(), f = new Float32Array(4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.rowBTex, 0);
+    gl.readPixels(N - 2, 0, 1, 1, gl.RGBA, gl.FLOAT, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
+    stradSyncs++;
+    return f[0] + f[1];
+  }
+  // whether the frame (key, glide step u) must read its count now: no count yet, not the grid's last frame's continuation, or the last count near the length k
+  const stradNeedsSync = (L, key, u, k) => !(L.stradN >= 0) || L.stradKey !== key || !(Math.abs(u - L.stradU) <= STRAD_DU_MAX) || L.stradN >= STRAD_SYNC_FRAC * k;
   function runTFRows(P, count, tex, W, y0) {
     const rows = Math.ceil(count / W), bytes = rows * W * 16;
     if (!tfObj) tfObj = gl.createTransformFeedback();
@@ -1703,56 +1720,61 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
         if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
         if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
-        const strFall = stradFallback > 0;
-        if (strFall) stradFallback--;
-        if (!carryProbe.classOff && !strFall && clipC && exact) {
-          // (the cells' classes against the block: the plain draw of the cells inside it)
+        let classDrawn = false;
+        if (!carryProbe.classOff && clipC && exact) {
+          // (the cells' classes against the block: the plain draw of the cells inside it, the clipped draw of the straddling ones from their list)
           const Pk = program('landCarryClass'), PcI = program(contDraw ? 'landCarryLI' : 'landCarryI', st.carry.map);
-          if (Pk && PcI) {
-            if (!L.clsTex) L.clsTex = floatTex();
+          const rowsP = program('landClassRows'), baseP = program('landClassBase'), listP = program('landClassList');
+          if (Pk && PcI && rowsP && baseP && listP) {
+            const N = hd.N;
+            if (N > LAND_CLASS_LOOP) throw new Error('the class passes loop over at most ' + LAND_CLASS_LOOP + ' cells; the grid is ' + N);
+            if (!L.clsTex) { L.clsTex = floatTex(); L.rowNTex = floatTex(); L.rowBTex = floatTex(); L.mixTex = floatTex(); }
             use(Pk);
-            u1i(Pk, 'uN', hd.N); u4f(Pk, 'uBox', box.x0, box.y0, BW, BH); u2f(Pk, 'uAspect', aspect[0], aspect[1]);
+            u1i(Pk, 'uN', N); u4f(Pk, 'uBox', box.x0, box.y0, BW, BH); u2f(Pk, 'uAspect', aspect[0], aspect[1]);
             u2f(Pk, 'uClipA', aspect[0] * (carryProbe.clipScale || 1), aspect[1] * (carryProbe.clipScale || 1));
             u1f(Pk, 'uClipH', contDraw ? LAND_BLOCK_K * H : 1e30); u1i(Pk, 'uCuts', cutDraw ? 1 : 0); u1i(Pk, 'uForce', carryProbe.classForce | 0);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, cutDraw ? L.edges[d] : L.tex1); }
-            gl.activeTexture(gl.TEXTURE15);
-            runTF(Pk, empty(), gl.POINTS, hd.N * hd.N, 0, hd.N * hd.N * 16, L.clsTex, hd.N, hd.N, gl.RGBA32F, gl.RGBA);
+            gl.activeTexture(gl.TEXTURE31);
+            runTF(Pk, empty(), gl.POINTS, N * N, 0, N * N * 16, L.clsTex, N, N, gl.RGBA32F, gl.RGBA);
+            // (the list of the straddling cells: the rows' counts, their bases, the cell of each rank)
+            gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
+            use(rowsP); u1i(rowsP, 'uN', N);
+            gl.activeTexture(gl.TEXTURE31); runTF(rowsP, empty(), gl.POINTS, N, 0, N * 16, L.rowNTex, N, 1, gl.RGBA32F, gl.RGBA);
+            gl.activeTexture(gl.TEXTURE18); gl.bindTexture(gl.TEXTURE_2D, L.rowNTex);
+            use(baseP); u1i(baseP, 'uN', N);
+            gl.activeTexture(gl.TEXTURE31); runTF(baseP, empty(), gl.POINTS, N, 0, N * 16, L.rowBTex, N, 1, gl.RGBA32F, gl.RGBA);
+            gl.activeTexture(gl.TEXTURE19); gl.bindTexture(gl.TEXTURE_2D, L.rowBTex);
+            use(listP); u1i(listP, 'uN', N);
+            gl.activeTexture(gl.TEXTURE31); runTF(listP, empty(), gl.POINTS, strK, 0, strK * 16, L.mixTex, strK, 1, gl.RGBA32F, gl.RGBA);
+            // (the count against the list's length: read now when it can matter, else later)
+            const key = [st.carry.key, box.x0, box.y0, box.x1, box.y1, H, mode, N, carryProbe.clipScale || 1, landActive.length, contDraw ? 1 : 0].join('|'), du = st.carry.u;
+            let over = false;
+            if (stradNeedsSync(L, key, du, strK)) {
+              L.stradN = stradRead(L, N);
+              over = L.stradN > strK;
+              if (over) stradOverflow++;
+            } else stradAsk(L, N, strK);
+            L.stradKey = key; L.stradU = du;
+            if (carryProbe.classStats) info.classCounts = classCounts(L, N);
             use(Pc, st.carry.map);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
             if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
             if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
-            gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
-            fan = 1; Pc = PcI; carryUniforms(Pc);
-            {
-              const hv = new Float32Array(16);
-              landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
-              gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
-            }
-            u1i(Pc, 'uZOn', 1); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
-            if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
-            drawCarryGrid(L, hd.N);
-            fan = LAND_CLIP_CORNERS - 2; Pc = Pc0; use(Pc, st.carry.map);
-            if (!carryProbe.classNoMix) {
-              // (the MIX cells' list, then the clipped draw of those cells alone)
-              const rowsP = program('landClassRows'), baseP = program('landClassBase'), listP = program('landClassList');
-              if (rowsP && baseP && listP) {
-                if (!L.rowNTex) { L.rowNTex = floatTex(); L.rowBTex = floatTex(); L.mixTex = floatTex(); }
-                const N = hd.N;
-                if (N > LAND_CLASS_LOOP) throw new Error('the class passes loop over at most ' + LAND_CLASS_LOOP + ' cells; the grid is ' + N);
-                gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
-                use(rowsP); u1i(rowsP, 'uN', N);
-                gl.activeTexture(gl.TEXTURE31); runTF(rowsP, empty(), gl.POINTS, N, 0, N * 16, L.rowNTex, N, 1, gl.RGBA32F, gl.RGBA);
-                gl.activeTexture(gl.TEXTURE18); gl.bindTexture(gl.TEXTURE_2D, L.rowNTex);
-                use(baseP); u1i(baseP, 'uN', N);
-                gl.activeTexture(gl.TEXTURE31); runTF(baseP, empty(), gl.POINTS, N, 0, N * 16, L.rowBTex, N, 1, gl.RGBA32F, gl.RGBA);
-                gl.activeTexture(gl.TEXTURE19); gl.bindTexture(gl.TEXTURE_2D, L.rowBTex);
-                use(listP); u1i(listP, 'uN', N);
-                gl.activeTexture(gl.TEXTURE31); runTF(listP, empty(), gl.POINTS, strK, 0, strK * 16, L.mixTex, strK, 1, gl.RGBA32F, gl.RGBA);
-                stradAsk(L.rowBTex, N, strK);
-                if (carryProbe.classStats) info.classCounts = classCounts(L, N);
-                use(Pc, st.carry.map);
+            if (!over) {
+              gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
+              fan = 1; Pc = PcI; carryUniforms(Pc);
+              {
+                const hv = new Float32Array(16);
+                landHoles.forEach(([x, y, , r1], i) => hv.set([x, y, r1 - 2 * ((st.box.x1 - st.box.x0) / (hd.N - 1)), 0], 4 * i));
+                gl.uniform4fv(Pc.loc.uHoles, hv); u1i(Pc, 'uNHoles', landHoles.length);
+              }
+              u1i(Pc, 'uZOn', 1); u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', cutDraw ? 9 : 3);
+              if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
+              drawCarryGrid(L, hd.N);
+              fan = LAND_CLIP_CORNERS - 2; Pc = Pc0; use(Pc, st.carry.map);
+              if (!carryProbe.classNoMix) {
                 gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
                 gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
                 if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
@@ -1762,10 +1784,12 @@
                 drawCarryGrid(L, hd.N);
                 mixK = 0; u1i(Pc, 'uMixOn', 0);
               }
+              classDrawn = true;
             }
           }
-        } else
-        drawCarryGrid(L, hd.N);
+        }
+        // (every cell through the clip program: with the classes off, and for a frame whose list overflows)
+        if (!classDrawn) drawCarryGrid(L, hd.N);
         // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
         if (L.pp && L.pp.length) {
           gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1, 4);
@@ -1789,7 +1813,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.layers = landActive.length; info.landHoles = landHoles.length; info.stradOverflow = stradOverflow; info.stradFallback = stradFallback; info.stradLast = stradLast;
+      info.layers = landActive.length; info.landHoles = landHoles.length; info.stradOverflow = stradOverflow; info.stradSync = stradSyncs; info.stradLast = stradLast;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
