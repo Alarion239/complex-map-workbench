@@ -329,6 +329,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     return { mode: 1, k, alpha: CX.sub(a, CX.mul(k, c)), beta: CX.sub(b, CX.mul(k, d)) };
   }
 
+  // The most vec4 slots a chain's uChain may take: WebGL2 guarantees 224 fragment uniform vectors in all, and the program's
+  // other uniforms share them; a chain over the cap is refused (the build throws) instead of failing to link
+  const MAX_CHAIN_SLOTS = 200;
   // Uniform allocator in vec2 cells (two per vec4 slot). A writer fills cell values on demand.
   function makeAlloc() {
     let cells = 0;
@@ -1753,6 +1756,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
 
     const slots = A.slots;
+    if (slots > MAX_CHAIN_SLOTS) throw new Error(`GLChain: ${slots} uniform slots exceed the cap of ${MAX_CHAIN_SLOTS}`);
     let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\n`;
     for (const { P, plan } of maps) {
       if (plan.pre) src += plan.pre;
@@ -2922,7 +2926,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
+  return { LIB, build, buildInverse, mobPathData, MAX_CHAIN_SLOTS, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

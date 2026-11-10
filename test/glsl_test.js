@@ -341,6 +341,14 @@
   addNeg('negpow formula z^(-1/2)', [S('custom', { expr: 'z^{-1/2}' })]);
   addNeg('negpow powa -3/2', [S('powa', { alpha: '-1.5' })]);
   addNeg('negpow formula (z-0.5)^(-2)', [S('custom', { expr: '(z-0.5)^{-2}' })]);
+  // the cap on a chain's uniform slots: a chain over GLChain.MAX_CHAIN_SLOTS is refused by the build, with an error
+  {
+    const many = Array.from({ length: 60 }, () => S('mobius'));
+    let msg = '';
+    try { GLChain.build(many, many.map((st) => Funcs.build(st))); } catch (e) { msg = String(e && e.message); }
+    R.slotCapControl = msg;
+    if (!/exceed the cap of/.test(msg)) R.errors.push(`slot cap control: a chain of 60 Möbius steps was not refused (${msg || 'built'})`);
+  }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
 
@@ -824,6 +832,7 @@ void main() {
     // ([issue #6] a repeat's last step runs its block n times, as in the app)
     const built = Funcs.applyRepeats(ch.steps, ch.steps.map((s) => Funcs.build(s)));
     const gc = GLChain.build(ch.steps, built);
+    if (gc.slots > (R.maxSlots || 0)) { R.maxSlots = gc.slots; R.maxSlotsChain = ch.name; }
     if (srcByKey.has(gc.key) && srcByKey.get(gc.key) !== gc.source) R.errors.push(`key collision: ${ch.name}`);
     srcByKey.set(gc.key, gc.source);
     const n = ch.steps.length;
