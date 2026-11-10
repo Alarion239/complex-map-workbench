@@ -183,16 +183,23 @@
     const L = window.__cmwLandRelief && window.__cmwLandRelief.land, cv = document.getElementById('canvasL');
     if (!L || !window.__cmwLandRelief.cov) return null;
     const b = L.box, dpr = cv.width / cv.getBoundingClientRect().width, W2 = Math.ceil(cv.width / 2), H2 = Math.ceil(cv.height / 2);
-    const NX = g.nx << g.depth, NY = g.ny << g.depth, S = 1 << g.depth, cache = new Map();
+    const NX = g.nx << g.depth, NY = g.ny << g.depth, S = 1 << g.depth;
+    // (the places' members are looked up once for all the depths of a refine: the lattice of depth d holds the lattice of depth d - 1, at the same
+    // coordinates, so the cache (window.__lxShared, one for each refine) is keyed by the place's index on the finest lattice, depthMax; g.brute: a
+    // cache of this run alone and every entry of a list looked up, the control the shared one is compared with)
+    const FIN = 1 << (g.depthMax - g.depth), NYF = g.ny << g.depthMax, cache = g.brute ? new Map() : window.__lxShared, used = new Set();
     const xy = (i, j) => [b.x0 + i * (b.x1 - b.x0) / NX, b.y0 + j * (b.y1 - b.y0) / NY];
-    const key = (i, j) => i * (NY + 1) + j;
+    const key = (i, j) => (i * FIN) * (NYF + 1) + j * FIN;
     let capped = false;
     const levels = g.levels || g.depth + 1;   // each level halves the cells: depth + 1 levels judge every cell down to one lattice step
     // the places' members projected, in half-resolution pixels: [] where the place has none, null where unknown (not looked up yet)
     function* look(list) {
-      const need = list.filter(([i, j]) => !cache.has(key(i, j)));
-      if (!need.length) return true;
-      if (cache.size + need.length > g.cap) { capped = true; return false; }
+      // (cap counts the places this run touches: the entries of the list not touched yet, a place twice if it is listed twice)
+      const fresh = list.filter(([i, j]) => !used.has(key(i, j)));
+      if (!fresh.length) return true;
+      if (used.size + fresh.length > g.cap) { capped = true; return false; }
+      const need = g.brute ? fresh : [...new Map(fresh.map(([i, j]) => [key(i, j), [i, j]])).values()].filter(([i, j]) => !cache.has(key(i, j)));
+      for (const [i, j] of fresh) used.add(key(i, j));
       for (let at = 0; at < need.length; at += g.batch) {
         const part = need.slice(at, at + g.batch), e = __cmwLandEnum(part.map(([i, j]) => xy(i, j)));
         if (!e) return false;
@@ -262,7 +269,7 @@
       frame[y * W2 + x] = t && 2 * n >= t ? 1 : 0;
     }
     window.__lxMasks = { ref: mark, frame, W2, H2 };
-    const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = cache.size; return res;
+    const res = window.__lxCompare(mark, frame, W2, H2, g.slack, capped); res.places = used.size; return res;
   }
   // the raster in steps of at most ms milliseconds a call (a CDP call that runs too long fails): start, then step until done
   window.__lxRasterStart = (sheets, g) => { window.__lxRun = lxRaster(sheets, g); return 1; };
@@ -347,6 +354,7 @@
   // first pair's, calm the unchanged levels in a row; a result not calm for ref.calm levels is not converged
   async function refine(sheets, ref) {
     let rk = null, conv = null, firstConv = null, calm = 0, depth = ref.depth;
+    await ev('window.__lxShared = new Map(); 1');
     for (; depth <= ref.depthMax; depth++) {
       if (depth > ref.depth) await ev('window.__lxPrev = window.__lxMasks');
       await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(Object.assign({}, ref, { depth }))})`);
@@ -359,6 +367,30 @@
     depth = Math.min(depth, ref.depthMax);
     if (rk) Object.assign(rk, { depth, conv, firstConv, calm });
     return { rk, conv, firstConv, calm, depth };
+  }
+  // one depth of the raster, run to its end: the result (null when it never finishes)
+  async function rasterAt(sheets, g) {
+    await ev(`window.__lxRasterStart(${sheets}, ${JSON.stringify(g)})`);
+    let st = { done: false };
+    for (let k = 0; !st.done && k < STEP_MAX; k++) st = JSON.parse(await ev(`JSON.stringify(__lxRasterStep(${STEP_MS}))`));
+    return st.done ? st.res : null;
+  }
+  // the shared cache against the cache of one run alone, at every depth of a refine: the two masks agree at every pixel, with the same places
+  // touched, pixels and cap; emptyEvery: every that-many-th place of the shared cache emptied before the depth after the first (the control)
+  const CACHE_CTL_EVERY = 7;
+  async function cacheControl(sheets, emptyEvery) {
+    await ev('window.__lxShared = new Map(); 1');
+    const rows = [];
+    for (let depth = REF.depth; depth <= REF.depthMax; depth++) {
+      if (emptyEvery && depth === REF.depth + 1) await ev(`window.__lxShared.forEach((v, k) => { if (k % ${emptyEvery} === 0) window.__lxShared.set(k, []); }); 1`);
+      const fast = await rasterAt(sheets, Object.assign({}, REF, { depth }));
+      await ev('window.__lxFast = Uint8Array.from(window.__lxMasks.ref); 1');
+      const brute = await rasterAt(sheets, Object.assign({}, REF, { depth, brute: true }));
+      const same = fast && brute && await ev('window.__lxFast.length === window.__lxMasks.ref.length && window.__lxFast.every((v, i) => v === window.__lxMasks.ref[i])');
+      rows.push({ depth, same: !!same, places: fast && brute ? [fast.places, brute.places] : null, n: fast && brute ? [fast.n, brute.n] : null, capped: fast && brute ? [fast.capped, brute.capped] : null });
+      if (!fast || !brute || brute.capped) break;
+    }
+    return rows;
   }
   async function park(k, tag) {
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true, clock: 0 }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -907,6 +939,10 @@
         // a raster given too few levels is reported capped, so the relief check fails
         const sh = await refine(sheets, Object.assign({}, REF, SHALLOW));
         ok(`${t}: the control: the shallow reference (depth ${SHALLOW.depth} to ${SHALLOW.depthMax}) is not converged (calm ${sh.calm} of ${REF.calm}, first pair off ${sh.firstConv})`, sh.firstConv > 0 && sh.calm < REF.calm, sh);
+        const cc = await cacheControl(sheets, 0);
+        ok(`${t}: the shared cache gives the mask of one run's alone, at every depth (${cc.length} depths), with the same places, pixels and cap`, cc.length > 1 && cc.every((r) => r.same && r.places && r.places[0] === r.places[1] && r.n[0] === r.n[1] && r.capped[0] === r.capped[1]), { cc });
+        const cb = await cacheControl(sheets, CACHE_CTL_EVERY);
+        ok(`${t}: the control: with every ${CACHE_CTL_EVERY}th place of the shared cache emptied a later depth's mask is not the single run's`, cb.some((r) => !r.same), { cb });
         const cp = await refine(sheets, Object.assign({}, REF, { depthMax: REF.depth, levels: LEVELS_CTL }));
         ok(`${t}: the control: a raster with ${LEVELS_CTL} levels is reported capped`, !!cp.rk && cp.rk.capped === true, { rk: cp.rk });
       }

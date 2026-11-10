@@ -68,9 +68,11 @@ const split = (ls, tol) => {
 const probeGlide = async (u) => {
   await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
   const gl = JSON.parse(await ev('JSON.stringify((() => { const c = __cmwLandCarry(); return { carried: !!c, path: c && c.path }; })())'));
-  const fv = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(PROBES)}).map((ls) => ls.filter((l) => l.z).map((l) => ({ z: l.z, h: l.h, c: l.c }))))`));
+  const all = JSON.parse(await ev(`JSON.stringify(__cmwLandFrameVerts(${JSON.stringify(PROBES)}).map((ls) => ls.map((l) => ({ z: l.z || null, h: l.h, c: l.c }))))`));
+  const noZ = all.reduce((n, ls) => n + ls.filter((l) => !l.z).length, 0);   // (a texel with no preimage is no layer: the frame has none at a probe place)
+  const fv = all.map((ls) => ls.filter((l) => l.z));
   const en = JSON.parse(await ev(`JSON.stringify(__cmwLandEnum(${JSON.stringify(PROBES)}).map((ms) => ms.map((m) => ({ z: m.z, h: m.h }))))`));
-  return { gl, fv, en };
+  return { gl, fv, en, noZ };
 };
 const GLIDE_AT = [0.002, 0.02, 0.2, 0.5, 0.9, 0.98, 0.998];
 const G = {};
@@ -79,6 +81,7 @@ const badAt = (g, f, tol) => { let bad = 0, n = 0; const at = []; g.fv.forEach((
 for (const u of [0.5, 0.9, 0.98]) {
   const g = G[u];
   ok(`√, cos, log, u=${u}: the view is still a glide drawn by the exact inverse path`, g.gl.carried && g.gl.path === 'inverse', g.gl);
+  ok(`√, cos, log, u=${u}: no probe place has a layer without a preimage (${g.noZ})`, g.noZ === 0, { noZ: g.noZ });
   const r = badAt(g, (ls) => distinct(ls, LAYER_SAME), LAYER_SAME);
   ok(`√, cos, log, u=${u}: the frame's distinct layers are the enumerator's distinct members with the ${SHEETS} sheets, at every probe place (${r.n} places)`, r.n > 0 && r.bad === 0, r);
   // the whole frame: its most layers at a place (own and continued, each distinct one counted) are the most the enumerator's members give
@@ -91,9 +94,12 @@ const c5 = badAt(G[0.5], (ls) => distinct(ls.concat(ls.slice(0, 1)), LAYER_SAME)
 ok('control: a duplicate layer appended to every place is counted once', c5.bad === 0, c5);
 // (the members' z are far apart (about opposite at the end) and their layers' heights close: a merge by closeness of the heights, which are the surface's values,
 // would drop the second member)
-// (a continued layer dropped from every place that has one: the layers the frame draws are then fewer than the members', so the row goes red)
-const cCont = badAt(G[0.5], (ls) => ls.filter((l) => !(l.c >= CONT_CODE)), LAYER_SAME);
-ok('control: dropping the continued layers at u .5 turns the row red', cCont.bad > 0, cCont);
+// (a continued layer that is no member's, put at every place: it is counted, so the row goes red; leaving the continued layers out would hide it)
+const EXTRA = { z: [1e3, 1e3], h: 0, c: CONT_CODE };
+const cExtra = badAt(G[0.5], (ls) => distinct(ls.concat([EXTRA]), LAYER_SAME), LAYER_SAME);
+ok('control: a continued layer that is no member is counted, so the row at u .5 goes red', cExtra.bad === cExtra.n && cExtra.n > 0, cExtra);
+const cHide = badAt(G[0.5], (ls) => distinct(ls.concat([EXTRA]).filter((l) => !(l.c >= CONT_CODE)), LAYER_SAME), LAYER_SAME);
+ok('control: leaving the continued layers out hides that layer, which is what the row must not do', cHide.bad === 0, cHide);
 const c98 = badAt(G[0.9], (ls) => ls.filter((l, i) => !ls.slice(0, i).some((o) => Math.abs(o.h - l.h) <= SPLIT_MERGE)), LAYER_SAME);
 ok('control: a merge of layers whose heights are within ' + SPLIT_MERGE + ' at u .9 turns the row red', c98.bad > 0, c98);
 const cDrop = badAt(G[0.5], (ls) => ls.filter((l) => near(members(ls, LAYER_SAME)[0], l, LAYER_SAME)), LAYER_SAME);
