@@ -342,16 +342,20 @@
   addNeg('negpow powa -3/2', [S('powa', { alpha: '-1.5' })]);
   addNeg('negpow formula (z-0.5)^(-2)', [S('custom', { expr: '(z-0.5)^{-2}' })]);
   // the cap on a chain's uniform slots (GLChain.maxChainSlots(vecs), vecs the GPU's smaller uniform-vector limit): the
-  // largest chain above (series d/dz e^z 0.2z+1) is refused at the spec minimum and built at LIMIT_BIG vectors; a chain of
-  // MANY_STEPS Möbius steps (11 slots each) is refused even at LIMIT_BIG
+  // largest chain above (series d/dz e^z 0.2z+1) is refused at the spec minimum and built at LIMIT_BIG vectors; Möbius
+  // chains are refused at the first step count over the live cap and built one step short of it; at the WebGL2 minimum the
+  // cap is SPEC_MIN_SLOTS and a chain of 60 Möbius steps is refused
   {
-    const SPEC_MIN = 224, LIMIT_BIG = 1024, MANY_STEPS = 100;
+    const SPEC_MIN = 224, LIMIT_BIG = 1024, SPEC_MIN_SLOTS = 150, FEW_STEPS = 60;
     const tryBuild = (steps, vecs) => { try { return { slots: GLChain.build(steps, steps.map((st) => Funcs.build(st)), vecs).slots }; } catch (e) { return { err: String(e && e.message) }; } };
-    const big = chains.find((c) => c.name === 'series d/dz e^z 0.2z+1');
-    const many = Array.from({ length: MANY_STEPS }, () => S('mobius'));
-    const rows = { big: big && tryBuild(big.steps, LIMIT_BIG), bigMin: big && tryBuild(big.steps, SPEC_MIN), noGl: big && tryBuild(big.steps), many: tryBuild(many, LIMIT_BIG) };
-    R.slotCap = { rows, other: GLChain.OTHER_UNIFORM_VECS, capMin: GLChain.maxChainSlots(SPEC_MIN), capBig: GLChain.maxChainSlots(LIMIT_BIG) };
+    const mob = (n) => Array.from({ length: n }, () => S('mobius'));
     const refused = (r) => !!(r && r.err && /exceed the cap of/.test(r.err));
+    const big = chains.find((c) => c.name === 'series d/dz e^z 0.2z+1');
+    const perStep = tryBuild(mob(1), LIMIT_BIG).slots;
+    const capBig = GLChain.maxChainSlots(LIMIT_BIG), over = Math.floor(capBig / perStep) + 1;
+    const rows = { big: big && tryBuild(big.steps, LIMIT_BIG), bigMin: big && tryBuild(big.steps, SPEC_MIN), noGl: big && tryBuild(big.steps), perStep, over, overBuilt: tryBuild(mob(over), LIMIT_BIG), underBuilt: tryBuild(mob(over - 1), LIMIT_BIG), fewMin: tryBuild(mob(FEW_STEPS), SPEC_MIN), fewNoGl: tryBuild(mob(FEW_STEPS)) };
+    R.slotCap = { rows, other: GLChain.OTHER_UNIFORM_VECS, capMin: GLChain.maxChainSlots(SPEC_MIN), capBig };
+    if (GLChain.maxChainSlots(SPEC_MIN) !== SPEC_MIN_SLOTS) R.errors.push(`slot cap: the cap at ${SPEC_MIN} vectors is ${GLChain.maxChainSlots(SPEC_MIN)}, not ${SPEC_MIN_SLOTS}`);
     if (!big) R.errors.push('slot cap: the largest series chain is missing from the list');
     else {
       if (!(rows.big && rows.big.slots > GLChain.maxChainSlots(SPEC_MIN))) R.errors.push(`slot cap: the series chain must take more slots than the spec minimum allows (${JSON.stringify(rows.big)})`);
@@ -359,7 +363,9 @@
       if (!refused(rows.noGl)) R.errors.push(`slot cap: without a GPU limit the series chain was not refused at the spec minimum (${JSON.stringify(rows.noGl)})`);
       if (rows.big.err) R.errors.push(`slot cap: the series chain was refused at ${LIMIT_BIG} vectors (${rows.big.err})`);
     }
-    if (!refused(rows.many)) R.errors.push(`slot cap: a chain of ${MANY_STEPS} Möbius steps was not refused at ${LIMIT_BIG} vectors (${JSON.stringify(rows.many)})`);
+    if (!refused(rows.overBuilt)) R.errors.push(`slot cap: ${over} Möbius steps (the first count over the cap ${capBig}) were not refused at ${LIMIT_BIG} vectors (${JSON.stringify(rows.overBuilt)})`);
+    if (rows.underBuilt.err) R.errors.push(`slot cap: ${over - 1} Möbius steps (one short of the cap ${capBig}) were refused at ${LIMIT_BIG} vectors (${rows.underBuilt.err})`);
+    if (!refused(rows.fewMin) || !refused(rows.fewNoGl)) R.errors.push(`slot cap: ${FEW_STEPS} Möbius steps were not refused at the spec minimum (${JSON.stringify([rows.fewMin, rows.fewNoGl])})`);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });

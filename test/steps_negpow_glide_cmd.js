@@ -144,15 +144,15 @@ for (const [i, c] of CASES.entries()) {
 {
   await seedCase(CASES[0], 0);
   const defs = await ev("Funcs.defaults('mobius')");
-  const MOB_SLOTS = 11, vecs = await ev('Math.min(GLR.gl.getParameter(GLR.gl.MAX_FRAGMENT_UNIFORM_VECTORS), GLR.gl.getParameter(GLR.gl.MAX_VERTEX_UNIFORM_VECTORS))');
-  const nSteps = Math.ceil(vecs / MOB_SLOTS) + 1;
+  // one step over the live cap: the cap for the page's GPU limit, over the slots one Möbius step takes
+  const nSteps = await ev(`(() => { const st = { type: 'mobius', params: Funcs.defaults('mobius'), on: true }; const per = GLChain.build([st], [Funcs.build(st)]).slots; const vecs = Math.min(GLR.gl.getParameter(GLR.gl.MAX_FRAGMENT_UNIFORM_VECTORS), GLR.gl.getParameter(GLR.gl.MAX_VERTEX_UNIFORM_VECTORS)); return Math.floor(GLChain.maxChainSlots(vecs) / per) + 1; })()`);
   const ns = 'npgcap' + Date.now();
   await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [], steps: Array.from({ length: nSteps }, () => ({ type: 'mobius', params: defs, on: true })) });
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && !!window.GLR" });
   await ev('1'); await new Promise((r) => setTimeout(r, 1500));
   const st = await ev('JSON.stringify({ err: GLR.frameStatus().error, last: GLR.error })');
-  R.refusedChain = { st, vecs, nSteps };
+  R.refusedChain = { st, nSteps };
   ok(`refused chain: the pane's GL status says the chain needs more shader parameters (${st})`, /more shader parameters/.test(String(st)), st);
 }
 return { pass: fails.length === 0, fails, results: R };
