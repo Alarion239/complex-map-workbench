@@ -159,6 +159,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const CAP_NEAR_PX = 8;   // (the saturated-texel cap check reads the relief this many pixels around a place's cap)
   const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
@@ -202,21 +203,29 @@
       }
       return { n, coloured, diff };
     },
-    // the relief's coverage (window.__satCov.on with the block clip, .off without it, each a raster of the pane) at the projected places of items [{ w, h }] in the camera the relief was drawn from:
-    // n of them lie inside the pane, on and off count those the relief covers, bite those covered without the clip and not with it
+    // the relief's coverage (window.__satCov.on with the block clip, .off without it, each a raster of the pane) around the caps of items [{ w, hs }] (the place's plane position at the clamp height hs), in the camera the relief was drawn from:
+    // n of them lie inside the pane, on and off count those the relief covers there with and without the clip, bite those with a pixel covered with the clip and not without it
     covPx: (items) => {
       const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, dpr = W / cv.getBoundingClientRect().width, C = window.__satCov;
       let n = 0, on = 0, off = 0, bite = 0;
       for (const it of items) {
-        const q = __cmwLandProject(it.w[0], it.w[1], it.h);
-        if (!q || !Number.isFinite(q[0] + q[1])) continue;
-        const x = Math.round(q[0] * dpr), y = Math.round(q[1] * dpr);
-        if (x < 0 || x >= W || y < 0 || y >= H) continue;
+        // (a pixel of the cap is one the clipped relief covers and the unclipped one does not: looked for within CAP_NEAR_PX of the cap's projection, the clamp height's)
+        const q0 = __cmwLandProject(it.w[0], it.w[1], it.hs);
+        if (!q0 || !Number.isFinite(q0[0] + q0[1])) continue;
+        const x0 = Math.round(q0[0] * dpr), y0 = Math.round(q0[1] * dpr);
         n++;
-        const a = C.on[y * W + x] > 0, b = C.off[y * W + x] > 0;
+        let a = false, b = false, cut = false;
+        for (let dy = -${CAP_NEAR_PX}; dy <= ${CAP_NEAR_PX}; dy++) for (let dx = -${CAP_NEAR_PX}; dx <= ${CAP_NEAR_PX}; dx++) {
+          const x = x0 + dx, y = y0 + dy;
+          if (x < 0 || x >= W || y < 0 || y >= H) continue;
+          const A = C.on[y * W + x] > 0, B = C.off[y * W + x] > 0;
+          if (A) a = true;
+          if (B) b = true;
+          if (A && !B) cut = true;
+        }
         if (a) on++;
         if (b) off++;
-        if (b && !a) bite++;
+        if (cut) bite++;
       }
       return { n, on, off, bite };
     },
@@ -992,8 +1001,8 @@
               } finally { await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
               const cp = await ev(`__lx.covPx(${JSON.stringify(items)})`);
               r[u].satCap = { items: items.length, cp };
-              ok(`${t}: the control: without the block clip the relief covers the saturated texels' places at their true height and with it not (${cp.bite} of ${cp.n} bitten)`, cp.n > 0 && cp.bite > 0, r[u].satCap);
-              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: the relief covers their places at the true height at only a fraction of those it covers without the clip (${cp.on} with it, ${cp.off} without)`, cp.n > 0 && cp.on < cp.off, r[u].satCap);
+              ok(`${t}: the control: without the block clip the relief covers the saturated texels' caps with the block clip and not without it (${cp.bite} of ${cp.n} bitten)`, cp.n > 0 && cp.bite > 0, r[u].satCap);
+              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: the relief covers their caps, at every one of them, with the clip and not without it (${cp.bite} of ${cp.n}; ${cp.on} covered with it, ${cp.off} without)`, cp.n > 0 && cp.bite >= (1 - COVER_TOL) * cp.n, r[u].satCap);
               if (NEAR_U.includes(u)) {
                 await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
                 await grab('satOn'); await relief();
