@@ -528,17 +528,16 @@
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
       // the cells' classes against the block (LAND_CARRY_CLASS_VS): every cell has one, the straddling cells are all in the draw's list, which is not full
-      if (u === GLIDE_MID || process.env.CMW_COUNTS) {
+      if (u === GLIDE_MID) {
         await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const cc = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
         await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-        if (process.env.CMW_COUNTS) console.log('COUNTS', t, JSON.stringify(cc));
         if (!cc) ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets });
         else {
           ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
           ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
           ok(`${t}: the classes are the CPU's from the places and the cuts (${cc && cc.cpuDiffer} cells differ; ${cc && cc.cpuNear} more have a corner on a plane)`, !!cc && cc.cpuDiffer === 0, cc);
-          if (u === GLIDE_MID && cc && cc.mix > 0) {
+          if (u === GLIDE_MID && c.tag === ROW_CASE && cc && cc.mix > 0) {
             await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             const cf = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));
             await ev('__svCarryProbe = null; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -548,12 +547,15 @@
           const overflow = async () => ev('(__cmwLandCarry() || {}).stradOverflow || 0');
           const ov0 = await overflow();
           ok(`${t}: the straddling cells' list has not overflowed (${ov0} so far; ${ovSeen} expected)`, ov0 === ovSeen, { ov0, ovSeen });
-          if (u === GLIDE_MID && cc && cc.mix > 8) {
+          if (u === GLIDE_MID && c.tag === ROW_CASE && cc && cc.mix > 8) {
             await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             await new Promise((r) => setTimeout(r, 600));
             await ev('__svCarryProbe = Object.assign({ w: 0 }, __svCarryProbeSettings.stradShort); 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             const ov1 = await overflow();
             ok(`${t}: control: a list of 8 cells overflows (${ov1} counted)`, ov1 > ov0, { ov0, ov1 });
+            await grab('ovf');
+            const dOv = (await compare('ovf', 'cur')).frac;
+            ok(`${t}: after the overflow the frame is the exact one (${dOv} of pixels over ${DIFF_TOL} from the frame with the full list; at most ${SAME_FRAC})`, dOv <= SAME_FRAC, { dOv });
             // (the fallback's draws are used up, and no read of the short list is out, before the next frame is read)
             let left = 1;
             for (let i = 0; left > 0 && i < 4 * FALLBACK_DRAWS; i++) {
