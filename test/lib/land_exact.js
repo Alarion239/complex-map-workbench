@@ -193,6 +193,18 @@
   // (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame inverts) without the repeats of one z, each
   // { z, f, h } (null when the frame was not drawn by the inverse path); the front member (sheets off) is the first
   const HELP = `window.__lx = {
+    // the surface a continued texel lands on, read from values alone: per item { za, wa, zt, wt } (the anchor's preimage and place, the texel's preimage and place) the scene's surfaces (its own count of them,
+    // window.__cmwLandSceneCombos) holding the anchor (ka: those whose value at za is wa), the surfaces holding the texel (ks: value at zt is wt), and where the anchor's surface, continued from the anchor's cell to zt,
+    // lands (kl: the surfaces whose own value at zt is that continued value); a surface is held when its value is within ${SURF_TOL} (relative to 1 + |w|). cross: the same with the anchor's z mirrored through the texel's
+    contLand: (items) => {
+      const K = (__cmwLandSceneCombos() || {}).n || 0, near = (a, b) => !!a && !!b && Math.hypot(a[0] - b[0], a[1] - b[1]) <= ${SURF_TOL} * (1 + Math.hypot(b[0], b[1]));
+      const held = (z, w) => { const o = []; for (let k = 0; k < K; k++) if (near(__cmwLandScene(z, k, z), w)) o.push(k); return o; };
+      const land = (ka, za, zt) => { if (ka.length !== 1) return []; const v = __cmwLandScene(zt, ka[0], za), o = []; for (let k = 0; k < K; k++) if (near(__cmwLandScene(zt, k, zt), v)) o.push(k); return o; };
+      return items.map((it) => {
+        const ka = held(it.za, it.wa), ks = held(it.zt, it.wt), zx = [2 * it.zt[0] - it.za[0], 2 * it.zt[1] - it.za[1]];
+        return { ka, ks, kl: land(ka, it.za, it.zt), kx: land(ka, zx, it.zt) };
+      });
+    },
     // the pixels where both frames are coloured (saturation over SAT_MIN) and their hues are more than HUE_OFF_DEG apart: a row the
     // colour of the wrong branch draws across a sheet boundary shows here, a shifted contour line (the same hue, lighter or darker) does not
     hueOff: (a, b) => {
@@ -946,10 +958,24 @@
             if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= l.sat[1] - HEIGHT_TOL) || (lo && o.h <= l.sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claim; }
             return l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claim);
           };
-          const claimBad = (cl) => layersOf(cl).filter((l) => l.sceneShift === null || l.claimShift !== l.sceneShift || !fwdClaimOk(l));
+          // (a texel continued from an anchor (code CARRY_CONT_CODE plus the anchor's place) is read by where its anchor's own surface lands, continued from the anchor to the texel (CPU: the scene's
+          // surfaces by value), against the surfaces that hold the texel's place; the claim rows read the others)
+          const anchored = (l) => !!l.anchor && !!l.w && !!l.z;
+          const claimBad = (cl) => layersOf(cl).filter((l) => !anchored(l)).filter((l) => l.sceneShift === null || l.claimShift !== l.sceneShift || !fwdClaimOk(l));
           const nLayers = layersOf(claims).length, cBad = claimBad(claims);
           if (nLayers === 0) ok(`${t}: the frame is one merged frame of the step's sheets (${nMerged} drawn places): it claims no single sheet (not applicable; the All sheets rows read each layer's claim)`, nMerged > 0, { nMerged });
           else ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, CLAIM_SAMPLE) });
+          {
+            const cont = layersOf(claims).filter(anchored);
+            if (cont.length) {
+              const rs = await ev(`__lx.contLand(${JSON.stringify(cont.map((l) => ({ za: l.anchor.z, wa: l.anchor.w, zt: l.z, wt: l.w })))})`);
+              const landsOn = (x) => x.ka.length === 1 && x.ks.length > 0 && x.kl.length > 0 && x.kl.every((k) => x.ks.includes(k));
+              const bad = rs.filter((x) => !landsOn(x)), cross = rs.filter((x) => x.kl.length > 0 && !(x.kx.length > 0 && x.kx.every((k) => x.ks.includes(k)))), own = rs.filter((x) => x.ka.length === 1 && !x.ks.includes(x.ka[0]));
+              ok(`${t}: every continued texel's anchor surface, continued from the anchor to the texel, lands on a surface that holds the texel's place (${bad.length} of ${cont.length} do not)`, bad.length === 0, { n: bad.length, sample: bad.slice(0, CLAIM_SAMPLE) });
+              ok(`${t}: the control: an anchor across the cut lands elsewhere (${cross.length} of ${cont.length} texels)`, cross.length > 0, { cross: cross.length });
+              ok(`${t}: the control: read as the layer's own surface, the continued texels are not on a surface that holds them (${own.length} of ${cont.length})`, own.length > 0, { own: own.length });
+            }
+          }
           const bumpLayer = layersOf(claims).find((l) => l.nParts > 0);
           if (bumpLayer) { const bumped = await ev(`__cmwLandClaims(${JSON.stringify(pts)}, { layer: ${bumpLayer.member} })`), moved = claimBad(bumped).filter((l) => l.member === bumpLayer.member); ok(`${t}: the control: layer ${bumpLayer.member}'s claim one sheet off fails every layer of that member (${moved.length} fail)`, moved.length > 0, { moved: moved.length }); }
           else ok(`${t}: the control: no layer claims a sheet but the principal one: nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nParts === 0), { n: nLayers });
