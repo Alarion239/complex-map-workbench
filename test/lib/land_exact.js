@@ -1029,7 +1029,7 @@
       const ref = await ev(`__lxEnum(${JSON.stringify(vpts)}, ${sheets})`);
       const noFront = await ev('window.__lxNoFront');
       ok(`${t}: the CPU reference (window.__cmwLandEnum) is readable: the frame is drawn by the inverse path`, Array.isArray(ref), null);
-      ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts)`, Array.isArray(got) && Array.isArray(cgot), null);
+      ok(`${t}: the frame's draw data is readable (window.__cmwLandFrameVerts${carry && carry.path === 'mesh' ? ': frame on the mesh path, which has none' : ''})`, Array.isArray(got) && Array.isArray(cgot), carry);
       if (!Array.isArray(ref) || !Array.isArray(got) || !Array.isArray(cgot)) continue;
       const refN = ref.filter((x) => x.length).length;
       r[u] = Object.assign(r[u], { refPlaces: refN });
