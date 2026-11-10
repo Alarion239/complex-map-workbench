@@ -1032,6 +1032,78 @@
       return await read();
     } finally { await ev("window.__svCarryProbe = {}; 1"); await setU(u); await ev('JSON.stringify(window.__cmwLandRelief ? __cmwLandRelief() : null)'); }
   };
+  // ---- The cap at the block (All sheets' layered draw): what the draw puts on screen stays inside the clip's own bound ----
+  // For a drawn fragment of a layer, hTrue is the height of the scene's H_u at the fragment's preimage vZ, on the layer's own branch (its claim code, the anchor vZc: __cmwLandScene, the CPU
+  // reference, which reads no plan and evaluates nothing the shader does), and the bound is Hc = GLR.BLOCK_K times the block's height, the clip's own value. window.__cmwLandCapRead draws the
+  // frame into a float target with the fragment stage writing its geometry (no map evaluated in the shader) and picks, from the drawn heights, the pixels to evaluate: the CAP_PER_CELL pixels of the
+  // largest drawn |height| in each straddling cell (a grid cell with a corner past Hc), CAP_UNIFORM more on a seeded stratified grid (data only), CAP_MAX in all. The clip puts the
+  // cut where the true height is Hc, exactly in 1 / h for corners past CLIP_FAR block edges and linearly inside it, so the count of straddling pixels with |hTrue| over Hc (1 + CAP_EPS) is 0, CAP_EPS
+  // being the deviation the linear crossings inside CLIP_FAR leave. Controls: C1 the same count with the clip off (the layers cut at their drawn height, linearly interpolated) is over 0 in
+  // every row with a straddling cell, C2 the pixels of the smallest drawn |height| in place of the largest see fewer, C3 the layer's claim one digit off moves the clip-on maximum by more than
+  // CAP_EPS, C4 the float target returns the constant the probe writes
+  const CAP_EPS = 0.05, CAP_PER_CELL = 2, CAP_UNIFORM = 64, CAP_MAX = 400, CAP_SEED = 20251110, CAP_BATCH = 20, CAP_CONST = [1, 2, 3, 4];
+  const capRd = (o) => ev(`__cmwLandCapRead(${JSON.stringify(Object.assign({ perCell: CAP_PER_CELL, uniform: CAP_UNIFORM, max: CAP_MAX, seed: CAP_SEED }, o))})`);
+  const capEval = async (samples, shift) => {
+    const out = [];
+    for (let i = 0; i < samples.length; i += CAP_BATCH) {
+      const b = samples.slice(i, i + CAP_BATCH).map((q) => ({ z: q.z, zc: q.zc, own: q.own }));
+      out.push(...await ev(`${JSON.stringify(b)}.map((q) => { const v = __cmwLandScene(q.z, q.own + ${shift}, q.zc); return v ? __cmwLandFrameHeight(v) : null; })`));
+    }
+    return out;
+  };
+  const capStat = (rd, hs, hc) => {
+    const s = rd.samples.map((q, i) => Object.assign({ h: hs[i] }, q)), st = s.filter((q) => q.kind === 'strad'), un = s.filter((q) => q.kind === 'uniform');
+    const fin = (a) => a.filter((q) => q.h !== null);
+    return {
+      unresolved: s.filter((q) => q.h === null).length,
+      over: fin(st).filter((q) => Math.abs(q.h) > hc * (1 + CAP_EPS)).length,
+      maxRatio: fin(st).reduce((m, q) => Math.max(m, Math.abs(q.h) / hc), 0),
+      uniMax: fin(un).reduce((m, q) => Math.max(m, Math.abs(q.h - q.vz)), 0),
+      nStrad: st.length, nUni: un.length
+    };
+  };
+  const capBit = { c1: 0, c2fell: 0, c3: 0, c4: 0, rows: 0 }, capCase = {};
+  const capRow = async (c, u, t, rec) => {
+    const t0 = Date.now(), on = await capRd({});
+    ok(`${t}: the cap probe reads a float target and a layered frame (${on.err || 'read'})`, !on.err, on);
+    if (on.err) return;
+    capBit.rows++;
+    if (!capBit.c4 && !capBit.c4done) {
+      capBit.c4done = true;
+      const k = await capRd({ constant: true });
+      ok(`${t}: C4: the float target returns the constant the probe writes (${JSON.stringify(k.constant)})`, !!k.constant && k.constant.length === CAP_CONST.length && k.constant.every((x, i) => x === CAP_CONST[i]), k.constant);
+      if (k.constant && k.constant.every((x, i) => x === CAP_CONST[i])) capBit.c4++;
+    }
+    const hc = on.hc, tS = Date.now();
+    const hOn = await capEval(on.samples, 0), sOn = capStat(on, hOn, hc), tOn = Date.now() - tS;
+    ok(`${t}: cap: no sampled pixel is unresolved by the scene (${sOn.unresolved} of ${on.samples.length})`, sOn.unresolved === 0, sOn);
+    ok(`${t}: cap: no straddling cell is left out of the sample (${on.truncated} of ${on.nStrad + on.truncated} cells; ${on.samples.length} of ${CAP_MAX} pixels)`, on.truncated === 0, { truncated: on.truncated, nStrad: on.nStrad });
+    ok(`${t}: cap: no drawn pixel's true height is over Hc (1 + ${CAP_EPS}), the ${sOn.nStrad} pixels of ${on.nStrad} straddling cells (${sOn.over} are; the largest |hTrue| / Hc is ${sOn.maxRatio.toFixed(4)}, Hc = ${hc})`, sOn.over === 0, sOn);
+    ok(`${t}: cap: the largest drawn |height| is inside Hc (1 + ${CAP_EPS}) (${(on.maxDrawn / hc).toFixed(4)} Hc)`, on.maxDrawn <= hc * (1 + CAP_EPS), { maxDrawn: on.maxDrawn, hc });
+    // C1, the clip off
+    const off = await capRd({ clipOff: true }), hOff = await capEval(off.samples, 0), sOff = capStat(off, hOff, hc);
+    const na = ctlNA(c, 'capOff', u);
+    if (off.nStrad > 0) {
+      ok(`${t}: C1: without the block clip ${sOff.over} straddling pixels (of ${sOff.nStrad}) have |hTrue| over Hc (1 + ${CAP_EPS}) (largest ${sOff.maxRatio.toFixed(4)} Hc)${na ? '; the row is listed as not applicable: ' + na : ''}`, sOff.over > 0 && !na, sOff);
+      if (sOff.over > 0) capBit.c1++;
+    } else ok(`${t}: C1: no straddling cell is drawn here (${off.nStradAll} cells have a corner past Hc): not applicable${na ? ': ' + na : ''}`, !!na, { nStradAll: off.nStradAll });
+    // C2, the pixels of the smallest drawn height
+    const low = await capRd({ clipOff: true, lowest: true }), hLow = await capEval(low.samples, 0), sLow = capStat(low, hLow, hc);
+    if (off.nStrad > 0) {
+      ok(`${t}: C2: sampling each straddling cell's lowest drawn pixels, the clip-off count falls (${sLow.over} against ${sOff.over})`, sLow.over < sOff.over || sOff.over === 0, { low: sLow.over, top: sOff.over });
+      if (sLow.over < sOff.over) capBit.c2fell++;
+      const k = capCase[c.tag] = capCase[c.tag] || { top: 0, low: 0 }; k.top += sOff.over; k.low += sLow.over;
+    }
+    // C3, the claim one digit off
+    const K = await ev('(__cmwLandSceneCombos() || {}).n || 0'), naK = ctlNA(c, 'capShift', u);
+    if (K > 1) {
+      const hSh = await capEval(on.samples, 1), sSh = capStat(on, hSh, hc);
+      ok(`${t}: C3: continued on the claim one digit off the clip-on maximum |hTrue| / Hc moves by over ${CAP_EPS} (${sOn.maxRatio.toFixed(4)} to ${sSh.maxRatio.toFixed(4)}; ${sSh.unresolved} unresolved)${naK ? '; listed as not applicable: ' + naK : ''}`, Math.abs(sSh.maxRatio - sOn.maxRatio) > CAP_EPS && !naK, { on: sOn.maxRatio, shifted: sSh.maxRatio });
+      if (Math.abs(sSh.maxRatio - sOn.maxRatio) > CAP_EPS) capBit.c3++;
+    } else ok(`${t}: C3: the glide's map has one surface: not applicable`, true, { K });
+    rec.cap = { hc, covered: on.covered, nStradAll: on.nStradAll, nStrad: on.nStrad, truncated: on.truncated, clipOn: sOn, clipOff: sOff, lowest: sLow, tOnMs: tOn, tRowMs: Date.now() - t0 };
+    info.capRows = (info.capRows || []).concat({ t, hc, ...rec.cap });
+  };
   await view(VIEW_W, VIEW_H, false, false);
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
   for (const c of CASES.filter((x) => !process.env.CMW_ONLY || x.tag === process.env.CMW_ONLY)) for (const sheets of MODES) {
@@ -1118,6 +1190,7 @@
           ok(`${t}: ${what} the next plane's parked frame is not matched (control; ${dc} of pixels over ${DIFF_TOL})`, dc > SAME_FRAC, { dc });
         }
       }
+      if (sheets && !(carry && carry.path === 'mesh')) await capRow(c, u, t, r[u]);
       // the end frames in the Top view, against the parked plane there
       if (first || lastU) {
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
@@ -1845,6 +1918,11 @@
       ok(`${name}: u=${1 - END_U}: with the sheet pass the frame is the next plane's parked frame (at most ${SAME_FRAC * 100} %)`, on && dOn <= SAME_FRAC, r.fixControl);
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
     }
+  }
+  if (capBit.rows) {
+    ok(`control: the cap row's clip-off control bit on some row (${capBit.c1} of ${capBit.rows} rows)`, capBit.c1 > 0, capBit);
+    ok(`control: the cap row's lowest-pixel sampling fell on some row (${capBit.c2fell} rows)`, capBit.c2fell > 0, capBit);
+    if (!process.env.CMW_ONLY) ok(`control: the clip-off count with the lowest pixels is 0 on some case (${JSON.stringify(capCase)})`, Object.values(capCase).some((k) => k.top > 0 && k.low === 0), capCase);
   }
   ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
   ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
