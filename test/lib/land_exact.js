@@ -1109,7 +1109,7 @@
         }
         // the count of straddling cells rises little between continuous frames (a step of at most STRAD_DU_MAX of u): a scrub in steps of SCRUB_STEP_U, up and back, the raw
         // rises measured, none rescaled; a longer step is a jump, which reads the count
-        if (c.tag === ROW_CASE && cc) {
+        if (cc && !sheets && SIDE_CASES.includes(c.tag)) {
           await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
           const us = [];
           for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
@@ -1129,7 +1129,7 @@
           await ev('__svCarryProbe = null; 1');
           await setU(GLIDE_MID);
           ok(`${t}: the count of straddling cells rises by at most ${STRAD_DELTA_MAX} between continuous frames (${steps} steps of at most ${STRAD_DU_MAX} of u, ${longSteps} longer ones read the count; the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && steps > 0, { worst, at, steps, longSteps });
-          ok(`${t}: control: the same bound for a list of 1024 (${SMALL_K_DELTA_MAX}) is broken by the largest rise (${worst}), so the premise is not vacuous`, worst > SMALL_K_DELTA_MAX, { worst });
+          if (c.tag === ROW_CASE) ok(`${t}: control: the same bound for a list of 1024 (${SMALL_K_DELTA_MAX}) is broken by the largest rise (${worst}), so the premise is not vacuous`, worst > SMALL_K_DELTA_MAX, { worst });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
