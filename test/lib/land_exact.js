@@ -82,6 +82,7 @@
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
   const UNCLIPPED_ALL = ['Möbius with a pole in the box', 'Roots as preimages'];   // (the cases whose All sheets draw is not clipped at the block: it has no classes)
+  const CLASS_BORDER_EPS = 1e-5;   // (CLASS_BORDER_EPS in src/gl/06-draws-3d.js: the distance, relative to the coordinate, within which a corner on a plane may be either side of it in the GPU's arithmetic: far under a pixel)
   const FALLBACK_DRAWS = 6;   // (STRAD_FALLBACK_FRAMES in src/gl/06-draws-3d.js: the carried draws that take every cell after an overflow)
   const MIX_K = 1024;   // (the clipped draw's list of straddling cells: LAND_STRAD_K in src/gl/03-glsl-3d.js; a count over it is the draw's failure)
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
@@ -536,7 +537,7 @@
         else {
           ok(`${t}: the cells are all IN, OUT or MIX (${cc && cc.in} + ${cc && cc.out} + ${cc && cc.mix} of ${cc && cc.cells})`, !!cc && cc.in + cc.out + cc.mix === cc.cells, cc);
           ok(`${t}: the straddling cells are all listed (${cc && cc.listed} of ${cc && cc.mix}) and the list has room (${MIX_K})`, !!cc && cc.listed === cc.mix && cc.mix <= MIX_K, cc);
-          ok(`${t}: the classes are the CPU's from the places and the cuts (${cc && cc.cpuDiffer} cells differ; ${cc && cc.cpuNear} more have a corner on a plane)`, !!cc && cc.cpuDiffer === 0, cc);
+          ok(`${t}: the classes are the CPU's from the places and the cuts, but for border cells whose corner lies on a plane to within ${CLASS_BORDER_EPS} (${cc.cpuDiffer} other cells differ; ${cc.cpuNear} border cells differ, of ${cc.cpuBorder})`, cc.cpuDiffer === 0 && cc.cpuNear <= cc.cpuBorder, cc);
           if (u === GLIDE_MID && c.tag === ROW_CASE && cc && cc.mix > 0) {
             await ev('__svCarryProbe = __svCarryProbeSettings.classOutStats; 1'); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             const cf = JSON.parse(await ev('JSON.stringify(__cmwLandCarry() && __cmwLandCarry().classCounts || null)'));

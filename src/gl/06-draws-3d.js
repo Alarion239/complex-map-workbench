@@ -1616,9 +1616,10 @@
       // colour being of the sheet's branch)
       // (one layer's grid, or one of its patches: n x n places, its textures bound, a draw per step sheet)
       // (a test read: the cells' counts by class, and the MIX list's length, from the class texture and the rows' bases)
-      // (the classes again on the CPU, from the places and the cuts' jumps read back: the cells where it differs from the class texture, except those with a
-      // corner within CLASS_NEAR of a plane, where the GPU's float arithmetic may take either side; their number is returned too)
-      const CLASS_NEAR = 1e-5;
+      // (the classes again on the CPU, from the places and the cuts' jumps read back: the cells where it differs from the class texture; those with a corner
+      // within CLASS_BORDER_EPS (relative) of a plane, where the GPU's float arithmetic may take either side, are counted apart, with how many cells
+      // the grid's border holds: a border cell is one the box's sides run through)
+      const CLASS_BORDER_EPS = 1e-5;
       const cpuCheck = (L, N, px) => {
         const rd = (tex) => {
           const fb = gl.createFramebuffer(), a = new Float32Array(N * N * 4);
@@ -1642,13 +1643,13 @@
             if (!(t1[o + 3] >= 0.5 && Math.abs(X) < 1e30 && Math.abs(Y) < 1e30 && Math.abs(Z) < 1e30)) { mixed = true; continue; }
             const d = [Z - Hb, -Z - Hb, Sd[0] - X, X - Sd[1], Sd[2] - Y, Y - Sd[3]], sc = [Hb, Hb, X, X, Y, Y];
             let cd = 0;
-            d.forEach((v, p) => { if (v > 0) cd |= 1 << p; if (Math.abs(v) <= CLASS_NEAR * (1 + Math.abs(sc[p])) && (p > 1 || Hb < 1e29)) nearC = true; });
+            d.forEach((v, p) => { if (v > 0) cd |= 1 << p; if (Math.abs(v) <= CLASS_BORDER_EPS * (1 + Math.abs(sc[p])) && (p > 1 || Hb < 1e29)) nearC = true; });
             orC |= cd; andC &= cd;
           }
           const want = mixed ? LAND_CLASS_MIX : (andC !== 0 ? LAND_CLASS_OUT : (orC === 0 ? LAND_CLASS_IN : LAND_CLASS_MIX));
           if (Math.round(px[4 * (y * N + x)]) !== want) { if (nearC) near++; else differ++; }
         }
-        return { cpuDiffer: differ, cpuNear: near };
+        return { cpuDiffer: differ, cpuNear: near, cpuBorder: 4 * (N - 1) };
       };
       const classCounts = (L, N) => {
         const fb = gl.createFramebuffer(), px = new Float32Array(N * N * 4);
