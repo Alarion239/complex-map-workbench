@@ -968,13 +968,20 @@
               ok(`${t}: the control: a zero shifted by ${ZERO_SHIFT} is not the Möbius step's inverse at the node`, Array.isArray(z2) && !near([z2[0] + ZERO_SHIFT, z2[1]], 0, 0.1), { z2 });
             }
             if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
-              // (the lift's branch point: the root's input zero past the glide's span, pulled back through the glide's Möbius at its progress: z = i at the middle, another z at another u; the list dropped is empty; a non-Möbius step before the root is unread)
+              // (the lift's branch point, the root's input zero past the glide's span: z = i at every u, drawn at w = H_u(i) through the scene's g, which moves with u; the list dropped is empty; a non-Möbius step before the root is unread)
               const lz = async (tt, drop) => ev(`__cmwLandLiftZeros({ mode: 1, base: 0, hi: 1, t: ${tt} }${drop ? ', true' : ''})`);
               const lm = await lz(GLIDE_MID), la = await lz(MID_U[0]), ld = await lz(GLIDE_MID, true);
               const ch = await ev(`__cmwLandZerosOf([{ id: 'recip' }], [0, 0])`);
-              ok(`${t}: the lift's branch point at u = ${GLIDE_MID} is i (${JSON.stringify(lm && lm.zeros)}, unread ${JSON.stringify(lm && lm.unread)})`, !!lm && lm.zeros.length === 1 && Math.hypot(lm.zeros[0][0], lm.zeros[0][1] - 1) <= ZERO_TOL && lm.unread.length === 0, { lm });
-              ok(`${t}: the control: the lift's branch point follows u (${JSON.stringify(la && la.zeros)} at u = ${MID_U[0]})`, !!la && la.zeros.length === 1 && Math.hypot(la.zeros[0][0] - lm.zeros[0][0], la.zeros[0][1] - lm.zeros[0][1]) > ZERO_SHIFT / 100, { la, lm });
+              const isI = (r) => !!r && r.zeros.length === 1 && Math.hypot(r.zeros[0][0], r.zeros[0][1] - 1) <= ZERO_TOL && r.unread.length === 0;
+              ok(`${t}: the lift's branch point is i at u = ${MID_U[0]} and ${GLIDE_MID} (${JSON.stringify(la && la.zeros)}, ${JSON.stringify(lm && lm.zeros)})`, isI(la) && isI(lm), { la, lm });
+              const hm = lm && isI(lm) ? lm.zeros[0] : null, ha = la && isI(la) ? la.zeros[0] : null;
+              ok(`${t}: the branch point is drawn at w = H_u(i) (${JSON.stringify(hm && hm.slice(3))} at u = ${GLIDE_MID}) and w moves with u (${JSON.stringify(ha && ha.slice(3))} at u = ${MID_U[0]})`, !!hm && !!ha && hm[3] !== null && Math.hypot(hm[3] - ha[3], hm[4] - ha[4]) > ZERO_SHIFT / 100, { hm, ha });
               ok(`${t}: the control: the list dropped is empty (${ld && ld.zeros.length}) and a step that is not a Möbius step before the root is unread (${JSON.stringify(ch)})`, !!ld && ld.zeros.length === 0 && ch === 'unread', { ld, ch });
+            }
+            if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
+              // (w is H_u(z) through the scene's g at the current u: the hook's w at this u is the homotopy hook's value at z = i on the own surface)
+              const cur = await ev('__cmwLandLiftZeros()'), hh = await ev('__cmwLandHom([0, 1], null, { sheets: [0], dH: false })');
+              ok(`${t}: w is the scene's H_u(i) (${JSON.stringify(cur && cur.zeros[0] && cur.zeros[0].slice(3))} against ${JSON.stringify(hh && hh[0].H)})`, !!cur && cur.zeros.length === 1 && !!hh && !!hh[0].H && Math.hypot(cur.zeros[0][3] - hh[0].H[0], cur.zeros[0][4] - hh[0].H[1]) <= ZERO_TOL, { cur, hh });
             }
             if (c.dipole && u === MID_U[1]) {
               // (the dipole's pole lies between the pole search's grid points: with the pole read from the Möbius matrix the count is right, without it the closed leaf's winding is a zero less a pole)
