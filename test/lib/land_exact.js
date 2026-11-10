@@ -175,7 +175,7 @@
   const SYN_BASE = 0.3;   // grid cells: the made-up edge's loops are based this far off its end, along one of the four axes, so that the branch value is inside a cell of the loops (clear of every spoke and side by BRANCH_CLEAR) wherever the arm points
   const SYN_ARM = 0.5;   // the made-up edge through a branch value: half its length in grid cells (its direction runs from the branch value toward the centre of the places the frame spans, so both its ends are in them)
   const CTL_NA_ROWS = { cert: { 'log of an annulus@0.25': 'no pending edge: the frame\'s flagged edges are not at an end of their chord', 'log of an annulus@0.5': 'no pending edge: the frame\'s flagged edges are not at an end of their chord', 'log of an annulus@0.75': 'no pending edge: the frame\'s flagged edges are not at an end of their chord', 'cube root@0.25': 'no pending edge: the frame\'s flagged edges are not at an end of their chord', 'cube root@0.5': 'no pending edge: the frame\'s flagged edges are not at an end of their chord', 'cube root@0.75': 'no pending edge: the frame\'s flagged edges are not at an end of their chord' }, seam: { 'log of an annulus@0.25': 'no seam edge in the row (no pending edge)', 'cube root@0.25': 'no seam edge in the row (no pending edge)', 'cube root@0.5': 'no seam edge in the row (no pending edge)', 'cube root@0.75': 'no seam edge in the row (no pending edge)', 'log of an annulus@0.5': 'no seam edge in the row (its one edge is a false cut)', 'log of an annulus@0.75': 'no seam edge in the row (its edges are false cuts or unresolved)' } };   // the rows (case tag @ u) where a control has nothing to run on, so it is listed and checked: a row off the list that cannot run fails, and so does a row on it that can
-  const CTL_NA_SYN = { 'log of an annulus@0.5': 'the scene counts one member in B\' at each of the made-up edge\'s end vertices (a branch edge needs two: the log\'s other surfaces\' members are outside B\')', 'log of an annulus@0.75': 'the scene counts no member at the made-up edge\'s end vertices (the branch value -3.75 is outside the places the scene counts members at)' };   // the rows (case tag @ u) where the made-up edge's controls cannot run, with the trace that explains it: the scene counts fewer than two members at the made-up edge's end vertices
+  const CTL_NA_SYN = { 'log of an annulus@0.5': { kind: 'one', why: 'the scene counts one member in B\' at each of the made-up edge\'s end vertices (a branch edge needs two: the log\'s other surfaces\' members are outside B\')' } };   // the rows (case tag @ u) where the made-up edge's controls cannot run, with the kind of the reason: 'none' (the scene counts no member at its end vertices) or 'one' (exactly one at each), both asserted from the counts
   const ID_SHARE = 0.1;   // a tracked member is a member of the set it arrives at only when it is within this share of the set's smallest separation of it: below 1/2 a point cannot be one member of two
   const LOOP_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];   // the directions the displaced control moves its loops: each of the eight neighbours of the vertex
   const CELL_QUANT = 8;   // a branch cell is named by its lower-left corner in eighths of a grid cell
@@ -200,6 +200,7 @@
   const CONT_MARGIN = 2;   // a step's segment stays at least this many step lengths from every zero of a branch step's input: the continued surface is single-valued on it
   const Z_CONV = 1e-10;   // Newton's method on a member stops when its residual is within MONO_CERT and its next correction is within this share of 1 + |z|, so one member found twice agrees to far under SAME_Z
   const ARRIVE_Z = 1e-4;   // a tracked member is a member of the set it arrives at when their z agree within this share of 1 + |z| (and within ID_SHARE of the set's smallest separation)
+  const ID_CTL_SEP_Z = 0.5 * ARRIVE_Z;   // the identity control's two members: this share of 1 + |z| apart (under ARRIVE_Z, over ID_SHARE of nothing: the ID_SHARE term alone keeps them two)
   const C4_STEP_SIDE = 1;   // the c4Inject probe puts its wrong prediction on the first step of this side of the loop (0 based)
   const AGG_NA = { empty: { 'log of an annulus': 'no seam edge in any row (no pending edge at all)', 'cube root': 'no seam edge in any row (no pending edge at all)', 'Möbius, √': 'no cut-edge pass runs' }, seedShort: { 'log of an annulus': 'with 2 x 2 seeds and no rings the made-up edge at u = 0.25 still certifies a branch: Newton from the four seeds finds every member of its sets (3 members at the loop base, counted equal to the scene\'s count)', 'Möbius, √': 'no cut-edge pass runs' }, sepBite: { 'Möbius, √': 'no cut-edge pass runs' }, synWrong: { 'Möbius, √': 'no cut-edge pass runs' } };   // (case tag -> reason) where an aggregate control cannot bite
   const C4_R = 0.5;   // the separation probe's loop: half-side in grid steps
@@ -291,7 +292,7 @@
       const sf = window.__cmwLandSurfaces(), zs = (window.__cmwLandZeros() || { zeros: [] }).zeros, hb = sf && sf.ks.length ? window.__cmwLandHom(zs.length ? [zs[0][0], zs[0][1]] : [0, 0], null, { dH: false, sheets: [sf.ks[0]] }) : null, wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
       window.__lxRegion = [x0, x1, y0, y1];
-      window.__lxCnt = { seeds: 0, newton: 0 };
+      window.__lxCnt = { seeds: 0, newton: 0, cap: 0, dbl: 0 };
       return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class, read on the scene alone (no plan, no frame label): 'seam' (continuing its first end's member along the edge's place
@@ -318,11 +319,13 @@
         const sf = window.__cmwLandSurfaces(), scn = window.__cmwLandScn(), ks = sf.ks;
         const inB = (z) => z[0] >= B[0] && z[0] <= B[1] && z[1] >= B[2] && z[1] <= B[3];
         const sing = (() => { const s = window.__cmwLandSing() || { poles: [], branch: [] }, z = window.__cmwLandZeros() || { zeros: [] }, lz = window.__cmwLandLiftZeros() || { zeros: [] }, lp = window.__cmwLandLiftPoles() || { poles: [] }; return [].concat(s.poles, s.branch, z.zeros, lz.zeros, lp.poles).map((q) => [q[0], q[1]]); })();
+        let lastCap = false;   // (the last solve ended at its iteration cap)
         const hom = (z, cell, kk) => { const q = window.__cmwLandHom(z, cell, { sheets: [kk] }), o = q && q[0]; return o && o.H && o.dH ? o : null; };
         // Newton's method on the surface kk continued from the cell centred at anchor, from z0, to the residual MONO_CERT of 1 + |w| and the correction Z_CONV; null where it leaves B', loses H or hits the cap
-        const solve = (kk, anchor, z0, w) => {
+        const solve = (kk, anchor, z0, w, cap) => {
           let z = z0;
-          for (let i = 0; i < ${MONO_NEWT_MAX}; i++) {
+          lastCap = false;
+          for (let i = 0; i < (cap || ${MONO_NEWT_MAX}); i++) {
             cnt.newton++;
             const o = hom(z, anchor, kk);
             if (!o) return null;
@@ -333,6 +336,7 @@
             z = csub(z, dz);
             if (!inB(z)) return null;
           }
+          lastCap = true;
           return null;
         };
         // the surface that holds z as a point of w on z's own cell: the nearest surface to w within the scene's certificate and clearly nearest (TIE); -1 otherwise
@@ -381,8 +385,8 @@
           // (bad: the c4Inject probe's one deliberately wrong prediction, the nearest other member of the set and its surface, so that Newton lands on it; the margin check is not applied to it, so the separation check alone judges it)
           const dz = cdiv(csub(w1, w0), o.dH), near = bad ? cur.filter((_, j) => j !== i).sort((p, q) => cabs(csub(p.z, m.z)) - cabs(csub(q.z, m.z)))[0] : null, z0 = near ? near.z : [m.z[0] + dz[0], m.z[1] + dz[1]];
           if (!(cabs(dz) < 1e30) || !inB(z0)) { fail = { why: 'left' }; return null; }
-          const r = near ? solve(near.k, near.z, z0, w1) : solve(m.k, m.z, z0, w1);
-          if (!r) { fail = { why: 'newton' }; return null; }
+          const r = near ? solve(near.k, near.z, z0, w1, opt.newtCap) : solve(m.k, m.z, z0, w1, opt.newtCap);
+          if (!r) { if (lastCap) cnt.cap++; fail = { why: 'newton' }; return null; }
           const d = cabs(csub(r.z, m.z));
           if (opt.sep !== false && !(d <= ${SEP_SHARE} * sepOf(cur, i))) { fail = { why: 'sep' }; return null; }
           if (!bad && sing.some((s) => segDist(s, m.z, r.z) < ${CONT_MARGIN} * d)) { fail = { why: 'margin' }; return null; }
@@ -406,9 +410,10 @@
         };
         // the member of a set a point is, by z: within the smaller of ARRIVE_Z of 1 + |z| and ID_SHARE of the set's smallest separation; -1 where none
         const sepMin = (set) => { let d = Infinity; set.forEach((_, i) => { d = Math.min(d, sepOf(set, i)); }); return d; };
-        const match = (set, m) => {
-          const tol = Math.min(${ARRIVE_Z} * (1 + cabs(m.z)), ${ID_SHARE} * sepMin(set)), r = [];
+        const match = (set, m, share) => {
+          const tol = Math.min(${ARRIVE_Z} * (1 + cabs(m.z)), (share === undefined ? ${ID_SHARE} : share) * sepMin(set)), r = [];
           set.forEach((x, i) => { if (cabs(csub(x.z, m.z)) <= tol) r.push(i); });
+          if (r.length > 1) cnt.dbl++;
           return r.length === 1 ? r[0] : -1;
         };
         // an end's member: the one nearest the frame's texel z, within END_Z_TOL of 1 + |z| and TIE times nearer than the next; -1 where none
@@ -416,6 +421,14 @@
           const d = set.map((m, i) => ({ i, d: cabs(csub(m.z, z)) })).sort((p, q) => p.d - q.d);
           return d.length && d[0].d <= ${END_Z_TOL} * (1 + cabs(z)) && (d.length === 1 || d[0].d * scn.TIE <= d[1].d) ? d[0].i : -1;
         };
+        if (opt.idCtl) {
+          // (the identity control: two members ID_CTL_SEP_Z of 1 + |z| apart, a point placed at the second: the full identity gives that member, and without the ID_SHARE term the point is within ARRIVE_Z of both, a double match)
+          const s0 = memberSet(opt.idCtl);
+          if (!s0.set || !s0.set.length) return { cls: 'unresolved', why: 'idCtl', set: s0.why };
+          const b0 = s0.set[0], m2 = { z: [b0.z[0] + ${ID_CTL_SEP_Z} * (1 + cabs(b0.z)), b0.z[1]], k: b0.k }, set2 = [b0, m2], d0 = cnt.dbl, full = match(set2, m2), off = match(set2, m2, Infinity);
+          cnt.dbl = d0;
+          return { cls: 'idCtl', full, off };
+        }
         if (opt.c4) {
           // (the separation probe: a square loop of half-side C4_R grid steps centred C4_R x 1.5 beside the branch value opt.c4, not enclosing it, read as the permutation it induces on the set at its base)
           const R = ${C4_R} * h, c = [opt.c4[0] + 1.5 * R, opt.c4[1]], b = [c[0] - R, c[1] - R], pts = [b, [c[0] + R, c[1] - R], [c[0] + R, c[1] + R], [c[0] - R, c[1] + R], b], s4 = memberSet(b);
@@ -430,12 +443,13 @@
           // (a made-up edge through the branch value bv, from one side of it to the other: its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the set there, the second end's the second of the set at the other vertex)
           const rg = window.__lxRegion, ang = Math.atan2((rg[2] + rg[3]) / 2 - opt.syn[1], (rg[0] + rg[1]) / 2 - opt.syn[0]), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
           const s0 = memberSet(wv0), s1 = memberSet(wo0), n = [s0.set ? s0.set.length : 0, s1.set ? s1.set.length : 0];
+          if (s0.why || s1.why) return { cls: 'unresolved', why: 'synSet', n, sets: [s0.why, s1.why], N: [s0.N, s1.N], cnt: [s0.n, s1.n], st: [s0.status, s1.status] };
           if (n[0] < 2 || n[1] < 2) return { cls: 'unresolved', why: 'syn', n, want: n[0] ? [n[0]] : [], sets: [s0.why, s1.why], N: [s0.N, s1.N], cnt: [s0.n, s1.n], st: [s0.status, s1.status], wv0, wo0 };
           // (the second end: the member of the other vertex's set that, carried to this vertex round the branch value (the track straight across it fails), arrives at a member other than the first end's)
           let trS = null;
           for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) { trS = track(s1.set, [wo0, [wo0[0] + dx * h, wo0[1] + dy * h], [wv0[0] + dx * h, wv0[1] + dy * h], wv0]); if (trS) break; }
           const j = trS ? trS.findIndex((m) => { const q = match(s0.set, m); return q >= 0 && q !== 0; }) : -1;
-          if (j < 0) return { cls: 'unresolved', why: 'syn', n: [s0.set.length, s1.set.length], want: [s0.set.length], sets: [null, null], carry: !!trS, fail };
+          if (j < 0) return { cls: 'unresolved', why: 'synTrack', n: [s0.set.length, s1.set.length], carry: !!trS, fail };
           e = [s0.set[0].z[0], s0.set[0].z[1], s1.set[j].z[0], s1.set[j].z[1], 0, 0, 0, wv0[0], wv0[1], wo0[0], wo0[1]];
         }
         if (opt.same) {
@@ -1231,7 +1245,11 @@
           const na = `${c.tag}@${u}` in R1_NA;
           ok(`${t}: R1: ${ids.length ? 'the row has edges to class (' + ids.length + ')' : 'the row has no edge to class, as the row\'s list expects: ' + R1_NA[`${c.tag}@${u}`]}`, (ids.length > 0) !== na, { n: ids.length });
         }
-        ok(`${t}: the seeds and Newton iterations of the row's member sets: ${cc.cnt.seeds} seeds, ${cc.cnt.newton} iterations`, cc.cnt.seeds >= 0, cc.cnt);
+        r[u].seedsNewton = { seeds: cc.cnt.seeds, newton: cc.cnt.newton };   // (a print: the seeds and Newton iterations of the row's member sets)
+        ok(`${t}: no tracked member hit Newton's iteration cap (${cc.cnt.cap})`, cc.cnt.cap === 0, cc.cnt);
+        ok(`${t}: no point matches two members of a set (${cc.cnt.dbl})`, cc.cnt.dbl === 0, cc.cnt);
+        const idc = await ev(`__lx.certEdge(0, { idCtl: ${JSON.stringify(SAME_PLACE)} })`);
+        ok(`${t}: control: two members ${ID_CTL_SEP_Z} of 1 + |z| apart stay two under the full identity (${idc.full}) and are a double match (-1) without the ID_SHARE term (${idc.off})`, idc.cls === 'idCtl' && idc.full === 1 && idc.off === -1, idc);
         // the branch value is one of the places the frame draws, or no edge certifies a branch there
         cc.wb = prep.wb; cc.inPlace = prep.inPlace; cc.region = prep.region;
         ok(`${t}: the branch value ${JSON.stringify(prep.wb)} ${prep.inPlace ? 'is' : 'is not'} in the places the frame spans; the certified branch cells (${cc.cells}) are ${prep.inPlace ? 'at most ' + BRANCH_CELLS_PER_POINT * brPts.length + ' for the ' + brPts.length + ' branch points' : 'none'}`, prep.inPlace ? cc.cells <= BRANCH_CELLS_PER_POINT * brPts.length : cc.branch === 0, cc);
@@ -1277,9 +1295,9 @@
           const syn = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)} })`), synSw = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, swapB: true })`);
           const synNL = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, noLoops: true })`), synDp = await ev(`__lx.certEdge(0, { syn: ${JSON.stringify(bv)}, displace: true })`);
           
-          const key = `${c.tag}@${u}`, noSyn = syn.cls === 'unresolved' && syn.why === 'syn';
+          const key = `${c.tag}@${u}`, noSyn = syn.cls === 'unresolved' && syn.why === 'syn';   // (a lost track, why 'synTrack', or a set that falls short of the count, why 'synSet', is no N/A: the made-up edge rows below fail on it)
           ok(`${t}: control: with no loops to read the made-up branch edge is not certified (${synNL.cls})`, synNL.cls !== 'branch', synNL);
-          if (noSyn) ok(`${t}: control: the made-up edge has no member at its end vertices, as the row's list expects: ${CTL_NA_SYN[key]}`, key in CTL_NA_SYN, syn);
+          if (noSyn) ok(`${t}: control: the made-up edge has too few members at its end vertices (${JSON.stringify(syn.n)}), as the row's list expects: ${key in CTL_NA_SYN ? CTL_NA_SYN[key].why : '(not on the list)'}`, key in CTL_NA_SYN && syn.n.every((x) => x === (CTL_NA_SYN[key].kind === 'one' ? 1 : 0)), syn);
           else {
             ok(`${t}: control: a row whose made-up edge has members at its ends is not on the list of rows that have none`, !(key in CTL_NA_SYN), syn);
             ok(`${t}: a made-up edge in the cell that holds the branch value ${JSON.stringify(bv)} certifies a branch (${syn.cls}${syn.why ? ', ' + syn.why : ''})`, syn.cls === 'branch', syn);
@@ -1292,7 +1310,10 @@
             const c4on = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)} })`), c4inj = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, c4Inject: true })`), c4off = await ev(`__lx.certEdge(0, { c4: ${JSON.stringify(bv)}, c4Inject: true, sep: false })`);
             ok(`${t}: control: a loop beside the branch value (not enclosing it) is read, and is the identity (${c4on.cls}, ${JSON.stringify(c4on.perm)})`, c4on.cls === 'c4' && c4on.ident, c4on);
             ok(`${t}: control: with one wrong prediction injected the separation check rejects the step and the loop is still the identity (${c4inj.cls}, ${JSON.stringify(c4inj.perm)})`, c4inj.cls === 'c4' && c4inj.ident, c4inj);
+            ok(`${t}: control: without the separation check the injected wrong member is accepted and the loop is not the identity (${c4off.cls}, ${JSON.stringify(c4off.perm)}; the check's step: ${c4inj.bad}, without: ${c4off.bad})`, c4off.cls === 'c4' && !c4off.ident, c4off);
             if (c4on.cls === 'c4' && c4on.ident && c4inj.ident && c4off.cls === 'c4' && !c4off.ident) bit.sepBite++;
+            const capRun = await ev(`(() => { window.__lxCnt.cap = 0; const q = __lx.certEdge(0, { syn: ${JSON.stringify(bv)}, newtCap: 1 }); return { cls: q.cls, why: q.why, cap: window.__lxCnt.cap }; })()`);
+            ok(`${t}: control: with Newton's iteration cap forced to 1 in the tracker the made-up edge is not certified and the cap count is over 0 (${capRun.cls}, cap ${capRun.cap})`, capRun.cls !== 'branch' && capRun.cap > 0, capRun);
             r[u].c4 = { bad: [c4inj.bad, c4off.bad], n: c4on.n, perm: c4off.perm, on: c4on.cls + ':' + (c4on.ident ? 'id' : '?'), inj: c4inj.cls + ':' + (c4inj.ident ? 'id' : '?'), off: c4off.cls + ':' + (c4off.ident ? 'id' : c4off.cls === 'c4' ? 'swap' : '?') };
           }
           r[u].synRead = { syn: syn.cls, swap: synSw.cls };
