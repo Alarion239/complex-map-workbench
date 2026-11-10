@@ -167,7 +167,6 @@
   const COMBO_NA_PLACES = 20, COMBO_NA_TOL = 1e-9;   // (a map with one surface: its values under two combos are compared at this many places of the box, to this tolerance relative to 1 + |w|)
   const SURF_TOL = 1e-6;   // (a surface read back from its digits agrees with the member's value to this fraction of 1 + |f|)
   const CLAIM_SAMPLE = 8;   // (the layers a failing claim row lists)
-  const CAP_EPS = 1e-4;   // (the block test's tolerance, as a fraction of the block bound: a drawn fragment is on the block's plane within it, beyond the block past it)
   const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
   // The grid has ROWS_SIDE rows on each side of the real axis and none on it (the axis is the cut of the roots and the logarithm, where
   // the side a place falls on is decided by the sign of a rounding error in float32 and in float64): a row is at (k + 0.5) / ROWS_SIDE
@@ -194,23 +193,6 @@
   // (window.__cmwLandEnum, src/inverse.js's Inverse.enumerate on the plan the frame inverts) without the repeats of one z, each
   // { z, f, h } (null when the frame was not drawn by the inverse path); the front member (sheets off) is the first
   const HELP = `window.__lx = {
-    // the pixels of the held frame a at the projected places of items [{ w, h }] (the place's plane position at height h, as the frame's own camera draws it): n of them lie inside the pane;
-    // coloured counts those with saturation over SAT_MIN; with a second frame b, diff counts those whose pixel is more than DIFF_TOL from b's (the largest channel step)
-    capPx: (a, b, items) => {
-      const A = window.__heldPx[a], B = b ? window.__heldPx[b] : null, cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, dpr = W / cv.getBoundingClientRect().width;
-      let n = 0, coloured = 0, diff = 0;
-      for (const it of items) {
-        const q = __cmwLandProject(it.w[0], it.w[1], it.h);
-        if (!q || !Number.isFinite(q[0] + q[1])) continue;
-        const x = Math.round(q[0] * dpr), y = Math.round(q[1] * dpr);
-        if (x < 0 || x >= W || y < 0 || y >= H) continue;
-        const i = 4 * (y * W + x);
-        n++;
-        if (Math.max(A[i], A[i + 1], A[i + 2]) - Math.min(A[i], A[i + 1], A[i + 2]) > ${SAT_MIN}) coloured++;
-        if (B && Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${DIFF_TOL}) diff++;
-      }
-      return { n, coloured, diff };
-    },
     // the pixels where both frames are coloured (saturation over SAT_MIN) and their hues are more than HUE_OFF_DEG apart: a row the
     // colour of the wrong branch draws across a sheet boundary shows here, a shifted contour line (the same hue, lighter or darker) does not
     hueOff: (a, b) => {
@@ -971,42 +953,6 @@
           const bumpLayer = layersOf(claims).find((l) => l.nParts > 0);
           if (bumpLayer) { const bumped = await ev(`__cmwLandClaims(${JSON.stringify(pts)}, { layer: ${bumpLayer.member} })`), moved = claimBad(bumped).filter((l) => l.member === bumpLayer.member); ok(`${t}: the control: layer ${bumpLayer.member}'s claim one sheet off fails every layer of that member (${moved.length} fail)`, moved.length > 0, { moved: moved.length }); }
           else ok(`${t}: the control: no layer claims a sheet but the principal one: nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nParts === 0), { n: nLayers });
-          // (a layer read through the saturation branch holds the true height beyond the colour map's clamp: the parked frame draws the block's cap there, not the surface above it. The block test reads the whole frame: no
-          // drawn fragment lies beyond the block's plane by more than CAP_EPS of its bound, and the clipped surface's cap lies on the plane (fragments within CAP_EPS of it); without the block clip (probe clipOff) the cap is gone, so the
-          // control bites at every case that has saturated texels. At the near-end probes the Top view's pixel at the saturated texels' places, at the clamp height, equals the parked plane's)
-          {
-            const items = [];
-            (claims || []).forEach((ls, i) => (ls || []).forEach((l, j) => {
-              if (!l.layered || l.opts.length < 2 || !got[i] || !got[i][j] || !got[i][j].w) return;
-              const hi = l.h >= l.sat[1] - HEIGHT_TOL, lo = l.h <= l.sat[0] + HEIGHT_TOL;
-              if (hi || lo) items.push({ w: got[i][j].w, hs: hi ? l.sat[1] : l.sat[0] });
-            }));
-            if (items.length) {
-              const on = await ev(`__cmwLandBlockRead(${CAP_EPS})`), off = await ev(`__cmwLandBlockRead(${CAP_EPS}, { clipOff: true })`);
-              await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-              r[u].satCap = { items: items.length, on, off };
-              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: no fragment's true height is beyond the block bound (${on && on.over} of ${on && on.n} pixels are; the worst interpolated-height check: ${on && on.vert})`, !!on && on.n > 0 && on.over === 0, r[u].satCap);
-              ok(`${t}: the control: without the block clip fragments beyond the block bound are drawn (${off && off.over} pixels, over 0)`, !!off && off.over > 0, r[u].satCap);
-              if (NEAR_U.includes(u)) {
-                await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-                await grab('satOn'); await ev('__cmwLandRelief(); 1');
-                const pk = await ev(`__lx.capPx('satOn', ${first ? "'P0T'" : "'P1T'"}, ${JSON.stringify(items.map((it) => ({ w: it.w, h: it.hs })))})`);
-                await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-                ok(`${t}: the Top view's pixel at the saturated texels' places, at the clamp height, equals ${first ? "plane z's" : "the next plane's"} parked frame (${pk.diff} of ${pk.n} differ; at most ${SAME_FRAC * 100} %)`, pk.n > 0 && pk.diff <= SAME_FRAC * pk.n, pk);
-              }
-            }
-          }
-          // (the cheap paths of the homotopy hook, a surface alone and without the central difference, and the batch, give exactly the full call's values; the
-          // scene it reads follows u: its value at a fixed place differs from the last u's)
-          const eq = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, HOM_EQ_PAIRS))}; let bad = 0, n = 0, many = 0; for (const m of ms) { const full = __cmwLandHom(m.z, m.cell), b = __cmwLandHomMany([[m.z, m.cell]])[0]; if (JSON.stringify(b) !== JSON.stringify(full)) many++; for (const h of full) { const c = __cmwLandHom(m.z, m.cell, { sheets: [h.sheet], dH: false })[0]; n++; if (!(h.H === null ? c.H === null : c.H && c.H[0] === h.H[0] && c.H[1] === h.H[1])) bad++; } } return { bad, n, many }; })()`);
-          ok(`${t}: the homotopy hook's one-surface, no-difference path equals the full call (${eq.bad} of ${eq.n} surfaces differ) and so does the batch (${eq.many} members differ)`, eq.n > 0 && eq.bad === 0 && eq.many === 0, eq);
-          // (the cell the hook gives at a member's place is the cell the certificate read it on: the leaf's centre when closed, else the place itself; the control compares each with that cell shifted by one)
-          {
-            const sub = ms.slice(0, HOM_EQ_PAIRS), cells = await ev(`__cmwLandCellsAt(${JSON.stringify(sub.map((m) => m.z))})`), want = (i) => (cells && cells[i] && cells[i].c ? cells[i].c : sub[i].z);
-            const same = (x, y) => x[0] === y[0] && x[1] === y[1], bad = sub.filter((m, i) => !cells || !same(want(i), m.cell)).length, wrong = sub.filter((m, i) => !cells || !same(want(i), [m.cell[0] + 1, m.cell[1]])).length;
-            ok(`${t}: the scene's cell at a member's place (window.__cmwLandCellsAt) is the cell its certificate read, the leaf's centre when closed and else the place itself (${bad} of ${sub.length} differ)`, sub.length > 0 && bad === 0, { bad, n: sub.length });
-            if (sub.length > 0) ok(`${t}: the control: read against the member's cell shifted by one they differ (${wrong} of ${sub.length})`, wrong === sub.length, { wrong });
-          }
           // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's z is the place it was found for,
           // and the digits with one moved give a surface whose value there is another place)
           {

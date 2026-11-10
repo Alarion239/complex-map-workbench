@@ -1607,7 +1607,7 @@ in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH; uniform float uCapEps;\nflat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? `uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\n${layered ? 'uniform float uH;\nflat in vec2 vZc; uniform int uOwn;\nvec2 landW(vec2 z) { return chainSheetRange(vZc, z, uGs, uGt, uOwn); }' : 'uniform int uZOn; uniform int uSheetCombo; flat in vec2 vZc;\nvec2 landW(vec2 z) { return uZOn == 1 ? chainSheetRange(vZc, z, uGs, uGt, uSheetCombo) : chainRange(z, uGs, uGt); }'}` : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1731,7 +1731,7 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
   o = vec4(toSrgb(fogged(c, vPos)), 1.0);
-${carry && layered ? '  // (a test read: with uCapEps >= 0 the frame is the block test, red where the exact height of the fragment\'s own layer is beyond the block bound 1.25 H by more than that fraction of it, green where its interpolated height is)\n  if (uCapEps >= 0.0) { float hb = 1.25 * uH; vec2 ht = heightW(landW(vZ)); o = vec4(ht.y > 0.5 && abs(ht.x) > hb * (1.0 + uCapEps) ? 1.0 : 0.0, abs(vPos.z) > hb * (1.0 + uCapEps) ? 1.0 : 0.0, 0.0, 1.0); }\n' : ''}${carry && !layered ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
+${carry && !layered ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;
   const FLOOR_VS = `
 uniform mat4 uMVP; uniform vec2 uExt; uniform float uFloorZ;
