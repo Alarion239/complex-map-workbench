@@ -1,7 +1,8 @@
 // The Landscape's programs agree with themselves and with the GL driver: no uniform name is declared with two types in one linked program, and drawing the
 // Landscape (parked and mid-glide, Inside regions' sheets off and All sheets) raises no GL error.
-// - static: over every land program (chain and plain) in every map mode, the vertex and fragment stages declare each uniform name with one type, and a
-//   stage declares it once; a name that has a texture unit (SAMPLER_UNITS: finishLink sets it with glUniform1i) is a sampler wherever a program declares it.
+// - static: over every program (chain and plain) in every map mode it builds for, the vertex and fragment stages declare each uniform name with one type, and a
+//   stage declares it once; over every land program, a name that has a texture unit (SAMPLER_UNITS: finishLink sets it with glUniform1i) is a sampler wherever a
+//   program declares it (the other programs' names with a unit, fillPts uCP and ulevel uZ, are filed apart).
 //   GLSL ES 3.00 makes a name with two types a link error, which a strict driver (ANGLE on Metal) enforces by refusing the program;
 //   a lenient one links it and fails the first glUniform call on it (GL_INVALID_OPERATION), which is the second check;
 // - GL errors: every glUniform1i call of a draw is followed by getError, and the draws' links are read from the app's own warnings ("shader <name> <log>"):
@@ -60,14 +61,14 @@ ok('control: a float of a name that has a texture unit is flagged', unitControl.
 // (read after a case's chain is loaded: the programs' sources are the loaded chain's)
 const STATIC = `(() => {
   const T = ${DECLS};
-  const names = Object.keys(GLR._src.DEFS).filter((n) => /^land/i.test(n));
+  const names = Object.keys(GLR._src.DEFS);
   const bad = [], built = [];
   for (const n of names) for (const mode of ${JSON.stringify(MODES)}) {
     let s;
     try { s = GLR._src.programSources(n, mode); } catch (e) { continue; }
     built.push(n);
     for (const c of T.clashes(s[0], s[1])) bad.push(n + '/' + mode + ' ' + c);
-    for (const c of T.units(s[0], s[1], GLR._src.SAMPLER_UNITS)) bad.push(n + '/' + mode + ' ' + c);
+    if (/^land/i.test(n)) for (const c of T.units(s[0], s[1], GLR._src.SAMPLER_UNITS)) bad.push(n + '/' + mode + ' ' + c);
   }
   return { names, built: [...new Set(built)], bad: [...new Set(bad)] };
 })()`;
@@ -117,9 +118,10 @@ for (const sheets of [false, true]) for (const c of CASES) {
   ok(`${key}: no program failed to link`, E.warns.length === 0, E.warns.slice(0, 4));
   ok(`${key}: no GL error is pending after a frame`, drawn.length === 0, drawn.slice(0, 4));
 }
-info.static = { programs: staticNames.length, built: staticBuilt.size };
-ok('every land program is read in some case', staticNames.length >= 10 && staticNames.every((n) => staticBuilt.has(n)), staticNames.filter((n) => !staticBuilt.has(n)));
-ok('no land program declares a uniform name with two types, or a name with a texture unit as a non-sampler', staticBad.size === 0, [...staticBad].slice(0, 12));
+const landNames = staticNames.filter((n) => /^land/i.test(n));
+info.static = { programs: staticNames.length, built: staticBuilt.size, land: landNames.length };
+ok('every land program is read in some case', landNames.length >= 10 && landNames.every((n) => staticBuilt.has(n)), landNames.filter((n) => !staticBuilt.has(n)));
+ok('no program declares a uniform name with two types, and no land program a name with a texture unit as a non-sampler', staticBad.size === 0, [...staticBad].slice(0, 12));
 // control: a uniform1i on a float uniform is counted by the probe
 const ctl = await ev(`(() => {
   const gl = GLR.gl, mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); return sh; };
@@ -142,12 +144,13 @@ const pend = await ev(`(() => {
 })()`);
 ok('control: an error pending before a glUniform1i is recorded', pend === 1, pend);
 // control: a program that fails to link reaches the app's 'shader' warning
-await ev(`GLR._src.DEFS.glerrBroken = { chain: false, vs: () => 'void main() { gl_Position = vec4(0.0); }', fs: () => 'not glsl' }; 1`);
+// (both stages compile; the pair does not link: a varying of two types)
+await ev(`GLR._src.DEFS.glerrBroken = { chain: false, vs: () => 'out vec2 v; void main() { v = vec2(0.0); gl_Position = vec4(0.0); }', fs: () => 'in vec3 v; out vec4 c; void main() { c = vec4(v, 1.0); }' }; 1`);
 let warned = [];
 for (let k = 0; k < 40 && !warned.length; k++) {
   await ev(`GLR._src.program('glerrBroken'); 1`); await ev(rAF2);
   warned = (await ev('window.__glerr.warns')).filter((w) => /glerrBroken/.test(w));
 }
 await ev(`delete GLR._src.DEFS.glerrBroken; 1`);
-ok("control: a program that fails to link reaches the 'shader' warning", warned.length >= 1, warned);
+ok("control: a program that compiles but fails to link reaches the 'shader' warning", warned.length >= 1, warned);
 return { pass: fails.length === 0, fails, info };
