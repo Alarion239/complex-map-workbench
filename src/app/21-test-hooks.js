@@ -529,6 +529,13 @@
     const g = svBetween();
     return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: 0 } : { mode: 1, base: 0, hi: g.b, t: g.u };
   };
+  // the log-coordinate window of each sheet's first op (a log or a power u^s): a member's continued log coordinate has its imaginary part in (lo, hi] when
+  // the member is inside its sheet's window. [{ sheet, kind, lo, hi }] ('LOG' / 'ROOTPOW', else lo and hi are null)
+  window.__cmwLandWin = () => {
+    const inp = render3D.exactIn;
+    if (!inp) return null;
+    return [inp.exact].concat(inp.exact.more || []).map((sh, sheet) => { const o = sh.plan.ops[0], p = o && o.p; return { sheet, kind: o ? o.kind : null, lo: p && Number.isFinite(p.lo) ? p.lo : null, hi: p && Number.isFinite(p.hi) ? p.hi : null }; });
+  };
   window.__cmwLandSceneCombos = () => {
     const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), m = sceneMap();
     return typeof Funcs.sheetMapPieces === 'function' && Funcs.sheetMapPieces(S.steps, built, m) ? { n: Funcs.sheetMapCombos(S.steps, built, m, W), W } : null;

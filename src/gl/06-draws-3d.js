@@ -591,12 +591,12 @@
     gl.deleteFramebuffer(fbo);
     return out;
   }
-  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), edges [[ax, ay, bx, by, t]] }, the preimages of the edge's two ends (a, then b along
-  // +x, +y or the diagonal) and the share t of the chord a -> b at which the cut was found; null without cuts
+  // The last exact carried frame's flagged grid edges (tests): { steps (the bisection's), seam (the member-seam test's constants), edges [[ax, ay, bx, by, t, codeA, codeB, wax, way, wbx, wby]] }, the preimages of the edge's two ends (a, then b along
+  // +x, +y or the diagonal), the share t of the chord a -> b at which the cut was found, the ends' sheet codes (texel w) and places; null without cuts
   function landCutEdges() {
     if (!landC || !landC.exact || !landC.cuts || !landC.edges || !landC.zTex) return null;
-    const N = landC.N, Z = lwRead(landC.zTex, N, N), out = [];
-    if (!Z) return null;
+    const N = landC.N, Z = lwRead(landC.zTex, N, N), T = lwRead(landC.tex1, N, N), out = [];
+    if (!Z || !T) return null;
     landC.edges.forEach((tex, d) => {
       const E = lwRead(tex, N, N);
       if (!E) return;
@@ -605,10 +605,10 @@
         const k = 4 * (j * N + i), w = E[k + 3];
         if (!(w > 0.5 && w < 1.5)) continue;
         const m = 4 * ((j + dy) * N + i + dx);
-        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k]]);
+        out.push([Z[k], Z[k + 1], Z[m], Z[m + 1], E[k], T[k + 3], T[m + 3], T[k], T[k + 1], T[m], T[m + 1]]);
       }
     });
-    return { steps: CARRY_EDGE_STEPS, edges: out };
+    return { steps: CARRY_EDGE_STEPS, seam: { cont: SEAM_NEWT_CONT, pol: SEAM_NEWT_POL, rel: +SEAM_REL, abs: +SEAM_ABS, far: +SEAM_FAR, sheetCode: CARRY_SHEET_CODE }, edges: out };
   }
   // The last exact carried frame's grid edges that are crossed twice (a branch point on the edge: the edge pass's w 2), whose triangles
   // the draw leaves out, over every layer (tests); null without cuts
