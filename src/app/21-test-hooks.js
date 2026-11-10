@@ -469,7 +469,7 @@
     return g.map((ls) => ls.map((l) => {
       // (the layer's whole claim, as the frame's own sheet code is composed: its step sheet, then its forward shifts)
       const parts = [l.shift].concat(l.combo || []).filter(Boolean), bumped = parts.map((x, i) => (bump && bump.layer === l.member && i === 0 ? Object.assign({}, x, { dk: x.dk + 1 }) : x));
-      return { h: l.h, sat, member: l.member, layered: !!l.layered, nParts: parts.length, claimShift: code([l.shift]), claim: code(bumped), sceneShift: l.sheet == null ? null : code([sheets[l.sheet] && sheets[l.sheet].shift]), opts: l.z ? window.__cmwLandRefSheets(l.z).map((r) => ({ combo: r.combo, h: r.h })) : [] };
+      return { h: l.h, code: l.c, w: l.w, z: l.z, sat, member: l.member, layered: !!l.layered, nParts: parts.length, claimShift: code([l.shift]), claim: code(bumped), sceneShift: l.sheet == null ? null : code([sheets[l.sheet] && sheets[l.sheet].shift]), opts: l.z ? window.__cmwLandRefSheets(l.z).map((r) => ({ combo: r.combo, h: r.h })) : [] };
     }));
   };
   // the last carried frame's cut edges per layer: [{ cuts, box, pp: [patch] }], each grid { n, jumps, w } (the jump texels of its three edge textures and the places of the first few); null with no carried frame
