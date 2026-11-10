@@ -1103,6 +1103,7 @@
     } else ok(`${t}: C3: the glide's map has one surface: not applicable`, true, { K });
     rec.cap = { hc, covered: on.covered, nStradAll: on.nStradAll, nStrad: on.nStrad, truncated: on.truncated, clipOn: sOn, clipOff: sOff, lowest: sLow, tOnMs: tOn, tRowMs: Date.now() - t0 };
     info.capRows = (info.capRows || []).concat({ t, hc, ...rec.cap });
+    if (process.env.CAP_LOG) fs.appendFileSync(process.env.CAP_LOG, JSON.stringify({ t, ...rec.cap, K }) + '\n');
   };
   await view(VIEW_W, VIEW_H, false, false);
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
