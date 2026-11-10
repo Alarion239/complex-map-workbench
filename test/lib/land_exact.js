@@ -79,6 +79,9 @@
     "Joukowski airfoil|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Möbius dipole, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Möbius with a pole in the box|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Partial sums of the exponential (Newton)|sheets": "the glide has one surface there",
+    "Partial sums of the exponential (Newton)|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Partial sums of the exponential (Newton)|stripRead": "the scene's chain lists no branch step: the partial sums of the exponential are entire",
     "Möbius, √|stripRead": "the scene's chain lists no branch step input at this u",
     "Joukowski airfoil|stripRead": "the scene's chain lists no branch step input at this u",
     "Möbius dipole, √|stripRead": "the scene's chain lists no branch step input at this u",
@@ -99,10 +102,11 @@
     "Möbius with a pole in the box|farFront": "one preimage at each probe place: the farthest member is the nearest",
   };
   const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
-  const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
+  const EDGE_ARG_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
   const ZERO_MOVE_MIN = 0.0025;   // (the branch point's drawn place moves with u by at least this: its two u's are far apart against the float noise of one place)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
+  const STRIP_TURN_MIN = 0.5;   // (turns: a branch off by one sheet differs by a whole turn, so half a turn separates it from rounding)
   const RAMP_CTL_STEP = 1;   // (the ramp control moves one member this many levels past the ramp: any whole level is outside it)
   const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
@@ -142,6 +146,8 @@
   // a member is a preimage of its place when the frame's homotopy maps it within HOM_TOL (relative) of the place; the control moves every place
   // by HOM_SHIFT, which must exceed it
   const HOM_TOL = 1e-5, HOM_SHIFT = 1e-3;
+  const WIND_HMIN_CTL = 0.1;   // (the control's step floor, as a fraction of a piece)
+  const COMBO_CONTROL_K = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   const WIND_PLACES = 12, CUT_DELTA = 0.5;   // (places counted per frame; the control's shift of the cut circle's radius)
   const HOM_MAX = 400;   // (members checked per frame)
   const COVER_NX = 20, COVER_NY = 14, CELL_TOL = 0.02, HOLE_N = 8;
@@ -162,6 +168,7 @@
   const NEAR_U = [END_U, 0.002, 0.998, 1 - END_U], NEAR_TOL = 0.005, REVERSED_FROM = 0.002;
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
+  const SAT_PLACES = 8;   // the probe places the clip levels are read at (the claims hook reads them once a layer is drawn)
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
   const COMBO_NA_PLACES = 20, COMBO_NA_TOL = 1e-9;   // (a map with one surface: its values under two combos are compared at this many places of the box, to this tolerance relative to 1 + |w|)
@@ -808,16 +815,25 @@
     ok(`the distinct layers keep two members of one z ${10 * HEIGHT_TOL} apart in height as two`, distinctLayers([a, L([1, 0], 10 * HEIGHT_TOL)]).length === 2 && distinctLayers([a, L([1, 0], 0.5 * HEIGHT_TOL)]).length === 1, null);
     ok('the distinct layers keep a member that is not a copy', distinctLayers([a, c]).length === 2 && distinctLayers([a]).length === 1, null);
   }
-  const sameLayers = (have, want) => {
+  const CLIPPED_ROWS = ['Möbius, √@0.0001', 'Möbius, √@0.002', 'Möbius, √@0.25', 'Möbius, √@0.75'];   // the rows (case@u, All sheets) at which a probe place holds a layer beyond the clip level, which the strict height compare fails: the control that the clip levels are what pairs it needs some, and a row off the list has none
+  // The colour map's height clip levels [low, high] the frame draws at (the claims hook's sat, the one number both the claim check and the layer check read), null when the frame has none
+  const satOf = (cl) => { const l = (cl || []).flat()[0]; return l && l.sat && l.sat.every(Number.isFinite) ? l.sat : null; };
+  const onSide = (x, sat, hi) => (hi ? x.h >= sat[1] - HEIGHT_TOL : x.h <= sat[0] + HEIGHT_TOL);
+  // a layer and a member of one z agree in height when they are within HEIGHT_TOL, or when both lie beyond the clip level on the same side (the layer holds the true height, the reference's
+  // is clipped there) and the member is the only one of its z on that side
+  // (the exemption holds because the draw clips the layer's height at BLOCK_K times the height scale uH, which is the level sat; CLIPPED_ROWS lists the rows whose controls rest on it)
+  const heightsAgree = (l, m, want, sat) => Math.abs(l.h - m.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(m, sat, hi) && want.filter((x) => sameZ(x.z, m.z) && onSide(x, sat, hi)).length === 1));
+  const sameLayers = (have, want, sat = null) => {
     if (have.length !== want.length) return false;
     const used = new Set();
     return want.every((m) => {
-      const k = have.findIndex((l, i) => !used.has(i) && sameZ(l.z, m.z) && Math.abs(l.h - m.h) <= HEIGHT_TOL);
+      const k = have.findIndex((l, i) => !used.has(i) && sameZ(l.z, m.z) && heightsAgree(l, m, want, sat));
       if (k < 0) return false;
       used.add(k);
       return true;
     });
   };
+
   {
     const two = [{ z: [1, 0] }, { z: [-1, 0] }], L = (z) => ({ z });
     ok('the front check accepts the front member', frontSame([L([1, 0])], two), null);
@@ -884,6 +900,14 @@
       ok('the layer check passes a frame with both combos', sameLayers(ex.map(L), ex), null);
       ok('the layer check fails a frame drawing one of the two combos', !sameLayers(ex.slice(1).map(L), ex), null);
       ok('the layer check fails a frame drawing one combo twice (the combos share z, not height)', !sameLayers([ex[0], ex[0], ex[2]].map(L), ex), null);
+      {
+        const SAT = [-0.6875, 0.6875], M = (h) => ({ z: [1, 0], h }), top = [M(0.6875), M(-0.6875)];
+        ok('the layer check pairs a layer holding the true height with the member clipped at the same side, where that member is the only one there', sameLayers([M(2), M(-2)], top, SAT), null);
+        ok('the control: without the clip levels the clipped members are not matched', !sameLayers([M(2), M(-2)], top), null);
+        ok('the control: a layer 2 x HEIGHT_TOL under the clip level is no clipped layer', !sameLayers([M(SAT[1] - 2 * HEIGHT_TOL), M(-2)], top, SAT), null);
+        ok('the control: a layer holding the true height on the other side from the member it is paired with is no match', !sameLayers([M(-2)], [M(0.6875)], SAT) && !sameLayers([M(2)], [M(-0.6875)], SAT), null);
+        ok('the control: two members clipped on one side at one z are not told apart, so no layer pairs with them', !sameLayers([M(2), M(2)], [M(0.6875), M(0.6875)], SAT), null);
+      }
     }
     // the branch points of a scene's steps: none for a Möbius map, the origin for a root, and an unknown type is refused
     ok('the branch points of a Möbius pole scene are none', JSON.stringify(branchPoints(CASES.find((x) => x.tag === 'Möbius with a pole in the box').steps)) === '[]', null);
@@ -1047,6 +1071,20 @@
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
           comboCtl[u] = ctl;
+        }
+        if (lastU && COMBO_CONTROL_K.includes(c.tag) && !r.comboControlK) {
+          // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
+          let ctl;
+          try {
+            await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
+            await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+            await grab('ctlT');
+            ctl = await ev("__lx.hueOff('ctlT', 'P1T')");
+          } finally {
+            await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          }
+          r.comboControlK = ctl;
+          ok(`${t}: control: with every sheet's combo one off the Top view's hue is over ${HUE_OFF_MAX} pixels off (${ctl} are)`, ctl > HUE_OFF_MAX, { ctl });
         }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
@@ -1365,8 +1403,10 @@
           const fwdClaimOk = (l) => {
             if (l.opts.length === 0) return false;   // (no colour-map combo to read the claim against: it fails)
             if (l.opts.length === 1) return l.opts[0].combo === l.claim;
-            const hi = l.h >= l.sat[1] - HEIGHT_TOL, lo = l.h <= l.sat[0] + HEIGHT_TOL;
-            if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= l.sat[1] - HEIGHT_TOL) || (lo && o.h <= l.sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claim; }
+            const sat = satOf([[l]]);
+            if (!sat) return false;
+            const hi = l.h >= sat[1] - HEIGHT_TOL, lo = l.h <= sat[0] + HEIGHT_TOL;
+            if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= sat[1] - HEIGHT_TOL) || (lo && o.h <= sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claim; }
             return l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claim);
           };
           // (a texel continued from an anchor (code CARRY_CONT_CODE plus the anchor's place) is read by where its anchor's own surface lands, continued from the anchor to the texel (CPU: the scene's
@@ -1405,6 +1445,7 @@
           // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's z is the place it was found for,
           // and the digits with one moved give a surface whose value there is another place)
           {
+            const surfK = ((await ev(`__cmwLandSurfaces()`)) || {}).K;   // (the scene's surface count K: a control is listed not applicable for one surface only where K is a number and at most 1)
             const sub = ms.slice(0, HOM_EQ_PAIRS), have = sub.filter((m) => Array.isArray(m.digits)).length;
             ok(`${t}: every member lists the digits of its scene-certified surface (${have} of ${sub.length})`, sub.length > 0 && have === sub.length, { have, n: sub.length });
             const r2 = await ev(`(() => {
@@ -1424,7 +1465,7 @@
             })()`);
             const { back, moved, tried } = r2;
             ok(`${t}: the digits round-trip through the scene's surface table to the member's place (${back} of ${have})`, have > 0 && back === have, { back, have });
-            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u) });
+            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) && Number.isFinite(surfK) && surfK <= 1 : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u), K: surfK });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
@@ -1432,13 +1473,13 @@
           if (before !== undefined) ok(`${t}: the scene the hook reads follows u (H at a fixed place differs from the frame at u = ${before})`, !!hs && !!r.homSample[before] && (hs[0] !== r.homSample[before][0] || hs[1] !== r.homSample[before][1]), { hs, last: r.homSample[before] });
           ok(`${t}: no certified member is a lip member (a second surface within ${SHEET_MARGIN} x its residual; ${lip.length} are)`, lip.length === 0, { n: lip.length, sample: lip.slice(0, 3).map((m) => ({ z: m.z, sheet: m.sheet, miss: m.miss, miss2: m.miss2 })) });
           // (the scene-side strip: the first branch step's input, continued from the member's cell, is inside the step's window; read as principal, the members
-          // outside it are flagged. The members within STRIP_TOL of the window's end are lip members, listed)
+          // outside it are flagged. The members within EDGE_ARG_TOL of the window's end are lip members, listed)
           const st = await ev(`${JSON.stringify(ms)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet))`), sp = await ev(`${JSON.stringify(ms)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet, true))`);
           if (Array.isArray(st) && st.some((x) => x)) {
-            const sTol = STRIP_TOL / (2 * Math.PI), at = ms.map((m, i) => [m, st[i], sp[i]]).filter(([, x]) => x);
-            const out = at.filter(([, x]) => x.bad || !(x.s > sTol && x.s <= 1 - sTol)), edge = at.filter(([, x]) => !x.bad && (Math.abs(x.s) <= sTol || Math.abs(x.s - 1) <= sTol)), moved = at.filter(([, x, y]) => !x.bad && Math.abs(x.arg - y.arg) > STRIP_TOL);
+            const sTol = EDGE_ARG_TOL / (2 * Math.PI), at = ms.map((m, i) => [m, st[i], sp[i]]).filter(([, x]) => x);
+            const out = at.filter(([, x]) => x.bad || !(x.s > sTol && x.s <= 1 - sTol)), edge = at.filter(([, x]) => !x.bad && (Math.abs(x.s) <= sTol || Math.abs(x.s - 1) <= sTol)), moved = at.filter(([, x, y]) => !x.bad && Math.abs(x.arg - y.arg) > EDGE_ARG_TOL);
             const flagged = moved.filter(([, , y]) => y.bad || !(y.s > sTol && y.s <= 1 - sTol)).length;
-            ok(`${t}: every member's continued argument is inside its step's window (${out.length} of ${at.length} are not; ${edge.length} within ${STRIP_TOL} of its end, lip members, failed)`, out.length === 0 && edge.length === 0, { n: out.length, sample: out.slice(0, 3).map(([m, x]) => ({ z: m.z, sheet: m.sheet, s: x.s, bad: x.bad })), edge: edge.length });
+            ok(`${t}: every member's continued argument is inside its step's window (${out.length} of ${at.length} are not; ${edge.length} within ${EDGE_ARG_TOL} of its end, lip members, failed)`, out.length === 0 && edge.length === 0, { n: out.length, sample: out.slice(0, 3).map(([m, x]) => ({ z: m.z, sheet: m.sheet, s: x.s, bad: x.bad })), edge: edge.length });
             if (moved.length) ok(`${t}: the control: the principal argument flags the members the continuation moved (${flagged} of ${moved.length})`, flagged > 0 && !ctlNA(c, 'strip', u), { flagged, moved: moved.length, na: ctlNA(c, 'strip', u) });
             else ok(`${t}: the control: the principal argument flags the members the continuation moved: none moved${ctlNA(c, 'strip', u) ? ' (not applicable: ' + ctlNA(c, 'strip', u) + ')' : ''}`, !!ctlNA(c, 'strip', u), { moved: 0 });
           } else ok(`${t}: the scene's strip check: the scene has no branch step to read${ctlNA(c, 'stripRead', u) ? ' (not applicable: ' + ctlNA(c, 'stripRead', u) + ')' : ''}`, !!ctlNA(c, 'stripRead', u), { st: Array.isArray(st) });
@@ -1446,13 +1487,24 @@
         // (each member is judged on its own sheet: read on the next surface it is not a preimage of its place wherever the sheets differ there)
         const sheetsDiffer = ms.length > 0 && (await ev(`__cmwLandHom(${JSON.stringify(ms[0].z)}, ${JSON.stringify(ms[0].cell)})`) || []).length > 1;
         if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL && !ctlNA(c, 'sheets', u), { worst: wr.worst, na: ctlNA(c, 'sheets', u) }); }
-        else ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u), { surfaces: 1 });
+        else { const surfK2 = ((await ev(`__cmwLandSurfaces()`)) || {}).K; ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u) && Number.isFinite(surfK2) && surfK2 <= 1, { K: surfK2 }); }
         // (a member of the range ramp, lvl < 0, is just outside its sheet's window: every member is within the ramp, and a ramp of 0 flags those that are outside)
         const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length, out = ms.filter((m) => !(m.lvl >= -ramp)).length;
         ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
         // (the control on the check itself: one member moved RAMP_CTL_STEP levels past the ramp is flagged, whether or not the row has a ramp member)
         const rampOut = (arr) => arr.filter((m) => !(m.lvl >= -ramp)).length, pushed = ms.map((m, i) => (i === 0 ? Object.assign({}, m, { lvl: -ramp - RAMP_CTL_STEP }) : m));
         ok(`${t}: the control: a member ${RAMP_CTL_STEP} level past the ramp is flagged (${rampOut(pushed)} flagged; ${out} before it)`, ms.length > 0 && rampOut(pushed) > 0, { flagged: rampOut(pushed), out });
+        if (nRamp) {
+          // (the principal branch does not hold the ramp members: the first branch step's input read at the principal argument is a turn or more from the continued one, and a ramp of 0 flags exactly the ramp members)
+          const rm = ms.filter((m) => !(m.lvl >= 0)), tight = rm.length;
+          const sc = await ev(`${JSON.stringify(rm)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet))`), sp = await ev(`${JSON.stringify(rm)}.map((m) => __cmwLandStrip(m.z, m.cell, m.sheet, true))`);
+          if (Array.isArray(sc) && sc.some((x) => x)) {
+            const dOf = (a2, b2) => a2.map((x, i) => (x && b2[i] && !x.bad && !b2[i].bad ? Math.abs(x.arg - b2[i].arg) / (2 * Math.PI) : 0));
+            const d = dOf(sc, sp), prWorst = Math.max(0, ...d), nDiff = d.filter((x) => x > STRIP_TURN_MIN).length, dCtl = dOf(sc, sc), ctlWorst = Math.max(0, ...dCtl);
+            ok(`${t}: the control: the principal branch misses the ramp members (worst ${prWorst} turn, scene strip; ${nDiff} of ${nRamp} differ); a ramp of 0 flags ${tight}`, prWorst > STRIP_TURN_MIN && tight === nRamp, { prWorst, nDiff, tight, nRamp });
+            ok(`${t}: the control of the ramp row: two continued reads of the strip differ by ${ctlWorst} turn, which the row rejects`, !(ctlWorst > STRIP_TURN_MIN), { ctlWorst });
+          } else ok(`${t}: the control: the principal branch misses the ramp members: the scene has no branch step to read${ctlNA(c, 'stripRead', u) ? ' (not applicable: ' + ctlNA(c, 'stripRead', u) + ')' : ''}`, !!ctlNA(c, 'stripRead', u), { sc: Array.isArray(sc) });
+        } else ok(`${t}: the control: the principal branch misses the ramp members: none of the ${ms.length} certified members is in the range ramp (level below 0), so there is no ramp member to read (not applicable)`, nRamp === 0 && ms.length > 0, { nRamp, members: ms.length });
         // the plan read by the candidate generator corrupted (the output of its last op moved, on every sheet): its candidates are preimages under
         // the shortened plan, not under the scene, so the scene must refuse them: candidates are rejected, the members that are left are fewer than
         // the winding counts, and the case fails. A reference that took its homotopy from the plan would answer the corrupted plan consistently
@@ -1495,6 +1547,32 @@
             ok(`${t}: the control: a place on a leaf contour is not counted`, !!lipR && lipR.every((r) => r.status === 'onContour'), { lipR });
             const near = await ev(`__cmwLandWind(null, { nearContour: true })`);
             ok(`${t}: the control: a place near the boundary is unresolved, not counted`, !!near && near.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near });
+            {
+              // the per-sheet completeness count: the winding of the homotopy around each sheet's region (plus the plan's poles) equals the members found there on every sheet
+              let nBadS = 0, nCheckedS = 0; const badS = [];
+              for (const i of pick) {
+                const wr = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i])}, {})`);
+                for (const r of wr || []) { nCheckedS++; if (!r.ok) { nBadS++; if (badS.length < 4) badS.push(Object.assign({ place: vpts[i] }, r)); } }
+              }
+              ok(`${t}: the completeness count: the winding of the homotopy plus the poles equals the members found, on every sheet of ${pick.length} places (${nCheckedS} sheet counts)`, nCheckedS > 0 && nBadS === 0, { nBadS, nCheckedS, badS });
+              const dropS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i0])}, { dropOne: true })`);
+              ok(`${t}: the control: one member removed breaks the count`, !!dropS && dropS.some((r) => !r.ok), { dropS });
+              const lipS = await ev(`__cmwLandWindSheets(null, { onLip: true })`);
+              // (a place on a lip is a root on the contour: the count must report it, as on the contour or as an unresolved step, and never as a count)
+              const nSurf = await ev('(__cmwLandSceneCombos() || {}).n'), oneSurface = Number.isFinite(nSurf) && nSurf <= 1;   // (a plan with no cut: the scene has one surface; a plan with a cut that returns noCut fails, and so does a scene that reports no count)
+              ok(`${t}: the scene reports its number of surfaces (${nSurf})`, Number.isFinite(nSurf) && nSurf >= 1, { nSurf });
+              const noCut = !!lipS && oneSurface && lipS.every((r) => r.status === 'noCut'), loud = !!lipS && lipS.every((r) => r.status === 'onContour' || r.status === 'unresolved' || r.status === 'noCut');
+              ok(`${t}: the control: a place on a cut lip is not counted${noCut ? ' (this plan has no cut)' : ''}`, !!lipS && loud && (noCut || lipS.some((r) => r.status === 'onContour' || r.status === 'unresolved')), { lipR: lipS && lipS.slice(0, 3) });
+              const nearS = await ev(`__cmwLandWindSheets(null, { nearContour: true, hMin: ${WIND_HMIN_CTL} })`);
+              ok(`${t}: the control: a place near the boundary with an unreachable step floor is unresolved, not counted`, !!nearS && nearS.some((r) => r.status === 'unresolved' || r.status === 'onContour'), { near: nearS });
+              // (the place for the poles control: the first of the counted places whose count holds a pole; with none, the row asserts that no counted place has one)
+              let ip = null, withPS = null;
+              for (const i of pick) { const w = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[i])}, {})`); if (w && w.some((r) => r.P > 0)) { ip = i; withPS = w; break; } }
+              if (ip !== null) {
+                const nopS = await ev(`__cmwLandWindSheets(${JSON.stringify(vpts[ip])}, { noPoles: true })`);
+                ok(`${t}: the control: the poles omitted break the count`, !!nopS && nopS.some((r) => !r.ok), { nop: nopS });
+              } else ok(`${t}: the control: the poles omitted break the count: no counted place has a pole: the count's pole number is 0 at each of the ${pick.length} counted places (not applicable)`, ip === null && pick.length > 0, { places: pick.length });
+            }
             if (c.logControl) {
               const lw = await ev(`__cmwLandWind(${JSON.stringify(vpts[i0])}, {})`), r0 = lw && lw[0];
               // (the box holds the branch point 0: the leaf it is in is reported at every u; near the log itself G is huge there and the shrinking rim's values do not converge, so the count must say branchLog or kindDisagree, never ok)
@@ -1620,26 +1698,41 @@
         }
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
+      const sat = sheets ? satOf(await ev(`__cmwLandClaims(${JSON.stringify(pts.slice(0, SAT_PLACES))})`)) : null; let clipped = 0, clippedAt = null;
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
         // (the reference lists a member once per forward combo or sheet that lands on the same z and height; the frame draws it once, so distinctLayers counts both sides)
         const want = sheets ? distinctLayers(wantAll) : wantAll.slice(0, 1);   // (sheets off: the front member, the enumerator's first)
         n++;
-        const same = sheets ? sameLayers(haveAll, want) : frontSame(haveAll, wantAll);
+        const same = sheets ? sameLayers(haveAll, want, sat) : frontSame(haveAll, wantAll);
+        if (sheets && same && !sameLayers(haveAll, want)) { clipped++; clippedAt = clippedAt || { have: haveAll, want }; }
         if (!same) { bad++; if (at.length < 4) at.push({ p, want: want.map((x) => x.z), have: haveAll.map((x) => x.z) }); return; }
         // (every member the layers match by z, on a side sheet or on the real axis too: the drawn height and the colour)
         want.forEach((m) => {
           const l = haveAll.filter((x) => sameZ(x.z, m.z)).sort((p, q) => Math.abs(p.h - m.h) - Math.abs(q.h - m.h))[0];   // (the layer at its z nearest in height: sheets of a step share z)
           if (!l) return;
           const g = layerGap(l, m, NEAR_U.includes(u) ? { h: NEAR_TOL, ph: NEAR_TOL } : undefined);
-          if (g.h) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
+          // (a layer beyond the clip level on the member's own side, where the member is clipped, is as high as the page draws it: the same side rule that paired it)
+          if (g.h && !(sat && Math.abs(l.h - m.h) > HEIGHT_TOL && heightsAgree(l, m, want, sat))) { hBad++; if (atH.length < 4) atH.push({ p, have: l.h, want: m.h }); }
           if (g.noF) { noF++; return; }
           if (g.phN) phN++;
           if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
+      ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
+      if (sheets) {
+        ok(`${t}: control: with the clip levels off the places holding a layer beyond them fail (${clipped} places; the row is ${CLIPPED_ROWS.includes(`${c.tag}@${u}`) ? '' : 'not '}on the list of rows that have some)`, (clipped > 0) === CLIPPED_ROWS.includes(`${c.tag}@${u}`), { clipped, sat });
+        if (clippedAt && sat) {
+          const hi = clippedAt.have.some((l) => onSide(l, sat, true)), moved = clippedAt.have.map((l) => (onSide(l, sat, hi) ? Object.assign({}, l, { h: hi ? sat[1] - 2 * HEIGHT_TOL : sat[0] + 2 * HEIGHT_TOL }) : l));
+          ok(`${t}: control: a clipped layer moved 2 x HEIGHT_TOL under its clip level is not matched`, !sameLayers(moved, clippedAt.want, sat), { sat });
+          const pick = clippedAt.have.findIndex((l) => onSide(l, sat, true) || onSide(l, sat, false)), flipped = clippedAt.have.map((l, i) => (i === pick ? Object.assign({}, l, { h: -l.h }) : l));
+          ok(`${t}: control: a clipped layer on the other side from its member is not matched`, !sameLayers(flipped, clippedAt.want, sat), { sat });
+        }
+      }
       (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
       // (Ruling C controls) a frame drawn at the wrong u is told apart by NEAR_TOL: the frame at REVERSED_FROM against the reference at 1 - REVERSED_FROM
       // (u reversed), and against the reference at the glide's middle (u frozen there), each more than NEAR_TOL off at some place
@@ -1648,6 +1741,16 @@
         const rev = worst(HIST[name][REVERSED_FROM], HIST[name][u]), froz = worst(HIST[name][REVERSED_FROM], HIST[name][GLIDE_MID]);
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
+      }
+      // (the sheets' combo one off: the colour at the near probes leaves NEAR_TOL)
+      if (NEAR_U.includes(u) && u >= REVERSED_FROM && u <= 1 - REVERSED_FROM && COMBO_CONTROL_K.includes(c.tag)) {
+        let nPh = 0;
+        try {
+          await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          const sh = await hook(pts);
+          (sh || []).forEach((hv, i) => (ref[i] || []).slice(0, 1).forEach((m) => { (hv || []).filter((x) => sameZ(x.z, m.z)).forEach((l) => { const g = phaseGap(l.f, m.f); if (g !== null && g > NEAR_TOL) nPh++; }); }));
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
+        ok(`${t}: the control: with every sheet's combo one off the colour leaves ${NEAR_TOL} rad at ${nPh} members`, nPh > 0, { nPh });
       }
       // (control) the farthest member marked front: at the places where that is another z than the nearest, the frame's front is not the reference's
       if (!sheets && !r.farFront && ref.some((l) => l.length > 1)) {
