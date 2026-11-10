@@ -193,7 +193,7 @@
   });
   const R1_CORRUPT = ['shiftOut', 'labelShift'];   // the plan corruptions (__cmwLandCorruptPlan) the certificate's classes must survive
   const R1_NA_KIND = { labelShift: 1 };   // the corruptions a frame cannot take, with the reason
-  const R1_NA = { 'log of an annulus@0.75': 'no pending edge, and the branch value is outside the places the frame spans', 'cube root@0.75': 'no pending edge, and the made-up edge at the branch value is unresolved (a member leaves B\')' };   // the rows (case tag @ u) with no edge to class, with the reason
+  const R1_NA = { 'log of an annulus@0.75': 'no pending edge, and the branch value is outside the places the frame spans', 'cube root@0.75': 'no pending edge, and the cut-edge pass lists no edge at all (the places the frame spans are empty), so the branch value [0, 0] is in none of them' };   // the rows (case tag @ u) with no edge to class, with the reason
   const MONO_PAD = 0.25;   // B', the box the member sets are counted and tracked in: the frame's box grown by this share of its width and height on each side
   const SEED_N = 16, SEED_RING = { n: 8, r: [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 4e-2] };   // the seeds of Newton's method for a place's members: a SEED_N x SEED_N grid over B' and SEED_RING.n points on rings of these shares of B's width round each singular place of the scene
   const SEP_SHARE = 0.5;   // a tracked member moves at most this share of its distance to the nearest other member of its set in a step, so two members never swap
@@ -291,9 +291,11 @@
       for (const e of r.edges) for (const [x, y] of [[e[7], e[8]], [e[9], e[10]]]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       const sf = window.__cmwLandSurfaces(), zs = (window.__cmwLandZeros() || { zeros: [] }).zeros, hb = sf && sf.ks.length ? window.__cmwLandHom(zs.length ? [zs[0][0], zs[0][1]] : [0, 0], null, { dH: false, sheets: [sf.ks[0]] }) : null, wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
+      // (every surface's H_u at that zero, printed with the row: the branch value is the first surface's)
+      const wbs = sf ? sf.ks.map((kk) => { const q = window.__cmwLandHom(zs.length ? [zs[0][0], zs[0][1]] : [0, 0], null, { dH: false, sheets: [kk] }); return q && q[0] && q[0].H; }) : [];
       window.__lxRegion = [x0, x1, y0, y1];
       window.__lxCnt = { seeds: 0, newton: 0, cap: 0, dbl: 0 };
-      return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
+      return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, wbs, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class, read on the scene alone (no plan, no frame label): 'seam' (continuing its first end's member along the edge's place
     // segment lands on a member other than the second end's), 'branch' (the monodromy of the whole member set round one of the four cells at its vertex
@@ -1251,7 +1253,7 @@
         const idc = await ev(`__lx.certEdge(0, { idCtl: ${JSON.stringify(SAME_PLACE)} })`);
         ok(`${t}: control: two members ${ID_CTL_SEP_Z} of 1 + |z| apart stay two under the full identity (${idc.full}) and are a double match (-1) without the ID_SHARE term (${idc.off})`, idc.cls === 'idCtl' && idc.full === 1 && idc.off === -1, idc);
         // the branch value is one of the places the frame draws, or no edge certifies a branch there
-        cc.wb = prep.wb; cc.inPlace = prep.inPlace; cc.region = prep.region;
+        cc.wb = prep.wb; cc.wbs = prep.wbs; cc.inPlace = prep.inPlace; cc.region = prep.region;
         ok(`${t}: the branch value ${JSON.stringify(prep.wb)} ${prep.inPlace ? 'is' : 'is not'} in the places the frame spans; the certified branch cells (${cc.cells}) are ${prep.inPlace ? 'at most ' + BRANCH_CELLS_PER_POINT * brPts.length + ' for the ' + brPts.length + ' branch points' : 'none'}`, prep.inPlace ? cc.cells <= BRANCH_CELLS_PER_POINT * brPts.length : cc.branch === 0, cc);
         // the controls, each of which must fail the certificate: a made-up edge between one member's two places is none (C-same); a wrong second member (C6) and loops moved
         // MONO_DISPLACE cells away do not certify a branch edge; loops round the cells one cell off the vertex's (C1) carry no cycle through both ends
