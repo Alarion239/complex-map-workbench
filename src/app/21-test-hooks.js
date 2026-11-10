@@ -270,6 +270,8 @@
   // (the enumerator's pixel size as a fraction of the box; its buffer; a frame vertex's z, relative to |z| + 1 (it is single precision), and
   // height, world units, within which an enumerated member is the one it draws)
   const LAND_ENUM_PIX = 512, LAND_ENUM_B = 8, LAND_ENUM_Z_TOL = 1.5e-3, LAND_ENUM_H_TOL = 0.02, LAND_ENUM_SAME_Z = 1e-5, LAND_ENUM_NEAR = 2;
+  // the enumerator's tolerances (the constants above): a vertex's z, relative to |z| + 1, and its height, within which an enumerated member is the one a frame draws
+  window.__cmwLandEnumTol = () => ({ z: LAND_ENUM_Z_TOL, h: LAND_ENUM_H_TOL });
   window.__cmwLandScale = () => render3D.scale || null;
   // true: Steps-view Landscape glide frames draw the carried mesh instead of the exact inverse; false (the default) restores it
   window.__cmwLandMeshOnly = (on) => { svLandMeshOnly = !!on; requestRender('L', 'R'); return svLandMeshOnly; };
@@ -433,9 +435,29 @@
     return g ? g.map((ls) => ls.map((l) => {
       const ms = l.z ? (window.__cmwLandEnum([l.w]) || [[]])[0] : [], at = (m) => Math.hypot(m.z[0] - l.z[0], m.z[1] - l.z[1]) <= LAND_ENUM_Z_TOL * (Math.hypot(l.z[0], l.z[1]) + 1);
       const dz = (q) => Math.hypot(q.z[0] - l.z[0], q.z[1] - l.z[1]);
-      const cand = ms.filter((q) => at(q) && Math.abs(q.h - l.h) <= LAND_ENUM_H_TOL).sort((a, b) => dz(a) - dz(b)), m = cand[0];
+      const sat = [render3D.frameHeight(-HEIGHT_SAT_PROBE), render3D.frameHeight(HEIGHT_SAT_PROBE)];   // (a height beyond the colour map's saturation is drawn clipped by the parked frame: two heights past it on one side are one)
+      const hEq = (a, b) => Math.abs(a - b) <= LAND_ENUM_H_TOL || (a >= sat[1] - LAND_ENUM_H_TOL && b >= sat[1] - LAND_ENUM_H_TOL) || (a <= sat[0] + LAND_ENUM_H_TOL && b <= sat[0] + LAND_ENUM_H_TOL);
+      const atZ = ms.filter(at), cand = (atZ.some((q) => hEq(q.h, l.h)) ? atZ.filter((q) => hEq(q.h, l.h)) : atZ).sort((a, b) => dz(a) - dz(b)), m = cand[0];   // (the member's z is its sheet's: its height only tells apart members of one z)
       return Object.assign({}, l, { f: m ? m.f : null, sheet: m ? m.sheet : null, matches: m ? 1 + cand.filter((q) => q !== m && Math.hypot(q.z[0] - m.z[0], q.z[1] - m.z[1]) > LAND_ENUM_SAME_Z && dz(q) <= LAND_ENUM_NEAR * dz(m)).length : 0 });
     })) : g;
+  };
+  // the sheet each layer the last carried frame drew claims at probe places, as the frame composes its own sheet code (GLR.ownCombo: the layer's step sheet, then its forward shifts):
+  // per place [{ h, sat, member, layered, nParts, claimShift, claim, sceneShift, opts }] (layered: the layer is one branch of its own, All sheets; the sheets-off frame merges the step's sheets and claims none).
+  // claim decodes the whole, claimShift the step sheet alone; sceneShift is the step sheet of the CPU enumerator's sheet that holds the layer's z (its height tells apart members of one z), and opts the colour map's
+  // combos at the layer's z with their heights (__cmwLandRefSheets); sat the heights the colour map saturates at. bump adds 1 to the first entry of the claim of layer bump.layer (a control: a claim one sheet off);
+  // null with no carried frame
+  const HEIGHT_SAT_PROBE = 1e12;   // (a value far past the range any height formula resolves: its height is the formula's saturation)
+  window.__cmwLandClaims = (pts, bump) => {
+    const g = window.__cmwLandFrameVerts(pts), inp = render3D.exactIn;
+    if (!g || !inp || !inp.exact || typeof GLR.ownCombo !== 'function') return null;
+    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), sheets = [inp.exact].concat(inp.exact.more || []);
+    const sat = [render3D.frameHeight(-HEIGHT_SAT_PROBE), render3D.frameHeight(HEIGHT_SAT_PROBE)];   // (the heights the colour map's height saturates at: a value far past either end of its range)
+    const code = (shifts) => GLR.ownCombo(W, Infinity, shifts.filter(Boolean));
+    return g.map((ls) => ls.map((l) => {
+      // (the layer's whole claim, as the frame's own sheet code is composed: its step sheet, then its forward shifts)
+      const parts = [l.shift].concat(l.combo || []).filter(Boolean), bumped = parts.map((x, i) => (bump && bump.layer === l.member && i === 0 ? Object.assign({}, x, { dk: x.dk + 1 }) : x));
+      return { h: l.h, sat, member: l.member, layered: !!l.layered, nParts: parts.length, claimShift: code([l.shift]), claim: code(bumped), sceneShift: l.sheet == null ? null : code([sheets[l.sheet] && sheets[l.sheet].shift]), opts: l.z ? window.__cmwLandRefSheets(l.z).map((r) => ({ combo: r.combo, h: r.h })) : [] };
+    }));
   };
   // the last carried frame's cut edges per layer: [{ cuts, box, pp: [patch] }], each grid { n, jumps, w } (the jump texels of its three edge textures and the places of the first few); null with no carried frame
   window.__cmwLandEdgeCounts = () => (render3D.carried ? GLR.landEdgeCounts() : null);
@@ -581,8 +603,19 @@
     }
     return 'unread';
   };
+  // The z whose value through the steps listed (as in zeroOf) is infinity, the twin of zeroOf at the pole: no step: none (null: infinity is not a place of the plane); one
+  // Möbius step: -d / c, null when c is 0; any other chain: 'unread' (no search stands in for it)
+  const poleOf = (chain) => {
+    if (!chain.length) return null;
+    if (chain.length === 1 && chain[0].id === 'mobius' && chain[0].m) return CX.isZero(chain[0].m[2]) ? null : CX.neg(CX.div(chain[0].m[3], chain[0].m[2]));
+    return 'unread';
+  };
   window.__cmwLandZerosOf = (chain, node) => {
     const z = zeroOf(chain.map((s) => ({ id: s.id, m: s.m ? s.m.map((v) => C(v[0], v[1])) : null })), C(node[0], node[1]));
+    return z === 'unread' || z === null ? z : [z.re, z.im];
+  };
+  window.__cmwLandPolesOf = (chain) => {
+    const z = poleOf(chain.map((s) => ({ id: s.id, m: s.m ? s.m.map((v) => C(v[0], v[1])) : null })));
     return z === 'unread' || z === null ? z : [z.re, z.im];
   };
   // the scenes of the last SCENE_MEMO distinct (map, box, sheet width, chain) states, oldest dropped first: a caller that moves u between calls finds the earlier u's scene again
@@ -625,6 +658,16 @@
     let poles = [];
     try { poles = svDrain(svPolesIn(cpuMap(map), bx, SCN.POLE_GRID, bx, { n: 0, at: 0 }, true)) || []; } catch (e) { poles = []; }
     const liveK = (k) => S.steps[k - 1] && S.steps[k - 1].on !== false && built[k - 1] && !built[k - 1].error;
+    // the live steps before step k as zeroOf and poleOf read them: [{ id, m }], m the matrix of a Möbius step
+    const beforeOf = (k) => {
+      const out = [];
+      for (let j = 1; j < k; j++) {
+        if (!liveK(j)) continue;
+        const bj = built[j - 1], id = bj.def ? bj.def.id : '?';
+        out.push({ id, m: id === 'mobius' && bj.vals ? [bj.vals.a, bj.vals.b, bj.vals.c, bj.vals.d] : null });
+      }
+      return out;
+    };
     // The exact poles of a Möbius first step (the steps view's own search is a 16-point grid, which a pole between its points escapes): its path's matrix
     // M(t) has its pole at -M[3] / M[2]; { poles, exact } both: exactPoles, the ones read from the matrix, kept apart so that a control can drop them
     const exactPoles = [];
@@ -651,7 +694,13 @@
         if (!read) unread.push(id);
       }
     }
-    if (built.some((b, i) => b && liveK(i + 1) && Funcs.sheetMapHow(map, i + 1) && b.nat && b.nat.kind === 'jouk')) { const o = C(0, 0); if (!poles.some((p) => CX.abs(p) < SCN.SAME_Z)) exactPoles.push(o); }
+    // (a Joukowski step's pole is the origin of its own input: the z at which the steps before it give 0, in the glide's own domain; one at infinity is no place of the plane, a chain not read is unresolved)
+    built.forEach((b, i) => {
+      if (!(b && liveK(i + 1) && Funcs.sheetMapHow(map, i + 1) && b.nat && b.nat.kind === 'jouk')) return;
+      const o = zeroOf(beforeOf(i + 1), C(0, 0));
+      if (o === 'unread') unread.push('joukowski>pole');
+      else if (o && !poles.some((p) => CX.abs(CX.sub(p, o)) < SCN.SAME_Z * (1 + CX.abs(o)))) exactPoles.push(o);
+    });
     for (const q of exactPoles) if (!poles.some((p) => CX.abs(CX.sub(p, q)) < SCN.SAME_Z * (1 + CX.abs(q)))) poles.push(q);
     // The cut of H_u itself: a step with a Joukowski path, alone and last in the map (its input is the z-plane), takes its disk's formula inside
     // the circle |z| = JOUK_R (Funcs.joukInside) and the exterior's outside; cut = { side(inside)(z), R } then, with g of each side
@@ -723,27 +772,28 @@
     // The zeros of the inputs of the branch steps past the glide's span: the lift applies the later steps to the member's own z through the whole chain, so a
     // zero is a z-plane point pulled back through the steps' end matrices (it does not move with u) and w is where H_u draws it (it does); a non-Möbius
     // step before the branch step, or two steps, is unread
-    const liftZeros = [], liftUnread = [];
+    const liftZeros = [], liftUnread = [], liftPoles = [], liftPolesUnread = [];
     if (map.mode === 1 && map.hi >= 1) {
       for (let k = map.hi + 1; k <= S.steps.length; k++) {
         const bk = built[k - 1], idk = bk && bk.def ? bk.def.id : '?';
         if (!liveK(k) || !(idk === 'log' || idk === 'root' || idk === 'powa' || idk === 'pown')) continue;
-        const before = [];
-        for (let j = 1; j < k; j++) {
-          if (!liveK(j)) continue;
-          const bj = built[j - 1], id = bj.def ? bj.def.id : '?', m = id === 'mobius' && bj.vals ? [bj.vals.a, bj.vals.b, bj.vals.c, bj.vals.d] : null;
-          before.push({ id, m });
-        }
-        const z = zeroOf(before, C(0, 0));
+        const before = beforeOf(k), z = zeroOf(before, C(0, 0)), pl = poleOf(before);
         if (z === 'unread') liftUnread.push(before.map((s) => s.id).join('>') + '>' + idk);
         else if (z && z.re >= bx.x0 && z.re <= bx.x1 && z.im >= bx.y0 && z.im <= bx.y1) liftZeros.push({ k, z, w: g(own, z, z) });
+        // (the twin at infinity: the z whose value entering the branch step is infinity, drawn where H_u draws it)
+        if (pl === 'unread') liftPolesUnread.push(before.map((s) => s.id).join('>') + '>' + idk);
+        else if (pl && pl.re >= bx.x0 && pl.re <= bx.x1 && pl.im >= bx.y0 && pl.im <= bx.y1) liftPoles.push({ k, z: pl, w: g(own, pl, pl) });
       }
     }
-    const scene = { key, map, W, K, exactZeros, zerosUnread, liftZeros, liftUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
+    const scene = { key, map, W, K, exactZeros, zerosUnread, liftZeros, liftUnread, liftPoles, liftPolesUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
     sceneMemos.set(key, scene);
     if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
     return scene;
   };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a further block, as t_publish caps a block's length)
   const argd = (a, b) => Math.atan2(a.re * b.im - a.im * b.re, a.re * b.re + a.im * b.im);
   const cmax = (z) => Math.max(1, CX.abs(z));
   // the loop round a rectangle r, counter-clockwise from its lower left corner: its four edges as pieces t -> z, t in [0, 1]
@@ -1068,6 +1118,12 @@
   window.__cmwLandLiftZeros = (map, drop) => {
     sceneMapOver = map || null;
     try { const sc = sceneOf(); return sc ? { zeros: drop ? [] : sc.liftZeros.map((q) => [q.z.re, q.z.im, q.k, q.w ? q.w.re : null, q.w ? q.w.im : null]), unread: sc.liftUnread.slice() } : null; } finally { sceneMapOver = null; }
+  };
+  // the lift's branch points where the value entering a branch step is infinity (the twin of __cmwLandLiftZeros): the exact poles read from the steps' definitions
+  // (a Möbius first step: -d / c), as [re, im, k, w.re, w.im], w = H_u(z) through the scene's g; drop leaves the list empty (a control); unread lists the chains it cannot read
+  window.__cmwLandLiftPoles = (map, drop) => {
+    sceneMapOver = map || null;
+    try { const sc = sceneOf(); return sc ? { poles: drop ? [] : sc.liftPoles.map((q) => [q.z.re, q.z.im, q.k, q.w ? q.w.re : null, q.w ? q.w.im : null]), unread: sc.liftPolesUnread.slice() } : null; } finally { sceneMapOver = null; }
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };

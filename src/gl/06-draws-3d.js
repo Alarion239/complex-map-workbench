@@ -358,6 +358,7 @@
     if (!polar) out.combo = lay && lay.shifts ? lay.shifts.slice() : [];   // (the forward shifts of the layer's sheet combo: landFrameVerts)
     // (All sheets: the layer is one step sheet's one member; the sheets are not merged)
     const ex = lay ? layerExact(c.exact, lay) : c.exact;
+    if (!polar) { out.sheetShift = (ex && ex.shift) || null; out.sheetLayered = !!(ex && ex.layered); }   // (the layer's step sheet, and whether it is one branch of its own (All sheets) or the merged frame: landFrameVerts)
     if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     // c.exact (the glide's inverse inputs, GLR.landInverse): the places and preimages are the shown plane's grid walked
     // backwards through the glide's map, not plane s's grid carried forward; a pass that cannot draw leaves this
@@ -517,20 +518,20 @@
     }
   }
   // The last carried frame's grid as drawn (tests): for each place [re, im] of the shown plane's box, the heights the frame
-  // draws at its nearest grid vertex, [{ h, member, combo, w, z }] (none where no layer is valid there; combo the layer's forward shifts)
+  // draws at its nearest grid vertex, [{ h, member, combo, shift, w, z }] (none where no layer is valid there; combo the layer's forward shifts)
   function landFrameVerts(pts, box) {
     if (!landC || !landC.tex1) return null;
     const N = landC.N, fbo = gl.createFramebuffer();
     const read = (tex) => { const px = new Float32Array(N * N * 4); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); gl.readPixels(0, 0, N, N, gl.RGBA, gl.FLOAT, px); return px; };
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null, pe: L.exact && L.edges ? L.edges.map(read) : null, combo: L.combo || [] }));
+    const layers = (landActive.length ? landActive : [landC]).map((L) => ({ px: read(L.tex1), pz: L.exact && L.zTex ? read(L.zTex) : null, pe: L.exact && L.edges ? L.edges.map(read) : null, combo: L.combo || [], shift: L.sheetShift || null, layered: !!L.sheetLayered }));
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.deleteFramebuffer(fbo);
     return pts.map(([x, y]) => {
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i), out = [];
-      layers.forEach(({ px, pz, pe, combo }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
+      layers.forEach(({ px, pz, pe, combo, shift, layered }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, shift, layered, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null }); });
       return out;
     });
   }

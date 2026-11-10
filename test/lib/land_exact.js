@@ -97,8 +97,10 @@
   const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
   const FRESH_U_STEP = 0.01;   // (the control of a fresh page's identity: parked this far from the frame's u it must differ)
   const POLE_R = 1e-7, POLE_BIG = 1e3;   // (a pole's ring: the radius it is read at and the |H| the map has there, the scene's own constants)
+  const ZERO_MOVE_MIN = 0.0025;   // (the branch point's drawn place moves with u by at least this: its two u's are far apart against the float noise of one place)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
+  const RAMP_CTL_STEP = 1;   // (the ramp control moves one member this many levels past the ramp: any whole level is outside it)
   const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
   const END_U = 1e-4;   // (a polynomial's step runs its path several times as fast as the glide's u: its ends are this far from the planes)
   const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view: the camera the end frames are also compared in, where a missing piece of the surface shows against the pale floor
@@ -129,7 +131,8 @@
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
-  const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
+  const COMBO_PLACE = [0.3, 0.2];   // (a place of the box: the colour map's sheet combos are the map's, not the place's)
+  const COMBO_CONTROL = ['Möbius, √', 'Möbius dipole, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'];   // every case: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX, where the colour map has two or more sheet combos
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
@@ -563,6 +566,7 @@
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     const deferred = [];   // (the controls of this case, run each on a freshly loaded page after the case's own checks)
+    const comboN = {}, comboCtl = {};   // (per u: the distinct sheet combos of the colour map; per near end: the shifted-combo hue count)
     for (const u0 of GLIDE_U) {
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
@@ -572,6 +576,7 @@
       const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u, holes: c.landHoles }; })()');
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
       r[u] = { carry, cov, p0: p0.cover, p1: p1.cover };
+      if (COMBO_CONTROL.includes(c.tag)) comboN[u] = (await ev(`(__cmwLandRefSheets(${JSON.stringify(COMBO_PLACE)}) || []).length`)) || 0;   // (the colour map's combos are the map's, not the place's)
       ok(`${t}: a still, carried frame`, cov.still && !!carry, { carry, still: cov.still });
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
@@ -638,7 +643,7 @@
             await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
-          ok(`${t}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${ctlNA(c, 'combo', u) ? 'not over ' + HUE_OFF_MAX + ' (not applicable: ' + ctlNA(c, 'combo', u) + ')' : 'over ' + HUE_OFF_MAX} pixels off (${ctl} are)`, ctlNA(c, 'combo', u) ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, na: ctlNA(c, 'combo', u) });
+          comboCtl[u] = ctl;
         }
         // (the parked plane is the reference at the end probes only, as above)
         if (u <= END_U || u >= 1 - END_U) ok(`${t}: ${first ? "plane z's" : "the next plane's"} parked frame in the Top view (at most ${SAME_FRAC * 100} % of pixels over ${DIFF_TOL})`, stillT && dT <= SAME_FRAC, r[u].top);
@@ -846,6 +851,25 @@
           const lc = labelConflicts(ms), srcs = new Set(ms.map((m) => m.src));
           ok(`${t}: every member's plan label goes with the surface the scene certifies it on (${lc.length} of ${ms.length} do not)`, lc.length === 0, { n: lc.length, sample: lc.slice(0, 3).map((m) => ({ z: m.z, plan: m.src, scene: m.sheet })) });
           if (srcs.size > 1) { const pick = ms.findIndex((m) => m.src !== ms[0].src), moved = ms.map((m, i) => (i === 0 ? Object.assign({}, m, { src: ms[pick].src }) : m)); ok(`${t}: the control: a member relabelled with another sheet's label is a mislabel`, labelConflicts(moved).length > 0, { n: labelConflicts(moved).length }); }
+          // (the frame's own record of its claimed sheet, window.__cmwLandClaims: each drawn layer's whole claim, its step sheet then its forward shifts, decoded through the one decoder the frame composes its own sheet code with (GLR.ownCombo):
+          // its step sheet is the one of the enumerator's sheet the layer's z belongs to, and the whole is a combo of the colour map at the layer's z with the layer's height)
+          const claims = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`), layersOf = (cl) => (cl || []).flat().filter((l) => l.layered), nMerged = ((claims || []).flat()).length - layersOf(claims).length;
+          // (a colour map with one combo is that combo; with several, a layer below the colour map's saturation is told apart by its height, and one beyond it (the layer holds the true height, the colour map's is clipped
+          // there as the parked frame draws it) agrees with the combo saturated on its side, which must be the only one there: with two or none the claim cannot be read and it fails)
+          const fwdClaimOk = (l) => {
+            if (l.opts.length === 0) return false;   // (no colour-map combo to read the claim against: it fails)
+            if (l.opts.length === 1) return l.opts[0].combo === l.claim;
+            const hi = l.h >= l.sat[1] - HEIGHT_TOL, lo = l.h <= l.sat[0] + HEIGHT_TOL;
+            if (hi || lo) { const at = l.opts.filter((o) => o.h !== null && ((hi && o.h >= l.sat[1] - HEIGHT_TOL) || (lo && o.h <= l.sat[0] + HEIGHT_TOL))); return at.length === 1 && at[0].combo === l.claim; }
+            return l.opts.some((o) => o.h !== null && Math.abs(o.h - l.h) <= HEIGHT_TOL && o.combo === l.claim);
+          };
+          const claimBad = (cl) => layersOf(cl).filter((l) => l.sceneShift === null || l.claimShift !== l.sceneShift || !fwdClaimOk(l));
+          const nLayers = layersOf(claims).length, cBad = claimBad(claims);
+          if (nLayers === 0) ok(`${t}: the frame is one merged frame of the step's sheets (${nMerged} drawn places): it claims no single sheet (not applicable; the All sheets rows read each layer's claim)`, nMerged > 0, { nMerged });
+          else ok(`${t}: every drawn layer's claimed sheet is the sheet the scene certifies (${cBad.length} of ${nLayers} are not)`, cBad.length === 0, { n: cBad.length, sample: cBad.slice(0, 3) });
+          const bumpLayer = layersOf(claims).find((l) => l.nParts > 0);
+          if (bumpLayer) { const bumped = await ev(`__cmwLandClaims(${JSON.stringify(pts)}, { layer: ${bumpLayer.member} })`), moved = claimBad(bumped).filter((l) => l.member === bumpLayer.member); ok(`${t}: the control: layer ${bumpLayer.member}'s claim one sheet off fails every layer of that member (${moved.length} fail)`, moved.length > 0, { moved: moved.length }); }
+          else ok(`${t}: the control: no layer claims a sheet but the principal one: nothing to shift (not applicable)`, layersOf(claims).every((l) => l.nParts === 0), { n: nLayers });
           // (the cheap paths of the homotopy hook, a surface alone and without the central difference, and the batch, give exactly the full call's values; the
           // scene it reads follows u: its value at a fixed place differs from the last u's)
           const eq = await ev(`(() => { const ms = ${JSON.stringify(ms.slice(0, HOM_EQ_PAIRS))}; let bad = 0, n = 0, many = 0; for (const m of ms) { const full = __cmwLandHom(m.z, m.cell), b = __cmwLandHomMany([[m.z, m.cell]])[0]; if (JSON.stringify(b) !== JSON.stringify(full)) many++; for (const h of full) { const c = __cmwLandHom(m.z, m.cell, { sheets: [h.sheet], dH: false })[0]; n++; if (!(h.H === null ? c.H === null : c.H && c.H[0] === h.H[0] && c.H[1] === h.H[1])) bad++; } } return { bad, n, many }; })()`);
@@ -879,9 +903,11 @@
         if (sheetsDiffer) { const wr = await ev(`__lxHomMiss(${JSON.stringify(ms)}, 0, true)`); ok(`${t}: the control: the members read on the next sheet are not matched (miss ${wr.worst})`, wr.worst > HOM_TOL && !ctlNA(c, 'sheets', u), { worst: wr.worst, na: ctlNA(c, 'sheets', u) }); }
         else ok(`${t}: the control: the members read on the next sheet: the scene has one surface${ctlNA(c, 'sheets', u) ? ' (not applicable: ' + ctlNA(c, 'sheets', u) + ')' : ''}`, !!ctlNA(c, 'sheets', u), { surfaces: 1 });
         // (a member of the range ramp, lvl < 0, is just outside its sheet's window: every member is within the ramp, and a ramp of 0 flags those that are outside)
-        const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length, out = ms.filter((m) => !(m.lvl >= -ramp)).length, tight = ms.filter((m) => !(m.lvl >= 0)).length;
+        const ramp = await ev('__cmwLandRamp()'), nRamp = ms.filter((m) => m.lvl < 0).length, out = ms.filter((m) => !(m.lvl >= -ramp)).length;
         ok(`${t}: every enumerated member is within the range ramp (lvl >= -${ramp}); ${nRamp} of ${ms.length} are in it`, out === 0, { out, ramp, nRamp });
-        ok(`${t}: the control: a ramp of 0 flags the ${nRamp} ramp members (${tight})`, tight === nRamp, { tight, nRamp });
+        // (the control on the check itself: one member moved RAMP_CTL_STEP levels past the ramp is flagged, whether or not the row has a ramp member)
+        const rampOut = (arr) => arr.filter((m) => !(m.lvl >= -ramp)).length, pushed = ms.map((m, i) => (i === 0 ? Object.assign({}, m, { lvl: -ramp - RAMP_CTL_STEP }) : m));
+        ok(`${t}: the control: a member ${RAMP_CTL_STEP} level past the ramp is flagged (${rampOut(pushed)} flagged; ${out} before it)`, ms.length > 0 && rampOut(pushed) > 0, { flagged: rampOut(pushed), out });
         // the plan read by the candidate generator corrupted (the output of its last op moved, on every sheet): its candidates are preimages under
         // the shortened plan, not under the scene, so the scene must refuse them: candidates are rejected, the members that are left are fewer than
         // the winding counts, and the case fails. A reference that took its homotopy from the plan would answer the corrupted plan consistently
@@ -989,8 +1015,20 @@
               const isI = (r) => !!r && r.zeros.length === 1 && Math.hypot(r.zeros[0][0], r.zeros[0][1] - 1) <= ZERO_TOL && r.unread.length === 0;
               ok(`${t}: the lift's branch point is i at u = ${MID_U[0]} and ${GLIDE_MID} (${JSON.stringify(la && la.zeros)}, ${JSON.stringify(lm && lm.zeros)})`, isI(la) && isI(lm), { la, lm });
               const hm = lm && isI(lm) ? lm.zeros[0] : null, ha = la && isI(la) ? la.zeros[0] : null;
-              ok(`${t}: the branch point is drawn at w = H_u(i) (${JSON.stringify(hm && hm.slice(3))} at u = ${GLIDE_MID}) and w moves with u (${JSON.stringify(ha && ha.slice(3))} at u = ${MID_U[0]})`, !!hm && !!ha && hm[3] !== null && Math.hypot(hm[3] - ha[3], hm[4] - ha[4]) > ZERO_SHIFT / 100, { hm, ha });
+              ok(`${t}: the branch point is drawn at w = H_u(i) (${JSON.stringify(hm && hm.slice(3))} at u = ${GLIDE_MID}) and w moves with u (${JSON.stringify(ha && ha.slice(3))} at u = ${MID_U[0]})`, !!hm && !!ha && hm[3] !== null && Math.hypot(hm[3] - ha[3], hm[4] - ha[4]) > ZERO_MOVE_MIN, { hm, ha });
               ok(`${t}: the control: the list dropped is empty (${ld && ld.zeros.length}) and a step that is not a Möbius step before the root is unread (${JSON.stringify(ch)})`, !!ld && ld.zeros.length === 0 && ch === 'unread', { ld, ch });
+            }
+            if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
+              // (the lift's pole: where the value entering the root is infinity, the Möbius step's -d / c = -i at every u, drawn at w = H_u(-i) which moves with u; the list dropped is empty; no step before it has no pole, a non-Möbius step is unread)
+              const lp = async (tt, drop) => ev(`__cmwLandLiftPoles({ mode: 1, base: 0, hi: 1, t: ${tt} }${drop ? ', true' : ''})`);
+              const pm = await lp(GLIDE_MID), pa = await lp(MID_U[0]), pd = await lp(GLIDE_MID, true);
+              const MOB_SQRT = { id: 'mobius', m: [[1, 0], [0, -1], [1, 0], [0, 1]] };   // (the case's Möbius step: a = 1, b = -i, c = 1, d = i)
+              const p0 = await ev('__cmwLandPolesOf([])'), p1 = await ev(`__cmwLandPolesOf(${JSON.stringify([MOB_SQRT])})`), p2 = await ev(`__cmwLandPolesOf(${JSON.stringify([MOB_SQRT, { id: 'recip' }])})`);
+              const isMinusI = (r) => !!r && r.poles.length === 1 && Math.hypot(r.poles[0][0], r.poles[0][1] + 1) <= ZERO_TOL && r.unread.length === 0;
+              ok(`${t}: the lift's pole is -i at u = ${MID_U[0]} and ${GLIDE_MID} (${JSON.stringify(pa && pa.poles)}, ${JSON.stringify(pm && pm.poles)})`, isMinusI(pa) && isMinusI(pm), { pa, pm });
+              const wm = pm && isMinusI(pm) ? pm.poles[0] : null, wa = pa && isMinusI(pa) ? pa.poles[0] : null;
+              ok(`${t}: the pole is drawn at w = H_u(-i) (${JSON.stringify(wm && wm.slice(3))} at u = ${GLIDE_MID}) and w moves with u (${JSON.stringify(wa && wa.slice(3))} at u = ${MID_U[0]})`, !!wm && !!wa && wm[3] !== null && Math.hypot(wm[3] - wa[3], wm[4] - wa[4]) > ZERO_MOVE_MIN, { wm, wa });
+              ok(`${t}: the control: the list dropped is empty (${pd && pd.poles.length}), no step before the root has no pole (${JSON.stringify(p0)}), a Möbius step's is -d / c (${JSON.stringify(p1)}) and a step that is not a Möbius step before the root is unread (${JSON.stringify(p2)})`, !!pd && pd.poles.length === 0 && p0 === null && Array.isArray(p1) && Math.hypot(p1[0], p1[1] + 1) <= ZERO_TOL && p2 === 'unread', { pd, p0, p1, p2 });
             }
             if (c.tag === 'Möbius, √' && u === GLIDE_MID) {
               // (w is H_u(z) through the scene's g at the current u: the hook's w at this u is the homotopy hook's value at z = i on the own surface)
@@ -1115,6 +1153,15 @@
       }
       if (rk && rk.certs.length > 0 && !controlsDone.branch) { controlsDone.branch = 1; await control('a branch point moved one cell', { branch: 1 }, (c) => c.failures.some((f) => f.kind === 'branch' || f.kind === 'cellDepth')); }
       ok(`${t}: the places drawn are the places covered, both ways (${cd.missing} missing, ${cd.extra} extra of ${cd.n}; at most ${CELL_TOL * 100} % differ)`, cd.off <= CELL_TOL, cd);
+    }
+    // (the combo control, judged over the row: the colour map's most distinct sheet combos at any u of it. With one, a combo one off is the same colour: the control cannot bite there and must not (a bite is a
+    // contradiction); with two or more it must bite at every near end)
+    {
+      const nMax = Math.max(0, ...Object.values(comboN));
+      for (const u of Object.keys(comboCtl).map(Number)) {
+        const ctl = comboCtl[u], one = nMax <= 1, tt = `${name}, u=${u}`;
+        ok(`${tt}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${one ? 'not over ' + HUE_OFF_MAX + ' (not applicable: the colour map has at most ' + nMax + ' distinct sheet combo over the row, window.__cmwLandRefSheets)' : 'over ' + HUE_OFF_MAX + ' (' + nMax + ' distinct sheet combos over the row)'} pixels off (${ctl} are)`, one ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, nMax, comboN });
+      }
     }
     // the distance to rest falls as u goes to 0 (and as it goes to 1, for the next plane): per end, d(k) for k in REST_STEPS from the plane
     const restOk = (d) => d[0] <= SAME_FRAC && d.every((x, i) => i === 0 || x >= d[i - 1] - MONO_SLACK);
