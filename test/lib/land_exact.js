@@ -95,6 +95,7 @@
   };
   const ctlNA = (c, ctl, u) => CTL_NA[`${c.tag}|${ctl}|${u}`] || CTL_NA[`${c.tag}|${ctl}`] || null;
   const STRIP_TOL = 1e-6;   // (radians: a member's continued argument is this close to its window's end or nearer when it is a lip member, float noise and never a strip)
+  const POLE_R = 1e-7, POLE_BIG = 1e3;   // (a pole's ring: the radius it is read at and the |H| the map has there, the scene's own constants)
   const ZERO_TOL = 1e-12, ZERO_SHIFT = 0.25, ZERO_BOX = 1e-3;   // (an exact zero: its distance from the matrix's value; the shift of a control's zero; the half-width of the box round it)
   const HOM_EQ_PAIRS = 200, HOM_PLACE = '0.3, 0.2';   // (members the homotopy hook's cheap paths are compared on; the fixed place its scene's u-dependence is read at)
   const SHEET_MARGIN = 4;   // (a member's certified surface is unique when the next surface's miss exceeds this many times its own)
@@ -233,9 +234,18 @@
       cellAt: typeof __cmwLandCellAt === 'function' ? (z) => __cmwLandCellAt(z) : null,
       project: (x, y, h) => { const q = __cmwLandProject(x, y, h); return q && Number.isFinite(q[0] + q[1]) ? [q[0] * dpr / 2, q[1] * dpr / 2] : null; },
       mask: (x, y) => __cmwLandMask(x, y),
-      // (the scene's branch points, each at the place every surface draws it: a pole is not a place and is left out)
-      sing: () => { const s = __cmwLandSing(); if (!s) return []; const o = []; for (const q of s.branch) { const hs = __cmwLandHom([q[0], q[1]]) || []; for (const h of hs) o.push({ sheet: h.sheet, z: [q[0], q[1]], w: h.H, kind: q[2] }); } return o; },
-      count: (w, opt) => __cmwLandWind(w, opt || {}),
+      // (the scene's singular points, each at the place the surfaces draw it: the leaves' branch points, the poles at the scene's own coordinates (the places
+      // the plane-0 map has them), and the lift's branch points (liftZeros) at their w = H_u(z); a chain the hook cannot read is a failure of the reference)
+      sing: () => {
+        const s = __cmwLandSing(), lz = __cmwLandLiftZeros();
+        if (!s || !lz) return [];
+        if (lz.unread.length) throw new Error('the lift zeros are unread: ' + JSON.stringify(lz.unread));
+        const o = [];
+        for (const q of s.branch) { const hs = __cmwLandHom([q[0], q[1]]) || []; for (const h of hs) o.push({ sheet: h.sheet, z: [q[0], q[1]], w: h.H, kind: q[2] }); }
+        for (const q of s.poles) o.push({ sheet: 0, z: [q[0], q[1]], w: [q[0], q[1]], kind: 'pole' });
+        for (const q of lz.zeros) o.push({ sheet: q[2], z: [q[0], q[1]], w: q[3] === null ? null : [q[3], q[4]], kind: 'lift' });
+        return o;
+      },      count: (w, opt) => __cmwLandWind(w, opt || {}),
       // (the preimage lies on the carried surface: the plane record's box, read from the scene, never from the carry; opts.domainOff at the core ignores this)
       domain: (z) => { const p = __cmwLandPlane(); return !p || (z[0] >= p.box[0] - ${DOM_EPS} && z[0] <= p.box[1] + ${DOM_EPS} && z[1] >= p.box[2] - ${DOM_EPS} && z[1] <= p.box[3] + ${DOM_EPS}); },
       progress: (c, f) => { window.__lxProgress = { cells: Object.assign({}, c), failures: f.length }; },
@@ -1071,6 +1081,11 @@
       const refOk = u <= END_U || u >= 1 - END_U ? () => {} : ok;
       refOk(`${t}: the frame's relief is the exact map's, a coverage raster of ${rk ? rk.w + ' x ' + rk.h : '?'} half-resolution pixels (${rk ? rk.extra : '?'} extra, ${rk ? rk.missing : '?'} missing of ${rk ? rk.n : '?'}; at most ${RASTER_TOL * 100} % off, ${REF.slack} pixel slack; reference exact: ${rk ? !rk.capped : '?'})`, !!rl && !!rk && !rk.capped && rk.off <= RASTER_TOL, { rl, rk: rk && Object.assign({}, rk, { failures: fl.slice(0, 4) }) });
       refOk(`${t}: the reference decides every cell (${rk ? JSON.stringify(rk.cells) : '?'}; ${rk ? rk.certs.length : '?'} branch certificates): no failure`, !!rk && fl.length === 0, { failures: fl && fl.slice(0, 4) });
+      // (a pole of the scene is where the map is unbounded: |H| at POLE_R from it is at least POLE_BIG; a pole placed elsewhere is 'pole misplaced')
+      if (u > END_U && u < 1 - END_U) {
+        const ring = await ev(`(() => { const s = __cmwLandSing(); return s ? s.poles.map((p) => { const h = __cmwLandHom([p[0] + ${POLE_R}, p[1]]); return { p, h: h && h[0] && h[0].H ? Math.hypot(h[0].H[0], h[0].H[1]) : null }; }) : null; })()`);
+        ok(`${t}: pole misplaced: every pole of the scene (${ring ? ring.length : '?'}) is unbounded on its ring (|H| at least ${POLE_BIG} at ${POLE_R})`, !!ring && ring.every((q) => q.h !== null && q.h >= POLE_BIG), { ring });
+      }
       // the controls, each a reference that must fail: too shallow a lattice at the thinnest feature, the nearest root taken as a member's
       // identity at the Newton glide's end, the seam of a boundary cell moved one cell, a branch point located one cell off
       const control = async (name, extra, need) => {

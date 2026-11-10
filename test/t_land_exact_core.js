@@ -5,7 +5,9 @@
 // - the branch point moved BRANCH_CTL lattice cells (the move is in units of the failing cell: one cell leaves the point inside the cluster of suspect cells in so small a frame);
 // - a Lipschitz bound taken far under the sampled one (the midpoints between the samples exceed it);
 // - a singular point declared beside the certificate's disc;
-// - a member removed from each scope of the completeness count.
+// - a member removed from each scope of the completeness count;
+// - on a frame whose surfaces are read per leaf (a cut along x = 0, the surfaces swapped across it, each leaf's H wrong far beyond its edge), a member that keeps the
+//   cell it started in, and one that takes the next surface where it changes cell.
 //   node test/t_land_exact_core.js
 const fs = require('fs'), path = require('path');
 const { refImage, run } = eval(fs.readFileSync(path.join(__dirname, 'lib', 'land_exact_core.js'), 'utf8'));
@@ -59,5 +61,29 @@ const clipped = go(frameOf({ domain: inDomain }), {}), unclipped = go(frameOf({ 
 const count = (r) => r.px.reduce((a, b) => a + b, 0);
 ok('the reference keeps only the members inside the carried surface\'s domain', count(clipped) > 0 && count(clipped) < count(base) / 2, { clipped: count(clipped), all: count(base) });
 ok('the control: with the domain ignored the reference draws the members outside it too', count(unclipped) === count(base), { unclipped: count(unclipped), all: count(base) });
+// ---- the re-anchoring of a member at a cut: H(z) = z^2 + CUT_SHIFT j is read per leaf (A: x < 0, B: x >= 0) on K = 2 surfaces, the label j of a surface swapped
+// between the leaves, and a leaf's H is off by CUT_OFF farther than CUT_FAR beyond its edge. The reference draws the whole box (every pixel) when a continued
+// member moves to the leaf that holds it and takes the surface whose value there matches; a member that keeps its leaf, or takes the next surface, loses pixels.
+const CUT_SHIFT = 5, CUT_OFF = 2, CUT_FAR = 0.05, CUT_BOX = { x0: -3, x1: -1, y0: -1, y1: 1 };
+const LEAF_A = [-0.5, 0], LEAF_B = [0.5, 0];
+const leafAt = (z) => ({ c: z[0] < 0 ? LEAF_A : LEAF_B });
+const labelIn = (k, c) => (c === LEAF_B ? 1 - k : k);
+const HIn = (z, k, c) => { const z2 = cm(z, z), far = (c === LEAF_B ? -z[0] : z[0]) > CUT_FAR; return [z2[0] + CUT_SHIFT * labelIn(k, c) + (far ? CUT_OFF : 0), z2[1]]; };
+const rootsIn = (w, k, c) => {
+  const v = [w[0] - CUT_SHIFT * labelIn(k, c), w[1]], r = Math.hypot(v[0], v[1]), th = Math.atan2(v[1], v[0]);
+  const a = [Math.sqrt(r) * Math.cos(th / 2), Math.sqrt(r) * Math.sin(th / 2)];
+  return [a, [-a[0], -a[1]]].filter((z) => leafAt(z).c === c);
+};
+const cutFrame = {
+  box: CUT_BOX, W2: SIZE, H2: SIZE, all: true, K: 2, cellAt: leafAt,
+  enumAt: (ws) => ws.map((w) => { const o = []; for (const c of [LEAF_A, LEAF_B]) for (const k of [0, 1]) for (const z of rootsIn(w, k, c)) o.push({ z, lam: null, h: z[0], sheet: k, cell: c, front: false }); return o; }),
+  hom: (z, lam, k, cell) => { const out = []; out[k] = { H: HIn(z, k, cell || leafAt(z).c), dH: [2 * z[0], 2 * z[1]], cut: false }; return out; },
+  project: (x, y, h) => [(x - CUT_BOX.x0) / (CUT_BOX.x1 - CUT_BOX.x0) * SIZE + RISE * h, (y - CUT_BOX.y0) / (CUT_BOX.y1 - CUT_BOX.y0) * SIZE],
+  mask: () => null, layers: null, count: () => [],
+};
+const cutBase = go(cutFrame, {}), cutFixed = go(cutFrame, { fixedCell: true }), cutShift = go(cutFrame, { labelShift: true });
+ok('the cut frame: the reference draws every pixel of the box with no failure', count(cutBase) === SIZE * SIZE && cutBase.failures.length === 0, { n: count(cutBase), failures: cutBase.failures.length });
+ok('the control: a member that keeps the leaf it started in loses pixels at the cut', count(cutFixed) < count(cutBase), { fixed: count(cutFixed), base: count(cutBase) });
+ok('the control: a member that takes the next surface where it changes leaf loses pixels at the cut', count(cutShift) < count(cutBase), { shift: count(cutShift), base: count(cutBase) });
 if (fails) { console.log(fails + ' failed'); process.exit(1); }
 console.log('ok');
