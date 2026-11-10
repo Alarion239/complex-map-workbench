@@ -181,6 +181,11 @@
   // far tighter than the 0.02 and 2 degrees of the rest: NEAR_TOL is the largest difference of a drawn height (world units) and of a colour's
   // argument (radians) from the reference's; a frame drawn at the wrong u (reversed, frozen) is told apart by it
   const NEAR_U = [END_U, 0.002, 0.998, 1 - END_U], NEAR_TOL = 0.005, REVERSED_FROM = 0.002;
+  // (CMW_ONLY_U: the u values of one part of a case, comma-separated, so that CI runs a slow case's u in parts. The controls and judgments that read
+  // across u (HIST, the combo counts) keep their values in a file per case, written by each part and read by the later ones; the part holding the
+  // first u starts it afresh, and a later part that finds none fails its row. The judgments over the whole row run in the part holding the last u)
+  const ONLY_U = process.env.CMW_ONLY_U ? process.env.CMW_ONLY_U.split(',').map(Number) : null;
+  const stateFile = (name) => path.join(process.env.TMPDIR || '/tmp', 'cmw_land_exact_' + name.replace(/[^A-Za-z0-9]+/g, '_') + '.json');
   const PHASE_TOL = 2 * Math.PI / 180, F_ABS_MIN = 1e-3;   // the member's colour (arg F): at most 2 degrees apart where |F| is not near 0
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const SAT_PLACES = 8;   // the probe places the clip levels are read at (the claims hook reads them once a layer is drawn)
@@ -1195,7 +1200,16 @@
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
     const comboN = {}, comboCtl = {};   // (per u: the distinct sheet combos of the colour map; per near end: the shifted-combo hue count)
     const brPts = CUT_ROWS[c.tag] ? branchPoints(c.steps) : [];
-    for (const u0 of GLIDE_U) {
+    // (the cross-u values: in a part they come from the file of the parts before it)
+    const lastPart = !ONLY_U || ONLY_U.includes(GLIDE_U[GLIDE_U.length - 1]);
+    const saveState = () => { if (ONLY_U) fs.writeFileSync(stateFile(name), JSON.stringify({ HIST: HIST[name] || {}, comboN, comboCtl })); };
+    if (ONLY_U) {
+      let st = null;
+      if (!ONLY_U.includes(GLIDE_U[0])) { try { st = JSON.parse(fs.readFileSync(stateFile(name), 'utf8')); } catch (e) { st = null; } }
+      ok(`${name}: the part for u = ${ONLY_U.join(', ')} ${ONLY_U.includes(GLIDE_U[0]) ? 'starts the cross-u values' : 'finds the cross-u values of the parts before it'}`, ONLY_U.includes(GLIDE_U[0]) || !!st, { file: stateFile(name) });
+      if (st) { HIST[name] = st.HIST; Object.assign(comboN, st.comboN); Object.assign(comboCtl, st.comboCtl); }
+    }
+    for (const u0 of GLIDE_U.filter((x) => !ONLY_U || ONLY_U.includes(x))) {
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
       const t = `${name}, u=${u}`;
       await setU(u);
@@ -1205,6 +1219,7 @@
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
       r[u] = { carry, cov, p0: p0.cover, p1: p1.cover };
       if (COMBO_CONTROL.includes(c.tag)) comboN[u] = (await ev(`(__cmwLandRefSheets(${JSON.stringify(COMBO_PLACE)}) || []).length`)) || 0;   // (the colour map's combos are the map's, not the place's)
+      saveState();
       ok(`${t}: a still, carried frame`, cov.still && !!carry, { carry, still: cov.still });
       // the path
       ok(`${t}: the frame is drawn by the inverse path`, carry && carry.path === 'inverse', carry);
@@ -1283,6 +1298,7 @@
           }
           r.comboControl = Object.assign(r.comboControl || {}, { [u]: ctl });
           comboCtl[u] = ctl;
+          saveState();
         }
         if (lastU && COMBO_CONTROL_K.includes(c.tag) && !r.comboControlK) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
@@ -1953,6 +1969,7 @@
         }
       }
       (HIST[name] = HIST[name] || {})[u] = pts.map((p, i) => ({ have: got[i] && got[i][0] ? got[i][0].h : null, want: ref[i] && ref[i][0] ? ref[i][0].h : null }));
+      saveState();
       // (Ruling C controls) a frame drawn at the wrong u is told apart by NEAR_TOL: the frame at REVERSED_FROM against the reference at 1 - REVERSED_FROM
       // (u reversed), and against the reference at the glide's middle (u frozen there), each more than NEAR_TOL off at some place
       if (u === 1 - REVERSED_FROM && HIST[name][REVERSED_FROM] && HIST[name][GLIDE_MID]) {
@@ -2027,7 +2044,7 @@
     }
     // (the combo control, judged over the row: the colour map's most distinct sheet combos at any u of it. With one, a combo one off is the same colour: the control cannot bite there and must not (a bite is a
     // contradiction); with two or more it must bite at every near end)
-    {
+    if (lastPart) {
       const nMax = Math.max(0, ...Object.values(comboN));
       for (const u of Object.keys(comboCtl).map(Number)) {
         const ctl = comboCtl[u], one = nMax <= 1, tt = `${name}, u=${u}`;
@@ -2037,7 +2054,7 @@
     }
     // the distance to rest falls as u goes to 0 (and as it goes to 1, for the next plane): per end, d(k) for k in REST_STEPS from the plane
     const restOk = (d) => d[0] <= SAME_FRAC && d.every((x, i) => i === 0 || x >= d[i - 1] - MONO_SLACK);
-    for (const [end, ref] of [['plane z', 'P0'], ['the next plane', 'P1']]) {
+    for (const [end, ref] of lastPart ? [['plane z', 'P0'], ['the next plane', 'P1']] : []) {
       const d = [];
       for (const k of REST_STEPS) {
         await setU(ref === 'P0' ? k * END_U : 1 - k * END_U); await grab('rs');
@@ -2050,7 +2067,7 @@
     }
     // the glide's sheet pass (the image test that gives each vertex its step sheet's height) is what keeps the frame near the next plane's
     // parked one at the far end: with it off (the page's carry probe noFix) the same frame differs from the parked plane by more than the tolerance
-    if (c.fixControl && !sheets) {
+    if (c.fixControl && !sheets && lastPart) {
       await setU(1 - END_U);
       const on = await grab('fixon'), dOn = (await compare('fixon', 'P1')).frac;
       await ev(`__svCarryProbe = __svCarryProbeSettings.noFix; 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);

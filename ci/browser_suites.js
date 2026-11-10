@@ -81,7 +81,12 @@ const SUITES = {
   // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
   // (All sheets in parts, one case each by its tag in test/lib/land_exact.js: whole, it did not finish in 30 min on lavapipe)
-  'steps_land_exact_all_cmd.js': { runs: ['Möbius, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (the Newton case alone takes about 500 s a u on lavapipe: one part per u, in the order of the glide's u, which the later parts' cross-u controls
+  // read from the file of the earlier ones: CMW_ONLY_U in test/lib/land_exact.js)
+  'steps_land_exact_all_cmd.js': {
+    runs: ['Möbius, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages'].map((only) => ({ label: only, env: { CMW_ONLY: only } }))
+      .concat([0.0001, 0.002, 0.25, 0.5, 0.75, 0.998, 0.9999].map((u) => ({ label: `Partial sums of the exponential (Newton), u=${u}`, env: { CMW_ONLY: 'Partial sums of the exponential (Newton)', CMW_ONLY_U: String(u) } }))),
+  },
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
   'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
