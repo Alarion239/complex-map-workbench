@@ -25,7 +25,12 @@ const CASES = [
   { name: 'K2 Formula z^(-1/2)', step: { type: 'custom', params: { expr: 'z^{-1/2}' }, on: true }, a: -0.5 },
   { name: 'K3 powa -3/2', step: { type: 'powa', params: { alpha: '-1.5', cut: 180, k: 0 }, on: true }, a: -1.5 },
 ];
-const quiet = () => settled({ floor: 400, max: 60000, until: 'window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)' });
+// (the sphere's and the Landscape's glides never report settled: their frames wait a fixed time)
+const SETTLE_MS = 1200;
+let surf = 'plane';
+const quiet = () => (surf === 'plane'
+  ? settled({ floor: 400, max: 20000, until: 'window.__cmwSteps && !__cmwSteps().moving' })
+  : sleep(SETTLE_MS));
 // the left pane's pixels, kept in the page under tag
 const grab = (tag) => ev(`(() => { const c = document.getElementById('canvasL'), s = document.createElement('canvas'); s.width = c.width; s.height = c.height; const g = s.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0); window.__np = window.__np || {}; window.__np[${JSON.stringify(tag)}] = g.getImageData(0, 0, s.width, s.height).data; return 1; })()`);
 // the number of saturated pixels of a tagged frame
@@ -42,6 +47,7 @@ const seedCase = async (c, i) => {
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await quiet(); };
 // the coverage row of one case and view, parked w1's frame as the reference; probe: a __svCarryProbeSettings name or null
 const row = async (c, v, probe) => {
+  surf = v;
   await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 1 }); 1`); await quiet();
   await grab('p1'); const ref = await colouredN('p1');
   const low = [];
@@ -61,6 +67,7 @@ for (const [i, c] of CASES.entries()) {
     ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
     if (v === 'land') continue;
     // the end frames: what the glide colours is parked w1's colour
+    surf = v;
     await ev(`__svCarryProbe = null; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 1 }); 1`); await quiet();
     await grab('p1');
     for (const u of U_END) {
