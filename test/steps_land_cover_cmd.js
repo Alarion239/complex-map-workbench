@@ -73,4 +73,30 @@ for (const c of CASES) {
     }
   }
 }
+// The exact path, All sheets: Möbius, √ at u = .998 draws the glide's layers (the frame is drawn by the inverse path, not the mesh the cases above run with) and has at
+// least EXACT_MIN of the relief's pixels of the parked All-sheets plane. Controls: the same frame with one layer (sheets off), and with the layers' combos shifted (the probe's comboShift), each below it
+const EXACT_MIN = 0.9;
+const exactAt = async (sheets, probe) => {
+  const ns = 'landcoverx' + Date.now() + (sheets ? 'a' : 'o');
+  await loadView('steps', ns, { shapes: [], steps: MOB, sheets, height: 'im' });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`); await settled({ max: 60000 });
+  const last = (await ev('__cmwSteps().planes')).length - 1;
+  await ev(`__cmwSteps({ go: ${last}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+  const relief = async () => JSON.parse(await ev('JSON.stringify(__cmwLandRelief())')).n;   // (the relief alone: the pane's floor and plate are not counted)
+  const rest = await relief();
+  if (probe) await ev(`window.__svCarryProbe = ${probe}; 1`);
+  await ev(`__cmwSteps({ x: ${last - 0.002} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+  const c = JSON.parse(await ev('JSON.stringify((() => { const k = __cmwLandCarry(); return k ? { path: k.path || "mesh", layers: k.layers } : null; })())'));
+  const got = await relief();
+  await ev('window.__svCarryProbe = {}; 1');
+  return { rest, got, coverage: +(got / rest).toFixed(3), path: c && c.path, layers: c && c.layers };
+};
+const exA = await exactAt(true, null), exOne = await exactAt(false, null), exShift = await exactAt(true, '{ comboShift: 1 }');
+info.exactAllSheets = { exA, exOne, exShift };
+ok('Möbius, √, All sheets, u=.998, the exact path: the frame is drawn by the inverse path with both layers', exA.path === 'inverse' && exA.layers === 2, exA);
+ok(`Möbius, √, All sheets, u=.998, the exact path: >= ${EXACT_MIN * 100} % of the pixels of the parked All-sheets plane (${exA.rest})`, exA.coverage >= EXACT_MIN, exA);
+ok(`control: the same frame with one layer (sheets off) is under ${EXACT_MIN * 100} % of the parked All-sheets plane`, exOne.coverage < EXACT_MIN, exOne);
+ok(`control: the same frame with the layers' combos shifted is under ${EXACT_MIN * 100} % of the parked All-sheets plane`, exShift.coverage < EXACT_MIN, exShift);
 return { pass: !fails.length, fails, info };
