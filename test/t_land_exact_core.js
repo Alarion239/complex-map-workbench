@@ -61,6 +61,10 @@ const clipped = go(frameOf({ domain: inDomain }), {}), unclipped = go(frameOf({ 
 const count = (r) => r.px.reduce((a, b) => a + b, 0);
 ok('the reference keeps only the members inside the carried surface\'s domain', count(clipped) > 0 && count(clipped) < count(base) / 2, { clipped: count(clipped), all: count(base) });
 ok('the control: with the domain ignored the reference draws the members outside it too', count(unclipped) === count(base), { unclipped: count(unclipped), all: count(base) });
+// ---- the certificate capacity: a ceiling of none fails the frame's critical point with 'certMax'; the default capacity holds it
+const noCap = go(frameOf(), { CERT_MAX: 0, CERT_SLACK: 0, CERT_HARD_MAX: 0 });
+ok('the control: a certificate ceiling of none fails the critical point with certMax', noCap.failures.some((f) => f.kind === 'certMax'), { kinds: noCap.failures.map((f) => f.kind).slice(0, 4) });
+ok('the default certificate capacity holds the critical point', !base.failures.some((f) => f.kind === 'certMax'), { kinds: base.failures.map((f) => f.kind).slice(0, 4) });
 // ---- the re-anchoring of a member at a cut: H(z) = z^2 + CUT_SHIFT j is read per leaf (A: x < 0, B: x >= 0) on K = 2 surfaces, the label j of a surface swapped
 // between the leaves, and a leaf's H is off by CUT_OFF farther than CUT_FAR beyond its edge. The reference draws the whole box (every pixel) when a continued
 // member moves to the leaf that holds it and takes the surface whose value there matches; a member that keeps its leaf, or takes the next surface, loses pixels.

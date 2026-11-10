@@ -75,7 +75,9 @@
     RAY_SUB_PX: 1 / 16,     // a ray's bisection stops at this many pixels
     RAY_ITER: 40,           // a ray's bisection iterations at most (fails when reached)
     HIT_TOL: 1e-3,          // a ray's bisection ends at a surface where |g| is under this share of the height range, else at a wall
-    CERT_MAX: 4,            // certificates a frame; more fails
+    CERT_MAX: 4,            // certificates a frame when the frame declares few singular places; more fails
+    CERT_SLACK: 2,          // certificates beyond one for each singular place the frame declares (the capacity grows with them)
+    CERT_HARD_MAX: 16,      // the most certificates a frame may hold however many places it declares
     CERT_R: 1e-2,           // the certificate disc's radius relative to the members' distance
     CERT_WIND: 64,          // samples of the argument principle's circle at least
     CERT_ARG: Math.PI / 4,  // a step of the winding's argument is at most this
@@ -554,6 +556,11 @@
     function covers(q, c) {
       return dist2(q.w, wAt(c.i + c.s / 2, c.j + c.s / 2)) <= q.rImage + dist2(wAt(c.i, c.j), wAt(c.i + c.s, c.j + c.s));
     }
+    // the certificates a frame may hold: its declared singular places and CERT_SLACK more, at least CERT_MAX, never over CERT_HARD_MAX
+    function certCap() {
+      if (singList === null) singList = frame.sing ? frame.sing() || [] : [];
+      return Math.min(o.CERT_HARD_MAX, Math.max(o.CERT_MAX, singList.length + o.CERT_SLACK));
+    }
     function* certifyBranches(lv) {
       yield* certifyPass(lv);
       // (a leaf met before the certificate of the cell beside it was issued is covered by it where it lies within its reach)
@@ -574,7 +581,7 @@
         const ctr = wAt(c.i + c.s / 2, c.j + c.s / 2);
         const known = certs.find((q) => covers(q, c));
         if (known) { c.certified = known; continue; }
-        if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w: ctr }); c.certWhy = 'certMax'; continue; }
+        if (certs.length >= certCap()) { fail({ kind: 'certMax', max: certCap(), w: ctr }); c.certWhy = 'certMax'; continue; }
         const ms = c.vs.flatMap((v) => v.all);
         // (the merging pair: two members of one place that are nearest each other; a member at two corners of the cell is one member, not a pair)
         let pair = null, best = Infinity;
@@ -619,7 +626,7 @@
         // (one certificate a place: the same point declared on each sheet of the frame, or at each level, is one)
         let cert = certs.find((c) => c.singular === q.kind && dist2(c.w, w) <= o.SING_PX * wPx);
         if (!cert) {
-          if (certs.length >= o.CERT_MAX) { fail({ kind: 'certMax', max: o.CERT_MAX, w }); continue; }
+          if (certs.length >= certCap()) { fail({ kind: 'certMax', max: certCap(), w }); continue; }
           cert = { ok: true, singular: q.kind, z: q.z, w, c: q.z, d: null, r: 0, rImage: reach, kantorovich: null, winding: null, inDisc: null };
           certs.push(cert);
         }
