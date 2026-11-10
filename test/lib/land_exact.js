@@ -1094,37 +1094,51 @@
   // (the largest per case, the capacity and the count at the end). The controls: a list of SHORT_K that is not raised is cut off on frames whose count is over it (the
   // check's own failure, which the control asserts), and the same short list that grows draws the frame the list of LIST_K0 does. Runs in steps_land_strad_cmd: every case, both modes
   const truncatedDraws = async () => ev('(__cmwLandCarry() || {}).stradTruncated || 0');
-  const scrubRise = async (t, c, sheets) => {
-    await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
-    const us = [];
-    for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
-    us.push(0.99, 1 - END_U);
-    let prev = null, rise = 0, riseAt = null, fall = 0, fallAt = null, most = 0, mostAt = null, mostK = null, mostLayers = 0, over = 0, unlisted = 0, framesWithClasses = 0, capMax = 0;
-    const t0 = await truncatedDraws(), syncsNow = async () => ev('(__cmwLandCarry() || {}).stradSync || 0');
-    let unread = 0, s0 = await syncsNow();
+  // The frames' measures: for each u the page draws it, the count is read against the list's capacity at the draw (classCounts), and the page's reads and cut-off draws are counted
+  // (probes: the settings of __svCarryProbeSettings merged, classStats always). The rows below judge these, and the controls judge the same rows on frames drawn with a probe that breaks them
+  const syncsNow = async () => ev('(__cmwLandCarry() || {}).stradSync || 0');
+  const measureFrames = async (us, probes) => {
+    await ev(`__svCarryProbe = Object.assign({}, ${['classStats', ...probes].map((n) => `__svCarryProbeSettings.${n}`).join(', ')}); 1`);
+    const m = { frames: 0, over: 0, unlisted: 0, unread: 0, cut: 0, rise: 0, riseAt: null, fall: 0, fallAt: null, most: 0, mostAt: null, mostK: null, layers: 0, capMax: 0 };
+    let prev = null, s0 = await syncsNow();
+    const t0 = await truncatedDraws();
     for (const x of us) {
       await setU(x);
       const s1 = await syncsNow();
-      if (!(s1 > s0)) unread++;
+      if (!(s1 > s0)) m.unread++;
       s0 = s1;
       const k = await classCounts();
       if (!k) continue;
-      framesWithClasses++;
-      if (prev !== null && k.mix - prev > rise) { rise = k.mix - prev; riseAt = x; }
-      if (prev !== null && prev - k.mix > fall) { fall = prev - k.mix; fallAt = x; }
-      if (k.mix > most) { most = k.mix; mostAt = x; mostK = { cells: k.cells, invalid: k.invalid }; mostLayers = await ev('(__cmwLandCarry() || {}).layers || 1'); }
-      if (k.mix > k.K) over++;
-      if (k.listed !== k.mix) unlisted++;
-      capMax = Math.max(capMax, k.K);
+      m.frames++;
+      if (prev !== null && k.mix - prev > m.rise) { m.rise = k.mix - prev; m.riseAt = x; }
+      if (prev !== null && prev - k.mix > m.fall) { m.fall = prev - k.mix; m.fallAt = x; }
+      if (k.mix > m.most) { m.most = k.mix; m.mostAt = x; m.mostK = { cells: k.cells, invalid: k.invalid }; m.layers = await ev('(__cmwLandCarry() || {}).layers || 1'); }
+      if (k.mix > k.K) m.over++;
+      if (k.listed !== k.mix) m.unlisted++;
+      m.capMax = Math.max(m.capMax, k.K);
       prev = k.mix;
     }
-    const cut = (await truncatedDraws()) - t0;
+    m.cut = (await truncatedDraws()) - t0;
     await ev('__svCarryProbe = null; 1');
-    info[`${t}: straddling cells`] = { frames: framesWithClasses, most, mostAt, mostCells: mostK && mostK.cells, mostInvalid: mostK && mostK.invalid, layers: mostLayers, rise, riseAt, fall, fallAt, capacity: capMax };
-    if (!framesWithClasses) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
-    ok(`${t}: at every one of ${framesWithClasses} frames the straddling cells all fit the draw's list (the most: ${most} of a grid of ${mostK && mostK.cells} cells, ${mostK && mostK.invalid} of them with a corner that is not a point, at u=${mostAt}, ${mostLayers} layers, one list each; the list's capacity ${capMax}; the largest rise between frames ${rise}, at u=${riseAt}, and the largest fall ${fall}, at u=${fallAt}) and are all listed`, over === 0 && unlisted === 0, { over, unlisted, most, capMax });
-    ok(`${t}: no draw of the scrub had its list cut off (${cut})`, cut === 0, { cut });
-    ok(`${t}: the count is read at every frame, a step of u as well as a jump (${unread} of ${us.length} frames without a read)`, unread === 0, { unread, frames: us.length });
+    return m;
+  };
+  const fitRow = (m) => m.over === 0 && m.unlisted === 0, cutRow = (m) => m.cut === 0, readRow = (m) => m.unread === 0;
+  const scrubRise = async (t, c, sheets) => {
+    const us = [];
+    for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
+    us.push(0.99, 1 - END_U);
+    const m = await measureFrames(us, []);
+    const { most, mostAt, mostK, rise, riseAt, fall, fallAt } = m;
+    info[`${t}: straddling cells`] = { frames: m.frames, most, mostAt, mostCells: mostK && mostK.cells, mostInvalid: mostK && mostK.invalid, layers: m.layers, rise, riseAt, fall, fallAt, capacity: m.capMax };
+    if (!m.frames) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
+    ok(`${t}: at every one of ${m.frames} frames the straddling cells all fit the draw's list (the most: ${most} of a grid of ${mostK && mostK.cells} cells, ${mostK && mostK.invalid} of them with a corner that is not a point, at u=${mostAt}, ${m.layers} layers, one list each; the list's capacity ${m.capMax}; the largest rise between frames ${rise}, at u=${riseAt}, and the largest fall ${fall}, at u=${fallAt}) and are all listed`, fitRow(m), { over: m.over, unlisted: m.unlisted, most, capMax: m.capMax });
+    ok(`${t}: no draw of the scrub had its list cut off (${m.cut})`, cutRow(m), { cut: m.cut });
+    ok(`${t}: the count is read at every frame, a step of u as well as a jump (${m.unread} of ${us.length} frames without a read)`, readRow(m), { unread: m.unread, frames: us.length });
+    if (c.tag === 'cube root' && !sheets) {
+      // control: with the read skipped (a probe) no frame reads the count: the row above turns red
+      const sk = await measureFrames([0.3, 0.32, 0.34, 0.36], ['stradNoRead']);
+      ok(`${t}: control: with the count's read skipped the read row is red (${sk.unread} of ${sk.frames} frames without a read)`, !readRow(sk) && sk.unread === sk.frames, { sk });
+    }
     if (GROW_CONTROLS.some(([tag, sh]) => tag === c.tag && sh === sheets)) {
       const [, , u] = GROW_CONTROLS.find(([tag, sh]) => tag === c.tag && sh === sheets);
       await setU(u);
@@ -1134,6 +1148,8 @@
       await ev('__svCarryProbe = __svCarryProbeSettings.stradShortFixed; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u);
       const k1 = await truncatedDraws();
       ok(`${t}: control: a list of ${SHORT_K} that is not raised is cut off at u=${u} (${k1 - k0} draws, ${kf} cells to list), the failure the check above would report`, k1 > k0 && kf > SHORT_K, { k0, k1, kf });
+      const near = await measureFrames([Math.max(u - SCRUB_STEP_U, 0.01), u, Math.min(u + SCRUB_STEP_U, 0.99)], ['stradShortFixed']);
+      ok(`${t}: control: with the list's capacity forced to ${SHORT_K} and not raised, the capacity row and the cut-off row themselves are red (${near.over} of ${near.frames} frames over capacity, ${near.cut} draws cut off)`, !fitRow(near) && !cutRow(near), { near });
       await ev('__svCarryProbe = __svCarryProbeSettings.stradShort; 1'); await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
       await grab('grown');
       const gr = await ev('JSON.stringify({ cap: (__cmwLandCarry() || {}).stradCap, grows: (__cmwLandCarry() || {}).stradGrows, count: (__cmwLandCarry() || {}).stradCount, cut: (__cmwLandCarry() || {}).stradTruncated })').then(JSON.parse);
