@@ -1187,12 +1187,12 @@
       // the limit: with no ceiling control a count over the limit refuses the frame (a throw, reported with the count), as a ceiling control (above) draws it cut off
       if (c.tag === 'log of an annulus') {
         const kc = await truncatedDraws();
-        await ev(`window.__lxRefused = []; window.__lxRefuse = (e) => window.__lxRefused.push(String((e.error && e.error.message) || e.message || e)); window.addEventListener('error', window.__lxRefuse); __svCarryProbe = __svCarryProbeSettings.stradLimit; 1`);
+        await ev(`window.__lxRefused = []; window.__lxCE = console.error; console.error = (...a) => { window.__lxRefused.push(a.map((x) => String((x && x.message) || x)).join(' ')); }; __svCarryProbe = __svCarryProbeSettings.stradLimit; 1`);
         await setU(u === 0.5 ? 0.51 : 0.5); await setU(u); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
         const rf = await ev('JSON.stringify({ refused: window.__lxRefused, status: GLR.frameStatus().error, cut: (__cmwLandCarry() || {}).stradTruncated || 0, count: (__cmwLandCarry() || {}).stradCount })').then(JSON.parse);
-        await ev(`window.removeEventListener('error', window.__lxRefuse); __svCarryProbe = null; 1`);
+        await ev(`console.error = window.__lxCE; __svCarryProbe = null; 1`);
         info.refusal = rf;
-        ok(`${t}: control: a limit of ${CEIL_K} (no ceiling) under the cells of the frame at u=${u} refuses the frame with the count, and cuts nothing off`, rf.refused.some((m) => /straddling cells' list needs \d+ cells, over the 4096/.test(m)) && rf.cut === kc, { rf, kc });
+        ok(`${t}: control: a limit of ${CEIL_K} (no ceiling) under the cells of the frame at u=${u} refuses the frame with the count (the frame loop logs the throw and draws nothing), and cuts nothing off`, rf.refused.some((m) => /straddling cells' list needs \d+ cells, over the 4096/.test(m)) && rf.cut === kc, { rf, kc });
       }
       await ev('__svCarryProbe = null; 1');
     }
