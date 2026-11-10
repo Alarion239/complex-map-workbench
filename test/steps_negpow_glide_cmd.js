@@ -17,6 +17,7 @@ const WRONG_MAX = 0.02;      // of the pixels the glide colours
 const U_ROW = [0.6, 0.65, 0.66, 2 / 3, 0.67, 0.68, 0.7, 0.75];
 const NEAR_ZERO = [-0.02, -0.005, 0, 0.005, 0.02];
 const U_END = [0.998, 0.9999];
+const SHARE_TOL = 0.05;        // the glide's coloured share of parked's is within this of the expected share
 const EXPECT_DIFF_MIN = 0.1;   // the expected share at two u of different phases differs by more than this
 const COMPARE_MIN_SHARE = 0.4; // of parked w1's coloured pixels: the compare reads at least this many
 const SHIFT = 40;            // the control's colour shift, of 255
@@ -34,7 +35,7 @@ const windowOf = async () => { const P = await paneOf(); return { x0: P.v.cx - P
 const U_CTRL = [0.25, 0.75];
 const followsU = (ea, eb) => Math.abs(ea - eb) > EXPECT_DIFF_MIN;
 // the u of a case's row: U_ROW and the places around the one-phase exponent's zero, u = 1/(1 - a)
-const rowOf = (c) => [...new Set([...U_ROW, ...NEAR_ZERO.map((d) => 1 / (1 - c.a) + d)].map((x) => +x.toFixed(6)))].sort((x, y) => x - y);
+const rowOf = (c) => [...new Set([...U_ROW, ...U_CTRL, ...NEAR_ZERO.map((d) => 1 / (1 - c.a) + d)].map((x) => +x.toFixed(6)))].sort((x, y) => x - y);
 await view(1200, 800, false, false);
 const seedCase = async (c, i) => {
   const ns = 'npg' + i + Date.now();
@@ -77,11 +78,17 @@ for (const [i, c] of CASES.entries()) {
       ok(`${c.name} plane: the expected share is above 0 at every u of the row (min ${minExp})`, minExp > 0, exps);
       if (Math.abs(c.a) < 1) {
         ok(`${c.name} plane: the expected share follows u (u=${U_CTRL[0]}: ${e0}, u=${U_CTRL[1]}: ${e1}, differing by more than ${EXPECT_DIFF_MIN})`, followsU(e0, e1), R[c.name].expectedAt);
-        // the negative control of that row: with u frozen at U_CTRL[1] at both ends the difference is 0, and the row's condition is false
-        ok(`${c.name} plane: control, with u frozen at ${U_CTRL[1]} the follows-u condition is false`, !followsU(e1, await expected(c.a, U_CTRL[1], win)), R[c.name].expectedAt);
+        // the frame-based frozen-u control: the glide's coloured share at u (n / parked's) is within SHARE_TOL of the expected
+        // share at that u, at both ends of U_CTRL; the frame the glide drew at U_CTRL[1], held (u frozen), judged against
+        // the expected share at U_CTRL[0], is not
+        const share = (u) => r.rows[u].n / r.ref;
+        R[c.name].shares = { [U_CTRL[0]]: share(U_CTRL[0]), [U_CTRL[1]]: share(U_CTRL[1]) };
+        ok(`${c.name} plane: the glide's coloured share is the expected share at u=${U_CTRL[0]} (${share(U_CTRL[0])} vs ${e0}) and u=${U_CTRL[1]} (${share(U_CTRL[1])} vs ${e1}), within ${SHARE_TOL}`, Math.abs(share(U_CTRL[0]) - e0) <= SHARE_TOL && Math.abs(share(U_CTRL[1]) - e1) <= SHARE_TOL, R[c.name].shares);
+        ok(`${c.name} plane: control, the frame drawn at u=${U_CTRL[1]} held (u frozen) is not the expected share at u=${U_CTRL[0]} (${share(U_CTRL[1])} vs ${e0})`, Math.abs(share(U_CTRL[1]) - e0) > SHARE_TOL, R[c.name].shares);
       } else {
-        R[c.name].frozenU = `not applicable: |a| > 1, every w has members, so the expected share is 1 at every u (${e0}, ${e1})`;
-        ok(`${c.name} plane: the expected share is 1 at every u (|a| > 1; the frozen-u control is not applicable: no u moves the share)`, e0 === 1 && e1 === 1, R[c.name].expectedAt);
+        const K = await ev(`Funcs.sheetCount(CX.C(${c.a}, 0))`);
+        R[c.name].frozenU = `not applicable: |a| > 1, every w has members, so the expected share is 1 at every u (${e0}, ${e1}); the scene has K = ${K} surfaces`;
+        ok(`${c.name} plane: the expected share is 1 at every u (|a| > 1; the frozen-u control is not applicable: no u moves the share; K = ${K} surfaces)`, e0 === 1 && e1 === 1, R[c.name].expectedAt);
       }
     }
     if (v === 'land') {

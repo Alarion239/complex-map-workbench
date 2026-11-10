@@ -20,7 +20,8 @@ const CUT_DEG = 180;
 let seed = 11;
 const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 // off the cut (the negative real axis) and off 0
-const pts = Array.from({ length: NPTS }, () => C(rnd() * BOX - BOX / 2, (rnd() * 0.9 + 0.05) * (rnd() < 0.5 ? 1 : -1) * BOX / 2));
+const IM_SPAN = 0.9, IM_MIN = 0.05;   // |Im z| in [IM_MIN, IM_MIN + IM_SPAN] of half the box: off the cut and 0
+const pts = Array.from({ length: NPTS }, () => C(rnd() * BOX - BOX / 2, (rnd() * IM_SPAN + IM_MIN) * (rnd() < 0.5 ? 1 : -1) * BOX / 2));
 const S = (type, params = {}) => F.build({ type, params: Object.assign(F.defaults(type), params) });
 const alphaStep = (a) => S('powa', { alpha: String(a), cut: CUT_DEG });
 const formulaStep = (expr) => S('custom', { expr });
