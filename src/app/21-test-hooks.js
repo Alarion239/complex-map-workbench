@@ -948,6 +948,28 @@
     }
     return out;
   };
+  // the argument of the first branch step's input at z, continued from the cell centred at cell (z when omitted) along the straight segment on
+  // surface k: { arg, lo, s, bad } with lo the start of the step's window at that cell (the argument at the cell's centre less pi: the anchored cut
+  // lies opposite the centre's value) and s = (arg - lo) / 2 pi, in (0, 1] inside the window; principal reads the argument of the input's value at z
+  // instead (a control); bad: the input vanishes, has no value, or turns more than pi/2 in one step of the segment. Null when the scene has no branch step
+  const STRIP_STEPS = 256;
+  window.__cmwLandStrip = (z, cell, k, principal) => {
+    const sc = sceneOf();
+    if (!sc || !sc.inputs.length) return null;
+    const inp = sc.inputs[0], zc = C(z[0], z[1]), cc = cell ? C(cell[0], cell[1]) : zc, u0 = inp.f(k, cc, cc);
+    if (!u0 || CX.abs(u0) === 0) return { bad: true };
+    let arg = Math.atan2(u0.im, u0.re), prev = u0, bad = false;
+    const lo = arg - Math.PI;
+    for (let i = 1; i <= STRIP_STEPS; i++) {
+      const v = inp.f(k, cc, C(cc.re + (zc.re - cc.re) * i / STRIP_STEPS, cc.im + (zc.im - cc.im) * i / STRIP_STEPS));
+      if (!v || CX.abs(v) === 0) return { bad: true };
+      const d = argd(prev, v);
+      if (Math.abs(d) > Math.PI / 2) bad = true;
+      arg += d; prev = v;
+    }
+    if (principal) arg = Math.atan2(prev.im, prev.re);
+    return { arg, lo, s: (arg - lo) / (2 * Math.PI), bad };
+  };
   // the scene's plane record: the plane s the glide's carry is built on (the earlier of plane a and the colour plane, or plane 0 when a d/dz step
   // or All sheets lies in the way) and the box its parked frame draws, [x0, x1, y0, y1] from the steps view's own view of
   // that plane (leftView(s)); { s, box }. pl overrides s (for a control that reads another plane's box)
