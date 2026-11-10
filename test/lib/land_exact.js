@@ -159,6 +159,7 @@
   const CUT_X = [0.1, 0.3], CUT_OFF = 0.01;                 // probes either side of the real axis: at these shares of the box's width, this share of its height off the axis
   const HEIGHT_TOL = 0.02;                      // the drawn height, world units (a box is about 2 wide)
   const PROBES = 5, SAT_MIN = 30;
+  const SURF_TOL = 1e-6;   // (a surface read back from its digits agrees with the member's value to this fraction of 1 + |f|)
   const CLAIM_SAMPLE = 8;   // (the layers a failing claim row lists)
   const CAP_EPS = 1e-4;   // (the block test's tolerance, as a fraction of the block bound: a drawn fragment is on the block's plane within it, beyond the block past it)
   const CUT_ROWS = { 'cube root': [0.25], 'log of an annulus': [0.25, 0.75] };   // the frames whose cut edges are checked against the step's own cut
@@ -386,7 +387,7 @@
     window.__lxNoFront = 0;
     return e.map((ms) => {
       if (ms.length && !ms.some((m) => m.front)) window.__lxNoFront++;
-      const o = ms.map((m) => ({ z: m.z, f: m.f, h: m.h, sheet: m.k, member: m.member, src: m.src, lvl: m.lvl, cell: m.cell, miss: m.miss, miss2: m.miss2, front: m.front }));
+      const o = ms.map((m) => ({ z: m.z, f: m.f, h: m.h, sheet: m.k, digits: m.digits, member: m.member, src: m.src, lvl: m.lvl, cell: m.cell, miss: m.miss, miss2: m.miss2, front: m.front }));
       return sheets && typeof __cmwLandRefSheets === 'function' ? window.__lxExpand(o, __cmwLandRefSheets) : o;
     });
   };
@@ -720,8 +721,10 @@
         ok(`${t}: in the Top view at most ${HUE_OFF_MAX} coloured pixels are of another hue than the parked plane's (${hueN} are; a hue-shifted row at a sheet boundary)`, hueN <= HUE_OFF_MAX, r[u].top);
         if (NEAR_U.includes(u) && COMBO_CONTROL.includes(c.tag) && !(r.comboControl || {})[u]) {
           // (the control: every sheet's combo one off, so the colour continues on the wrong branch of the step)
-          let ctl;
-          try {
+          // (a combo one off names a surface only where the glide's map H_u has more than one (window.__cmwLandSceneCombos, the scene's own count): with one, the control is not applicable)
+          const sceneK = await ev('(__cmwLandSceneCombos() || {}).n || 0');
+          let ctl = sceneK > 1 ? undefined : { na: sceneK };
+          if (sceneK > 1) try {
             await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS });
             await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
             await grab('ctlT');
@@ -992,6 +995,26 @@
             const same = (x, y) => x[0] === y[0] && x[1] === y[1], bad = sub.filter((m, i) => !cells || !same(want(i), m.cell)).length, wrong = sub.filter((m, i) => !cells || !same(want(i), [m.cell[0] + 1, m.cell[1]])).length;
             ok(`${t}: the scene's cell at a member's place (window.__cmwLandCellsAt) is the cell its certificate read, the leaf's centre when closed and else the place itself (${bad} of ${sub.length} differ)`, sub.length > 0 && bad === 0, { bad, n: sub.length });
             if (sub.length > 0) ok(`${t}: the control: read against the member's cell shifted by one they differ (${wrong} of ${sub.length})`, wrong === sub.length, { wrong });
+          }
+          // (each member's scene-certified surface as the digits of the scene's own surface table, never the plan's label: the digits give the surface back (window.__cmwLandKOf) whose value at the member's place is the member's f,
+          // and the digits with one moved give a surface whose value there is not)
+          {
+            const sub = ms.slice(0, HOM_EQ_PAIRS), have = sub.filter((m) => Array.isArray(m.digits)).length;
+            ok(`${t}: every member lists the digits of its scene-certified surface (${have} of ${sub.length})`, sub.length > 0 && have === sub.length, { have, n: sub.length });
+            const val = async (m, ds) => ev(`(() => { const k = __cmwLandKOf(${JSON.stringify(ds)}); return k === null ? null : __cmwLandScene(${JSON.stringify(m.z)}, k, ${JSON.stringify(m.cell)}); })()`);
+            const agree = (v, f) => !!v && !!f && Math.hypot(v[0] - f[0], v[1] - f[1]) <= SURF_TOL * (1 + Math.hypot(f[0], f[1]));
+            let back = 0, moved = 0, tried = 0;
+            for (const m of sub) {
+              if (!Array.isArray(m.digits)) continue;
+              if (agree(await val(m, m.digits), m.f)) back++;
+              for (let i = 0; i < m.digits.length; i++) {
+                const ds = m.digits.slice(); ds[i] += 1;
+                const v = await val(m, ds);
+                if (v) { tried++; if (!agree(v, m.f)) moved++; break; }
+              }
+            }
+            ok(`${t}: the digits round-trip through the scene's surface table to the member's value (${back} of ${have})`, have > 0 && back === have, { back, have });
+            ok(`${t}: the control: one digit moved gives another value than the member's (${moved} of ${tried} members)`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0, { moved, tried, na: ctlNA(c, 'digits', u) });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
@@ -1280,6 +1303,7 @@
       const nMax = Math.max(0, ...Object.values(comboN));
       for (const u of Object.keys(comboCtl).map(Number)) {
         const ctl = comboCtl[u], one = nMax <= 1, tt = `${name}, u=${u}`;
+        if (ctl && typeof ctl === 'object') { ok(`${tt}: control: not applicable: the glide's map has ${ctl.na} surface at u = ${u} (window.__cmwLandSceneCombos), so a combo one off names none`, ctl.na <= 1, ctl); continue; }
         ok(`${tt}: control: with every sheet's combo one off the Top view's hue at u = ${u} is ${one ? 'not over ' + HUE_OFF_MAX + ' (not applicable: the colour map has at most ' + nMax + ' distinct sheet combo over the row, window.__cmwLandRefSheets)' : 'over ' + HUE_OFF_MAX + ' (' + nMax + ' distinct sheet combos over the row)'} pixels off (${ctl} are)`, one ? ctl <= HUE_OFF_MAX : ctl > HUE_OFF_MAX, { ctl, nMax, comboN });
       }
     }

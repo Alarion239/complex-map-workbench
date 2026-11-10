@@ -798,7 +798,11 @@
         else if (pl && pl.re >= bx.x0 && pl.re <= bx.x1 && pl.im >= bx.y0 && pl.im <= bx.y1) liftPoles.push({ k, z: pl, w: g(own, pl, pl) });
       }
     }
-    const scene = { key, map, W, K, exactZeros, zerosUnread, liftZeros, liftUnread, liftPoles, liftPolesUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
+    // surface k as the digits of its mixed radix, one per piece of the map (a root's is its branch 0..n-1, a log's the shift d - W): the scene's own table of its surfaces
+    const digitsOf = (k) => { const out = []; let q = k; pcs.forEach((e, i) => { const d = q % radix[i]; q = Math.floor(q / radix[i]); out.push(e.n > 0 ? d : d - W); }); return out; };
+    // the inverse of digitsOf: the surface of the digits, null where one is out of its piece's range
+    const kOf = (digits) => { let k = 0, r = 1; for (let i = 0; i < pcs.length; i++) { const d = pcs[i].n > 0 ? digits[i] : digits[i] + W; if (!Number.isInteger(d) || d < 0 || d >= radix[i]) return null; k += d * r; r *= radix[i]; } return k; };
+    const scene = { key, map, W, K, digitsOf, kOf, exactZeros, zerosUnread, liftZeros, liftUnread, liftPoles, liftPolesUnread, own, rank, g, ks, inputs, rays, rayBlind, exactPoles, polesUnread: unread, box: bx, poles, cut, kindScene, leaves: null };
     sceneMemos.set(key, scene);
     if (sceneMemos.size > SCENE_MEMO) sceneMemos.delete(sceneMemos.keys().next().value);
     return scene;
@@ -1038,7 +1042,7 @@
         if (!cert) { rejected++; continue; }
         if (out.some((x) => x.k === cert.k && Math.hypot(x.z[0] - m.z[0], x.z[1] - m.z[1]) <= SCN.SAME_Z * (1 + Math.hypot(m.z[0], m.z[1])))) continue;
         const at = sceneMiss(sc, wc, z, z), own = at.length > 0 && at[0].k === sc.own && at[0].miss <= SCN.CERT;
-        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, own, rank: sc.rank(cert.k), miss: cert.miss, miss2: cert.miss2, member: m.member, src: m.sheet, lvl: m.lvl, cell: cert.leaf && cert.leaf.closed ? [cert.leaf.c.re, cert.leaf.c.im] : m.z });
+        out.push({ z: m.z, f: m.f, h: m.h, k: cert.k, digits: sc.digitsOf(cert.k), own, rank: sc.rank(cert.k), miss: cert.miss, miss2: cert.miss2, member: m.member, src: m.sheet, lvl: m.lvl, cell: cert.leaf && cert.leaf.closed ? [cert.leaf.c.re, cert.leaf.c.im] : m.z });
       }
       // (window.__cmwLandFarFront, a control: the farthest member marked front instead of the nearest)
       const far = !!window.__cmwLandFarFront, front = out.reduce((best, m) => (!best || (far ? m.rank > best.rank || (m.rank === best.rank && depth(m) > depth(best)) : m.rank < best.rank || (m.rank === best.rank && depth(m) < depth(best))) ? m : best), null);
@@ -1139,6 +1143,7 @@
     try { const sc = sceneOf(); return sc ? { poles: drop ? [] : sc.liftPoles.map((q) => [q.z.re, q.z.im, q.k, q.w ? q.w.re : null, q.w ? q.w.im : null]), unread: sc.liftPolesUnread.slice() } : null; } finally { sceneMapOver = null; }
   };
   // the surfaces of the scene: K digits, and how many of them are distinct functions (the others repeat a sheet)
+  window.__cmwLandKOf = (digits) => { const sc = sceneOf(); return sc ? sc.kOf(digits) : null; };   // (the scene's surface of a digit vector, as __cmwLandMembers lists a member's digits; null out of range)
   window.__cmwLandSurfaces = () => { const sc = sceneOf(); return sc ? { K: sc.K, distinct: sc.ks.length } : null; };
   // the state of the rectangle [x0, x1] x [y0, y1] as a leaf ('closed', 'crossed' or 'branch'); opts: noInputs, noPoleTest, noContinuity (leafState)
   // opts.map: the scene of that map spec ({ mode: 1, base: 0, hi, t }) instead of the glide's
