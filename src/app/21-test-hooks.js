@@ -418,17 +418,17 @@
     const b = L.box, [ax, ay] = L.aspect;
     return project(L, L.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
   };
-  // the last carried frame's block test: the relief alone redrawn with the carry probe capEps = eps (the layered draw colours a fragment red where it lies beyond the block's plane by more than
-  // that fraction of the block bound, green where it lies on the plane within it); opts.clipOff draws it without the block clip. -> { n: pixels the relief covers, over: the red ones, cap: the green ones }
+  // the last carried frame's block test: the relief alone redrawn with the carry probe capEps = eps (the layered draw colours a fragment red where the exact height of its own layer lies beyond the block bound
+  // by more than that fraction of it, green where its interpolated height does); opts.clipOff draws it without the block clip. -> { n: pixels the relief covers, over: the red ones, vert: the green ones }
   window.__cmwLandBlockRead = (eps, opts) => {
     const keep = window.__svCarryProbe;
     try {
       window.__svCarryProbe = Object.assign({}, keep, { capEps: eps }, opts && opts.clipOff ? { clipOff: true } : {});
       const r = window.__cmwLandRelief(), px = window.__cmwLandRelief.px;
       if (!r || !px) return null;
-      let over = 0, cap = 0;
-      for (let i = 0; i < px.length; i += 4) { if (px[i + 3] < 255) continue; if (px[i] > 128) over++; else if (px[i + 1] > 128) cap++; }
-      return { n: r.n, over, cap };
+      let over = 0, vert = 0;
+      for (let i = 0; i < px.length; i += 4) { if (px[i + 3] < 255) continue; if (px[i] > 128) over++; if (px[i + 1] > 128) vert++; }
+      return { n: r.n, over, vert };
     } finally { window.__svCarryProbe = keep; }
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });

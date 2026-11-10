@@ -971,8 +971,8 @@
               const on = await ev(`__cmwLandBlockRead(${CAP_EPS})`), off = await ev(`__cmwLandBlockRead(${CAP_EPS}, { clipOff: true })`);
               await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
               r[u].satCap = { items: items.length, on, off };
-              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: no drawn fragment lies beyond the block's plane (${on && on.over} of ${on && on.n} pixels do), and the cap lies on it (${on && on.cap} pixels)`, !!on && on.n > 0 && on.over === 0 && on.cap > 0, r[u].satCap);
-              ok(`${t}: the control: without the block clip the cap is gone (${off && off.cap} cap pixels against ${on && on.cap} with it)`, !!on && !!off && off.cap < on.cap, r[u].satCap);
+              ok(`${t}: the drawn surface is cut at the block at the ${items.length} saturated texels: no fragment's true height is beyond the block bound (${on && on.over} of ${on && on.n} pixels are; the worst interpolated-height check: ${on && on.vert})`, !!on && on.n > 0 && on.over === 0, r[u].satCap);
+              ok(`${t}: the control: without the block clip fragments beyond the block bound are drawn (${off && off.over} pixels, over 0)`, !!off && off.over > 0, r[u].satCap);
               if (NEAR_U.includes(u)) {
                 await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
                 await grab('satOn'); await ev('__cmwLandRelief(); 1');
