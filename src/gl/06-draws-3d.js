@@ -900,42 +900,11 @@
     return out;
   }
   // a transform-feedback pass of count points into rows y0.. of tex (W wide, already allocated)
-  // The straddling cells' list (LAND_STRAD_K) holds a frame's MIX cells when there are no more than its length, and a frame that overflows it must still be
-  // exact. The count (the last row's base and count) is known only after the list's passes, so a read of it stalls the frame; it is read
-  // when it can matter: synchronously when the grid's last count is within the headroom of the length (STRAD_SYNC_FRAC of it), or when the frame does
-  // not continue the grid's last (no count yet, a different key, or a glide step over STRAD_DU_MAX), and otherwise without a stall, a frame or two
-  // late. Between continuous frames the count moves by at most STRAD_DELTA_MAX, under the headroom (the suites assert it), so a frame that overflows
-  // follows one whose count was read in time; a frame that does not (the premise failing) is counted in stradOverflow, which the suites assert 0
-  const STRAD_SYNC_FRAC = 0.75, STRAD_DU_MAX = 0.02, STRAD_POLL_MS = 24;   // (the bound on the count's change between continuous frames, 128, is the suite's)
-  let stradLast = null, stradOverflow = 0, stradSyncs = 0, stradPending = null, stradPbo = null, stradFbo = null, stradT = 0;
-  const stradPoll = () => {
-    stradT = 0;
-    if (!stradPending) return;
-    if (gl.clientWaitSync(stradPending.sync, 0, 0) === gl.TIMEOUT_EXPIRED) { stradT = setTimeout(stradPoll, STRAD_POLL_MS); return; }
-    const f = new Float32Array(4);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, stradPbo); gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, f); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    gl.deleteSync(stradPending.sync);
-    const total = f[0] + f[1], over = total > stradPending.k;
-    stradLast = [f[0], f[1], stradPending.k];
-    stradPending.L.stradN = total;
-    stradPending = null;
-    if (over) { stradOverflow++; if (api.onReady) api.onReady({ main: true }); }
-  };
-  // asks for the count of the list built from rowB (the rows' bases, N x 1) against length k, unless a read is out
-  function stradAsk(L, N, k) {
-    if (stradPending) return;
-    if (!stradPbo) { stradPbo = gl.createBuffer(); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, stradPbo); gl.bufferData(gl.PIXEL_PACK_BUFFER, 16, gl.STREAM_READ); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null); stradFbo = gl.createFramebuffer(); }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, stradFbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, L.rowBTex, 0);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, stradPbo);
-    gl.readPixels(N - 2, 0, 1, 1, gl.RGBA, gl.FLOAT, 0);
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    stradPending = { sync: gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0), k, L };
-    gl.flush();
-    if (!stradT) stradT = setTimeout(stradPoll, STRAD_POLL_MS);
-  }
+  // The straddling cells' list (LAND_CLASS_LIST_VS) holds every one of a frame's MIX cells, whatever their count: the count (the last row's base and its
+  // count) is read back each frame, after the rows' passes and before the list's, and a layer's list capacity is raised to the next power of two over it
+  // when it is short (it is never lowered), so a frame's list is never cut off. The list is LAND_STRAD_W wide and capacity / LAND_STRAD_W rows high;
+  // a count over LAND_STRAD_K_MAX, which no grid reaches, throws. A control (carryProbe.stradNoGrow) keeps the capacity, counting the frames whose list is cut off
+  let stradSyncs = 0, stradGrows = 0, stradTruncated = 0, stradCount = 0, stradCapLast = 0;
   // the count of the list built from L.rowBTex (N x 1), read now: the frame waits for it
   function stradRead(L, N) {
     const fb = gl.createFramebuffer(), f = new Float32Array(4);
@@ -947,8 +916,13 @@
     stradSyncs++;
     return f[0] + f[1];
   }
-  // whether the frame (key, glide step u) must read its count now: no count yet, not the grid's last frame's continuation, or the last count near the length k
-  const stradNeedsSync = (L, key, u, k) => !(L.stradN >= 0) || L.stradKey !== key || !(Math.abs(u - L.stradU) <= STRAD_DU_MAX) || L.stradN >= STRAD_SYNC_FRAC * k;
+  // the capacity a list of count cells needs, from the layer's current one: the next power of two over the count
+  const stradCapFor = (cap, count) => {
+    let c = cap;
+    while (c < count) c *= 2;
+    if (c > LAND_STRAD_K_MAX) throw new Error('the straddling cells\' list needs ' + c + ' cells, over the ' + LAND_STRAD_K_MAX + ' a grid has');
+    return c;
+  };
   function runTFRows(P, count, tex, W, y0) {
     const rows = Math.ceil(count / W), bytes = rows * W * 16;
     if (!tfObj) tfObj = gl.createTransformFeedback();
@@ -1769,7 +1743,7 @@
         rowB: readTex(L.rowBTex, N, N, 1), box: [box.x0, box.y0, BW, BH], aspect: [aspect[0], aspect[1]], clipScale: carryProbe.clipScale || 1,
         clipH: contDraw ? LAND_BLOCK_K * H : null,
       });
-      const strK = carryProbe.stradK || LAND_STRAD_K;   // (stradK: a test control's short list)
+      const strK0 = carryProbe.stradK || LAND_STRAD_K;   // (the list's first capacity; stradK: a test control's short one)
       let mixK = 0;   // (over 0: the draw is mixK instances of one cell each, the MIX cells' list: LAND_CARRY_CLASS_VS)
       const drawCarryGrid = (G, n) => {
         const cutDraw = !!(G.exact && G.cuts);
@@ -1833,24 +1807,23 @@
             use(baseP); u1i(baseP, 'uN', N);
             gl.activeTexture(gl.TEXTURE31); runTF(baseP, empty(), gl.POINTS, N, 0, N * 16, L.rowBTex, N, 1, gl.RGBA32F, gl.RGBA);
             gl.activeTexture(gl.TEXTURE19); gl.bindTexture(gl.TEXTURE_2D, L.rowBTex);
+            // (the count first, then the list sized to it)
+            const count = stradRead(L, N);
+            if (L.stradCap0 !== strK0) { L.stradCap0 = strK0; L.stradCap = strK0; }   // (the capacity restarts when its first value changes: a control's)
+            let cap = L.stradCap;
+            if (count > cap && !carryProbe.stradNoGrow) { cap = stradCapFor(cap, count); stradGrows++; }
+            if (count > cap) stradTruncated++;
+            L.stradCap = cap; stradCount = count; stradCapLast = cap;
+            const lw = Math.min(cap, LAND_STRAD_W);
             use(listP); u1i(listP, 'uN', N);
-            gl.activeTexture(gl.TEXTURE31); runTF(listP, empty(), gl.POINTS, strK, 0, strK * 16, L.mixTex, strK, 1, gl.RGBA32F, gl.RGBA);
-            // (the count against the list's length: read now when it can matter, else later)
-            const key = [st.carry.key, box.x0, box.y0, box.x1, box.y1, H, mode, N, carryProbe.clipScale || 1, landActive.length, contDraw ? 1 : 0].join('|'), du = st.carry.u;
-            let over = false;
-            if (stradNeedsSync(L, key, du, strK)) {
-              L.stradN = stradRead(L, N);
-              over = L.stradN > strK;
-              if (over) stradOverflow++;
-            } else stradAsk(L, N, strK);
-            L.stradKey = key; L.stradU = du;
-            if (carryProbe.classStats) info.classRaw = classRaw(L, N, strK);
+            gl.activeTexture(gl.TEXTURE31); runTF(listP, empty(), gl.POINTS, cap, 0, cap * 16, L.mixTex, lw, cap / lw, gl.RGBA32F, gl.RGBA);
+            if (carryProbe.classStats) info.classRaw = classRaw(L, N, cap);
             use(Pc, st.carry.map);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, L.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, L.tex2);
             if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
             if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
-            if (!over) {
+            {
               gl.activeTexture(gl.TEXTURE16); gl.bindTexture(gl.TEXTURE_2D, L.clsTex);
               fan = 1; Pc = PcI; carryUniforms(Pc);
               {
@@ -1868,7 +1841,7 @@
                 if (exact) { gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, L.zTex); }
                 if (cutDraw) for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, L.edges[d]); }
                 gl.activeTexture(gl.TEXTURE17); gl.bindTexture(gl.TEXTURE_2D, L.mixTex);
-                u1i(Pc, 'uMixOn', 1); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan); mixK = strK;
+                u1i(Pc, 'uMixOn', 1); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan); mixK = cap;
                 drawCarryGrid(L, hd.N);
                 mixK = 0; u1i(Pc, 'uMixOn', 0);
               }
@@ -1876,7 +1849,7 @@
             }
           }
         }
-        // (every cell through the clip program: with the classes off, and for a frame whose list overflows)
+        // (every cell through the clip program: with the classes off)
         if (!classDrawn) drawCarryGrid(L, hd.N);
         // (the layer's polar patches, a little behind the box's cells so the ring they share does not fight)
         if (L.pp && L.pp.length) {
@@ -1901,7 +1874,7 @@
       for (const p of farPatches) drawPatch(p);
       gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
       info.refine = null;
-      info.layers = landActive.length; info.landHoles = landHoles.length; info.stradOverflow = stradOverflow; info.stradSync = stradSyncs; info.stradLast = stradLast;
+      info.layers = landActive.length; info.landHoles = landHoles.length; info.stradCount = stradCount; info.stradCap = stradCapLast; info.stradGrows = stradGrows; info.stradTruncated = stradTruncated; info.stradSync = stradSyncs;
       info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
     }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)

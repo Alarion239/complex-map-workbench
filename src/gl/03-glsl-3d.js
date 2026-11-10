@@ -764,9 +764,10 @@ void main() {
 }
 `;
   // The list of the MIX cells, in row-major order, by two scans and a gather: LAND_CLASS_ROWS_VS counts the MIX cells of each row, LAND_CLASS_BASE_VS
-  // gives each row's first rank (and its count), LAND_CLASS_LIST_VS finds the cell of each rank 0 .. LAND_STRAD_K - 1: (x, y, 1), or (0, 0, 0) beyond the count
-  // (the count is the last row's base plus its count; a count over LAND_STRAD_K is the caller's failure to report)
-  const LAND_STRAD_K = 2048, LAND_CLASS_LOOP = 1024;   // (the list's length, and the grid's width at most: the loops' bound)
+  // gives each row's first rank (and its count), LAND_CLASS_LIST_VS finds the cell of each rank of a list of the caller's capacity: (x, y, 1), or (0, 0, 0) beyond the count
+  // (the count is the last row's base plus its count; the caller sizes the list to it). The list is a texture LAND_STRAD_W wide, rank s at texel (s % LAND_STRAD_W, s / LAND_STRAD_W)
+  const LAND_STRAD_K = 2048, LAND_CLASS_LOOP = 1024;   // (the list's first capacity, and the grid's width at most: the loops' bound)
+  const LAND_STRAD_W = 2048, LAND_STRAD_K_MAX = 1 << 20;   // (the list texture's width, which every capacity from the first up is a multiple of; the most cells a grid has: (LAND_CLASS_LOOP - 1)^2 rounded up to a power of two)
   const LAND_CLASS_ROWS_VS = `
 uniform int uN; uniform highp sampler2D uCls;
 out vec4 tfOut;
@@ -810,7 +811,7 @@ uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
 ${clip ? `uniform vec2 uClipA; uniform float uClipH;   // (the block half extent over the plane, and the clipped height: LAND_CLIP)
 uniform int uFanN;   // (CLIP_FAN: the fan's triangles a sub-triangle is drawn with)
-uniform highp sampler2D uMix; uniform int uMixOn;   // (uMixOn 1: an instance is a cell of class LAND_CLASS_MIX, from texel gl_InstanceID of uMix: (x, y, 1), or not a cell)
+uniform highp sampler2D uMix; uniform int uMixOn;   // (uMixOn 1: an instance is a cell of class LAND_CLASS_MIX, from texel (gl_InstanceID % LAND_STRAD_W, gl_InstanceID / LAND_STRAD_W) of uMix: (x, y, 1), or not a cell)
 ` : plain ? `uniform highp sampler2D uCls; const int CLASS_IN = ${LAND_CLASS_IN};   // (the plain draw of the cells inside the block: no clip)` : ''}
 uniform float uStep;
 // uZOn 1: each vertex's z is its texel of uZ (the exact glide's preimages), else carryZ's grid point
@@ -842,7 +843,7 @@ void main() {
   int tri = gl_VertexID / uPer, loc = gl_VertexID - uPer * tri, cell = tri / 2, hf = tri - 2 * cell;
 ${clip ? '  // (clip: each sub-triangle is a fan of up to CLIP_FAN triangles of the block-clipped polygon, 3 * CLIP_FAN vertices)\n  int sub = loc / (3 * uFanN), fan = (loc - 3 * uFanN * sub) / 3, k = loc - 3 * uFanN * sub - 3 * fan;' : '  int sub = loc / 3, k = loc - 3 * sub;'}
 ${clip ? `  vec4 mx = vec4(0.0);
-  if (uMixOn == 1) { mx = texelFetch(uMix, ivec2(gl_InstanceID, 0), 0); if (mx.z < 0.5) return; hf = tri; }
+  if (uMixOn == 1) { mx = texelFetch(uMix, ivec2(gl_InstanceID % ${LAND_STRAD_W}, gl_InstanceID / ${LAND_STRAD_W}), 0); if (mx.z < 0.5) return; hf = tri; }
   ivec2 c = uMixOn == 1 ? ivec2(mx.xy) : ivec2(cell % M, cell / M);
 ` : `  ivec2 c = ivec2(cell % M, cell / M);
 `}${plain ? '  if (int(texelFetch(uCls, c, 0).x + 0.5) != CLASS_IN) return;\n' : ''}  ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
