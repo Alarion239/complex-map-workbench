@@ -1806,6 +1806,17 @@
       }
       let bad = 0, n = 0, badPh = 0, phN = 0, noF = 0, hBad = 0; const at = [], atPh = [], atH = [];
       const sat = sheets ? satOf(await ev(`__cmwLandClaims(${JSON.stringify(pts.slice(0, SAT_PLACES))})`)) : null; let clipped = 0, clippedAt = null;
+      // (the colour's frame side: each layer's F is the colour map's value of the reference sheet whose height is the layer's (__cmwLandRefSheets at the layer's z; a height beyond the clip level on the layer's side
+      // is the sheet's clipped one), exactly one sheet or all of them with one value; none or two values is counted and fails the row, never a pick; the hook's matched member's F is not read)
+      let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0;
+      if (sheets) {
+        const rsAll = await ev(`${JSON.stringify(got.map((ls) => (ls || []).map((l) => l.z || null)))}.map((ls) => ls.map((z) => (z ? __cmwLandRefSheets(z) : [])))`);
+        got.forEach((ls, i) => (ls || []).forEach((l, j) => {
+          const hit = ((rsAll && rsAll[i] && rsAll[i][j]) || []).filter((q) => q.f && q.h !== null && (Math.abs(q.h - l.h) <= HEIGHT_TOL || (!!sat && [true, false].some((hi) => onSide(l, sat, hi) && onSide(q, sat, hi)))));
+          const vals = hit.filter((q, k) => hit.findIndex((q2) => Math.hypot(q2.f[0] - q.f[0], q2.f[1] - q.f[1]) <= REL_FLOOR * (1 + Math.hypot(q.f[0], q.f[1]))) === k);
+          if (!hit.length) { noSheet++; l.f = null; } else if (vals.length > 1) { ambiguous++; l.f = null; } else l.f = hit[0].f;
+        }));
+      }
       pts.forEach((p, i) => {
         const wantAll = ref[i] || [], haveAll = distinctLayers(got[i] || []);
         if (!wantAll.length) return;   // (a place with no preimage in the reference is not compared; the reference's own check says it finds some)
@@ -1825,12 +1836,16 @@
           if (g.noF) { noF++; return; }
           if (g.phN) phN++;
           if (g.ph) { badPh++; if (atPh.length < 4) atPh.push({ p, have: l.f, want: m.f }); }
+          // (the control's pairs: the layer against the reference's other member of the place, whose colour must differ beyond the tolerance at some pair)
+          const other = want.find((x) => x !== m && x.f);
+          if (other && l.f) { pairN++; const go = phaseGap(l.f, other.f); if (go !== null && go > (NEAR_U.includes(u) ? NEAR_TOL : PHASE_TOL)) pairOff++; }
         });
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
+      if (sheets) ok(`${t}: the control: a layer paired with the reference's other member leaves the colour tolerance at ${pairOff} of ${pairN} pairs`, pairN > 0 && pairOff > 0, { pairN, pairOff });
       ok(`${t}: ${sheets ? 'every member' : 'the front member'} at every probe place, by preimage z (${n} places)`, n > 0 && bad === 0, { n, bad, at });
       ok(`${t}: the drawn height of every member within ${NEAR_U.includes(u) ? NEAR_TOL : HEIGHT_TOL}`, hBad === 0, { hBad, atH });
-      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, atPh });
+      ok(`${t}: the members' colour (arg F) within ${NEAR_U.includes(u) ? NEAR_TOL + ' rad' : PHASE_TOL * 180 / Math.PI + ' degrees'} (${phN} members; the draw data carries F: ${noF} without)`, noF === 0 && badPh === 0, { phN, badPh, noF, noSheet, ambiguous, atPh });
       if (sheets) {
         ok(`${t}: control: with the clip levels off the places holding a layer beyond them fail (${clipped} places; the row is ${CLIPPED_ROWS.includes(`${c.tag}@${u}`) ? '' : 'not '}on the list of rows that have some)`, (clipped > 0) === CLIPPED_ROWS.includes(`${c.tag}@${u}`), { clipped, sat });
         if (clippedAt && sat) {
@@ -1849,15 +1864,17 @@
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at the reversed u (${rev})`, rev > NEAR_TOL, { rev });
         ok(`${t}: the control: a frame drawn at u = ${REVERSED_FROM} is over ${NEAR_TOL} off the reference at u frozen at ${GLIDE_MID} (${froz})`, froz > NEAR_TOL, { froz });
       }
-      // (the sheets' combo one off: the colour at the near probes leaves NEAR_TOL)
+      // (the sheets' combo one off, at the near probes: the Top view's hue is over HUE_OFF_MAX pixels off the parked frame at the same u's end, where the unshifted frame's count is at most HUE_OFF_MAX)
       if (NEAR_U.includes(u) && u >= REVERSED_FROM && u <= 1 - REVERSED_FROM && COMBO_CONTROL_K.includes(c.tag)) {
-        let nPh = 0;
+        let nHue;
         try {
           await ev("window.__svCarryProbe = Object.assign({}, window.__svCarryProbe, { comboShift: 1 }); 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
-          const sh = await hook(pts);
-          (sh || []).forEach((hv, i) => (ref[i] || []).slice(0, 1).forEach((m) => { (hv || []).filter((x) => sameZ(x.z, m.z)).forEach((l) => { const g = phaseGap(l.f, m.f); if (g !== null && g > NEAR_TOL) nPh++; }); }));
-        } finally { await ev("window.__svCarryProbe = {}; 1"); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
-        ok(`${t}: the control: with every sheet's combo one off the colour leaves ${NEAR_TOL} rad at ${nPh} members`, nPh > 0, { nPh });
+          await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
+          await grab('ctlT2');
+          nHue = await ev(`__lx.hueOff('ctlT2', ${first ? "'P0T'" : "'P1T'"})`);
+        } finally { await ev("window.__svCarryProbe = {}; 1"); await ev(`__cmwCam('L', ${JSON.stringify(camU)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); }
+        const unshifted = r[u].top ? r[u].top.hueN : null;
+        ok(`${t}: the control: with every sheet's combo one off the Top view's hue is over ${HUE_OFF_MAX} pixels off the parked frame (${nHue} are; ${unshifted} unshifted)`, nHue > HUE_OFF_MAX, { nHue, unshifted });
       }
       // (control) the farthest member marked front: at the places where that is another z than the nearest, the frame's front is not the reference's
       if (!sheets && !r.farFront && ref.some((l) => l.length > 1)) {
