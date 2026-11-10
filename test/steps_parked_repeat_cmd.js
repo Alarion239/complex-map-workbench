@@ -274,7 +274,7 @@ const hatchCount = () => ev(`(() => {
     const after = await ev('__cmwRept({ tileStats: true })');
     ok('control: after a lost context the plane walks again', lost === true && after.searches > 0, { lost, after });
     info['tiled draw'] = { gal, one, tiled, pendingSeen: pend, held, rel, hit, miss, after, pictures: [p1, p2, p3] };
-  }
+  } else ok('the tiled draw: the REPT hooks (__cmwRept) exist', false, 'no hook');
   // the Landscape's region mask (svLandMask) cannot draw the hatch: it counts the unresolved pixels instead
   await ev(`__cmwSteps({ surf: 'land' }); 1`); await settled({ max: SETTLE_LONG, panes: true });
   const l0 = hooked ? await ev('__cmwRept({ land: true })') : null;
