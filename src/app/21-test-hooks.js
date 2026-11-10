@@ -468,13 +468,18 @@
   // the parked All-sheets reference at a point z of plane 0 ([re, im]): per forward combo of the colour map's distinct sheets
   // (sheetUniqOf, window S.sheetW) [{ combo, z, f, h }], f the sheet's value at z (Funcs.sheetEval, as the parked frame draws it)
   // and h its height at the last frame's scale; [] with no frame or no sheets
+  // plane 0's map (fm) on surface number combo of the cell centred at zc, at z: the value whose height the layered draw gives a fragment (null where not finite)
+  const refValue = (fm, W, zc, z, combo) => {
+    let f = null;
+    try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, z, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+    return f && CX.isFin(f) ? f : null;
+  };
   window.__cmwLandRefSheets = (z) => {
     const hOf = render3D.frameHeight, ex = render3D.exactIn, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
     if (!hOf || !ex || typeof Funcs.sheetEval !== 'function') return [];
     const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]);
     return sheetUniqOf(fm, W).map((combo) => {
-      let f = null;
-      try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, zc, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+      const f = refValue(fm, W, zc, zc, combo);
       return { combo, z: [z[0], z[1]], f: f && CX.isFin(f) ? [f.re, f.im] : null, h: f && CX.isFin(f) ? hOf(landValue(f)) : null };
     });
   };
@@ -1192,16 +1197,14 @@
   //  - at most o.max pixels in all; the straddling cells left out are counted in truncated.
   // o.clipOff draws the layers without the block's geometric clip; o.constant adds the float target's check (pass 3: every fragment writes vec4(1, 2, 3, 4)).
   // -> { err } where no float target or no layered frame, else { W, H, uH, hc, blockK, covered, maxDrawn, nStrad, truncated, samples: [{ x, y, vz, own, cell, z, zc, kind }], constant }
-  // the height the layered draw puts on screen at the value of the plane w = [re, im] before the block's clip: the frame's own height function without its clamp at the block's top and bottom
   // The height the layered draw gives a fragment of preimage z (the anchor zc, the layer's claim code own): the frame's own height function, unclamped, of plane 0's map
-  // F on the claim's surface (Funcs.sheetEval, the scene's own evaluation of the chain; the draw's landW is the same chain over the same stages) -> [height | null], null where F
+  // F on the claim's surface (refValue, as __cmwLandRefSheets reads it; the draw's landW is the same chain over the same stages) -> [height | null], null where F
   // is not finite. list: [{ z, zc, own }]
   window.__cmwLandCapHeights = (list) => {
     const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), fm = SV.on ? svMapAt(0) : endMap();
     return list.map((q) => {
-      let f = null;
-      try { f = Funcs.sheetEval(S.steps, built, fm.b, C(q.zc[0], q.zc[1]), C(q.z[0], q.z[1]), q.own, W, { a: fm.a || 0 }); } catch (e) { f = null; }
-      return f && CX.isFin(f) && render3D.frameHeight ? render3D.frameHeight(landValue(f), true) : null;
+      const f = refValue(fm, W, C(q.zc[0], q.zc[1]), C(q.z[0], q.z[1]), q.own);
+      return f && render3D.frameHeight ? render3D.frameHeight(landValue(f), true) : null;
     });
   };
   const CAP_CELL_MAX = 16777216;   // (a cell index is written as a float: exact below 2^24)
@@ -1241,9 +1244,13 @@
       arr.push({ k, vz }); arr.sort((u, v) => sgn * (v.vz - u.vz)); if (arr.length > per) arr.pop();
     }
     const keys = [...best.keys()].sort((u, v) => strad.get(v) - strad.get(u)), room = Math.max(0, (o.max | 0) - (o.uniform | 0));
+    const cornersOf = (key) => {
+      const li = Math.floor(key / CAP_CELL_MAX), cell = key - li * CAP_CELL_MAX, i = cell % M, j = Math.floor(cell / M), g = layers[li].g;
+      return [[i, j], [i + 1, j], [i, j + 1], [i + 1, j + 1]].map(([x, y]) => (g[4 * (y * N + x) + 3] > 0.5 ? g[4 * (y * N + x) + 2] : null));
+    };
     const samples = [], put = (k, kind, key) => {
       const q = 4 * k;
-      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], layer: p2[q + 1], own: layers[p2[q + 1]] ? layers[p2[q + 1]].own : null, kind, key });
+      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], layer: p2[q + 1], own: layers[p2[q + 1]] ? layers[p2[q + 1]].own : null, kind, corners: key >= 0 ? cornersOf(key) : null });
     };
     let nStrad = 0, truncated = 0;
     for (const key of keys) {
@@ -1264,7 +1271,7 @@
     }
     let constant = null;
     if (c) { for (let k = 0; k < W * H; k++) if (c.px[4 * k + 3] !== 0) { constant = [c.px[4 * k], c.px[4 * k + 1], c.px[4 * k + 2], c.px[4 * k + 3]]; break; } }
-    return { W, H, uH: b.uH, hc, blockK: GLR.BLOCK_K, covered, maxDrawn, nStradAll: strad.size, nStrad, truncated, samples, constant };
+    return { W, H, uH: b.uH, hc, blockK: GLR.BLOCK_K, clipFar: GLR.CLIP_FAR, covered, maxDrawn, nStradAll: strad.size, nStrad, truncated, samples, constant };
   };
   // TEMP-DEBUG-HOOK
 

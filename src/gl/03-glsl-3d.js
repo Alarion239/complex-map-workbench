@@ -665,11 +665,12 @@ void main() {
   // cut at |h| = BLOCK_K H. The crossing of an edge with a corner far beyond the block, both ends on its side (a pole), is
   // interpolated in 1 / h, exact to first order at a simple pole, where linear interpolation hugs the near corner. The clipped
   // edges are marked by clipBoxE (the rim). Returns the number of corners left
+  const CLIP_FAR = 2.0;   // (corners farther than this many block edges beyond the block use the 1 / h crossing; the cap probe reads it too)
   const BLOCK_K = 1.25;   // the block's height bound in block heights H: |h| <= BLOCK_K H (the clip, the layered draw's discard and the cap probe read this one value)
   const LAND_CLIP = `
 const float BLOCK_K = ${BLOCK_K.toFixed(4)};
 uniform int uClipLinear;   // (a test control: 1 takes every crossing linearly)
-const float CLIP_FAR = 2.0;   // (corners farther than this many block edges beyond the block use the 1 / h crossing)
+const float CLIP_FAR = ${CLIP_FAR.toFixed(1)};
 int blockClip(float Hb, int n, inout vec3 Q[5], inout vec4 A[5], inout vec3 Nn[5], inout float Fl[5]) {
   for (int pass = 0; pass < 2; pass++) {
     float s = pass == 0 ? 1.0 : -1.0;
