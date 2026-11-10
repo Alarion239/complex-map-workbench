@@ -129,7 +129,7 @@
   // over 200 (Roots 310 and Newton 201 at u = 0.99999). The bound is 4 times the largest floor, rounded up to 100. Two different
   // planes' parked frames are far over it (the control in each case).
   const HUE_OFF_DEG = 40, HUE_OFF_MAX = 100;
-  const COMBO_CONTROL = ['Möbius, √', 'log of an annulus', 'cube root'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
+  const COMBO_CONTROL = ['Möbius, √', 'Möbius dipole, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'];   // the cases with a multivalued step: a sheet combo one off must turn the Top view's hue over HUE_OFF_MAX
   // the coverage at every u, against the CPU reference: COVER_NX x COVER_NY places over the box, each drawn (the frame has a layer at
   // its grid vertex) or covered (the reference has a preimage there); the places that differ either way are at most CELL_TOL of them
   // (two places of the grid: a vertex beside a cut falls on either side of it); the controls' hole is 8 places and the wall fills one column
