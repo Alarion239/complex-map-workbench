@@ -52,6 +52,7 @@ const VIEWS = {
   'steps_seams_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
+  'steps_negpow_glide_cmd.js': steps({ pin: true }),
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_head_cmd.js': steps(),
   'sv_land_sin_sheets_cmd.js': steps(),
