@@ -25,7 +25,7 @@
 // An expression for eval in a command file of a CDP daemon (test/cdp_kit README), which sees its globals (fs, DIR, ev, go,
 // settled, loadView, view): `return await eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'land_exact.js'), 'utf8'))(modes)`, with modes the
 // Inside regions' sheets settings to run, [false] (sheets off) or [true] (All sheets). Answers {pass, fails, info}.
-(async (MODES) => {
+(async (MODES, OPTS = {}) => {
   const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
   const fails = [], info = {};
   const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -98,7 +98,7 @@
   const SIDE_BOX_PX = 1;   // (half-resolution pixels: how far the frame's extent may differ from the per-fragment side cut's)
   const ROW_CASE = 'cube root', ROW_OVER_MAX = 8;   // (the Top view's end frame: a block side clipped per fragment leaves a run of one image row off the parked plane's)
   const IN_CONTROL_MIN = 0.002;   // (the share of pixels the straddling cells drawn whole move, with the block's sides 2 % narrow: 0.0036 measured; identical frames differ by 0)
-  const UNCLIPPED_ALL = ['Möbius with a pole in the box', 'Roots as preimages'];   // (the cases whose All sheets draw is not clipped at the block: it has no classes)
+  const UNCLIPPED_ALL = ['Möbius with a pole in the box', 'Roots as preimages', 'Joukowski airfoil', 'Partial sums of the exponential (Newton)'];   // (the cases whose All sheets draw is not clipped at the block: it has no classes)
   const CLASS_BORDER_EPS = 1e-5;   // (the distance, relative to the coordinate, within which a corner on a plane may be either side of it in the GPU's float arithmetic: 1e-5 of a coordinate of the box is far under 0.5 pixel at any size the page draws)
   // The classes of the cells of a layer's grid against the block, from the places and the cuts' jumps read back (classRaw), derived here on their own: a cell is IN
   // when its four corners are inside the block's planes and no cut passes its edges, OUT when all four are beyond one plane (with no cut), MIX otherwise; the block's sides are the box's
@@ -1018,6 +1018,31 @@
   ok('the match check passes layers one member fits or none does', ambiguous([{ matches: 1 }, { matches: 0 }]) === 0, null);
   const bit = { empty: 0, ramp: 0, noBJoin: 0, zchart: 0, synWrong: 0, nonT: 0, noLam: 0 };   // rows where the emptied-second-end control and the ramp-count control ran and bit: each must bite on some row
   const setU = async (x) => { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2); };
+  // the count of straddling cells rises little between continuous frames (a step of at most STRAD_DU_MAX of u): a scrub in steps of SCRUB_STEP_U, the raw
+  // changes measured, none rescaled, each u drawn once (the count is a function of u, so a fall one way is a rise the other: both directions); a longer step is a
+  // jump, which reads the count. Runs in steps_land_strad_cmd: every case, both modes
+  const scrubRise = async (t, c, sheets) => {
+    await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
+    const us = [];
+    for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
+    us.push(0.99, 1 - END_U);
+    let prev = null, prevU = null, worst = 0, at = null, steps = 0, longSteps = 0, framesWithClasses = 0;
+    for (const x of us) {
+      await setU(x);
+      const k = await classCounts();
+      if (!k) continue;
+      framesWithClasses++;
+      if (prev !== null) {
+        if (Math.abs(x - prevU) > STRAD_DU_MAX + 1e-9) longSteps++;
+        else { steps++; if (Math.abs(k.mix - prev) > worst) { worst = Math.abs(k.mix - prev); at = x; } }
+      }
+      prev = k.mix; prevU = x;
+    }
+    await ev('__svCarryProbe = null; 1');
+    if (!framesWithClasses) { ok(`${t}: no classes: the draw is not the clipped one`, UNCLIPPED_ALL.includes(c.tag) && sheets, { tag: c.tag, sheets }); return; }
+    ok(`${t}: the count of straddling cells changes by at most ${STRAD_DELTA_MAX} between continuous frames, either way (${steps} steps of at most ${STRAD_DU_MAX} of u, ${longSteps} longer ones read the count; the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && steps > 0, { worst, at, steps, longSteps });
+    if (c.tag === ROW_CASE && !sheets) ok(`${t}: control: the same bound for a list of 1024 (${SMALL_K_DELTA_MAX}) is broken by the largest change (${worst}), so the premise is not vacuous`, worst > SMALL_K_DELTA_MAX, { worst });
+  };
   // with a carried-frame probe set (window.__svCarryProbe: a control that breaks the draw on purpose), the frame at u is redrawn, read, and the probes cleared
   const withProbe = async (probe, u, read) => {
     try {
@@ -1057,6 +1082,7 @@
     const hueCtl = await ev("__lx.hueOff('P0T', 'P1T')");
     ok(`${name}: control: the hue count tells two different planes' parked frames apart (${hueCtl} pixels, over ${HUE_OFF_MAX})`, hueCtl > HUE_OFF_MAX, { hueCtl });
     await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
+    if (OPTS.stradOnly) { await scrubRise(`${name}`, c, sheets); continue; }
     const brPts = CUT_ROWS[c.tag] ? branchPoints(c.steps) : [];
     for (const u0 of GLIDE_U) {
       const mid = MID_U.includes(u0), u = u0, first = u0 < GLIDE_MID && !mid, lastU = u0 > GLIDE_MID && !mid;   // (first: a probe near plane z, lastU: near the next plane)
@@ -1106,30 +1132,6 @@
             await setU(GLIDE_MID);
             ok(`${t}: the count is read after a jump of u (${STRAD_JUMP_U}) and not after a step (${STRAD_STEP_U}): ${s0}, ${s1}, ${s2} reads`, s1 === s0 && s2 > s1, { s0, s1, s2 });
           }
-        }
-        // the count of straddling cells rises little between continuous frames (a step of at most STRAD_DU_MAX of u): a scrub in steps of SCRUB_STEP_U, up and back, the raw
-        // rises measured, none rescaled; a longer step is a jump, which reads the count
-        if (cc && !sheets && SIDE_CASES.includes(c.tag)) {
-          await ev('__svCarryProbe = __svCarryProbeSettings.classStats; 1');
-          const us = [];
-          for (let x = SCRUB_STEP_U; x < 1 - 0.015; x += SCRUB_STEP_U) us.push(Math.round(x * 1e4) / 1e4);
-          us.push(0.99, 1 - END_U);
-          let prev = null, prevU = null, worst = 0, at = null, steps = 0, longSteps = 0;
-          // (up and then back down: a fall one way is a rise the other)
-          for (const x of us.concat([...us].reverse().slice(1))) {
-            await setU(x);
-            const k = await classCounts();
-            if (!k) continue;
-            if (prev !== null) {
-              if (Math.abs(x - prevU) > STRAD_DU_MAX + 1e-9) longSteps++;
-              else { steps++; if (k.mix - prev > worst) { worst = k.mix - prev; at = x; } }
-            }
-            prev = k.mix; prevU = x;
-          }
-          await ev('__svCarryProbe = null; 1');
-          await setU(GLIDE_MID);
-          ok(`${t}: the count of straddling cells rises by at most ${STRAD_DELTA_MAX} between continuous frames (${steps} steps of at most ${STRAD_DU_MAX} of u, ${longSteps} longer ones read the count; the most: ${worst}, at u=${at})`, worst <= STRAD_DELTA_MAX && steps > 0, { worst, at, steps, longSteps });
-          if (c.tag === ROW_CASE) ok(`${t}: control: the same bound for a list of 1024 (${SMALL_K_DELTA_MAX}) is broken by the largest rise (${worst}), so the premise is not vacuous`, worst > SMALL_K_DELTA_MAX, { worst });
         }
       }
       // the layers of a place beside the branch point's cut hold distinct heights: a continuation anchored across the step's cut
@@ -1687,12 +1689,14 @@
       ok(`${name}: u=${1 - END_U}: with the sheet pass off the frame is not (over ${SAME_FRAC * 100} %): the case tells the two apart`, off && dOff > SAME_FRAC, r.fixControl);
     }
   }
-  ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
-  ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
-  ok(`control: the no-log-coordinate check bit on some row (${bit.noLam} rows)`, bit.noLam > 0, bit);
-  ok(`control: the translation check bit on some row (${bit.nonT} rows)`, bit.nonT > 0, bit);
-  ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
-  ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
-  ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
+  if (!OPTS.stradOnly) {
+    ok(`control: the emptied-second-end control bit on some row (${bit.empty} rows)`, bit.empty > 0, bit);
+    ok(`control: the ramp-count control bit on some row (${bit.ramp} rows)`, bit.ramp > 0, bit);
+    ok(`control: the no-log-coordinate check bit on some row (${bit.noLam} rows)`, bit.noLam > 0, bit);
+    ok(`control: the translation check bit on some row (${bit.nonT} rows)`, bit.nonT > 0, bit);
+    ok(`control: the z-chart control bit on some row (${bit.zchart} rows)`, bit.zchart > 0, bit);
+    ok(`control: the wrong-second-member control of the made-up edge bit on some row (${bit.synWrong} rows)`, bit.synWrong > 0, bit);
+    ok(`control: with the carried member's merge turned off at least ${NOBJOIN_MIN} edges are unresolved (${bit.noBJoin})`, bit.noBJoin >= NOBJOIN_MIN, bit);
+  }
   return { pass: !fails.length, fails, info };
 })

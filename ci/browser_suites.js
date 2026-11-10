@@ -82,6 +82,8 @@ const SUITES = {
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
   // (All sheets in parts, one case each by its tag in test/lib/land_exact.js: whole, it did not finish in 30 min on lavapipe)
   'steps_land_exact_all_cmd.js': { runs: ['Möbius, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (the straddling cells' count scrubbed in every case, with and without All sheets: one case each by its tag, as the All sheets suite)
+  'steps_land_strad_cmd.js': { runs: ['Möbius, √', 'Möbius with a pole in the box', 'log of an annulus', 'log, box centred at 1.5 + 0.5i', 'cube root', 'Joukowski airfoil', 'Roots as preimages', 'Partial sums of the exponential (Newton)'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
   'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
