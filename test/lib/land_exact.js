@@ -181,7 +181,7 @@
       const hb = window.__cmwLandHom([0, 0], [-${BRANCH_LAM}, 0]), wb = hb && hb[0] && hb[0].H;
       const inPlace = !!wb && Number.isFinite(wb[0]) && Number.isFinite(wb[1]) && wb[0] >= x0 && wb[0] <= x1 && wb[1] >= y0 && wb[1] <= y1;
       window.__lxRegion = [x0, x1, y0, y1];
-      window.__lxWin = window.__cmwLandWin() || []; window.__lxNoWin = 0; window.__lxNoWinWho = []; window.__lxOrbit = []; window.__lxCnt = { cap: 0, floor: 0, dbl: 0, sepOne: 0 };
+      window.__lxWin = window.__cmwLandWin() || []; window.__lxNoWin = 0; window.__lxNoWinWho = []; window.__lxOrbit = []; window.__lxCnt = { cap: 0, floor: 0, dbl: 0, sepOne: 0, noLam: 0 };
       return { n: out.n, onCut: out.onCut, pending: pend.length, h, wb, inPlace, region: [x0, x1, y0, y1] };
     },
     // One pending edge's class: 'seam' (continuing its first end's member along the edge's place segment lands on a member other than the second
@@ -425,7 +425,8 @@
         let c = iv.i, hit = false, lost = false, chain = 0, nonT = false;
         for (let g = 0; g <= setV.length; g++) {
           // (each step of the chain is a translation by the same T: the image of the member c is c + T; a step that is not makes the chain no certificate either way; opt.shiftStep moves the second step's image by one more T, the control that this check fires)
-          if (iv.lam0 && tr[c].lam && setV[c].lam) {
+          if (!(iv.lam0 && tr[c].lam && setV[c].lam)) { window.__lxCnt.noLam++; nonT = true; }   // (a step with no log coordinate cannot be shown a translation: the chain is no certificate, and the row counts it)
+          else {
             let sh = csub(tr[c].lam, setV[c].lam);
             if (opt && opt.shiftStep && g === 1) sh = cadd(sh, iv.lam0);
             if (cabs(csub(sh, iv.lam0)) > ${LAMBDA_SAME} * (1 + cabs(setV[c].lam))) nonT = true;
@@ -921,6 +922,7 @@
         r[u].cutClasses = cc;
         ok(`${t}: every flagged edge at an end of its chord is on the step's cut (${cc.onCut}), a certified member seam (${cc.seam}) or a certified branch cell (${cc.branch} edges in ${cc.cells} cells); ${cc.falseN} are none and ${cc.unresolved} unresolved`, cc.falseN === 0 && cc.unresolved === 0, cc);
         ok(`${t}: no member is counted without window data (${cc.noWin}${cc.noWin ? ': ' + JSON.stringify(cc.noWinWho.slice(0, 3)) : ''})`, cc.noWin === 0, { noWin: cc.noWin, who: cc.noWinWho });
+        ok(`${t}: every chain step read has a log coordinate to be shown a translation (${cc.cnt.noLam} have none)`, cc.cnt.noLam === 0, cc.cnt);
         ok(`${t}: no tracked member hit Newton's iteration cap (${cc.cnt.cap}) or asked for a convergence finer than float64 holds (${cc.cnt.floor})`, cc.cnt.cap === 0 && cc.cnt.floor === 0, cc.cnt);
         ok(`${t}: no point matches two members of a set (${cc.cnt.dbl}; ${cc.cnt.sepOne} identity tests on a set of one member, absolute form)`, cc.cnt.dbl === 0, cc.cnt);
         // the certified branch cells are at most those the scene's branch points can touch
