@@ -1203,10 +1203,8 @@
     try { a = take(1); b = take(2); if (o.constant) c = take(3); } finally { GLR.carryProbes(keep); renderLeft(); }
     for (const r of [a, b, c]) if (r && r.err) return { err: r.err };
     if (!a || !b || !b.layers) return { err: 'no layered frame' };
-    const { W, H, N, px: p2, layers } = b, p1 = a.px, hc = GLR.BLOCK_K * b.uH, M = N - 1, owns = layers.map((l) => l.own);
-    if (new Set(owns).size !== owns.length) return { err: 'two layers share a claim code' };
+    const { W, H, N, px: p2, layers } = b, p1 = a.px, hc = GLR.BLOCK_K * b.uH, M = N - 1;
     if (M * M >= CAP_CELL_MAX) return { err: 'cell index past 2^24' };
-    const layerOf = new Map(owns.map((w, i) => [w, i]));
     // the straddling cells of each layer: key layer * CAP_CELL_MAX + cell -> the largest corner |h|
     const strad = new Map();
     layers.forEach((l, li) => {
@@ -1225,8 +1223,8 @@
       covered++;
       const vz = Math.abs(p2[q]);
       if (vz > maxDrawn) maxDrawn = vz;
-      const li = layerOf.get(p2[q + 1]), cell = p2[q + 2];
-      if (li === undefined || cell < 0) continue;
+      const li = p2[q + 1], cell = p2[q + 2];
+      if (!layers[li] || cell < 0) continue;
       const key = li * CAP_CELL_MAX + cell;
       if (!strad.has(key)) continue;
       const arr = best.get(key) || []; best.set(key, arr);
@@ -1235,7 +1233,7 @@
     const keys = [...best.keys()].sort((u, v) => strad.get(v) - strad.get(u)), room = Math.max(0, (o.max | 0) - (o.uniform | 0));
     const samples = [], put = (k, kind, key) => {
       const q = 4 * k;
-      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], own: p2[q + 1], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], kind, key });
+      samples.push({ x: k % W, y: Math.floor(k / W), vz: p2[q], cell: p2[q + 2], z: [p1[q], p1[q + 1]], zc: [p1[q + 2], p1[q + 3]], layer: p2[q + 1], own: layers[p2[q + 1]] ? layers[p2[q + 1]].own : null, kind, key });
     };
     let nStrad = 0, truncated = 0;
     for (const key of keys) {

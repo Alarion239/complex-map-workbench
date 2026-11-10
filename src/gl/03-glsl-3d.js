@@ -1607,9 +1607,10 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // is one member, the layers are depth-tested against each other) keeps the rasterised depth, which the key would push behind
   // the floor under the lowest layer
   // The cap probe (uCapProbe over 0, set by the test hooks only): the layered fragment writes its geometry in place of its colour, with no
-  // map evaluated. 1: the preimage and the chain's anchor, vec4(vZ, vZc); 2: the drawn height, the layer's claim code, the grid cell
-  // (>= 0 a box cell, else -1 - the patch's cell) and 1 over the covered pixels; 3: a constant, for checking the float target
-  const CAP_PROBE_FS = `  if (uCapProbe != 0) { o = uCapProbe == 1 ? vec4(vZ, vZc) : uCapProbe == 2 ? vec4(vPos.z, float(uOwn), vCell, 1.0) : vec4(1.0, 2.0, 3.0, 4.0); return; }\n`;
+  // map evaluated. The low two bits of uCapProbe say what: 1 the preimage and the chain's anchor, vec4(vZ, vZc); 2 the drawn height, the
+  // layer's index in the draw (uCapProbe >> 2), the grid cell (>= 0 a box cell, else -1 - the patch's cell) and 1 over the covered pixels;
+  // 3 a constant, for checking the float target
+  const CAP_PROBE_FS = `  if (uCapProbe != 0) { int ps = uCapProbe & 3; o = ps == 1 ? vec4(vZ, vZc) : ps == 2 ? vec4(vPos.z, float(uCapProbe >> 2), vCell, 1.0) : vec4(1.0, 2.0, 3.0, 4.0); return; }\n`;
   const LAND_FS = (sheet, plain, lite, carry = false, layered = false, clipped = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;

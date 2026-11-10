@@ -1041,7 +1041,7 @@
   // being the deviation the linear crossings inside CLIP_FAR leave. Controls: C1 the same count with the clip off (the layers cut at their drawn height, linearly interpolated) is over 0 in
   // every row with a straddling cell, C2 the pixels of the smallest drawn |height| in place of the largest see fewer, C3 the layer's claim one digit off moves the clip-on maximum by more than
   // CAP_EPS, C4 the float target returns the constant the probe writes
-  const CAP_EPS = 0.05, CAP_PER_CELL = 2, CAP_UNIFORM = 64, CAP_MAX = 400, CAP_SEED = 20251110, CAP_BATCH = 20, CAP_CONST = [1, 2, 3, 4];
+  const CAP_EPS = 0.05, CAP_PER_CELL = 2, CAP_UNIFORM = 64, CAP_MAX = 400, CAP_SEED = 20251110, CAP_BATCH = 20, CAP_WORST = 3, CAP_CONST = [1, 2, 3, 4];
   const capRd = (o) => ev(`__cmwLandCapRead(${JSON.stringify(Object.assign({ perCell: CAP_PER_CELL, uniform: CAP_UNIFORM, max: CAP_MAX, seed: CAP_SEED }, o))})`);
   const capEval = async (samples, shift) => {
     const out = [];
@@ -1059,7 +1059,8 @@
       over: fin(st).filter((q) => Math.abs(q.h) > hc * (1 + CAP_EPS)).length,
       maxRatio: fin(st).reduce((m, q) => Math.max(m, Math.abs(q.h) / hc), 0),
       uniMax: fin(un).reduce((m, q) => Math.max(m, Math.abs(q.h - q.vz)), 0),
-      nStrad: st.length, nUni: un.length
+      nStrad: st.length, nUni: un.length,
+      worst: fin(st).sort((p, q) => Math.abs(q.h) - Math.abs(p.h)).slice(0, CAP_WORST).map((q) => ({ vz: q.vz, h: q.h, layer: q.layer, own: q.own, cell: q.cell, z: q.z, zc: q.zc }))
     };
   };
   const capBit = { c1: 0, c2fell: 0, c3: 0, c4: 0, rows: 0 }, capCase = {};

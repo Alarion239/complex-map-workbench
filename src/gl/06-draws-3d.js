@@ -529,6 +529,7 @@
   // The cap probe's target (carryProbe.capProbe over 0, the layered carried draw): an RGBA32F frame the size of the drawing buffer with its own depth and
   // stencil, cleared to 0, in which the carried draw writes its geometry (LAND_FS's uCapProbe). capEnd reads it back with the layers' grid heights;
   // landCapTake returns what the last probe frame read ({ err: 'no float target' } where the extension is missing) and clears it
+  const CAP_NO_LAYER = 255;   // (the layer index the patches about the glide map's poles write: they are no layer of the draw)
   let capLast = null, capT = null;
   function capBegin() {
     capLast = null;
@@ -1779,6 +1780,7 @@
       const drawn = landActive.length ? landActive : [landC];
       for (const L of carryProbe.reverseLayers ? drawn.slice().reverse() : drawn) {
         const exact = !!(L && L.exact), cutDraw = !!(exact && L.cuts);
+        if (cap) u1i(Pc, 'uCapProbe', carryProbe.capProbe + 4 * drawn.indexOf(L));
         u1i(Pc, 'uZOn', exact ? 1 : 0);
         if (contDraw) u1i(Pc, 'uOwn', L.own + (carryProbe.comboShift | 0));
         u1i(Pc, 'uCuts', cutDraw ? 1 : 0); u1i(Pc, 'uPer', (cutDraw ? 9 : 3) * fan);
@@ -1804,6 +1806,7 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * fan * (p.N - 1) * (p.N - 1));
       };
+      if (cap) u1i(Pc, 'uCapProbe', carryProbe.capProbe + 4 * CAP_NO_LAYER);
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
       for (const p of pp) drawPatch(p);
       gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
