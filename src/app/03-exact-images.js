@@ -353,7 +353,7 @@
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
-    if (S.exactImages === false) return F('exact images off');
+    if (S.exactImages === false && !o.stepsRest) return F('exact images off');
     if (!(PHASE[role || 'R'] || {})[viewKind]) return F(`${role || 'R'} ${viewKind}: not in this phase`);
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan.ok) return F(plan.reason || 'no inverse');
