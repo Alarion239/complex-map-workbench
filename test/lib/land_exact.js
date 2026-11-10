@@ -75,6 +75,7 @@
   const COUNT_R_MIN = 1e-6;   // the scene's count (__cmwLandWind) leaves out the members within this distance of the origin of plane z (its WIND_EPS_R); members that near are tracked but not counted
   const END_Z_TOL = 1e-3;   // an edge end's z is the frame's float32 inverse: a member of the enumerator is at it within this share of 1 + |z|
   const LAMBDA_SAME = 1e-4;   // two certified roots are one member when their log coordinates agree within this share of 1 + |lam| (whatever sheets list them): Newton's certificate is 1e-5 of H, and distinct members of a set are far apart in lam
+  const BRANCH_CLEAR = 0.25;   // grid cells: a loop or ring read for the made-up edge keeps every point of its path at least this far from the branch value (a path through it has no member to follow: the residual cannot tell which member a point is); a path closer is a test failure
   const SYN_ARM = 0.5;   // the made-up edge through a branch value: half its length in grid cells (its direction runs from the branch value toward the centre of the places the frame spans, so both its ends are in them)
   const BRANCH_LAM = 1e6;   // the log coordinate that stands for a branch point: e^-1e6 is 0 to float64, and a logarithm's output there is -1e6, far beyond any place of a frame
   const STRIP_TOL = 1e-9;   // radians: a member whose log coordinate's imaginary part is this far outside its sheet's window (lo, hi] of the first op (__cmwLandWin) is a range-ramp member the scene's count (a winding inside the window) leaves out; the enumerator's own level test (lvl >= 0, src/inverse.js) is the same rule
@@ -326,7 +327,7 @@
         // (a made-up edge through the branch value bv, from one side of it to the other (so the track along it cannot complete, as for a real edge at a branch
         // value): its ends are the vertices bv +- SYN_ARM cells toward the centre of the places the frame spans, the first end's member the first of the sheets with a member in
         // the box there, the second end's the next one at the other vertex; the sheets taken are those the scene counts a member of at the first vertex)
-        const rg = window.__lxRegion, ang = Math.atan2((rg[2] + rg[3]) / 2 - opt.syn[1], (rg[0] + rg[1]) / 2 - opt.syn[0]), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
+        const rg = window.__lxRegion, ang = Math.atan2(Math.sign((rg[2] + rg[3]) / 2 - opt.syn[1]) || 1, Math.sign((rg[0] + rg[1]) / 2 - opt.syn[0]) || 1), wv0 = [opt.syn[0] + Math.cos(ang) * ${SYN_ARM} * h, opt.syn[1] + Math.sin(ang) * ${SYN_ARM} * h], wo0 = [2 * opt.syn[0] - wv0[0], 2 * opt.syn[1] - wv0[1]];
         want = (window.__cmwLandWind(wv0) || []).filter((r) => r.status === 'ok' && r.N > 0).map((r) => r.sheet);
         const set0 = membersAt(wv0), setB0 = membersAt(wo0);
         if (set0.length < 2 || setB0.length < 2) return { cls: 'unresolved', why: 'syn', n: [set0.length, setB0.length], want, fail };
@@ -386,7 +387,11 @@
       const ring = [wv, [wv[0] + h, wv[1]], [wv[0] + h, wv[1] + h], [wv[0] - h, wv[1] + h], [wv[0] - h, wv[1] - h], [wv[0] + h, wv[1] - h], [wv[0] + h, wv[1]], wv];
       // (the member a tracked member has arrived at, by its log coordinate whatever sheets list it: the monodromy of a loop is read along the chain from a; the
       // chain is lost where an image is no member of the set, and the loop is then no certificate of either answer)
+      // (the made-up edge's loops and ring: a path with a point within BRANCH_CLEAR cells of the branch value is a failure of the test's geometry, never a verdict)
+      const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+      const clearOK = (pts) => !(opt && opt.syn) || pts.every((q, i) => i + 1 >= pts.length || segDist(opt.syn, q, pts[i + 1]) >= ${BRANCH_CLEAR} * h);
       const cyc = (pts) => {
+        if (!clearOK(pts)) { fail = { why: 'clear', min: Math.min(...pts.slice(0, -1).map((q, i) => segDist(opt.syn, q, pts[i + 1]))) / h }; return null; }
         const tr = track(setV, pts);
         if (!tr) return null;
         iv.lam0 = tr[iv.i].lam && setV[iv.i].lam ? csub(tr[iv.i].lam, setV[iv.i].lam) : null;   // (the shift of a's log coordinate round the loop)
