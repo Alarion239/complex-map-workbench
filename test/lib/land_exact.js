@@ -1809,10 +1809,11 @@
       // (the colour's frame side: each layer's F is the colour map's value of the reference sheet (__cmwLandRefSheets at the layer's z) whose height is the layer's (a height beyond the clip level on the
       // layer's side is the sheet's clipped one); where two sheets with two values fit, the sheet whose combo is the layer's claim decides; none, or two values left, is counted and fails the row,
       // never a pick. The frame's layers are the distinct ones. The hook's matched member's F is not read)
-      let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0, claimDis = 0, claimN = 0; const noSheetAt = [];
+      let noSheet = 0, ambiguous = 0, pairN = 0, pairOff = 0, claimDis = 0, claimN = 0, noAnchor = 0; const noSheetAt = [];
       if (sheets) {
         const cl = await ev(`__cmwLandClaims(${JSON.stringify(pts)})`);
         const rsAll = await ev(`${JSON.stringify(got.map((ls) => (ls || []).map((l) => l.z || null)))}.map((ls) => ls.map((z) => (z ? __cmwLandRefSheets(z) : [])))`);
+        const rsAnch = await ev(`${JSON.stringify(got.map((ls, i) => (ls || []).map((l, j) => ({ z: l.z || null, a: cl && cl[i] && cl[i][j] && cl[i][j].anchor ? cl[i][j].anchor.z : null }))))}.map((ls) => ls.map((q) => (q.z && q.a ? __cmwLandRefSheets(q.z, q.a) : null)))`);
         got.forEach((ls, i) => distinctLayers(ls || []).forEach((l) => {
           const j = ls.indexOf(l), claim = cl && cl[i] && cl[i][j] ? cl[i][j].claim : null, opts = (rsAll && rsAll[i] && rsAll[i][j]) || [];
           const sameF = (a2, b2) => Math.hypot(a2[0] - b2[0], a2[1] - b2[1]) <= REL_FLOOR * (1 + Math.hypot(b2[0], b2[1]));
@@ -1823,7 +1824,9 @@
           if (!hit.length) { noSheet++; if (noSheetAt.length < 4) noSheetAt.push({ z: l.z, h: l.h, claim }); }
           else if (vals.length === 1) {
             l.f = hit[0].f; claimN++;
-            if (!byClaim.length || !byClaim.every((q) => sameF(q.f, l.f))) claimDis++;   // (the claim's sheet is the height's sheet on every layer the height settles)
+            // (the claim's sheet is the height's sheet on every layer the height settles: the claim's label is read at the layer's anchor, the fragment's own corner; a layer without an anchor is counted and fails)
+            const an = rsAnch && rsAnch[i] && rsAnch[i][j] ? rsAnch[i][j].filter((q) => q.combo === claim && q.f) : [];
+            if (!rsAnch || !rsAnch[i] || !rsAnch[i][j]) noAnchor++; else if (!an.length || !an.every((q) => sameF(q.f, l.f))) claimDis++;
           } else if (byClaim.length && byClaim.every((q) => sameF(q.f, byClaim[0].f))) l.f = byClaim[0].f;
           else ambiguous++;
         }));
@@ -1854,7 +1857,7 @@
       });
       r[u].geometry = { n, bad, at, phN, badPh, noF, hBad };
       if (sheets) {
-        ok(`${t}: the claim's sheet is the height's sheet on every layer the height settles (${claimDis} of ${claimN} disagree)`, claimN > 0 && claimDis === 0, { claimDis, claimN });
+        ok(`${t}: the claim's sheet is the height's sheet on every layer the height settles (${claimDis} of ${claimN} disagree; ${noAnchor} have no anchor)`, claimN > 0 && claimDis === 0 && noAnchor === 0, { claimDis, claimN, noAnchor });
         r.pairN = (r.pairN || 0) + pairN; r.pairOff = (r.pairOff || 0) + pairOff;
         // (the control over the row: a layer paired with the reference's other member leaves the colour tolerance at some pair; a place with one member has no pair)
         if (u === GLIDE_U[GLIDE_U.length - 1]) ok(`${name}: the control: a layer paired with the reference's other member leaves the colour tolerance at ${r.pairOff} of ${r.pairN} pairs over the row${r.pairN ? '' : ' (n/a at each u: one member per place)'}`, r.pairN > 0 && r.pairOff > 0, { pairN: r.pairN, pairOff: r.pairOff });

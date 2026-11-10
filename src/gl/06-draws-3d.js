@@ -538,7 +538,7 @@
       const i = Math.round((x - box.x0) / (box.x1 - box.x0) * (N - 1)), j = Math.round((y - box.y0) / (box.y1 - box.y0) * (N - 1));
       if (i < 0 || j < 0 || i >= N || j >= N) return [];
       const k = 4 * (j * N + i), out = [];
-      layers.forEach(({ px, pz, pe, combo, shift, layered }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, shift, layered, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null, anchor: anchorOf(px, pz, i, j, px[k + 3]) }); });
+      layers.forEach(({ px, pz, pe, combo, shift, layered }, member) => { if (px[k + 3] > 0.5) out.push({ h: px[k + 2], c: px[k + 3], e: pe ? pe.map((q) => [q[k], q[k + 3]]) : null, member, combo, shift, layered, w: [px[k], px[k + 1]], z: pz ? [pz[k], pz[k + 1]] : null, anchor: anchorOf(px, pz, i, j, px[k + 3]) || (pz && px[k + 3] <= CARRY_CONT_CODE + CARRY_ANCHOR_STEP / 2 ? { w: [px[k], px[k + 1]], z: [pz[k], pz[k + 1]], own: true } : null) }); });
       return out;
     });
   }

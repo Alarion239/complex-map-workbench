@@ -468,13 +468,13 @@
   // the parked All-sheets reference at a point z of plane 0 ([re, im]): per forward combo of the colour map's distinct sheets
   // (sheetUniqOf, window S.sheetW) [{ combo, z, f, h }], f the sheet's value at z (Funcs.sheetEval, as the parked frame draws it)
   // and h its height at the last frame's scale; [] with no frame or no sheets
-  window.__cmwLandRefSheets = (z) => {
+  window.__cmwLandRefSheets = (z, anchor) => {
     const hOf = render3D.frameHeight, ex = render3D.exactIn, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
     if (!hOf || !ex || typeof Funcs.sheetEval !== 'function') return [];
-    const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]);
+    const fm = SV.on ? svMapAt(0) : endMap(), zc = C(z[0], z[1]), za = anchor ? C(anchor[0], anchor[1]) : zc;   // (anchor: the point the sheet labels are relative to; the place itself by default)
     return sheetUniqOf(fm, W).map((combo) => {
       let f = null;
-      try { f = Funcs.sheetEval(S.steps, built, fm.b, zc, zc, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
+      try { f = Funcs.sheetEval(S.steps, built, fm.b, za, zc, combo, W, { a: fm.a || 0 }); } catch (e) { f = null; }
       return { combo, z: [z[0], z[1]], f: f && CX.isFin(f) ? [f.re, f.im] : null, h: f && CX.isFin(f) ? hOf(landValue(f)) : null };
     });
   };
