@@ -74,6 +74,11 @@
     "Joukowski airfoil|sheets": "the glide has one surface there",
     "Möbius dipole, √|sheets": "the glide has one surface there",
     "Möbius with a pole in the box|sheets": "the glide has one surface there",
+    "Möbius, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Roots as preimages|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Joukowski airfoil|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Möbius dipole, √|digits": "the glide has one surface there: no digit of the scene's surface table can move",
+    "Möbius with a pole in the box|digits": "the glide has one surface there: no digit of the scene's surface table can move",
     "Möbius, √|stripRead": "the scene's chain lists no branch step input at this u",
     "Joukowski airfoil|stripRead": "the scene's chain lists no branch step input at this u",
     "Möbius dipole, √|stripRead": "the scene's chain lists no branch step input at this u",
@@ -1020,7 +1025,7 @@
               }
             }
             ok(`${t}: the digits round-trip through the scene's surface table to the member's place (${back} of ${have})`, have > 0 && back === have, { back, have });
-            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0, { moved, tried, na: ctlNA(c, 'digits', u) });
+            ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u) });
           }
           const hs = await ev(`(__cmwLandHom([${HOM_PLACE}], null, { sheets: [0], dH: false }) || [{}])[0].H || null`);
           r.homSample = Object.assign(r.homSample || {}, { [u]: hs });
