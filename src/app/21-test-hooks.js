@@ -1190,13 +1190,14 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // The cap probe's read (the layered carried draw, LAND_FS's uCapProbe): the frame at the current u is drawn twice into a float target, once writing each fragment's
-  // preimage and chain anchor (pass 1), once its drawn height, layer claim code and grid cell (pass 2), and the pixels to evaluate are chosen from pass 2:
+  // preimage and chain anchor (pass 1), once its drawn height, layer index and grid cell (pass 2), and the pixels to evaluate are chosen from pass 2:
   //  - every straddling cell (a cell of a layer's grid with a corner whose height has |h| above BLOCK_K times the block's height) that a pixel covers gives its o.perCell
   //    covered pixels of the largest drawn |height| (o.lowest: of the smallest), the cells taken in order of their largest corner |h|;
   //  - o.uniform pixels on a seeded (o.seed) stratified grid of the covered pixels, read as data;
   //  - at most o.max pixels in all; the straddling cells left out are counted in truncated.
   // o.clipOff draws the layers without the block's geometric clip; o.constant adds the float target's check (pass 3: every fragment writes vec4(1, 2, 3, 4)).
-  // -> { err } where no float target or no layered frame, else { W, H, uH, hc, blockK, covered, maxDrawn, nStrad, truncated, samples: [{ x, y, vz, own, cell, z, zc, kind }], constant }
+  // -> { err } where no float target or no layered frame, else { W, H, nCombos (the distinct claim codes of the layers), uH, hc, blockK, clipFar, covered, maxDrawn, nStradAll (the straddling cells), nStrad (those
+  // sampled), truncated, samples: [{ x, y, vz (drawn height), layer, own (the layer's claim code), cell, z, zc, corners (the cell's corner heights), edge (neighbours uncovered or of another layer), kind }], constant }
   // The height the layered draw gives a fragment of preimage z (the anchor zc, the layer's claim code own): the frame's own height function, unclamped, of plane 0's map
   // F on the claim's surface (refValue, as __cmwLandRefSheets reads it; the draw's landW is the same chain over the same stages) -> [height | null], null where F
   // is not finite. list: [{ z, zc, own }]

@@ -1126,7 +1126,6 @@
     } else ok(`${t}: C3: not applicable: the layers claim ${K} combo (one)`, true, { K });
     rec.cap = { hc, covered: on.covered, nStradAll: on.nStradAll, nStrad: on.nStrad, truncated: on.truncated, clipOn: sOn, clipOff: sOff, lowest: sLow, tOnMs: tOn, tRowMs: Date.now() - t0 };
     info.capRows = (info.capRows || []).concat({ t, hc, ...rec.cap });
-    if (process.env.CAP_LOG) fs.appendFileSync(process.env.CAP_LOG, JSON.stringify({ t, ...rec.cap, K }) + '\n');
   };
   await view(VIEW_W, VIEW_H, false, false);
   // (CMW_ONLY: one case by its tag, so that CI runs the cases of All sheets in parts)
@@ -1165,7 +1164,6 @@
       await setU(u);
       const camU = await ev("__cmwCam('L')");   // (the camera this frame is drawn with: the camera follows the frame, and every Top-view trip returns to it)
       const still = await grab('cur');
-      if (process.env.CAP_HASH) fs.appendFileSync(process.env.CAP_HASH, JSON.stringify({ t, h: await ev("(() => { const cv = document.getElementById('canvasL'), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let a = 2166136261; for (let i = 0; i < d.length; i++) a = Math.imul(a ^ d[i], 16777619) >>> 0; return a; })()") }) + '\n');
       const carry = await ev('(() => { const c = __cmwLandCarry(); return c && { path: c.path || null, u: c.u, holes: c.landHoles }; })()');
       const cov = { still, n: await ev(`__lx.cover('cur')`), d0: (await compare('cur', 'P0')).frac, d1: (await compare('cur', 'P1')).frac };
       r[u] = { carry, cov, p0: p0.cover, p1: p1.cover };
@@ -1215,7 +1213,7 @@
           ok(`${t}: ${what} the next plane's parked frame is not matched (control; ${dc} of pixels over ${DIFF_TOL})`, dc > SAME_FRAC, { dc });
         }
       }
-      if (sheets && !process.env.CAP_HASH_ONLY && !(carry && carry.path === 'mesh')) await capRow(c, u, t, r[u]);
+      if (sheets && !(carry && carry.path === 'mesh')) await capRow(c, u, t, r[u]);
       // the end frames in the Top view, against the parked plane there
       if (first || lastU) {
         await ev(`__cmwCam('L', ${JSON.stringify(TOP_CAM)}); 1`); await settled({ max: LOAD_MAX_MS }); await ev(rAF2);
