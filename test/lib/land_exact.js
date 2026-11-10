@@ -1012,18 +1012,22 @@
           {
             const sub = ms.slice(0, HOM_EQ_PAIRS), have = sub.filter((m) => Array.isArray(m.digits)).length;
             ok(`${t}: every member lists the digits of its scene-certified surface (${have} of ${sub.length})`, sub.length > 0 && have === sub.length, { have, n: sub.length });
-            const val = async (m, ds) => ev(`(() => { const k = __cmwLandKOf(${JSON.stringify(ds)}); return k === null ? null : __cmwLandScene(${JSON.stringify(m.z)}, k, ${JSON.stringify(m.cell)}); })()`);
-            const agree = (v, f) => !!v && !!f && Math.hypot(v[0] - f[0], v[1] - f[1]) <= SURF_TOL * (1 + Math.hypot(f[0], f[1]));
-            let back = 0, moved = 0, tried = 0;
-            for (const m of sub) {
-              if (!Array.isArray(m.digits)) continue;
-              if (agree(await val(m, m.digits), m.w)) back++;
-              for (let i = 0; i < m.digits.length; i++) {
-                const ds = m.digits.slice(); ds[i] += 1;
-                const v = await val(m, ds);
-                if (v) { tried++; if (!agree(v, m.w)) moved++; break; }
+            const r2 = await ev(`(() => {
+              const ms = ${JSON.stringify(sub.filter((m) => Array.isArray(m.digits)).map((m) => ({ z: m.z, cell: m.cell, w: m.w, digits: m.digits })))};
+              const val = (m, ds) => { const k = __cmwLandKOf(ds); return k === null ? null : __cmwLandScene(m.z, k, m.cell); };
+              const agree = (v, f) => !!v && !!f && Math.hypot(v[0] - f[0], v[1] - f[1]) <= ${SURF_TOL} * (1 + Math.hypot(f[0], f[1]));
+              let back = 0, moved = 0, tried = 0;
+              for (const m of ms) {
+                if (agree(val(m, m.digits), m.w)) back++;
+                for (let i = 0; i < m.digits.length; i++) {
+                  const ds = m.digits.slice(); ds[i] += 1;
+                  const v = val(m, ds);
+                  if (v) { tried++; if (!agree(v, m.w)) moved++; break; }
+                }
               }
-            }
+              return { back, moved, tried };
+            })()`);
+            const { back, moved, tried } = r2;
             ok(`${t}: the digits round-trip through the scene's surface table to the member's place (${back} of ${have})`, have > 0 && back === have, { back, have });
             ok(`${t}: the control: one digit moved gives another place than the member's (${moved} of ${tried} members)${ctlNA(c, 'digits', u) ? ' (not applicable: ' + ctlNA(c, 'digits', u) + ')' : ''}`, tried === 0 ? !!ctlNA(c, 'digits', u) : moved > 0 && !ctlNA(c, 'digits', u), { moved, tried, na: ctlNA(c, 'digits', u) });
           }
