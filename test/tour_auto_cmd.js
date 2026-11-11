@@ -276,7 +276,7 @@ await goStep('sound/song');
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 await settled({ max: 15000 });   // (the song scene's frames and shader compiles are done before the press, so the playback is timed alone)
 // (and, in the steps view, until the chain is ready to glide (__cmwSteps().ready.ready): its programs linked, its carried colour's
-// warm draw made (SV_WARM_IDLE_MS after the last input) and its idle jobs done (the pole tracks, the outer ring, the meshes). Without
+// warm draw made (SV_WARM_IDLE_MS after the chain changed and after the last input) and its idle jobs done (the pole tracks, the outer ring, the meshes). Without
 // a parallel compile the programs link one at a time in idle time; a link, and the warm draw, takes a second or more on a software
 // renderer, which during the playback holds back the captions' timers until two fire in one task)
 await settled({ max: 60000, until: `!(window.__cmwSteps && __cmwSteps().on) || __cmwSteps().ready.ready` });
