@@ -250,11 +250,14 @@ await ev(`(() => { const p = Storage.prototype; [p.getItem, p.setItem] = window.
 // with a real click. At 1440 and 390 px (phone), light and dark.
 if (process.env.CMW_ONLY !== '1-3') {
   R.u5 = { caps: {}, menus: {} };
-  // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it)
+  // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it.
+  // go() waits for each page's load event. On test.html it comes once MathJax's three scripts have run, one after
+  // another, each between two of the app's frames, which take 0.5 to 1.5 s each on lavapipe with this section's All
+  // sheets landscape: 3.5 s after the navigation on 4 cores, later on a slower runner. settled() then waits for quiet)
   const loadSt = async (ns, st) => {
-    await nav(`${BASE}gl-helpers.html`);
+    await go(`${BASE}gl-helpers.html`);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({ v3: true, v4: true, nextId: 50, focus: 0 }, st)))}); 1`);
-    await nav(`${BASE}test.html?ns=${ns}${USER5_CLASSIC || USER5_DEFORM ? '&view=classic' : ''}`); await settled();
+    await go(`${BASE}test.html?ns=${ns}${USER5_CLASSIC || USER5_DEFORM ? '&view=classic' : ''}`); await settled();
   };
   // (sections 1 to 4 keep their helpers in their own block: this section's own, the same files for the preflight)
   const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
