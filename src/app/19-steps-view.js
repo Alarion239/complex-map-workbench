@@ -2188,6 +2188,9 @@
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (!svOff(E.add)) E.add.focus({ preventScroll: true }); }
     svFitRail();
+    // (a rebuilt chain, a split or an added step, brings the selected chip into view; a rebuild for where the ring is leaves the rail to it)
+    const chain = S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',');
+    if (chain !== E.chainSig) { E.chainSig = chain; svRevealSel(true); }
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
@@ -2281,6 +2284,7 @@
     svBandSync(c);
     if (!c.length) return;
     const tx = c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u;
+    E.tx = tx;
     E.thumb.style.transform = `translateX(${tx.toFixed(1)}px)`;
     // (between two planes the ring is a marker over the thread, above the step's chip: ux's wave 12 sweep)
     const between = Math.abs(x - Math.round(x)) > 0.02;
@@ -2298,7 +2302,14 @@
       // under a drag or a glide, the ring is kept a plane's width from either end)
       // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
       const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
-      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
+      // (on a phone the rail stays where svRevealSel put it while the ring is parked on the plane it was parked on; once the ring
+      // moves, a jump, a glide or a drag, the ring decides again)
+      let aim = want;
+      if (E.hold && document.documentElement.classList.contains('ph') && !SV.alone) {
+        if (E.hold.tx == null) E.hold.tx = tx;
+        if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
+      } else E.hold = null;
+      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
     } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
@@ -2345,6 +2356,7 @@
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
       svCentreRail(E, 0);
+      svLeadF(E);
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
       E.railMode = SV_RAIL_EQUAL;
@@ -2368,6 +2380,21 @@
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
     svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
+  }
+  // On a phone F ends what the rail scrolls. When the thread plus F overflows the rail by less than F's own width, F would lie
+  // partly in view at rest, cut by the rail's edge; a lead margin before F makes the overflow exactly F's width, so F lies fully
+  // past the edge at rest and whole at the rail's end, with at most that margin as blank track before it. The margin is a
+  // function of the rail's and the thread's widths, so a glide (svFitRail returns first) never changes it.
+  function svLeadF(E) {
+    const F = E.wholeMap, own = F.style.marginLeft;
+    if (F.hidden || F.parentNode !== E.rail || E.rail.lastElementChild !== F) { if (own) { F.style.marginLeft = ''; E.centres = null; E.scrollX = E.rail.scrollLeft; } return; }
+    // (the overflow without the margin, read with it in place: taking it off to measure would shrink the rail's scroll range under
+    // its scroll position, and the browser would clamp that without a scroll event for the position svSync keeps)
+    const over = E.rail.scrollWidth - E.rail.clientWidth - (parseFloat(own) || 0), fw = F.offsetWidth;
+    const lead = over > 1 && over < fw ? Math.ceil(fw - over) : 0;
+    if (lead) F.style.marginLeft = `${lead}px`;
+    else F.style.marginLeft = '';
+    if ((lead ? `${lead}px` : '') !== own) { E.centres = null; E.scrollX = E.rail.scrollLeft; }
   }
   // (CSS px: a centring margin smaller than this is none, and a change smaller than this leaves the margin as it is)
   const SV_CENTRE_MIN = 0.5;
@@ -2701,7 +2728,7 @@
     const rail = strip.querySelector('.sv-rail');
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
-    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
+    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap, .sv-more') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
     // (a press on a message's body dismisses it; its own buttons keep their action)
     const th = document.getElementById('toastHost');
     if (th && !svToastWired) {
@@ -3685,8 +3712,24 @@
     const el = svEl(w.k, w.part) || svEl('add');
     if (el) el.focus({ preventScroll: true });
   }
+  // On a phone the selected step's chip and ⋯ are brought whole into the rail, moving it as little as it takes; a rail that shows
+  // them whole stays as it is, and selecting the step already revealed does nothing. svSync then holds the rail there until the
+  // ring moves from where it was at the selection (after a rebuilt chain, from where it is next). Called at each selection and
+  // after the chain's strip is rebuilt (`force`).
+  function svRevealSel(force) {
+    const E = SV.els;
+    if (!E || !E.track || SV.alone || !document.documentElement.classList.contains('ph')) return;
+    const k = S.sel, stepEl = typeof k === 'number' ? E.track.querySelector(`.sv-step[data-k="${k}"]`) : null;
+    if (!stepEl || (k === E.revealed && !force)) return;
+    E.revealed = k;
+    const rail = E.rail, a = stepEl.offsetLeft, s = rail.scrollLeft, w = rail.clientWidth;
+    const to = Math.max(0, Math.min(rail.scrollWidth - w, Math.min(Math.max(s, a + stepEl.offsetWidth - w), a)));
+    if (to !== s) { rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    E.hold = { tx: force ? null : E.tx ?? null, aim: to };
+  }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
   function svFSync() {
+    svRevealSel();
     const f = SV.on && SV.els && SV.els.wholeMap;
     if (!f) return;
     const on = String(S.sel === 'F');
