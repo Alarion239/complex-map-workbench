@@ -11,6 +11,9 @@
 # job); a push to main, the nightly run, a run by hand and the label full-gate run them all. On Windows the GLSL
 # pages run their core tier on a pull request, every chain otherwise and with the label glsl-deep (ci/README.md, GLSL
 # tiers). Every job runs on GitHub's machines: nothing here waits for one of ours.
+# The Linux jobs (quality's too: its systems come from ci/impact.js) run on GitHub's Ubuntu 24.04 image, ubuntu-24.04,
+# not ubuntu-latest: on the Ubuntu 26.04 image headless Chrome has no WebGL2, and every browser job fails before its
+# first suite (#1500).
 name: Gate
 
 on:
@@ -70,7 +73,7 @@ jobs:
   # Gate never stands on a commit before a gate passed on it
   ready:
     name: Ready for review, already gated?
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: read
@@ -147,7 +150,7 @@ jobs:
   plan:
     name: Plan
     needs: ready
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       reference: ${{ steps.ref.outputs.reference }}
@@ -259,7 +262,7 @@ jobs:
     # (not when the job ready found a passing Gate run of this PR on the same commit, #379)
     needs: ready
     if: needs.ready.outputs.mirror == ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       # the construction tests' absolute speed limits were set on the development Mac
@@ -424,7 +427,8 @@ jobs:
     # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
     # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
     # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
-    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900).
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). It runs on the Ubuntu 24.04 image: on
+    # 26.04 headless Chrome has no WebGL2 (#1500).
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     strategy:
@@ -434,7 +438,7 @@ jobs:
       max-parallel: 8
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.browser) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       CMW_ANGLE: vulkan
@@ -482,7 +486,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # (tier none mirroring a run still going waits for it: as long as a Gate run may take)
     timeout-minutes: ${{ needs.plan.outputs.tier == 'none' && 330 || 5 }}
     steps:

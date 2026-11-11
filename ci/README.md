@@ -119,6 +119,11 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
 
+The Gate's Linux jobs run on GitHub's Ubuntu 24.04 image (`ubuntu-24.04`, and Quality's Linux row in `ci/impact.js`),
+not on `ubuntu-latest`: on the Ubuntu 26.04 image headless Chrome has no WebGL2, and every browser job fails before its
+first suite (#1500). The other workflows' Linux jobs draw nothing (Lint, Pages, CodeQL, the GPU gate's plan and
+verdict) and stay on `ubuntu-latest`.
+
 ### GLSL tiers
 
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
