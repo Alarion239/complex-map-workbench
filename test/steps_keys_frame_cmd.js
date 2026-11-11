@@ -1,7 +1,7 @@
 // The saved-state keys exactImages, unitLevel, spin, compact, chev and fov, read from a saved state in the steps view
 // (#1188): what each changes on the page and, for the keys the steps view does not read, that loading one changes nothing.
-// - exactImages: false is what the state carries, and the plane is drawn by the exact pass whatever it says (exact images
-//   are always on in the steps view): the plane's frame is the frame of the page without it;
+// - exactImages: false is what the state carries, and a plane at rest past the colour plane is drawn by the exact pass
+//   whatever it says: the plane's frame is the frame of the page without it;
 // - unitLevel: true draws the Landscape's unit level plane (the frame differs from the one without it, over more than
 //   MIN_CHANGED pixels of the pane);
 // - spin, compact, chev, fov: the steps view reads none of them: the plane's frame and the Landscape's are the frame of the
