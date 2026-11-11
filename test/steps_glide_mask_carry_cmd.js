@@ -1,7 +1,8 @@
 // The steps view's Inside-regions mask in a moving frame is the mask of the parked frame at the same u. The thread
 // is held on the rail at u (a scrub not let go: the moving frame, whose mask never comes from the regions' SphereMesh,
-// which is built only once the view has stopped), the frame is read, then let go: once the SphereMesh of the regions has
-// been built and the pane is still, the parked frame at u is read, and the two frames are compared (compare in
+// which is built only once the view has stopped), the glide's own frame is read (not one held on plane 0 while the
+// glide's pole tracks are made), then let go: once the SphereMesh of the regions has been built and the pane is still,
+// the parked frame at u is read, and the two frames are compared (compare in
 // test/lib/held_frames.js): at most SAME_FRAC of their pixels more than DIFF_TOL (32/255) apart.
 // The cases: the zeros of the zeta function at u = .25, .5, .75 (a region whose image under the glide's map has a
 // critical strip that the shape's own tessellated mesh lacks; its parked frame is read once no SphereMesh job is left),
@@ -13,9 +14,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const DEFAULT_PORT = '8793';
 const SAME_FRAC = 0.005;      // (steps_glide_look_cmd.js: the parked frame is the held frame's pixels)
 const VIEW_W = 1200, VIEW_H = 800;   // (the views shard's pane, as steps_glide_look_cmd.js)
-const SETTLE_MAX_MS = 60000;  // the page's start-up, an example, a rest frame and a parked frame each settle within it
+const SETTLE_MAX_MS = 60000;  // the page's start-up, an example, a rest frame, a held or parked frame and its SphereMesh job's ask each settle within it
 const MESH_MAX_MS = 150000;   // a SphereMesh job of the zeta regions on a software renderer
-const JOB_ASK_MS = 1500;      // a bounded wait: the parked frame's draw asks for the SphereMesh job within it, where a mask is drawn from the forward image; with the exact frame no job is asked for, so there is no event to wait on, and the job list is read once it has passed
 const PARK_EPS = 1e-3;        // how near u the thread has parked
 const CASES = [
   { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', us: [0.25, 0.5, 0.75] },
@@ -27,6 +27,14 @@ const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', '
 const ready = () => settled({ max: SETTLE_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 // (at rest on plane i, its frame drawn)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: SETTLE_MAX_MS, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
+// (the left pane's last frame is the glide's own at the thread's place, its programs linked and warm and the idle job
+// done (ready: every glide's pole tracks and ring sizes made): not a frame held on plane 0 while the glide's pole tracks
+// are made (hold, svLinkHold). Every case glides from plane 0, so the frame's u is the thread's place)
+const AT_THREAD = `(() => { const s = __cmwSteps(); return s.ready.ready && !s.hold && !!s.glide && Math.abs(s.glide.u - __cmwSvX()) < 1e-9; })()`;
+// (no frame is still due to ask for the SphereMesh jobs the motion frames could not (smKick: a frame drawn while the
+// scrub's let-go still counts as an interaction asks in a frame after that settles; a frame with no mask from the
+// regions' forward image asks for none). The next settled's two animation frames draw the frame asked for)
+const MESH_ASKED = '!__cmwSphere().kick';
 // (no SphereMesh job left to run: none is wanted by a frame, or the one asked for has been built)
 const MESH_IDLE = `(() => { const q = __cmwSphere(); return !(Array.isArray(q.jobs) ? q.jobs.length : q.jobs); })()`;
 await view(VIEW_W, VIEW_H, false, false);
@@ -42,14 +50,15 @@ for (const c of CASES) {
     await ev(`__cmwSet('morphPaths', false), __cmwSet('alpha', 1), __cmwSteps(${JSON.stringify({ scope: 'in', surf: 'plane' })}), 1`);
     await rest(0);
     for (const u of c.us) {
-      const held = (await hold(u)).ok, still = await grab('H' + u);
+      const thread = (await hold(u)).ok, holdB = await ev('__cmwSteps().hold');
+      const held = thread && (await settled({ max: SETTLE_MAX_MS, until: AT_THREAD })).ok, still = await grab('H' + u);
       await ev('window.__svScrubUp(), 1');
-      const parked = (await settled({ max: SETTLE_MAX_MS, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < ${PARK_EPS}` })).ok;
-      await sleep(JOB_ASK_MS);
+      const parked = (await settled({ max: SETTLE_MAX_MS, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < ${PARK_EPS} && ${AT_THREAD}` })).ok;
+      const asked = (await settled({ max: SETTLE_MAX_MS, until: MESH_ASKED })).ok;
       const built = (await settled({ max: MESH_MAX_MS, until: MESH_IDLE })).ok;
       const settledP = await grab('P' + u);
-      const diff = held && still && parked && built && settledP ? await compare('H' + u, 'P' + u) : null;
-      r[u] = { held, still, parked, built, settledP, diff };
+      const diff = held && still && parked && asked && built && settledP ? await compare('H' + u, 'P' + u) : null;
+      r[u] = { holdB, held, still, parked, asked, built, settledP, diff };
       ok(`${c.tag}: the frame held at u = ${u} has the parked frame's pixels (at most ${SAME_FRAC * 100} % of them more than 32/255 apart)`, !!diff && diff.frac <= SAME_FRAC, r[u]);
       await rest(0);
     }

@@ -873,7 +873,8 @@
     return P.found ? P.found.poles : [];
   }
   // svHoldB: plane b when the left pane's last frame held the glide into b for its missing tracks (svLinkHold), else 0: each
-  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind
+  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
+  // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
   let svHoldB = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
@@ -897,9 +898,9 @@
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane (svRingAhead), SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time
-  // (svPoleJob, its token: a new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh
-  // each slice, and svPolesWatch starts it again once they change after it ended
+  // the plane and of the chain's other glides (svRingAhead, svRingNext), SV_POLE_BUDGET ms an idle moment at most, so a
+  // glide finds them made. One job at a time (svPoleJob, its token: a new one ends the one before); it reads its inputs
+  // (the chain, clipWin, the camera) afresh each slice, and svPolesWatch starts it again once they change after it ended
   let svPoleJob = 0, svPoleBusy = false;
   function svPolesAhead() {
     const tok = ++svPoleJob;
