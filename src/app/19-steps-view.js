@@ -13,6 +13,7 @@
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
+    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -845,6 +846,8 @@
     }
     return r;
   }
+  // every glide's pole tracks forgotten, as right after load (a test hook's)
+  function svDropTracks() { svPoleMemo.clear(); svPoleLast.clear(); svPolesWatch(); }
   // P's tracks made for at most ms; once whole, they are plane b's last whole tracks (svPoleLast)
   function svPoleMake(P, ms, kind) {
     if (P.k > SV_POLE_K) return;
@@ -864,21 +867,34 @@
       P.seek = { j, gen: (function* () { try { return yield* svPolesNear(P.Ft(j / SV_POLE_K), P); } catch (e) { return []; } })() };
       if (ps) ps.poleSync = (ps.poleSync || 0) + 1;
     }
-    const r = svPoleRun(P.seek.gen, P.E, SV_POLE_BUDGET, 'frame', null);
+    const r = svPoleRun(P.seek.gen, P.E, SV.poleFrameMs || SV_POLE_BUDGET, 'frame', null);
     if (r.done) { P.found = { j, poles: r.value }; P.seek = null; }
     if (ps) ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0;
     return P.found ? P.found.poles : [];
   }
+  // svHoldB: plane b when the left pane's last frame held the glide into b for its missing tracks (svLinkHold), else 0: each
+  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind
+  let svHoldB = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
+  // (the glide held by svLinkHold for its missing tracks comes first)
   function svPolesLeft() {
     const n = nSteps();
+    for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
     for (let b = 1; b <= n; b++) {
       if (derivIn(b - 1, b)) continue;
       const P = svPoleTracks(b, clipWin);
       if (P.k <= SV_POLE_K) return P;
     }
     return null;
+  }
+  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
+  // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
+  // (svSheetKeyAt) exist
+  function svTracksMissing(b, h) {
+    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
+    const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
+    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
   // the plane (svRingAhead), SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time
@@ -896,7 +912,7 @@
       try {
         while (left() > 0) {
           const P = svPolesLeft();
-          if (P) svPoleMake(P, left(), 'idle');
+          if (P) { svPoleMake(P, left(), 'idle'); if (P.k > SV_POLE_K && svHoldB === P.b) { svHoldB = 0; requestRender('L'); } }
           else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
         }
         if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
@@ -1070,10 +1086,6 @@
     const h = svHomPaths(b, u).h;
     return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i) === 'ready');
   }
-  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
-  // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
-  // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
-  // -> the place to draw instead of the thread's, or null (draw the thread's)
   // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
   let svHomMemo = null;
   function svHomPaths(b, u) {
@@ -1082,12 +1094,22 @@
   }
   // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths), as the carried colour draws it
   const svInvState = (h, i) => { const p = h.paths[i]; return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }); };
+  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
+  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
+  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
+  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
+  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
+  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
-    if (!h || !h.paths.some((p, i) => svInvState(h, i) === 'pending')) return null;
+    const linking = !!h && h.paths.some((p, i) => svInvState(h, i) === 'pending');
+    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
+    if (svHoldB) svPolesWatch();
+    if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1575,6 +1597,7 @@
   // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
+    svHoldB = 0;
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }

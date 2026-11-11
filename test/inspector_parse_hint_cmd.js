@@ -48,14 +48,8 @@ const look = () => ev(`(() => { const c = document.querySelector('#propsPanel .i
 const field = () => ev(`document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]').value`);
 const typed = (v) => ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important}' : ''; return 1; })()`);
-// a language switch reloads the page: wait until the new page is in that language (data-lang, which English leaves unset)
-// and shows the element `sel`
-const relang = async (lang, sel) => {
-  await ev(`I18N.setPref('${lang}'), 1`);
-  const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
-  for (let i = 0; i < 100; i++) { let r = false; try { r = await ev(there); } catch (e) { r = false; } if (r === true) break; await sleep(200); }
-  ok(`${lang}: the page reloaded in ${lang} and shows ${sel}`, (await settled({ max: 8000, until: there })).ok, { lang, sel });
-};
+// a language switch reloads the page: wait until the new page is in that language and shows the element `sel`, asserted
+const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, settled, sleep, ok });
 // F's plane pictures, without the colour legend and the thread's strip
 const LEGEND_W = 170, STRIP_H = 100;
 const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; out.push({ x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width - ${LEGEND_W}), height: Math.round(r.height - ${STRIP_H}) }); } return out; })()`);
