@@ -36,7 +36,15 @@ const cl = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringi
 const menu = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => b.querySelector('.mi-label').textContent)`);
 const pick = async (label) => { const r = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`); await settle(350); return r; };
 // (a menu a long press raised is deaf to a click for a moment: the pick is tried again until the state it makes is there)
-const pickUntil = async (label, cond) => { for (let i = 0; i < 20 && !(await ev(cond)); i++) { await pick(label); await settled({ until: cond, only: true, max: 400 }); } await settled({ until: cond }); };
+const RETRY_MS = 400, RETRY_STEP_MS = 50;
+const pickUntil = async (label, cond) => {
+  for (let i = 0; i < 20 && !(await ev(cond)); i++) {
+    await pick(label);
+    // (a plain poll: that the state is not there yet is expected here, and is no fault of the kit's waits)
+    for (let t = 0; t < RETRY_MS && !(await ev(cond)); t += RETRY_STEP_MS) await settle(RETRY_STEP_MS);
+  }
+  await settled({ until: cond });
+};
 const undo = async () => { await ev(`document.getElementById('undoBtn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.getElementById('undoBtn').click(); 1`); await settle(400); await ev(`document.querySelectorAll('#toastHost .toast').forEach((x) => x.remove()); 1`); await settle(250); };   // (the Undid message takes the rail while it shows: the next step starts after it)
 const say = () => ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`);
 // (the live region is cleared and set again 30 ms later, so that the same words are read twice: on a loaded machine one read can land

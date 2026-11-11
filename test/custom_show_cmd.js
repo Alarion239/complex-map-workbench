@@ -30,11 +30,12 @@ const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pi
 const select = async (k) => { await selectStep(k); await settle(1200); };
 // a language switch reloads the page: wait until the new page is in that language (data-lang, which English leaves unset)
 // and shows the element `sel`
+const RELOAD_POLL_MS = 250, PAGE_POLL_MS = 100;   // how often a reloading page and a loaded one are looked at
 const relang = async (lang, sel) => {
   await ev(`I18N.setPref('${lang}'), 1`);
   const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
-  // (while the page reloads an evaluation can fail with the old page gone: that is "not yet")
-  for (let i = 0; i < 100; i++) { let r = false; try { r = await ev(there); } catch (e) { r = false; } if (r === true) break; await sleep(200); }
+  // (while the page reloads an evaluation fails with the old page gone, an { __exc } answer: that is "not yet")
+  for (let i = 0; i < 100; i++) { const r = await ev(there); if (r === true) break; await sleep(r && r.__exc ? RELOAD_POLL_MS : PAGE_POLL_MS); }
   ok(`${lang}: the page reloaded in ${lang} and shows ${sel}`, (await settled({ max: 8000, until: there })).ok, { lang, sel });
 };
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
