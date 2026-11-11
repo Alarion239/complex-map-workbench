@@ -202,24 +202,58 @@ for (const [at, cam, cls, tag, what] of [[1, { pitch: -0.9, yaw: -1.2, dist: 3.2
 
 // ---- mixed carry paths on the globe: one shape forced forward, the other kept on the exact pass. With [H, a disc] through
 // z^i at plane 1 (checker pattern), forcing the disc forward leaves H on the exact pass; the globe's regions are the exact
-// pass's and the disc's mesh together, and the frame matches the all-exact frame to within MIXED_DIFF of the pane's pixels
+// pass's and the disc's mesh together, and the frame matches the all-exact frame to within FRAME_DIFF of the pane's pixels
 // (the bound of p3_accept_cmd.js's mixed-paths case)
-const MIXED_DIFF = 0.005;
+const FILL_ALPHA = 0.85, FRAME_DIFF = 0.005;
+// the share of pixels in the pane's last grab that differ from the grab kept in window[ref] (the pixel-diff of the frame comparisons)
+const frameDiff = (ref) => `(() => { const A = window.${ref}, B = window.__p3grab.L; let d = 0, n = 0; for (let k = 0; k < A.length; k += 4) { n++; if (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2]) > ${FILL_DIFF}) d++; } return { d, n, share: d / n }; })()`;
 const MIXED_DISC = { id: 's2', kind: 'disc', c: [0.5, 1.5], r: 0.4 };
 await globe('p3accm', [H, MIXED_DISC], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -0.35, yaw: -0.9, dist: 8 });
-await ev('__cmwSet("pattern", "checker"); __cmwSet("alpha", 0.85); 1'); await wait();
+await ev(`__cmwSet("pattern", "checker"); __cmwSet("alpha", ${FILL_ALPHA}); 1`); await wait();
 R.mixedExact = await paths();
 await grab('L'); await ev('window.__p3Mx = window.__p3grab.L; 1');
 await ev('__cmwForceForward(["s2"]); 1'); await wait();
 R.mixed = await paths();
 await grab('L');
-R.mixedDiff = await ev(`(() => { const A = window.__p3Mx, B = window.__p3grab.L; let d = 0, n = 0; for (let k = 0; k < A.length; k += 4) { n++; if (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2]) > ${FILL_DIFF}) d++; } return { d, n, share: d / n }; })()`);
+R.mixedDiff = await ev(frameDiff('__p3Mx'));
 const pathOfShape = (r, id) => (r.paths.find((p) => p.role === 'L' && p.viewKind === 'globe' && p.id === id) || {}).path;
 ok('mixed paths: the exact frame draws both shapes inverse', R.mixedExact.carry.path === 'inverse', R.mixedExact);
 // (a shape's status reads 'pending' on the steps globe, so H's path is read off the globe's: mixed, the exact pass and a mesh)
 ok('mixed paths: the disc reads forward and the globe carries by both paths (not all mesh)', pathOfShape(R.mixed, 's2') === 'forward' && R.mixed.carry.path === 'mixed', R.mixed);
-ok(`mixed paths: the frame is within ${100 * MIXED_DIFF} % of the all-exact frame`, R.mixedDiff.share <= MIXED_DIFF, R.mixedDiff);
+ok(`mixed paths: the frame is within ${100 * FRAME_DIFF} % of the all-exact frame`, R.mixedDiff.share <= FRAME_DIFF, R.mixedDiff);
 await shot('p3s_mixed');
 await ev('__cmwForceForward([]); 1'); await wait();
+
+// ---- the all-mesh frame against the all-exact one (both shapes forced forward): the carried globe is drawn on the unit
+// sphere, so the line work (silhouette, graticule, region rims) lands on the same pixels as the exact pass's
+// the negative control: the all-exact frame against itself after a camera yaw of CONTROL_YAW moves every line of the frame
+// by about a pixel, so the same measure reads more than FRAME_DIFF (the bound is tight enough to see a line off its pixels)
+const CONTROL_YAW = 0.004;
+await globe('p3accr', [H, MIXED_DISC], [ZI], { cx: 0, cy: 1, s: 60 }, { pitch: -0.35, yaw: -0.9, dist: 8 });
+await ev(`__cmwSet("pattern", "checker"); __cmwSet("alpha", ${FILL_ALPHA}); 1`); await wait();
+await grab('L'); await ev('window.__p3Ex = window.__p3grab.L; 1');
+await ev('__cmwForceForward(["s1", "s2"]); 1'); await wait();
+await grab('L');
+R.meshDiff = await ev(frameDiff('__p3Ex'));
+ok(`all-mesh frame: within ${100 * FRAME_DIFF} % of the all-exact frame`, R.meshDiff.share <= FRAME_DIFF, R.meshDiff);
+await shot('p3s_allmesh');
+await ev('__cmwForceForward([]); 1'); await wait();
+await ev(`__cmwCam("L", ${JSON.stringify({ pitch: -0.35, yaw: -0.9 + CONTROL_YAW, dist: 8 })}); 1`); await wait();
+await grab('L');
+R.controlDiff = await ev(frameDiff('__p3Ex'));
+ok(`all-mesh frame: the measure sees a line shift (control: the exact frame yawed by ${CONTROL_YAW}, over ${100 * FRAME_DIFF} %)`, R.controlDiff.share > FRAME_DIFF, R.controlDiff);
+await ev('__cmwForceForward([]); 1'); await wait();
+
+// ---- the carried mesh frame's graticule: over the colour at or before the colour plane T, none past it (the exact frame's
+// rule), held between planes 0 and 1 on a step with no inverse, so that the glide takes the carried mesh
+const NON_ANALYTIC = { type: 'custom', params: { expr: 'z+0.2*conj(z)', cut: 180 }, on: true };
+for (const [x, T, lines] of [[0.5, 1, true], [0.95, 0, false], [0.95, 1, true], [0.5, 0, false]]) {
+  await load('p3accg' + Date.now(), Object.assign({ shapes: [H], steps: [NON_ANALYTIC], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+  await ev(`__cmwHideStrokes(true); __cmwSteps({ go: 0, now: true, surf: "sphere", scope: "in", T: ${T} }); __cmwSteps({ x: ${x} }); 1`);
+  // (settled on the held place: the last frame is the glide's, drawn by the carried mesh)
+  await settled({ max: 60000, until: `(() => { const g = __cmwSvGlobe(0.5, 0.5); return __cmwSvFixed() && !__cmwSteps().moving && GLR.pendingLinks === 0 && g.path === 'mesh' && Math.abs(g.u - ${x}) < 1e-9 && GLR.carriedGlobeGraticule !== null; })()` });
+  const held = R['held_' + x + '_' + T] = { x: await ev('__cmwSteps().x'), path: await ev('__cmwSvGlobe(0.5, 0.5).path'), lines: await ev('GLR.carriedGlobeGraticule') };
+  ok(`held frame (x ${x}, colour plane ${T}): the carried mesh ${lines ? 'draws' : 'leaves out'} the graticule over its colour`, held.x === x && held.path === 'mesh' && held.lines === lines, held);
+}
 
 return { pass: fails.length === 0, fails, results: R };
