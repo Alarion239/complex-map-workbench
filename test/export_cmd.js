@@ -317,7 +317,10 @@ if (process.env.CMW_ONLY !== '1-3') {
   // the deformation on: the landscape draws H_t on the sheets that become F's (work/xvsh), so the clause names them
   // (both of √z's), with no Ln (the map is H_t) and never "all sheets of the Riemann surface"
   await loadSt(`u5smorph${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
-  await ev('__cmwMorph({ open: true }); 1'); await settled({ until: '__cmwMorph().open === true' });
+  // (it opens playing, and while it moves the All sheets landscape is refined again every frame: the page is quiet only
+  // in the hold at the end of a pass, 6 to 8 s in on a software renderer. The title is set as it opens, and a figure
+  // draws its own landscape refined in full, so the wait is for the deformation to be open)
+  await ev('__cmwMorph({ open: true }); 1'); await settled({ only: true, until: '__cmwMorph().open === true' });
   const mt = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
   const mc = await build('u5-sheets-morph-article1', { for: 'article', deform: 'frame' }, []);
   const mr = await build('u5-sheets-ru-morph-article1', { for: 'article', deform: 'frame', lang: 'ru' }, []);

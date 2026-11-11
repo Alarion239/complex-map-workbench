@@ -49,10 +49,11 @@ const field = () => ev(`document.querySelector('#propsPanel .insp-step input[dat
 const typed = (v) => ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important}' : ''; return 1; })()`);
 // a language switch reloads the page: wait until the new page is in that language (data-lang, which English leaves unset)
-// and shows the element `sel`
+// and shows the element `sel`. While it navigates, the new document may have no root element yet (not there yet), and
+// an evaluation that finds no page to run in throws in the kit (caught below)
 const relang = async (lang, sel) => {
   await ev(`I18N.setPref('${lang}'), 1`);
-  const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
+  const there = `!!document.documentElement && (document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
   for (let i = 0; i < 100; i++) { let r = false; try { r = await ev(there); } catch (e) { r = false; } if (r === true) break; await sleep(200); }
   ok(`${lang}: the page reloaded in ${lang} and shows ${sel}`, (await settled({ max: 8000, until: there })).ok, { lang, sel });
 };
