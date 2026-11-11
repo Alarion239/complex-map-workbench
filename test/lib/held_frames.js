@@ -1,8 +1,14 @@
 // The steps view's frames held still and read, and the exact picture of a glide frame: what steps_glide_look_cmd.js uses
 // (steps_glide_inverse_cmd.js uses GI_REF). An expression for eval in a suite: `const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'))`.
-// - hold(x): the thread held at place x mid-glide, as a user holding it: a scrub on the rail, pressed on the first plane
-//   and not let go (window.__svScrubUp lets it go). Answers settled()'s { ok, ms, busy } once the programs are linked,
-//   the thread is within HOLD_EPS of x and the view draws the moving frames;
+// - hold(x, links = true, tracks = true): the thread held at place x mid-glide, as a user holding it: a scrub on the
+//   rail, pressed on the first plane and not let go (window.__svScrubUp lets it go). Answers settled()'s { ok, ms, busy }
+//   once the programs are linked (not with links false), the thread is within HOLD_EPS of x, the view draws the moving
+//   frames and, with tracks, the left pane's last frame is not one held on the glide's first plane while the glide's
+//   pole tracks are made (UNHELD); with tracks false that held frame is read as it comes;
+// - UNHELD: an expression for settled()'s until, true when the left pane's last frame is not held on a glide's first
+//   plane for its missing pole tracks (__cmwSteps().hold, svHoldB: the idle job ends that hold once the tracks are made
+//   and asks for the frame at the thread's place, which the settled wait's animation frames draw), for a suite's own
+//   wait on a parked thread;
 // - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still);
 //   true when they did;
 // - compare(a, b): two kept frames' difference, each pixel's largest channel difference (RGB, 0..255): the share of the
@@ -96,8 +102,10 @@
 };`;
   const HOLD_EPS = 0.003;   // (a rail pixel is about 0.005 of a plane at 1200 px wide)
   const DIFF_TOL = 32;      // (steps_sm_standin_cmd.js: a frame is the rest frame with at most 0.5 % of pixels > 32/255 apart)
-  // (links: wait for every program to have linked too; false while links are held, GLR.holdLinks)
-  const hold = async (x, links = true) => {
+  const UNHELD = '!__cmwSteps().hold';
+  // (links: wait for every program to have linked too; false while links are held, GLR.holdLinks. tracks: wait out the
+  // frame held on the glide's first plane while its pole tracks are made; false to read that frame)
+  const hold = async (x, links = true, tracks = true) => {
     await ev(`(() => {
       const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
       const i = Math.min(ns.length - 2, Math.floor(${x})), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
@@ -106,7 +114,7 @@
       window.__svScrubUp = () => ev('pointerup', cx);
       return 1;
     })()`);
-    return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving` });
+    return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving${tracks ? ' && ' + UNHELD : ''}` });
   };
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
@@ -270,5 +278,5 @@ ${REF}`;
     const q = r.ref;
     return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, pass: q.n >= minN && q.over <= maxOver };
   };
-  return { hold, grab, compare, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, UNHELD, grab, compare, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
