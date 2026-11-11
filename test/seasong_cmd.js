@@ -285,6 +285,8 @@ await open('ru', false, false, 'sea_ru');
 await openExample('ru');
 ok('ru: the Examples button names it', (await ev(`document.querySelector('#examplesBtn .exlabel').textContent`)) === NAME.ru);
 await shot('desk_ru_light');
+// (throttled like the English preparation check: at full speed a fast runner finishes the preparation before the chip is read)
+await slow(true);
 items = await listenMenu(false);
 R.menuRu = items && items.map((x) => x.text);
 const circRu = ru('Circle');
@@ -296,6 +298,7 @@ const prepRe = new RegExp('^' + ru('Preparing to listen along: {p} %').replace(/
 ok('ru: the preparation chip in Russian', !s0.play && prepRe.test(s0.chip), { chip: s0.chip, want: ru('Preparing to listen along: {p} %') });
 await shot('desk_ru_preparing');
 wp = await waitPlay(40);
+await slow(false);
 ok('ru: it plays the function', playsFn(wp.s), wp.s);
 await key('Escape'); await settle(200);
 await ev(`Sound.set({ on: false }); 1`); await settle(200);
