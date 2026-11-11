@@ -898,9 +898,10 @@
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane and of the chain's other glides (svRingAhead, svRingNext), SV_POLE_BUDGET ms an idle moment at most, so a
-  // glide finds them made. One job at a time (svPoleJob, its token: a new one ends the one before); it reads its inputs
-  // (the chain, clipWin, the camera) afresh each slice, and svPolesWatch starts it again once they change after it ended
+  // the plane and, while svRingSizes is under half its limit, of the chain's other glides (svRingAhead, svRingNext),
+  // SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time (svPoleJob, its token: a
+  // new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh each slice, and
+  // svPolesWatch starts it again once they change after it ended
   let svPoleJob = 0, svPoleBusy = false;
   function svPolesAhead() {
     const tok = ++svPoleJob;
@@ -1400,8 +1401,8 @@
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
   // first glide finds them made). Those two glides first, then every other glide of the chain (a scrub crosses them
-  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room, so that no mesh
-  // made for a far glide drops one of the glides next to the thread
+  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room and svRingSizes is
+  // under half its limit, so that no mesh made for a far glide drops one of the glides next to the thread
   function svRingNext() {
     if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
