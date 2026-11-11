@@ -45,6 +45,11 @@ const loadWait = [];
 // machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
 const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
 function vendorAnswer(p, sid) {
+  // (H.holdSheet: the Google Fonts stylesheet request, vendored or not, goes on after HOLD.ms)
+  if (HOLD.ms && /^https:\/\/fonts\.googleapis\.com\//.test(p.request.url)) { setTimeout(() => answerNow(p, sid), HOLD.ms); return; }
+  answerNow(p, sid);
+}
+function answerNow(p, sid) {
   let a;
   // (a vendored file that is not LOCK.json's: the request fails and the suite's log says why, never a silent stand-in)
   try { a = VENDOR && VENDOR.answer(p.request.url); } catch (e) { LOG.push({ t: 'EXC', m: `CMW_VENDOR: ${e.message}` }); console.error(e.message); send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }, sid).catch(() => {}); return; }
@@ -52,8 +57,18 @@ function vendorAnswer(p, sid) {
   send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, body: a.body.toString('base64'),
     responseHeaders: [{ name: 'content-type', value: a.type }, { name: 'access-control-allow-origin', value: '*' }, { name: 'cache-control', value: 'no-store' }] }, sid).catch(() => {});
 }
+// H.holdSheet(ms): the Google Fonts stylesheet request waits ms before it goes on (0 stops holding), for a page whose
+// faces arrive after first paint
+const HOLD = { ms: 0 };
 let S = null;
 const H = {};
+H.holdSheet = async (ms) => {
+  HOLD.ms = ms;
+  const patterns = (VENDOR ? VENDOR.PATTERNS : []).concat(['https://fonts.googleapis.com/*']);
+  await send('Fetch.enable', { patterns: patterns.map((urlPattern) => ({ urlPattern })) }, S);
+  // (a sheet from the browser's cache never reaches the hold)
+  await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
+};
 H.send = (m, p) => send(m, p, S);
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
@@ -159,16 +174,33 @@ H.click = async (x, y, opts = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, modifiers: opts.mods || 0 }, S);
 };
 H.move = async (x, y) => send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, S);
-H.drag = async (x0, y0, x1, y1, n = 12, dt = 16) => {
+// drag(x0, y0, x1, y1, n, dt, rel): press at (x0, y0), n moves along the line to (x1, y1) dt ms apart, release. rel = { x, y, moves }
+// changes the end: the release is at (rel.x, rel.y) (default (x1, y1)), and only the first rel.moves of the n moves are sent
+// (default all), as when a busy frame drops the last moves of a gesture.
+H.drag = async (x0, y0, x1, y1, n = 12, dt = 16, rel = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }, S);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }, S);
-  for (let i = 1; i <= n; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }, S);
+  const moves = rel.moves === undefined ? n : rel.moves;
+  for (let i = 1; i <= moves; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rel.x === undefined ? x1 : rel.x, y: rel.y === undefined ? y1 : rel.y, button: 'left', clickCount: 1 }, S);
 };
 H.clickSel = async (sel) => {
   const r = await H.ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return null; e.scrollIntoView({block:'nearest'}); const b=e.getBoundingClientRect(); return [b.left+b.width/2,b.top+b.height/2];})()`);
   if (!r || r.__exc) return 'nosel ' + sel;
   await H.click(r[0], r[1]); return r;
+};
+// choose(css, value): the steps view's choice button (Speed, Order) set the way a user sets it: its menu opened, the item for
+// value picked (a menu a touch raised is deaf to a click for a moment, so the pick is tried again until the button holds value).
+// Returns whether it does.
+H.choose = async (sel, value) => {
+  const q = `document.querySelector(${JSON.stringify(sel)})`, want = `${q} && ${q}.value === ${JSON.stringify(value)}`;
+  for (let i = 0; i < 20 && !(await H.ev(want)); i++) {
+    await H.ev(`(() => { const b = ${q}; if (!b) return 0; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return 1; })()`);
+    await H.settled({ until: `!!document.querySelector('#popHost .menu .mi')`, only: true, max: 400 });
+    await H.ev(`(() => { const b = ${q}, c = b && b.choices.find((p) => p[0] === ${JSON.stringify(value)}), m = c && [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === c[1]); if (!m) return 0; m.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); m.click(); return 1; })()`);
+    await H.settled({ until: want, only: true, max: 400 });
+  }
+  return !!(await H.ev(want));
 };
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
 // seed(ns, state): the saved state the app reads under ns on its first load, written from the helper page (a page of the same
@@ -187,17 +219,18 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-H.load = async (ns, st, extra) => {
+H.load = async (ns, st, extra, viewName) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns }, S); await sleep(2200);
+  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
+  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
   H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
   await H.reseed();
-  return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+  return H.ev(`({lamps: __qa.lamps()})`);
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
@@ -211,9 +244,9 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js); with CMW_VIEW=steps, the steps
-  // view (#620: a ported suite, ci/suite_views.js steps({ pin: true }))
-  const pin = (process.env.CMW_VIEW === 'steps' ? "window.__cmwPinView = 'steps';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
+  // (#443) the steps view pinned unless a page's URL asks for ?view=classic (pin_view.js); with CMW_VIEW=classic, the
+  // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
+  const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
   const done = new Set();

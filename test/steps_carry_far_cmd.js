@@ -1,3 +1,4 @@
+// (Set to 100 % opacity: the front point's colour alone is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's carried colour mid-glide, Everywhere, where the glide pulls points from past the camera's window into
 // the view, and the sheet key at t (the glide map's poles at t beside plane b's points, __cmwSvKey(b, t)), against the
 // exact colour pulled back pixel by pixel as steps_carry_inregion_cmd.js reads it, the reference zoomed out for points
@@ -25,33 +26,11 @@ const goOk = async (url) => { if (!(await go(url))) throw new Error('no load eve
 const need = (r, what) => { if (r && r.__exc !== undefined) throw new Error(what + ' failed: ' + r.__exc); return r; };
 const setup = async (expr) => need(await ev(expr), expr.slice(0, 60));
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-// the left pane's pixels (lpx), its camera and size (paneOf), and the pixel compare (nearest, bare): test/lib/carry_kit.js
-const { lpx, paneOf, nearest, bare, exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
-// whether z is where plane z's picture shows it
-const shown = (P, z) => Math.abs(z[0] - P.v.cx) <= 0.45 * P.w / P.v.s && Math.abs(z[1] - P.v.cy) <= 0.45 * P.h / P.v.s;
-// for each list of points z, the index of the front one under the key of plane b (Inverse.sheetKey and Inverse.front in
-// the page; sing: the key's points in place of plane b's), -1 for none
-const fronts = async (lists, b, sing) => need(await ev(`(() => {
-  const k = Object.assign(__cmwSvKey(${b}), ${sing ? `{ sing: ${JSON.stringify(sing)} }` : '{}'}), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])) };
-  return ${JSON.stringify(lists)}.map((L) => {
-    let bi = -1, bc = null;
-    L.forEach((p, i) => { const z = CX.C(p[0], p[1]), c = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!bc || Inverse.front(c, bc)) { bc = c; bi = i; } });
-    return bi;
-  });
-})()`), 'fronts');
-// a thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user holding it; the
-// frame is read once its programs are linked and the thread is there
-async function hold(x) {
-  await ev(`(() => {
-    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 71, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-    window.__svScrubUp = () => ev('pointerup', cx);
-    return 1;
-  })()`);
-  await settled({ max: 30000, until: `GLR.pendingLinks === 0 && Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
-}
+// the left pane's pixels (lpx), its camera and size (paneOf), the pixel compare (tally), the front point (fronts) and the Joukowski
+// path (joukPath): test/lib/carry_kit.js
+const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // plane z's camera zoomed by f about the pane's centre (a wheel turn there, whose deltaY zooms by exp(-0.0016 deltaY),
 // as 14-interaction.js's wheel handler scales a pixel-mode wheel), once the camera has settled
 async function zoom(f) {
@@ -62,47 +41,9 @@ async function zoom(f) {
   await settled({ max: 20000, until: `Math.abs(__cmwCards().main.view.s / ${s0} - ${f}) < 0.02` });
   await wait();
 }
-// The Joukowski path H_t (tanh((1 + t) artanh z - i pi t / 2) on the disc, coth((1 + t) arcoth z) outside it), for the
-// region outside the circle `outside` measures: candAt(t)(w), the points at w along H_t, each branch's inverse over k,
-// kept where H_t gives w back (within 1e-7), each with its branch and k as its name; left out: near the circle's outline
-// (0.12), the unit circle (H_t's seam, 0.08) and the label. poleAt(t): the key's points at t, plane w1's (J's pole z = 0)
-// and the path's pole on the disc, -i tan(pi (1 - t) / (2 (1 + t))), there from t = 1/3 on, where it leaves the unit
-// circle (H_t has no other pole)
-function joukPath(outside) {
-  const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
-  const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
-  const lg = (a) => [Math.log(Math.hypot(a[0], a[1])), Math.atan2(a[1], a[0])];
-  const ex = (a) => [Math.exp(a[0]) * Math.cos(a[1]), Math.exp(a[0]) * Math.sin(a[1])];
-  const atanh = (z) => { const l = lg(div([1 + z[0], z[1]], [1 - z[0], -z[1]])); return [l[0] / 2, l[1] / 2]; };
-  const tanh = (y) => { const e = ex([2 * y[0], 2 * y[1]]); return div([e[0] - 1, e[1]], [e[0] + 1, e[1]]); };
-  const inv = (z) => div([1, 0], z);
-  const Ht = (t) => (z) => (z[0] * z[0] + z[1] * z[1] < 1
-    ? tanh([(1 + t) * atanh(z)[0], (1 + t) * atanh(z)[1] - Math.PI / 2 * t])
-    : inv(tanh(mul([1 + t, 0], atanh(inv(z))))));
-  const candAt = (t) => (w) => {
-    const out = [], aw = atanh(w), ac = atanh(inv(w)), H = Ht(t);
-    for (let k = -3; k <= 3; k++) {
-      const disc = tanh([aw[0] / (1 + t), (aw[1] + Math.PI / 2 * t + Math.PI * k) / (1 + t)]);
-      const ext = inv(tanh([ac[0] / (1 + t), (ac[1] + Math.PI * k) / (1 + t)]));
-      for (const [name, z] of [['d' + k, disc], ['e' + k, ext]]) {
-        if (!z.every(Number.isFinite)) continue;
-        const h = H(z);
-        if (Math.hypot(h[0] - w[0], h[1] - w[1]) > 1e-7 || out.some((e) => Math.hypot(e.z[0] - z[0], e.z[1] - z[1]) < 1e-9)) continue;
-        const near = Math.abs(outside(z)) < 0.12 || Math.abs(Math.hypot(z[0], z[1]) - 1) < 0.08 || Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1;
-        out.push({ z, name, out: near });
-      }
-    }
-    return out;
-  };
-  const poleAt = (t) => (t > 1 / 3 ? [[0, 0], [0, -Math.tan(Math.PI * (1 - t) / (2 * (1 + t)))]] : [[0, 0]]);
-  return { candAt, poleAt };
-}
-// an nx x ny grid of points over the inner 90 % of the pane P
-const grid90 = (P, nx, ny) => {
-  const out = [];
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) out.push([P.v.cx + (i / (nx - 1) - 0.5) * 0.9 * P.w / P.v.s, P.v.cy + (j / (ny - 1) - 0.5) * 0.9 * P.h / P.v.s]);
-  return out;
-};
+// The Joukowski path's candidates at t and its key's points: joukPath of the kit; left out besides the circle's outline: the
+// unit circle (H_t's seam, 0.08) and the label (1.1 around the trailing edge's mark, 77 px at this view's 70 px per unit)
+const joukFar = (outside) => joukPath(outside, (z, w) => Math.abs(Math.hypot(z[0], z[1]) - 1) < 0.08 || Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1);
 // The Joukowski path at x = 1/2, Everywhere, pulls points from twice the camera's window into the view (the far preimage
 // of w is about 1.5 w), and its pole on the disc, z = -i tan(pi / 6), sends the disc's points beside it far out. The
 // key at t counts that pole, so the front point at w is the far one wherever it is not near the centre, and the frame
@@ -111,7 +52,7 @@ const grid90 = (P, nx, ny) => {
 // z, coloured from z) read after zooming plane z out by 0.4, where they are shown. Last on its page: plane z is left
 // zoomed out, and the zoom leaves clipWin wider
 async function farFrames(P0, J) {
-  const cand = J.candAt(0.5), pts = grid90(P0, 48, 32);
+  const cand = J.candAt(0.5), pts = grid(P0, 48, 32, 0.9);
   // (the front point at each w and 1.5 px away: a point whose front moves more than 0.06 there, 4 px at this view's
   // 70 px per unit, is on a seam of the key's choice, left out)
   const d = 1.5 / P0.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
@@ -138,17 +79,8 @@ async function farFrames(P0, J) {
   const P1 = await paneOf(), ref = (await lpx(Z)).px;
   for (const { at, state, got, ring } of frames) {
     const tag = `Joukowski all ${at.hold != null ? 'held' : 'parked'} 0.5, the points from past the camera`;
-    let n = 0, wrong = 0, paper = 0, worst = 0, hidden = 0;
-    for (let k = 0; k < W.length; k++) {
-      if (!shown(P1, Z[k])) { hidden++; continue; }
-      if (!got[k] || !ref[k]) continue;
-      n++;
-      const p = got[k][4];
-      if (bare(p)) paper++;
-      const best = nearest(p, ref[k]);
-      worst = Math.max(worst, best);
-      if (best > 14) wrong++;
-    }
+    let hidden = 0;
+    const { n, wrong, paper, worst } = tally(got, ref, { skip: (k) => { const h = !shown(P1, Z[k]); if (h) hidden++; return h; } });
     info[tag] = { n, wrong, paper, worst, hidden, far: farN, ring, x: state.x, moving: state.moving };
     ok(`${tag}: at x = 0.5, coloured from z`, Math.abs(state.x - 0.5) < 0.01 && state.T === 0, state);
     // (of the 1536 points, about 1450 are kept and about 900 of them have their front point past the camera's window:
@@ -176,7 +108,7 @@ async function keyAlongT(P0, J) {
     if (got.length !== want.length || got.some((p, i) => Math.hypot(p[0] - want[i][0], p[1] - want[i][1]) > 2e-3)) keyOff.push({ t: s / 100, got, want });
   }
   ok("Joukowski key along t: its points are J's pole and the path's pole at t", keyOff.length === 0, keyOff);
-  const ws = grid90(P0, 8, 5), seq = ws.map(() => []);
+  const ws = grid(P0, 8, 5, 0.9), seq = ws.map(() => []);
   for (let s = 30; s <= 70; s++) {
     const cs = ws.map(J.candAt(s / 100)), F = await fronts(cs.map((L) => L.map((e) => e.z)), 1, (await ev(`__cmwSvKey(1, ${s / 100})`)).sing);
     cs.forEach((L, k) => seq[k].push(F[k] < 0 ? null : L[F[k]].z));
@@ -200,7 +132,7 @@ const EX = names.indexOf('Joukowski airfoil');
 ok('the Joukowski example is found', EX >= 0, names.length);
 await goOk(`http://localhost:${PORT}/test.html?view=steps&ns=cfar${Date.now()}`);
 await ready();
-await setup("__cmwSet('morphPaths', false), 1");
+await setup("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
 await setup(`__cmwExample(${EX}); 1`);
 await wait();
 {
@@ -208,7 +140,7 @@ await wait();
   // the region: outside the circle |z - c| = r (the example's disc, its centre and radius as 15-examples-guide.js gives
   // them)
   const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
-  const P0 = await paneOf(), J = joukPath(outside);
+  const P0 = await paneOf(), J = joukFar(outside);
   await keyAlongT(P0, J);
   await farFrames(P0, J);
 }
@@ -224,15 +156,14 @@ await wait();
   await setup(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await goOk(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await ready();
-  await setup("__cmwSet('morphPaths', false), 1");
+  await setup("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
-  const P = await paneOf(), pts = [];
-  for (let j = 0; j < 30; j++) for (let i = 0; i < 44; i++) pts.push([P.v.cx + (i / 43 - 0.5) * 0.9 * P.w / P.v.s, P.v.cy + (j / 29 - 0.5) * 0.9 * P.h / P.v.s]);
+  const P = await paneOf(), pts = grid(P, 44, 30, 0.9);
   await steps({ scope: 'all', surf: 'plane', park: 0.5 });
   const k = await ev('(() => { const t0 = performance.now(); const a = __cmwSvKey(1, 0.5); const t1 = performance.now(); __cmwSvKey(1, 0.5); return { sing: a.sing, again: performance.now() - t1, ring: __cmwSvRing() }; })()');
   const px = (await lpx(pts)).px;
-  const paper = px.filter((q) => q && bare(q[4])).length;
-  info['tan all parked 0.5'] = Object.assign(k, { paper, n: px.filter(Boolean).length });
+  const paper = bareCount(px).paper;
+  info['tan all parked 0.5'] = Object.assign(k, { paper, n: bareCount(px).n });
   ok('tan all parked 0.5: the key has at most 4 points, all finite', Array.isArray(k.sing) && k.sing.length <= 4 && k.sing.every((p) => p.every(Number.isFinite)), k);
   ok('tan all parked 0.5: the ring, if any, reaches at most 4 times the window', !k.ring || (k.ring.m >= 1.5 && k.ring.m <= 4), k.ring);
   // (at once: under 5 ms, where making the tracks again is a whole grid search per seed step, tens of ms or more)

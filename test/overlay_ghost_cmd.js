@@ -13,7 +13,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1280, 800, false);
 await load('ovg' + Date.now(), {});
-for (let k = 0; k < 120 && !(await ev(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`)); k++) await sleep(250);
+await settled({ only: true, max: 30000, until: `document.readyState === 'complete' && !!document.querySelector('#svStrip .sv-add')` });
 
 // A
 info.attrs = await ev(`['overlayL', 'overlayR'].map((id) => { const c = document.getElementById(id), a = c && c.getContext('2d').getContextAttributes(); return a ? !!a.willReadFrequently : null; })`);
@@ -22,11 +22,10 @@ ok('A: both overlay contexts are CPU-backed (willReadFrequently)', info.attrs[0]
 // B
 // the pixels near the cut ink (TH.cut, #CC3311 in the light theme) in a box of the screen
 const ink = async (clip) => { const p = await img(clip); let n = 0; for (let i = 0; i < p.w * p.h; i++) { const r = p.data[i * p.ch], g = p.data[i * p.ch + 1], b = p.data[i * p.ch + 2]; if (Math.abs(r - 0xCC) < 40 && Math.abs(g - 0x33) < 40 && Math.abs(b - 0x11) < 40) n++; } return n; };
-// ci/equiv.js's waits between scenes: a moment, the programs linked, the cards drawn, a moment
+// ci/equiv.js's waits between scenes: a moment, the programs linked, a moment
 const settle = async () => {
   await sleep(1500);
   for (let k = 0; k < 40 && await ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
-  for (let k = 0; k < 40 && await ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
   await sleep(1500);
 };
 await ev('(__cmwExample(7), 1)');

@@ -218,16 +218,14 @@
     const want = key + '\n' + vkey;
     if (!(mfCache.job && mfCache.job.want === want)) {
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
-      // (review v16 regress-5: a bracket drag's snaps never start a selection; the release does, setHomRange's force)
-      if (brDragging()) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
-      else if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, src); }
+      if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, src); }
       // the 150 ms of stillness count from the last change of what is wanted, not from the last frame: a frame that
       // wants the same (a settle redraw after a scrub or a pan) must not restart the wait (it did: a scrub's settle
       // frames at +90 / +145 ms pushed the paths job, and the scene's settle, from ~150 to ~300 ms)
       else if (!(mfCache.timer && mfCache.want === want)) {
         clearTimeout(mfCache.timer);
         mfCache.want = want;
-        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (!brDragging() && k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
+        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
       }
     }
     if (!mfCache.sel) return null;
@@ -359,7 +357,7 @@
       morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
       patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
       resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-      sub, syncPlaying, trans, transState, tweens, updateCalcChip,
+      sub, trans, transState, tweens, updateCalcChip,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -394,21 +392,8 @@
   function morphCaption(...args) { return MP.morphCaption(...args); }
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  function syncTransport(...args) { const r = MP.syncTransport(...args); phoneChain(); return r; }
-  function morphReadout(...args) { return MP.morphReadout(...args); }
-  function setText(...args) { return MP.setText(...args); }
-  function watchFader(...args) { return MP.watchFader(...args); }
+  const syncTransport = () => phoneChain();
   function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
   function wKeyOn(...args) { return MP.wKeyOn(...args); }
   function renderRight(...args) { return MP.renderRight(...args); }
 
-  // (#385) the Deformation toggle in the top bar
-  function setupMorphButton() {
-    // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
-    const mb = $('morphBtn');
-    if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
-    // a deformation is coming: the homotopy programs (one per map mode, gl.js MAP) start compiling in the background,
-    // so its first frames do not wait for them (the pointer or focus on the toggle, as prestartGlobe)
-    const prestartMorph = () => { try { if (!morph.open && GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } };
-    if (mb) { mb.addEventListener('pointerenter', prestartMorph); mb.addEventListener('focus', prestartMorph); }
-  }

@@ -4,7 +4,7 @@
   // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
   // traces them in idle slices and asks for the redraw when one lands)
   const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
-  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
+  Region.dhAsync = { ready: () => requestRender('L', 'R') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -330,6 +330,8 @@
   // the deformation transport is open, its homotopy at t
   // ((#366 prototype) the steps view colours the shown plane from the colour plane: the map into it, 19)
   const focusMap = () => (SV.on ? svMap() : endMap());
+  // the map the Cauchy style is drawn of: the whole chain, whichever plane the steps view's thread is parked at (cauchyF is the same map as a function)
+  const cauchyMap = () => (SV.on ? endMap() : focusMap());
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
@@ -403,20 +405,17 @@
       if (!opt.preview) scheduleFix();   // (a drag's fix-ups wait for the release)
       soundFunctionChanged();
       if (opt.preview) {
-        // (a drag's snap: the planes and the title only, a uniform change; the cards, the transport and the fit follow
+        // (a drag's snap: the planes and the title only, a uniform change; the Inspector, the transport and the fit follow
         // at the release, setHomRange(…, {force}))
         requestRender('L', 'R');
         const t = paneTitles();
         if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
       } else {
         if (rightAuto && morphOn() && rImage()) fitRight();
-        buildDock();
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R', 'P');
         updateFocusUI();
-        updateCards();
       }
     }
-    updateBracket();
     if (!opt.preview) save();
     const g = homRangeOk();
     tourEmit('deformation-range', g ? { a: g.a, b: g.b } : { a: 1, b: nSteps() });
@@ -1060,7 +1059,7 @@
     const res = polys.length ? GLR.createLines(polys, origin) : null;
     GLR.destroy(r.lineRes);
     r.lineRes = res; r.lpolys = polys; r.lorigin = origin; r.arcs = null;
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   async function runLines() {
     lineJob.timer = 0;

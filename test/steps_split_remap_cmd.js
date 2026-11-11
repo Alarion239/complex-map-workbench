@@ -62,10 +62,70 @@ if (hasOffer) {
   await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 2'); await quiet();
   const s4 = await sv();
   ok('f2 alone: its first new step stays shown alone', await ev(`!!document.querySelector('#svStrip .sv-whole')`) && s4.planes.length === 2, s4);
-  await clickSel('#svStrip .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
+  await clickSel('#svStrip .sv-alone .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
   const s5 = await sv();
   ok('Whole chain after it: the place is the remapped one (the page opens on the plane 2, which becomes 4)', s5.planes.length === 6 && Math.abs(s5.x - 4) < 1e-9, s5);
 } else ok('f2 alone: the Split offer is there', false, 'no offer');
+
+// ---- a glide in flight: the Split remaps it (the same picture, the same destination, no stop)
+// (SV.clock freezes the glide's time between the two pictures: it advances a thousandth of a millisecond a frame)
+const freezeAt = (x0) => ev(`new Promise((r) => { const f = () => { const x = __cmwSteps().x; if (x > ${x0}) { __cmwSteps({ clock: 0.0001 }); r(x); } else requestAnimationFrame(f); }; f(); })`);
+const splitNow = async () => { await clickSel('#svStrip .sv-step[data-k="2"] .sv-fchip'); await until("!!document.querySelector('#propsPanel .split-offer .so-btn')"); await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 6'); };
+{
+  await open();
+  await ev('__cmwSteps({ clock: 40 })'); await ev('__cmwSteps({ go: 3 })');
+  const x0 = await freezeAt(1.2);
+  const g0 = await pane(), p0 = await sv();
+  await splitNow();
+  const g1 = await pane(), p1 = await sv();
+  const want = (x0 < 1 ? x0 : x0 < 2 ? 1 + (x0 - 1) * 3 : x0 + 2);
+  info.glideX = [x0, p0.x, p1.x, want];
+  ok('glide in flight: the place is remapped (x 1.2+ → splitMorphT)', Math.abs(p1.x - want) < 0.02, info.glideX);
+  info.glidePx = diff(g0, g1);
+  ok('glide in flight: the frame after the Split equals the frame before (within the glide tolerance)', info.glidePx >= 0 && info.glidePx < 0.005 * g0.w * g0.h, [info.glidePx, where(g0, g1)]);
+  // the glide goes on and parks on the plane it was heading for: f3's plane, which is index 5 after the Split
+  await ev('__cmwSteps({ clock: 40 })');
+  await until('Math.abs(__cmwSteps().x - 5) < 1e-6', 60000); await quiet();
+  const p2 = await sv();
+  ok('glide in flight: it ends on the plane it was heading for (3 → 5)', Math.abs(p2.x - 5) < 1e-9, p2);
+}
+// ---- the same, with Play (its range kept, the loop kept) and Undo of the Split in flight
+{
+  await open();
+  await ev('__cmwSteps({ clock: 40 })'); await ev('__cmwSteps({ play: true })');
+  const x0 = await freezeAt(1.2);
+  await splitNow();
+  const p1 = await sv();
+  ok('play in flight: the place is remapped', Math.abs(p1.x - (x0 < 1 ? x0 : x0 < 2 ? 1 + (x0 - 1) * 3 : x0 + 2)) < 0.02, [x0, p1.x]);
+  ok('play in flight: it still plays', (await ev('__cmwSteps().play')) === 'glide', await ev('__cmwSteps().play'));
+  await ev('__cmwSteps({ clock: 40 })');
+  await until('Math.abs(__cmwSteps().x - 5) < 1e-6 && __cmwSteps().play === null', 60000); await quiet();
+  ok('play in flight: it stops at the last plane (5)', Math.abs((await sv()).x - 5) < 1e-9, await sv());
+}
+{
+  await open();
+  await ev('__cmwSteps({ clock: 40 })'); await ev('__cmwSteps({ go: 3 })');
+  await freezeAt(1.2);
+  await splitNow();
+  await ev('__cmwSteps({ clock: 0.0001 })');
+  const xa = (await sv()).x, ga = await pane();
+  await ev("document.getElementById('undoBtn').click()"); await until('__cmwSteps().planes.length === 4');
+  const xb = (await sv()).x; info.undoX = [xa, xb, await sv()];
+  ok('Undo in flight: the place goes back (x remapped by the inverse)', Math.abs(xb - (1 + (xa - 1) / 3)) < 0.05, [xa, xb]);
+  await ev('__cmwSteps({ clock: 40 })');
+  await until('Math.abs(__cmwSteps().x - 3) < 1e-6', 60000);
+  ok('Undo in flight: the glide ends on its plane (3)', Math.abs((await sv()).x - 3) < 1e-9, [await sv(), info.undoX]);
+}
+{
+  // reduced motion: a Play ticks a plane at a time; the Split during it remaps its end
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await open();
+  await ev('__cmwSteps({ go: 1, now: true })'); await ev('__cmwSteps({ play: true })');
+  await splitNow();
+  await until('Math.abs(__cmwSteps().x - 5) < 1e-6', 30000);
+  ok('reduced motion: the Play\'s ticks end on the remapped last plane (5)', Math.abs((await sv()).x - 5) < 1e-9, await sv());
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+}
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
 return { pass, fails, info };

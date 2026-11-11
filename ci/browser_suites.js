@@ -38,8 +38,8 @@ const EXCLUDED = {
   'sound_deform_cmd.js': 'runs inside sound_cmd.js (its failures prefixed "deformation: ")',
   'glsl_inverse_cmd.js': 'the GLSL jobs run this page (ci/glsl.js --only inverse), paired against the reference on each platform',
   // superseded
-  'ub_views_cmd.js': 'superseded by mv_views_cmd.js; it says it fails on the current app by design (#phaseBtn is gone)',
-  'ubfix_cmd.js': 'superseded in part by mv_views_cmd.js; it presses the old Phase key 4 and #phaseBtn, which are gone',
+  'ub_views_cmd.js': 'superseded by the merged-views suite; it says it fails on the current app by design (#phaseBtn is gone)',
+  'ubfix_cmd.js': 'superseded in part by the merged-views suite; it presses the old Phase key 4 and #phaseBtn, which are gone',
   'rel16_smoke_cmd.js': 'the release smoke of v16; rel1641_smoke_cmd.js carries its sections forward on the current page',
   'rel161_smoke_cmd.js': 'the release smoke of v16.1; rel1641_smoke_cmd.js carries its sections forward on the current page',
   'rel162_smoke_cmd.js': 'the release smoke of v16.2; rel1641_smoke_cmd.js carries its sections forward on the current page',
@@ -58,14 +58,18 @@ const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 
 const SUITES = {
   // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
   // suite run too)
-  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'deform_dirichlet_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'steps_seams_cmd.js': { keepShots: true },   // (keepShots: the settled seam frame and the worst frame of the 2 s window)
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  // (keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
+  // job log shows where along the seam the jumps stand)
+  'steps_seams_cmd.js': {
+    keepShots: true,
+    logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
+  },
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
   // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
   'steps_glide_look_cmd.js': { runs: [
@@ -73,7 +77,7 @@ const SUITES = {
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
   ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
-  'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
@@ -82,7 +86,6 @@ const SUITES = {
 
   // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
   // repository: work/xv16-merged-snap; the released build differs from it by design)
-  'deform_range_classic_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
   // (its default is 7 sizes × 2 themes × 2 languages × 2 inputs, about 2 hours on a Mac GPU: here a phone and a desktop,
   // both themes and languages, each with its own input)
   'tour_audit_cmd.js': { runs: [audit('phone', [[390, 844]], ['touch'], [390]), audit('desktop', [[1440, 900]], ['mouse'], [1440])] },
@@ -97,6 +100,8 @@ const SUITES = {
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
+  'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
+  'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
   // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
   'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
@@ -133,7 +138,6 @@ const TIMING = {
     t(/^glide video 1920 x 1080 at 60 fps: no main-thread task of 50 ms or more/, (d) => d && d.frames > 0 && Array.isArray(d.lt)),
     t(/^dark theme: a video and a figure flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^preview: it advances at the video's frame rate/, (d) => d && typeof d.rate === 'number'), t(/^preview: no main-thread task/)],
-  'deform_nat_classic_cmd.js': [t(/: 60 fps while playing \(p95 under 20 ms\)$/)],
   'deform_dirichlet_cmd.js': [t(/^timing: /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
@@ -148,7 +152,6 @@ const TIMING = {
   // (the export completed with both globes inverse; only its long tasks missed)
   'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
     t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
-  'v15_desktop_cmd.js': [t(/^dragging a (zero|shape): p95 frame/, (d) => d && d.n > 20)],
   'zp_cmd.js': [t(/^drag at 60 fps/)],
   'zp_classic_cmd.js': [t(/^deformation plays at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
@@ -179,7 +182,7 @@ const SOFTWARE = {
     // the first frame's step is 0)
     s(/^deformation: E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved$/, 'every frame in which t moved had its hear update (none missed); only the number of frames is short',
       (d) => d && d.harp && d.per && d.per.missed === 0 && (d.per.moved > 0 || (typeof d.nFrames === 'number' && d.nFrames <= 3)))],
-  'sound_v152_cmd.js': [
+  'sound_v152_deform_classic_cmd.js': [
     s(/^deformation: the loop sings while t runs/, 'W is 0 at first and 1 at the end, and the loop sang in every frame; only the frame count is short (27, needs more than 40)',
       (d) => d && Array.isArray(d.first) && d.first[1] === 0 && Array.isArray(d.last) && d.last[1] === 1 && d.singing === d.n),
     s(/^deformation: the note steps 0 → 1 when the zero enters the loop/, 'the note steps in the frame that crosses t = 0.45; only the gap between two frames (0.14) is wider than the check\'s 0.05',

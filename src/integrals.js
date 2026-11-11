@@ -6,7 +6,7 @@
 // and so on. The state the rest of the app reads too (intPop, lastPan, holdMenuT, cauchyCache) stays the app's.
 const Integrals = (() => {
   let A = null;
-  let C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+  let C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
     integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage,
     requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
     sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed;
@@ -238,13 +238,16 @@ const Integrals = (() => {
     }
     return out;
   }
-  // the left plane's sphere view: z lifted to the globe (stereographic) and projected, null on the far side
-  function sphereProj(pane, info) {
+  // the left plane's sphere view: z lifted to the globe (stereographic) and projected, null on the far side; shell: the
+  // radius the point is drawn at, 1 the surface itself (the default, MARK_SHELL, stands a mark clear of it; a curve that is
+  // meant to lie on the surface, as the cut's, passes 1)
+  const MARK_SHELL = 1.01;
+  function sphereProj(pane, info, shell = MARK_SHELL) {
     return (z) => {
       const p = CX.isFin(z) ? liftC(z.re, z.im) : [0, 0, 1];
       const tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]];
       if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1) <= 0) return null;
-      return project(pane, info.MVP, p.map((v) => v * 1.01));
+      return project(pane, info.MVP, p.map((v) => v * shell));
     };
   }
   function strokePath(ctx, xy, close) {
@@ -564,7 +567,7 @@ const Integrals = (() => {
     if (!g || g.bad) return null;
     const key = integ.gkey + '|' + g.s.id + '|' + A.chainSig[nSteps()] + '|' + A.S.focus;
     if (cauchyCache.key === key) return cauchyCache.val;
-    const F = focusF();
+    const F = cauchyF();
     const lens = g.comps.map((c) => { let l = 0; for (let i = 2; i + 1 < c.flat.length; i += 2) l += Math.hypot(c.flat[i] - c.flat[i - 2], c.flat[i + 1] - c.flat[i - 1]); return l; });
     const tot = lens.reduce((a, b) => a + b, 0) || 1, N = 256, parts = [];
     let n = 0;
@@ -633,7 +636,7 @@ const Integrals = (() => {
 
   function init(api) {
     A = api;
-    ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
+    ({ C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
   return { init, curvePieces, shapeGeom, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();

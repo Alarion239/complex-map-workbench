@@ -58,6 +58,17 @@ const Tour = (() => {
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'zp', params: { a: '1', zeros: '', poles: 'i, -i' } }],
     },
+    // the same maps as z² + 1 and then 1/w: the steps view shows no F chip on a one-step chain, so its F tour steps run on two steps
+    residueZp2: {
+      name: 'A residue by integration', needs: 'zp', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
+      shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'zp', params: { a: '1', zeros: '', poles: '0' } }],
+    },
+    residue2: {
+      name: 'A residue by integration', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
+      shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'custom', params: { expr: '\\frac{1}{z}', cut: 180 } }],
+    },
     residue: {
       name: 'A residue by integration', view: { cx: 0, cy: 0.5, s: 80 }, look: look(),
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
@@ -189,10 +200,6 @@ const Tour = (() => {
     {
       id: 'views', title: 'Views', time: '1 min', rev: 2, scene: 'rational',
       steps: [
-        { id: 'switch', anchor: 'viewSwitch', also: ['panes'], title: 'Three views', before: [['deform', false], ['view', 'xy']],
-          body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
-          touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.', deskTouch: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel.', phoneFine: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen. Keys {1} {2} {3}.',
-          try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
           body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.',
@@ -397,10 +404,10 @@ const Tour = (() => {
       ],
     },
   ];
-  // the steps view's chapter, "Planes". Only under ?view=steps (a property of the page, fixed at its load): there
+  // the steps view's chapter, "Planes". Not under ?view=classic (a property of the page, fixed at its load): there
   // it takes the place of Basics' X and Y steps (x, y, preimages, chain) and of the whole Deformation chapter. Each step puts the
   // view where its task needs it (svPlace) and is done by one of the events the steps view sends
-  const SV_ON = (() => { try { return /** @type {any} */ (window).cmwView === 'steps' || new URLSearchParams(location.search).get('view') === 'steps'; } catch (e) { return false; } })();
+  const SV_ON = (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })();
   const PLANES = {
     id: 'planes', title: 'Planes', time: '2 min', rev: 1, scene: 'strip',
     steps: [
@@ -455,7 +462,7 @@ const Tour = (() => {
     Object.assign(svStep('basics', 'add'), { anchor: 'svAdd', also: ['svStrip'],
       body: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Click a chip\'s ⋯ to move it, bypass it or remove it.', deskTouch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Tap a chip\'s ⋯ to move it, bypass it or remove it.',
       touch: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Hold a chip to open its menu, which moves it, bypasses it or removes it.', phoneFine: 'Add function on the thread adds a step: pick one from the catalog or type a formula such as $\\sin(z^2)$.' + ' Right-click a chip to open its menu, which moves it, bypasses it or removes it.',
-      try: { text: 'Click + Add function.', touch: 'Tap + Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
+      try: { text: 'Click Add function.', touch: 'Tap Add function.', on: 'layer-opened', test: (/** @type {any} */ e) => !e || e.kind === 'catalog', ctl: ['svAdd'] } });
     const reorderMenu = 'In the ⋯ menu of $f_2$, choose Move left.';
     const reorderStep = { id: 'reorder', anchor: 'svMenu2', also: ['svStrip'], title: 'Reorder steps', before: [['svPlace', { i: 0, surf: 'plane' }]],
       body: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.', deskTouch: 'A step\'s place in the chain decides what every plane after it shows.' + ' Move one with its ⋯ menu.',
@@ -471,6 +478,11 @@ const Tour = (() => {
       before: [['svPlace', { i: 1, T: -1, scope: 'in', surf: 'plane' }]], lead: undefined,
       body: 'A shape drawn on a later plane belongs to that plane. Under Inside regions every plane is coloured only inside its regions, and a later plane\'s regions are pulled back: on $z$, the colour marks every point the map sends into them, all of their preimages at once.',
       try: { text: 'On $w_1$, draw a disc, then click ‹ (or press ←).', touch: 'On $w_1$, draw a disc, then tap ‹.', on: ['shape-added', 'plane-changed'], test: drawnLater, ctl: ['tool:disc', 'svPrev'], then: 'Plane $z$ shows where the disc comes from.' } });
+    // (F tour steps: the F chip comes with the second step, so these run on a two-step scene)
+    const anaSteps = chs.find((/** @type {any} */ c) => c.id === 'analysis').steps;
+    const domainStep = anaSteps.find((/** @type {any} */ st) => st.id === 'domain');
+    domainStep.before = [['scene', ['residueZp2', 'residue2']], ...domainStep.before];
+    for (const k of ['byScene', 'touchByScene', 'deskTouchByScene']) if (domainStep[k] && domainStep[k].residueZp) domainStep[k] = Object.assign({ residueZp2: domainStep[k].residueZp }, domainStep[k]);
     const edit = chs.find((/** @type {any} */ c) => c.id === 'edit').steps;
     const cardsAt = edit.findIndex((/** @type {any} */ st) => st.id === 'cards');
     if (cardsAt < 0) throw new Error('the tour has no cards step to replace');
@@ -1974,7 +1986,7 @@ const Tour = (() => {
   }
   // Next (r3 review user-7): on a wide screen "Start", "Finish", "Next: <chapter>" or "Next", shortened to "Next →" (the
   // full label its name) when it does not fit or would cut the lead line; on a phone an arrow, its label its name. With
-  // reduced motion during a countdown, the seconds left ("Next · 3"; on a phone "3")
+  // reduced motion during a countdown, the seconds left ("Next in 3 s"; on a phone "3")
   function paintNext(ui) {
     const n = ui.next, cnt = n.dataset.count || '';
     const ph = !!ui.mode && ui.mode !== 'desk';
@@ -1985,7 +1997,7 @@ const Tour = (() => {
     const base = open ? $t('Skip') : n.dataset.base || $t('Next');
     const cap = !ph && keyHints();
     const html = ph ? (cnt ? `<span class="ts-ncount">${esc(cnt)}</span>` : ICON_RIGHT) : null;
-    const text = ph ? null : cnt ? $t('Next · {n}', { n: cnt }) : base;
+    const text = ph ? null : cnt ? $t('Next in {n} s', { n: cnt }) : base;
     const aria = ph || cnt ? base : null;
     const sig = [html, text, aria, cap, open].join('|');
     // (a laptop's Next names the key that steps forward in its tooltip)

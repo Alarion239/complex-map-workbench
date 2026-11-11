@@ -18,6 +18,8 @@
     return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 };
   };
   const stepFor = (box, wpt) => niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), Math.max(2, Math.min(5, Math.round(wpt / 42))));
+  // X's outline in the deformation figures, and the floor footprint of an Inside region: a thin gray line (pt, colour)
+  const OUTLINE_W = 0.4, OUTLINE_GRAY = '#999999';
   // a polyline set [[x, y], ...] from Region.mapCurve's flat arrays
   const unflat = (fl) => { const o = []; for (let i = 0; i + 1 < fl.length; i += 2) o.push([fl[i], fl[i + 1]]); return o; };
   // the curves of a shape mapped by F, sampled for a panel box at wpt (0.1 pt deviation)
@@ -733,14 +735,15 @@
       for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) { const q = 3 * (j * r.w + i); if (r.rgb[q] < 232 || r.rgb[q + 1] < 232 || r.rgb[q + 2] < 232) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; } }
       return [i0, i1, j0, j1];
     };
-    let r = await A.art('L', { wpt, hpt, dpi: 300, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox });
+    let dpi = 300;
+    let r = await A.art('L', { wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox });
     if (!r) return null;
     {
       // the crop is enlarged to the panel (up to 1.6 x): rendered again at 300 dpi times that, so the printed image
       // stays at 300 ppi or more
       const [a0, a1] = look(r), kk = wpt / r.w, cwpt = a1 >= a0 ? (a1 - a0 + 36 / kk) * kk : wpt;
       const up = Math.min((W - 8) / cwpt, 1.6);
-      if (up > 1.02) { const r2 = await A.art('L', { wpt, hpt, dpi: Math.ceil(300 * up), ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox }); if (!r2) return null; r = r2; }
+      if (up > 1.02) { dpi = Math.ceil(300 * up); const r2 = await A.art('L', { wpt, hpt, dpi, ink: printInkFor(o, A.state().alpha), alive: o.alive, landBox }); if (!r2) return null; r = r2; }
     }
     // crop to what is drawn, with a margin for the floor labels
     const unit = { x0: 0, x1: r.w, y0: 0, y1: r.h };
@@ -771,6 +774,8 @@
     const items = [`<image x="${f2(x)}" y="${f2(top)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${art.url}"/>`];
     items.push(`<rect x="${f2(x)}" y="${f2(top)}" width="${f2(iw)}" height="${f2(ih)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
     const lines = [{ x0: x, y0: top, x1: x + iw, y1: top + ih, kind: 'frame' }];
+    // the relief's coverage, at the art layer's pixels, for the Inside regions' footprint (rendered only when it is drawn)
+    const cov = A.svOn() && A.svMaskOn() ? await A.art('L', { wpt, hpt, dpi, alive: o.alive, landBox, reliefOnly: true }) : null;
     // floor labels: Re along the front edge, Im along the side edge, projected from the camera of the render
     const L = r.land;
     if (L && L.MVP && GLR.M4) {
@@ -809,6 +814,33 @@
       edge(tks(bx.x0, bx.x1), (t) => [Xw(t), sy * ay, z0], [0, sy], `\\operatorname{Re} ${v}`);
       edge(tks(bx.y0, bx.y1), (t) => [sx * ax, Yw(t), z0], [sx, 0], `\\operatorname{Im} ${v}`);
       if (tk) items.push(`<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>`);
+      // the steps view's Inside regions: the outline of each region on the floor, thin and grey, where the surface is cut
+      if (A.svOn() && A.svMaskOn()) {
+        const F = A.F('L'), srcWin = expandBox(A.screenBox('L0'), 3), inBox = (p) => p[0] >= bx.x0 && p[0] <= bx.x1 && p[1] >= bx.y0 && p[1] <= bx.y1;
+        // a floor point is hidden where the rendered relief covers its pixel (the coverage render: the relief alone; its alpha is
+        // 255 on the relief and 0 elsewhere, so a pixel counts as covered above half)
+        const ALPHA_HALF = 127;
+        const hidden = (p) => {
+          const q = proj(p);
+          if (!q || !cov) return false;
+          const ii = Math.floor((q[0] - x) / k / scale + c0), jj = Math.floor((q[1] - top) / k / scale + d0);
+          return ii >= 0 && jj >= 0 && ii < r.w && jj < r.h && cov.cov[jj * r.w + ii] > ALPHA_HALF;
+        };
+        let fp = '';
+        for (const s of A.shapes()) {
+          if (kindType(s) !== 'area') continue;
+          for (const run of shapeCurves(s, F, bx, wpt, srcWin).pts) {
+            let cur = [];
+            const flush = () => { if (cur.length > 1) fp += 'M' + cur.map((q) => `${f2(q[0])} ${f2(q[1])}`).join('L'); cur = []; };
+            for (const p of run) {
+              const w3 = inBox(p) ? [Xw(p[0]), Yw(p[1]), z0] : null, q = w3 && !hidden(w3) ? proj(w3) : null;
+              if (q) cur.push(q); else flush();
+            }
+            flush();
+          }
+        }
+        if (fp) items.push(`<path d="${fp}" stroke="${OUTLINE_GRAY}" stroke-width="${OUTLINE_W}" fill="none" stroke-linecap="butt" stroke-linejoin="round" class="floor-footprint"/>`);
+      }
     }
     return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };
   }
@@ -862,7 +894,7 @@
       // (X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
       // Homework figure)
       const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
-      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
+      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: OUTLINE_W, color: OUTLINE_GRAY, cap: 'butt' });
       shapes.forEach((s, si) => {
         if (kindType(s) === 'point') return;
         const tn = tonesOf(s, o), open = P.dashOpen && kindType(s) === 'area' && Region.isOpen && Region.isOpen(s);
@@ -944,6 +976,7 @@
   // (o.sv, the steps view's A.svPathsFig(): the shown plane is the picture at t = end, the previous plane's image of X the
   // gray outline, and the paths those of the last step)
   async function figPaths(o, P, W, T) {
+    if (o.sv && o.sv.surf === 'sphere') return figGlobePaths(o, P, W, T);
     const st = A.state(), sv = o.sv || null;
     const [tp, lp] = T;
     const m = sv ? sv.m : A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = sv ? A.svBox() : A.screenBox('R');
@@ -974,7 +1007,7 @@
     if (!art) return null;
     const Hm = Hof(m), curves = [];
     const H0f = sv || A.defo().qp ? Hof(0) : (z) => z;   // (the bracket's start, H_0 = Q o P)
-    for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
+    for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: OUTLINE_W, color: OUTLINE_GRAY, cap: 'butt' });
     let bwI = 0;
     for (const s of shapes) {
       const t = kindType(s);

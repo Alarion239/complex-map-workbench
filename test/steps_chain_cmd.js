@@ -35,6 +35,8 @@ const kb = (k, mods = {}) => ev(`document.activeElement.dispatchEvent(new Keyboa
 const cl = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); e.click(); return true; })()`);
 const menu = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => b.querySelector('.mi-label').textContent)`);
 const pick = async (label) => { const r = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`); await settle(350); return r; };
+// (a menu a long press raised is deaf to a click for a moment: the pick is tried again until the state it makes is there)
+const pickUntil = async (label, cond) => { for (let i = 0; i < 20 && !(await ev(cond)); i++) { await pick(label); await settled({ until: cond, only: true, max: 400 }); } await settled({ until: cond }); };
 const undo = async () => { await ev(`document.getElementById('undoBtn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.getElementById('undoBtn').click(); 1`); await settle(400); await ev(`document.querySelectorAll('#toastHost .toast').forEach((x) => x.remove()); 1`); await settle(250); };   // (the Undid message takes the rail while it shows: the next step starts after it)
 const say = () => ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`);
 // (the live region is cleared and set again 30 ms later, so that the same words are read twice: on a loaded machine one read can land
@@ -129,8 +131,12 @@ await undo();
 ok('Undo: back on w₂ of two steps', (await sv()).i === 2 && (await sv()).planes.length === 3, await sv());
 // show alone, and back
 await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settle(300); await pick('Show alone');
-const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySelector('#svStrip .sv-whole'), steps: document.querySelectorAll('#svStrip .sv-step').length, add: !document.querySelector('#svStrip .sv-add').hidden, live: document.querySelector('#stage .sr-only[aria-live]').textContent })`);
-ok('Show alone narrows the thread to w₁ — f₂ — w₂ with a Whole chain chip', al.planes.join() === '1,2' && al.whole && al.steps === 1 && !al.add && /Showing f₂ alone, from w₁ to w/.test(al.live), al);
+const al = await ev(`({ planes: __cmwSteps().planes, whole: !!document.querySelector('#svStrip .sv-whole'), steps: document.querySelectorAll('#svStrip .sv-step').length, add: (() => { const b = document.querySelector('#svStrip .sv-add'); return { shown: !b.hidden, dis: b.getAttribute('aria-disabled') === 'true', tip: b.getAttribute('data-tip'), desc: b.getAttribute('aria-description') }; })(), f: (() => { const b = document.querySelector('#svStrip .sv-wholemap'); return { shown: !b.hidden, dis: b.getAttribute('aria-disabled') === 'true', tip: b.getAttribute('data-tip'), desc: b.getAttribute('aria-description') }; })(), live: document.querySelector('#stage .sr-only[aria-live]').textContent })`);
+ok('Show alone narrows the thread to w₁ — f₂ — w₂ with a Whole chain chip', al.planes.join() === '1,2' && al.whole && al.steps === 1 && /Showing f₂ alone, from w₁ to w/.test(al.live), al);
+ok('while a step is shown alone, Add stays in place, disabled, with the reason as tip and description', al.add.shown && al.add.dis && /Show the whole chain to add a function/.test(al.add.tip) && al.add.desc === al.add.tip, al.add);
+ok('… and F stays too, disabled, with its reason', al.f.shown && al.f.dis && /Show the whole chain to see the whole map/.test(al.f.tip) && al.f.desc === al.f.tip, al.f);
+const inStrip = await ev(`(() => { const r = document.querySelector('#svStrip').getBoundingClientRect(), q = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return b.left >= r.left && b.right <= r.right && b.width > 0 && document.querySelector(s).parentNode.id === 'svStrip'; }; return { add: q('#svStrip .sv-add'), f: q('#svStrip .sv-wholemap') }; })()`);
+ok('shown alone, Add and F stay in view in the strip (laptop)', inStrip.add && inStrip.f, inStrip);
 const cpAlone = await ev(`(() => { const b = document.querySelector('.sv-cp'); return { dis: b.disabled, tip: b.getAttribute('data-tip') }; })()`);
 await ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, cancelable: true })); 1`); await settle(300);
 ok('while a step is shown alone, Colour from here is off, says why, and C says it too (the colour plane stays)', cpAlone.dis && /coloured from its own plane/.test(cpAlone.tip || '') && (await sv()).T === 2 && /coloured from its own plane/.test(await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`)), [cpAlone, await sv()]);
@@ -138,6 +144,8 @@ ok('… and the keyboard is on Whole chain', (await where()) === 'whole', await 
 await kb('Escape'); await settle(500);
 const bk = await sv();
 ok('Esc brings the whole chain back, on w₂, the keyboard on f₂\'s chip', bk.planes.join() === '0,1,2' && bk.i === 2 && (await where()) === 'chip2', [bk, await where()]);
+const reAdd = await ev(`(() => { const a = document.querySelector('#svStrip .sv-add'), f = document.querySelector('#svStrip .sv-wholemap'); return { add: a.getAttribute('aria-disabled') !== 'true' && a.getAttribute('data-tip') === 'Add a function  +' && !a.hasAttribute('aria-description'), f: f.getAttribute('aria-disabled') !== 'true' && !f.hasAttribute('aria-description') }; })()`);
+ok('with the whole chain back, Add and F act again, with their own tips', reAdd.add && reAdd.f, reAdd);
 await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settle(300); await pick('Show alone');
 await cl('#svStrip .sv-whole'); await settle(500);
 ok('the Whole chain chip does the same', (await sv()).planes.length === 3 && (await sv()).i === 2, await sv());
@@ -149,7 +157,7 @@ await quiet('Remove', /Removed f₂/);
 await zcycle('Remove');
 await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip').focus(); 1`);
 await kb('Delete', { metaKey: true }); await settle(400);   // (⌘⌫ as the chain's cards take it, one reading in stepEditKey, #595)
-const em = await ev(`({ n: __cmwP().steps.length, add: !!document.querySelector('#svStrip .sv-add'), msg: !document.querySelector('.sv-empty').hidden, text: document.querySelector('.sv-empty').textContent, prev: document.querySelector('.sv-prev').disabled, next: document.querySelector('.sv-next').disabled, speed: document.querySelector('.sv-speed').disabled, ring: document.querySelector('.sv-thumb').getAttribute('aria-disabled'), planes: __cmwSteps().planes.join() })`);
+const em = await ev(`({ n: __cmwP().steps.length, add: !!document.querySelector('#svStrip .sv-add'), msg: !document.querySelector('.sv-empty').hidden, text: document.querySelector('.sv-empty').textContent, prev: document.querySelector('.sv-prev').disabled, next: document.querySelector('.sv-next').disabled, speed: document.querySelector('.sv-speed').getAttribute('aria-disabled') === 'true', ring: document.querySelector('.sv-thumb').getAttribute('aria-disabled'), planes: __cmwSteps().planes.join() })`);
 ok('the empty chain: the z dot and + Add function, ‹ › ring and speed off, the plane says what to do', em.n === 0 && em.add && em.msg && /Add a function to send z/.test(em.text) && em.prev && em.next && em.speed && em.ring === 'true' && em.planes === '0', em);
 ok('the hint has a ground of its own (opaque), not bare text over the plot', await ev(`(() => { const b = getComputedStyle(document.querySelector('.sv-empty')); return b.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(b.borderTopWidth) >= 1; })()`), null);
 ok('the hint is clear of the plane\'s centre, where a centred shape is', await ev(`(() => { const h = document.querySelector('.sv-empty').getBoundingClientRect(), p = document.getElementById('plotL').getBoundingClientRect(); const m = p.top + p.height / 2; return h.top > m + 20 || h.bottom < m - 20; })()`), await ev(`document.querySelector('.sv-empty').getBoundingClientRect().bottom`));
@@ -225,6 +233,35 @@ for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
   await fitCase(w, lang);
 }
 for (const [w, lang] of [[1440, 'en'], [1024, 'ru'], [1024, 'en']]) await hintCase(w, lang);
+// bypassing the only step during a glide: the glide stops, the chain has no plane after the source and the plane stays drawn
+{
+  const keep = st.steps;
+  st.steps = [keep[0]];
+  await open(1280, 800, false);
+  st.steps = keep;
+  const g0 = await ev(`__cmwSteps({ go: 1 })`);
+  await cl('#svStrip .sv-step[data-k="1"] .sv-more'); await settled({ only: true, until: `!!document.querySelector('#popHost .menu .mi')` });
+  await pick('Bypass this step');
+  await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
+  const g1 = await sv();
+  const px = await ev(`(() => { const cs = [...document.querySelectorAll('#plotL canvas')].filter((c) => c.getContext && c.width > 0); let best = null; for (const c of cs) { if (!best || c.width * c.height > best.width * best.height) best = c; } if (!best) return 0; const x = best.getContext('2d'); if (!x) return -1; const d = x.getImageData(0, 0, best.width, best.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < 720) n++; return n; })()`);
+  ok('Bypass of the only step during a glide: the glide stops, the chain is bypassed and the plane stays drawn', (g0.anim || g0.moving) && !g1.play && !g1.anim && (await types()).join() === 'mobius-' && g1.planes.join() === '0' && px !== 0, [g0.anim, g0.moving, g1, px]);
+}
+
+// shown alone at the laptop widths: Add and F stay in the strip, overlapping neither Next nor the rail, and Whole chain (or its pin) is whole
+for (const w of [1440, 1280, 1024, 780]) {
+  await open(w, 800, false);
+  await cl('#svStrip .sv-step[data-k="2"] .sv-more'); await settled({ until: "!!document.querySelector('#popHost .menu .mi')", only: true }); await pickUntil('Show alone', "!!document.querySelector('#svStrip .sv-alone, #svStrip .sv-whole-pin')");
+  const m = await ev(`(() => { const R = (s) => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; };
+    const strip = R('#svStrip'), rail = R('#svStrip .sv-rail'), next = R('#svStrip .sv-nav:last-of-type') || R('#svStrip .sv-nav + .sv-nav');
+    const nexts = [...document.querySelectorAll('#svStrip .sv-nav')].map((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)]; });
+    const chip = R('#svStrip .sv-alone .sv-whole') || R('#svStrip .sv-whole-pin');
+    return { strip, rail, nextB: nexts[nexts.length - 1], add: R('#svStrip .sv-add'), f: R('#svStrip .sv-wholemap'), chip, pin: !!R('#svStrip .sv-whole-pin'), walks: [...document.querySelectorAll('#svStrip .sv-awalk')].filter((e) => e.getClientRects().length).length, over: document.querySelector('#svStrip .sv-rail').scrollWidth > document.querySelector('#svStrip .sv-rail').clientWidth + 1, scrolled: document.querySelector('#svStrip .sv-rail').scrollLeft }; })()`);
+  const inside = (b) => b && b[0] >= m.strip[0] && b[1] <= m.strip[1], clear = (b, o) => b[1] <= o[0] + 1 || b[0] >= o[1] - 1;
+  ok(`${w}: Add and F are in the strip and overlap neither Next nor the rail`, inside(m.add) && inside(m.f) && clear(m.add, m.nextB) && clear(m.f, m.nextB) && clear(m.add, m.rail) && clear(m.f, m.rail), m);
+  ok(`${w}: the step's ‹ › stay, and the pill folds to its pin only when it would overflow the rail`, m.walks === 2 && (m.pin || !m.over), m);
+  ok(`${w}: Whole chain is whole: its pill inside the rail at its start, or its pin in the strip clear of the rail`, m.scrolled === 0 && m.chip && (m.pin ? inside(m.chip) && clear(m.chip, m.rail) : m.chip[0] >= m.rail[0] && m.chip[1] <= m.rail[1]), m);
+}
 // ---- the phone ----
 await open(390, 844, true);
 const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
@@ -259,6 +296,21 @@ await open(360, 700, true);
 await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(700);
 const end = await ev(`(() => { const ps = [...document.querySelectorAll('#svStrip .sv-plane')], l = ps[ps.length - 1], b = l.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(); return { n: ps.length, ok: l === at || l.contains(at), at: at && (at.className || at.tagName), overlap: !(a.left >= b.right || a.right <= b.left), add: a.width }; })()`);
 ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok && !end.overlap, end);
+// shown alone on a 360 px phone: the step's own planes stay in view, and a long press on the disabled Add gives its reason
+await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
+  window.__lp = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp('pointerdown'); return 1; })()`);
+await settled({ until: "!!document.querySelector('#popHost .menu .mi')", only: true }); await ev(`__lp('pointerup'); 1`); await settled({}); await pickUntil('Show alone', "!!document.querySelector('#svStrip .sv-alone, #svStrip .sv-whole-pin')");
+const alone360 = await ev(`(() => { const rr = document.querySelector('#svStrip .sv-rail').getBoundingClientRect();
+  const planes = [...document.querySelectorAll('#svStrip .sv-rail .sv-plane, #svStrip .sv-rail .sv-step')].map((e) => e.getBoundingClientRect());
+  return { rail: [Math.round(rr.left), Math.round(rr.right)], fadeR: document.querySelector('#svStrip .sv-rail').classList.contains('fade-r'), planes: planes.map((b) => [Math.round(b.left), Math.round(b.right)]) }; })()`);
+ok('360 px, a step shown alone: the rail keeps its 126 px and its planes are in view (each centre inside it)', alone360.rail[1] - alone360.rail[0] >= 126 && alone360.planes.length > 0 && alone360.planes.every((b) => b[0] >= alone360.rail[0] - 1 && (b[0] + b[1]) / 2 <= alone360.rail[1]), alone360);
+ok('360 px, a step shown alone: the rail fades at its end, where F and Add are scrolled to', alone360.fadeR, alone360);
+await ev(`(() => { const c = document.querySelector('#svStrip .sv-add'), r = c.getBoundingClientRect();
+  window.__lp2 = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp2('pointerdown'); return 1; })()`);
+await settled({ until: "(() => { const t = document.getElementById('tip'); return !!t && !t.hidden && t.getClientRects().length > 0; })()", only: true, max: 3000 });
+const lpTip = await ev(`(() => { const t = document.getElementById('tip'); return t && !t.hidden && t.getClientRects().length ? t.textContent : ''; })()`);
+await ev(`__lp2('pointerup'); 1`);
+ok('360 px: a long press on the disabled Add shows why', /Show the whole chain to add a function/.test(lpTip), lpTip);
 await open(390, 844, true);
 // a tap on a chip opens the Inspector's sheet on a phone
 await cl('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settle(500);

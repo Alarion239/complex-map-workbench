@@ -56,10 +56,10 @@ ok('root: the banks are θ/2 and θ/2 + π', !!A && !!B && Math.abs(Math.abs(ang
 await open('log', { cut: 180 }, 1);
 hs = await handles();
 const before = hs[0].deg;
-// the solid bank is the image's lower edge: below it the principal branch has no point, so the pull-back is empty and θ holds
+// the solid bank is the image's lower edge: a drag below it leaves the principal branch's image, and the cut keeps turning (the pull-back runs on the continued map), as it does for a drag the other way
 await drag(hs[0].x, hs[0].y, hs[0].x, hs[0].y + 80, 8, 20); await settled({ max: 20000 });
 info.hold = [before, await cut()];
-ok('a drag off the image holds θ', info.hold[1] === before, info.hold);
+ok("a drag past the image's edge keeps turning the cut", info.hold[1] < before - 30, info.hold);
 
 // a plane before the cut: the chain z + 1, then the logarithm (cut 180°); on plane z the cut is the preimage of its ray,
 // the real half-line left of −1, the handle is on it, and a drag of the handle sets θ by mapping the pointer forward

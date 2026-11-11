@@ -67,10 +67,11 @@ const park = async (x, scope) => {
       for (let x = Math.floor(W * 0.2); x < Math.floor(W * 0.6); x++) if (sat(at(x, y)) > 40) { e = x; break; }
       if (e < 0) continue;
       let n = 0, run = 0, longest = 0;
+      const xs = [];
       for (let x = e; x < Math.min(W, e + BAND); x++) {
-        if (dist(at(x, y), at(x, y + 1)) > JUMP) { n++; longest = Math.max(longest, ++run); } else run = 0;
+        if (dist(at(x, y), at(x, y + 1)) > JUMP) { n++; longest = Math.max(longest, ++run); xs.push(x - e); } else run = 0;
       }
-      per.push([y, n, longest, e]);
+      per.push([y, n, longest, e, xs]);
     }
     // (rows within 10 CSS px of the top and bottom edge are left out: the frame's own edge crosses the band there, a
     // horizontal step that is not the seam)
@@ -95,21 +96,28 @@ const park = async (x, scope) => {
         mode = 'columns'; perCol = +w.toFixed(2);
       }
     }
+    // (for the log: the rows of the worst window and the 20 rows with the most jumps as [y, jumps, longest run, left edge x,
+    // the jumps' x offsets from the edge], and how many rows hold each jump count)
+    const hist = {};
+    for (const q of per) hist[q[1]] = (hist[q[1]] || 0) + 1;
+    const rowsDump = { window: per.filter((q) => q[0] >= worstY && q[0] < worstY + WORST), top: per.slice().sort((a, b) => b[1] - a[1]).slice(0, WORST), hist };
     const g = __cmwSteps().glide || {};
-    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: mode === 'columns' ? perCol : +worst.toFixed(2), mode, rowsPerRow: +worst.toFixed(2), span, worstY, W, H };
+    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: mode === 'columns' ? perCol : +worst.toFixed(2), mode, rowsPerRow: +worst.toFixed(2), span, worstY, W, H, rowsDump };
   })()`;
   let keepSettled = null;
-  const teeth = () => ev(TEETH);
-  info.teeth = await teeth();
+  // (the rows behind a reading go to info.teethRows[key], not into the check's own record)
+  info.teethRows = {};
+  const teeth = async (key) => { const t = await ev(TEETH); if (key) info.teethRows[key] = t.rowsDump; delete t.rowsDump; return t; };
+  info.teeth = await teeth('parked');
   keepSettled = await ev(`document.getElementById('canvasL').toDataURL('image/png')`);
   // (the same frame without the cut fill: what the seam looks like where no torn triangle is drawn; for reference)
   await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('without the fill: the frame is drawn', await drawn(), null);
-  info.teethNoFill = await teeth();
+  info.teethNoFill = await teeth('noFill');
   // (and with the fill drawn without its mask: the sawtooth; for reference)
   await ev('GLR.carryProbes({ noMask: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('without the mask: the frame is drawn', await drawn(), null);
-  info.teethNoMask = await teeth();
+  info.teethNoMask = await teeth('noMask');
   await ev('GLR.carryProbes({}); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('teeth: the colour has a left edge in most rows', info.teeth.rows > info.teeth.H * 0.8, info.teeth);
   ok('teeth: exp then log, parked between w1 and w2: the seam along the cut is smooth (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', info.teeth.perRow != null && info.teeth.perRow <= 1.5, info.teeth);
@@ -123,7 +131,7 @@ const park = async (x, scope) => {
   await ev(`__cmwSteps({ T: 0, bare: true }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
     window.__seamsAfter = []; window.__seamsDone = false;
     window.__seamsWorst = null;
-    { const t0 = performance.now(), tick = () => { const t = ${TEETH}; window.__seamsAfter.push(t);
+    { const t0 = performance.now(), tick = () => { const t = ${TEETH}; delete t.rowsDump; window.__seamsAfter.push(t);
         if (t.perRow != null && (!window.__seamsWorst || t.perRow > window.__seamsWorst.perRow)) window.__seamsWorst = { perRow: t.perRow, url: document.getElementById('canvasL').toDataURL('image/png') };
         if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else window.__seamsDone = true; };
       requestAnimationFrame(tick); } 1`);
@@ -141,7 +149,7 @@ const park = async (x, scope) => {
   // (and once settled, the seam is drawn: the colour reaches it in most rows)
   await settled({ max: 30000 }); await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
   ok('after the chain change: the frame is drawn', await drawn(), null);
-  info.afterSettled = await teeth();
+  info.afterSettled = await teeth('afterSettled');
   ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
   // (parked on w2 itself, the colour layer alone (the cut's handle is drawn along the seam): the log's cut is the
   // negative real axis there, a horizontal seam, its place in each column the row where the colour passes from the sheet
@@ -181,7 +189,16 @@ const park = async (x, scope) => {
     // The ray is scanned from RAY_START px out to RAY_END of the smaller canvas side, over +-RAY_HALF px across it; a pixel is a crack when its
     // own saturation is under CRACK_SAT while the pixels FLANK px to both sides of the ray are above FLANK_SAT.
     const RAY_START = 30, RAY_END = 0.45, RAY_HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500;
-    info.cracks = await ev(`(() => {
+    // (inject: a fill crack, a paper-grey line INJECT_PX wide, INJECT_OFF px beside the 135° ray, drawn into the frame before it is read)
+    const INJECT_PX = 2, INJECT_OFF = 4;
+    const scan = (inject) => ev(`(() => {
+      if (${inject}) {
+        const c0 = document.getElementById('canvasL'), r0 = c0.getBoundingClientRect(), k0 = c0.width / r0.width, o0 = __cmwW2S('L', 0, 0), O0 = [(o0[0] - r0.left) * k0, (o0[1] - r0.top) * k0];
+        const A0 = 135 * Math.PI / 180, u0 = [Math.cos(A0), -Math.sin(A0)], n0 = [-u0[1], u0[0]], g0 = c0.getContext('2d');
+        g0.save(); g0.setTransform(1, 0, 0, 1, 0, 0); g0.strokeStyle = 'rgb(236,240,242)'; g0.lineWidth = ${INJECT_PX}; g0.beginPath();
+        g0.moveTo(O0[0] + 100 * u0[0] + ${INJECT_OFF} * n0[0], O0[1] + 100 * u0[1] + ${INJECT_OFF} * n0[1]);
+        g0.lineTo(O0[0] + 260 * u0[0] + ${INJECT_OFF} * n0[0], O0[1] + 260 * u0[1] + ${INJECT_OFF} * n0[1]); g0.stroke(); g0.restore();
+      }
       const RAY_START = ${RAY_START}, RAY_END = ${RAY_END}, RAY_HALF = ${RAY_HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT};
       const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
       const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), O = [(o[0] - r.left) * k, (o[1] - r.top) * k];
@@ -201,11 +218,20 @@ const park = async (x, scope) => {
       const g = __cmwSteps().glide || {};
       return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
     })()`);
+    info.cracks = await scan(false);
+    // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws none, so
+    // its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
+    info.cutCurves = await ev('__cmwCutCurves().length');
+    ok('cracks: Square root, parked half-way, strokes hidden: no cut curve is drawn', info.cutCurves === 0, info.cutCurves);
     for (const a0 of ['135', '225']) {
       const q = info.cracks.out[a0];
       ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
       ok(`cracks: Square root, parked half-way: no uncovered pixel along the cut's image at ${a0}°`, q.cracks === 0, q);
     }
+    // the control: the scan still counts a real crack beside the cut's image (the 135° ray; the 225° ray has none)
+    info.control = await scan(true);
+    ok('cracks: a fill crack injected beside the cut\'s image at 135° is counted', info.control.out['135'].cracks > 0, info.control.out['135']);
+    ok('cracks: the other ray, with no crack injected, still reads none', info.control.out['225'].cracks === 0, info.control.out['225']);
   }
 }
 return { pass: fails.length === 0, fails, info };

@@ -93,17 +93,24 @@
     const u0 = Math.min(1 - s, Math.max(0, cx - s / 2)), v0 = Math.min(1 - s, Math.max(0, cy - s / 2));
     return [u0, u0 + s, v0, v0 + s];
   }
+  // a globe or a relief frame is drawn at a device pixel ratio of at least PIC_DPR_MIN, and of the frame's height over PIC_H_PX
+  // when that is more
+  const PIC_DPR_MIN = 1.5, PIC_H_PX = 360;
+  // the screen's relief window (A.landBox) when all four of its bounds are finite, else null
+  const planLandBox = () => { const lb = A.landBox ? A.landBox() : null; return lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite) ? lb : null; };
   // the plan of the steps view's glide along its thread (gl: A.svGlide): the left pane at the screen's window widened to
-  // the frame's aspect; video time t is the thread position gl.lo + t, so m is the number of steps. The pane's own
-  // paths and outlines come with its picture (the strip's state), so no vector marks are drawn over it
+  // the frame's aspect, or on the sphere and the Landscape the screen's camera at the frame's own aspect (the whole
+  // picture, no crop: the frame is the screen's); video time t is the thread position gl.lo + t, so m is the number of
+  // steps. The pane's own paths and outlines come with its picture (the strip's state), so no vector marks are drawn
+  // over it
   async function glidePlan(o, v, gl) {
-    const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo;
+    const [W, H] = VIDEO_SIZES[v.size] || VIDEO_SIZES['1920x1080'], m = gl.hi - gl.lo, pic = gl.surf !== 'plane';
     // the window is the still figure's, so the first frame frames the picture the PNG of the first plane does
-    const still = await build({ svPic: 'shown' }), key = A.svKey && A.hue ? ringCanvas(H) : null;
+    const still = pic ? null : await build({ svPic: 'shown' }), key = A.svKey && A.hue ? ringCanvas(H) : null;
     // (the key stands in a column at the right, beside the picture as in the still, so it never covers it)
     const picW = key ? W - keyColumn(H) : W;
     const name = (o.name || 'glide').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'glide';
-    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: Math.max(1, Math.min(W, H) / 720), m, pic: false, box: widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
+    return { o, v: Object.assign({}, v, { look: 'light', paths: false }), kind: 'glide', gl, side: 'L', W, H, dpr: pic ? Math.max(PIC_DPR_MIN, H / PIC_H_PX) : Math.max(1, Math.min(W, H) / 720), m, pic, box: pic ? null : widenTo(still && still.box ? still.box : A.svBox(), picW / H), picW, landBox: gl.surf === 'land' ? planLandBox() : null, times: videoTimes(v, m), name, tracked: [], paths: [], shapes: [], cs: new Map(), key, Hof: (t) => (z) => z };
   }
   // the app's hue ring as a canvas of the frame's own scale (0.14 H across), drawn once and kept for every frame
   function ringCanvas(Hpx) {
@@ -132,12 +139,12 @@
     const pic = kind === 'globe' || kind === 'phaseGlobe' || kind === 'land';
     // (the screen's line widths at a retina scale; a globe or a relief: the art layer's own labels at about 3 % of the
     // frame's height, export review r3, editor-8)
-    const dpr = pic ? Math.max(1.5, Hpx / 360) : Math.max(1, Math.min(Wpx, Hpx) / 720);
+    const dpr = pic ? Math.max(PIC_DPR_MIN, Hpx / PIC_H_PX) : Math.max(1, Math.min(Wpx, Hpx) / 720);
     const plan = { o, v, kind, side, W: Wpx, H: Hpx, dpr, m, pic, times: videoTimes(v, m), name: (o.name || defaultName(view, null, 'video') || 'deformation').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'deformation' };
     if (o.trace) plan.trace = o.trace;
     if (kind === 'land') {
-      const lb = A.landBox ? A.landBox() : null;
-      if (lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite)) plan.landBox = lb;
+      const lb = planLandBox();
+      if (lb) plan.landBox = lb;
     }
     if (!pic) { plan.box = await videoBox(side, kind, Wpx / Hpx, m, o, v); if (!plan.box) return null; }
     else { plan.crop = await videoCrop(side, plan, o); if (!plan.crop) return null; }
@@ -253,7 +260,7 @@
     const look = v.look === 'print' ? 'print' : 'light';
     const base = { dpi: 96 * dpr, T: t, alive: o.alive, raw: true, look: look === 'light' ? 'light' : null, ink: printInkFor(o, st.alpha), noGlobeLabels: kind === 'globe' || kind === 'phaseGlobe' };
     let r;
-    if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
+    if (kind === 'glide') r = await A.svGlideArt(plan.gl.lo + t, Object.assign(base, plan.pic ? { wpt: W / dpr * 72 / 96, hpt: H / dpr * 72 / 96, landBox: plan.landBox } : { box: plan.box, wpt: W / dpr * 72 / 96 }));
     else if (plan.box) r = await A.art(side, Object.assign(base, { box: plan.box, wpt: W / dpr * 72 / 96 }));
     else {
       const [u0, u1, v0, v1] = plan.crop, zx = 1 / (u1 - u0), zy = 1 / (v1 - v0);

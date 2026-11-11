@@ -1,6 +1,5 @@
 // Esc leaves a Construct tool, and the tool is a chip in the plane's head with its pick count (the steps view's
-// part: the tool chip and Listening along stay in the head, counted by svFitHead; the step-alone, expanded-plane and
-// deformation chips are the classic views' and are mode_chips_classic_cmd.js). A command file for a CDP daemon.
+// part: the tool chip and Listening along stay in the head, counted by svFitHead). A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'mode_chips_kit.js'), 'utf8')), st = K.st;
@@ -27,7 +26,7 @@ for (const w of [1440, 1024]) {
 // The slowest speed makes the glide long enough to sample from here (about 4.5 s a plane).
 await key('e');
 await settled({ max: 8000, until: `!!document.querySelector('.tool[data-tool="circle3"][aria-pressed="true"]')` });
-await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'slower'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+await choose('#svStrip .sv-speed', 'slower');
 const i0 = await ev('__cmwSteps().i');
 // (sampled in the page, once a frame, from the glide's start to its rest: a round trip per sample is too slow for it)
 await ev(`(() => { const rec = window.__glide941 = { chips: [], on: true };

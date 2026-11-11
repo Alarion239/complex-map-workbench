@@ -35,34 +35,6 @@
     if (Number.isInteger(S.sel) && S.sel >= 0 && S.sel <= n) return S.sel;
     return S.focus > 0 && S.focus <= n ? S.focus : n;
   }
-  function syncSel() {
-    const sel = selOf(), quiet = !!(morph.playing && morph.open);
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) {
-      const on = +c.dataset.k === sel;
-      c.classList.toggle('sel', on); c.classList.toggle('quiet', on && quiet);
-      if (c.getAttribute('aria-selected') !== String(on)) c.setAttribute('aria-selected', String(on));
-      c.tabIndex = on ? 0 : -1;   // (review design-14: one tab stop, the selected option; the arrows move inside)
-    }
-    const ft = /** @type {HTMLElement | null} */ (document.querySelector('#pipeline .ftile'));
-    if (ft) { ft.classList.toggle('sel', sel === 'F'); ft.setAttribute('aria-selected', String(sel === 'F')); ft.tabIndex = sel === 'F' ? 0 : -1; }
-    syncPlaying();
-    const wb = $('viewAllBtn');
-    if (wb) wb.disabled = S.focus === 0;
-  }
-  // the card of the step the deformation is in (review design-13): one after another, the step at t; all at once, the
-  // last card, which shows the deformation itself
-  let playKey = '';
-  function syncPlaying() {
-    let k = 0;
-    if (morph.open && morphOn()) {
-      const steps = morphRange().steps;
-      k = allAtOnce() ? steps[steps.length - 1] : steps[Math.max(0, Math.min(steps.length - 1, Math.floor(morph.T - (morph.T >= steps.length ? 1e-9 : 0))))];
-    }
-    const key = String(k || 0);
-    if (key === playKey && (!k || document.querySelector('#pipeline .card.playing'))) return;
-    playKey = key;
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) c.classList.toggle('playing', !!k && +c.dataset.k === k);
-  }
   // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
   function syncAloneChip() {
     const head = document.querySelector('#paneL .pane-head');
@@ -151,7 +123,6 @@
     setSel(k);
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
-    syncSel();
     svFSync();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
@@ -230,7 +201,7 @@
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
-      svOn: () => SV.on, regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -289,15 +260,19 @@
     const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
     return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
   }
+  // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
+  const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in
+  function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > MIN_PANE_PX ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
   // the shown plane's paths figure: the paths of the step that leads to it. {i, m, Fat, z, end} (Fat(t): z -> the thread's
-  // place i - 1 + t), or {why} when there is none ('first': plane 0; 'deriv': a d/dz step), null off the plane surface
+  // place i - 1 + t; surf: the surface the plane is shown on), or {why} when there is none ('first': plane 0; 'deriv': a d/dz
+  // step), null on the Landscape
   function svPathsFig() {
     const P = svPlanes(), i = Math.round(SV.g.x);
-    if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
+    if (!SV.on || (SV.surf !== 'plane' && SV.surf !== 'sphere') || P.length < 2) return null;
     if (i < 1) return { why: 'first', name: svName(P[i]) };
     if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
     const src = svPathsSeg(P, i - 1, i, i);
-    return { i, m: 1, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
+    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
@@ -323,25 +298,28 @@
       try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
     },
     svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
-    // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes, null without a
-    // step or off the plane surface; svGlideArt draws the left pane parked at thread position x, as the screen draws
-    // it there (svRenderMoving), and svGlideText is the screen's own words for that place
+    // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
+    // it is drawn on, null without a step or where the left pane shows no picture of that surface; svGlideArt draws the
+    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving),
+    // at o.box on the plane and at the frame's o.wpt x o.hpt in the screen's camera on the sphere and the Landscape, and
+    // svGlideText is the screen's own words for that place
     svGlide: () => {
       const P = svPlanes();
-      if (!SV.on || SV.surf !== 'plane' || P.length < 2) return null;
+      if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
       const R = svRange();
-      return { at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
+      return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
     },
     svGlideArt: async (x, o) => {
       const keep = { x: SV.g.x, span: SV.span };
       SV.span = null; SV.g.set(x);
-      try { return await artRender('L', Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) })); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : o); } finally { SV.g.set(keep.x); SV.span = keep.span; }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
     // i of the thread, which places the shapes' images there
     svBox: () => paneBox(paneL, leftView()),
     svSurf: () => SV.surf,
+    svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
     // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
     // plane the line saying where the colour is carried from; and the plane's name for the axis title
@@ -367,7 +345,7 @@
     homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
     morphLen,
     // L0: the z-plane's window (the shapes' own plane, also at a focused step)
-    screenBox: (side) => { if (side !== 'L0') return viewBoxOf(side); const v = S.srcView, w = effW('L'), hh = paneL.h > 20 ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; },
+    screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(side),
     // a pane's view (centre, px per unit), for the export window of an unbounded set (independent of the pane's size)
     viewOf: (side) => { const v = side === 'L0' ? S.srcView : side === 'L' ? leftView() : V.right; return { cx: v.cx, cy: v.cy, s: v.s }; },
     landBox: () => landBox(),
@@ -415,6 +393,7 @@
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
+      get artRelief() { return artRelief; }, set artRelief(v) { artRelief = v; },
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },
