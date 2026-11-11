@@ -136,9 +136,11 @@
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
   // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
   // the fill draws through: drawRegionCarry)
-  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
-  const REGION_K_FS = (clip, key) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, true);
-  const PEEL_PROGS = ['regionK', 'regionKC', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
+  const REGION_K_VS = (fetch, sheet, clip, centre) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip, centre: !!centre });
+  // (centre: vP read at the pixel centre, not at the centroid of the pixel's covered samples; the vertex stage's and the
+  // fragment stage's qualifiers match)
+  const REGION_K_FS = (clip, key, centre) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre);
+  const PEEL_PROGS = ['regionK', 'regionKC', 'regionKN', 'regionKCN', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
   const REGION_KM_FS = (key) => () => UTIL + CARRY_MASK_FS(key);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
@@ -148,6 +150,10 @@
     // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
     // triangle's own sheet)
     regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS(false) },
+    // (regionK and regionKC for a chain with no cut: the colour at the pixel centre, so the pixels along a triangle's edges read
+    // the point the map's plot reads, not one up to half a pixel off)
+    regionKN: { chain: true, vs: () => REGION_K_VS('chain', false, false, true), fs: REGION_K_FS(false, false, true) },
+    regionKCN: { chain: true, vs: () => REGION_K_VS('tex', false, false, true), fs: REGION_K_FS(false, false, true) },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
     regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS(false) },
@@ -243,7 +249,7 @@
   // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
   // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets
   // whose keys are a tie order apart, would not compare): each tessellated-mesh program has a variant 'P' that writes it
-  PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true) }); });
+  PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true, /^regionKC?N$/.test(n)) }); });
   ['regionKSm', 'regionKSCptm'].forEach((n) => { DEFS[n.slice(0, -1) + 'Pm'] = Object.assign({}, DEFS[n], { fs: REGION_KM_FS(true) }); });
   // vertex-stage subset of UTIL (no derivatives)
   const UTIL_V = `
