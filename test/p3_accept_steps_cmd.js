@@ -3,7 +3,7 @@
 // side; the Cayley images (w = 1, the image of infinity, without a notch; the lower half-plane's cover of the north
 // pole); log(H) filled up to the pole. The globe is the left pane at plane 1 on the Sphere surface; its pixels are
 // classified with the page's pick of the left pane (__cmwSphereWL).
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the render shard (ci/browser_shards.js).
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the images shard (ci/browser_shards.js).
 // Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -250,8 +250,10 @@ const NON_ANALYTIC = { type: 'custom', params: { expr: 'z+0.2*conj(z)', cut: 180
 for (const [x, T, lines] of [[0.5, 1, true], [0.95, 0, false], [0.95, 1, true], [0.5, 0, false]]) {
   await load('p3accg' + Date.now(), Object.assign({ shapes: [H], steps: [NON_ANALYTIC], srcView: { cx: 0, cy: 1, s: 60 } }, base));
   await ev(`__cmwHideStrokes(true); __cmwSteps({ go: 0, now: true, surf: "sphere", scope: "in", T: ${T} }); __cmwSteps({ x: ${x} }); 1`);
-  // (settled on the held place: the last frame is the glide's, drawn by the carried mesh)
-  await settled({ max: 60000, until: `(() => { const g = __cmwSvGlobe(0.5, 0.5); return __cmwSvFixed() && !__cmwSteps().moving && GLR.pendingLinks === 0 && g.path === 'mesh' && Math.abs(g.u - ${x}) < 1e-9 && GLR.carriedGlobeGraticule !== null; })()` });
+  // (settled on the held place: the last frame is the glide's, drawn by the carried mesh. A view held between two planes
+  // reads as moving for as long as it is held, so the wait is the held frame's (test/cdp_kit/README.md): its programs
+  // linked and warm, no glide or play under way, and the carried mesh's frame at u = x)
+  await settled({ max: 60000, until: `(() => { const g = __cmwSvGlobe(0.5, 0.5), s = __cmwSteps(); return __cmwSvFixed() && s.ready.ready && !s.anim && !s.play && GLR.pendingLinks === 0 && g.path === 'mesh' && Math.abs(g.u - ${x}) < 1e-9 && GLR.carriedGlobeGraticule !== null; })()` });
   const held = R['held_' + x + '_' + T] = { x: await ev('__cmwSteps().x'), path: await ev('__cmwSvGlobe(0.5, 0.5).path'), lines: await ev('GLR.carriedGlobeGraticule') };
   ok(`held frame (x ${x}, colour plane ${T}): the carried mesh ${lines ? 'draws' : 'leaves out'} the graticule over its colour`, held.x === x && held.path === 'mesh' && held.lines === lines, held);
 }
