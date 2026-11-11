@@ -428,6 +428,7 @@ jobs:
     # image, not ubuntu-latest: the layout shards gate on the renderer their baseline was made on (ci/layout_baseline.json:
     # this image's lavapipe, with its Vulkan and LLVM versions in the renderer's name), so on another image they fail
     # until a new baseline is made there; and the jobs of one run must not land on two images while ubuntu-latest moves.
+    # TODO(#1507): run the job on Ubuntu 26.04 with a new layout baseline made there, and unpin it.
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     strategy:
@@ -455,9 +456,10 @@ jobs:
         with:
           python-version: '3.12'
       # Mesa's Vulkan drivers (ci/lavapipe.sh): from Ubuntu's mirrors, or, when they cannot be reached, from an Actions
-      # cache of the package's files. The cache is keyed by the runner's image and the package's version in the image's
-      # lists, restored by that exact key only (files from another image are never installed), and saved after an
-      # install from the mirrors (a pull request's run reads its own saves and main's)
+      # cache of the package's files, or from a fallback mirror on another domain. The cache is keyed by the runner's
+      # image and the package's version in the image's lists, restored by that exact key only (files from another image
+      # are never installed), and saved after an install from a mirror, Ubuntu's or the fallback (a pull request's run
+      # reads its own saves and main's)
       - name: Mesa cache key
         id: mesa-key
         run: echo "key=$(ci/lavapipe.sh --key)" >> "$GITHUB_OUTPUT"
@@ -471,7 +473,7 @@ jobs:
         id: mesa
         run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"
       - name: Mesa cache (save)
-        if: steps.mesa.outputs.source == 'mirror' && steps.mesa-cache.outputs.cache-hit != 'true'
+        if: (steps.mesa.outputs.source == 'mirror' || steps.mesa.outputs.source == 'fallback') && steps.mesa-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/cmw-lavapipe-debs

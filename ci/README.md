@@ -231,23 +231,30 @@ artifact.
   It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
   on the 24.04 image one file of about 18 MB) and installs them with `dpkg`. Those files are kept in an Actions cache,
   keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
-  by that exact key only, so files from another image are never installed. A job that installed from the mirrors
-  saves them when the key had no entry; a pull request's run restores what it saved itself or what main's runs saved
+  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
+  them when the key had no entry; a pull request's run restores what it saved itself or what main's runs saved
   (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused, so an image's entry goes soon after
   the image does.
-  - **When the mirrors cannot be reached**, the cached files are installed after that first download fails. With none,
-    or when they do not install, the download is tried again after refreshing the lists: 4 attempts in all, with
-    waits of 10, 20 and 40 s, each apt call limited to 45 s (apt does not retry by itself).
+  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+    none, or when they do not install, the same version comes from a fallback mirror on another domain:
+    kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
+    `*.ubuntu.com` leaves reachable. It has a sources file and package lists of its own (the runner's are untouched),
+    and apt checks it against Ubuntu's archive keyring as it does Ubuntu's mirrors. Then come 2 more downloads from
+    Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh of the lists.
+  - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
+    not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
+    cache, the step fails within 2 minutes.
   - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
-    file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause
-    (no download from the mirrors, and whether the cache had a copy). Without lavapipe Chrome has no Vulkan driver and
-    no WebGL2. Each part's time is in the step's log.
+    file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause:
+    the time limits when no mirror answered, apt's errors otherwise, and whether the cache had a copy. Without lavapipe
+    Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
   name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
   job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
   there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
   image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
-  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine).
+  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine). Moving the browser
+  jobs to Ubuntu 26.04 and unpinning them is #1507.
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
@@ -475,7 +482,7 @@ Settings (environment variables):
 
 | file | |
 |---|---|
-| `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files (Browser suites); `test/t_lavapipe.js` tests it |
+| `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |

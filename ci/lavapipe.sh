@@ -1,32 +1,56 @@
 #!/usr/bin/env bash
 # Mesa's Vulkan drivers (the package mesa-vulkan-drivers) for the browser jobs (gate.yml): its lavapipe is the Vulkan
 # driver that Chrome's ANGLE draws WebGL2 with on GitHub's Linux machines. The job keeps the package's files in an
-# Actions cache, for when Ubuntu's mirrors cannot be reached.
+# Actions cache, for when the mirrors cannot be reached.
 #   ci/lavapipe.sh --key   prints the cache key: the runner's image (ImageOS, ImageVersion) and the package's version
 #                          in the image's own package lists
 #   ci/lavapipe.sh DIR     installs the package; DIR holds the cached .deb files (the job restores them before, and
-#                          saves them after an install from the mirrors)
-# The install downloads the files the image lacks from the mirrors with the image's own package lists (fast: no
-# refresh), and installs them with dpkg; DIR then holds exactly those files. When that first download fails, the files
-# in DIR are installed. When DIR has none, or they do not install, the download is tried again after refreshing the
-# lists, ATTEMPTS times in all, waiting longer before each. Each part's time goes to the log, and
-# source=image|mirror|cache to $GITHUB_OUTPUT (image: the image had the package). Exits 1 with an error annotation that
-# names the cause when, at the end, the package is not installed (dpkg -s) or lavapipe's ICD file is missing: Chrome
-# would have no Vulkan driver, and so no WebGL2.
+#                          saves them after an install from a mirror)
+# The install takes the first of these that gives the package:
+#   1. a download from Ubuntu's mirrors with the image's own package lists (fast: no refresh);
+#   2. the files in DIR;
+#   3. a download from FALLBACK_MIRROR, a mirror on another domain, with package lists of its own, of the version that
+#      the image's lists name (the version in the cache key);
+#   4. RETRIES more downloads from Ubuntu's mirrors, each after a wait (FIRST_WAIT_S, doubled each time) and a refresh
+#      of the image's lists.
+# A download is installed with dpkg, and DIR then holds exactly the files fetched. Each apt call that uses the network
+# is stopped at its time limit, and an attempt whose refresh was stopped downloads nothing: with no mirror answering and
+# no cache, the step ends within 2 minutes, and within 3 when every refresh answers and every download hangs. Each
+# part's time goes to the log, and source=image|mirror|fallback|cache to $GITHUB_OUTPUT (image: the image had the
+# package; mirror: Ubuntu's mirrors). Exits 1 with an error annotation that names the cause when, at the end, the
+# package is not installed (dpkg -s) or lavapipe's ICD file is missing: Chrome would have no Vulkan driver, and so no
+# WebGL2.
 set -u
 PKG=mesa-vulkan-drivers
-# (apt's download folder for this package alone, so that after a download it holds exactly the files fetched; its
-# partial/ belongs to _apt, as apt's sandbox expects. test/t_lavapipe.js gives another in CMW_LAVAPIPE_ARCHIVES)
-ARCHIVES=${CMW_LAVAPIPE_ARCHIVES:-/var/cache/apt/cmw-lavapipe}
-ATTEMPTS=4
-FIRST_WAIT_S=10   # before the second attempt; doubled before each later one (10, 20, 40 s)
-NET_LIMIT_S=45    # an apt call that uses the network (a refresh, a download of about 18 MB: seconds when the mirrors answer)
-# (apt does not retry by itself: the attempts below do, with the lists refreshed, and an apt that retries a file the
-# mirrors cannot serve logs a warning per try)
+# (test/t_lavapipe.js puts the folders below and the release file under a folder of its own, CMW_LAVAPIPE_ROOT)
+ROOT=${CMW_LAVAPIPE_ROOT:-}
+# apt's download folder for this package alone, so that after a download it holds exactly the files fetched; its
+# partial/ belongs to _apt, as apt's sandbox expects
+ARCHIVES=$ROOT/var/cache/apt/cmw-lavapipe
+# the fallback mirror's sources file and package lists, apart from the runner's own
+FALLBACK_STATE=$ROOT/var/lib/apt/cmw-lavapipe-fallback
+# The fallback: kernel.org's mirror of Ubuntu's archive, whose host is not under ubuntu.com, so that a failure of
+# *.ubuntu.com's DNS, which takes all of Ubuntu's own mirrors at once, leaves it. Its sites are official archive
+# mirrors on Ubuntu's list (Launchpad's "Kernel.org": mirrors.us.kernel.org, mirrors.nl.eu.kernel.org), and this name,
+# its geo-located front, sends each machine to a near one. It serves amd64 over HTTPS. apt checks its InRelease against
+# Ubuntu's archive keyring, as for Ubuntu's own mirrors, so the mirror cannot alter a file.
+FALLBACK_MIRROR=https://mirrors.edge.kernel.org/ubuntu
+FALLBACK_NAME=${FALLBACK_MIRROR#https://} # (for the log)
+UBUNTU_KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+RETRIES=2
+FIRST_WAIT_S=10
+DOWNLOAD_LIMIT_S=15 # a download (about 18 MB: seconds when a mirror answers)
+LIST_LIMIT_S=25     # a refresh of the package lists
+KILL_GRACE_S=5      # from the limit to SIGKILL, for an apt call that SIGTERM does not stop
+# (apt does not retry by itself: the attempts below do, and an apt that retries a file the mirrors cannot serve logs a
+# warning per try)
 APT=(-qq -o Acquire::Retries=0 -o "Dir::Cache::Archives=$ARCHIVES")
+# the fallback mirror's apt options: its own sources file and lists, and no package cache file (the runner's own one
+# stays as its sources made it)
+FALLBACK_APT=(-o "Dir::Etc::sourcelist=$FALLBACK_STATE/fallback.sources" -o Dir::Etc::sourceparts=- -o "Dir::State::Lists=$FALLBACK_STATE/lists" -o Dir::Cache::pkgcache= -o Dir::Cache::srcpkgcache=)
 
+version=$(apt-cache policy "$PKG" | awk '/Candidate:/ { print $2 }')
 if [ "${1:-}" = --key ]; then
-  version=$(apt-cache policy "$PKG" | awk '/Candidate:/ { print $2 }')
   # (a cache key may not hold a comma: anything but letters, digits and . _ + ~ - becomes _)
   printf '%s' "lavapipe-${ImageOS:-unknown}-${ImageVersion:-unknown}-$version" | tr -c 'A-Za-z0-9._+~-' '_'
   echo
@@ -37,6 +61,8 @@ DEBS=${1:?usage: ci/lavapipe.sh --key | ci/lavapipe.sh DIR}
 # (microseconds; whole seconds on a bash older than 5, which has no EPOCHREALTIME)
 us() { local t=${EPOCHREALTIME:-$(date +%s).000000}; echo "${t/[.,]/}"; }
 seconds() { local d=$(($(us) - $1)); printf '%d.%d s' $((d / 1000000)) $((d / 100000 % 10)); }
+# stopped STATUS: whether a call under timeout was stopped at its limit (124; 137 after SIGKILL)
+stopped() { [ "$1" = 124 ] || [ "$1" = 137 ]; }
 # timed LABEL COMMAND...: runs COMMAND and logs LABEL with its outcome and time; returns COMMAND's status
 timed() {
   local label=$1 t status outcome=ok
@@ -44,7 +70,7 @@ timed() {
   t=$(us)
   "$@"
   status=$?
-  [ "$status" = 0 ] || outcome="failed (exit $status)"
+  if stopped "$status"; then outcome="no answer, stopped at its time limit (exit $status)"; elif [ "$status" != 0 ]; then outcome="failed (exit $status)"; fi
   echo "$label: $outcome, $(seconds "$t")"
   return "$status"
 }
@@ -57,16 +83,64 @@ problem() {
   f=$(icd)
   [ -n "$f" ] && [ -f "$f" ] || echo "$PKG is installed, but lavapipe's ICD file (${f:-none listed}) is missing"
 }
-refresh() { sudo timeout -k 5 "$NET_LIMIT_S" apt-get "${APT[@]}" update; }
-# the files the image lacks, from the mirrors into ARCHIVES, then into DEBS (in place of what DEBS held)
+# apt_net FROM LIMIT ARGS...: apt-get ARGS with FROM's lists (mirror: the image's; fallback: the fallback mirror's),
+# stopped at LIMIT seconds; counts the calls stopped (hung) and those apt ended with an error (failed)
+hung=0
+failed=0
+apt_net() {
+  local from=$1 limit=$2 status
+  shift 2
+  [ "$from" = fallback ] && set -- "${FALLBACK_APT[@]}" "$@"
+  sudo timeout -k "$KILL_GRACE_S" "$limit" apt-get "${APT[@]}" "$@"
+  status=$?
+  if stopped "$status"; then hung=$((hung + 1)); elif [ "$status" != 0 ]; then failed=$((failed + 1)); fi
+  return "$status"
+}
+# download FROM SPEC: the files the image lacks for SPEC, from FROM's mirror into ARCHIVES, then into DEBS (in place of
+# what DEBS held)
 download() {
   sudo find "$ARCHIVES" -maxdepth 1 -name '*.deb' -delete
-  sudo timeout -k 5 "$NET_LIMIT_S" apt-get "${APT[@]}" install -y --download-only "$PKG" || return
+  apt_net "$1" "$DOWNLOAD_LIMIT_S" install -y --download-only "$2" || return
   compgen -G "$ARCHIVES/*.deb" >/dev/null || { echo "apt downloaded no files"; return 1; }
   find "$DEBS" -maxdepth 1 -name '*.deb' -delete
   cp "$ARCHIVES"/*.deb "$DEBS"/
 }
 install_debs() { sudo dpkg -i "$DEBS"/*.deb; }
+# the fallback mirror's sources: the image's release with its updates and security pockets, main only (a package in
+# main depends only on packages in main), the Packages lists alone, signed by Ubuntu's archive key
+fallback_sources() {
+  local codename
+  codename=$(sed -n 's/^VERSION_CODENAME=//p' "$ROOT/etc/os-release")
+  printf '%s\n' 'Types: deb' "URIs: $FALLBACK_MIRROR" "Suites: $codename $codename-updates $codename-security" 'Components: main' \
+    "Architectures: $(dpkg --print-architecture)" 'Targets: Packages' "Signed-By: $UBUNTU_KEYRING"
+}
+# attempt FROM REFRESH: one more attempt at the package, from FROM (mirror: Ubuntu's mirrors, with the image's lists and
+# its candidate; fallback: the fallback mirror, with its lists and the image's version). With REFRESH (yes), FROM's
+# lists are refreshed first, and when that is stopped at its limit nothing is downloaded. Returns 1 when nothing was
+# downloaded; otherwise installs the files and sets source, or cause when dpkg cannot install them.
+attempts=0
+attempt() {
+  local from=$1 refresh=$2 where="Ubuntu's mirrors" spec=$PKG status
+  attempts=$((attempts + 1))
+  if [ "$from" = fallback ]; then where="the fallback mirror ($FALLBACK_NAME)" spec="$PKG=$version"; fi
+  if [ "$refresh" = yes ]; then
+    timed "attempt $attempts: refresh of the package lists of $where" apt_net "$from" "$LIST_LIMIT_S" update
+    status=$?
+    if stopped "$status"; then echo "attempt $attempts: no download after a refresh that got no answer"; return 1; fi
+  fi
+  timed "attempt $attempts: download of $spec from $where" download "$from" "$spec" || return 1
+  if timed "install of the downloaded files" install_debs; then source=$from; else cause="dpkg could not install the files downloaded from $where (its errors above)"; fi
+}
+# why no mirror gave the package: the time limits when every call that failed got no answer, apt's errors otherwise
+no_download() {
+  local mirrors="Ubuntu's mirrors and $FALLBACK_NAME" timeouts=
+  if ((failed == 0)); then
+    echo "no mirror answered in any of $attempts attempts ($mirrors): each apt call was stopped at its time limit, $DOWNLOAD_LIMIT_S s for a download and $LIST_LIMIT_S s for a refresh of the lists"
+    return
+  fi
+  ((hung == 0)) || timeouts="; $hung of its calls got no answer within their time limit"
+  echo "apt could not download it in $attempts attempts from $mirrors (apt's errors above$timeouts)"
+}
 
 t0=$(us)
 mkdir -p "$DEBS"
@@ -77,27 +151,24 @@ if [ -z "$(problem)" ]; then
   echo "$PKG: the image has it"
   source=image
 else
-  sudo install -d -m 755 "$ARCHIVES"
-  sudo install -d -o _apt -m 700 "$ARCHIVES/partial"
+  sudo install -d -m 755 "$ARCHIVES" "$FALLBACK_STATE/lists"
+  sudo install -d -o _apt -m 700 "$ARCHIVES/partial" "$FALLBACK_STATE/lists/partial"
+  fallback_sources | sudo tee "$FALLBACK_STATE/fallback.sources" >/dev/null
   cache_note=", and the Actions cache had no copy for this image (${ImageOS:-?} ${ImageVersion:-?})"
-  for ((i = 1; i <= ATTEMPTS; i++)); do
-    if ((i > 1)); then
-      wait_s=$((FIRST_WAIT_S << (i - 2)))
-      echo "waiting $wait_s s before attempt $i"
-      sleep "$wait_s"
-      # (a refresh that fails is no verdict: the download says whether the mirrors answer)
-      timed "attempt $i: refresh of the package lists" refresh
+  if ! attempt mirror no; then
+    if ((cached > 0)); then
+      if timed "install of the $cached cached files" install_debs; then source=cache; else cache_note=", and the cached files did not install (dpkg's errors above)"; fi
     fi
-    if timed "attempt $i: download from the mirrors" download; then
-      if timed "install of the downloaded files" install_debs; then source=mirror; else cause="dpkg could not install the files downloaded from the mirrors (its errors above)"; fi
-      break
+    if [ -z "$source" ] && ! attempt fallback yes; then
+      for ((r = 0; r < RETRIES; r++)); do
+        wait_s=$((FIRST_WAIT_S << r))
+        echo "waiting $wait_s s before attempt $((attempts + 1))"
+        sleep "$wait_s"
+        attempt mirror yes && break
+      done
     fi
-    if ((i == 1 && cached > 0)); then
-      if timed "install of the $cached cached files" install_debs; then source=cache; break; fi
-      cache_note=", and the cached files did not install (dpkg's errors above)"
-    fi
-  done
-  [ -n "$source$cause" ] || cause="apt could not download it from Ubuntu's mirrors in $ATTEMPTS attempts (apt's errors above)$cache_note"
+  fi
+  [ -n "$source$cause" ] || cause="$(no_download)$cache_note"
 fi
 echo "Mesa step: $(seconds "$t0")"
 echo "source=$source" >>"${GITHUB_OUTPUT:-/dev/null}"
@@ -106,4 +177,4 @@ if [ -n "$p" ]; then
   echo "::error title=Mesa (lavapipe)::$p${cause:+: $cause}. Without lavapipe, Chrome has no Vulkan driver and no WebGL2, and the browser suites cannot run."
   exit 1
 fi
-echo "$PKG $(dpkg-query -W -f '${Version}' "$PKG") from the $source; lavapipe's ICD: $(icd)"
+echo "$PKG $(dpkg-query -W -f '${Version}' "$PKG") (source: $source); lavapipe's ICD: $(icd)"
