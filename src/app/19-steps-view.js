@@ -341,15 +341,16 @@
   // stages (s, hT] blended over u into (s, hT2]: the heights of planes a and b, svHT) and in its colour (the stages
   // (s, T]), or in no colour while the nearer plane is plain (svPlain; T is then s). key: from z's
   // plane to a later one, the 2D carried colour's sheet key of the plane the frame goes to (svSheetKey), so where the
-  // places fold the point in front is the one the 2D picture shows; else null. vs, va, vb: the views of s, a and b.
+  // places fold the point in front is the one the 2D picture shows; else null. vs, va, vb: the shared camera's view (S.srcView: a glide moves the picture, never the view), the same for s, a and b.
   // rest: the plane at rest the frame is (the probe picks on its relief), else null. zmap: the same map from z's plane, the
   // map the shapes' outlines are drawn under, so the floor's lines are carried as the surface is
   function svLandCarry(mapOf, a, b, u, rest = null) {
     const T0 = svT(), e = b == null ? a : b, hT = svHT(a), hT2 = svHT(e), plain = svPlain(u < 0.5 ? a : e);
     const s = svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
     const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: hT };
+    const cam = S.srcView;
     const key = !plain && s === 0 && e > 0 ? svSheetKey(e) : null;
-    return { map: mapOf(s), zmap: mapOf(0), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: leftView(s), va: leftView(a), vb: b == null ? null : leftView(b), rest };
+    return { map: mapOf(s), zmap: mapOf(0), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: cam, va: cam, vb: b == null ? null : cam, rest };
   }
   // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
   // when it is coloured from T and its heights are of that map too; else plane k's points (k at or before T) or T's

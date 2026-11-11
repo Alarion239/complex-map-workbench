@@ -264,6 +264,14 @@
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
+  // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).
+  // { zoom: f } runs the app's own zoom of the left plane (zoomPane, the wheel's), about its centre, so the steps view must be showing the plane (not the
+  // Landscape); { leftScale } multiplies the mirror's s first (the control: the glide's box does not follow the mirror's history)
+  window.__cmwLandViews = (o) => {
+    if (o && o.leftScale) V.left.s *= o.leftScale;
+    if (o && o.zoom) zoomPane(paneL, 'L', paneL.w / 2, paneL.h / 2, o.zoom);
+    return { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left) };
+  };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
   // TEMP-DEBUG-HOOK
 
