@@ -872,12 +872,12 @@
     if (ps) ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0;
     return P.found ? P.found.poles : [];
   }
-  // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
-  // as svSheetKey gives it, without its singular points)
-  // (the glide held by svLinkHold for its missing tracks comes first)
   // svHoldB: plane b when the left pane's last frame held the glide into b for its missing tracks (svLinkHold), else 0: each
   // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind
   let svHoldB = 0;
+  // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
+  // as svSheetKey gives it, without its singular points)
+  // (the glide held by svLinkHold for its missing tracks comes first)
   function svPolesLeft() {
     const n = nSteps();
     for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
@@ -1076,9 +1076,12 @@
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
-  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
-  // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
-  // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
+  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
+  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
+  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
+  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
+  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
+  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   // (the paths it builds are kept in svHomMemo for the frame's svCarryExactHom, which asks for the same b and u)
   let svHomMemo = null;

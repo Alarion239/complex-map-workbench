@@ -128,8 +128,9 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 }
 // ---- a scrub right after load, before step b's pole tracks exist (zeta) ----
 // The first frame of a scrub made at once (no wait for ready.ready) is the held frame, pixel-equal to plane z's parked
-// frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The hold ends once the
-// tracks exist, and a glide with an exact inverse (z squared) is never held.
+// frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The first frame at rest
+// after it leaves no hold behind, the hold ends once the tracks exist, and a glide with an exact inverse (z squared) is
+// never held.
 {
   const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 6, HELD_OVER = 0.002, HELD_FAR = 10 * HELD_OVER, FRAME_SEARCH_MS = 0.001;
   const FLOOR = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
@@ -160,6 +161,11 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const heldFrame = async () => {
     const again = await ev(`(async () => { __cmwSteps({ bare: false }); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); window.__gi.f = __giGrab(); return __cmwSteps().hold || 0; })()`);
     ok('the held frame is drawn again with its overlays while the hold lasts', again > 0, again);
+    // (the first frame at rest on plane z leaves no hold behind while the held glide's tracks are still missing: they are
+    // dropped as the thread parks, and the hold is read in the animation frame that draws plane z, right after the left
+    // pane's own callback, before an idle moment can make them)
+    const rest = await ev(`(async () => { __cmwSteps({ dropTracks: true, park: 0 }); for (let k = 0; k < 60; k++) { await new Promise((r) => requestAnimationFrame(r)); const s = __cmwSteps(); if (s.x === 0 && s.core === 'still') return s.hold; } return 'no frame at rest'; })()`);
+    ok('the first frame at rest on plane z after the hold leaves no hold behind (hold 0)', rest === 0, rest);
     await park(0);
     return heldOver();
   };
