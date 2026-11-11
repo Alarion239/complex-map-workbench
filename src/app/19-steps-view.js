@@ -151,7 +151,6 @@
     if (morph.open) { morph.open = false; ch = true; }
     if (v.main !== main) { setViewOpt(null, 'main', main); ch = true; }
     SV.main = main;
-    if (main === 'land' && !(v.D && v.D.phase)) { setViewOpt(null, 'D', Object.assign({}, v.D, { phase: true })); ch = true; }
     const side = col ? 'P' : 'L';
     if (main !== 'land' && v[side].surf !== surf) { setViewOpt(side, 'surf', surf); ch = true; }
     return ch;
