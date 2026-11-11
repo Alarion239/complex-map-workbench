@@ -885,7 +885,9 @@
   // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
   // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
   // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
-  // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's). False when the program is not ready
+  // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's), unless st.graticule is false. False when the program is not ready
+  // whether the last carried globe drew the graticule (null before the first)
+  let carriedGlobeGraticule = null;
   function drawCarriedGlobe(st, sph) {
     if (!ok) return false;
     const P = program(st.s === st.T ? 'carryGId' : 'carryG', st.map);
@@ -894,6 +896,8 @@
     uM4(P, 'uMVP', sph.MVP); u3(P, 'uEye', sph.eye);
     globeLight(P, sph);
     sphereNetUniforms(P, st.net, st.gridMajor);
+    carriedGlobeGraticule = st.graticule !== false;
+    u1f(P, 'uGraticule', +carriedGlobeGraticule);
     const g = st.mesh;
     u2i(P, 'uN', g.nx, g.ny);
     u1f(P, 'uLim', st.lim);
