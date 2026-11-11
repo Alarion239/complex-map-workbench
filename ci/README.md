@@ -232,22 +232,30 @@ artifact.
   on the 24.04 image one file of about 18 MB) and installs them with `dpkg`. Those files are kept in an Actions cache,
   keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
   by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
-  them when the key had no entry; a pull request's run restores what it saved itself or what main's runs saved
-  (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused, so an image's entry goes soon after
-  the image does.
+  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
+  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
+  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
   - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
     none, or when they do not install, the same version comes from a fallback mirror on another domain:
     kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
-    `*.ubuntu.com` leaves reachable. It has a sources file and package lists of its own (the runner's are untouched),
-    and apt checks it against Ubuntu's archive keyring as it does Ubuntu's mirrors. Then come 2 more downloads from
-    Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh of the lists.
+    `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
+    `mirrors.us.kernel.org`, for http, ftp and rsync; `mirrors.edge.kernel.org` is kernel.org's HTTPS front for its
+    mirrors and is not on the list. What keeps the files intact is apt's check of the mirror against Ubuntu's archive
+    keyring, as for Ubuntu's own mirrors. The fallback has a sources file and package lists of its own (the runner's
+    are untouched). Then come 2 more downloads from Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh
+    of the lists.
+  - **After a Mesa update**, until GitHub's image has it: each pocket's package list names only its newest version, so
+    the image's version is in none of the fallback's lists, and the fallback fails (apt: `Version '…' was not found`).
+    The downloads with refreshed lists install the newer version, which the job does not save under the key that names
+    the image's.
   - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
     not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
     cache, the step fails within 2 minutes.
   - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
     file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause:
-    the time limits when no mirror answered, apt's errors otherwise, and whether the cache had a copy. Without lavapipe
-    Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
+    the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
+    errors are in the log), got no answer, or ended without an error; and whether the cache had a copy. Without
+    lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
   name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
   job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
