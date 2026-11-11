@@ -873,7 +873,8 @@
     return P.found ? P.found.poles : [];
   }
   // svHoldB: plane b when the left pane's last frame held the glide into b for its missing tracks (svLinkHold), else 0: each
-  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind
+  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
+  // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
   let svHoldB = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
@@ -897,9 +898,9 @@
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane (svRingAhead), SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time
-  // (svPoleJob, its token: a new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh
-  // each slice, and svPolesWatch starts it again once they change after it ended
+  // the plane and of the chain's other glides (svRingAhead, svRingNext), SV_POLE_BUDGET ms an idle moment at most, so a
+  // glide finds them made. One job at a time (svPoleJob, its token: a new one ends the one before); it reads its inputs
+  // (the chain, clipWin, the camera) afresh each slice, and svPolesWatch starts it again once they change after it ended
   let svPoleJob = 0, svPoleBusy = false;
   function svPolesAhead() {
     const tok = ++svPoleJob;
@@ -1070,12 +1071,30 @@
   // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
   // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why) {
-    const h = svHomMemo && svHomMemo.b === b && svHomMemo.u === u ? svHomMemo.h : svInvPaths(b, u, 'flat', why);
-    if (!h) { if (svHomMemo && svHomMemo.b === b && svHomMemo.u === u) why.r = svHomMemo.why.r; return false; }
+    const m = svHomPaths(b, u), h = m.h;
+    if (!h) { why.r = m.why.r; return false; }
     const res = svDrawInverse(pane, h.list, h.paths, T, frame, u, null, null, b);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
+  // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
+  // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
+  // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
+  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
+  // come from the mask's pass (svStagedMask), which the colour layer does not draw
+  function svExactGlide(b, u) {
+    if (!GLR.inverseState) return false;
+    const h = svHomPaths(b, u).h;
+    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i) === 'ready');
+  }
+  // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
+  let svHomMemo = null;
+  function svHomPaths(b, u) {
+    if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
+    return svHomMemo;
+  }
+  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths), as the carried colour draws it
+  const svInvState = (h, i) => { const p = h.paths[i]; return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }); };
   // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
   // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
   // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
@@ -1083,15 +1102,12 @@
   // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
   // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
-  // (the paths it builds are kept in svHomMemo for the frame's svCarryExactHom, which asks for the same b and u)
-  let svHomMemo = null;
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
-    const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
-    svHomMemo = { b: g.b, u: g.u, h, why };
-    const linking = !!h && h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending');
+    const h = svHomPaths(g.b, g.u).h;
+    const linking = !!h && h.paths.some((p, i) => svInvState(h, i) === 'pending');
     svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
@@ -1125,9 +1141,9 @@
   // (null: none) parked
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
-  // (the sizes kept: 21 a glide, two glides beside the plane, so 400 holds those of about nine views or windows; each
-  // is a number, and a full table is dropped whole)
-  const SV_RING_SIZES_MAX = 400;
+  // (the sizes kept: SV_RING_Q + 1 a glide; the idle job makes those of every glide while the table is under half its
+  // limit, so 400 holds those of a few views or windows; each is a number, and a full table is dropped whole)
+  const SV_RING_SIZES_MAX = 400, SV_RING_Q = 20;
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
@@ -1210,7 +1226,7 @@
     svRingSizes.set(key, m);
   }
   function svRingFor(pane, map) {
-    const g = svBetween(), v = pane.view, q = Math.round(g.u * 20), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
+    const g = svBetween(), v = pane.view, q = Math.round(g.u * SV_RING_Q), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
     if (svRingMemo && svRingMemo.key === key) return svRingMemo.ring;
     let m = svRingSizes.get(sk);
     if (m === undefined) {
@@ -1383,23 +1399,27 @@
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
-  // first glide finds them made)
+  // first glide finds them made). Those two glides first, then every other glide of the chain (a scrub crosses them
+  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room, so that no mesh
+  // made for a far glide drops one of the glides next to the thread
   function svRingNext() {
     if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
     if (!L || !L.includes(SV_ALL)) return null;
     // (the view the frames between planes draw in: svRenderMoving sets the pane's view to S.srcView)
-    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView;
-    for (const j of [i - 1, i]) {
+    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView, order = [i - 1, i];
+    if (svPolarRes.size < SV_POLAR_KEEP && svRingSizes.size < SV_RING_SIZES_MAX / 2) for (let j = 0; j + 1 < P.length; j++) if (j !== i - 1 && j !== i) order.push(j);
+    for (const j of order) {
       if (j < 0 || j + 1 >= P.length) continue;
       const g = svBetween(j + 0.5, null);
-      for (let q = 0; q <= 20; q++) {
-        const key = svRingKey(g, q, v, paneL.w, paneL.h);
+      for (const { q, key } of svRingKeys(g, v)) {
         if (!svRingSizes.has(key)) return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s }, w: paneL.w, h: paneL.h };
       }
     }
     return null;
   }
+  // the keys of a glide g's ring sizes at view v in the left pane, a twentieth (q) each
+  function* svRingKeys(g, v) { for (let q = 0; q <= SV_RING_Q; q++) yield { q, key: svRingKey(g, q, v, paneL.w, paneL.h) }; }
   const svRingLeft = () => !!svRingJob || !!svRingNext();
   // the idle job's share of the ring: an m made for at most ms, its mesh built (svRingWarm) in the slice that publishes
   // it, so no frame finds a size whose mesh is not built; that slice can run past ms by the build's time. false when
@@ -1651,7 +1671,9 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
+    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
+    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    if (mask && svMask(pane, map, still ? a : undefined, {
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
@@ -1665,15 +1687,16 @@
       // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
       // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
       // the CPU path (it is in cc already), the layers go one by one, the grid first
-      if (!svMaskOn() && !frame.cc) {
+      if (!mask && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        if (!bare) svOutlines(pane, map, frame, col);
+        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
+        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
-        if (svMaskOn()) svMask(pane, map, still ? a : undefined, { cc });
+        if (mask) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
         svOutlines(pane, map, null, col);
@@ -1717,7 +1740,7 @@
   function svStagedOf() {
     const g = svBetween();
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
-    const h = svHomMemo && svHomMemo.b === g.b && svHomMemo.u === g.u ? svHomMemo.h : svInvPaths(g.b, g.u, 'flat', { r: null });
+    const h = svHomPaths(g.b, g.u).h;
     if (!h) return null;
     const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
     return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
