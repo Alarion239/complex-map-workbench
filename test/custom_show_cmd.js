@@ -28,16 +28,8 @@ async function open(ns, steps) {
 }
 const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
 const select = async (k) => { await selectStep(k); await settle(1200); };
-// a language switch reloads the page: wait until the new page is in that language (data-lang, which English leaves unset)
-// and shows the element `sel`
-const RELOAD_POLL_MS = 250, PAGE_POLL_MS = 100;   // how often a reloading page and a loaded one are looked at
-const relang = async (lang, sel) => {
-  await ev(`I18N.setPref('${lang}'), 1`);
-  const there = `(document.documentElement.dataset.lang || 'en') === '${lang}' && !!document.querySelector(${JSON.stringify(sel)})`;
-  // (while the page reloads an evaluation fails with the old page gone, an { __exc } answer: that is "not yet")
-  for (let i = 0; i < 100; i++) { const r = await ev(there); if (r === true) break; await sleep(r && r.__exc ? RELOAD_POLL_MS : PAGE_POLL_MS); }
-  ok(`${lang}: the page reloaded in ${lang} and shows ${sel}`, (await settled({ max: 8000, until: there })).ok, { lang, sel });
-};
+// a language switch reloads the page: wait until the new page is in that language and shows the element `sel`, asserted
+const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, settled, sleep, ok });
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
