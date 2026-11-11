@@ -712,5 +712,7 @@
  "Cauchy: on z only": "Коши: только на z",
  "No curve selected": "Кривая не выбрана",
  "Read as {read}. For the power {power}, write {fix}.": "Читается как %{read}. Для степени %{power} напишите %{fix}.",
- "Use {fix}": "Заменить на %{fix}"
+ "Use {fix}": "Заменить на %{fix}",
+ "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности",
+ "Nothing to fit yet": "Пока нечего вписывать"
 }

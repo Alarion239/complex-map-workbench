@@ -239,6 +239,7 @@ const VIEWS = {
   'steps_cauchy_parts_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)
   'steps_phone_key_cmd.js': steps({ pin: true }),
+  'steps_canvas_stack_cmd.js': steps({ pin: true }),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
