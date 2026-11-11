@@ -193,8 +193,8 @@ for (const w of [1024, 1440]) {
   await press('.', 'Slash'); await until(PAL); check('ЙЦУКЕН «.» on the / key → palette', await ev(PAL)); await press('Escape', 'Escape'); await until(`!${PAL}`);
   // (K and M play and pause the thread, P toggles its Paths; the thread is idle first)
   await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` });
-  // (a play on a short thread ends within a few frames: the page counts the times the Play button's label changes, and
-  // a key plays when the count goes up)
+  // (the page counts the plays that start, the times the Play button's label leaves its idle label, so a check can read
+  // that a key played whether or not the play has ended by then; a key plays when the count goes up)
   await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n !== window.__idleLabel) window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); window.__idleLabel = was; })(), 1`);
   // (a key that plays has no quiet wait of its own: the page is quiet only once the play has ended, 900 ms a plane at the
   // normal speed and the arrival's frames after it, which can take more than 3 s on a software renderer; the play's start
@@ -208,7 +208,10 @@ for (const w of [1024, 1440]) {
   const p0 = await ev(paths);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} !== ${JSON.stringify(p0)}` }); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} === ${JSON.stringify(p0)}` });
-  await press('у', 'KeyE', 4); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
+  // (⌘У has no quiet wait of its own: the export dialog it opens is there at once, but the page is quiet only once the
+  // dialog has built and typeset its figure, 1.6 to 2.6 s on a software renderer; the wait is for the dialog, and Escape
+  // stops the build)
+  await press('у', 'KeyE', 4, false); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
   await press('Escape', 'Escape'); await until(`!document.querySelector('.modal-bg')`);
   // a text field keeps its letters: the region formula field
   await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
