@@ -465,13 +465,15 @@
   // the chain's cut kinds (a deformation map's carried colour draws a fill for a path cut the sheets continue, clipped
   // at a cut marked clip)
   const carryKinds = () => (cur.info && Array.isArray(cur.info.cutKinds) ? cur.info.cutKinds : []);
+  // (the carried colour's regionK and regionKC for a chain with no cut are regionKN and regionKCN: the pixel-centre read)
+  const noCutProg = (name, cuts) => (cuts ? name : name + 'N');
   // the programs a glide's carried colour draws with (drawRegionCarry, map mode 1), started without waiting: a renderer
   // without parallel compiles links each in an idle moment before the first glide, not in its first frame
   // (peel: the variants of carryLayers, which write the sheet key per fragment)
   function carryNames(peel) {
     const k = carryKinds(), clip = k.some((c) => c && c.clip), cuts = clip || k.some((c) => c && c.h === 'sheet');
     // (a sheet cut not clipped: the fill's mask too, which the first frame's fill draws through)
-    const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : ['regionKC'];
+    const names = clip ? ['regionKC', 'regionKSCclippt', 'fillPts'] : cuts ? ['regionKC', 'regionKSCpt', 'fillPts', rtOK ? 'regionKSCptm' : 'regionKSm'] : [noCutProg('regionKC', false)];
     return peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
@@ -504,7 +506,7 @@
     let e = cache ? cached(res, true, L, st.map, null) : null;
     if (e === PENDING) e = null;
     if (e) { e.carry = true; carryTmpT = performance.now(); }
-    let P = e ? program(N('regionKC'), st.map) : null;
+    let P = e ? program(N(noCutProg('regionKC', cuts)), st.map) : null;
     // (the fill's places from its point pass, fillPoints: the chain once per point of a torn sub-triangle. The fill never
     // evaluates them itself, so its frames are the point pass's whatever the compiler does with either program; while
     // the pass cannot run (fillPts or the fill still linking) the sheet program stands in, below)
@@ -531,7 +533,7 @@
       if (P && masked && !(mask = maskOf(N('regionKS'), full, cache ? linked : program))) P = full = null;
       if (P) e = null;
     }
-    if (!P) { e = null; P = (cache || cuts ? linked : program)(N('regionK'), st.map); }
+    if (!P) { e = null; P = (cache || cuts ? linked : program)(N(noCutProg('regionK', cuts)), st.map); }
     return P ? { L, e, P, fill, fp, full, clip, mask } : false;
   }
   // (prep: carryPrep's for res and st, made here when not given)
@@ -887,7 +889,9 @@
   // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
   // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
   // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
-  // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's). False when the program is not ready
+  // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's), unless st.graticule is false. False when the program is not ready
+  // whether the last carried globe drew the graticule (null before the first)
+  let carriedGlobeGraticule = null;
   function drawCarriedGlobe(st, sph) {
     if (!ok) return false;
     const P = program(st.s === st.T ? 'carryGId' : 'carryG', st.map);
@@ -896,6 +900,8 @@
     uM4(P, 'uMVP', sph.MVP); u3(P, 'uEye', sph.eye);
     globeLight(P, sph);
     sphereNetUniforms(P, st.net, st.gridMajor);
+    carriedGlobeGraticule = st.graticule !== false;
+    u1f(P, 'uGraticule', +carriedGlobeGraticule);
     const g = st.mesh;
     u2i(P, 'uN', g.nx, g.ny);
     u1f(P, 'uLim', st.lim);

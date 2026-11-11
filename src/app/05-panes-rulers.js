@@ -1411,7 +1411,7 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
+    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (merged-views
     // review: on a 356 px plot the key covered a third of the landscape); a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1427,6 +1427,7 @@
       $(side + 'ZoomOut').innerHTML = ICONS.minus;
       $(side + 'Fit').innerHTML = ICONS.fit;
       $(side + 'Solo').innerHTML = ICONS.expand;
+      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
       const zb = (f) => () => {
         const sd = side === 'left' ? 'L' : 'R';
         if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
