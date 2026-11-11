@@ -17,8 +17,9 @@
 #      of the image's lists. These take the refreshed lists' version, which after a Mesa update is newer than the one
 #      in the cache key: the job then does not save the files (gate.yml compares the step outputs version).
 # A download is installed with dpkg, and DIR then holds exactly the files fetched. Each apt call that uses the network
-# is stopped at its time limit, and an attempt whose refresh was stopped downloads nothing: with no mirror answering and
-# no cache, the step ends within 2 minutes, and within 3 when every refresh answers and every download hangs. Each
+# is stopped at its time limit (timeout -k 5: SIGTERM, then SIGKILL after 5 s more), and an attempt whose refresh was
+# stopped downloads nothing: with no mirror answering and no cache, the step ends within 2 minutes when SIGTERM stops
+# apt (up to 140 s when apt has to be killed), and within 3 when every refresh answers and every download hangs. Each
 # part's time goes to the log, and to $GITHUB_OUTPUT go source=image|mirror|fallback|cache (image: the image had the
 # package; mirror: Ubuntu's mirrors) and version, the version installed (dpkg-query). Exits 1 with an error annotation
 # that names the cause when, at the end, the package is not installed (dpkg -s) or lavapipe's ICD file is missing:
@@ -123,8 +124,8 @@ fallback_sources() {
 }
 # attempt FROM REFRESH: one more attempt at the package, from FROM (mirror: Ubuntu's mirrors, with the image's lists and
 # their candidate, refreshed or not; fallback: the fallback mirror, with its lists and the image's version, which they
-# lack after a Mesa update until the image has it). With REFRESH (yes), FROM's lists are refreshed first, and when that
-# is stopped at its limit nothing is downloaded. Returns 1 when nothing was downloaded; otherwise installs the files and
+# lack after a Mesa update until the image has it, unless the security pocket still lists it). With REFRESH (yes),
+# FROM's lists are refreshed first, and when that is stopped at its limit nothing is downloaded. Returns 1 when nothing was downloaded; otherwise installs the files and
 # sets source, or cause when dpkg cannot install them.
 attempts=0
 attempt() {
@@ -153,7 +154,7 @@ no_download() {
   ((failed == 0)) || what+=("$failed ended with an error (apt's errors above)")
   ((hung == 0)) || what+=("$hung got no answer within the time limit ($limits)")
   ((empty == 0)) || what+=("$empty ended without an error but downloaded no files")
-  if ((refreshed == 1)); then what+=("1, a refresh of the lists, ended without an error"); elif ((refreshed > 1)); then what+=("$refreshed, refreshes of the lists, ended without an error"); fi
+  if ((refreshed == 1)); then what+=("1, a refresh of the lists, ended without an error (apt exits 0 even when it could not fetch; see its warnings above)"); elif ((refreshed > 1)); then what+=("$refreshed, refreshes of the lists, ended without an error (apt exits 0 even when it could not fetch; see its warnings above)"); fi
   for part in "${what[@]}"; do text+="${text:+; }$part"; done
   echo "apt could not download it in $attempts attempts from $mirrors: of the $calls apt calls, $text"
 }

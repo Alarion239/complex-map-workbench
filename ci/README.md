@@ -244,17 +244,21 @@ artifact.
     keyring, as for Ubuntu's own mirrors. The fallback has a sources file and package lists of its own (the runner's
     are untouched). Then come 2 more downloads from Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh
     of the lists.
-  - **After a Mesa update**, until GitHub's image has it: each pocket's package list names only its newest version, so
-    the image's version is in none of the fallback's lists, and the fallback fails (apt: `Version '…' was not found`).
-    The downloads with refreshed lists install the newer version, which the job does not save under the key that names
-    the image's.
+  - **After a Mesa update**, until GitHub's image has it: each pocket's package list names only its newest version,
+    so the fallback fails (apt: `Version '…' was not found`) unless the image's version is still published in the
+    security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
+    stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
+    newer version, which the job does not save under the key that names the image's.
   - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
     not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
-    cache, the step fails within 2 minutes.
+    cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
+    (`timeout -k 5` sends SIGKILL 5 s after SIGTERM).
   - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
     file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause:
     the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
-    errors are in the log), got no answer, or ended without an error; and whether the cache had a copy. Without
+    errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
+    lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
     lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
   name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
