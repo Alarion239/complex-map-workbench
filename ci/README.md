@@ -119,11 +119,6 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
 
-The Gate's Linux jobs run on GitHub's Ubuntu 24.04 image (`ubuntu-24.04`, and Quality's Linux row in `ci/impact.js`),
-not on `ubuntu-latest`: on the Ubuntu 26.04 image headless Chrome has no WebGL2, and every browser job fails before its
-first suite (#1500). The other workflows' Linux jobs draw nothing (Lint, Pages, CodeQL, the GPU gate's plan and
-verdict) and stay on `ubuntu-latest`.
-
 ### GLSL tiers
 
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
@@ -232,6 +227,27 @@ artifact.
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
   cause (no frame missed, t still moving, the program still compiling), is printed in the summary, and does not fail
   the job; the GPU machines run the suites at full speed.
+- **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
+  It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
+  on the 24.04 image one file of about 18 MB) and installs them with `dpkg`. Those files are kept in an Actions cache,
+  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
+  by that exact key only, so files from another image are never installed. A job that installed from the mirrors
+  saves them when the key had no entry; a pull request's run restores what it saved itself or what main's runs saved
+  (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused, so an image's entry goes soon after
+  the image does.
+  - **When the mirrors cannot be reached**, the cached files are installed after that first download fails. With none,
+    or when they do not install, the download is tried again after refreshing the lists: 4 attempts in all, with
+    waits of 10, 20 and 40 s, each apt call limited to 45 s (apt does not retry by itself).
+  - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
+    file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause
+    (no download from the mirrors, and whether the cache had a copy). Without lavapipe Chrome has no Vulkan driver and
+    no WebGL2. Each part's time is in the step's log.
+- **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
+  name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
+  job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
+  there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
+  image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
+  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine).
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
@@ -459,6 +475,7 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |

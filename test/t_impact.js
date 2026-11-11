@@ -120,7 +120,7 @@ for (const f of ['ci/browser.js', '.github/workflows/gate.yml', 'test/cdp_kit/cd
 
 // T2
 const cx = select(['src/cx.js']);
-ok('T2: src/cx.js -> GLSL (core on Windows), quality on Linux, perf, the core shards', cx.tier === 'T2' && cx.glsl.length === 9 && cx.glsl.some((j) => j.tier === 'core') && same(cx.quality, ['ubuntu-24.04']) && cx.perf && same(cx.browser, [...AREAS.core, 'smoke']), cx);
+ok('T2: src/cx.js -> GLSL (core on Windows), quality on Linux, perf, the core shards', cx.tier === 'T2' && cx.glsl.length === 9 && cx.glsl.some((j) => j.tier === 'core') && same(cx.quality, ['ubuntu-latest']) && cx.perf && same(cx.browser, [...AREAS.core, 'smoke']), cx);
 const sph = select(['src/sphere.js']);
 ok('T2: src/sphere.js is no GLSL page\'s input: no GLSL', sph.tier === 'T2' && !sph.glsl.length && sph.perf, sph.glsl);
 const inv = select(['src/inverse.js']);
@@ -135,7 +135,7 @@ for (const f of ['src/sheets.js', 'src/formulasteps.js']) ok(`T2: ${f} -> the sa
 ok('T2: src/symbolic.js -> the same as src/parse.js', (() => { const a = select(['src/symbolic.js']), b = select(['src/parse.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
 ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
-ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-24.04']) && !p.perf && !p.glsl.length; })());
+ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
 ok('a paired job chosen by its runner is forced (A/A); one chosen by the app is not', (() => { const a = select(['test/regress/perf/run.js']), b = select(['ci/quality.js', 'README.md']), c = select(['src/cx.js']), d = select(['src/cx.js', 'test/regress/perf/scenes.js']); return a.forcePerf && !a.forceQuality && b.forceQuality && !b.forcePerf && !c.forcePerf && !c.forceQuality && d.forcePerf && !d.forceQuality; })());
 ok('T2: ci/perf_busy.js (the perf shard\'s load guard) -> perf only', (() => { const p = select(['ci/perf_busy.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
 ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_shards.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());

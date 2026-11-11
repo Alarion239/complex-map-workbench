@@ -185,10 +185,7 @@ const GLSL_CORE_JOBS = [
   { os: 'windows-latest', page: 'inverse', part: '1/1', tier: 'core' },
   ...MAC_JOBS,
 ];
-// the Quality jobs' systems (the whole gate: all three; a tier: Linux alone). Linux is GitHub's Ubuntu 24.04 image, as
-// for the Gate's other Linux jobs: on the Ubuntu 26.04 image headless Chrome has no WebGL2 (#1500)
-const QUALITY_LINUX = 'ubuntu-24.04';
-const QUALITY_OS = [QUALITY_LINUX, 'windows-latest', 'macos-latest'];
+const QUALITY_OS = ['ubuntu-latest', 'windows-latest', 'macos-latest'];
 // (the build's inputs: what the same-build check covers)
 const isApp = (f) => f.startsWith('src/') || f === 'build.py' || f === 'tools/src_parts.py' || f === 'tools/bundle.mjs';
 const fileOf = (e) => e.split('#')[0];
@@ -373,7 +370,7 @@ function select(files, opts = {}) {
   const tier = isFull ? 'T3' : core || quality || perf || glslJobs.length ? 'T2' : shards.length ? 'T1' : 'T0';
   const plan = {
     tier, full: isFull, why: fullWhy, unknown, sameBuild: opts.sameBuild ?? null, reasons, glslDeep: opts.glslDeep || null,
-    browser: shards, glsl: glslJobs, quality: quality ? (isFull ? QUALITY_OS : [QUALITY_LINUX]) : [], perf,
+    browser: shards, glsl: glslJobs, quality: quality ? (isFull ? QUALITY_OS : ['ubuntu-latest']) : [], perf,
     forceQuality: quality && forceQuality, forcePerf: perf && forcePerf,
   };
   plan.skipped = [

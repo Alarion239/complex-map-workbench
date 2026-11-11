@@ -11,9 +11,6 @@
 # job); a push to main, the nightly run, a run by hand and the label full-gate run them all. On Windows the GLSL
 # pages run their core tier on a pull request, every chain otherwise and with the label glsl-deep (ci/README.md, GLSL
 # tiers). Every job runs on GitHub's machines: nothing here waits for one of ours.
-# The Linux jobs (quality's too: its systems come from ci/impact.js) run on GitHub's Ubuntu 24.04 image, ubuntu-24.04,
-# not ubuntu-latest: on the Ubuntu 26.04 image headless Chrome has no WebGL2, and every browser job fails before its
-# first suite (#1500).
 name: Gate
 
 on:
@@ -73,7 +70,7 @@ jobs:
   # Gate never stands on a commit before a gate passed on it
   ready:
     name: Ready for review, already gated?
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       actions: read
@@ -150,7 +147,7 @@ jobs:
   plan:
     name: Plan
     needs: ready
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       reference: ${{ steps.ref.outputs.reference }}
@@ -262,7 +259,7 @@ jobs:
     # (not when the job ready found a passing Gate run of this PR on the same commit, #379)
     needs: ready
     if: needs.ready.outputs.mirror == ''
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       # the construction tests' absolute speed limits were set on the development Mac
@@ -427,8 +424,10 @@ jobs:
     # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
     # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
     # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
-    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). It runs on the Ubuntu 24.04 image: on
-    # 26.04 headless Chrome has no WebGL2 (#1500).
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). The job runs on GitHub's Ubuntu 24.04
+    # image, not ubuntu-latest: the layout shards gate on the renderer their baseline was made on (ci/layout_baseline.json:
+    # this image's lavapipe, with its Vulkan and LLVM versions in the renderer's name), so on another image they fail
+    # until a new baseline is made there; and the jobs of one run must not land on two images while ubuntu-latest moves.
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     strategy:
@@ -455,18 +454,28 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      # (#504: the image's package lists usually know the package, so it installs without refreshing them first; they are
-      # refreshed only when that fails, as before. Each part's time goes to the log)
+      # Mesa's Vulkan drivers (ci/lavapipe.sh): from Ubuntu's mirrors, or, when they cannot be reached, from an Actions
+      # cache of the package's files. The cache is keyed by the runner's image and the package's version in the image's
+      # lists, restored by that exact key only (files from another image are never installed), and saved after an
+      # install from the mirrors (a pull request's run reads its own saves and main's)
+      - name: Mesa cache key
+        id: mesa-key
+        run: echo "key=$(ci/lavapipe.sh --key)" >> "$GITHUB_OUTPUT"
+      - name: Mesa cache (restore)
+        id: mesa-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/cmw-lavapipe-debs
+          key: ${{ steps.mesa-key.outputs.key }}
       - name: Mesa's Vulkan drivers (lavapipe)
-        # (needrestart's scan for services to restart after the install, about 1.4 s, has nothing to restart here: off,
-        # on sudo's own line, since sudo resets the environment)
-        run: |
-          t0=$(date +%s.%N)
-          if dpkg -s mesa-vulkan-drivers >/dev/null 2>&1; then echo "mesa-vulkan-drivers: already installed"
-          elif sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers; then echo "mesa-vulkan-drivers: installed from the image's lists"
-          else sudo apt-get update -qq && sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers && echo "mesa-vulkan-drivers: installed after apt-get update"
-          fi
-          awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN { printf "Mesa step: %.1f s\n", b - a }'
+        id: mesa
+        run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"
+      - name: Mesa cache (save)
+        if: steps.mesa.outputs.source == 'mirror' && steps.mesa-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/cmw-lavapipe-debs
+          key: ${{ steps.mesa-key.outputs.key }}
       # (ci/browser.js asks the job's first Chrome for its renderer before the first suite, and fails the job when it has
       # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
@@ -486,7 +495,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     # (tier none mirroring a run still going waits for it: as long as a Gate run may take)
     timeout-minutes: ${{ needs.plan.outputs.tier == 'none' && 330 || 5 }}
     steps:
