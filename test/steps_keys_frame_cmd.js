@@ -1,8 +1,9 @@
 // The saved-state keys exactImages, unitLevel, spin, compact, chev and fov, read from a saved state in the steps view
 // (#1188): what each changes on the page and, for the keys the steps view does not read, that loading one changes nothing.
-// - exactImages: false is what the state carries and the plane's exact images are not drawn (the frame differs from the
-//   page that has them on, over more than MIN_CHANGED pixels of the pane);
-// - unitLevel: true draws the Landscape's unit level plane (the frame differs from the one without it);
+// - exactImages: false is what the state carries, and a plane at rest past the colour plane is drawn by the exact pass
+//   whatever it says: the plane's frame is the frame of the page without it;
+// - unitLevel: true draws the Landscape's unit level plane (the frame differs from the one without it, over more than
+//   MIN_CHANGED pixels of the pane);
 // - spin, compact, chev, fov: the steps view reads none of them: the plane's frame and the Landscape's are the frame of the
 //   page without it (a guard against one gaining an effect there).
 // Every comparison has a control: the same state loaded twice draws the same frame (no pixel over TOL), so a difference is the
@@ -55,8 +56,10 @@ for (const surf of ['plane', 'land']) {
     const v = k === 'exactImages' ? false : true;
     const p = await open({ [k]: v }, surf);
     info[surf][k] = changed(base.im, p.im);
+    // TODO(#1498): remove the exactImages checks with the key.
     ok(`${surf}: ${k} ${v} is what the state carries`, p.state[k] === v && !!base.state[k] === !v, [p.state[k], base.state[k]]);
-    ok(`${surf}: ${k} ${v} changes the frame (over ${MIN_CHANGED} pixels)`, info[surf][k] > MIN_CHANGED, info[surf][k]);
+    if (k === 'exactImages') ok(`${surf}: ${k} ${v} draws the frame without it (not over the control)`, info[surf][k] <= INERT_MAX, info[surf][k]);
+    else ok(`${surf}: ${k} ${v} changes the frame (over ${MIN_CHANGED} pixels)`, info[surf][k] > MIN_CHANGED, info[surf][k]);
   }
   for (const k of INERT) {
     for (const v of [true, false]) {
