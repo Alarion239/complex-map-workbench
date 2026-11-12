@@ -18,7 +18,9 @@
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
 //     budget reads unresolved, never empty;
 //  7. the GLSL: the chain's inverse program holds the REPT walker, a loop with no continue and no stack index that can be
-//     negative (Direct3D's compiler, #1478).
+//     negative. These two source rows are proxies for Direct3D's compiler fault (#1478): they guard the shape of code it
+//     miscompiled, which this machine's GL does not reproduce; the evidence for the fault itself is the Gate's Windows
+//     GLSL job.
 // node test/t_rept.js [-v]
 global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
@@ -290,9 +292,10 @@ const brute2 = (o, L, w) => {
 {
   const inv = GLChain.buildInverse(N20.steps, N20.built);
   check('the inverse program holds the REPT walker and its stack', inv.ok && /#define IX_REPT 1/.test(inv.lib) && /ix0_node\(/.test(inv.lib) && /ixRI\[/.test(inv.walker), inv.reason);
-  // (Direct3D's compiler: a continue after a descent fell through to the leaf, and both arms of ?: are evaluated)
-  check('the REPT walker has no continue', !/\bcontinue\b/.test(inv.walker), inv.walker.match(/.*continue.*/g));
-  check('... and no stack index that can be negative (no ?: over the stack, every index under max(.., 0) or a level >= 0)', !/\?[^;]*ix(RI|RZ|RR|RJ)\[/.test(inv.walker) && !/ixRI\[[a-z]+\d* - 1\]/.test(inv.walker), inv.walker.match(/.*(\?|- 1\]).*/g));
+  // (proxies for Direct3D's compiler fault, which runs only there: a continue after a descent fell through to the leaf,
+  // and both arms of ?: are evaluated)
+  check('proxy for the Direct3D fault: the REPT walker has no continue', !/\bcontinue\b/.test(inv.walker), inv.walker.match(/.*continue.*/g));
+  check('proxy for the Direct3D fault: the REPT walker has no stack index that can be negative (no ?: over the stack, every index under max(.., 0) or a level >= 0)', !/\?[^;]*ix(RI|RZ|RR|RJ)\[/.test(inv.walker) && !/ixRI\[[a-z]+\d* - 1\]/.test(inv.walker), inv.walker.match(/.*(\?|- 1\]).*/g));
   const vals = new Float32Array(4 * inv.slots);
   inv.fill(vals);
   check('its cells: n, then P and Q', vals[0] === 20 && vals[4] === Math.fround(P20[0].re) && vals[11] === Math.fround(P20[3].im) && vals[14] === Math.fround(Q20[1].re), Array.from(vals.slice(0, 20)).join(','));

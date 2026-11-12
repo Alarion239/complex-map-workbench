@@ -350,8 +350,9 @@
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
-  // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
-  // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
+  // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, rept (a REPT draw of it still drawing
+  // its tiles, one cause of pending), compiling, error, exact (shapes it drew with a stand-in while their inverse program
+  // compiled), t}. frameStatus() is the last begin's or viewport's, which
   // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
@@ -525,7 +526,7 @@
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
     const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
-    paneGl[role] = { pending: !!(st && st.pending) || rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);

@@ -30,6 +30,9 @@
 //   the second pass held the frame stays pending; a redraw of the finished picture walks nothing (a cache hit), and a
 //   look setting changed (the region's colour) or a lost context walks again (__cmwRept({ tiles, fast, holdB, lose,
 //   tileStats })).
+// - the settle: every row that reads the parked plane reads it after a wait for __cmwSteps().ready and the left pane's
+//   frame not pending (PARKED_DRAWN, at most PARKED_SETTLE ms, a failure of its own when it runs out); with the second
+//   pass held, ready stays false and that wait runs out (its control), so no row can read the pending stand-in.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -75,6 +78,12 @@ const HELD_FRAMES = 20;        // frames watched with the second pass held
 const PENDING_FRAMES = 40;     // frames watched for the pane's pending status while tiles remain
 const CI_TEST = 1;             // the region's colour index in the cache-miss control (the scene's own: 0)
 const ready = () => settled({ max: SETTLE_LONG, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
+// the parked plane is drawn: the chain ready (__cmwSteps().ready, false while a pane's REPT draw has tiles left) and the
+// left pane's last frame not pending (its REPT stand-in); null (no frame yet) counts as pending. Waited for at most
+// PARKED_SETTLE ms, a named failure when it runs out; the held control waits HELD_SETTLE ms for it, and it must run out
+const PARKED_SETTLE = SETTLE_LONG, HELD_SETTLE = 3000;
+const PARKED_DRAWN = "__cmwSteps().ready && __cmwSteps().ready.ready && !(__cmwPaneStatus('L') || { pending: true }).pending";
+const settleParked = (max, panes) => settled({ max, panes, until: PARKED_DRAWN });
 await view(VIEW_W, VIEW_H, false, false);
 const stateFor = (rect, n) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: NEXT_ID, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
   shapes: rect === 'paper' ? [] : [{ id: 's1', kind: 'rect', a: rect.a, b: rect.b, ci: 0, visible: true }],
@@ -88,7 +97,8 @@ const open = async (rect, n) => {
   if (!rect) { await ev(`__cmwExample(${names.indexOf('Newton’s method for z³ − 1')}); 1`); await settled({ max: SETTLE_LONG, panes: false }); await ready(); }
   await ev(`__cmwSteps({ scope: 'in' }); 1`); await settled({ max: SETTLE_SHORT, panes: false });
   await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settled({ max: SETTLE_LONG, until: '!__cmwSteps().anim && !__cmwSteps().play' });
-  await settled({ max: SETTLE_LONG, until: '__cmwSteps().ready && __cmwSteps().ready.ready' });
+  const st = await settleParked(PARKED_SETTLE);
+  ok(`the parked plane (${rect === 'paper' ? 'no region' : rect ? 'a rect' : 'the gallery'}, ×${n}) is drawn within ${PARKED_SETTLE} ms: ready, no REPT tile pending`, st.ok, st.busy);
 };
 const sample = (ws) => ev(`(() => {
   const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], x = c.getContext('2d'), r = c.getBoundingClientRect();
@@ -255,7 +265,11 @@ const hatchCount = () => ev(`(() => {
     await ev(`__cmwRept({ holdB: true, tiles: ${HELD_TILE_SOLVES} }); 1`);
     let heldPending = 0;
     for (let i = 0; i < HELD_FRAMES; i++) { await frames(2); if (await pendingNow()) heldPending++; }
+    // (the parked settle's own condition, without the kit's pane check: it must not pass on the stand-in)
+    const heldReady = await ev('__cmwSteps().ready'), heldSettle = await settleParked(HELD_SETTLE, false);
     const held = await ev('__cmwRept({ tileStats: true })');
+    ok('with the second pass held __cmwSteps().ready stays false (a REPT part not done)', !!heldReady && heldReady.ready === false && !!heldReady.parts.rept, heldReady);
+    ok(`control: with the second pass held the parked settle runs out after ${HELD_SETTLE} ms (it does not pass on the stand-in)`, heldSettle.ok === false, heldSettle);
     ok('with the second pass held the frame stays pending and no picture is drawn', heldPending >= HELD_FRAMES - 1 && held.composites === 0 && held.tilesB === 0, { heldPending, held });
     const rel = await redraw({ holdB: false }), p3 = await picture();
     ok('released, it draws the same picture', rel.tilesB >= 1 && p3.hash === p1.hash, [rel, p3, p1]);

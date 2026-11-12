@@ -3012,8 +3012,9 @@
   }
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
   // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the carried
-  // colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
-  // while the GPU layer or the chain is not up; ready is true only when done = total > 0
+  // colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the meshes), and, while a pane's
+  // last frame had a REPT draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a part not done. total is 0
+  // only while the GPU layer or the chain is not up; ready is true only when done = total > 0
   function svReady() {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
@@ -3022,6 +3023,7 @@
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     parts.jobs = { done: 3 - jobs, total: 3 };
+    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1 };
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
     return { done, total, parts, ready: total > 0 && done === total };
