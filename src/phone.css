@@ -105,7 +105,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-key[hidden] { display: none; }
 .ph-key svg { width: 18px; height: 18px; }
 .ph-key[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-:root.ph .viewstack > .vgroup:first-child, :root.ph #leftSolo, :root.ph #rightSolo { display: none !important; }
+:root.ph .viewstack > .vgroup:first-child, :root.ph #leftSolo, :root.ph #rightSolo, :root.ph #leftSph, :root.ph #rightSph { display: none !important; }
 :root.ph .viewstack { right: 8px; bottom: calc(8px + var(--ph-lift)); }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
 :root.ph .viewstack .vbtn::after { content: none; }
@@ -522,7 +522,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-title { font-size: 19px; margin: 0 2px; }
 :root.ph.sv #paneL { grid-template-rows: minmax(0, 1fr) auto auto; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
-:root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
+:root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
@@ -530,16 +530,20 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
 :root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
-:root.ph.sv .sv-more { display: none; }
+/* every step has its ⋯ on a phone too: a 44 px slot after the 44 px chip, the 16 px dot centred in it, both inside the pill's border */
+:root.ph.sv .sv-more { width: 44px; height: 44px; margin: 0; border-radius: 22px; }
+:root.ph.sv .sv-more::after { inset: 0; }
 :root.ph.sv .sv-rail { display: flex; justify-content: safe center; }
-/* F, the whole map, ends what the rail scrolls: a 44 px round chip with its 4 px margin after the thread, which keeps exactly that room on a short chain */
-:root.ph.sv .sv-track { flex: 0 0 auto; min-width: calc(100% - 48px); }
+/* F, the whole map, ends what the rail scrolls: a 44 px round chip after the thread, which keeps exactly that room on a short chain */
+:root.ph.sv .sv-track { flex: 0 0 auto; min-width: calc(100% - 44px); }
 :root.ph.sv .sv-nof .sv-track { min-width: 100%; }
 /* (no F beside it, + sits on the bar's own gaps: a one-step thread then fits the 128 px rail of a 360 px phone) */
 :root.ph.sv .sv-nof .sv-add { margin: 0; }
-:root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0 var(--s-2) 0 0; }
+/* the rail clips a ring that grows outside its control, and the controls at the rail's ends touch the clip: the ring sits inside the box there */
+:root.ph.sv .sv-rail :is(.sv-more, .sv-wholemap, .sv-fchip, .sv-plane):focus-visible { outline-offset: -2px; }
+:root.ph.sv .sv-wholemap { width: 44px; height: 44px; border-radius: 22px; margin: 0; }
 :root.ph.sv .sv-fwrap.off .sv-fk { text-decoration: line-through; }
-:root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2); border-radius: 22px; }
+:root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0; border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
 :root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 6px; }
