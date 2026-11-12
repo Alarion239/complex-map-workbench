@@ -494,7 +494,9 @@ const Tour = (() => {
     if (vwi >= 0) chs.splice(vwi, 1, PLAYING);
     chs.splice(bi + 1, 0, PLANES);
     // (the derivative step's chip, in place of the card the classic chain shows)
-    Object.assign(chs.find((/** @type {any} */ c) => c.id === 'branches').steps.find((/** @type {any} */ st) => st.id === 'deriv'), { also: ['svStrip'],
+    // (the rail is placed on the second plane, so the chip, whose pill is a chip and a ⋯ wide, is in the rail's view on a phone)
+    const derivStep = chs.find((/** @type {any} */ c) => c.id === 'branches').steps.find((/** @type {any} */ st) => st.id === 'deriv');
+    Object.assign(derivStep, { also: ['svStrip'], before: [...derivStep.before, ['svPlace', { i: 1 }]],
       try: { text: 'Click the chip $d/dz$.', touch: 'Tap the chip $d/dz$.', on: 'step-selected', test: (/** @type {any} */ e) => !e || e.k === 2, ctl: ['svChip2'], then: 'The Inspector shows the step that differentiates the chain so far.' } });
   }
   // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
@@ -578,11 +580,11 @@ const Tour = (() => {
     // the head); INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
     // the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
-    // closes the chain; on a phone, the Sphere key in the plane's right column
+    // closes the chain; the Sphere key of the plane's key stack (the phone's anchor of the sphere step)
     // the selected step's Show alone button in the Inspector's head: in a phone's sheet
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ph-col .ph-sph'))].find((e) => e.offsetParent) || null,
+    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => { const k = document.getElementById('leftSph'); return k && k.offsetParent ? k : null; },
     // notes/v16-user5/AS-BUILT-tour.md: the control a step's task needs, exactly. A tool is its own button where  standards-ok: a spec path in notes/
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name

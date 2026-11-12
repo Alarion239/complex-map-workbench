@@ -5,6 +5,7 @@
 // its centre; the column overlaps nothing (head, ruler, strip, legend chip, toast). Its keys never move, x or y within half a pixel,
 // across Plane -> Sphere -> Landscape -> Plane, nor when the legend chip shows or hides. Sphere on the Landscape and Fit view with
 // nothing to fit are aria-disabled in place with the reason in aria-describedby, and a tap on one shows the reason as the toast.
+// The tour's sphere step anchors to the stack's Sphere key.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -107,6 +108,9 @@ for (const lang of LANGS) {
     await still();
     const flipped = await column();
     ok(`${tag}: the column stays put when the legend chip ${hadChip ? 'shows' : 'hides'}`, hadChip !== null && same(flipped, chipless), { hadChip, a: chipless.map((k) => k.box), b: flipped.map((k) => k.box) });
+    // the tour's sphere step lights the stack's Sphere key on a phone
+    const lit = await ev(`(() => { const k = Tour._t.ANCHORS.sphereKey(); return k ? k === ${SHOWN_KEYS}[4] : null; })()`);
+    ok(`${tag}: the tour's sphereKey anchor is the stack's Sphere key`, lit === true, lit);
     // one press path: tapping Sphere switches the view's surface and the key follows
     await ev(`(__cmwSteps({ surf: 'plane' }), 1)`); await still();
     await ev(`(() => { ${SHOWN_KEYS}[4].click(); return 1; })()`); await still();
