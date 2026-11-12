@@ -471,9 +471,11 @@ float wabs(vec2 w) {
     return n;
   }
   // How far the current chain's programs that prestartNames was asked for have come: {done, total}. done: linked (or
-  // failed: nothing more will come of it); a program not started counts in total only. The chain's inverse programs
-  // (the exact images', started at their first use) that are still compiling are counted in total as well, so the
-  // answer is complete only when nothing of the chain is left linking
+  // failed: nothing more will come of it); a program not started counts in total only. The chain's other programs still
+  // compiling are counted in total as well, so the answer is complete only when nothing of the chain is left linking:
+  // its programs that draws start at their first use (as the carried colour's region fills; while one links, no inverse
+  // program of the chain is started, invProgram) and its inverse programs (the exact images'; an inverse program's
+  // askKey: the key of the chain whose draw or state query asked for it last)
   function progStatus() {
     if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
     const w = wanted.get(cur.key), ids = [];
@@ -481,7 +483,7 @@ float wabs(vec2 w) {
     if (!w) return { done: 0, total: 1 };
     for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
     const extra = [];
-    for (const e of progs.values()) if (e.inv && !e.side && e.key === cur.key && e.state === 'pending') extra.push(e.id);
+    for (const e of progs.values()) if (e.state === 'pending' && (e.inv ? e.askKey === cur.key : e.chain && !e.side && e.key === cur.key)) extra.push(e.id);
     const r = warmCount([['chain', ids]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
     return { done: r.done, total: r.total };
   }

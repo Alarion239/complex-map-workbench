@@ -113,6 +113,7 @@ const VIEWS = {
   'steps_parked_repeat_cmd.js': steps(),
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
+  'steps_late_links_cmd.js': steps({ pin: true }),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),

@@ -265,6 +265,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       evictInv();
     }
     e.used = ++useClock; e.frame = invFrame;
+    if (!sideMode) e.askKey = cur.key;
     if (e.state === 'pending') {
       if (!pcExt || syncDepth > 0 || gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR)) {
         finishInv(e);
@@ -946,14 +947,18 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     while (progress && E.phase !== 'done') {
       progress = false;
       if (E.phase === 'A') {
-        walk(E.A, 1, E.tilesA, whole);
+        if (E.next < E.tilesA.length) walk(E.A, 1, E.tilesA, whole);
         if (E.next < E.tilesA.length) break;
-        E.phase = 'Q'; E.next = 0; E.tilesB = tilesB(); E.B = reptTarget(w, h);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, E.B.fbo); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-        if (whole) { E.phase = 'B'; progress = true; continue; }
-        // one query per tile of pass B: any continue mark in it
+        if (!E.B) {
+          E.tilesB = tilesB(); E.B = reptTarget(w, h);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, E.B.fbo); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+        if (whole) { E.phase = 'B'; E.next = 0; progress = true; continue; }
+        // one query per tile of pass B: any continue mark in it. While the query's program still links (a parallel
+        // compile: reptAcc is linked at its first use) pass A stays done and the queries wait for a later call
         const Q = ok && program('reptAcc');
         if (!Q) break;
+        E.phase = 'Q'; E.next = 0;
         use(Q);
         gl.bindFramebuffer(gl.FRAMEBUFFER, E.B.fbo); gl.viewport(0, 0, w, h);
         gl.colorMask(false, false, false, false); gl.enable(gl.SCISSOR_TEST);

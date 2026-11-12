@@ -158,7 +158,8 @@
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
     I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R'); });
     GLR.init();
-    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); requestRender('L', 'R'); };
+    // (a restored context has none of the programs: the steps view starts its glide's again, as after an edit)
+    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); if (SV.on) svPrestartSoon(0); requestRender('L', 'R'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
     GLR.onLost = () => requestRender('L', 'R');
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
@@ -186,7 +187,7 @@
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
-      if (!w || w.main) { requestRender('L', 'R'); prestartModesIdle(); }
+      if (!w || w.main) { svRedrawDue = true; requestRender('L', 'R'); prestartModesIdle(); }
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
