@@ -218,7 +218,7 @@ once v15 is merged; `test/t_tour.js` of the v15 build reads both tables (the v14
 | `inspector` | the Inspector's Selection (the selected step's editor) | `#propsPanel .insp-sel` |
 | `params` | the Inspector's Parameters (the shared numbers of `src/params.js`) | `#propsPanel .prm`, else `.insp-params` |
 | `fTile` | the F tile that closes the chain | `#pipeline .ftile` |
-| `sphereKey` | on a phone, the Sphere key in the plane's right column (the fallback of `surfaceL`) | the visible `.ph-col .ph-sph` |
+| `sphereKey` | on a phone, the Sphere key of the plane's key stack (the fallback of `surfaceL`); none while the stack hides it | `#leftSph`, while shown |
 | `lens` | v15.1: the selected step's lens (Show this step alone) in the Inspector's head; on a phone, in the Editor sheet. Lit by `basics/chain`'s `try.work` (the parts a touch task names, lit and kept clear on a touch screen) | `#propsPanel .insp-step .ihead .alone-btn` |
 | `splitOffer` | v15.2 (notes/formula-steps/DESIGN.md): the selected formula step's split offer in the Inspector (how it is built from catalog steps, and Split into n steps); on a phone, in the Editor sheet. Shown during the tour only at a step with `split: true` (the app's `splitOffer(on)`, called by `show` for every step) | `#propsPanel .insp-step .split-offer:not([hidden])` |
 

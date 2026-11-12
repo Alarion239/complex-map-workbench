@@ -580,11 +580,11 @@ const Tour = (() => {
     // the head); INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
     // the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
-    // closes the chain; on a phone, the Sphere key in the plane's right column
+    // closes the chain; the Sphere key of the plane's key stack (the phone's anchor of the sphere step)
     // the selected step's Show alone button in the Inspector's head: in a phone's sheet
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
-    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.ph-col .ph-sph'))].find((e) => e.offsetParent) || null,
+    fTile: () => inChainSheet('#pipeline .ftile'), sphereKey: () => { const k = document.getElementById('leftSph'); return k && k.offsetParent ? k : null; },
     // notes/v16-user5/AS-BUILT-tour.md: the control a step's task needs, exactly. A tool is its own button where  standards-ok: a spec path in notes/
     // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
     // outside the row is the More key, which then carries the tool's icon and name

@@ -9,23 +9,15 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
+const { MOB, CUBE, still, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const ns = 'svstk' + Date.now();
-const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
 const SURFACES = ['plane', 'sphere', 'land'];
 const STEPS_LABELS = ['Zoom in', 'Zoom out', 'Fit view', 'Sphere'];
 const TWO_LABELS = ['Zoom in', 'Zoom out', 'Fit view', /^Expand the (left|right) plane$/, 'Sphere'];
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';
 const NOTHING_TO_FIT = 'Nothing to fit yet';
-const open = async (tag, steps, mode = 'steps') => {
-  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-  await view(1440, 900, false, false);
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  const k = ns + tag;
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=en&view=${mode}`);
-  await still({ until: mode === 'steps' ? "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" : "!!window.__cmwSteps && !__cmwSteps().on && !!document.querySelector('#paneR .viewstack')" });
-};
+const open = (tag, steps, mode = 'steps') => openChain({ ns: ns + tag, steps, w: 1440, h: 900, view: mode,
+  until: mode === 'steps' ? null : "!!window.__cmwSteps && !__cmwSteps().on && !!document.querySelector('#paneR .viewstack')" });
 // the shown buttons of a plane's stack: label, state, the reason a disabled one gives, and its box
 const stack = (side) => ev(`(() => [...document.querySelectorAll('#pane${side} .viewstack button')].filter((b) => b.getClientRects().length).map((b) => {
   const d = b.getAttribute('aria-describedby'), n = d && document.getElementById(d), r = b.getBoundingClientRect();

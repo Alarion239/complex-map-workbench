@@ -225,7 +225,7 @@ for (const mk of mapsFor) {
     await rounds(mk + ' Deformation (Y large)', 10, [tog, tog], { mid: [] });
     await grab();
   } else if (part === 'sphere') {
-    const sph = async () => { const st = await W(); await tapSel(`#pane${st.big} .ph-sph`, 600); };
+    const sph = async () => { const st = await W(); await tapSel(`#${st.big === "L" ? "left" : "right"}Sph`, 600); };
     await rounds(mk + ' Sphere and Plane (X large)', 20, [sph, sph], { mid: [] });
     await swapTap();
     await rounds(mk + ' Sphere and Plane (Y large)', 10, [sph, sph], { mid: [] });

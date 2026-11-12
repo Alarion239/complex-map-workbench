@@ -211,11 +211,11 @@ await ev(`(() => { const p = document.getElementById('plotL'), r = p.getBounding
 const sst = await rest();
 ok('a flick with a stalled frame inside it still goes on to w₁', sst.i === 1 && Math.abs(sst.x - 1) < 1e-9, sst);
 // (#471) the plane's own Sphere key switches the view's surface, and says so
-await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
-const sk = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
+await ev(`document.querySelector('#leftSph').click(); 1`); await settle(600);
+const sk = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#leftSph').getAttribute('aria-pressed') })`);
 ok('the plane\'s Sphere key puts the plane on the sphere', sk.surf === 'sphere' && sk.pressed === 'true', sk);
-await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
-const sk2 = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
+await ev(`document.querySelector('#leftSph').click(); 1`); await settle(600);
+const sk2 = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#leftSph').getAttribute('aria-pressed') })`);
 ok('… and back on the plane', sk2.surf === 'plane' && sk2.pressed === 'false', sk2);
 const axP = await axe();
 ok('phone: no axe violation in the steps view', !axP.length, axP);
