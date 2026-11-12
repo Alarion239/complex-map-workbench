@@ -6,6 +6,10 @@
 // across Plane -> Sphere -> Landscape -> Plane, nor when the legend chip shows or hides. Sphere on the Landscape and Fit view with
 // nothing to fit are aria-disabled in place with the reason in aria-describedby, and a tap on one shows the reason as the toast.
 // The tour's sphere step anchors to the stack's Sphere key.
+// With the context bar open (a shape selected, and the tall bar of a construction tool) the stack rides up and stays inside the plot,
+// in the steps view and the classic one (844 x 390, 740 x 360 and 915 x 412, English and Russian): in one column where it fits above
+// the bar, in two (zoom keys on the left) where it does not, in one row where two columns do not fit either; every key is on top at
+// its centre. In the classic view on an upright phone, Both (top right) comes before the stack in focus order.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -18,22 +22,27 @@ const SURFACES = ['plane', 'sphere', 'land'];
 const MIN_KEY = 44;          // px: the smallest touch target
 const GROUP_GAP = 8;         // px: between a key and the next group's key in the one-column stack
 const SHORT_PLOT = 260;      // px: below this plot height five 44 px keys with their gaps do not fit one column
-const SETTLE_POLL_MS = 100;  // ms between reads while the stack's boxes settle (its 150 ms ease after a message)
-const SETTLE_MAX_MS = 3000;  // ms: the longest the stack may take to come to rest
+const SETTLE_MAX_MS = 3000;  // ms: the longest the stack may take to come to rest (its ease after a message or the context bar)
+const BAR_SIZES = [[844, 390], [740, 360], [915, 412]];   // landscape phones, where the context bar leaves the stack least room
+const VIEWS = ['steps', 'classic'];
 const CLIP_SLACK = 1;        // px: scroll sizes are rounded to whole pixels, so a box one pixel short of its content is not clipped
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';   // the key's tooltip and note
 const NO_SPHERE_TOAST = { en: 'The Landscape has no sphere. Use the surface menu.', ru: 'В Рельефе нет сферы. Смените поверхность в меню.' };   // the phone's message: two lines at the narrowest width
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
-const LABELS = { en: ['Display options', 'Zoom in', 'Zoom out', 'Fit view', 'Sphere'] };
-const open = async (w, h, lang) => {
+const LABELS = { en: ['Display options', 'Zoom in', 'Zoom out', 'Fit view', 'Sphere'], ru: ['Настройки вида', 'Увеличить', 'Уменьшить', 'Вписать в окно', 'Сфера'] };
+const STACK_TOP = 8;         // px: the room the stack leaves between its top key and the plot's top
+const ONE_COLUMN = 5 * MIN_KEY + 2 * GROUP_GAP;   // px from Display's top to Sphere's bottom in one column
+const TWO_COLUMNS = 3 * MIN_KEY + GROUP_GAP;      // px from Display's top to Sphere's bottom in two columns (Display over Fit view and Sphere)
+const open = async (w, h, lang, vw = 'steps') => {
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps: [MOB, CUBE], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
   await view(w, h, false, true);
   await go(`http://localhost:${PORT}/gl-helpers.html`);
-  const k = ns + w + lang;
+  const k = ns + w + lang + vw;
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps`);
-  await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
+  await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=${vw}`);
+  if (vw === 'steps') await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
+  else await settled({ until: "document.documentElement.classList.contains('ph') && !!document.querySelector('#plotL .viewstack .ph-dsp')" });
 };
 // the shown keys of plane L's column in document order: label, state, reason note, box, the topmost element at the centre
 const SHOWN_KEYS = "[...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)";
@@ -42,23 +51,12 @@ const column = () => ev(`(() => ${SHOWN_KEYS}.map((b) => {
   return { label: b.getAttribute('aria-label'), cls: b.className, disabled: b.getAttribute('aria-disabled'), pressed: b.getAttribute('aria-pressed'), note: n ? n.textContent : null,
     box: [r.left, r.top, r.width, r.height], top: t === b || b.contains(t) };
 }))()`);
-// what the column must clear: the boxes of the shown head, rulers, strip, legend chip and toast
 // the plot's box: every key lies inside it (a key above its top edge is clipped)
 const plot = () => ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
 const inside = (b, p) => b[0] >= p[0] - POS_TOLERANCE && b[1] >= p[1] - POS_TOLERANCE && b[0] + b[2] <= p[0] + p[2] + POS_TOLERANCE && b[1] + b[3] <= p[1] + p[3] + POS_TOLERANCE;
-// the column once two reads SETTLE_POLL_MS apart agree (a stack that is still easing has not reached its place)
-const atRest = async () => {
-  let prev = await column();
-  for (let t = 0; t < SETTLE_MAX_MS; t += SETTLE_POLL_MS) {
-    await new Promise((r) => setTimeout(r, SETTLE_POLL_MS));
-    const now = await column();
-    if (same(now, prev)) return now;
-    prev = now;
-  }
-  return prev;
-};
 const accent = () => ev(`(() => { const d = document.createElement('i'); d.style.background = 'var(--accent)'; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })()`);
 const sphereBg = () => ev(`getComputedStyle(${SHOWN_KEYS}[4]).backgroundColor`);
+// what the column must clear: the boxes of the shown head, rulers, strip, legend chip and toast
 const others = () => ev(`(() => [...document.querySelectorAll('#paneL .pane-head, .ruler, .ruler-corner, #svStrip, #plotL > .legend-chip:not([hidden]), #toastHost .toast')].filter((e) => e.getClientRects().length)
   .map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.className, box: [r.left, r.top, r.width, r.height] }; }))()`);
 const meets = (a, b) => a[0] < b[0] + b[2] && a[0] + a[2] > b[0] && a[1] < b[1] + b[3] && a[1] + a[3] > b[1];
@@ -73,7 +71,7 @@ for (const lang of LANGS) {
       await ev(`(__cmwSteps({ surf: '${surf}' }), 1)`); await still();
       const c = await column(), t = `${tag}, ${surf}`;
       const labels = c.map((k) => k.label);
-      ok(`${t}: the keys are Display options, Zoom in, Zoom out, Fit view, Sphere, in that order`, lang === 'en' ? JSON.stringify(labels) === JSON.stringify(LABELS.en) : labels.length === 5, labels);
+      ok(`${t}: the keys are Display options, Zoom in, Zoom out, Fit view, Sphere, in that order`, JSON.stringify(labels) === JSON.stringify(LABELS[lang]), labels);
       ok(`${t}: no Both key and no second Sphere key`, !c.some((k) => /ph-both-key|ph-sph/.test(k.cls)), c.map((k) => k.cls));
       ok(`${t}: every key is at least ${MIN_KEY} px and is on top at its centre`, c.every((k) => k.box[2] >= MIN_KEY && k.box[3] >= MIN_KEY && k.top), c);
       const sph = c[4];
@@ -119,12 +117,12 @@ for (const lang of LANGS) {
     // a tap on a disabled Sphere shows its reason as the toast
     await ev(`(__cmwSteps({ surf: 'land' }), 1)`); await still();
     await ev(`(() => { ${SHOWN_KEYS}[4].click(); return 1; })()`);
-    await settled({ until: "!!document.querySelector('#toastHost .toast')", max: 3000 });
+    await settled({ until: "!!document.querySelector('#toastHost .toast')", max: SETTLE_MAX_MS });
     const toast = await ev(`(document.querySelector('#toastHost .toast') || {}).textContent || ''`);
     ok(`${tag}: a tap on the disabled Sphere shows its reason, short, as the toast`, toast === NO_SPHERE_TOAST[lang], toast);
     ok(`${tag}: the disabled Sphere keeps the full reason as its tooltip`, lang !== 'en' || (await ev(`${SHOWN_KEYS}[4].title`)) === NO_SPHERE_ON_LAND, null);
     // while the message shows the stack stays where it was, inside the plot, and the message meets no key
-    const withToast = await atRest(), tp = await plot(), tb = (await others()).filter((e) => /toast/.test(e.id));
+    const withToast = await column(), tp = await plot(), tb = (await others()).filter((e) => /toast/.test(e.id));
     ok(`${tag}: the stack keeps its place while a message shows`, same(withToast, boxes.land), { land: boxes.land.map((k) => k.box), withToast: withToast.map((k) => k.box) });
     ok(`${tag}: and stays inside the plot`, withToast.every((k) => inside(k.box, tp)), { plot: tp, boxes: withToast.map((k) => k.box) });
     // the reason reads in full: no line is clipped and no ellipsis shows
@@ -133,4 +131,60 @@ for (const lang of LANGS) {
     ok(`${tag}: and the message meets no key`, tb.length > 0 && !withToast.some((k) => tb.some((e) => meets(k.box, e.box))), { toast: tb, keys: withToast.map((k) => k.box) });
   }
 }
+
+// the stacks of the shown large planes (both in the classic view on a landscape phone): the plot's box and the keys in document order
+const stacks = () => ev(`(() => ['plotL', 'plotR'].map((id) => document.getElementById(id)).filter((p) => p && p.getClientRects().length && !p.closest('.ph-inset')).map((p) => {
+  const r = p.getBoundingClientRect();
+  return { id: p.id, plot: [r.left, r.top, r.width, r.height], keys: [...p.querySelectorAll('.viewstack button')].filter((e) => e.getClientRects().length).map((b) => {
+    const q = b.getBoundingClientRect(), t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+    return { label: b.getAttribute('aria-label'), box: [q.left, q.top, q.width, q.height], top: t === b || b.contains(t), chip: !!t && !!t.closest('.cm-chip') };
+  }) };
+}))()`);
+// one stack with the context bar open: inside its plot, every key on top, and the tallest of one column, two columns and one row
+// that fits between the plot's top (STACK_TOP clear) and Sphere's bottom, which every layout keeps. underChip: a key under the
+// construction's hint chip is listed in info and not failed (the classic view's chip, at the plot's top left, reaches across
+// most of a 326 px plot)
+const barStack = (t, st, underChip = false) => {
+  const [dsp, zin, zout, fit, sph] = st.keys, p = st.plot, tag = `${t}, ${st.id}`;
+  ok(`${tag}: the five keys show`, st.keys.length === 5, st.keys.map((k) => k.label));
+  if (st.keys.length !== 5) return;
+  ok(`${tag}: every key lies inside the plot`, st.keys.every((k) => inside(k.box, p)), { plot: p, boxes: st.keys.map((k) => k.box) });
+  ok(`${tag}: every key is at least ${MIN_KEY} px and is on top at its centre`, st.keys.every((k) => k.box[2] >= MIN_KEY && k.box[3] >= MIN_KEY && (k.top || (underChip && k.chip))), st.keys);
+  const chipped = st.keys.filter((k) => !k.top && k.chip).map((k) => k.label);
+  if (chipped.length) info[`${tag}: under the construction's hint chip`] = chipped;
+  const room = sph.box[1] + sph.box[3] - (p[1] + STACK_TOP);
+  const cols = new Set(st.keys.map((k) => Math.round(k.box[0]))).size, rows = new Set(st.keys.map((k) => Math.round(k.box[1]))).size;
+  const want = room >= ONE_COLUMN ? 'one column' : room >= TWO_COLUMNS ? 'two columns' : 'one row';
+  const got = cols === 1 ? 'one column' : cols === 2 ? 'two columns' : cols === 3 && rows === 2 ? 'one row' : `${cols} columns, ${rows} rows`;
+  ok(`${tag}: ${want}, the tallest layout that fits the plot above the bar`, got === want, { room, got, boxes: st.keys.map((k) => k.box) });
+  const near = (a, b) => Math.abs(a - b) <= POS_TOLERANCE;
+  const below = (a, b) => b.box[1] - (a.box[1] + a.box[3]), beside = (a, b) => b.box[0] - (a.box[0] + a.box[2]);
+  if (got === 'one column') ok(`${tag}: ${GROUP_GAP} px between the groups`, near(below(dsp, zin), GROUP_GAP) && near(below(zout, fit), GROUP_GAP), [below(dsp, zin), below(zout, fit)]);
+  if (got === 'two columns') ok(`${tag}: ${GROUP_GAP} px between Display and Fit view, and between the columns`, near(below(dsp, fit), GROUP_GAP) && near(beside(zin, fit), GROUP_GAP), [below(dsp, fit), beside(zin, fit)]);
+  if (got === 'one row') ok(`${tag}: ${GROUP_GAP} px between the row's groups`, near(beside(dsp, zin), GROUP_GAP) && near(beside(zin, fit), GROUP_GAP), [beside(dsp, zin), beside(zin, fit)]);
+};
+const atRest = (until) => settled({ until, max: SETTLE_MAX_MS });
+for (const vw of VIEWS) {
+  for (const lang of LANGS) {
+    for (const [w, h] of BAR_SIZES) {
+      await open(w, h, lang, vw);
+      const tag = `${vw} ${w}x${h} ${lang}`;
+      // a shape selected: the bar's one row
+      await ev(`(__cmwSelect('h1'), 1)`);
+      await atRest("!!document.querySelector('.ph-ctx.in:not(.tall)')");
+      const sel = await stacks();
+      ok(`${tag}, a shape selected: the context bar is open`, await ev(`!!document.querySelector('.ph-ctx.in:not(.tall)')`), null);
+      for (const st of sel) barStack(`${tag}, a shape selected`, st);
+      // a construction tool with a choice of part in hand: the bar's two rows
+      await ev(`(__cmwSelect(null), document.querySelector('#constructTools .tool[data-tool="perp"]').click(), 1)`);
+      await atRest("!!document.querySelector('.ph-ctx.in.tall')");
+      ok(`${tag}, the tall bar: the context bar is open in two rows`, await ev(`!!document.querySelector('.ph-ctx.in.tall')`), null);
+      for (const st of await stacks()) barStack(`${tag}, the tall bar`, st, vw === 'classic');
+    }
+  }
+}
+// the classic view on an upright phone: Both, at the plane's top right, comes before the stack in focus order (top to bottom)
+await open(390, 844, 'en', 'classic');
+const order = await ev(`[...document.querySelectorAll('#plotL button')].filter((e) => e.getClientRects().length && (e.classList.contains('ph-key') || e.closest('.viewstack'))).map((e) => ({ label: e.getAttribute('aria-label'), y: e.getBoundingClientRect().top }))`);
+ok('classic 390x844: the plane\'s keys in focus order run top to bottom, Both first', order.length === 6 && order[0].label === 'Both' && order.every((k, i) => i === 0 || k.y > order[i - 1].y), order);
 return { pass: !fails.length, fails, info };

@@ -24,6 +24,7 @@ const Phone = (() => {
   const homes = [];                    // [el, placeholder] of the moved elements
   const els = {};
   const STACK_H = 238;   // the key stack's height in one column: five 44 px keys, the groups' 1 px borders and their 6 px gaps, px
+  const STACK_H2 = 142;  // its height in two columns: Display's group, a 6 px gap and the taller group of two keys, px
   const STACK_TOP = 8;   // the room the stack leaves above itself, px
   let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
@@ -114,24 +115,36 @@ const Phone = (() => {
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
-    // each plane: Sphere and Display at the right; the inset's swap cover
+    // each plane: Display heads its key stack, Both sits at its top right; the inset's swap cover
+    const fits = [];
     for (const side of ['L', 'R']) {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
       const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
       const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
-      // Display heads the plane's own key stack (Zoom in, Zoom out, Fit view, Sphere); Both is the only key of the column apart from it
-      plot.querySelector('.viewstack').prepend(h('div', { class: 'vgroup ph-only' }, dsp));
-      plot.append(h('div', { class: 'ph-col ph-only' }, bt));
-      // a plot too short for the five keys in one column gets .ph-short, which puts the zoom keys in a second column
+      // Display heads the plane's own key stack (Zoom in, Zoom out, Fit view, Sphere); Both, at the top right, comes before the
+      // stack in the plot, so the focus meets the keys top to bottom
       const stack = plot.querySelector('.viewstack');
-      const fitStack = () => { const room = plot.clientHeight - parseFloat(getComputedStyle(stack).bottom) - STACK_TOP; plot.classList.toggle('ph-short', room > 0 && room < STACK_H); };
+      stack.prepend(h('div', { class: 'vgroup ph-only' }, dsp));
+      stack.before(h('div', { class: 'ph-col ph-only' }, bt));
+      // the room above the stack's bottom, which rises with the context bar (--ph-stack-b is where the bottom eases to): too
+      // short for the five keys in one column, .ph-short puts the zoom keys in a second column; too short for two, .ph-flat
+      // puts the three groups in one row
+      const fitStack = () => {
+        const cs = getComputedStyle(stack), b = parseFloat(cs.getPropertyValue('--ph-stack-b'));
+        const room = plot.clientHeight - (Number.isFinite(b) ? b : parseFloat(cs.bottom)) - STACK_TOP;
+        plot.classList.toggle('ph-short', room > 0 && room < STACK_H);
+        plot.classList.toggle('ph-flat', room > 0 && room < STACK_H2);
+      };
       new ResizeObserver(fitStack).observe(plot);
+      fits.push(fitStack);
       els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
         h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));
       pane.append(sw);
       els['swap' + side] = sw;
     }
+    // the context bar lifts the stacks without resizing the plots: its classes (in, tall, under) set the lift
+    new MutationObserver(() => { for (const f of fits) f(); }).observe(els.ctx, { attributes: true, attributeFilter: ['class'] });
     // the tool row's More key and the header's More open sheets on a phone
     $('toolMore').addEventListener('click', (e) => { if (!on) return; e.preventDefault(); e.stopPropagation(); open('tools'); }, true);
     $('hdrMoreBtn').addEventListener('click', (e) => { if (!on) return; e.preventDefault(); e.stopPropagation(); open('more'); }, true);
