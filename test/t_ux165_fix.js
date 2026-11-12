@@ -75,7 +75,7 @@ ok(/probeTeachUntil > now/.test(APP) && /sessionStorage\.getItem\('cmw-probe-tau
 ok(/new ResizeObserver\(\(\) => \{ if \(!q && th\.firstElementChild\)/.test(APP), 'regress-2: a toast is placed again when the layout under it changes');
 ok(/host\.setAttribute\('data-placed', 'plot'\)/.test(fnBody(APP, 'placeToasts')) && /#toastHost\[data-placed="plot"\] \.toast \{/.test(DESK), 'a desktop message sits over the plot, above the thread');
 ok(/run: \(\) => go\(\) \}\], drop: 'title'/.test(APP) && /Tour\.laneHide\('example'\);\s*\}/.test(fnBody(APP, 'sndPlayEnded')), 'regress-5: the Try line stays while the melody plays');
-ok(/let wOnce;/.test(APP) && /const w = wOnce !== undefined \? wOnce : focusF\(\)\(z\);/.test(APP), 'regress-6: F(z) of the probe evaluated once per move');
+ok(/const wz = wide \? O : focusF\(\)\(z\)/.test(fnBody(APP, 'leftForms')) && /const L = leftForms\(z, false\);/.test(fnBody(APP, 'setReadouts')) && /const w = L\.wz !== undefined \? L\.wz : focusF\(\)\(z\);/.test(fnBody(APP, 'setReadouts')), 'regress-6: F(z) of the probe evaluated once per move');
 ok(/if \(k === undoKey\) return;/.test(fnBody(APP, 'updateUndo')) && /if \(key === targetNoteKey\) return;/.test(fnBody(APP, 'targetNote')), 'regress-7: updateUndo and targetNote return at once when nothing changed');
 ok(/b\.x1 > 0 && b\.y1 > 0 && b\.x0 < r\.width && b\.y0 < r\.height/.test(fnBody(APP, 'mfNogo')), 'regress-8: no-go rectangles only over the plane');
 ok(/performance\.now\(\) - navKeyAt > NAV_KEY_MS \|\| !el\.matches\(':focus-visible'\)/.test(APP) && /el !== kbdTip/.test(APP), 'regress-9: a Tab focus shows the tip, a focus the app moves does not');
