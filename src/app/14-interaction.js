@@ -1331,9 +1331,9 @@
       ];
       return { forms, lines: two, wl };
     }
-    // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
+    // one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
     // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
-    // (the key's "=" and parentheses in the maths face, as its letters: the old mono face's (B612 Mono) "(" read as "[" [UX105])
+    // (the key's "=" and parentheses in the maths face, as its letters: a mono face's "(" reads as "[")
     const wz = wide ? O : focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
     // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
     // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
@@ -1376,15 +1376,15 @@
       tourEmit('probe', { pane: 'L', stage: leftStage(), past: svStage() > svT(), z: [z.re, z.im], w: wp && CX.isFin(wp) ? [wp.re, wp.im] : null, mod: wp ? (CX.isFin(wp) ? CX.abs(wp) : Infinity) : undefined });
     }
     const L = leftForms(z, false);
-    // (a line fits when its text, measured to the fraction of a pixel, does: scrollWidth rounds, and a line 0.4 px too
-    // long was cut with an ellipsis at 1366 px)
+    // (a line fits when its text, measured to the fraction of a pixel, does: scrollWidth rounds, so a line 0.4 px too
+    // long would show an ellipsis)
     const fits = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
     for (let i = 0; i < L.forms.length; i++) {
       lr.innerHTML = L.forms[i]();
       if (i === L.forms.length - 1 || (L.lines ? [...lr.children].every(fits) : lr.scrollWidth <= lr.clientWidth + 1)) break;
     }
     if (L.wl) { legendNeedle = CX.isFin(L.wl) ? Math.atan2(L.wl.im, L.wl.re) : null; legendMod = CX.abs(L.wl); requestRender('G'); } // needle on the next frame
-    // Y: the image of the probe (F at t = end; [v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)
+    // Y: the image of the probe (F at t = end: F(z) of the probe, evaluated once per move for both readouts)
     const w = L.wz !== undefined ? L.wz : focusF()(z);
     copyValue.R = CX.isFin(w) ? CX.fmt(w, 6).replace(/\s/g, '') : '';
     const vout = yHtml();
