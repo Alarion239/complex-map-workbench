@@ -47,6 +47,20 @@ class Pane {
     v.cy = z.im + (y - this.h / 2) / s;
     v.s = s;
   }
+  // The view a tween from view a to view b is at, for the eased time e in [0, 1]: the scale moves in log space,
+  // s(e) = a.s·(b.s/a.s)^e, and the centre by the weight g(e) = (1 − a.s/s(e)) / (1 − a.s/b.s), c(e) = a.c + (b.c − a.c)·g(e).
+  // s is in pixels per world unit, so the world point p that a and b put at the same screen offset,
+  // (p − a.c)·a.s = (p − b.c)·b.s, keeps that offset (p − c(e))·s(e) all along, as a wheel zoom keeps the point under the
+  // cursor. g is written with expm1 so that it stays exact however far away p is; with equal scales
+  // (|1 − a.s/b.s| < 1e-9) there is no such point and g = e, a plain pan. e ≤ 0 is a and e ≥ 1 is b, exactly.
+  static tweenAt(a, b, e) {
+    if (e <= 0) return { cx: a.cx, cy: a.cy, s: a.s };
+    if (e >= 1) return { cx: b.cx, cy: b.cy, s: b.s };
+    const L = Math.log(b.s / a.s);
+    const den = Math.expm1(-L);   // a.s/b.s − 1
+    const g = Math.abs(den) < 1e-9 ? e : Math.expm1(-L * e) / den;
+    return { cx: a.cx + (b.cx - a.cx) * g, cy: a.cy + (b.cy - a.cy) * g, s: a.s * Math.exp(L * e) };
+  }
   fitBox(b, margin = 0.08) {
     if (!b || !(b.x1 > b.x0) || !(b.y1 > b.y0)) return false;
     const w = (b.x1 - b.x0) * (1 + 2 * margin), h = (b.y1 - b.y0) * (1 + 2 * margin);
