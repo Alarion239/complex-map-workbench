@@ -110,6 +110,7 @@ const VIEWS = {
   'steps_land_footprint_fig_cmd.js': steps({ pin: true }),
   'steps_paths_caption_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
+  'newt_member0_cmd.js': steps({ pin: true }),
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'sv_globe_net_cmd.js': steps({ pin: true }),
