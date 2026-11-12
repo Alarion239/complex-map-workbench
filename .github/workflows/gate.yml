@@ -326,7 +326,7 @@ jobs:
       - name: Shader cache (restore)
         if: runner.os == 'Windows'
         id: shaders
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
           key: glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-${{ hashFiles('src/glsl.js', 'src/gl/**', 'src/funcs.js', 'src/derivs.js', 'src/natpaths.js', 'src/sheets.js', 'src/formulasteps.js', 'src/parse.js', 'src/symbolic.js', 'src/invops.js', 'src/invpatterns.js', 'src/inverse.js', 'test/glsl_test.js', 'test/glsl_test_adv.js', 'test/glsl_inverse_test.js') }}
@@ -339,7 +339,7 @@ jobs:
           CMW_GLSL_CACHE: ${{ runner.os == 'Windows' && format('{0}/cmw-glsl-cache', runner.temp) || '' }}
       - name: Shader cache (save)
         if: always() && runner.os == 'Windows' && steps.shaders.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
           key: ${{ steps.shaders.outputs.cache-primary-key }}
@@ -466,7 +466,7 @@ jobs:
         run: ci/lavapipe.sh --key >> "$GITHUB_OUTPUT"
       - name: Mesa cache (restore)
         id: mesa-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/cmw-lavapipe-debs
           key: ${{ steps.mesa-key.outputs.key }}
@@ -475,7 +475,7 @@ jobs:
         run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"
       - name: Mesa cache (save)
         if: (steps.mesa.outputs.source == 'mirror' || steps.mesa.outputs.source == 'fallback') && steps.mesa.outputs.version == steps.mesa-key.outputs.version && steps.mesa-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/cmw-lavapipe-debs
           key: ${{ steps.mesa-key.outputs.key }}
