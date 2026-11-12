@@ -62,7 +62,7 @@ st = await ev('__cmwSteps()');
 ok('and back again', st.on && st.planes.length === 2 && st.planes[1] === 2, st);
 await ev(`(window.__svLink = null, Params.encodeLink(JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)}))).then((p) => { window.__svLink = p; }), 1)`);
 const alonePayload = await linkMade();
-await nav(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
+await go(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
 await settled({ until: "window.__cmwSteps && __cmwSteps().on && __cmwSteps().planes.length === 2", max: 30000 });
 const ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`);
 ok('a link carries the step shown alone', ra && ra.on && ra.planes.length === 2 && ra.planes[1] === 2, ra && { on: ra.on, planes: ra.planes });
@@ -86,7 +86,7 @@ ok('the speed menu writes both the state and the device', menu.dev === 'slower' 
 await ev(`localStorage.removeItem('cmw-sv-speed')`);
 // the classic view ignores it, and keeps it
 await load(ns, { steps, sv });
-await nav(`${base}/test.html?ns=${ns}&view=classic`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
+await go(`${base}/test.html?ns=${ns}&view=classic`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 await hooked(); await sleep(500);
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 st = await ev('__cmwSteps()');
