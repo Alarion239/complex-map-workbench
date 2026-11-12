@@ -35,8 +35,6 @@ const Phone = (() => {
     (keys === 'ph-dsponly' ? ['col'] : STACK_LAYOUTS).map((L) => ({ L, keys, moved }))));
   const STACK_EDGE = 8;  // the room the stack leaves between a key and the plot's edges, px
   const STACK_CLEAR = 4; // the room it leaves between a key and what it must not cover, px
-  const STACK_KEY = 44;  // a key's side, px (phone.css): the smallest touch target
-  const STACK_GAP = 8;   // between a key and the next group's key, px (phone.css: the stack's 6 px gap and the groups' 1 px borders)
   let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
   const MQP = '(max-width: 767px)';
@@ -196,32 +194,37 @@ const Phone = (() => {
   // sits on the plot (Both, the readout's room, the construction's chip, the legend chips); where the arrangement moves the
   // legend chips left of the keys (--ph-legend-r on the plot), the moved chips, folded or open, lie inside the plot too and
   // as clear of the rest and of the keys. Keys (or moved chips) in the readout's rows stop the readout short of them
-  // (--ph-ro-r), down to its shortest probe line. Where none fits, the keys step aside (.ph-nokeys) until one does.
+  // (--ph-ro-r), down to its shortest probe form. Where none fits, the keys step aside (.ph-nokeys) until one does.
   const stackSeen = new WeakMap(), readoutSizes = new WeakMap(), readoutTall = new WeakMap();
   const ON_PLOT = ':scope > .ph-col > .ph-key, :scope > .chip.readout, :scope > .empty-chip, :scope > .legend-chip';
-  // the readout's shortest probe line (src/app/14-interaction.js: z to three places), the narrowest the stack may make it
-  const READOUT_SHORT = '<span class="rln"><span class="rp"><span class="rk"><i>z</i> <span class="rm">=</span></span> <span class="rv">−0.000 − 0.000<i>i</i></span></span></span>';
   const boxOf = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
   // the plot's inner box (inside its border)
   const plotBox = (plot) => { const r = plot.getBoundingClientRect(), x0 = r.left + plot.clientLeft, y0 = r.top + plot.clientTop; return [x0, y0, x0 + plot.clientWidth, y0 + plot.clientHeight]; };
   // The readout's room: its box as wide as it may grow (its max-width) and as tall as two probe lines, or the tallest it
   // has been on this plot's box (`geo`), so the keys clear it at every size it takes and their arrangement holds while
-  // the pointer probes; -> [left, top, right, bottom] and the narrowest it may be made (min)
+  // the pointer probes; -> [left, top, right, bottom] and the narrowest it may be made (min): the widest of its shortest
+  // forms (the app's readoutShort) with its X or Y tag, or its full room where it has one form
   function readoutRoom(plot, ro, geo) {
-    const key = geo + getComputedStyle(ro).maxWidth;
+    const short = A.readoutShort(ro.id === 'rightReadout' ? 'R' : 'L');
+    const key = geo + getComputedStyle(ro).maxWidth + JSON.stringify(short);
     let m = readoutSizes.get(ro);
     if (!m || m.key !== key) {
+      // (the clone keeps the readout's id, so its tag (#leftReadout::before) is measured with it; it is gone before
+      // anything else runs)
       const c = /** @type {HTMLElement} */ (ro.cloneNode(false));
-      for (const a of ['id', 'aria-live', 'title']) c.removeAttribute(a);
+      for (const a of ['aria-live', 'title']) c.removeAttribute(a);
       c.setAttribute('aria-hidden', 'true');
       c.style.visibility = 'hidden';
       c.style.width = plot.clientWidth + 'px';   // (its max-width holds it to the widest it may grow)
       c.innerHTML = '<span class="rln">0</span><span class="rln">0</span>';
       plot.append(c);
       const q = c.getBoundingClientRect();
-      c.style.width = 'auto'; c.style.maxWidth = 'none';
-      c.innerHTML = READOUT_SHORT;
-      m = { key, w: q.width, h: q.height, min: c.getBoundingClientRect().width };
+      let min = q.width;
+      if (short) {
+        c.style.width = 'auto'; c.style.maxWidth = 'none';
+        min = Math.ceil(Math.max(...short.map((f) => { c.innerHTML = f; return c.getBoundingClientRect().width; })));
+      }
+      m = { key, w: q.width, h: q.height, min };
       c.remove();
       readoutSizes.set(ro, m);
     }
@@ -232,8 +235,8 @@ const Phone = (() => {
     return { box: [r.left, r.top, r.left + Math.max(m.w, r.width), r.top + Math.max(m.h, t.h)], min: m.min };
   }
   // What the stack of `plot` has to fit in: the plot's inner box, where the stack's bottom comes to rest, its keys, and the
-  // boxes of what sits on the plot (the legend chips in their place, the readout's room at its widest); null where the
-  // plot shows no stack of its own.
+  // boxes of what sits on the plot (the legend chips in their place, the readout's room at its widest, a construction's
+  // chip on either large plane); null where the plot shows no stack of its own.
   function stackRoom(plot, stack) {
     if (!on || plot.closest('.ph-inset') || !stack.getClientRects().length) return null;
     const btns = [.../** @type {NodeListOf<HTMLElement>} */ (stack.querySelectorAll('button'))].filter((k) => !k.hidden && getComputedStyle(k).display !== 'none');
@@ -248,11 +251,30 @@ const Phone = (() => {
       if (o.readout) Object.assign(o, readoutRoom(plot, e, geo)); else o.box = boxOf(e);
       return o;
     });
+    // (a construction's chip lies on the large plane the pointer was last on, and crosses with the pointer: while it shows
+    // on another large plane, the stack keeps clear of where it would lie on this one, measured on a hidden copy under this
+    // plane's chip's id, gone before anything else runs, so no key moves when it crosses)
+    const own = plot.querySelector(':scope > #draftChipL, :scope > #draftChipR');
+    if (own && !shown(own)) {
+      for (const q of document.querySelectorAll('.plot')) {
+        if (q === plot || q.closest('.ph-inset') || !q.getClientRects().length) continue;
+        for (const d of q.querySelectorAll(':scope > #draftChipL, :scope > #draftChipR')) {
+          if (!shown(d)) continue;
+          const c = /** @type {HTMLElement} */ (d.cloneNode(true));
+          c.id = own.id;
+          c.setAttribute('aria-hidden', 'true');
+          c.style.visibility = 'hidden';
+          plot.append(c);
+          others.push({ what: own.id, legend: false, readout: false, box: boxOf(c), min: 0 });
+          c.remove();
+        }
+      }
+    }
     return { plot, stack, btns, x0, y0, x1, y1, bottom, others, legends: others.filter((o) => o.legend), rest: others.filter((o) => !o.legend) };
   }
   // Arrangement `a` (one of STACK_ORDER, or { keys: 'ph-nokeys' }) on room R's stack: its classes; the legend chips moved
   // left of the keys beside them where a.moved; the readout stopped short of the keys (and moved chips) in its rows
-  // (--ph-ro-r), where it keeps at least its shortest probe line. -> the keys' boxes where the stack comes to rest, the
+  // (--ph-ro-r), where it keeps at least its shortest probe form. -> the keys' boxes where the stack comes to rest, the
   // moved legend chips' boxes, and what else sits on the plot with the readout's room as this arrangement leaves it (null
   // where a moved arrangement has no key beside the chips)
   function arrange(R, a) {
@@ -1134,6 +1156,8 @@ const Phone = (() => {
     // re-fits; with null, fitted again; -> the stack's rule: its arrangements in order, what sits on a plot, the room it
     // keeps, a key's side and the gap between groups, and the readout room of plot `id` where it has a readout)
     _stack: (id, a) => {
+      const STACK_KEY = 44;  // a key's side, px (phone.css): the smallest touch target
+      const STACK_GAP = 8;   // between a key and the next group's key, px (phone.css: the stack's 6 px gap and the groups' 1 px borders)
       const p = id ? $(id) : null, st = p && p.querySelector('.viewstack');
       if (st && a) { const R = stackRoom(p, st); if (R) arrange(R, a); }
       else if (st && a === null) { stackSeen.delete(p); fitStack(p, st); }

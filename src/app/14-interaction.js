@@ -1286,22 +1286,86 @@
     if (probe) { probe = null; setReadouts(null); }
     probeHeld = !!probeHover;
   }
+  // The left readout's forms at the probe z, longest first: setReadouts shows the first that fits, so the last is the
+  // shortest it takes. `wide` reads every value as a placeholder as wide as a value of those places reads near an axis,
+  // with one part as ×10ⁿ (−0.00×10⁻⁰ − 0.000i), for readoutShort. -> { forms: [() => html], lines: each form is lines (.rln) that fit one by one, wl: the painted
+  // function at z (X Phase), wz: F(z) (otherwise) }
+  function leftForms(z, wide) {
+    const lk = leftStage();
+    const vin = lk === 0 ? '<i>z</i>' : `<i>w</i>${sub(lk)}`;
+    const O = { re: 0, im: 0 }, nil = (dp = 4, n = 1) => I18N.num(`${'0'.repeat(n)}.${'0'.repeat(dp)}`);
+    const cx = wide ? (w, dp) => wideCx(dp) : fmtCxHtml, re = wide ? (x, dp) => nil(dp) : fmtR;
+    const degs = (a, dp) => (wide ? `−${nil(dp, 3)}` : fmtR(a / DEG, dp).replace(/0+$/, '').replace(/[.,]$/, '')) + '°';
+    const zTol = 1e-9 / Math.max(1e-300, (leftView() && leftView().s) || 1);
+    // (|z| and arg read the same rounded point as z itself: 0, not 7.11×10⁻¹⁵ and 90°, when z reads 0.0000 + 0.0000i)
+    const zt = Math.max(zTol, 1e-12 * Math.max(Math.abs(z.re), Math.abs(z.im)));
+    const zr = { re: Math.abs(z.re) < zt ? 0 : z.re, im: Math.abs(z.im) < zt ? 0 : z.im };
+    // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
+    // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
+    if (lPhase()) {
+      const hv = homView();
+      const wl = wide ? O : (hv ? hv.F : focusF())(z);
+      const ok = CX.isFin(wl);
+      const sw = ok ? `<span class="sw" style="background:${phaseCss(wl)}"></span> ` : '';
+      // panels.md 2: z, |z|, arg, then F as modulus and angle with its swatch (first, so it is never cut); where the
+      // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
+      // (the steps view's colour plane reads its own variable above: no second row for the identity)
+      // (the steps view's Landscape reads F at the point, the whole chain's value, and the height it stands at, h(F),
+      // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
+      const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = !land ? null : wide ? O : svHeightF(lk)(z);
+      const hRow = (dp) => {
+        const fin = CX.isFin(hF), hv = !fin ? NaN : landValue(hF);
+        const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
+        return (hk === lk ? '' : rk('<i>F</i>', fin ? cx(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? re(hv, dp) : '∞');
+      };
+      const fv = (dp) => land ? (!wide && landOffRegion(render3D.mask, z) ? '' : hRow(dp)) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${re(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
+      // (the steps view's readout on a phone is two lines, as the classic one: z on the first, the map into the colour plane on the
+      // second, where one line of both was cut at 360–390 px)
+      const two = SV.on && document.documentElement.classList.contains('ph') && (land || svMapName('text') !== null);
+      const z2 = [() => rk(vin, cx(z, 4, zTol)) + rk(`|${vin}|`, re(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))), () => rk(vin, cx(z, 4, zTol)), () => rk(vin, cx(z, 3, zTol))];
+      const m2 = [() => fv(4), () => fv(4), () => fv(2)];
+      const forms = two ? z2.map((zf, i) => () => `<span class="rln">${zf()}</span><span class="rln">${m2[i]()}</span>`) : [
+        () => z2[0]() + fv(4),
+        () => z2[1]() + fv(4),
+        () => z2[2]() + fv(2),
+      ];
+      return { forms, lines: two, wl };
+    }
+    // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
+    // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
+    // (the key's "=" and parentheses in the maths face, as its letters: the old mono face's (B612 Mono) "(" read as "[" [UX105])
+    const wz = wide ? O : focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
+    // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
+    // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
+    const src = !SV.on ? undefined : !wide ? svSource(z) : svStage() > svT() ? O : undefined, eqv = SV.on ? '' : ` ${m('=')}`;
+    const wl = SV.on ? (dp) => (src === undefined ? '' : `<span class="rln">${rk(`${$t('colour from {p}', { p: wHtml(svT()) })}`, src ? cx(src, dp) : '—')}</span>`) : (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? cx(wz, dp) : '∞')}</span>`;
+    const forms = [
+      () => `<span class="rln">${rk(`${vin}${eqv}`, cx(z, 4, zTol)) + rk(`|${vin}|`, re(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
+      () => `<span class="rln">${rk(`${vin}${eqv}`, cx(z, 4, zTol)) + rk(`|${vin}|`, re(CX.abs(zr), 3)) + rk('arg', degs(Math.atan2(zr.im, zr.re), 2))}</span>` + wl(4),
+      () => `<span class="rln">${rk(`${vin}${eqv}`, cx(z, 4, zTol))}</span>` + wl(4),
+      () => `<span class="rln">${rk(`${vin}${eqv}`, cx(z, 3, zTol))}</span>` + wl(3),
+    ];
+    return { forms, lines: true, wz };
+  }
+  // a complex value's placeholder as wide as the value reads near an axis (fmtR: one part as ×10ⁿ, the other to dp places)
+  const wideCx = (dp = 4) => `${I18N.num(`−0.00×10⁻⁰ − 0.${'0'.repeat(dp)}`)}<i>i</i>`;
+  // The shortest forms readout `side` takes while the pointer probes, its values as placeholders (leftForms, wideCx): X's
+  // shortest probe form, and its preimage count while the pointer is on Y (hoverReadout); the narrowest the phone's plane
+  // keys may make the readout is the widest of these (src/phone.js). null for Y's, which has one form
+  function readoutShort(side) {
+    if (side !== 'L') return null;
+    const { forms } = leftForms({ re: 0, im: 0 }, true);
+    return [forms[forms.length - 1](), preimageHead($tn('{n} preimage{where} of', '{n} preimages{where} of', 2, { where: '' }), wideCx())];
+  }
   function setReadouts(z) {
     const lr = $('leftReadout'), ro = $('rightReadout');
     if (!lr || !ro) return;
-    const lk = leftStage();
-    const vin = lk === 0 ? '<i>z</i>' : `<i>w</i>${sub(lk)}`;
     if (!z) {
       if (!lr.classList.contains('copied') && !hov.w) lr.innerHTML = idleLeft();
       if (!ro.classList.contains('copied')) ro.innerHTML = idleRight();
       legendNeedle = null; legendMod = null; requestRender('G');
       return;
     }
-    const degs = (a, dp) => fmtR(a / DEG, dp).replace(/0+$/, '').replace(/[.,]$/, '') + '°';
-    const zTol = 1e-9 / Math.max(1e-300, (leftView() && leftView().s) || 1);
-    // (|z| and arg read the same rounded point as z itself: 0, not 7.11×10⁻¹⁵ and 90°, when z reads 0.0000 + 0.0000i)
-    const zt = Math.max(zTol, 1e-12 * Math.max(Math.abs(z.re), Math.abs(z.im)));
-    const zr = { re: Math.abs(z.re) < zt ? 0 : z.re, im: Math.abs(z.im) < zt ? 0 : z.im };
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
     // (a finger found the hold-and-slide, on whichever plane: the scale chip stops teaching it)
     if (ptrTouch && !probeLearned()) { try { localStorage.setItem('cmw-probe-learned', '1'); } catch (e) { /* */ } probeLearnedV = true; }
@@ -1311,72 +1375,17 @@
       const wp = lPhase() ? focusF()(z) : null;
       tourEmit('probe', { pane: 'L', stage: leftStage(), past: svStage() > svT(), z: [z.re, z.im], w: wp && CX.isFin(wp) ? [wp.re, wp.im] : null, mod: wp ? (CX.isFin(wp) ? CX.abs(wp) : Infinity) : undefined });
     }
-    // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
-    // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
-    let wOnce;   // ([v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)
-    if (lPhase()) {
-      const hv = homView();
-      const wl = (hv ? hv.F : focusF())(z);
-      const ok = CX.isFin(wl);
-      const sw = ok ? `<span class="sw" style="background:${phaseCss(wl)}"></span> ` : '';
-      // panels.md 2: z, |z|, arg, then F as modulus and angle with its swatch (first, so it is never cut); where the
-      // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
-      // (the steps view's colour plane reads its own variable above: no second row for the identity)
-      // (the steps view's Landscape reads F at the point, the whole chain's value, and the height it stands at, h(F),
-      // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
-      const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
-      const hRow = (dp) => {
-        const fin = CX.isFin(hF), hv = !fin ? NaN : landValue(hF);
-        const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
-        return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
-      };
-      const fv = (dp) => land ? (landOffRegion(render3D.mask, z) ? '' : hRow(dp)) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
-      const forms = [
-        () => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))) + fv(4),
-        () => rk(vin, fmtCxHtml(z, 4, zTol)) + fv(4),
-        () => rk(vin, fmtCxHtml(z, 3, zTol)) + fv(2),
-      ];
-      // (the steps view's readout on a phone is two lines, as the classic one: z on the first, the map into the colour plane on the
-      // second, where one line of both was cut at 360–390 px)
-      const two = SV.on && document.documentElement.classList.contains('ph') && (land || svMapName('text') !== null);
-      if (two) {
-        const z2 = [() => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))), () => rk(vin, fmtCxHtml(z, 4, zTol)), () => rk(vin, fmtCxHtml(z, 3, zTol))];
-        const m2 = [() => fv(4), () => fv(4), () => fv(2)];
-        const fits2 = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
-        for (let i = 0; i < z2.length; i++) {
-          lr.innerHTML = `<span class="rln">${z2[i]()}</span><span class="rln">${m2[i]()}</span>`;
-          if (i === z2.length - 1 || [...lr.children].every(fits2)) break;
-        }
-      } else for (let i = 0; i < forms.length; i++) {
-        lr.innerHTML = forms[i]();
-        if (i === forms.length - 1 || lr.scrollWidth <= lr.clientWidth + 1) break;
-      }
-      legendNeedle = ok ? Math.atan2(wl.im, wl.re) : null; legendMod = CX.abs(wl); requestRender('G'); // needle on the next frame
-    } else {
-      // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
-      // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
-      // (the key's "=" and parentheses in the maths face, as its letters: the old mono face's (B612 Mono) "(" read as "[" [UX105])
-      const wz = wOnce = focusF()(z), wv = yHtml(), m = (t) => `<span class="rm">${t}</span>`;
-      // (the steps view's plane past the colour plane reads where the point comes from in the colour plane: its preimage, or
-      // "—"; at a plane where the colour is pulled back (a d/dz in the way) there is no second line, 19)
-      const src = SV.on ? svSource(z) : undefined, eqv = SV.on ? '' : ` ${m('=')}`;
-      const wl = SV.on ? (dp) => (src === undefined ? '' : `<span class="rln">${rk(`${$t('colour from {p}', { p: wHtml(svT()) })}`, src ? fmtCxHtml(src, dp) : '—')}</span>`) : (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
-      const forms = [
-        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
-        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr), 3)) + rk('arg', degs(Math.atan2(zr.im, zr.re), 2))}</span>` + wl(4),
-        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 4, zTol))}</span>` + wl(4),
-        () => `<span class="rln">${rk(`${vin}${eqv}`, fmtCxHtml(z, 3, zTol))}</span>` + wl(3),
-      ];
-      // (a line fits when its text, measured to the fraction of a pixel, does: scrollWidth rounds, and a line 0.4 px too
-      // long was cut with an ellipsis at 1366 px)
-      const fits = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
-      for (let i = 0; i < forms.length; i++) {
-        lr.innerHTML = forms[i]();
-        if (i === forms.length - 1 || [...lr.children].every(fits)) break;
-      }
+    const L = leftForms(z, false);
+    // (a line fits when its text, measured to the fraction of a pixel, does: scrollWidth rounds, and a line 0.4 px too
+    // long was cut with an ellipsis at 1366 px)
+    const fits = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
+    for (let i = 0; i < L.forms.length; i++) {
+      lr.innerHTML = L.forms[i]();
+      if (i === L.forms.length - 1 || (L.lines ? [...lr.children].every(fits) : lr.scrollWidth <= lr.clientWidth + 1)) break;
     }
-    // Y: the image of the probe (F at t = end)
-    const w = wOnce !== undefined ? wOnce : focusF()(z);
+    if (L.wl) { legendNeedle = CX.isFin(L.wl) ? Math.atan2(L.wl.im, L.wl.re) : null; legendMod = CX.abs(L.wl); requestRender('G'); } // needle on the next frame
+    // Y: the image of the probe (F at t = end; [v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)
+    const w = L.wz !== undefined ? L.wz : focusF()(z);
     copyValue.R = CX.isFin(w) ? CX.fmt(w, 6).replace(/\s/g, '') : '';
     const vout = yHtml();
     if (rImage()) {

@@ -21,6 +21,8 @@
         requestRender('L', 'R', 'OL', 'OR');
       },
       fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
+      // (the shortest form a plane's readout takes while the pointer probes, the narrowest the plane's keys may make it)
+      readoutShort: (side) => readoutShort(side),
       // (#246) the phone's chain row and sheet: the plane it is at, ‹ › (the step glide), the deformation's programs
       // compiled ahead of the first press, a step's sheet, a step moved by the sheet's drag
       chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => selectStep(k),

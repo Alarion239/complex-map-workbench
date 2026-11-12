@@ -263,14 +263,15 @@
       if (hov.partial && ms < 250) hov.timer = setTimeout(() => rest(250), 300);
     }, 60);
   }
+  // the head of the left readout's preimage line: the words `t` in the UI face, w, and its value `v` in the mono face
+  const preimageHead = (t, v) => `<span class="rp"><span class="rk"><span class="rw">${t}</span> <i>w</i></span> <span class="rv">${v}</span></span>`;
   // the left readout while the right plane is hovered: how many preimages w has in the left view
   function hoverReadout() {
     const lr = $('leftReadout');
     if (!lr || lr.classList.contains('copied')) return;
     if (!hov.w) { if (!probe) lr.innerHTML = idleLeft(); return; }
     sndCollide();
-    // words in the UI face, the value in the mono face
-    const head = (t) => `<span class="rp"><span class="rk"><span class="rw">${t}</span> <i>w</i></span> <span class="rv">${fmtCxHtml(hov.w)}</span></span>`;
+    const head = (t) => preimageHead(t, fmtCxHtml(hov.w));
     if (!hasCalc('zerosPoles')) { lr.innerHTML = head($tx('readout', 'at')); return; }
     if (!hov.list) { lr.innerHTML = head($t('finding the preimages of')); return; }
     const n = hov.list.reduce((a, r) => a + (r.mult || 1), 0);

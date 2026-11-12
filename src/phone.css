@@ -138,6 +138,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* where no layout of the five keys fits, the zoom keys give way to the pinch (.ph-nozoom); where none of the three fits either, Display stays alone
    (.ph-dsponly); where it does not fit either, the keys step aside (.ph-nokeys) */
 :root.ph .plot.ph-nozoom > .viewstack > .vgroup:nth-child(2) { display: none; }
+:root.ph .plot.ph-nozoom:is(.ph-flat, .ph-row) > .viewstack { grid-template-columns: auto auto; }   /* (Fit view and Sphere take the zoom keys' column: one gap between the groups) */
+:root.ph .plot.ph-nozoom:is(.ph-flat, .ph-row) > .viewstack > .vgroup:nth-child(3) { grid-column: 2; }
 :root.ph .plot.ph-dsponly > .viewstack > .vgroup:not(:first-child) { display: none; }
 :root.ph .plot.ph-nokeys > .viewstack { visibility: hidden; }
 :root.ph.sv:has(#plotL.ph-row) { --ph-stack-w: 254px; }
