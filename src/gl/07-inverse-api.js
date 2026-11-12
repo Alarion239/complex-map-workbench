@@ -253,6 +253,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       evictInv();
     }
     e.used = ++useClock; e.frame = invFrame;
+    if (!sideMode) e.askKey = cur.key;
     if (e.state === 'pending') {
       if (!pcExt || syncDepth > 0 || gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR)) {
         finishInv(e);
