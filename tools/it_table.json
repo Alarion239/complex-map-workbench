@@ -3378,5 +3378,7 @@
  "Cauchy: on z only": "Cauchy: solo su z",
  "No curve selected": "Nessuna curva selezionata",
  "Read as {read}. For the power {power}, write {fix}.": "Letto come {read}. Per la potenza {power}, scrivi {fix}.",
- "Use {fix}": "Usa {fix}"
+ "Use {fix}": "Usa {fix}",
+ "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "Il Paesaggio non ha una sfera: scegli Piano o Sfera nel menu della superficie",
+ "Nothing to fit yet": "Ancora niente da adattare"
 }

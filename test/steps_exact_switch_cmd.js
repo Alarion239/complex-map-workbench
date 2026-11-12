@@ -55,7 +55,9 @@ const run = async (exact) => {
   await toPlane(1);
   const rest = await points();
   await ev(`__cmwSteps({ x: ${GLIDE_X} }); 1`);
-  await settled({ max: DRAWN_WAIT, until: `(() => { const s = __cmwSteps(); return !s.moving && s.glide && s.glide.path; })()` });
+  // (the view parked between two planes counts as moving, so the wait is for the parked frame's own glide record: no glide
+  // or play under way, and the record of the frame at u = GLIDE_X, which a frame of the glide to plane 1 does not write)
+  await settled({ max: DRAWN_WAIT, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play && !!s.glide && Math.abs(s.glide.u - ${GLIDE_X}) < 1e-9 && !!s.glide.path; })()` });
   await drawn();
   const glide = await points(), glidePath = await ev(`(__cmwSteps().glide || {}).path`);
   await toPlane(0);

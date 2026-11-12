@@ -13,6 +13,7 @@
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
+    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -151,7 +152,6 @@
     if (morph.open) { morph.open = false; ch = true; }
     if (v.main !== main) { setViewOpt(null, 'main', main); ch = true; }
     SV.main = main;
-    if (main === 'land' && !(v.D && v.D.phase)) { setViewOpt(null, 'D', Object.assign({}, v.D, { phase: true })); ch = true; }
     const side = col ? 'P' : 'L';
     if (main !== 'land' && v[side].surf !== surf) { setViewOpt(side, 'surf', surf); ch = true; }
     return ch;
@@ -846,6 +846,8 @@
     }
     return r;
   }
+  // every glide's pole tracks forgotten, as right after load (a test hook's)
+  function svDropTracks() { svPoleMemo.clear(); svPoleLast.clear(); svPolesWatch(); }
   // P's tracks made for at most ms; once whole, they are plane b's last whole tracks (svPoleLast)
   function svPoleMake(P, ms, kind) {
     if (P.k > SV_POLE_K) return;
@@ -865,15 +867,21 @@
       P.seek = { j, gen: (function* () { try { return yield* svPolesNear(P.Ft(j / SV_POLE_K), P); } catch (e) { return []; } })() };
       if (ps) ps.poleSync = (ps.poleSync || 0) + 1;
     }
-    const r = svPoleRun(P.seek.gen, P.E, SV_POLE_BUDGET, 'frame', null);
+    const r = svPoleRun(P.seek.gen, P.E, SV.poleFrameMs || SV_POLE_BUDGET, 'frame', null);
     if (r.done) { P.found = { j, poles: r.value }; P.seek = null; }
     if (ps) ps.poleSyncMs = (ps.poleSyncMs || 0) + performance.now() - t0;
     return P.found ? P.found.poles : [];
   }
+  // svHoldB: plane b when the left pane's last frame held the glide into b for its missing tracks (svLinkHold), else 0: each
+  // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
+  // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
+  let svHoldB = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
+  // (the glide held by svLinkHold for its missing tracks comes first)
   function svPolesLeft() {
     const n = nSteps();
+    for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
     for (let b = 1; b <= n; b++) {
       if (derivIn(b - 1, b)) continue;
       const P = svPoleTracks(b, clipWin);
@@ -881,10 +889,18 @@
     }
     return null;
   }
+  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
+  // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
+  // (svSheetKeyAt) exist
+  function svTracksMissing(b, h) {
+    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
+    const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
+    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
+  }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane (svRingAhead), SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time
-  // (svPoleJob, its token: a new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh
-  // each slice, and svPolesWatch starts it again once they change after it ended
+  // the plane and of the chain's other glides (svRingAhead, svRingNext), SV_POLE_BUDGET ms an idle moment at most, so a
+  // glide finds them made. One job at a time (svPoleJob, its token: a new one ends the one before); it reads its inputs
+  // (the chain, clipWin, the camera) afresh each slice, and svPolesWatch starts it again once they change after it ended
   let svPoleJob = 0, svPoleBusy = false;
   function svPolesAhead() {
     const tok = ++svPoleJob;
@@ -897,7 +913,7 @@
       try {
         while (left() > 0) {
           const P = svPolesLeft();
-          if (P) svPoleMake(P, left(), 'idle');
+          if (P) { svPoleMake(P, left(), 'idle'); if (P.k > SV_POLE_K && svHoldB === P.b) { svHoldB = 0; requestRender('L'); } }
           else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
         }
         if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
@@ -1055,25 +1071,46 @@
   // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
   // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why) {
-    const h = svHomMemo && svHomMemo.b === b && svHomMemo.u === u ? svHomMemo.h : svInvPaths(b, u, 'flat', why);
-    if (!h) { if (svHomMemo && svHomMemo.b === b && svHomMemo.u === u) why.r = svHomMemo.why.r; return false; }
+    const m = svHomPaths(b, u), h = m.h;
+    if (!h) { why.r = m.why.r; return false; }
     const res = svDrawInverse(pane, h.list, h.paths, T, frame, u, null, null, b);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
-  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links: the glide
-  // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
-  // plane before the thread), so no frame between the planes is the carried mesh's and the first one drawn is exact.
-  // -> the place to draw instead of the thread's, or null (draw the thread's)
-  // (the paths it builds are kept in svHomMemo for the frame's svCarryExactHom, which asks for the same b and u)
+  // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
+  // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
+  // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
+  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
+  // come from the mask's pass (svStagedMask), which the colour layer does not draw
+  function svExactGlide(b, u) {
+    if (!GLR.inverseState) return false;
+    const h = svHomPaths(b, u).h;
+    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i) === 'ready');
+  }
+  // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
   let svHomMemo = null;
+  function svHomPaths(b, u) {
+    if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
+    return svHomMemo;
+  }
+  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths), as the carried colour draws it
+  const svInvState = (h, i) => { const p = h.paths[i]; return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }); };
+  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
+  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
+  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
+  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
+  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
+  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
-    const why = { r: null }, h = svInvPaths(g.b, g.u, 'flat', why);
-    svHomMemo = { b: g.b, u: g.u, h, why };
-    if (!h || !h.paths.some((p, i) => GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }) === 'pending')) return null;
+    const h = svHomPaths(g.b, g.u).h;
+    const linking = !!h && h.paths.some((p, i) => svInvState(h, i) === 'pending');
+    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
+    if (svHoldB) svPolesWatch();
+    if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1104,9 +1141,9 @@
   // (null: none) parked
   const SV_RING_M = [1.5, 2, 3, 4], SV_RING_N = 128, SV_RING_BASE = 40;
   const SV_RING = { id: '__svRing', kind: 'annulus', c: [0, 0], r1: 1, r2: 2, visible: true };
-  // (the sizes kept: 21 a glide, two glides beside the plane, so 400 holds those of about nine views or windows; each
-  // is a number, and a full table is dropped whole)
-  const SV_RING_SIZES_MAX = 400;
+  // (the sizes kept: SV_RING_Q + 1 a glide; the idle job makes those of every glide while the table is under half its
+  // limit, so 400 holds those of a few views or windows; each is a number, and a full table is dropped whole)
+  const SV_RING_SIZES_MAX = 400, SV_RING_Q = 20;
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
@@ -1189,7 +1226,7 @@
     svRingSizes.set(key, m);
   }
   function svRingFor(pane, map) {
-    const g = svBetween(), v = pane.view, q = Math.round(g.u * 20), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
+    const g = svBetween(), v = pane.view, q = Math.round(g.u * SV_RING_Q), sk = svRingKey(g, q, v, pane.w, pane.h), key = sk + '|' + (map.mode || 0);
     if (svRingMemo && svRingMemo.key === key) return svRingMemo.ring;
     let m = svRingSizes.get(sk);
     if (m === undefined) {
@@ -1362,23 +1399,27 @@
   }
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
-  // first glide finds them made)
+  // first glide finds them made). Those two glides first, then every other glide of the chain (a scrub crosses them
+  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room, so that no mesh
+  // made for a far glide drops one of the glides next to the thread
   function svRingNext() {
     if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
     if (!L || !L.includes(SV_ALL)) return null;
     // (the view the frames between planes draw in: svRenderMoving sets the pane's view to S.srcView)
-    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView;
-    for (const j of [i - 1, i]) {
+    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView, order = [i - 1, i];
+    if (svPolarRes.size < SV_POLAR_KEEP && svRingSizes.size < SV_RING_SIZES_MAX / 2) for (let j = 0; j + 1 < P.length; j++) if (j !== i - 1 && j !== i) order.push(j);
+    for (const j of order) {
       if (j < 0 || j + 1 >= P.length) continue;
       const g = svBetween(j + 0.5, null);
-      for (let q = 0; q <= 20; q++) {
-        const key = svRingKey(g, q, v, paneL.w, paneL.h);
+      for (const { q, key } of svRingKeys(g, v)) {
         if (!svRingSizes.has(key)) return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s }, w: paneL.w, h: paneL.h };
       }
     }
     return null;
   }
+  // the keys of a glide g's ring sizes at view v in the left pane, a twentieth (q) each
+  function* svRingKeys(g, v) { for (let q = 0; q <= SV_RING_Q; q++) yield { q, key: svRingKey(g, q, v, paneL.w, paneL.h) }; }
   const svRingLeft = () => !!svRingJob || !!svRingNext();
   // the idle job's share of the ring: an m made for at most ms, its mesh built (svRingWarm) in the slice that publishes
   // it, so no frame finds a size whose mesh is not built; that slice can run past ms by the build's time. false when
@@ -1557,6 +1598,7 @@
   // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
+    svHoldB = 0;
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
@@ -1629,7 +1671,9 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    if (svMaskOn() && svMask(pane, map, still ? a : undefined, {
+    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
+    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    if (mask && svMask(pane, map, still ? a : undefined, {
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
@@ -1643,15 +1687,16 @@
       // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
       // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
       // the CPU path (it is in cc already), the layers go one by one, the grid first
-      if (!svMaskOn() && !frame.cc) {
+      if (!mask && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        if (!bare) svOutlines(pane, map, frame, col);
+        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
+        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
-        if (svMaskOn()) svMask(pane, map, still ? a : undefined, { cc });
+        if (mask) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
         svOutlines(pane, map, null, col);
@@ -1695,7 +1740,7 @@
   function svStagedOf() {
     const g = svBetween();
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
-    const h = svHomMemo && svHomMemo.b === g.b && svHomMemo.u === g.u ? svHomMemo.h : svInvPaths(g.b, g.u, 'flat', { r: null });
+    const h = svHomPaths(g.b, g.u).h;
     if (!h) return null;
     const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
     return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
@@ -2189,6 +2234,9 @@
     E.add.setAttribute('aria-label', S.steps.length ? $t('Add function') : $t('Add the first function'));
     if (SV.refocus) { SV.refocus = false; if (!svOff(E.add)) E.add.focus({ preventScroll: true }); }
     svFitRail();
+    // (a rebuilt chain, a split or an added step, brings the selected chip into view; a rebuild for where the ring is leaves the rail to it)
+    const chain = S.steps.map((st) => st.type + (st.on === false ? '-' : '')).join(',');
+    if (chain !== E.chainSig) { E.chainSig = chain; svRevealSel(true); }
   }
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
@@ -2282,6 +2330,7 @@
     svBandSync(c);
     if (!c.length) return;
     const tx = c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u;
+    E.tx = tx;
     E.thumb.style.transform = `translateX(${tx.toFixed(1)}px)`;
     // (between two planes the ring is a marker over the thread, above the step's chip: ux's wave 12 sweep)
     const between = Math.abs(x - Math.round(x)) > 0.02;
@@ -2299,7 +2348,14 @@
       // under a drag or a glide, the ring is kept a plane's width from either end)
       // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
       const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
-      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(want)));
+      // (on a phone the rail stays where svRevealSel put it while the ring is parked on the plane it was parked on; once the ring
+      // moves, a jump, a glide or a drag, the ring decides again)
+      let aim = want;
+      if (E.hold && document.documentElement.classList.contains('ph') && !SV.alone) {
+        if (E.hold.tx == null) E.hold.tx = tx;
+        if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
+      } else E.hold = null;
+      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
       // (the fades follow at once: the rail's scroll event comes a frame later)
       if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
     } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
@@ -2346,6 +2402,7 @@
     E.railKey = key;
     if (document.documentElement.classList.contains('ph') || !steps.length || !room) {
       svCentreRail(E, 0);
+      svLeadF(E);
       E.strip.classList.remove('sv-letters');
       E.track.style.removeProperty('--sv-step-w');
       E.railMode = SV_RAIL_EQUAL;
@@ -2369,6 +2426,21 @@
     if (mode === SV_RAIL_OWN) E.track.style.removeProperty('--sv-step-w');
     else E.track.style.setProperty('--sv-step-w', `${mode === SV_RAIL_LETTERS ? letters.w : names.w}px`);
     svCentreRail(E, mode === SV_RAIL_EQUAL ? names.equal : mode === SV_RAIL_OWN ? names.own : letters.own);
+  }
+  // On a phone F ends what the rail scrolls. When the thread plus F overflows the rail by less than F's own width, F would lie
+  // partly in view at rest, cut by the rail's edge; a lead margin before F makes the overflow exactly F's width, so F lies fully
+  // past the edge at rest and whole at the rail's end, with at most that margin as blank track before it. The margin is a
+  // function of the rail's and the thread's widths, so a glide (svFitRail returns first) never changes it.
+  function svLeadF(E) {
+    const F = E.wholeMap, own = F.style.marginLeft;
+    if (F.hidden || F.parentNode !== E.rail || E.rail.lastElementChild !== F) { if (own) { F.style.marginLeft = ''; E.centres = null; E.scrollX = E.rail.scrollLeft; } return; }
+    // (the overflow without the margin, read with it in place: taking it off to measure would shrink the rail's scroll range under
+    // its scroll position, and the browser would clamp that without a scroll event for the position svSync keeps)
+    const over = E.rail.scrollWidth - E.rail.clientWidth - (parseFloat(own) || 0), fw = F.offsetWidth;
+    const lead = over > 1 && over < fw ? Math.ceil(fw - over) : 0;
+    if (lead) F.style.marginLeft = `${lead}px`;
+    else F.style.marginLeft = '';
+    if ((lead ? `${lead}px` : '') !== own) { E.centres = null; E.scrollX = E.rail.scrollLeft; }
   }
   // (CSS px: a centring margin smaller than this is none, and a change smaller than this leaves the margin as it is)
   const SV_CENTRE_MIN = 0.5;
@@ -2702,7 +2774,7 @@
     const rail = strip.querySelector('.sv-rail');
     // (Tab to a plane or chip (the whole-map chip too) that the rail shows only in part scrolls it fully in, clear of the fade; the browser's own
     // focus scroll leaves a control that is partly in view where it is. The ring's own focus is kept in view by svSync)
-    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
+    rail.addEventListener('focusin', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (t && t.closest && t.closest('.sv-plane, .sv-fchip, .sv-wholemap, .sv-more') && t.matches(':focus-visible')) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });   // (the keyboard's focus only: a press focuses too, and the thread must not move under a finger)
     // (a press on a message's body dismisses it; its own buttons keep their action)
     const th = document.getElementById('toastHost');
     if (th && !svToastWired) {
@@ -3686,8 +3758,24 @@
     const el = svEl(w.k, w.part) || svEl('add');
     if (el) el.focus({ preventScroll: true });
   }
+  // On a phone the selected step's chip and ⋯ are brought whole into the rail, moving it as little as it takes; a rail that shows
+  // them whole stays as it is, and selecting the step already revealed does nothing. svSync then holds the rail there until the
+  // ring moves from where it was at the selection (after a rebuilt chain, from where it is next). Called at each selection and
+  // after the chain's strip is rebuilt (`force`).
+  function svRevealSel(force) {
+    const E = SV.els;
+    if (!E || !E.track || SV.alone || !document.documentElement.classList.contains('ph')) return;
+    const k = S.sel, stepEl = typeof k === 'number' ? E.track.querySelector(`.sv-step[data-k="${k}"]`) : null;
+    if (!stepEl || (k === E.revealed && !force)) return;
+    E.revealed = k;
+    const rail = E.rail, a = stepEl.offsetLeft, s = rail.scrollLeft, w = rail.clientWidth;
+    const to = Math.max(0, Math.min(rail.scrollWidth - w, Math.min(Math.max(s, a + stepEl.offsetWidth - w), a)));
+    if (to !== s) { rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    E.hold = { tx: force ? null : E.tx ?? null, aim: to };
+  }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
   function svFSync() {
+    svRevealSel();
     const f = SV.on && SV.els && SV.els.wholeMap;
     if (!f) return;
     const on = String(S.sel === 'F');

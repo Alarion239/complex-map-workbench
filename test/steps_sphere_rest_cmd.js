@@ -17,9 +17,12 @@ const fails = [], R = {};
 const END_MEAN = 1.5, START_MEAN = 1.5, LUM_TOL = 0.5, SAT_MIN = 40, COLOURED_MIN = 0.05;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+// (quiet: the programs and jobs are ready, no glide or play is under way and the sphere is idle; __cmwSteps().moving is also
+// true for a place parked between two planes, which is a still view, so it is not the wait)
+const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running)";
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  until: QUIET_UNTIL,
 });
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (the share of the kept frame's pixels whose largest and smallest channel are more than SAT_MIN apart)

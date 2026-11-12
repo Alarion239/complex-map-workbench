@@ -22,7 +22,15 @@
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame) sampled every step px, or
-//   null when the glide's record has no sheet key (a frame the carried mesh draws);
+//   null when the glide's record has no sheet key (a frame the carried mesh draws); timeout (ms) bounds the page call;
+// - fade(a, b, t, tag): the kept frames a and b cross-faded, (1 - t) a + t b per channel, kept as __heldPx[tag] (what a
+//   frame that blends the two planes' pictures instead of carrying the colour would show); true when both exist;
+// - judge(base, tag, o): the carried colour of the kept frame tag, held between plane z's parked frame base and a later
+//   plane, graded against the exact picture (refOf with o.tol, default JUDGE_TOL, every o.step px, default 10):
+//   { path, u, n, over, max, none, pass }, pass when at least o.minN (default JUDGE_MIN_N) pixels were compared and at
+//   most the share o.maxOver (default JUDGE_OVER) of them are more than the tolerance apart; pass is false when the
+//   glide's record has no sheet key (a frame the carried mesh draws; refOf answers null), with n 0; o.seeds: [columns,
+//   rows] of the reference's Newton seeds (window.__giSeeds), for a frame whose roots the default 8 x 6 grid misses;
 // - sameAway(a, b, tol, keep): two kept frames compared pixel by pixel away from the colour lines (a pixel where either
 //   frame's __giRange spans more than 12 levels is left out), only where keep holds (the source of a page function of
 //   the device pixel (x, y); every pixel without it): { n compared, max, over: the share of n more than tol apart }.
@@ -143,12 +151,12 @@
   })()`);
   const GI_REF = `${RANGE}
 ${REF}`;
-  const refOf = (base, tag, tol, step = 10) => ev(`(() => {
+  const refOf = (base, tag, tol, step = 10, timeout = 20000) => ev(`(() => {
     ${GI_REF}
     const g = __cmwSteps().glide, c = document.getElementById('canvasL'), K = window.__heldPx, f = (t) => ({ W: c.width, H: c.height, d: K[t] });
     if (!g || !g.key || !K[${JSON.stringify(base)}] || !K[${JSON.stringify(tag)}]) return { path: g && g.path, u: g && g.u, ref: null };
     return { path: g.path, u: g.u, ref: __giRef(f(${JSON.stringify(base)}), f(${JSON.stringify(tag)}), ${tol}, ${step}) };
-  })()`);
+  })()`, timeout);
   // the rest renderer's grid over the colour, in a kept frame drawn with the glide's camera (__cmwSteps().glide.view):
   // renderColor strokes the major grid lines (Axes.niceStep(110 / scale) apart, the axes left out) 1 CSS px wide at
   // --dc-line, opacity --dc-line-a, over the colour. At each such line pixel whose two neighbours (2 device px off the
@@ -243,5 +251,24 @@ ${REF}`;
     }
     return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
   })()`);
-  return { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  const JUDGE_TOL = 6, JUDGE_MIN_N = 1000, JUDGE_OVER = 0.002, JUDGE_SEEDS_MS = 120000;
+  const fade = (a, b, t, tag) => ev(`(() => {
+    const K = window.__heldPx, A = K && K[${JSON.stringify(a)}], B = K && K[${JSON.stringify(b)}];
+    if (!A || !B || A.length !== B.length) return false;
+    const F = new Uint8ClampedArray(A.length);
+    for (let i = 0; i < A.length; i++) F[i] = i % 4 === 3 ? A[i] : (1 - ${t}) * A[i] + ${t} * B[i];
+    K[${JSON.stringify(tag)}] = F;
+    return true;
+  })()`);
+  const judge = async (base, tag, o = {}) => {
+    const tol = o.tol == null ? JUDGE_TOL : o.tol, minN = o.minN == null ? JUDGE_MIN_N : o.minN, maxOver = o.maxOver == null ? JUDGE_OVER : o.maxOver;
+    // (o.seeds: [columns, rows] of the Newton seeds of the reference, for a frame whose roots the default grid misses)
+    if (o.seeds) await ev(`window.__giSeeds = ${JSON.stringify(o.seeds)}, 1`);
+    const r = await refOf(base, tag, tol, o.step || 10, o.seeds ? JUDGE_SEEDS_MS : 20000);
+    if (o.seeds) await ev('delete window.__giSeeds, 1');
+    if (!r || !r.ref) return { path: r && r.path, u: r && r.u, n: 0, over: null, max: null, none: null, pass: false };
+    const q = r.ref;
+    return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, pass: q.n >= minN && q.over <= maxOver };
+  };
+  return { hold, grab, compare, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
