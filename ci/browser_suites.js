@@ -126,6 +126,10 @@ const SUITES = {
 const t = (re, measured) => ({ re, measured });
 // (tour_auto: the step advanced, i.e. a time is measured: its detail is that time, or an array that starts with it)
 const advanced = (d) => typeof (Array.isArray(d) ? d[0] : d) === 'number';
+// (tour_auto's Grieg check: its detail is [durMs, caps, lts], caps the [ms, text] of each caption shown: the piece had a
+// duration and every caption the check reads came, so a failure is a caption's time alone)
+const GRIEG_CAPTIONS = [/^Each note is/, /^Each step is/, /^The crack is/, /^The second lap/];
+const griegCaptionsAll = (d) => Array.isArray(d) && d[0] > 0 && Array.isArray(d[1]) && GRIEG_CAPTIONS.every((re) => d[1].some((c) => re.test(c[1])));
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
   'series_edit_cmd.js': [t(/^timing: /)],
@@ -146,7 +150,7 @@ const TIMING = {
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
   'tour_auto_cmd.js': [t(/^(?!Patterns:).*(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced), t(/^Patterns: moves on 3 s after/, (d) => advanced(d) && d[1] === 'edit/cards'),
-    t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, (d) => Array.isArray(d) && [/^The cut/, /^Each turn is/, /^The ending/].every((re) => d.some((c) => re.test(c[1]))))],
+    t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, griegCaptionsAll)],
   'morphfig_classic_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
