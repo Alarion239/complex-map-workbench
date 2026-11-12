@@ -1238,6 +1238,7 @@ async function svGlideUnit(scene, o = {}) {
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
     const lbl = (await B.ev('__cmwLabelStats.list')).slice(0, -1);   // (the frames on the move: the last pass is the landing's, at rest)
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
+    if (c1 > c0) console.error(`[perf] ${id}: ${c1 - c0} program(s) linked in a glide to plane ${to}: ` + JSON.stringify(await B.ev(`__perf.linkNames(${a})`)));
     const w = await windowStats(a, b);
     return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, labels: lbl.map((p) => p.ms), jank: await jankIn(a, b), a, b });
   };
