@@ -284,9 +284,14 @@ const hatchCount = () => ev(`(() => {
     ok('control: a changed look setting (the region\'s colour) walks again', miss.searches > 0, { look, miss });
     await ev('__cmwRept({ tileStats: true })');
     const lost = await ev('__cmwRept({ lose: true })');
-    // (the restored context links every program again: the wait is the parked settle's, not a quiet pane's)
-    await frames(4); await settleParked(PARKED_SETTLE);
-    const after = await ev('__cmwRept({ tileStats: true })');
+    // (the restored context links every program again, and the plane is a stand-in until they land: the tile account
+    // is summed until a walk and its composite came, at most PARKED_SETTLE ms)
+    const after = { searches: 0, composites: 0 }, lostT0 = Date.now();
+    while (Date.now() - lostT0 < PARKED_SETTLE && !(after.searches > 0 && after.composites > 0)) {
+      await frames(4);
+      const s = await ev('__cmwRept({ tileStats: true })');
+      after.searches += s.searches; after.composites += s.composites;
+    }
     ok('control: after a lost context the plane walks again', lost === true && after.searches > 0, { lost, after });
     info['tiled draw'] = { gal, one, tiled, pendingSeen: pend, held, rel, hit, miss, after, pictures: [p1, p2, p3] };
   } else ok('the tiled draw: the REPT hooks (__cmwRept) exist', false, 'no hook');
