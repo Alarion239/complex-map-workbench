@@ -8,39 +8,32 @@
 // The tour's sphere step anchors to the stack's Sphere key.
 // On every phone size (568 x 320 to 915 x 412 landscape, 360 x 553 to 390 x 844 upright), in the steps view and the classic one, in
 // English, Russian and Italian, at rest, with a shape selected (the context bar's one row), with the tall bar of a construction
-// tool, and each with a message: every shown key lies inside its plot, is 44 px and on top at its centre, and covers nothing the
-// user reads or taps (Both, the readout, the legends, the construction's chip and its ×, the header, the strip, the bar, the
-// message); the stack's layout is the first of the app's that keeps this, and its keys step aside only where none does.
+// tool, each with a message, and each with the legend chips tapped open: every shown key lies inside its plot, is a key's full
+// size and on top at its centre, and covers nothing the user reads or taps (Both, the readout and the room it keeps to grow in,
+// the legends, the construction's chip and its ×, the header, the strip, the bar, the message); a legend chip moved left of the
+// keys, folded or open, lies inside its plot and covers none of these either; with the bar open over the plot's foot the stack
+// rests the app's edge above it; the stack's arrangement is the first of the app's that keeps the rule, and its keys step aside
+// only where none does. While the pointer probes the planes the readout grows, and no stack changes its arrangement or meets it.
 // In the classic view on an upright phone, Both (top right) comes before the stack in focus order.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
+const { MOB, CUBE, still, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const ns = 'phstk' + Date.now();
 const SIZES = [[360, 640], [390, 844], [740, 360], [844, 390]];   // width, height
 const LANGS = ['en', 'ru'];
 const SURFACES = ['plane', 'sphere', 'land'];
-const MIN_KEY = 44;          // px: the smallest touch target
-const GROUP_GAP = 8;         // px: between a key and the next group's key in the one-column stack
 const SETTLE_MAX_MS = 3000;  // ms: the longest the stack may take to come to rest (its ease after a message or the context bar)
 const VIEWS = ['steps', 'classic'];
 const CLIP_SLACK = 1;        // px: scroll sizes are rounded to whole pixels, so a box one pixel short of its content is not clipped
 const POS_TOLERANCE = 0.5;   // px: a key is at the same place after a surface switch or a chip change
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';   // the key's tooltip and note
 const NO_SPHERE_TOAST = { en: 'The Landscape has no sphere. Use the surface menu.', ru: 'В Рельефе нет сферы. Смените поверхность в меню.' };   // the phone's message: two lines at the narrowest width
-const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
 const LABELS = { en: ['Display options', 'Zoom in', 'Zoom out', 'Fit view', 'Sphere'], ru: ['Настройки вида', 'Увеличить', 'Уменьшить', 'Вписать в окно', 'Сфера'] };
-const open = async (w, h, lang, vw = 'steps') => {
-  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps: [MOB, CUBE], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-  await view(w, h, false, true);
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  const k = ns + w + lang + vw;
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=${vw}`);
-  if (vw === 'steps') await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
-  else await settled({ until: "document.documentElement.classList.contains('ph') && !!document.querySelector('#plotL .viewstack .ph-dsp')" });
-};
+const open = (w, h, lang, vw = 'steps') => openChain({ ns: ns + w + lang + vw, steps: [MOB, CUBE], w, h, mobile: true, lang, view: vw,
+  until: vw === 'steps' ? null : "document.documentElement.classList.contains('ph') && !!document.querySelector('#plotL .viewstack .ph-dsp')" });
+let KIT = null;   // the app's stack rule (Phone._stack): its arrangements in order, what sits on a plot, the room it keeps, a key's side, the gap between groups
 // the shown keys of plane L's column in document order: label, state, reason note, box, the topmost element at the centre
 const SHOWN_KEYS = "[...document.querySelectorAll('#plotL button.ph-key, #paneL .viewstack button')].filter((e) => e.getClientRects().length)";
 const column = () => ev(`(() => ${SHOWN_KEYS}.map((b) => {
@@ -62,6 +55,8 @@ const same = (a, b) => a.length === b.length && a.every((k, i) => k.box.every((v
 for (const lang of LANGS) {
   for (const [w, h] of SIZES) {
     await open(w, h, lang);
+    if (!KIT) KIT = await ev(`window.Phone && Phone._stack ? Phone._stack() : null`);
+    const MIN_KEY = KIT ? KIT.key : Infinity;
     const tag = `${w}x${h} ${lang}`;
     const boxes = {};
     for (const surf of SURFACES) {
@@ -123,84 +118,119 @@ for (const lang of LANGS) {
   }
 }
 
-// The rule for the stacks of the shown large planes (both in the classic view on a landscape phone), at rest and with the
-// context bar open: every shown key lies inside its plot, is at least MIN_KEY px and is the topmost element at its centre, and
-// covers nothing the user reads or taps: Both, the readout, the legend chips, the construction's chip and its ×, the header,
-// the steps strip, the context bar and a message. The stack takes the first of its layouts that keeps the rule (the app's
-// order: its layouts tallest first with the five keys, the legend chips in their place, then with the legend chips moved
-// left of the keys; then the same with the zoom keys given way to the pinch), and steps aside only where none does: each one
-// before it, forced in turn (Phone._stack), breaks the rule.
-const STACKS = `(() => { const R = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
+// The rule for the stacks of the shown large planes (both in the classic view on a landscape phone), at rest, with the
+// context bar open and with the legend chips open: every shown key lies inside its plot, is a key's full size and is the
+// topmost element at its centre, and covers nothing the user reads or taps: Both, the readout and its room (the app's
+// readout room: as wide and as tall as the readout may grow while the pointer probes), the legend chips, the construction's
+// chip and its ×, the header, the steps strip, the context bar and a message. A legend chip the stack moved left of its keys
+// lies inside the plot and meets none of these either. The stack takes the first of the app's arrangements (KIT.order)
+// that keeps the rule, and steps aside only where none does: each one before it, forced in turn (Phone._stack), breaks the rule.
+const STACKS = () => `(() => { const R = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; };
   const shown = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const page = [...document.querySelectorAll('.top, #svStrip, .ph-ctx.in, #toastHost .toast')].filter(shown).map((e) => ({ what: e.id || e.className, box: R(e), clear: 0 }));
+  const bar = [...document.querySelectorAll('.ph-ctx.in:not(.under)')].filter(shown).map(R)[0] || null;
   return ['plotL', 'plotR'].map((id) => document.getElementById(id)).filter((p) => p && p.getClientRects().length && !p.closest('.ph-inset')).map((p) => {
-    const on = [...p.querySelectorAll(':scope > .ph-col > .ph-key, :scope > .chip.readout, :scope > .empty-chip, :scope > .legend-chip, .cm-chip .cm-x')].filter(shown)
+    const on = [...p.querySelectorAll(${JSON.stringify(KIT.onPlot + ', .cm-chip .cm-x')})].filter(shown)
       .map((e) => ({ what: e.id || e.className, legend: e.classList.contains('legend-chip'), box: R(e), clear: 1 }));
+    const room = Phone._stack(p.id).readout;
+    if (room) on.push({ what: 'the readout room', box: [room[0], room[1], room[2] - room[0], room[3] - room[1]], clear: 1 });
     const keys = [...p.querySelectorAll('.viewstack button')].filter(shown).map((b) => {
       const q = b.getBoundingClientRect(), t = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
       return { label: b.getAttribute('aria-label'), box: R(b), top: t === b || b.contains(t), at: t ? (t.id || t.className) : null };
     });
-    return { id: p.id, plot: R(p), cls: p.className, legendR: p.style.getPropertyValue('--ph-legend-r'), keys, others: on.concat(page) };
+    return { id: p.id, plot: R(p), cls: p.className, legendR: p.style.getPropertyValue('--ph-legend-r'), keys, others: on.concat(page), bar };
   });
 })()`;
-const stacks = () => ev(STACKS);
-const KIT = await ev(`Phone._stack ? Phone._stack() : null`);   // { layouts, edge, clear } of the app's stack
-// what a stack's keys break: [key, what] for each key outside the plot or covered, and each thing it covers (within the
-// app's clearance of what sits on the plot; noLegend: the legend chips may move)
-const breaks = (st, noLegend = false) => {
-  const out = [], p = st.plot, e = KIT ? KIT.edge : 0, c = KIT ? KIT.clear : 0;
+const stacks = () => ev(STACKS());
+const insideBy = (b, p, e) => b[0] >= p[0] + e - POS_TOLERANCE && b[1] >= p[1] + e - POS_TOLERANCE && b[0] + b[2] <= p[0] + p[2] + POS_TOLERANCE && b[1] + b[3] <= p[1] + p[3] + POS_TOLERANCE;
+// what a stack breaks: [key, what] for each key outside the plot, too small or covering something (within the app's
+// clearance of what sits on the plot), and, where the legend chips moved, [legend, what] for each moved chip outside the
+// plot or meeting something
+const breaks = (st) => {
+  const out = [], p = st.plot, c = KIT.clear;
   for (const k of st.keys) {
     const b = k.box;
-    if (!(b[0] >= p[0] + e - POS_TOLERANCE && b[1] >= p[1] + e - POS_TOLERANCE && b[0] + b[2] <= p[0] + p[2] + POS_TOLERANCE && b[1] + b[3] <= p[1] + p[3] + POS_TOLERANCE)) out.push([k.label, 'outside the plot']);
-    if (b[2] < MIN_KEY || b[3] < MIN_KEY) out.push([k.label, 'smaller than ' + MIN_KEY]);
-    for (const o of st.others) if (!(noLegend && o.legend) && meets(b, o.box, o.clear ? c : 0)) out.push([k.label, o.what]);
+    if (!insideBy(b, p, KIT.edge)) out.push([k.label, 'outside the plot']);
+    if (b[2] < KIT.key - POS_TOLERANCE || b[3] < KIT.key - POS_TOLERANCE) out.push([k.label, 'smaller than ' + KIT.key]);
+    for (const o of st.others) if (meets(b, o.box, o.clear ? c : 0)) out.push([k.label, o.what]);
+  }
+  if (st.legendR) {
+    for (const l of st.others.filter((o) => o.legend)) {
+      if (!insideBy(l.box, p, 0) || l.box[0] < p[0] + KIT.edge - POS_TOLERANCE) out.push([l.what, 'outside the plot']);
+      for (const o of st.others) if (!o.legend && meets(l.box, o.box, o.clear ? c : 0)) out.push([l.what, o.what]);
+    }
   }
   return out;
 };
-const layoutOf = (st) => ({ L: (KIT ? KIT.layouts : []).find((L) => st.cls.split(' ').includes(L)) || 'col', nozoom: /\bph-nozoom\b/.test(st.cls), nokeys: /\bph-nokeys\b/.test(st.cls) });
+const arrangementOf = (st) => {
+  const cls = st.cls.split(' ');
+  return { L: KIT.layouts.find((L) => cls.includes(L)) || 'col', keys: KIT.keys.find((k) => cls.includes(k)) || 'all', moved: !!st.legendR };
+};
+const KEYS_SHOWN = { all: 5, 'ph-nozoom': 3, 'ph-dsponly': 1, 'ph-nokeys': 0 };
 const checkStacks = async (t) => {
   for (const st of await stacks()) {
-    const tag = `${t}, ${st.id}`, got = layoutOf(st);
-    ok(`${tag}: the app's stack hook is there`, !!KIT, KIT);
+    const tag = `${t}, ${st.id}`, got = arrangementOf(st);
     const bad = breaks(st);
-    ok(`${tag}: every key lies inside the plot, is ${MIN_KEY} px, and covers nothing (Both, the readout, the legends, the chip and its ×, the header, the strip, the bar, a message)`, bad.length === 0, { bad, keys: st.keys.map((k) => [k.label, ...k.box.map(Math.round)]), others: st.others.map((o) => [o.what, ...o.box.map(Math.round)]) });
+    ok(`${tag}: every key lies inside the plot, is ${KIT.key} px, and covers nothing (Both, the readout and its room, the legends, the chip and its ×, the header, the strip, the bar, a message); a moved legend chip lies inside the plot and meets none of these`, bad.length === 0, { bad, cls: st.cls, legendR: st.legendR, keys: st.keys.map((k) => [k.label, ...k.box.map(Math.round)]), others: st.others.map((o) => [o.what, ...o.box.map(Math.round)]) });
     const under = st.keys.filter((k) => !k.top).map((k) => [k.label, k.at]);
     ok(`${tag}: every key is on top at its centre`, under.length === 0, under);
-    ok(`${tag}: the keys show unless they stepped aside`, st.keys.length === (got.nokeys ? 0 : got.nozoom ? 3 : 5), { got, n: st.keys.length });
-    // the legend chips moved only where the keys' layout needs it, and then they cover nothing either
-    if (st.legendR) {
-      const lg = st.others.filter((o) => o.legend), rest = st.others.filter((o) => !o.legend);
-      const hit = lg.flatMap((l) => rest.filter((o) => meets(l.box, o.box)).map((o) => o.what).concat(st.keys.filter((k) => meets(l.box, k.box)).map((k) => k.label)));
-      ok(`${tag}: the moved legend chip lies inside the plot and meets nothing`, lg.every((l) => inside(l.box, st.plot)) && hit.length === 0, { lg: lg.map((l) => l.box), hit });
+    ok(`${tag}: the keys show as the arrangement says`, st.keys.length === KEYS_SHOWN[got.keys], { got, n: st.keys.length });
+    // the bar open over the plot's foot: the stack rests the app's edge above it
+    if (st.keys.length && st.bar && st.bar[1] < st.plot[1] + st.plot[3] - KIT.edge) {
+      const foot = Math.max(...st.keys.map((k) => k.box[1] + k.box[3]));
+      ok(`${tag}: the stack rests ${KIT.edge} px above the context bar`, Math.abs(st.bar[1] - foot - KIT.edge) <= POS_TOLERANCE, { foot, barTop: st.bar[1] });
     }
     // every arrangement the app tries before the one it took breaks the rule
-    if (!KIT) continue;
-    const order = [];
-    for (const nozoom of [false, true]) { for (const L of KIT.layouts) order.push({ L, nozoom, moved: false }); for (const L of KIT.layouts) order.push({ L, nozoom, moved: true }); }
-    const at = got.nokeys ? order.length : order.findIndex((o) => o.L === got.L && o.nozoom === got.nozoom && o.moved === !!st.legendR);
-    ok(`${tag}: its layout is one of the app's`, at >= 0, got);
+    const at = got.keys === 'ph-nokeys' ? KIT.order.length : KIT.order.findIndex((o) => o.L === got.L && o.keys === got.keys && o.moved === got.moved);
+    ok(`${tag}: its arrangement is one of the app's`, at >= 0, got);
     const fits = [];
-    for (const o of order.slice(0, Math.max(at, 0))) {
+    for (const o of KIT.order.slice(0, Math.max(at, 0))) {
       if (o.moved && !st.others.some((x) => x.legend)) continue;
-      await ev(`(Phone._stack('${st.id}', '${o.L}', ${o.nozoom}), 1)`);
-      const f = (await stacks()).find((x) => x.id === st.id);
-      if (f && f.keys.length && breaks(f, o.moved).length === 0) fits.push(o);
+      const f = (await ev(`(Phone._stack('${st.id}', ${JSON.stringify(o)}), ${STACKS()})`)).find((x) => x.id === st.id);
+      if (f && f.keys.length && (!o.moved || f.legendR) && breaks(f).length === 0) fits.push(o);
     }
     await ev(`(Phone._stack('${st.id}', null), 1)`);
-    ok(`${tag}: ${got.nokeys ? 'the keys step aside only where no arrangement fits' : 'it is the first arrangement that fits'}`, fits.length === 0, { got, legendR: st.legendR, fits });
-    if (got.nokeys) info[`${tag}: the keys step aside`] = st.others.map((o) => o.what);
-    else if (got.nozoom || st.legendR) info[`${tag}: ${got.nozoom ? 'the zoom keys give way' : ''}${st.legendR ? ' the legend moves' : ''}`] = got.L;
-    // 8 px between the groups' keys in the layouts of five
-    if (!got.nokeys && !got.nozoom && st.keys.length === 5) {
+    ok(`${tag}: ${got.keys === 'ph-nokeys' ? 'the keys step aside only where no arrangement fits' : 'it is the first arrangement that fits'}`, fits.length === 0, { got, legendR: st.legendR, fits });
+    if (got.keys !== 'all' || got.moved) info[`${tag}`] = Object.assign({ cls: st.cls }, got);
+    // the groups' gap in the layouts of five
+    if (got.keys === 'all' && st.keys.length === 5) {
       const [dsp, zin, zout, fit] = st.keys;
       const below = (a, b) => b.box[1] - (a.box[1] + a.box[3]), beside = (a, b) => b.box[0] - (a.box[0] + a.box[2]), near = (a, b) => Math.abs(a - b) <= POS_TOLERANCE;
       const gaps = got.L === 'col' ? [below(dsp, zin), below(zout, fit)] : got.L === 'ph-short' ? [below(dsp, fit), beside(zin, fit)] : [beside(dsp, zin), beside(got.L === 'ph-row' ? zout : zin, fit)];
-      ok(`${tag}: ${GROUP_GAP} px between the groups`, gaps.every((g) => near(g, GROUP_GAP)), { L: got.L, gaps });
+      ok(`${tag}: ${KIT.gap} px between the groups`, gaps.every((g) => near(g, KIT.gap)), { L: got.L, gaps });
     }
   }
 };
 const SETTLED = (until) => settled({ until, max: SETTLE_MAX_MS });
 const BAR_ON = "!!document.querySelector('.ph-ctx.in')", TALL_ON = "!!document.querySelector('.ph-ctx.in.tall')", TOAST_ON = "!!document.querySelector('#toastHost .toast')";
+// the legend chips tapped open, then folded again (a tap toggles a chip on the plot)
+const LEGENDS = "[...document.querySelectorAll('#plotL > .legend-chip, #plotR > .legend-chip')].filter((e) => e.getClientRects().length && !e.closest('.ph-inset'))";
+const openLegends = async (t) => {
+  const n = await ev(`(() => { const l = ${LEGENDS}.filter((e) => e.classList.contains('collapsed')); l.forEach((e) => e.click()); return l.length; })()`);
+  if (!n) return;
+  await SETTLED(`${LEGENDS}.every((e) => !e.classList.contains('collapsed'))`);
+  await checkStacks(`${t}, the legend open`);
+  await ev(`(${LEGENDS}.filter((e) => !e.classList.contains('collapsed')).forEach((e) => e.click()), 1)`);
+  await SETTLED(`${LEGENDS}.every((e) => e.classList.contains('collapsed'))`);
+};
+// the pointer probing each plane: the readout grows, and no stack changes its arrangement or meets the readout
+const PROBES = [[0.5, 0.2], [0.8, 0.5], [0.3, 0.7]];
+const probing = async (t) => {
+  const before = (await stacks()).map((s) => [s.id, s.cls, s.legendR].join(' | '));
+  for (const st of await stacks()) {
+    for (const [fx, fy] of PROBES) {
+      await move(st.plot[0] + fx * st.plot[2], st.plot[1] + fy * st.plot[3]);
+      await settled({ max: SETTLE_MAX_MS });
+      const now = await stacks();
+      const shift = now.map((s) => [s.id, s.cls, s.legendR].join(' | ')).filter((x, i) => x !== before[i]);
+      const hits = now.flatMap((s) => s.keys.flatMap((k) => s.others.filter((o) => /readout/.test(o.what) && meets(k.box, o.box, KIT.clear)).map((o) => [s.id, k.label, o.what, o.box.map(Math.round)])));
+      ok(`${t}, the pointer at (${fx}, ${fy}) of ${st.id}: no stack changes its arrangement`, shift.length === 0, { before, shift });
+      ok(`${t}, the pointer at (${fx}, ${fy}) of ${st.id}: no key meets the readout`, hits.length === 0, hits);
+    }
+  }
+  await move(1, 1);
+  await settled({ max: SETTLE_MAX_MS });
+};
 // the scenes: a shape selected (the bar's one row), a construction tool with a choice of part in hand (two rows), and each with a message
 const SCENES = [
   ['a shape selected', "(__cmwSelect('h1'), 1)", "!!document.querySelector('.ph-ctx.in:not(.tall)')"],
@@ -213,6 +243,8 @@ const atSizes = async (vw, lang, sizes, scene) => {
     const tag = `${vw} ${w}x${h} ${lang}, ${scene[0]}`;
     ok(`${tag}: the context bar is open`, await ev(scene[2]), null);
     await checkStacks(tag);
+    if (lang !== 'it') await openLegends(tag);
+    if (lang === 'en') await probing(tag);
     // a message while the bar is open
     await ev(`(__cmwToast('A message while the bar is open'), 1)`);
     await SETTLED(`${TOAST_ON} && ${BAR_ON}`);
@@ -223,13 +255,22 @@ const atSizes = async (vw, lang, sizes, scene) => {
 };
 const LANDSCAPE = [[568, 320], [740, 360], [844, 390], [915, 412]];
 const UPRIGHT = [[360, 553], [375, 553], [360, 560], [360, 568], [360, 576], [360, 640], [390, 844]];
-for (const vw of VIEWS) {
-  for (const lang of ['en', 'ru', 'it']) {
-    for (const [sizes, orient] of [[LANDSCAPE, 'landscape'], [UPRIGHT, 'upright']]) {
-      if (orient === 'upright' && vw === 'steps' && lang !== 'en') continue;
-      await open(sizes[0][0], sizes[0][1], lang, vw);
-      for (const [w, h] of sizes) { await view(w, h, false, true); await SETTLED(); await checkStacks(`${vw} ${w}x${h} ${lang}, at rest`); }
-      for (const scene of SCENES) { await ev(scene[1]); await SETTLED(scene[2]); await atSizes(vw, lang, sizes, scene); }
+ok('the app\'s stack hook is there', !!KIT, KIT);
+if (KIT) {
+  for (const vw of VIEWS) {
+    for (const lang of ['en', 'ru', 'it']) {
+      for (const [sizes, orient] of [[LANDSCAPE, 'landscape'], [UPRIGHT, 'upright']]) {
+        if (orient === 'upright' && vw === 'steps' && lang !== 'en') continue;
+        await open(sizes[0][0], sizes[0][1], lang, vw);
+        for (const [w, h] of sizes) {
+          await view(w, h, false, true); await SETTLED();
+          const tag = `${vw} ${w}x${h} ${lang}, at rest`;
+          await checkStacks(tag);
+          if (lang !== 'it') await openLegends(tag);
+          if (lang === 'en') await probing(tag);
+        }
+        for (const scene of SCENES) { await ev(scene[1]); await SETTLED(scene[2]); await atSizes(vw, lang, sizes, scene); }
+      }
     }
   }
 }

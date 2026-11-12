@@ -85,10 +85,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .pane-head > .alone-chip .icon-btn { width: 32px; height: 32px; }
 :root.ph .pane-head > .alone-chip .icon-btn::after { content: ""; position: absolute; inset: -6px; }
 /* the title chip: the plane in math type, then the scale (or the probe) */
-:root.ph .chip.readout { top: 8px; left: 8px; height: 28px; line-height: 26px; max-width: calc(100% - 72px); pointer-events: none; }
-:root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 124px); }
+/* (--ph-ro-r: phone.js stops the readout short of the plane's keys where they share its rows) */
+:root.ph .chip.readout { top: 8px; left: 8px; height: 28px; line-height: 26px; max-width: calc(100% - max(72px, var(--ph-ro-r, 0px))); pointer-events: none; }
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - max(124px, var(--ph-ro-r, 0px))); }
 /* (a landscape phone's planes are narrow and its readout is one line above the key: it keeps the 72 px, or Russian's "1 / дел." is cut) */
-:root.ph.ph-land .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 72px); }
+:root.ph.ph-land .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - max(72px, var(--ph-ro-r, 0px))); }
 /* the big plane's chip is tagged by the plane's one name, X (Y after a swap); the readout itself says
    z = … and w = F(z) = … (no doubled z) */
 :root.ph:not(.sv) #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
@@ -107,7 +108,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #leftSolo, :root.ph #rightSolo { display: none !important; }
 /* (--ph-stack-b is the stack's bottom offset: a length, so phone.js reads where the bottom eases to while it eases) */
 @property --ph-stack-b { syntax: '<length>'; inherits: false; initial-value: 8px; }
-:root.ph .viewstack { right: 8px; --ph-stack-b: calc(8px + var(--ph-lift)); bottom: var(--ph-stack-b); gap: 6px; }   /* (the groups' own 1 px borders make 8 px between one group's key and the next's) */
+/* (the context bar's foot lies over the ruler under the plot: the stack rises by what the bar covers of the plot, and its keys rest 8 px above the bar,
+   7 px and the group's 1 px border) */
+:root.ph .viewstack { right: 8px; --ph-stack-b: max(8px, calc(var(--ph-lift) + 7px - var(--ruler))); bottom: var(--ph-stack-b); gap: 6px; }   /* (the groups' own 1 px borders make 8 px between one group's key and the next's) */
 :root.ph .viewstack, :root.ph .viewstack .vgroup { pointer-events: none; }   /* (only the keys take a tap: the gaps between them and the box around them leave the plane's own controls their touches) */
 :root.ph .viewstack button { pointer-events: auto; }
 /* a pressed stack key reads as the phone's other pressed keys do */
@@ -132,8 +135,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot.ph-row > .viewstack > .vgroup { flex-direction: row; }
 :root.ph .plot.ph-row > .viewstack .vbtn + .vbtn { border-top: 0; border-left: 1px solid var(--line); }
 :root.ph.sv:has(#plotL.ph-flat) { --ph-stack-w: 166px; }
-/* where no layout of the five keys fits, the zoom keys give way to the pinch (.ph-nozoom); where none of the three fits either, the keys step aside (.ph-nokeys) */
+/* where no layout of the five keys fits, the zoom keys give way to the pinch (.ph-nozoom); where none of the three fits either, Display stays alone
+   (.ph-dsponly); where it does not fit either, the keys step aside (.ph-nokeys) */
 :root.ph .plot.ph-nozoom > .viewstack > .vgroup:nth-child(2) { display: none; }
+:root.ph .plot.ph-dsponly > .viewstack > .vgroup:not(:first-child) { display: none; }
 :root.ph .plot.ph-nokeys > .viewstack { visibility: hidden; }
 :root.ph.sv:has(#plotL.ph-row) { --ph-stack-w: 254px; }
 :root.ph .viewstack .vbtn { width: 44px; height: 44px; border-radius: var(--r-2); }
@@ -456,8 +461,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .shape-name { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding: 4px 0; white-space: normal; -webkit-mask-image: none; mask-image: none; }
 :root.ph .ph-sheet .shape-name .k { font-size: 13px; line-height: 18px; }
 :root.ph .ph-sheet .shape-name .d { flex: 1 0 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; line-height: 16px; }
-/* (a plane without rulers, the sphere and the Landscape, reaches the ruler's 14 px further down; the plane's key stack keeps its place on screen) */
-:root.ph .pane.no-rulers:not(.ph-inset) .viewstack, :root.ph.view-land .pane:not(.ph-inset) .viewstack { --ph-stack-b: calc(8px + var(--ruler) + var(--ph-lift)); }
+/* (a plane without rulers, the sphere and the Landscape, reaches the ruler's 14 px further down; the plane's key stack keeps its place on screen,
+   and rests 8 px above the context bar) */
+:root.ph .pane.no-rulers:not(.ph-inset) .viewstack, :root.ph.view-land .pane:not(.ph-inset) .viewstack { --ph-stack-b: max(calc(8px + var(--ruler)), calc(var(--ph-lift) + 7px)); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }

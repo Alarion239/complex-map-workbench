@@ -11,19 +11,10 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
+const { MOB, CUBE, SIN, still, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const ns = 'svl' + Date.now();
-const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true }, SIN = { type: 'sin', params: {}, on: true };
 const N = 12, CHAIN = Array.from({ length: N }, (_, i) => [MOB, CUBE, SIN][i % 3]);
-const open = async (w, h, mobile, lang) => {
-  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps: CHAIN, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-  await view(w, h, false, mobile);
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  const k = `${ns}${w}${lang}`;
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps`);
-  await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
-};
+const open = (w, h, mobile, lang) => openChain({ ns: `${ns}${w}${lang}`, steps: CHAIN, w, h, mobile, lang });
 // (one element's box, and what the page shows at its centre: the element itself, or the thing covering it; whole = its
 // box is inside the rail's)
 const probe = (sel, nth) => ev(`(() => {

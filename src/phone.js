@@ -26,8 +26,17 @@ const Phone = (() => {
   // the plane's key stack, tallest first: one column; two (the zoom keys left of Fit view and Sphere, Display above those);
   // the three groups side by side; the five keys in one row (phone.css)
   const STACK_LAYOUTS = /** @type {const} */ (['col', 'ph-short', 'ph-flat', 'ph-row']);
+  // the keys it shows, most first: all five; the three left where the zoom keys give way to the pinch (.ph-nozoom); Display
+  // alone, the phone's way into the Display sheet (.ph-dsponly); none, where the keys step aside (.ph-nokeys)
+  const STACK_KEYS = /** @type {const} */ (['all', 'ph-nozoom', 'ph-dsponly', 'ph-nokeys']);
+  // the arrangements the stack tries, in order: for each set of keys but none, each layout with the legend chips in their
+  // place, then each with the legend chips moved left of the keys that share their rows (Display alone takes one layout)
+  const STACK_ORDER = STACK_KEYS.slice(0, -1).flatMap((keys) => [false, true].flatMap((moved) =>
+    (keys === 'ph-dsponly' ? ['col'] : STACK_LAYOUTS).map((L) => ({ L, keys, moved }))));
   const STACK_EDGE = 8;  // the room the stack leaves between a key and the plot's edges, px
   const STACK_CLEAR = 4; // the room it leaves between a key and what it must not cover, px
+  const STACK_KEY = 44;  // a key's side, px (phone.css): the smallest touch target
+  const STACK_GAP = 8;   // between a key and the next group's key, px (phone.css: the stack's 6 px gap and the groups' 1 px borders)
   let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
   const MQP = '(max-width: 767px)';
@@ -128,14 +137,20 @@ const Phone = (() => {
       const stack = plot.querySelector('.viewstack');
       stack.prepend(h('div', { class: 'vgroup ph-only' }, dsp));
       stack.before(h('div', { class: 'ph-col ph-only' }, bt));
-      // the stack takes the tallest layout whose keys all lie inside the plot and clear what sits on it (fitStack); it re-fits
-      // when the plot's size changes, when what sits on it shows, hides or changes, and when the context bar or a message
-      // moves the stack's bottom
-      const fit = () => fitStack(plot, stack);
+      // the stack takes the first arrangement whose keys all lie inside the plot and clear what sits on it (fitStack); it
+      // re-fits when the plot's size changes, when what sits on it shows, hides, changes or grows, and when the context bar
+      // or a message moves the stack's bottom
+      // (the readout's words change with every move: its box, which the fit keeps room for, is observed instead, as are the
+      // legend chips' boxes, and their places, which the app sets below the readout while a chip is open)
+      const grows = new ResizeObserver(() => fitStack(plot, stack)), watched = new WeakSet();
+      const fit = () => {
+        for (const e of plot.querySelectorAll(':scope > .chip.readout, :scope > .legend-chip')) if (!watched.has(e)) { watched.add(e); grows.observe(e); }
+        fitStack(plot, stack);
+      };
       new ResizeObserver(fit).observe(plot);
-      const mine = (t) => t === plot || stack.contains(t) || (t instanceof Element && !!t.closest('.chip.readout'));   // (the readout's words change with every move)
-      new MutationObserver((recs) => { if (recs.some((r) => !mine(r.target))) fit(); })
-        .observe(plot, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden'], childList: true });
+      const mine = (r) => r.target === plot || stack.contains(r.target) || (r.target instanceof Element && (!!r.target.closest('.chip.readout') || (r.attributeName === 'style' && !r.target.matches('.legend-chip'))));
+      new MutationObserver((recs) => { if (recs.some((r) => !mine(r))) fit(); })
+        .observe(plot, { subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'style'], childList: true });
       fits.push(fit);
       els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
@@ -176,58 +191,123 @@ const Phone = (() => {
     kbInit();
   }
   // ---------------- the plane's key stack ----------------
-  // The stack takes the first of these that fits: its five keys in the tallest of STACK_LAYOUTS whose keys, where the
-  // stack's bottom eases to (--ph-stack-b, which rises with the context bar and a message), lie inside the plot
-  // (STACK_EDGE from its edges) and STACK_CLEAR from what sits on the plot (Both, the readout, the construction's chip,
-  // the legend chips); the same with the legend chips moved left of the keys that share their rows (--ph-legend-r on the
-  // plot); then both again with the zoom keys given way to the pinch (.ph-nozoom). Where none fits, the keys step aside
-  // (.ph-nokeys) until one does.
-  const stackSeen = new WeakMap(), stackForced = {};
+  // The stack takes the first of STACK_ORDER that fits: its keys, where the stack's bottom eases to (--ph-stack-b, which
+  // rises with the context bar and a message), lie inside the plot (STACK_EDGE from its edges) and STACK_CLEAR from what
+  // sits on the plot (Both, the readout's room, the construction's chip, the legend chips); where the arrangement moves the
+  // legend chips left of the keys (--ph-legend-r on the plot), the moved chips, folded or open, lie inside the plot too and
+  // as clear of the rest and of the keys. Keys (or moved chips) in the readout's rows stop the readout short of them
+  // (--ph-ro-r), down to its shortest probe line. Where none fits, the keys step aside (.ph-nokeys) until one does.
+  const stackSeen = new WeakMap(), readoutSizes = new WeakMap(), readoutTall = new WeakMap();
   const ON_PLOT = ':scope > .ph-col > .ph-key, :scope > .chip.readout, :scope > .empty-chip, :scope > .legend-chip';
-  function fitStack(plot, stack) {
-    if (!on || plot.closest('.ph-inset') || !stack.getClientRects().length) return;
-    const btns = [.../** @type {NodeListOf<HTMLElement>} */ (stack.querySelectorAll('button'))].filter((k) => !k.hidden && getComputedStyle(k).display !== 'none');
-    if (!btns.length) return;
-    const shown = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
-    const box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
-    plot.style.removeProperty('--ph-legend-r');
-    const pr = plot.getBoundingClientRect(), x0 = pr.left + plot.clientLeft, y0 = pr.top + plot.clientTop;
-    const x1 = x0 + plot.clientWidth, y1 = y0 + plot.clientHeight;
-    const cs = getComputedStyle(stack), b = parseFloat(cs.getPropertyValue('--ph-stack-b')), bottom = y1 - (Number.isFinite(b) ? b : parseFloat(cs.bottom));
-    const others = [...plot.querySelectorAll(ON_PLOT)].filter(shown).map((e) => ({ legend: e.classList.contains('legend-chip'), box: box(e) }));
-    const forced = stackForced[plot.id] || null;
-    const sig = JSON.stringify([x0, y0, x1, y1, bottom, others, btns.length, forced]);
-    const seen = stackSeen.get(plot);
-    if (seen && seen.sig === sig) { if (seen.legendR) plot.style.setProperty('--ph-legend-r', seen.legendR); return; }
-    // a layout's keys where the stack comes to rest
-    const place = (L, nozoom, nokeys = false) => {
-      for (const c of STACK_LAYOUTS) if (c !== 'col') plot.classList.toggle(c, c === L);
-      plot.classList.toggle('ph-nozoom', nozoom);
-      plot.classList.toggle('ph-nokeys', nokeys);
-      const dy = bottom - stack.getBoundingClientRect().bottom;
-      return btns.filter((k) => k.getClientRects().length).map((k) => { const r = box(k); return [r[0], r[1] + dy, r[2], r[3] + dy]; });
-    };
-    const inside = (ks) => ks.every((r) => r[0] >= x0 + STACK_EDGE - 0.5 && r[1] >= y0 + STACK_EDGE - 0.5 && r[2] <= x1 + 0.5 && r[3] <= y1 + 0.5);
-    const clear = (ks, os) => ks.every((r) => os.every((o) => r[0] >= o.box[2] + STACK_CLEAR || r[2] <= o.box[0] - STACK_CLEAR || r[1] >= o.box[3] + STACK_CLEAR || r[3] <= o.box[1] - STACK_CLEAR));
-    const legends = others.filter((o) => o.legend), rest = others.filter((o) => !o.legend);
-    let pick = null, legendR = '';
-    for (const nozoom of [false, true]) {
-      const placed = STACK_LAYOUTS.map((L) => ({ L, nozoom, ks: place(L, nozoom) })).filter((p) => inside(p.ks));
-      pick = placed.find((p) => clear(p.ks, others)) || null;
-      if (pick) break;
-      pick = legends.length ? placed.find((p) => clear(p.ks, rest)) || null : null;
-      if (!pick) continue;
-      // (the legend chips, at the plot's top, go left of the keys that share their rows)
-      const top = Math.min(...legends.map((o) => o.box[1])), foot = Math.max(...legends.map((o) => o.box[3]));
-      const beside = pick.ks.filter((r) => r[1] < foot + STACK_CLEAR && r[3] > top - STACK_CLEAR);
-      if (beside.length) legendR = Math.ceil(x1 - Math.min(...beside.map((r) => r[0])) + STACK_EDGE) + 'px';
-      break;
+  // the readout's shortest probe line (src/app/14-interaction.js: z to three places), the narrowest the stack may make it
+  const READOUT_SHORT = '<span class="rln"><span class="rp"><span class="rk"><i>z</i> <span class="rm">=</span></span> <span class="rv">−0.000 − 0.000<i>i</i></span></span></span>';
+  const boxOf = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  // the plot's inner box (inside its border)
+  const plotBox = (plot) => { const r = plot.getBoundingClientRect(), x0 = r.left + plot.clientLeft, y0 = r.top + plot.clientTop; return [x0, y0, x0 + plot.clientWidth, y0 + plot.clientHeight]; };
+  // The readout's room: its box as wide as it may grow (its max-width) and as tall as two probe lines, or the tallest it
+  // has been on this plot's box (`geo`), so the keys clear it at every size it takes and their arrangement holds while
+  // the pointer probes; -> [left, top, right, bottom] and the narrowest it may be made (min)
+  function readoutRoom(plot, ro, geo) {
+    const key = geo + getComputedStyle(ro).maxWidth;
+    let m = readoutSizes.get(ro);
+    if (!m || m.key !== key) {
+      const c = /** @type {HTMLElement} */ (ro.cloneNode(false));
+      for (const a of ['id', 'aria-live', 'title']) c.removeAttribute(a);
+      c.setAttribute('aria-hidden', 'true');
+      c.style.visibility = 'hidden';
+      c.style.width = plot.clientWidth + 'px';   // (its max-width holds it to the widest it may grow)
+      c.innerHTML = '<span class="rln">0</span><span class="rln">0</span>';
+      plot.append(c);
+      const q = c.getBoundingClientRect();
+      c.style.width = 'auto'; c.style.maxWidth = 'none';
+      c.innerHTML = READOUT_SHORT;
+      m = { key, w: q.width, h: q.height, min: c.getBoundingClientRect().width };
+      c.remove();
+      readoutSizes.set(ro, m);
     }
-    if (forced) place(forced.L, forced.nozoom, forced.nokeys);
-    else if (pick) place(pick.L, pick.nozoom);
-    else place(STACK_LAYOUTS[STACK_LAYOUTS.length - 1], true, true);
-    if (legendR && !forced) plot.style.setProperty('--ph-legend-r', legendR); else legendR = '';
-    stackSeen.set(plot, { sig, legendR });
+    const r = ro.getBoundingClientRect();
+    let t = readoutTall.get(ro);
+    if (!t || t.geo !== geo) { t = { geo, h: 0 }; readoutTall.set(ro, t); }
+    t.h = Math.max(t.h, r.height);
+    return { box: [r.left, r.top, r.left + Math.max(m.w, r.width), r.top + Math.max(m.h, t.h)], min: m.min };
+  }
+  // What the stack of `plot` has to fit in: the plot's inner box, where the stack's bottom comes to rest, its keys, and the
+  // boxes of what sits on the plot (the legend chips in their place, the readout's room at its widest); null where the
+  // plot shows no stack of its own.
+  function stackRoom(plot, stack) {
+    if (!on || plot.closest('.ph-inset') || !stack.getClientRects().length) return null;
+    const btns = [.../** @type {NodeListOf<HTMLElement>} */ (stack.querySelectorAll('button'))].filter((k) => !k.hidden && getComputedStyle(k).display !== 'none');
+    if (!btns.length) return null;
+    const shown = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
+    plot.style.removeProperty('--ph-legend-r');
+    plot.style.removeProperty('--ph-ro-r');
+    const [x0, y0, x1, y1] = plotBox(plot), geo = [x0, y0, x1, y1].join();
+    const cs = getComputedStyle(stack), b = parseFloat(cs.getPropertyValue('--ph-stack-b')), bottom = y1 - (Number.isFinite(b) ? b : parseFloat(cs.bottom));
+    const others = [...plot.querySelectorAll(ON_PLOT)].filter(shown).map((e) => {
+      const o = { what: e.id || e.className, legend: e.classList.contains('legend-chip'), readout: e.matches('.chip.readout'), box: null, min: 0 };
+      if (o.readout) Object.assign(o, readoutRoom(plot, e, geo)); else o.box = boxOf(e);
+      return o;
+    });
+    return { plot, stack, btns, x0, y0, x1, y1, bottom, others, legends: others.filter((o) => o.legend), rest: others.filter((o) => !o.legend) };
+  }
+  // Arrangement `a` (one of STACK_ORDER, or { keys: 'ph-nokeys' }) on room R's stack: its classes; the legend chips moved
+  // left of the keys beside them where a.moved; the readout stopped short of the keys (and moved chips) in its rows
+  // (--ph-ro-r), where it keeps at least its shortest probe line. -> the keys' boxes where the stack comes to rest, the
+  // moved legend chips' boxes, and what else sits on the plot with the readout's room as this arrangement leaves it (null
+  // where a moved arrangement has no key beside the chips)
+  function arrange(R, a) {
+    const { plot, stack } = R;
+    for (const c of STACK_LAYOUTS) if (c !== 'col') plot.classList.toggle(c, c === (a.L || 'col'));
+    for (const c of STACK_KEYS) if (c !== 'all') plot.classList.toggle(c, c === a.keys);
+    plot.style.removeProperty('--ph-legend-r');
+    plot.style.removeProperty('--ph-ro-r');
+    const dy = R.bottom - stack.getBoundingClientRect().bottom;
+    const ks = R.btns.filter((k) => k.getClientRects().length && getComputedStyle(k).visibility !== 'hidden').map((k) => { const r = boxOf(k); return [r[0], r[1] + dy, r[2], r[3] + dy]; });
+    let lg = [];
+    if (a.moved) {
+      // (the legend chips, at the plot's top, go left of the keys that share their rows)
+      const top = Math.min(...R.legends.map((o) => o.box[1])), foot = Math.max(...R.legends.map((o) => o.box[3]));
+      const beside = ks.filter((r) => r[1] < foot + STACK_CLEAR && r[3] > top - STACK_CLEAR);
+      if (!beside.length) return null;
+      plot.style.setProperty('--ph-legend-r', Math.ceil(R.x1 - Math.min(...beside.map((r) => r[0])) + STACK_EDGE) + 'px');
+      lg = [...plot.querySelectorAll(':scope > .legend-chip')].filter((e) => e.getClientRects().length).map(boxOf);
+    }
+    const rest = R.rest.map((o) => {
+      if (!o.readout) return o;
+      const [l, t, r, bt] = o.box;
+      const near = ks.concat(lg).filter((k) => k[1] < bt + STACK_CLEAR && k[3] > t - STACK_CLEAR && k[0] < r + STACK_CLEAR);
+      const right = near.length ? Math.min(...near.map((k) => k[0])) - STACK_CLEAR : r;
+      if (right >= r || right - l < o.min) return o;
+      const inset = Math.ceil(R.plot.clientWidth - (right - l));
+      plot.style.setProperty('--ph-ro-r', inset + 'px');
+      return Object.assign({}, o, { box: [l, t, l + R.plot.clientWidth - inset, bt] });
+    });
+    return { ks, lg, rest };
+  }
+  const meets = (r, o) => !(r[0] >= o[2] + STACK_CLEAR || r[2] <= o[0] - STACK_CLEAR || r[1] >= o[3] + STACK_CLEAR || r[3] <= o[1] - STACK_CLEAR);
+  // whether arranged keys (and moved legend chips) keep the rule in room R
+  function arrangedFits(R, a, got) {
+    if (!got || !got.ks.length) return false;
+    const { x0, y0, x1, y1 } = R;
+    const inside = (r) => r[0] >= x0 + STACK_EDGE - 0.5 && r[1] >= y0 + STACK_EDGE - 0.5 && r[2] <= x1 + 0.5 && r[3] <= y1 + 0.5;
+    const avoid = (a.moved ? got.rest : got.rest.concat(R.legends)).map((o) => o.box);
+    if (!got.ks.every((r) => inside(r) && !avoid.some((o) => meets(r, o)))) return false;
+    // (a moved chip: inside the plot, above where the stack's bottom rests, and clear of the rest and of the keys)
+    return got.lg.every((r) => r[0] >= x0 + STACK_EDGE - 0.5 && r[1] >= y0 - 0.5 && r[2] <= x1 + 0.5 && r[3] <= R.bottom + STACK_EDGE + 0.5
+      && !got.rest.some((o) => meets(r, o.box)) && !got.ks.some((k) => meets(r, k)));
+  }
+  function fitStack(plot, stack) {
+    const R = stackRoom(plot, stack);
+    if (!R) return;
+    const sig = JSON.stringify([R.x0, R.y0, R.x1, R.y1, R.bottom, R.others, R.btns.length]);
+    const seen = stackSeen.get(plot);
+    if (seen && seen.sig === sig) {
+      for (const [k, v] of Object.entries(seen.props)) if (v) plot.style.setProperty(k, v);
+      return;
+    }
+    const pick = STACK_ORDER.find((a) => (!a.moved || R.legends.length > 0) && arrangedFits(R, a, arrange(R, a)));
+    if (!pick) arrange(R, { keys: 'ph-nokeys' });
+    stackSeen.set(plot, { sig, props: Object.fromEntries(['--ph-legend-r', '--ph-ro-r'].map((k) => [k, plot.style.getPropertyValue(k)])) });
   }
   const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
@@ -1047,16 +1127,19 @@ const Phone = (() => {
   return {
     init, open, close, chain, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
-    // TEMP-DEBUG-HOOK
+    // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
-    // (the key stack of plot `id` in layout L, one of STACK_LAYOUTS, with the zoom keys or without, or stepped aside,
-    // whatever fits; no layout fits it again; -> the layouts and the room they keep)
-    _stack: (id, L, nozoom = false, nokeys = false) => {
-      if (L) stackForced[id] = { L, nozoom, nokeys }; else delete stackForced[id];
-      const p = $(id), st = p && p.querySelector('.viewstack');
-      if (st) fitStack(p, st);
-      return { layouts: STACK_LAYOUTS, edge: STACK_EDGE, clear: STACK_CLEAR };
+    // (the key stack of plot `id`: with an arrangement `a` of STACK_ORDER, or { keys: 'ph-nokeys' }, in it until it next
+    // re-fits; with null, fitted again; -> the stack's rule: its arrangements in order, what sits on a plot, the room it
+    // keeps, a key's side and the gap between groups, and the readout room of plot `id` where it has a readout)
+    _stack: (id, a) => {
+      const p = id ? $(id) : null, st = p && p.querySelector('.viewstack');
+      if (st && a) { const R = stackRoom(p, st); if (R) arrange(R, a); }
+      else if (st && a === null) { stackSeen.delete(p); fitStack(p, st); }
+      const ro = p && /** @type {HTMLElement} */ (p.querySelector(':scope > .chip.readout'));
+      return { order: STACK_ORDER, keys: STACK_KEYS, layouts: STACK_LAYOUTS, onPlot: ON_PLOT, edge: STACK_EDGE, clear: STACK_CLEAR, key: STACK_KEY, gap: STACK_GAP,
+        readout: ro && ro.getClientRects().length ? readoutRoom(p, ro, plotBox(p).join()).box : null };
     },
     // TEMP-DEBUG-HOOK
   };
