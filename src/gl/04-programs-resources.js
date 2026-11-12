@@ -448,9 +448,9 @@ float wabs(vec2 w) {
   // How far the current chain's programs that prestartNames was asked for have come: {done, total}. done: linked (or
   // failed: nothing more will come of it); a program not started counts in total only. The chain's other programs still
   // compiling are counted in total as well, so the answer is complete only when nothing of the chain is left linking:
-  // its programs that draws start at their first use (as the carried colour's region fills; while one links, no inverse
-  // program of the chain is started, invProgram) and its inverse programs (the exact images'; an inverse program's
-  // askKey: the key of the chain whose draw or state query asked for it last)
+  // its programs that a draw starts at their first use (as the carried colour's region fills; while one links, no
+  // inverse program of the chain is started, invProgram) and its inverse programs (the exact images'; an inverse
+  // program's askKey: the key of the chain whose draw or state query asked for it last)
   function progStatus() {
     if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
     const w = wanted.get(cur.key), ids = [];
