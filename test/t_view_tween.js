@@ -100,5 +100,12 @@ for (const [name, a, b] of [
   check(`scales 3e-9 apart: the weight is the eased time to within 1e-8 (worst ${err.toExponential(2)})`, err < 1e-8, steps);
 }
 
+// a degenerate target of scale 0 moves the centre as the eased time, finite all along
+{
+  const a = { cx: 0.1, cy: 0.2, s: 77.7 }, b = { cx: -3.3, cy: 1.9, s: 0 };
+  const steps = run(a, b, US);
+  check('a target of scale 0: the centre stays finite and moves as the eased time', steps.every(({ u, v }) => Number.isFinite(v.cx) && Number.isFinite(v.cy) && Math.abs(v.cx - (a.cx + (b.cx - a.cx) * ease(u))) < 1e-12), steps);
+}
+
 console.log(`t_view_tween: ${n - bad} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
