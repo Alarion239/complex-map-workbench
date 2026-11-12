@@ -71,9 +71,12 @@ const endForAt = (u0, rest) => ev(`(() => {
   const end = Math.min(${END_MAX}, Math.max(${END_MIN}, want));
   return { end, disp: +(perU * ${END_MIN}).toFixed(3), perU, loose: +(perU * ${END_LOOSE}).toFixed(3), restU: ${rest.u}, restUMin: ${rest.min} };
 })()`);
+// the thread parked on plane k, once the plane's frame is drawn with its own programs (__cmwSteps().ready: a parked plane
+// past the colour plane asks for its inverse program at its first frame, and where links run in the background that
+// frame is the stand-in until it lands and the plane is drawn again)
 const park = async (k) => {
   await ev(`__cmwSteps({ park: ${k} }), 1`);
-  await settled({ max: READY_MS, until: `__cmwSteps().x === ${k}` });
+  await settled({ max: READY_MS, until: `__cmwSteps().x === ${k} && __cmwSteps().ready.ready` });
 };
 
 await view(1440, 900, false, false);
