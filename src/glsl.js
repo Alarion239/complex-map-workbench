@@ -2155,7 +2155,7 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, REPT: 5 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
@@ -2491,6 +2491,7 @@ ${seeded ? '' : pole ? `  vec2 v1;
     const sg = (x) => `(${x} < 0.0 ? 1.0 : -1.0)`;   // -sgn(x), sgn(0) = 1 (Inverse's sgn)
     switch (o.kind) {
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
+      case 'REPT': return reptFns(P, c);
       // (Inverse's opNewt walks: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
       // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0. A Newton step takes
       // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is capped at a quarter of
@@ -2702,6 +2703,200 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
     }
     throw new Error('GLChain inverse: no GLSL for op ' + o.kind);
   }
+  // ---- REPT (a Repeat chain of one step of degree 3; InvOps' REPT section, the CPU twin Inverse.enumerate's search) ----
+  // GLSL float literal
+  const glf = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
+  // the search's stack (REPEAT_COPIES_MAX levels: each level's three roots and their chain errors, the next root's index
+  // (-1: the level's node is not solved yet), dz/dw at the level's point), its account (a failed certificate, the node
+  // budget, a leaf unresolved by its chain error, the full covers), the leaf's chain error (-1: not a REPT leaf) and
+  // the pixel's w (the carried colour's point, 07-inverse-api.js ixCarryCol);
+  // uIxRepE, uIxRepS: the forward enclosures E_r of the shape's box (Inverse.prepare's rept.E): the box (x0, y0, x1, y1)
+  // and (the escape bound, -1 for none; 1 when E_r has no box). x0 > x1 with no escape bound and a box: the whole plane
+  const reptGlobals = () => {
+    const RS = Inverse.REPEAT_COPIES_MAX;
+    return `#define IX_REPT 1
+const float IX_REP_U = ${glf(Inverse.REPT_U)};
+const float IX_REP_AA_TOL = ${glf(Inverse.REPT_AA_TOL)};
+// a value is finite when its magnitude is below IX_REP_FIN (InvOps.REPT_FIN): a NaN fails every comparison and an
+// infinity fails this one, without isnan, which a GPU compiler may fold away
+const float IX_REP_FIN = ${glf(Inverse.REPT_FIN)};
+bool ixRepOk(vec2 z) { return max(abs(z.x), abs(z.y)) < IX_REP_FIN; }
+vec2 ixRZ[${3 * RS}]; float ixRR[${3 * RS}]; vec2 ixRJ[${RS}]; int ixRI[${RS}];
+bool ixRepFail; bool ixRepCap; bool ixRepUnres; int ixRepFull; float ixRepDel; vec2 ixRepW;
+uniform vec4 uIxRepE[${RS + 1}]; uniform vec2 uIxRepS[${RS + 1}];
+uniform int uIxRepNodes;   // the node budget, at most REPEAT_NODES_MAX (a test may lower it: GLR.setReptNodes)
+// uIxRepPoison 1: a test's control (GLR.setReptPoison) puts uIxRepBad (a NaN or an infinity) in place of root 1 of every
+// level-0 node; 0 otherwise
+uniform int uIxRepPoison; uniform float uIxRepBad;
+uniform vec2 uIxRepFc;   // the draw target's origin in the pane's framebuffer, device px (the hatch's phase)
+// uIxRepPass: 0 one pass at the whole budget; 1 the first pass of a tiled draw (GLR's reptDraw): the budget uIxRepFast
+// (REPT_FAST_NODES unless a test lowers it), and a pixel whose search does not end within it reads the continue mark
+// (0, 1, 0, 0) (ixRepCont); 2 the second pass at the whole budget, of the pixels uIxRepPrev (the first pass's target)
+// marks continue, the others kept
+uniform int uIxRepPass; uniform int uIxRepFast; uniform highp sampler2D uIxRepPrev;
+bool ixRepCont;
+bool ixRepKeep() {
+  if (uIxRepPass != 2) return false;
+  vec4 p = texelFetch(uIxRepPrev, ivec2(gl_FragCoord.xy), 0);
+  return !(p.r == 0.0 && p.g > 0.5 && p.b == 0.0 && p.a == 0.0);
+}
+vec3 ixRepCrude;   // the crude radii of the last node solved (the GLSL page's read-back)
+// uIxRepHatch: what an unresolved pixel draws: 0 the hatch, opaque (a pass of the picture); 1 the mark (1, 0, 0, 0) (a
+// region mask's pass: it is not covered, and drawInverse's composite marks it in the stencil for GLR.reptHatchFill)
+uniform int uIxRepHatch;
+`;
+  };
+  // the op's cells: (n, -, -, -), then P and Q high-first, two coefficients to a cell. _eval: Horner's p(z), p'(z);
+  // _node(v, dv, l): the certified roots of P - v Q at level l (InvOps.reptNode: reptSolve's closed form and polish,
+  // reptCert's certificate), false when it fails; _dudv: 1 / R'(z); _out: the prune (Inverse.enumerate's, reptMargin)
+  function reptFns(P, c) {
+    const U = (i) => `uInv[${c + i}]`, R = (x) => glf(x);
+    const co = `vec2 P0 = ${U(1)}.xy, P1 = ${U(1)}.zw, P2 = ${U(2)}.xy, P3 = ${U(2)}.zw, Q0 = ${U(3)}.xy, Q1 = ${U(3)}.zw, Q2 = ${U(4)}.xy, Q3 = ${U(4)}.zw;`;
+    return `void ${P}_eval(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z, out vec2 p, out vec2 d) {
+  p = a0; d = vec2(0.0);
+  d = cmul(d, z) + p; p = cmul(p, z) + a1;
+  d = cmul(d, z) + p; p = cmul(p, z) + a2;
+  d = cmul(d, z) + p; p = cmul(p, z) + a3;
+}
+vec2 ${P}_cardT(vec2 ck, vec2 ps) { return ck.x == 0.0 && ck.y == 0.0 ? vec2(0.0) : ck - cdiv(ps, 3.0 * ck); }
+vec2 ${P}_polish(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z) {
+  for (int it = 0; it < ${Inverse.REPT_POL}; it++) {
+    vec2 pz, dz;
+    ${P}_eval(a0, a1, a2, a3, z, pz, dz);
+    if (dz.x == 0.0 && dz.y == 0.0) break;
+    vec2 nz = z - cdiv(pz, dz);
+    if (!ixFin(nz)) break;
+    z = nz;
+  }
+  return z;
+}
+// one root's radius 3 (|p| + e) / (|p'| - e') and G = (|p'| - e') / (|p| + e) (wk: the coefficients' slack); x < 0 when
+// |p'| <= e' or it overflows
+vec2 ${P}_rho(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec4 wk, vec2 z) {
+  if (!ixRepOk(z)) return vec2(-1.0);
+  float m = cx_abs(z);
+  float e = ((wk.x * m + wk.y) * m + wk.z) * m + wk.w, e1 = (3.0 * wk.x * m + 2.0 * wk.y) * m + wk.z;
+  vec2 pz, dz;
+  ${P}_eval(a0, a1, a2, a3, z, pz, dz);
+  float den = cx_abs(dz) - e1;
+  if (!(den > 0.0 && den < IX_REP_FIN)) return vec2(-1.0);
+  float r = 3.0 * (cx_abs(pz) + e) / den * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  float g = den / (cx_abs(pz) + e) * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  return r >= 0.0 && r < IX_REP_FIN && g >= 0.0 && g < IX_REP_FIN ? vec2(r, g) : vec2(-1.0);
+}
+// the radius refined once the discs are disjoint (InvOps.reptCert): each disc holds one root r_i, and
+// 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k) with |p'/p(z_i)| >= G and |z_i - r_k| >= d_k - rho_k > 0, so
+// |z_i - r_i| <= 1 / (G - sum_(k != i) 1 / (d_k - rho_k)) when that is positive; else the crude radius stays
+float ${P}_ref(vec2 rg, float d1, float r1, float d2, float r2) {
+  float g = rg.y - (1.0 / (d1 - r1) + 1.0 / (d2 - r2)) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  return g > 0.0 && g < IX_REP_FIN ? min(rg.x, 1.0 / g * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U)) : rg.x;
+}
+bool ${P}_node(vec2 v, float dv, int l) {
+  ${co}
+  vec2 a0 = P0 - cmul(v, Q0), a1 = P1 - cmul(v, Q1), a2 = P2 - cmul(v, Q2), a3 = P3 - cmul(v, Q3);
+  if (!ixRepOk(a0) || !ixRepOk(a1) || !ixRepOk(a2) || !ixRepOk(a3) || (a0.x == 0.0 && a0.y == 0.0)) return false;
+  vec2 b = cdiv(a1, a0), cc = cdiv(a2, a0), dd = cdiv(a3, a0), b3 = b / 3.0;
+  vec2 p = cc - cmul(b, b3), q = ${R(2 / 27)} * cmul(cmul(b, b), b) - cmul(b3, cc) + dd;
+  float aq = cx_abs(q), s = max(sqrt(cx_abs(p)), aq > 0.0 ? exp2(log2(aq) / 3.0) : 0.0);
+  vec2 z0, z1, z2;
+  if (!(s > 0.0) || !(s < 3.0e38)) { z0 = -b3; z1 = -b3; z2 = -b3; }
+  else {
+    vec2 ps = p / (s * s), qs = q / (s * s * s);
+    vec2 h = -0.5 * qs, sq = csqrtp(cmul(h, h) + cmul(cmul(ps, ps), ps) / 27.0);
+    vec2 A1 = h + sq, A2 = h - sq, A = cx_abs(A1) >= cx_abs(A2) ? A1 : A2;
+    float am = cx_abs(A), th = carg(A) / 3.0;
+    vec2 c0 = (am > 0.0 ? exp2(log2(am) / 3.0) : 0.0) * vec2(cos(th), sin(th));
+    z0 = ${P}_cardT(c0, ps) * s - b3;
+    z1 = ${P}_cardT(cmul(c0, vec2(-0.5, ${R(Math.sqrt(3) / 2)})), ps) * s - b3;
+    z2 = ${P}_cardT(cmul(c0, vec2(-0.5, ${R(-Math.sqrt(3) / 2)})), ps) * s - b3;
+  }
+  z0 = ${P}_polish(a0, a1, a2, a3, z0); z1 = ${P}_polish(a0, a1, a2, a3, z1); z2 = ${P}_polish(a0, a1, a2, a3, z2);
+  if (uIxRepPoison == 1 && l == 0) z1 = vec2(uIxRepBad, 0.0);
+  // the slack of each coefficient: evaluation (REPT_GAMMA), v's chain error, forming (REPT_FORM)
+  float av = cx_abs(v);
+  vec4 wk = ${R(Inverse.REPT_GAMMA)} * IX_REP_U * vec4(cx_abs(a0), cx_abs(a1), cx_abs(a2), cx_abs(a3))
+    + dv * vec4(cx_abs(Q0), cx_abs(Q1), cx_abs(Q2), cx_abs(Q3))
+    + ${R(Inverse.REPT_FORM)} * IX_REP_U * (vec4(cx_abs(P0), cx_abs(P1), cx_abs(P2), cx_abs(P3)) + av * vec4(cx_abs(Q0), cx_abs(Q1), cx_abs(Q2), cx_abs(Q3)));
+  vec2 g0 = ${P}_rho(a0, a1, a2, a3, wk, z0), g1 = ${P}_rho(a0, a1, a2, a3, wk, z1), g2 = ${P}_rho(a0, a1, a2, a3, wk, z2);
+  if (g0.x < 0.0 || g1.x < 0.0 || g2.x < 0.0) return false;
+  float sh = 1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U;
+  float d01 = cx_abs(z0 - z1) * sh, d02 = cx_abs(z0 - z2) * sh, d12 = cx_abs(z1 - z2) * sh;
+  if (!(d01 > g0.x + g1.x) || !(d02 > g0.x + g2.x) || !(d12 > g1.x + g2.x)) return false;
+  float r0 = ${P}_ref(g0, d01, g1.x, d02, g2.x), r1 = ${P}_ref(g1, d01, g0.x, d12, g2.x), r2 = ${P}_ref(g2, d02, g0.x, d12, g1.x);
+  ixRepCrude = vec3(g0.x, g1.x, g2.x);
+  // Vieta within the discs' and the coefficients' slack
+  float m0 = cx_abs(z0), m1 = cx_abs(z1), m2 = cx_abs(z2), aa = cx_abs(a0), ab = cx_abs(b), ad = cx_abs(dd);
+  float sumTol = r0 + r1 + r2 + (wk.y + ab * wk.x) / aa + ${R(Inverse.REPT_VIETA)} * IX_REP_U * (m0 + m1 + m2 + ab);
+  float pm = m0 * m1 * m2;
+  float prodTol = (m0 + r0) * (m1 + r1) * (m2 + r2) - pm + (wk.w + ad * wk.x) / aa + ${R(Inverse.REPT_VIETA)} * IX_REP_U * (pm + ad);
+  if (!(sumTol < IX_REP_FIN && prodTol < IX_REP_FIN) || !(cx_abs(z0 + z1 + z2 + b) <= sumTol) || !(cx_abs(cmul(cmul(z0, z1), z2) + dd) <= prodTol)) return false;
+  int k = 3 * l;
+  ixRZ[k] = z0; ixRZ[k + 1] = z1; ixRZ[k + 2] = z2; ixRR[k] = r0; ixRR[k + 1] = r1; ixRR[k + 2] = r2;
+  return true;
+}
+vec2 ${P}_dudv(vec2 z) {
+  ${co}
+  vec2 p, dp, q, dq;
+  ${P}_eval(P0, P1, P2, P3, z, p, dp);
+  ${P}_eval(Q0, Q1, Q2, Q3, z, q, dq);
+  return cdiv(cmul(q, q), cmul(dp, q) - cmul(p, dq));
+}
+bool ${P}_out(vec2 v, float dv, int r, float js) {
+  vec4 e = uIxRepE[r]; vec2 es = uIxRepS[r];
+  bool box = es.y < 0.5;
+  if (box && !(e.x <= e.z)) return false;
+  float m = (dv + ${R(Inverse.REPT_AA_REACH)} * ixPix * js) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U);
+  if (box) {
+    float mb = m + ${R(Inverse.REPT_ROUND)} * IX_REP_U * max(max(abs(e.x), abs(e.z)), max(abs(e.y), abs(e.w)));
+    if (!(v.x < e.x - mb || v.x > e.z + mb || v.y < e.y - mb || v.y > e.w + mb)) return false;
+  }
+  return !(es.x > 0.0 && cx_abs(v) * (1.0 + ${R(Inverse.REPT_ROUND)} * IX_REP_U) + m >= es.x * (1.0 - ${R(Inverse.REPT_ROUND)} * IX_REP_U));
+}
+`;
+  }
+  // the REPT op j's search in the walker (Inverse.enumerate's reptRec): the explicit stack, a node solved when its level
+  // is entered, its children in the solver's order (pruned against E_r), a leaf handed to the ops before it; it ends at
+  // the first leaf that covers in full. Inactive (outside (uIxA, uIxB]), it passes the state through once.
+  function reptWalk(out, emit, j, o, cur, d) {
+    const ind = '  '.repeat(d), i2 = ind + '  ', i3 = i2 + '  ', i4 = i3 + '  ', P = `ix${j}`, R = `L${j}`, k = o.step;
+    const s = (x) => `${x}${j}`, NODES = Inverse.REPEAT_NODES_MAX;
+    out.push(`${ind}bool ${s('ra')} = ixAct(${k});`,
+      `${ind}int ${s('rn')} = int(uInv[${o.cell}].x + 0.5), ${s('rsp')} = 0, ${s('rnd')} = 0, ${s('rcap')} = min(uIxRepNodes, ${NODES});`,
+      `${ind}bool ${s('rfast')} = uIxRepPass == 1 && uIxRepFast < ${s('rcap')};`,
+      `${ind}if (${s('rfast')}) ${s('rcap')} = uIxRepFast;`,
+      `${ind}if (${s('ra')}) { ixRI[0] = -1; ixRJ[0] = vec2(1.0, 0.0); }`,
+      `${ind}if (${s('ra')} && ${P}_out(${cur}.u, 0.0, ${s('rn')}, 1.0)) ${s('rsp')} = -1;`,
+      // (each pass of the loop solves a node, takes a child or leaves a level: at most 5 per node. The loop body is one
+      // if / else chain with no continue, and every array index it reads is >= 0, as Direct3D's compiler needs: a
+      // continue after a descent fell through to the leaf there (#1478), and HLSL evaluates both arms of ?:)
+      `${ind}for (int ${s('it')} = 0; ${s('it')} < ${5 * NODES + 2}; ${s('it')}++) {`,
+      `${i2}Lf ${R} = ${cur};`,
+      `${i2}bool ${s('leaf')} = false;`,
+      `${i2}if (!${s('ra')}) { if (${s('it')} > 0) break; ${s('leaf')} = true; }`,
+      `${i2}else if (${s('rsp')} < 0) break;`,
+      `${i2}else if (ixRI[${s('rsp')}] < 0) {`,
+      `${i3}if (${s('rnd')} >= ${s('rcap')}) { if (${s('rfast')}) ixRepCont = true; else ixRepCap = true; break; }`,
+      `${i3}${s('rnd')}++;`,
+      `${i3}int ${s('pc')} = max(3 * ${s('rsp')} - 4 + ixRI[max(${s('rsp')} - 1, 0)], 0);`,
+      `${i3}vec2 ${s('v')} = ${cur}.u; float ${s('dv')} = 0.0;`,
+      `${i3}if (${s('rsp')} > 0) { ${s('v')} = ixRZ[${s('pc')}]; ${s('dv')} = ixRR[${s('pc')}]; }`,
+      `${i3}if (!${P}_node(${s('v')}, ${s('dv')}, ${s('rsp')})) { ixRepFail = true; ${s('rsp')}--; } else ixRI[${s('rsp')}] = 0;`,
+      `${i2}}`,
+      `${i2}else if (ixRI[${s('rsp')}] >= 3) ${s('rsp')}--;`,
+      `${i2}else {`,
+      `${i3}int ${s('ri')} = ixRI[${s('rsp')}], ${s('ci')} = 3 * ${s('rsp')} + ${s('ri')};`,
+      `${i3}ixRI[${s('rsp')}] = ${s('ri')} + 1;`,
+      `${i3}vec2 ${s('jc')} = cmul(ixRJ[${s('rsp')}], ${P}_dudv(ixRZ[${s('ci')}]));`,
+      `${i3}if (${s('rsp')} + 1 >= ${s('rn')}) {`,
+      `${i4}${R}.u = ixRZ[${s('ci')}]; ${R}.J = vec4(${s('jc')}.x, -${s('jc')}.y, ${s('jc')}.y, ${s('jc')}.x); ixRepDel = ixRR[${s('ci')}]; ${s('leaf')} = true;`,
+      `${i3}} else if (!${P}_out(ixRZ[${s('ci')}], ixRR[${s('ci')}], ${s('rn')} - ${s('rsp')} - 1, cx_abs(${s('jc')}))) {`,
+      `${i4}${s('rsp')}++; ixRI[${s('rsp')}] = -1; ixRJ[${s('rsp')}] = ${s('jc')};`,
+      `${i3}}`,
+      `${i2}}`,
+      `${i2}if (${s('leaf')}) {`);
+    emit(j - 1, R, d + 2, true);
+    out.push(`${i3}ixRepDel = -1.0;`, `${i3}if (${s('ra')} && ixRepFull > 0) break;`, `${i2}}`, `${ind}}`);
+  }
   // the walker: one loop per multivalued op, nested outermost op first; inactive ops (step outside (uIxA, uIxB]) pass
   // the state through (single-valued: skipped; multivalued: one iteration). Mirrors Inverse.enumerate's rec().
   function invWalkerSrc(ops) {
@@ -2717,6 +2912,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         return;
       }
       const o = ops[j], k = o.step, R = `L${j}`, P = `ix${j}`;
+      if (o.kind === 'REPT') { reptWalk(out, emit, j, o, cur, d); return; }
       if (!IX_FIN[o.kind] && !IX_ADD[o.kind] && o.kind !== 'ROOTPOW') {
         out.push(`${ind}Lf ${R} = ${cur};`, `${ind}if (ixAct(${k}) && !${P}_one(${R})) ${exit}`);
         emit(j - 1, R, d, inLoop);
@@ -2827,6 +3023,11 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         put(c, P0.re, P0.im, P1.re, P1.im); put(c + 1, P2.re, P2.im, Q0.re, Q0.im); put(c + 2, Q1.re, Q1.im, Q2.re, Q2.im);
         break;
       }
+      case 'REPT': {
+        put(c, p.n, 0, 0, 0);
+        for (let i = 0; i < 4; i += 2) { put(c + 1 + i / 2, p.P[i].re, p.P[i].im, p.P[i + 1].re, p.P[i + 1].im); put(c + 3 + i / 2, p.Q[i].re, p.Q[i].im, p.Q[i + 1].re, p.Q[i + 1].im); }
+        break;
+      }
     }
   }
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
@@ -2856,7 +3057,8 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
     // IX_ANC: an ATANH / ATAN op can be the saturation anchor of a plan (SPEC 13.12; Inverse.prepare decides, uAncJ
     // names the op): its member records the stable offset from +-1 (+-i) for the leaf (gl.js ixAnchorPx)
     const anc = ops.some((o) => o.kind === 'ATANH' || o.kind === 'ATAN');
-    const head = `#define IX_LAM ${lam ? 1 : 0}
+    const rept = ops.some((o) => o.kind === 'REPT');
+    const head = `${rept ? reptGlobals() : ''}#define IX_LAM ${lam ? 1 : 0}
 #define IX_MOB ${mob ? 1 : 0}
 #define IX_ANC ${anc ? 1 : 0}
 ${anc ? INV_ANC : ''}
@@ -2897,7 +3099,11 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
+  // uIxRepE's length: the levels of the deepest REPT search, its point included
+  const reptLevels = () => Inverse.REPEAT_COPIES_MAX + 1;
+  // a REPT draw's tile bound and node budget (GLR's reptDraw): root solves of one tile, and at most a pixel
+  const reptTile = () => ({ solves: Inverse.REPT_TILE_SOLVES, nodes: Inverse.REPEAT_NODES_MAX, fast: Inverse.REPT_FAST_NODES });
+  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust, reptLevels, reptTile };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

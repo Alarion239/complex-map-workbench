@@ -225,6 +225,8 @@ async function main() {
       console.log(`${pass ? 'pass' : 'FAIL'} ${p.page}${timeNote(cur)}: ${cur.note}${rf ? ` | reference${timeNote(rf)}: ${rf.note}` : ''}`);
       if (why.length) console.log('  worse than the reference:\n    ' + why.join('\n    '));
       if (!pass || (rf && !cur.ok)) console.log(JSON.stringify(cur.r, null, 1).slice(0, 6000));
+      // (the inverse page's Repeat section, whose fails count in the walk's: in full, as the dump above stops short of it)
+      if (cur.r && cur.r.rept && cur.r.rept.failCount) console.log(`Repeat section of ${p.page}: ${JSON.stringify(cur.r.rept)}`);
       rows.push(`| ${pass ? '✅' : '❌'} | ${label} | ${s} s | ${esc(cur.note)} | ${rf ? esc(rf.note) : ''} |`);
       if (why.length) details.push(`**${label}: worse than the reference**\n\n${why.slice(0, 30).map((w) => `- ${esc(w)}`).join('\n')}`);
       else if (rf && !cur.ok) details.push(`${label}: fails some outright checks on this machine, as the reference does (${esc(cur.note)}): not gated here`);

@@ -670,6 +670,16 @@ float invLeaf(Lf L, out bool cov) {
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
   float cv = clamp(facing ? min(s, 0.5) + min(L.lvl, 0.5) : min(s, L.lvl) + 0.5, 0.0, 1.0);
+#ifdef IX_REPT
+  // a REPT leaf (ixRepDel >= 0: its chain error, z within it of a true member; Inverse.enumerate's leaf): within
+  // ixRepDel and half a pixel of the region's edge its coverage is known only when ixRepDel is at most REPT_AA_TOL px;
+  // otherwise the leaf is unresolved and covers nothing. A full cover ends the search (the walker's REPT loop)
+  if (ixRepDel >= 0.0) {
+    float dpx = ixRepDel / (ixScale(L.J) * ixPix);
+    if (!(abs(s) > dpx + 0.5) && !(dpx <= IX_REP_AA_TOL)) { ixRepUnres = true; cv = 0.0; }
+    if (cv >= 1.0) ixRepFull++;
+  }
+#endif
   float D = ixSheetKey(z, zf, L);
   cov = cv > 0.0;
   ixLastOk = true; ixLastFin = zf; ixLastD = D; ixLastZ = z;
@@ -712,8 +722,28 @@ ${globe ? `  vec3 P = normalize(vP);
 #ifdef IX_STAGED
   ixEdge = 0.0;
 #endif
+#ifdef IX_REPT
+  ixRepFail = false; ixRepCap = false; ixRepUnres = false; ixRepCont = false; ixRepFull = 0; ixRepDel = -1.0; ixRepW = w;
+  if (ixRepKeep()) discard;
+#endif
   invWalk(w);
-${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}  float T = 1.0;
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}#ifdef IX_REPT
+  // a pixel of a REPT search with no cover and no certified answer (a failed certificate, the node budget, a leaf
+  // unresolved by its chain error): the grey no-value hatch of the plane's colouring (dcolorAt's NaN), opaque, in the
+  // pane's own pixel phase (uIxRepFc: this target's origin in the pane's framebuffer); in a region mask's pass
+  // (uIxRepHatch 1) the mark (1, 0, 0, 0), which no premultiplied colour is: drawInverse's composite turns it into the
+  // stencil mark for the hatch drawn over the masked picture (GLR.reptHatchFill)
+  // a pixel of a first pass whose search did not end: the continue mark (0, 1, 0, 0), no premultiplied colour either,
+  // for the second pass
+  if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
+  if (nCov == 0 && (ixRepFail || ixRepCap || ixRepUnres)) {
+    if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, 0.0, 0.0); return; }
+    float hh = (gl_FragCoord.x + uIxRepFc.x + gl_FragCoord.y + uIxRepFc.y) * 0.70710678 / (6.0 * uDpr);
+    o = vec4(mix(vec3(0.49804), vec3(0.41569), iso(hh, 1.0 / (6.0 * uDpr), uDpr)), 1.0);
+    return;
+  }
+#endif
+  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;

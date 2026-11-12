@@ -36,7 +36,9 @@ const Inverse = (() => {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
-    newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
+    newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    reptNode, reptEnclose, reptDisc
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
 
@@ -75,6 +77,9 @@ const Inverse = (() => {
       r.ops.forEach((o, i) => { o.step = k; o.node = i; ops.push(o); });
     }
     if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
+    // a Repeat chain's REPT op is exact as the plan's only op: its search starts from the pixel's own w (chain error 0)
+    // and ends at the shape (Inverse.enumerate's REPT search, the GLSL walker's)
+    if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return { ok: false, reason: 'a repeated step inverts exactly only as the plane\'s one step', ops: [], key, a, b, fams: [], injective: false };
     ops.forEach((o, j) => { o.j = j; });
     const fams = [];
     ops.forEach((o, j) => { if (o.fam) fams.push(j); });
@@ -588,7 +593,7 @@ const Inverse = (() => {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     let total = 1;
     for (const o of plan.ops) {
-      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin')) return { exact: false, reason: 'a step with infinitely many branches' };
+      if (typeof o.pre !== 'function' || o.lattice || (o.fam && o.fam.type !== 'fin' && o.fam.type !== 'rept')) return { exact: false, reason: 'a step with infinitely many branches' };
       total *= o.fam ? o.fam.count : 1;
       if (total > cap) return { exact: false, reason: `more than ${cap} preimages` };
     }
@@ -803,6 +808,12 @@ const Inverse = (() => {
         const N1 = abs(sub(mul(dp, qc), mul(pc, dq))), N2 = abs(sub(mul(p2, qc), mul(pc, q2)));
         const aq = abs(qc), ql = aq - abs(dq) * rho - abs(q2) * rho * rho;
         if (ql > 0) r = rho * (N1 + N2 * rho) / (ql * aq);
+        break;
+      }
+      case 'REPT': {
+        // the disc pushed through every copy (InvOps.reptDisc), widened to stay centred on the op's own value
+        const d = reptDisc(o.p.P, o.p.Q, o.p.n, c, rho);
+        if (d) r = d.r + abs(sub(d.c, fe));
         break;
       }
       default: {
@@ -1030,6 +1041,8 @@ const Inverse = (() => {
       const F = fam[j];
       idx.push(0);
       if (!F) { rspec.push(null); need.push(1); continue; }
+      // (REPT budgets its own search: REPEAT_NODES_MAX root solves per pixel, past which the pixel reads unresolved)
+      if (F.type === 'rept') { rspec.push(null); need.push(1); continue; }
       if (F.type === 'fin') { rspec.push(null); need.push(F.count); continue; }
       if (F.type === 'log' && !F.inf) {
         rspec.push({ kind: 'branch' }); need.push(F.count);
@@ -1162,21 +1175,54 @@ const Inverse = (() => {
         }
       }
     }
+    // a REPT op (the plan's only op): the forward enclosures E_r of the shape's box (InvOps.reptEnclose, with the op's
+    // escape radius), each {x0, x1, y0, y1, empty, esc} or null (the whole plane): the box's bounds rounded outward to
+    // float32 as the GPU reads them (empty: no box), esc the escape bound rounded down (0: none); all null for an
+    // unbounded shape (no prune)
+    prep.rept = null;
+    if (!reason && N === 1 && ops[0].kind === 'REPT') {
+      const rp = ops[0].p, bb = shape.complement ? null : boundsOf(shape);
+      const E = bb ? reptEnclose(rp.P, rp.Q, rp.n, bb, rp.escR) : Array.from({ length: rp.n + 1 }, () => null);
+      prep.rept = {
+        E: E.map((e) => {
+          if (!e) return null;
+          const empty = !(e.x0 <= e.x1 && e.y0 <= e.y1), esc = e.esc > 0 ? f32dn(e.esc) : 0;
+          if (!empty && ![e.x0, e.x1, e.y0, e.y1].every(Number.isFinite)) return null;
+          return empty ? { x0: 0, x1: 0, y0: 0, y1: 0, empty, esc } : { x0: f32dn(e.x0), x1: f32up(e.x1), y0: f32dn(e.y0), y1: f32up(e.y1), empty, esc };
+        }),
+      };
+    }
     prep.ok = !reason; prep.reason = reason;
     return prep;
   }
+  // a REPT prune (the GLSL walker's _out): no point within m of v lies in E_r, m the point's chain error dv and
+  // REPT_AA_REACH pixels of size px (|dz/dw| pix); REPT_ROUND ulps cover the GPU's float32 steps (the subtraction from the
+  // box's bounds, |v| and the comparison with the escape bound)
+  function reptPruned(e, v, dv, px) {
+    if (!e) return false;
+    const m = (dv + REPT_AA_REACH * px) * (1 + REPT_ROUND * REPT_U);
+    if (!e.empty) {
+      const mb = m + REPT_ROUND * REPT_U * Math.max(Math.abs(e.x0), Math.abs(e.x1), Math.abs(e.y0), Math.abs(e.y1));
+      if (!(v.re < e.x0 - mb || v.re > e.x1 + mb || v.im < e.y0 - mb || v.im > e.y1 + mb)) return false;
+    }
+    return !(e.esc > 0 && abs(v) * (1 + REPT_ROUND * REPT_U) + m >= e.esc * (1 - REPT_ROUND * REPT_U));
+  }
+  // the float32 at or below (above) x
+  function f32dn(x) { const y = Math.fround(x); return y <= x ? y : Math.fround(y - Math.max(Math.abs(y) * 2 ** -23, 2 ** -149)); }
+  function f32up(x) { return -f32dn(-x); }
 
   // =====================================================================================================
   // 9. enumerate: the CPU twin of the GPU walk (SPEC 3.5, 3.6, 4.1) with the compositor's admission rules (4.2)
   // =====================================================================================================
-  // Inverse.enumerate(plan, prep, w, pix, opts) -> {leaves, visited, truncated, tailInf, entries, nCov, U}
+  // Inverse.enumerate(plan, prep, w, pix, opts) -> {leaves, visited, truncated, tailInf, entries, nCov, U, rept (a REPT
+  //  plan: {verdict, nodes, pruned, unres, fail, cap})}
   //  pix: w units per image pixel; opts: K (front count for the early stop and admission; capped at B unless all), B
   //  (buffer size), all (the shape's own alpha: when K > B the early stop is off and every covering candidate counts,
   //  those the buffer does not keep through their transmittance restT, SPEC 13.12),
   //  full (truth mode: a window of +-full members around m* in every family, no ranges, budgets or stop),
   //  ramp (range ramp in px, default 1), dwdX / dwdY (dw per image pixel step, default (pix, 0) / (0, pix)),
   //  leaves: false to skip the leaf list, paths: true to record each leaf's path ('j:b:m' per window or finite op,
-  //  outermost first).
+  //  outermost first), reptNodes: a REPT search's node budget below REPEAT_NODES_MAX (GLR.setReptNodes' twin).
   //  leaves: every visited leaf in walk order: {z, J (dz/dw, real 2x2 row-major), JL (dΛ/dw) | null, lvl (px),
   //  lg: [x, y] | null, lam, dX, dY (dz per pixel step), s (region distance, px), cv (coverage), cov, D}.
   //  entries: the admitted compositing buffer, front to back ({lf, D, z, cv, ...}); restT: the product of
@@ -1190,7 +1236,10 @@ const Inverse = (() => {
     const paths = !!opts.paths;
     const ev = prep.ev || (prep.ev = shapePx(prep.shape));
     const leaves = [], ent = [], loops = [];
-    let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1;
+    let visited = 0, nCov = 0, U = 0, truncated = false, tailInf = false, restT = 1, nFull = 0;
+    // the REPT search's account: root solves, pruned children, leaves left unresolved by their chain error, a node whose
+    // certificate failed, the node budget reached
+    const rst = { nodes: 0, pruned: 0, unres: 0, fail: false, cap: false };
     const admitLimit = Math.min(B, K + 2);
     const DK = () => (noStop ? Infinity : ent.length >= K ? ent[K - 1].D : Infinity);
     const rest = (cv) => { restT *= 1 - alphaR * Math.min(1, cv / Math.max(U, 1e-6)); };
@@ -1238,7 +1287,14 @@ const Inverse = (() => {
       const sv = sh.s, lv = Lf.lvl;
       let cv = facing ? Math.min(sv, 0.5) + Math.min(lv, 0.5) : Math.min(sv, lv) + 0.5;
       cv = cv > 1 ? 1 : cv > 0 ? cv : 0;
+      // a REPT leaf (Lf.rdel: its chain error, z within it of a true member): within rdel and half a pixel of the
+      // region's edge its coverage is known only when rdel is at most REPT_AA_TOL px (the ramp's own error); otherwise
+      // the leaf is unresolved and covers nothing (the GLSL invLeaf's rule)
+      let unres = false;
+      if (Lf.rdel != null && reptLeafUnres(sv, Lf.rdel / (Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])) * pix))) { unres = true; cv = 0; rst.unres++; }
       const lf = { z, J, JL: Lf.JL || null, lvl: lv, lg: lgi, lam, dX, dY, dLX, dLY, s: sv, cv, cov: cv > 0, D: 0, fp: crit ? 0 : Math.hypot(dX.re, dX.im) + Math.hypot(dY.re, dY.im), crit, anc: an, path: Lf.path || '' };
+      if (unres) lf.unres = true;
+      if (cv >= 1) nFull++;
       lf.D = sheetKey(prep, z, lam);
       if (keep) leaves.push(lf);
       if (lf.cov) {
@@ -1268,10 +1324,41 @@ const Inverse = (() => {
       if (mem.dlam) { const d = mem.dlam; JL = [d.re * J[0] - d.im * J[2], d.re * J[1] - d.im * J[3], d.im * J[0] + d.re * J[2], d.im * J[1] + d.re * J[3]]; }
       return { u: mem.u, J: J2, JL, lvl: Math.min(Lf.lvl, lv), lg, lam: mem.lam || null, anc: anc && j === anc.op && mem.anc ? mem.anc : (Lf.anc || null), path: paths && tag ? (Lf.path ? Lf.path + ' ' : '') + tag : Lf.path };
     };
+    // REPT (the plan's only op): the depth-first search of the chains of backward roots (InvOps' REPT section; the GLSL
+    // walker's REPT loop is the same). At each node the certified roots in the solver's order; a child at r copies from
+    // the shape is pruned when its point lies outside E_r grown by its chain error and REPT_AA_REACH pixels (|dz/dw|
+    // pix each), the root pixel too (r = n, error 0); a leaf goes on with its chain error (rdel) to the leaf, and the
+    // search ends at the first leaf that covers in full. A node whose certificate fails is not searched further
+    // (rst.fail); REPEAT_NODES_MAX solves end the search (rst.cap)
+    const reptRec = (j, Lf) => {
+      const o = ops[j], { P, Q, n } = o.p, E = prep.rept ? prep.rept.E : null;
+      const pruned = (v, dv, r, J) => reptPruned(E && E[r], v, dv, pix * Math.sqrt(Math.abs(J[0] * J[3] - J[1] * J[2])));
+      if (pruned(Lf.u, 0, n, Lf.J)) { rst.pruned++; return null; }
+      const full0 = nFull;
+      const go = (v, dv, depth, J, path) => {
+        if (rst.nodes >= Math.min(REPEAT_NODES_MAX, opts.reptNodes || Infinity)) { rst.cap = true; return true; }
+        rst.nodes++;
+        const nd = reptNode(P, Q, v, dv);
+        if (!nd) { rst.fail = true; return false; }
+        for (let i = 0; i < REPT_DEG; i++) {
+          const d = nd.d[i], J2 = [d.re * J[0] - d.im * J[2], d.re * J[1] - d.im * J[3], d.im * J[0] + d.re * J[2], d.im * J[1] + d.re * J[3]];
+          const p2 = paths ? path + i : '';
+          if (depth + 1 === n) {
+            rec(j - 1, { u: nd.z[i], J: J2, JL: null, lvl: Lf.lvl, lg: Lf.lg, lam: null, anc: null, rdel: nd.rho[i], path: paths ? (Lf.path ? Lf.path + ' ' : '') + `${j}:${p2}` : Lf.path });
+            if (nFull > full0) return true;
+          } else if (pruned(nd.z[i], nd.rho[i], n - depth - 1, J2)) rst.pruned++;
+          else if (go(nd.z[i], nd.rho[i], depth + 1, J2, p2)) return true;
+        }
+        return false;
+      };
+      go(Lf.u, 0, 0, Lf.J, '');
+      return null;
+    };
     const rec = (j, Lf) => {
       if (j < 0) return leaf(Lf);
       const o = ops[j], F = o.fam, u = Lf.u;
       if (!isFin(u)) return null;
+      if (o.kind === 'REPT') return reptRec(j, Lf);
       if (!F || F.type === 'fin') {
         let last = null;
         for (const mem of o.pre(u)) { const n = apply(Lf, mem, F && paths ? `${j}:0:${mem.m}` : null, j); if (n) last = rec(j - 1, n); }
@@ -1405,8 +1492,18 @@ const Inverse = (() => {
       return null;
     };
     rec(ops.length - 1, { u: w, J: [1, 0, 0, 1], JL: null, lvl: Infinity, lg: null, lam: null, anc: null, path: '' });
-    return { leaves, visited, truncated, tailInf, entries: ent, nCov, U, restT };
+    const out = { leaves, visited, truncated, tailInf, entries: ent, nCov, U, restT };
+    // a REPT plan's verdict for the pixel: 1 covered (a leaf covers), 0 empty (the search ran out, every leaf resolved),
+    // -1 unresolved (a failed certificate, the node budget, or an unresolved leaf, and no cover)
+    if (ops.some((o) => o.kind === 'REPT')) out.rept = Object.assign({ verdict: reptVerdict(nCov, rst) }, rst);
+    return out;
   }
+  // a REPT leaf at sv px from the region's edge (positive inside) with its chain error dpx px: unresolved when the edge
+  // is within dpx and half a pixel and dpx is past REPT_AA_TOL (the GLSL invLeaf's rule)
+  const reptLeafUnres = (sv, dpx) => !(Math.abs(sv) > dpx + 0.5) && !(dpx <= REPT_AA_TOL);
+  // a REPT pixel's verdict: 1 covered (a leaf covers), else -1 unresolved (a failed certificate, the node budget or an
+  // unresolved leaf), else 0 empty (the search ran out, every leaf resolved)
+  const reptVerdict = (nCov, rst) => (nCov > 0 ? 1 : rst.fail || rst.cap || rst.unres ? -1 : 0);
   // distance from the set {a + s v : 0 <= s <= smax} (smax may be Infinity) to the box W; 0 when they meet. Exact for
   // a segment or ray and a box: when disjoint, the minimum is attained at an end point of the segment or at a box corner.
   function rayBoxDist(a, v, smax, W) {
@@ -1724,6 +1821,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
@@ -1734,6 +1832,7 @@ const Inverse = (() => {
     // the checker filter of the analytic patterns (the GPU's ixSq)
     _sqAA: (p, w) => sqAA(p, w),
     _encl: { opDisc, chainDisc },
+    _rept: { leafUnres: (sv, dpx) => reptLeafUnres(sv, dpx), verdict: (nCov, rst) => reptVerdict(nCov, rst) },
     _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2 },
   };
 })();

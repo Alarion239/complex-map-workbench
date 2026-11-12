@@ -425,6 +425,363 @@ const InvOps = (() => {
   }
 
   // =====================================================================================================
+  // 1b. Repeat chains (REPT): n copies of one rational step R = P/Q, deg P = REPT_DEG > deg Q, as one op
+  // =====================================================================================================
+  // The members of w are the chains of backward roots: the REPT_DEG roots z of p_v(z) = P(z) - v Q(z) at v = w, then at
+  // v = each of them, n levels deep; the leaves are the members. They are listed depth first, in the solver's root order
+  // at every level, on a fixed stack of n <= REPEAT_COPIES_MAX levels, and a pixel solves at most REPEAT_NODES_MAX root
+  // sets (a node is one solve). Every root set is certified in the GPU's arithmetic (float32, unit roundoff REPT_U), and
+  // the CPU (Inverse.enumerate) applies the same rule in float64, so both certify the same nodes:
+  // - each computed root z_i lies within rho_i = 3 (|p(z_i)| + e) / (|p'(z_i)| - e') of a root of the TRUE p_v (v the exact
+  //   chain point, within dv of the computed one): p'/p = sum_k 1 / (z - r_k) puts a root within n |p / p'| of any z, and
+  //   e, e' bound the error of forming p's coefficients (dv included) and of evaluating p and p' (reptCert);
+  // - the three discs D(z_i, rho_i) are pairwise disjoint, so they hold three distinct roots: all of them;
+  // - Vieta's sum and product hold within the discs' and the coefficients' slack;
+  // - anything else (a non-finite root, |p'| <= e', overlapping discs) fails the node, and the pixel reads unresolved.
+  // rho_i is then the next level's dv: a computed chain point is within dv of a true chain's, level by level, and a leaf
+  // decides coverage only where the region's edge is more than dv away (Inverse.enumerate's leaf, GLSL invLeaf).
+  // The forward image of a bounded region, enclosed rigorously level by level (reptEnclose), prunes a branch whose point
+  // cannot be reached: a pixel outside the n-th enclosure is empty without a solve.
+  const REPT_DEG = 3;                // the step's degree (the solver is the closed-form cubic)
+  const REPEAT_COPIES_MAX = 20;      // copies, the GPU stack's depth
+  const REPEAT_NODES_MAX = 1024;     // root solves per pixel before it reads unresolved: at least 50 x the most the suite's
+                                     // scenes need (the CPU twin over every pixel at dpr 1 and 2: the gallery square 20,
+                                     // the bite box at Repeat x 2 3, at x 20 1)
+  // root solves in one GPU submission of a REPT draw at most (GLR's reptDraw tiles a pane by it, counting every pixel
+  // at its whole budget): 5.0 s on llvmpipe (4 cores, about 2.7e7 solves a second, measured where every pixel spends
+  // the whole budget: z^3 x 20 on a disc tangent to |z| = 1 from inside); within 100 ms on a GPU of 1.3e9 a second
+  const REPT_TILE_SOLVES = 2 ** 27;
+  // the node budget of a REPT draw's first pass over the whole pane (GLR's reptDraw): a pixel whose search ends within
+  // it is final, one that does not goes on in the tiled second pass at REPEAT_NODES_MAX. 32 is at least 1.5 x the most
+  // the suite's scenes and the gallery need (20, the CPU twin over every pixel at dpr 1 and 2), so they draw in one pass
+  const REPT_FAST_NODES = 32;
+  const REPT_U = 2 ** -24;           // float32's unit roundoff
+  // REPT_GAMMA: |fl(p(z)) - p(z)| <= REPT_GAMMA REPT_U sum_k |a_k| |z|^k for Horner's rule of degree 3 in complex float32.
+  // Each of the 3 steps is a complex product (relative error <= 2 sqrt 2 u for correctly rounded + and x, 4 sqrt 2 u
+  // when the GPU's + and x are only within 1 ulp) and a complex sum (<= 2 u, 1-ulp ops); the bound is sum over steps
+  // of (4 sqrt 2 + 2) u ~ 7.7 u times the partial sums' sizes, <= 3 x 7.7 u + O(u^2) = 23.1 u: 32 leaves headroom for
+  // the second-order terms and for |z|^k computed in float
+  const REPT_GAMMA = 32;
+  // REPT_FORM: the roundings of forming a_k = P_k - v Q_k in float32: P_k and Q_k rounded to float32 (1 each), the
+  // product v Q_k (2 sqrt 2 with 1-ulp ops, < 3) and the difference (1): |fl(a_k) - a_k| <= REPT_FORM u (|P_k| + |v| |Q_k|)
+  const REPT_FORM = 6;
+  const REPT_ROUND = 16;             // ulps of slack on the certificate's own float steps (rho, the distances, the sums)
+  const REPT_FIN = 1e30;             // a certificate's value (coefficient, root, radius) is finite below this magnitude
+  const REPT_VIETA = 64;             // ulps of the roots' sum and product beyond the discs' slack
+  const REPT_POL = 2;                // Newton steps polishing each closed-form root
+  const REPT_AA_TOL = 0.25;          // px: a leaf whose chain error is wider than this, within it of the region's edge, is unresolved
+  const REPT_AA_REACH = 1;           // px of the w plane, times |dv/dw|, added to a prune's margin: the anti-aliasing ramp's half
+                                     // pixel with the same again for its second-order part (partial cover at the image's edge)
+  const ENCL_EPS = 1e-12;            // relative outward padding of every disc operation (float64 rounds each by <= 2^-52)
+  const ENCL_POLE_F = 2;             // a disc D(c, r) is inverted only when |c| > ENCL_POLE_F r (else it meets a pole)
+  const ENCL_GRID = 8;               // cells per side of the region's box at the start
+  const ENCL_CELLS_MAX = 4096;       // cells pushed through the steps, the cut ones included
+  const REPT_ESC_GROW = 2;           // the escape set's growth per step: |R(z)| > REPT_ESC_GROW |z| on |z| >= REPT_ESC_R
+  const REPT_ESC_BISECT = 60;        // bisection steps of the escape radius (float64 halves its bracket to the last bit)
+  const ENCL_R_MAX = 1e15;           // an enclosure wider than this is the whole plane (float32 bounds stay finite)
+  const OMEGA = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
+  // P, Q high-first, padded to REPT_DEG + 1 coefficients
+  const padTo = (co, n) => [...Array(Math.max(0, n - co.length)).fill(ZERO), ...co];
+  // Horner: p(z), p'(z) of high-first a (length 4)
+  function reptEval(a, z) {
+    let p = a[0], d = ZERO;
+    for (let k = 1; k < a.length; k++) { d = add(mul(d, z), p); p = add(mul(p, z), a[k]); }
+    return [p, d];
+  }
+  // the coefficients of p_v = P - v Q (high-first)
+  const reptCoef = (P, Q, v) => P.map((pk, k) => sub(pk, mul(v, Q[k])));
+  // the roots of the cubic a (high-first, a[0] != 0) in the solver's order: the depressed cubic t^3 + p t + q, scaled by
+  // s = max(|p|^(1/2), |q|^(1/3)) (no overflow of q^2, p^3), Cardano's root with the sign of the larger |A|, its turns by
+  // the cube roots of unity, then REPT_POL Newton steps on a. The GLSL (glsl.js invOpFns REPT) does the same steps.
+  function reptSolve(a) {
+    const b = div(a[1], a[0]), c = div(a[2], a[0]), d = div(a[3], a[0]), b3 = scale(b, 1 / 3);
+    const p = sub(c, mul(b, b3)), q = add(sub(scale(mul(mul(b, b), b), 2 / 27), mul(b3, c)), d);
+    const s = Math.max(Math.sqrt(abs(p)), Math.cbrt(abs(q)));
+    const out = [];
+    if (!(s > 0) || !Number.isFinite(s)) { for (let k = 0; k < REPT_DEG; k++) out.push(neg(b3)); }
+    else {
+      const ps = scale(p, 1 / (s * s)), qs = scale(q, 1 / (s * s * s));
+      const h = scale(qs, -0.5), sq = CX.sqrt(add(mul(h, h), scale(mul(mul(ps, ps), ps), 1 / 27)));
+      const A1 = add(h, sq), A2 = sub(h, sq), A = abs(A1) >= abs(A2) ? A1 : A2;
+      const m = Math.cbrt(abs(A)), th = Math.atan2(A.im, A.re) / 3, C0 = C(m * Math.cos(th), m * Math.sin(th));
+      for (const om of OMEGA) {
+        const Ck = mul(C0, om);
+        const t = isZero(Ck) ? ZERO : sub(Ck, div(ps, scale(Ck, 3)));
+        out.push(sub(scale(t, s), b3));
+      }
+    }
+    for (let i = 0; i < out.length; i++) {
+      let z = out[i];
+      for (let it = 0; it < REPT_POL; it++) {
+        const [pz, dz] = reptEval(a, z);
+        if (!(dz.re !== 0 || dz.im !== 0)) break;
+        const n = sub(z, div(pz, dz));
+        if (!isFin(n)) break;
+        z = n;
+      }
+      out[i] = z;
+    }
+    return out;
+  }
+  // the certificate of a root set z of p_v (a: its coefficients as computed from P, Q and v; dv: the chain error of v):
+  // the radii rho (each z_i within rho_i of its own root of the true p_v), or null. See the section's head.
+  function reptCert(P, Q, v, dv, a, z) {
+    const U = REPT_U, n = REPT_DEG, av = abs(v), fin = (x) => isFin(x) && Math.max(Math.abs(x.re), Math.abs(x.im)) < REPT_FIN;
+    if (z.length !== n || !z.every(fin) || !a.every(fin) || isZero(a[0])) return null;
+    // w_k: the slack of coefficient a_k (high-first: a_k multiplies z^(n - k)), forming and evaluation
+    const wk = a.map((x, k) => REPT_GAMMA * U * abs(x) + abs(Q[k]) * dv + REPT_FORM * U * (abs(P[k]) + av * abs(Q[k])));
+    const rho = [], G = [];
+    for (const x of z) {
+      const m = abs(x);
+      let e = 0, e1 = 0;
+      for (let k = 0; k <= n; k++) { const pw = n - k; e += wk[k] * m ** pw; if (pw > 0) e1 += pw * wk[k] * m ** (pw - 1); }
+      const [pz, dz] = reptEval(a, x);
+      const den = abs(dz) - e1;
+      if (!(den > 0 && den < REPT_FIN)) return null;
+      const r = 3 * (abs(pz) + e) / den * (1 + REPT_ROUND * U), g = den / (abs(pz) + e) * (1 - REPT_ROUND * U);
+      if (!(r >= 0 && r < REPT_FIN && g >= 0 && g < REPT_FIN)) return null;
+      rho.push(r); G.push(g);
+    }
+    const dz = (i, j) => abs(sub(z[i], z[j])) * (1 - REPT_ROUND * U);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!(dz(i, j) > rho[i] + rho[j])) return null;
+    // the radii refined, each disc holding exactly one root r_i (the discs are disjoint): 1 / (z_i - r_i) = p'/p(z_i) - sum_(k != i) 1 / (z_i - r_k),
+    // where |p'/p(z_i)| >= G_i (the true p's |p'| >= |p'(z_i)| - e', |p| <= |p(z_i)| + e) and |z_i - r_k| >= |z_i - z_k| - rho_k > 0
+    // (the discs are disjoint), so 1 / |z_i - r_i| >= G_i - sum_(k != i) 1 / (|z_i - z_k| - rho_k); when that is not positive
+    // the crude radius stays. Without it the radius is n |p/p'| and the chain error would grow n-fold at every level
+    const crude = rho.slice();
+    const ref = z.map((_, i) => {
+      let S = 0;
+      for (let k = 0; k < n; k++) if (k !== i) S += 1 / (dz(i, k) - rho[k]);
+      const g = G[i] - S * (1 + REPT_ROUND * U);
+      return g > 0 && g < REPT_FIN ? Math.min(rho[i], 1 / g * (1 + REPT_ROUND * U)) : rho[i];
+    });
+    for (let i = 0; i < n; i++) rho[i] = ref[i];
+    /** @type {any} */ (rho).crude = crude;
+    // Vieta: z1 + z2 + z3 = -a1/a0, z1 z2 z3 = -a3/a0 (high-first), within the discs and the coefficients' slack
+    const a0 = abs(a[0]), zm = z.map(abs), b = div(a[1], a[0]), d = div(a[3], a[0]);
+    const sum = add(add(z[0], z[1]), z[2]), prod = mul(mul(z[0], z[1]), z[2]);
+    const sumTol = rho[0] + rho[1] + rho[2] + (wk[1] + abs(b) * wk[0]) / a0 + REPT_VIETA * U * (zm[0] + zm[1] + zm[2] + abs(b));
+    const pm = zm[0] * zm[1] * zm[2];
+    const prodTol = (zm[0] + rho[0]) * (zm[1] + rho[1]) * (zm[2] + rho[2]) - pm + (wk[3] + abs(d) * wk[0]) / a0 + REPT_VIETA * U * (pm + abs(d));
+    if (!(sumTol < REPT_FIN && prodTol < REPT_FIN) || !(abs(add(sum, b)) <= sumTol) || !(abs(add(prod, d)) <= prodTol)) return null;
+    return rho;
+  }
+  // one node: the certified roots of p_v with their radii and du/dv = 1 / R'(u) = Q^2 / (P'Q - PQ'), or null
+  function reptNode(P, Q, v, dv) {
+    const a = reptCoef(P, Q, v), z = reptSolve(a), rho = reptCert(P, Q, v, dv, a, z);
+    if (!rho) return null;
+    return { z, rho, d: z.map((u) => { const [pu, dp] = reptEval(P, u), [qu, dq] = reptEval(Q, u); return div(mul(qu, qu), sub(mul(dp, qu), mul(pu, dq))); }) };
+  }
+  // ---- the forward enclosure E_r of N^r(B), B the region's box (r = 0 .. n), by disc arithmetic ----
+  // A disc is [re, im, r] (centre, radius). Every operation pads its radius outward by ENCL_EPS times the size of the
+  // numbers it rounds: one float64 operation errs by at most 2^-52 of its operands' sizes (a complex product by
+  // 2 sqrt 2 of |a| |b|, a sum by |a| + |b|), so 1e-12 covers each with a factor over 1000 to spare, and the radius
+  // itself is rounded up by (1 + ENCL_EPS).
+  const ENCL_UP = 1 + ENCL_EPS;
+  const mag = (x, y) => Math.sqrt(x * x + y * y);
+  // o[i..i+2] = A B, A = (ar, ai, aR), B = (br, bi, bR)
+  function dMul(o, i, ar, ai, aR, br, bi, bR) {
+    const ma = mag(ar, ai), mb = mag(br, bi);
+    o[i] = ar * br - ai * bi; o[i + 1] = ar * bi + ai * br; o[i + 2] = (ma * bR + mb * aR + aR * bR + ENCL_EPS * ma * mb) * ENCL_UP;
+  }
+  // o[i..i+2] = A + B (sg 1) or A - B (sg -1)
+  function dAdd(o, i, ar, ai, aR, br, bi, bR, sg) {
+    o[i] = ar + sg * br; o[i + 1] = ai + sg * bi; o[i + 2] = (aR + bR + ENCL_EPS * (mag(ar, ai) + mag(br, bi))) * ENCL_UP;
+  }
+  // o[i..i+2] = 1 / D(c, r), exact (a Moebius image of a disc avoiding 0): centre conj(c) / (|c|^2 - r^2), radius
+  // r / (|c|^2 - r^2); false when |c| <= ENCL_POLE_F r (the disc meets 0, or comes too close for the subtraction to stay
+  // accurate)
+  function dInv(o, i, cr, ci, r) {
+    const m = mag(cr, ci);
+    if (!(m > ENCL_POLE_F * r) || !(m > 0)) return false;
+    const den = m * m - r * r, xr = cr / den, xi = -ci / den;
+    o[i] = xr; o[i + 1] = xi; o[i + 2] = (r / den + ENCL_EPS * mag(xr, xi)) * ENCL_UP;
+    return true;
+  }
+  // Horner on the disc D(c, r): p(D) into o[i..i+2], p'(D) into o[i+3..i+5]; a: high-first (re, im) pairs
+  function dHorner(o, i, a, cr, ci, r) {
+    let pr = a[0], pi = a[1], pR = 0, dr = 0, di = 0, dR = 0;
+    for (let k = 2; k < a.length; k += 2) {
+      dMul(o, i, dr, di, dR, cr, ci, r);
+      dAdd(o, i, o[i], o[i + 1], o[i + 2], pr, pi, pR, 1);
+      dr = o[i]; di = o[i + 1]; dR = o[i + 2];
+      dMul(o, i, pr, pi, pR, cr, ci, r);
+      dAdd(o, i, o[i], o[i + 1], o[i + 2], a[k], a[k + 1], 0, 1);
+      pr = o[i]; pi = o[i + 1]; pR = o[i + 2];
+    }
+    o[i] = pr; o[i + 1] = pi; o[i + 2] = pR; o[i + 3] = dr; o[i + 4] = di; o[i + 5] = dR;
+  }
+  // R(D) into o[0..2] by the mean-value form: R(D) is within D(R(c), r (|m| + s)) for R'(D) = (P'Q - PQ') / Q^2 within
+  // D(m, s) (R' analytic on the convex D: R(z) - R(c) = (z - c) times an average of R' on the segment, which a disc
+  // contains); false when D meets a pole. o: scratch of 24
+  function dStep(o, Pa, Qa, cr, ci, r) {
+    // R(c): P(c) at 6, Q(c) at 12, 1 / Q(c) at 18, R(c) at 21
+    dHorner(o, 6, Pa, cr, ci, 0); dHorner(o, 12, Qa, cr, ci, 0);
+    if (!dInv(o, 18, o[12], o[13], o[14])) return false;
+    dMul(o, 21, o[6], o[7], o[8], o[18], o[19], o[20]);
+    const Rr = o[21], Ri = o[22], RR = o[23];
+    // R'(D): P(D), P'(D) at 6..11, Q(D), Q'(D) at 12..17
+    dHorner(o, 6, Pa, cr, ci, r); dHorner(o, 12, Qa, cr, ci, r);
+    if (!dInv(o, 18, o[12], o[13], o[14])) return false;
+    dMul(o, 21, o[18], o[19], o[20], o[18], o[19], o[20]);                   // 1 / Q^2
+    dMul(o, 0, o[9], o[10], o[11], o[12], o[13], o[14]);                     // P' Q
+    dMul(o, 3, o[6], o[7], o[8], o[15], o[16], o[17]);                       // P Q'
+    dAdd(o, 0, o[0], o[1], o[2], o[3], o[4], o[5], -1);
+    dMul(o, 0, o[0], o[1], o[2], o[21], o[22], o[23]);
+    const ms = mag(o[0], o[1]) + o[2];
+    o[0] = Rr; o[1] = Ri; o[2] = (RR + r * ms + ENCL_EPS * mag(Rr, Ri)) * ENCL_UP;
+    return true;
+  }
+  // D(c, rho) through the n steps -> {c, r} enclosing its image, or null (a pole in reach); Inverse.opDisc's REPT case
+  function reptDisc(P, Q, n, c, rho) {
+    const Pa = Float64Array.from(P.flatMap((x) => [x.re, x.im])), Qa = Float64Array.from(Q.flatMap((x) => [x.re, x.im])), o = new Float64Array(24);
+    let cr = c.re, ci = c.im, cR = rho;
+    for (let r = 0; r < n; r++) {
+      if (!dStep(o, Pa, Qa, cr, ci, cR) || !(mag(o[0], o[1]) + o[2] < ENCL_R_MAX)) return null;
+      cr = o[0]; ci = o[1]; cR = o[2];
+    }
+    return { c: C(cr, ci), r: cR };
+  }
+  // ---- the escape radius REPT_ESC_R of R = P/Q, deg P = n >= deg Q + 2 ----
+  // f(r) = |p_n| r^n - sum_{k<n} |p_k| r^k - REPT_ESC_GROW r sum_k |q_k| r^k. |P(z)| >= |p_n| |z|^n - sum_{k<n} |p_k| |z|^k
+  // and |Q(z)| <= sum_k |q_k| |z|^k, so f(|z|) > 0 gives |P(z)| > REPT_ESC_GROW |z| |Q(z)|: |R(z)| > REPT_ESC_GROW |z|
+  // (a zero of Q there is a pole, no finite point). f's coefficients change sign once (the leading one is positive; the
+  // others are <= 0, as deg Q + 1 < n), so by Descartes' rule f has exactly one positive root, and f(R) > 0 gives f > 0 on
+  // [R, inf): {|z| >= s} maps into {|z| >= REPT_ESC_GROW s} for every s >= R. reptEscF evaluates f with every term
+  // rounded against it (ENCL_EPS: the positive term rounded down, the negative ones up); R is found by doubling from 1,
+  // then by REPT_ESC_BISECT bisections, and kept only where that evaluation is positive. null when deg P < deg Q + 2
+  // (Newton's step: no escape set) or when no R below ENCL_R_MAX passes
+  function reptEscF(P, Q, r) {
+    const n = P.length - 1;
+    let lead = 0, neg = 0;
+    for (let k = 0; k <= n; k++) {
+      const rk = r ** (n - k), pk = abs(P[k]) * rk, qk = abs(Q[k]) * rk * r;
+      if (k === 0) lead = pk; else neg += pk;
+      neg += REPT_ESC_GROW * qk;
+    }
+    return lead * (1 - ENCL_EPS) - neg * (1 + ENCL_EPS);
+  }
+  function reptEscR(P, Q) {
+    const n = P.length - 1, dq = Q.length - 1 - Q.findIndex((q) => !isZero(q));
+    if (isZero(P[0]) || (dq <= n && dq > n - 2)) return null;
+    let hi = 1;
+    while (!(reptEscF(P, Q, hi) > 0)) { hi *= 2; if (!(hi < ENCL_R_MAX)) return null; }
+    let lo = hi === 1 ? 0 : hi / 2;
+    for (let i = 0; i < REPT_ESC_BISECT; i++) { const m = (lo + hi) / 2; if (reptEscF(P, Q, m) > 0) hi = m; else lo = m; }
+    return hi;
+  }
+  // Inverse's prepare: [E_0 .. E_n] for the region's box b {x0, x1, y0, y1}, each {x0, x1, y0, y1, esc} or null (the
+  // whole plane): the points of the box (empty when x0 > x1) and, when esc > 0, of {|z| >= esc}. The box is cut into
+  // ENCL_GRID x ENCL_GRID cells, each pushed through the n steps as its circumscribed disc; a cell whose disc meets a
+  // pole (or outgrows ENCL_R_MAX) at some level is cut in four and pushed again, while the cells pushed stay within
+  // ENCL_CELLS_MAX. A cell that cannot be cut makes every level from its failure on the whole plane. A cell whose disc
+  // D(c, rho) lies in {|z| >= s}, s = (|c| - rho) rounded down and s >= escR (reptEscR), is pushed no further: at every
+  // later level r' it lies in {|z| >= s REPT_ESC_GROW^(r' - r)} (each step rounded down, at most ENCL_R_MAX). E_r's box
+  // holds every disc pushed to level r and its esc is the least escape bound at r (each cell's discs and escape sets
+  // enclose its points' images, and the cells cover b).
+  // (cached by P, Q, n and the box, ENCL_CACHE of them: the enclosure does not depend on the view, and a pan or zoom
+  // prepares the shape again)
+  const ENCL_CACHE = 8, enclCache = new Map();
+  function reptEnclose(P, Q, n, b, escR = null) {
+    const key = JSON.stringify([P, Q, n, b.x0, b.x1, b.y0, b.y1, escR]);
+    const hit = enclCache.get(key);
+    if (hit) { enclCache.delete(key); enclCache.set(key, hit); return hit.map((e) => e && Object.assign({}, e)); }
+    const E = reptEncloseNew(P, Q, n, b, escR);
+    enclCache.set(key, E.map((e) => e && Object.assign({}, e)));
+    if (enclCache.size > ENCL_CACHE) enclCache.delete(enclCache.keys().next().value);
+    return E;
+  }
+  function reptEncloseNew(P, Q, n, b, escR) {
+    const E = [Object.assign({ esc: 0 }, b)];
+    for (let r = 1; r <= n; r++) E.push({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, esc: 0 });
+    // the escape bounds of a cell in {|z| >= s} at level r0, at r0 and every later level
+    const escape = (s, r0) => {
+      for (let r = r0; r <= n; r++, s *= REPT_ESC_GROW * (1 - ENCL_EPS)) {
+        if (r === 0) continue;
+        const sr = Math.min(s, ENCL_R_MAX);
+        E[r].esc = E[r].esc > 0 ? Math.min(E[r].esc, sr) : sr;
+      }
+    };
+    if (![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return E.map(() => null);
+    let open = n + 1;                         // levels from here on are the whole plane
+    const Pa = Float64Array.from(P.flatMap((c) => [c.re, c.im])), Qa = Float64Array.from(Q.flatMap((c) => [c.re, c.im])), o = new Float64Array(24);
+    const size = Math.abs(b.x0) + Math.abs(b.x1) + Math.abs(b.y0) + Math.abs(b.y1);
+    const hx = (b.x1 - b.x0) / ENCL_GRID, hy = (b.y1 - b.y0) / ENCL_GRID, queue = [];
+    for (let i = 0; i < ENCL_GRID; i++) for (let j = 0; j < ENCL_GRID; j++) queue.push([b.x0 + i * hx, b.y0 + j * hy, hx, hy]);
+    let pushed = 0;
+    for (let qi = 0; qi < queue.length; qi++) {
+      const [x, y, w, h] = queue[qi];
+      pushed++;
+      let cr = x + w / 2, ci = y + h / 2, cR = (Math.hypot(w, h) / 2 + ENCL_EPS * size) * ENCL_UP, fail = 0;
+      const discs = [];
+      let esc = -1;
+      for (let r = 0; r < open; r++) {
+        const s = (mag(cr, ci) - cR) * (1 - ENCL_EPS);
+        if (escR != null && s >= escR) { esc = r; escape(s, r); if (r > 0) discs.length -= 4; break; }
+        if (r + 1 >= open) break;
+        if (!dStep(o, Pa, Qa, cr, ci, cR) || !(mag(o[0], o[1]) + o[2] < ENCL_R_MAX)) { fail = r + 1; break; }
+        cr = o[0]; ci = o[1]; cR = o[2];
+        discs.push(cr - cR, cr + cR, ci - cR, ci + cR);
+      }
+      if (esc >= 0) fail = 0;
+      if (fail && pushed + queue.length - qi - 1 + 4 <= ENCL_CELLS_MAX) {
+        const w2 = w / 2, h2 = h / 2;
+        queue.push([x, y, w2, h2], [x + w2, y, w2, h2], [x, y + h2, w2, h2], [x + w2, y + h2, w2, h2]);
+        continue;
+      }
+      if (fail) open = Math.min(open, fail);
+      for (let k = 0; 4 * k < discs.length; k++) {
+        const e = E[k + 1];
+        e.x0 = Math.min(e.x0, discs[4 * k]); e.x1 = Math.max(e.x1, discs[4 * k + 1]);
+        e.y0 = Math.min(e.y0, discs[4 * k + 2]); e.y1 = Math.max(e.y1, discs[4 * k + 3]);
+      }
+    }
+    return E.map((e, r) => (r >= open ? null : e));
+  }
+  // a Repeat built step (Funcs.repeatBuilt) whose block is one step with a rational form P/Q of degree REPT_DEG,
+  // deg P = REPT_DEG > deg Q -> {P, Q} (high-first, padded), or null
+  function reptForm(b) {
+    const rp = b.repeat, blk = rp && rp.block;
+    if (!rp || !blk || blk.length !== 1 || rp.n < 2 || rp.n > REPEAT_COPIES_MAX) return null;
+    const s = blk[0];
+    if (!s || s.error || !s.def || s.repeat || s.__homOps) return null;
+    let P = null, Q = null;
+    const id = s.def.id, v = s.vals || {};
+    if (id === 'custom') {
+      let ast = s.ast;
+      if (!ast) { try { ast = Expr.parse(v.expr); } catch (e) { return null; } }
+      for (const vv of Expr.usesVars(ast)) if (vv !== 'z') return null;
+      if (Expr.hasBool(ast)) return null;
+      const rf = rationalForm(ast);
+      if (!rf.ok || rf.removed.length) return null;
+      P = rf.P; Q = rf.Q;
+    } else if (id === 'poly') { P = CX.polyTrim(v.co); Q = [ONE]; }
+    else return null;
+    if (P.length - 1 !== REPT_DEG || Q.length - 1 >= REPT_DEG || isZero(P[0]) || !P.concat(Q).every(isFin)) return null;
+    return { P: padTo(P, REPT_DEG + 1), Q: padTo(Q, REPT_DEG + 1) };
+  }
+  // the op: p = {P, Q, n, escR (reptEscR)}; its members come from Inverse.enumerate's search (rept), not from pre(); pre lists the leaves
+  // of a point's search, first certified ones in search order, at most REPT_PRE_CAP (the singular points' pull-backs)
+  const REPT_PRE_CAP = 64;
+  function opRept(P, Q, n, fwd) {
+    const pre = (w) => {
+      const out = [];
+      const go = (v, dv, depth, J) => {
+        const nd = reptNode(P, Q, v, dv);
+        if (!nd) return;
+        for (let i = 0; i < REPT_DEG && out.length < REPT_PRE_CAP; i++) {
+          const J2 = mul(J, nd.d[i]);
+          if (depth + 1 === n) out.push(ONEM(nd.z[i], J2, { m: out.length }));
+          else go(nd.z[i], nd.rho[i], depth + 1, J2);
+        }
+      };
+      if (isFin(w)) go(w, 0, 0, ONE);
+      return out;
+    };
+    return op('REPT', { P, Q, n, escR: reptEscR(P, Q) }, fwd, { fam: { type: 'rept', count: REPT_DEG ** n }, pre });
+  }
+
+  // =====================================================================================================
   // 2. Catalog decomposition (SPEC 3.3)
   // =====================================================================================================
   const INEL = (reason) => ({ ok: false, reason });
@@ -500,6 +857,9 @@ const InvOps = (() => {
         return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 2)`);
       }
       case 'custom': {
+        // a Repeat of one step of degree REPT_DEG: one REPT op for every copy
+        const rf = b.repeat ? reptForm(b) : null;
+        if (rf) return OK([opRept(rf.P, rf.Q, b.repeat.n, b.f)]);
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
         if (b.rec) {
           const ops = [];
@@ -985,7 +1345,9 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm,
+    REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
+    ENCL_EPS, ENCL_CELLS_MAX, REPT_ESC_GROW, opRept, reptForm, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEval, reptEscR, reptEscF
   };
 })();
 import { CX } from './cx.js';

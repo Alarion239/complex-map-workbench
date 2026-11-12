@@ -7,6 +7,9 @@
 //   own frame draws with, svLinkHold, of the frame's B class), never the carried mesh's for "inverse pass pending";
 // - colour plane 0, plane 1 parked: once __cmwSteps().ready, plane 1 is drawn by the inverse pass (ready counts the
 //   chain's programs still linking, those started by a draw included, and the left pane's frame after one lands);
+// - Newton's method for z³ − 1 repeated twenty times (a REPT plan, Inside regions), plane 1 parked: once the parked
+//   settle is met (ready and the left pane's frame not pending), the REPT draw has composed its picture
+//   (__cmwRept({ tileStats }): a composite) and no inverse pass threw (its query program links late too);
 // - control: the links were late (__lateLinks: links made, and status polls answered not yet);
 // - on a fresh page, colour plane 0, plane 1 parked at once and ready sampled in the page until plane 1 is the inverse
 //   pass's: ready never reads true while plane 1 is the carried meshes' stand-in (ready counts the inverse program that
@@ -19,9 +22,10 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
-// ms a link reads not complete; the waits (ms) for a page, for the chain's programs and for a glide's frame
-const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000;
-const NEWT_EX = 'Partial sums of the exponential', GLIDE_U = 0.5;
+// ms a link reads not complete; the waits (ms) for a page, for the chain's programs, for a glide's frame and for the parked plane
+const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000, PARKED_MS = 60000;
+const NEWT_EX = 'Partial sums of the exponential', REPT_EX = 'Newton’s method for z³ − 1', GLIDE_U = 0.5;
+const PARKED_DRAWN = "__cmwSteps().ready && __cmwSteps().ready.ready && !(__cmwPaneStatus('L') || { pending: true }).pending";
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
 try {
@@ -49,6 +53,24 @@ try {
     const rest = await ev('JSON.parse(JSON.stringify(__cmwSteps().rest))');
     ok(`${NEWT_EX}, colour plane 0: once ready, the parked plane 1 is drawn by the inverse pass`, r2.ok && !!rest && rest.a === 1 && rest.path === 'inverse', { rest, wait: r2 });
     info.newt = { ready: r0, glide: g, rest };
+  }
+  // the repeated Newton step, Inside regions, plane 1 parked
+  {
+    const ex = names.indexOf(REPT_EX);
+    ok(`${REPT_EX}: the example is found`, ex >= 0, names.length);
+    await go(`${BASE}/test.html?ns=lr${Date.now()}&lang=en&view=steps`);
+    await settled({ max: READY_MS, until: loaded });
+    await ev(`__cmwExample(${ex}), 1`); await settled({ max: READY_MS, panes: false });
+    await ev("__cmwSteps({ scope: 'in' }), 1"); await settled({ max: READY_MS, panes: false });
+    await ev('__cmwRept({ tileStats: true })');
+    await ev('__cmwSteps({ go: 1, now: true }), 1'); await settled({ max: READY_MS, until: '!__cmwSteps().anim && !__cmwSteps().play' });
+    const st = await settled({ max: PARKED_MS, until: PARKED_DRAWN });
+    const tiles = await ev('__cmwRept({ tileStats: true })');
+    const threw = logs(false).map((l) => String(l.m || '')).filter((m) => /inverse pass failed/.test(m)).map((m) => m.slice(0, 200));
+    ok(`${REPT_EX}, Inside regions: the parked settle is met within ${PARKED_MS} ms`, st.ok, st.busy);
+    ok(`${REPT_EX}, Inside regions: once settled, the REPT draw has composed the parked plane`, !!tiles && tiles.composites >= 1, tiles);
+    ok(`${REPT_EX}, Inside regions: no inverse pass threw`, threw.length === 0, threw);
+    info.rept = { settle: st, tiles };
   }
   const late = await ev('window.__lateLinks || null');
   ok('control: the links were late (links made, and status polls that found one not complete)', !!late && late.links > 0 && late.early > 0, late);

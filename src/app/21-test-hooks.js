@@ -55,7 +55,7 @@
   // the SphereMesh verdict (SPEC 8.1) of every visible area shape for the right pane's map (12.3: invariant under right-view zooms)
   window.__cmwSmVerdict = (role = 'R') => S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area').map((s) => ({ id: s.id, why: smNeed(s, gpu.get(s.id), role, normalizeMap(stageMap(role === 'SV' ? svStage() : role === 'R' ? rightStage() : leftStage()))) }));
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
-  // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
+  // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, rept, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   window.__cmwPaths = () => {
     const views = [], out = [];
@@ -244,6 +244,53 @@
   window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
   window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
+  // a Repeat chain's exact plane (#1472): o.nodes sets the GPU's node budget of a REPT search (GLR.setReptNodes; 0: its
+  // own), o.poison a non-finite root at every first node ('nan' | 'inf'; null: none; GLR.setReptPoison), for the
+  // unresolved hatch's controls; o.tiles the root solves of a REPT draw's tile (GLR.setReptTileSolves; 0: its own),
+  // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
+  // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
+  // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
+  // o.land: the Landscape mask's unresolved pixels
+  // (null: no mask); o.ws [[re, im]]: the CPU
+  // twin of the left plane's REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the
+  // most and the total root solves, the pruned children, and the pixels covered, empty and unresolved
+  window.__cmwRept = (o) => {
+    if (o && o.tileStats) return GLR.reptTiles();
+    if (o && o.lose) {
+      const x = GLR.gl && GLR.gl.getExtension('WEBGL_lose_context');
+      if (!x) return false;
+      x.loseContext(); setTimeout(() => x.restoreContext(), 0);
+      return true;
+    }
+    if (o && 'ci' in o) { setShapes(S.shapes.map((s, i) => (i === 0 ? Object.assign({}, s, { ci: o.ci }) : s))); requestRender('L', 'R'); return 1; }
+    if (o && ('nodes' in o || 'poison' in o || 'tiles' in o || 'fast' in o || 'holdB' in o)) {
+      if ('fast' in o) GLR.setReptFastNodes(o.fast);
+      if ('holdB' in o) GLR.holdReptB(o.holdB);
+      if ('nodes' in o) GLR.setReptNodes(o.nodes);
+      if ('poison' in o) GLR.setReptPoison(o.poison);
+      if ('tiles' in o) GLR.setReptTileSolves(o.tiles);
+      svLandMaskC = null; requestRender('L', 'R');
+    }
+    if (o && o.land) return { unresolved: svLandMaskC ? svLandMaskC.unres : null };
+    if (!o || !o.ws) return null;
+    const map0 = stageMap(leftStage()), pix = 1 / (paneL.view.s * paneL.dpr), out = [];
+    for (const s of S.shapes) {
+      const m = shapeMap(s, map0), p = m && pathOf(s, m, 'L');
+      if (!p || p.path !== 'inverse' || !p.plan.ops.some((x) => x.kind === 'REPT')) continue;
+      const r = { shape: s.id, nodesMax: 0, nodes: 0, pruned: 0, covered: 0, empty: 0, unresolved: 0 };
+      for (const [re, im] of o.ws) {
+        const e = Inverse.enumerate(p.plan, p.prep, C(re, im), pix, { leaves: false }).rept;
+        r.nodesMax = Math.max(r.nodesMax, e.nodes); r.nodes += e.nodes; r.pruned += e.pruned;
+        if (e.verdict > 0) r.covered++; else if (e.verdict === 0) r.empty++; else r.unresolved++;
+      }
+      out.push(r);
+    }
+    return out;
+  };
   // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
   window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { hear: SND && SND.hear ? SND.hear.state() : null, glide: SND ? !!SND.state().glide : false, rope: snd.rope ? [snd.rope.x, snd.rope.y, snd.rope.src] : null, ptype: snd.ptype, listenFn: snd.play && snd.play.fn ? { counts: snd.play.h.counts || null, dur: snd.play.dur, mode: snd.play.h.mode || '' } : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
   // v16 constructions (CORE): the graph's order, the forms, the last recompute, the events; o.call runs a cm call,

@@ -79,6 +79,21 @@
     }
     return p;
   }
+  // the unresolved pixels of the area shapes that map draws by a REPT plan, hatched over the frame open in pane: a region
+  // mask's pass leaves them uncovered and marks them (drawScene's opt.fills, GLR.drawInverse), so the picture painted
+  // through the mask shows them here
+  function reptHatch(pane, map) {
+    if (reptExact(map) && GLR.reptHatchFill) GLR.reptHatchFill(pane.dpr);
+  }
+  // whether map's exact plan is a REPT op (a Repeat chain drawn by its certified root search): a shape's outline is then
+  // not drawn as its boundary carried forward, which the copies' expansion turns to noise at any polyline's resolution;
+  // the exact fill's own edge is the outline (svOutlines, the colour plot's outlines)
+  function reptExact(map) {
+    const m = normalizeMap(map);
+    if ((m.mode || 0) !== 0) return false;
+    const plan = invPlan(m.a || 0, m.b || 0);
+    return plan.ok && plan.ops.some((o) => o.kind === 'REPT');
+  }
   // the shape-level preparation (SPEC 3.6) and the image box of the scissor (4.8), cached by plan, clipWin and shape;
   // prepMs: the preparation work of the current frame (SPEC 10.2: past 4 ms, an uncached bounded shape waits a frame)
   const invPreps = new Map(), invSings = new Map();
@@ -335,8 +350,9 @@
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
-  // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
-  // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
+  // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, rept (a REPT draw of it still drawing
+  // its tiles, one cause of pending), compiling, error, exact (shapes it drew with a stand-in while their inverse program
+  // compiled), t}. frameStatus() is the last begin's or viewport's, which
   // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
@@ -508,7 +524,9 @@
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
-    paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
+    const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
@@ -642,7 +660,7 @@
           res = GLR.drawInverse({
             map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
             look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch: { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) } },
-            scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender,
+            scissor: sc, half: true, halfPre: true, motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0,
           });
         } catch (err) { res = 'error'; }
         if (res !== 'drawn') break;                             // drawn in the main pass, from here on
@@ -709,7 +727,7 @@
             res = GLR.drawInverse({
               map: p.m, plan: p.plan, prep: p.prep, shape: s, viewKind: 'flat', view: pane.view, dpr: pane.dpr,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch },
-              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender,
+              scissor: sc, half: !!(gf && gf.half), motion: live && interacting(), coldOk: offRender, rept: opt.fills ? 1 : 0, whole: offRender,
             });
           } catch (err) { if (!invThrew) { invThrew = true; console.error('exact images: inverse pass failed; drawing forward', err); } }
           if (res === 'drawn') {
