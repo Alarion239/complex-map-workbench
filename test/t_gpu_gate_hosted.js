@@ -30,7 +30,7 @@ const machines = (machinesIn, mode) => {
 if (m) {
   ok('windows-hosted, glprof: the hosted machine', machines('windows-hosted', 'glprof').out === 'machines=["Windows-hosted"]', machines('windows-hosted', 'glprof'));
   const g = machines('windows-hosted', 'gate');
-  ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /glprof only/.test(g.err), g);
+  ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /modes glprof and fxc only/.test(g.err), g);
   // (#169: the Windows desktop is on request only: only windows and both send it jobs, they would wait while it is off)
   const quiet = (r) => r.status === 0 && !/::(error|warning)::/.test(r.err);
   for (const mode of ['gate', 'glprof', 'suites']) {

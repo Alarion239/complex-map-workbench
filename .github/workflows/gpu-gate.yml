@@ -58,9 +58,9 @@ on:
         type: boolean
         default: false
       mode:
-        description: gate (the paired gates), glprof (the app's shader link times, cold and warm, issue #72; no gate) or suites (only the browser suites named by the input suites, on the Mac; no gate)
+        description: gate (the paired gates), glprof (the app's shader link times, cold and warm, issue #72; no gate), suites (only the browser suites named by the input suites, on the Mac; no gate) or fxc (ci/fxc_time.js: the programs of the input bundle linked one at a time, as captured and in variants, on the Windows machines)
         type: choice
-        options: [gate, glprof, suites]
+        options: [gate, glprof, suites, fxc]
         default: gate
       suites:
         description: 'Mode suites: a regular expression of browser suite file names, as ci/browser.js --only (e.g. ^steps_glide_look_cmd); required then'
@@ -76,6 +76,10 @@ on:
         type: choice
         options: [none, unroll]
         default: none
+      bundle:
+        description: 'Mode fxc: the program bundle (ci/fxc_time.js capture), a path in the repository'
+        required: false
+        default: ci/fxc/bundle.json
       glsl:
         description: 'Mode gate: all (the GLSL and quality jobs, then perf) or skip (perf alone: on Windows a by-hand run''s GLSL tier takes about 7 hours before perf starts)'
         type: choice
@@ -165,7 +169,7 @@ jobs:
             both) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
             # (GitHub's Windows machine: shader link times only, the gates need our GPUs)
             windows-hosted)
-              if [ "${{ inputs.mode }}" != glprof ]; then echo "::error::machines windows-hosted runs mode glprof only"; exit 1; fi
+              if [ "${{ inputs.mode }}" != glprof ] && [ "${{ inputs.mode }}" != fxc ]; then echo "::error::machines windows-hosted runs modes glprof and fxc only"; exit 1; fi
               echo 'machines=["Windows-hosted"]' >> "$GITHUB_OUTPUT" ;;
             mac) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
             *) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
@@ -234,6 +238,36 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  # (mode fxc, by hand: ci/fxc_time.js on each Windows machine: the bundle's programs linked one at a time in Chrome with the
+  # program cache off, as captured and in variants; the budget keeps the job under about 90 minutes)
+  fxc:
+    name: FXC link times (${{ matrix.machine }})
+    needs: plan
+    if: inputs.mode == 'fxc'
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+    runs-on: ${{ fromJSON(matrix.machine == 'Windows-hosted' && '"windows-latest"' || format('["self-hosted","{0}","gpu"]', matrix.machine)) }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '--require-angle d3d11' }}
+      - run: node ci/fxc_time.js time --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: fxc-${{ matrix.machine }}
+          path: .ci/fxc/
+          if-no-files-found: ignore
+          retention-days: 30
+
   # (mode suites, by hand: the browser suites the regex names, on the Mac's GPU, at the dispatched ref; the summary and the log
   # carry ci/browser.js's table, and the job fails when a suite does)
   suites:
@@ -272,7 +306,7 @@ jobs:
     name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
     needs: plan
     # (glsl skip, by hand: no GLSL and no quality jobs, the perf shards start at once; a measurement, not the full gate)
-    if: inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.glsl != 'skip'
+    if: inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.mode != 'fxc' && inputs.glsl != 'skip'
     strategy:
       fail-fast: false
       matrix:
@@ -309,7 +343,7 @@ jobs:
     needs: [plan, glsl]
     # (!cancelled(), not always(): a failed GLSL job still lets quality run, a cancelled run stops here; always() is
     # true after a cancel too: cancelled run 41015822380 still queued its quality job on our machines)
-    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.glsl != 'skip' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.mode != 'fxc' && inputs.glsl != 'skip' }}
     strategy:
       fail-fast: false
       matrix:
@@ -338,7 +372,7 @@ jobs:
   perf:
     name: Perf (${{ matrix.machine }} GPU, ${{ matrix.shard }})
     needs: [plan, quality]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.mode != 'suites' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.mode != 'fxc' }}
     strategy:
       fail-fast: false
       matrix:
@@ -371,7 +405,7 @@ jobs:
 
   gate:
     name: GPU gate
-    if: always() && needs.plan.result != 'skipped' && inputs.mode != 'glprof' && inputs.mode != 'suites'
+    if: always() && needs.plan.result != 'skipped' && inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.mode != 'fxc'
     needs: [plan, glsl, quality, perf]
     runs-on: ubuntu-latest
     timeout-minutes: 5
