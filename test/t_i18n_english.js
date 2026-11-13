@@ -11,8 +11,8 @@ const ROOT = path.join(__dirname, '..');
 const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
 const MODS = ['cx', 'symbolic', 'parse', 'derivs', 'natpaths', 'sheets', 'formulasteps', 'funcs', 'invops', 'invpatterns', 'inverse', 'calc', 'glsl', 'regionlines', 'region', 'curves'];
 const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', curves: 'Curves' };
-// (src/ no longer checks whether a module is there, issue #20 phase 3: src/'s contexts get the stand-ins of
-// test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which had none, so both
+// (src/ does not check whether a module is there: src/'s contexts get the stand-ins of
+// test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which has none, so both
 // sides offer the same)
 const NO_RECOGNIZER = require('fs').readFileSync(path.join(__dirname, 'module_stubs.js'), 'utf8');
 function load(dir, files) {
@@ -142,10 +142,10 @@ const newIds = Object.keys(vm.runInContext('Funcs.DEFS', now)).filter((id) => !O
 const isNew = (label) => newIds.some((id) => label === `def ${id}` || label.startsWith(`${id}#`));
 const b = probe(now, path.join(ROOT, 'src'), baseKinds).filter(([label]) => !isNew(label));
 let fails = 0;
-// (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
+// (an intended difference in the English: a typed step is a "Formula", where the base says "Custom formula";
 // notes/ux-build/w1-chain-AS-BUILT.md)
 const intended = (s) => s.replace(/Custom formula/g, 'Formula');
-// (#38, another intended change: a half-plane reads in words, "left of the line from a to b", no longer as
+// (another intended difference: a half-plane reads in words, "left of the line from a to b", where the base reads
 // Im((z − a)/(b − a)) > 0)
 const inWords = (k, s) => /^tex halfplane /.test(k) && /^\\text\{left of the line from \} \S+ \\text\{ to \} \S+$/.test(s);
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }

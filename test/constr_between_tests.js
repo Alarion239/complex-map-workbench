@@ -174,7 +174,7 @@ module.exports = function ({ K, ok }) {
     const qa = piece(a).seg, qb = piece(b).seg;
     ok(bits(qa.ends[0], qb.ends[0]) && bits(qa.ends[1], qb.ends[1]) && qa.u0 === qb.u0 && qa.D === qb.D && byId(b, 'k').def.between === 1, 'between: save, load and recompute are bitwise');
     ok(K.describe && K.describe(a, 'k') && K.describe(a, 'k').between === 1, 'between: describe has between');
-    // the build before this one (v16.3): validate keeps the key and recompute draws the whole circle
+    // the frozen copy of constr.js (K163): validate keeps the key and recompute draws the whole circle
     const o = scene(UNIT(), P, Q, BTW);
     K163.validate(o); K163.recompute(o, { all: true }, {});
     const ko = byId(o, 'k'), po = K163.pieces(ko)[0];

@@ -7,7 +7,11 @@
     delete o.hideLeft; delete o.hideRight;
     // (review math-10: the recipient sees the same picture: the Landscape camera, relative to its fit, and the
     // deformation at its t; read once at load, never kept in the saved state)
-    o.figCam = { yaw: cam.yaw, pitch: cam.pitch, d: cam.dist / CAM3.dist, tx: cam.tx, ty: cam.ty };
+    // (the camera of the surface the steps view shows: the z-globe's camL when it shows the sphere, else the Landscape's cam;
+    // `of` names it, and a figCam without it is the Landscape's)
+    const onGlobe = SV.on && SV.surf === 'sphere', c = onGlobe ? camL : cam, base = onGlobe ? CAML : CAM3;
+    o.figCam = { yaw: c.yaw, pitch: c.pitch, d: c.dist / base.dist, tx: c.tx, ty: c.ty };
+    if (onGlobe) o.figCam.of = 'sphere';
     o.figMorph = morph.open ? { T: morph.T } : null;
     return o;
   }
@@ -152,9 +156,9 @@
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
-    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R', 'T'); });
+    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R'); });
     GLR.init();
-    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); requestRender('L', 'R', 'T'); };
+    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); requestRender('L', 'R'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
     GLR.onLost = () => requestRender('L', 'R');
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
@@ -182,8 +186,7 @@
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
-      // (thumbnails too: one drawn forward before an inverse program landed is redrawn; the others hit their cache)
-      if (!w || w.main) { requestRender('L', 'R'); requestRender('T'); prestartModesIdle(); }
+      if (!w || w.main) { svRedrawDue = true; requestRender('L', 'R'); prestartModesIdle(); }
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
@@ -194,6 +197,7 @@
     paneR = new Pane($('canvasR'), $('overlayR'));
     warmKick();
     const loaded = load();
+    let svMorphT = null;   // a link's figMorph time, for the steps view to take as its place
     setState(loaded || blankState());
     if (!Array.isArray(S.params)) setParams([]);
     attachParams();
@@ -222,7 +226,6 @@
     if (Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
     setupHeader();
     setupViewControls();
-    setupMorphButton();
     setupSections();
     setupGutters();
     setupTooltips();
@@ -236,7 +239,6 @@
     setupShell();
     applyLayout();
     setupPaneButtons();
-    setupChainHead();
     setupDrawControls();
     setupHeaderButtons();
     setupEscSound();
@@ -246,7 +248,7 @@
     // (a notice whose theme is the one already read is skipped: the export's one-off read of the light tokens)
     const themeKey = () => `${document.documentElement.getAttribute('data-theme')}|${document.documentElement.className}|${matchMedia('(prefers-color-scheme: dark)').matches}`;
     let themeSeen = themeKey();
-    const themeChanged = () => { const k = themeKey(); if (k === themeSeen) return; themeSeen = k; readTheme(); buildDisplay(); buildShapeList(); drawLegend(); for (const k in rulerCache) rulerCache[k] = null; requestRender('L', 'R', 'T'); };
+    const themeChanged = () => { const k = themeKey(); if (k === themeSeen) return; themeSeen = k; readTheme(); buildDisplay(); buildShapeList(); drawLegend(); for (const k in rulerCache) rulerCache[k] = null; requestRender('L', 'R'); };
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChanged);
     new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
 
@@ -254,7 +256,7 @@
       try {
         rebuild();
         buildShapeList();
-        buildPipeline();
+        chainRebuilt();
         hist = [snap()]; hi = 0;
         // after a language switch, the undo history comes back too (I18N.onSwitch above)
         let swUi = null;
@@ -266,25 +268,26 @@
         // keeps the selection, review russian-6 and verify-8)
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
-        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
+        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { deleteOpt('deform'); openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
         if (S.figCam) {
           const c = S.figCam;
-          if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { cam.yaw = c.yaw; cam.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); cam.dist = c.d * CAM3.dist; cam.tx = Number.isFinite(c.tx) ? c.tx : 0; cam.ty = Number.isFinite(c.ty) ? c.ty : 0; }
+          if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { const to = c.of === 'sphere' ? camL : cam, base = c.of === 'sphere' ? CAML : CAM3; to.yaw = c.yaw; to.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); to.dist = c.d * base.dist; to.tx = Number.isFinite(c.tx) ? c.tx : 0; to.ty = Number.isFinite(c.ty) ? c.ty : 0; }
           deleteOpt('figCam');
         }
         if ('figMorph' in S) {
           const fm = S.figMorph;
           deleteOpt('figMorph');
-          if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); } }
+          // (the steps view has no Morph transport: the time is its place along the chain, set once the view is set up)
+          if (fm && Number.isFinite(fm.T) && SV.on) { if (!S.sv) svMorphT = fm.T; } else if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); } }
         }
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
           if (swUi.lamp) openLamp = swUi.lamp;
           if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
-          if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
+          if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); }
           // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
@@ -318,6 +321,7 @@
     // build/phone-swap.md)
     if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     setupStepsView();   // ((#366 prototype) ?view=steps)
+    if (svMorphT != null) { svPlaceAt(svMorphT); svMorphT = null; }
     tourWire();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)

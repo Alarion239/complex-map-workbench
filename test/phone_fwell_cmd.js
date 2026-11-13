@@ -32,7 +32,7 @@ for (const [w, h, lang] of [[390, 844, 'en'], [360, 740, 'ru'], [360, 740, 'it']
   const at = `${w} ${lang}`;
   await open(w, h, lang, true, `fw${w}${lang}${Date.now()}`);
   ok(`${at}: MathJax loaded`, await ev(`typeof MathJax !== 'undefined' && !!MathJax.tex2svg`), null);
-  await ev(`document.querySelector('#pipeline .ftile').click(); 1`); await settle(1200);
+  await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`);
   await ev(`Phone.open('edit'); 1`); await settle(2500);
   const g = await well(); info[at] = g;
   whole(at, g);
@@ -40,11 +40,11 @@ for (const [w, h, lang] of [[390, 844, 'en'], [360, 740, 'ru'], [360, 740, 'it']
   // the phone turns: the sheet closed, the view landscape, the sheet opened again
   await ev(`Phone.close(true); 1`); await settle(500);
   await view(h, w, false, true); await settle(1500);
-  await ev(`document.querySelector('#pipeline .ftile') && document.querySelector('#pipeline .ftile').click(); Phone.open('edit'); 1`); await settle(2500);
+  await ev(`document.querySelector('#svStrip .sv-wholemap').click(); Phone.open('edit'); 1`); await settled({ until: "!!document.querySelector('#propsPanel .iform .ftex')", max: 20000 });
   whole(`${at} landscape`, await well());
 }
 await open(1440, 900, 'en', false, `fwd${Date.now()}`);
-await ev(`document.querySelector('#pipeline .ftile').click(); 1`); await settle(1500);
+await ev(`document.querySelector('#svStrip .sv-wholemap').click(); 1`); await settled({ until: "!!document.querySelector('#propsPanel .iform .ftex')", max: 20000 });
 const d = await well(); info.desk = d;
 whole('1440 desk', d);
 ok('1440 desk: the short form', d && d.use === '1', d);

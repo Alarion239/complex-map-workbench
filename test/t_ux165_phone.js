@@ -1,9 +1,10 @@
-// v16.5 wave 1, the phone piece (notes/ux-build/w1-phone-AS-BUILT.md): the tour's touch wording and its keyboard chapter
-// (UX17), DOM-free. The browser side is test/ux165_phone_cmd.js. Run: node test/t_ux165_phone.js
+// The phone piece (notes/ux-build/w1-phone-AS-BUILT.md): the tour's touch wording and its keyboard chapter,
+// DOM-free. The browser side is test/ux165_phone_cmd.js. Run: node test/t_ux165_phone.js
 const fs = require('fs');
 const path = require('path');
 let COARSE = false;
 global.matchMedia = (q) => ({ matches: /pointer:\s*coarse/.test(q) ? COARSE : false, addEventListener() {}, removeEventListener() {} });
+globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
 const { Tour } = require('../src/tour.js');
 const T = Tour._t;
 let fails = 0, n = 0;

@@ -25,7 +25,8 @@
     const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const legIn = !!(leg && hd && leg.parentNode === hd);
     const tabsCut = () => !!tabs && (tabs.scrollWidth > tabs.clientWidth + 1 || [...tabs.children].some((b) => b.scrollWidth > b.clientWidth + 1));
-    if (legIn) { leg.classList.remove('glyph'); hd.classList.remove('tight', 'noled'); }
+    // (the steps view's head fit folds the chip itself, sv-lg: it stays folded)
+    if (legIn) { leg.classList.toggle('glyph', SV.on && hd.classList.contains('sv-lg')); hd.classList.remove('tight', 'noled'); }
     if (legIn && !leg.hidden && tabsCut()) {
       leg.classList.add('glyph');
       if (tabsCut()) { hd.classList.add('tight'); if (tabsCut()) hd.classList.add('noled'); }
@@ -99,7 +100,7 @@
     // (one title for the merged plane and the merged globe)
     // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
     // carry the "Y · " tag)
-    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && bracketWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
+    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && rangeWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
     else if (S.focus === 0) {
       // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
@@ -146,18 +147,12 @@
     syncViewControls();
     fitRightTitle();
     $('paneR').classList.toggle('no-rulers', !rImage());
-    $('rightFit').hidden = !rImage();
-    $('leftFit').hidden = false;
     buildRightFoot();
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.card'))) c.classList.toggle('focus', +c.dataset.k === S.focus);
-    syncSel();
-    $('viewAllBtn').setAttribute('aria-pressed', String(S.focus === 0));
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
     updateToolHint();
     updateLeds();
     drawLegend();
-    updateBracket();   // (v16: the deformation's bracket shows with the transport on the whole chain)
   }
   // segmented controls: mark the selected segment and move the sliding thumb
   // the sliding marker of the segmented controls is placed for every control that changed in one pass at the next
@@ -223,6 +218,7 @@
   function checkEl(id, checked, label, onchange, icon) {
     const inp = h('input', { type: 'checkbox', id, onchange: (e) => onchange(e.target.checked) });
     inp.checked = !!checked;
+    if (icon) inp.setAttribute('aria-label', label);   // (the icon form's word is hidden in the head: the name is the input's)
     if (!icon) return h('label', { class: 'check' }, inp, h('span', null, label));
     return h('label', { class: 'check ic-tg', 'data-tip': label }, inp, h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: icon }), h('span', { class: 'tg-l' }, label));
   }
@@ -240,6 +236,11 @@
       b.setAttribute('aria-label', d[1]);
       b.removeAttribute('title');
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
+      // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
+      if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
+        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
+      }
     }
     return el;
   }
@@ -309,9 +310,12 @@
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
   // (#247) on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
   // X's; a phone's Display sheet lends it itself
-  const unitSide = () => (S.view.main === 'xy' ? 'R' : 'L');
+  // (the steps view has one head and one colour panel on every plane: only classic's X → Y view moves the unit circle
+  // and the regions' button to Y's head)
+  const pushHome = () => !SV.on && S.view.main === 'xy';
+  const unitSide = () => (pushHome() ? 'R' : 'L');
   // the regions' display (page.html's #regionsBox): the X → Y view's Regions pop-up, the steps view's ⋯ pop-up
-  const stepsRegions = () => SV.on && S.view.main !== 'xy';
+  const stepsRegions = () => SV.on;
   // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
   function unitHome(f) {
     const u = $('unitBox'), home = $('regionsHome');
@@ -326,6 +330,7 @@
       l.classList.add('ic-tg'); l.setAttribute('data-tip', $t('Unit circle'));
       const w = l.querySelector(':scope > span'); if (w) w.classList.add('tg-l');
       l.insertBefore(h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: ICONS.unit }), w);
+      const ui = l.querySelector('input'); if (ui) ui.setAttribute('aria-label', $t('Unit circle'));
     }
     return u;
   }
@@ -376,8 +381,10 @@
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
     // and the toggles, so the plane's title keeps its room)
-    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf');
-    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit ? [unit] : []), ...ft.kids.filter(isNote)] : ft.kids;
+    // (the steps view's head is the same on every plane: the style row stays inline and every other control is behind ⋯,
+    // whatever the title's width, so no control comes and goes as the shown plane changes)
+    const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note') || e.classList.contains('ovf') || (SV.on && !e.classList.contains('seg'));
+    const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit && !isNote(unit) ? [unit] : []), ...ft.kids.filter(isNote), ...(unit && isNote(unit) ? [unit] : [])] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
     // (#320: first a key of what the layout depends on that needs no layout read and no write: the head's and its key
@@ -406,7 +413,7 @@
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
-    const pat = inHead && S.view.main === 'xy' ? patternBtn(side) : null;
+    const pat = inHead && pushHome() ? patternBtn(side) : null;
     let n = kids.length;
     if (phone) n = 0;
     else {
@@ -489,29 +496,12 @@
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
   // opacity), lent while it is open)
   function patternBtn(side) {
-    const name = SV.on ? $t('Colouring') : $t('Regions');
+    const name = $t('Regions');
     const b = h('button', { class: 'btn opts-btn pat-btn', 'data-tip': name, 'aria-label': name, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
       h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
     drawPhaseSwatch(b.firstChild);
     b.addEventListener('click', () => openFootPop(b, false, side, true));
     return b;
-  }
-  // the colouring's picker for a plane past the colour plane: whose colouring it is (with a way to its plane), the style
-  // row, the sectors or grid step the style takes, and the regions' grid lines. The steps view has one colouring, so
-  // every plane follows what is picked; the rows after the style row are made again when the style changes
-  function colourPop() {
-    const T = svT(), P = svPlanes(), p = svNameHtml(T);
-    const rows = h('div', { class: 'cp-rows' });
-    const fill = () => rows.replaceChildren(...colourScrubs(false, 'Pop'),
-      checkEl('linesChkPop', S.lines, $t('Grid lines on regions'), (v) => { setOpt('lines', v); requestRender('L', 'R', 'T'); drawLegend(); save(); }));
-    const style = styleSeg('dcSegPop');
-    for (const b of style.children) b.addEventListener('click', () => fill());
-    fill();
-    const el = h('div', { class: 'field-col cp-pop' },
-      h('div', { class: 'lbl', html: $t('Colouring of {p} (the colour plane)', { p }) }),
-      h('button', { type: 'button', class: 'btn small cp-go', onclick: () => { closePalette(); svGo(P.indexOf(T)); } }, h('span', { html: $t('Go to {p}', { p }) })),
-      style, rows);
-    return { el };
   }
   function openFootPop(btn, refresh, side = 'R', regionsOnly = false) {
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
@@ -521,17 +511,16 @@
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
-    // (the steps view's plane past the colour plane: the Regions button opens the colouring's picker, not the regions' display)
-    const colour = regionsOnly && SV.on ? colourPop() : null;
-    const regions = !colour && (regionsOnly || (head && stepsRegions())) ? $('regionsBox') : null;
+    const regions = regionsOnly || (head && stepsRegions()) ? $('regionsBox') : null;
+    // (the steps view's Opacity slider is the one for S.alpha there: the regions' own row is left out)
+    if (regions) /** @type {HTMLElement} */ ($('alphaRange').closest('.fader-row')).hidden = SV.on;
+    if (regions) regionsNote();
     // (the regions' group, set apart by a rule and its name when other controls come before it in the pop-up)
     const regionsHead = regions && !regionsOnly && rest.length
       ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions'))] : [];
-    const kids = colour ? [...rest, colour.el] : regions ? [...rest, ...regionsHead, regions] : rest;
-    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : '') + (colour ? ' cp-wide' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
+    const kids = regions ? [...rest, ...regionsHead, regions] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : '') + (regionsOnly ? ' pat-pop' : ''), role: 'dialog', 'aria-label': regionsOnly ? btn.getAttribute('aria-label') : $t('Display options'), 'data-of': of, 'data-merged': regionsOnly && ft.merged ? '1' : null }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
-    // (the colouring's picker grows to fit its style row, up to the plot pane's width less a margin each side, then wraps)
-    if (colour) { const pn = btn.closest('.pane'); if (pn) pop.style.maxWidth = Math.max(300, pn.clientWidth - 32) + 'px'; }
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -567,7 +556,7 @@
   // surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so its two surfaces are
   // one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
   // The distinct sheets among the K combos of map m (window W): the first combo of each class of combos whose values
-  // agree at every probe point; null when no combo repeats an earlier one (all K are distinct) or a map has no combos.
+  // agree at every probe point (all of 0..K-1 when none repeats an earlier one).
   // The sheets of √ then log coincide in pairs, so the surfaces drawn are these combos only. Cached per chain, map, focus, window.
   const sheetUniqCache = new Map();
   function sheetUniq(m, W, K) {
@@ -582,22 +571,23 @@
       const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
       if (!reps.some((x) => x.every((w, i) => same(w, v[i])))) { reps.push(v); list.push(c); }
     }
-    r = { list: list.length < K ? list : null, D: list.length };
+    r = { list };
     if (sheetUniqCache.size > 32) sheetUniqCache.delete(sheetUniqCache.keys().next().value);
     sheetUniqCache.set(key, r);
     return r.list;
   }
-  // sheetUniq for map m as GLR.sheetInfo counts it: the combos drawn instead of 0..K-1, or null when all K are
+  // sheetUniq for map m as GLR.sheetInfo counts it (callers hold a multiSheet map, so GLR.sheetInfo exists)
   function sheetUniqOf(m, W) {
-    const si = GLR.ok && typeof GLR.sheetInfo === 'function' ? GLR.sheetInfo(m, W) : null;
-    return si ? sheetUniq(m, W, si.K) : null;
+    const si = GLR.sheetInfo(m, W);
+    return si ? sheetUniq(m, W, si.K) : [0];
   }
   function multiSheet() {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
+    // (a map GLR.sheetInfo cannot describe throws: no sheets)
     try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const m = endMap(), list = sheetUniq(m, ms.W, ms.K), D = list ? list.length : ms.K;
+    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
@@ -667,6 +657,7 @@
   // the title says "on the sheets of F" and the caption names the path on a sheet of each deformed root, power or log.
   function sheetsClause(sh, fmt, F) {
     const win = sh.pieces.some((q) => !(q.n > 0)), html = fmt === 'html', D = sh.D || sh.K, capped = sh.total > sh.K;
+    const nd = win ? D : sh.K;   // (the surfaces drawn: a window's coinciding combinations are one sheet)
     // (v16.1 verify-5: the window as drawn, centred on the step's own branch kb when every window piece has the same)
     const kbs = [...new Set(sh.pieces.filter((q) => !(q.n > 0)).map((q) => q.kb || 0))], kb = kbs.length === 1 ? kbs[0] : 0;
     const k = html ? `<i>k</i> = ${I18N.num(kb - sh.W).replace('-', '−')}…${I18N.num(kb + sh.W).replace('-', '−')}` : `k=${kb - sh.W},\\dots,${kb + sh.W}`;
@@ -675,15 +666,15 @@
       const Fh = fnHtml();
       if (capped) return win ? $t(', on {K} of the {total} sheet combinations of {F}, {k}', { K: sh.K, total: sh.total, F: Fh, k }) : $t(', on {K} of the {total} sheet combinations of {F}', { K: sh.K, total: sh.total, F: Fh });
       if (!win) return D === 2 ? $t(', on both sheets of {F}', { F: Fh }) : $tn(', on all {n} sheets of {F}', ', on all {n} sheets of {F}', D, { F: Fh });
-      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', sh.K, { k, F: Fh });
+      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', nd, { k, F: Fh });
     }
     if (html) {
       if (capped) return win ? $t(', {K} of {total} sheet combinations, {k}', { K: sh.K, total: sh.total, k }) : $t(', {K} of {total} sheet combinations', { K: sh.K, total: sh.total });
       if (!win) return D === 2 ? $t(', both sheets') : $tn(', all {n} sheets', ', all {n} sheets', D);
-      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', sh.K, { k });
+      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', nd, { k });
     }
     if (sh.hom) {
-      const p = { H: 'H_t', F: F || 'F', n: sh.K };
+      const p = { H: 'H_t', F: F || 'F', n: nd };
       const dk = sh.dk || {};
       // the paths on a sheet (a second sentence): z^alpha along z^sigma e^{2 pi i k sigma}, log along (z^u e^{2 pi i k u} - 1)/u + u,
       // in the caption's t when every piece deforms in it, else in the time s of the piece's own step (v16.1 verify-1:
@@ -702,7 +693,7 @@
     if (capped) return win ? { src: '; %{K} of the %{total} sheet combinations in the window %{k} are shown.', p: { K: sh.K, total: sh.total, k } } : { src: '; %{K} of the %{total} sheet combinations are shown.', p: { K: sh.K, total: sh.total } };
     if (!win) return D === 2 ? { src: '; both sheets are shown.', p: {} } : { src: null, p: { text: $tn('; all {n} sheets are shown.', '; all {n} sheets are shown.', D) } };
     if (sh.pieces.length === 1) return Number.isFinite(N) ? { src: '; the sheets %{k} of %{N} are shown.', p: { k, N } } : { src: '; the sheets %{k} of infinitely many are shown.', p: { k } };
-    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: sh.K, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: sh.K, k } };
+    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: nd, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: nd, k } };
   }
   // the Landscape title's sheets suffix, as both views' titles say it: which sheets are drawn (", both sheets"), or that one
   // is while a deformation with no sheet form shows; '' for the principal branch
@@ -744,7 +735,7 @@
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
-  function buildRightFoot() { buildFoot('L'); buildFoot('R'); buildDock(); setReadouts(probe); }
+  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); }
   // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
   const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
   function buildFoot(side) {
@@ -776,116 +767,6 @@
     ft.kids = [...f.children]; layoutFootSide('R', true);
     drawLegend();
   }
-  // the deformation transport (spec 6.11; merged-views.md: docked at the bottom of the view's panel, under the plot):
-  // play, the scrubber with a tick per step, t, speed, the path, Loop and Paths; x turns the deformation off
-  // the phone's Steps picker: which steps deform, as the button names it
-  function stepsLabel() {
-    const r = homRangeOk();
-    return r ? $t('Steps {f1}–{f2}', { f1: fUni(r.a), f2: fUni(r.b) }) : $t('Every step');
-  }
-  function buildDock() {
-    const side = S.view.main === 'xy' ? 'R' : 'L';
-    for (const sd of ['L', 'R']) {
-      const d = $(sd === 'L' ? 'tdockL' : 'tdockR');
-      if (!d) continue;
-      const on = morph.open && sd === side;
-      if (d.hidden === on) d.hidden = !on;
-      if (!on) { if (d.firstChild) d.replaceChildren(); continue; }
-      d.replaceChildren();
-      const f = d;
-
-      // the deformation transport (spec 6.11), in every view: play, the scrubber with a tick per step (one for all
-      // steps at once), t, speed, the order of the steps (two or more), Loop and the Paths toggle (P); × closes it
-      // and the view returns to t = end
-      const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
-      const play = h('button', { class: 'icon-btn play', id: 'morphPlay', 'data-tip': (morph.playing ? $t('Pause') : $t('Play')) + '  K', 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
-      const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': $t('Deformation time'),
-        onchange: () => sndScrubEnd(), onpointerup: () => sndScrubEnd(),
-        // (v16.2: the readout follows a paused scrub in every view; in Landscape or Phase alone Y's pane, whose render
-        // called syncTransport, is not drawn, so it kept the last played t)
-        oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; sndScrub(morph.T, v); morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); syncTransport(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
-      const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
-      if (allAtOnce()) {
-        const ks = morphRange().steps;
-        ticks.append(h('span', { class: 'ttick', style: 'left:50%', html: $t('<i>f</i>{x}, …, <i>f</i>{x2} at once', { x: sub(ks[0]), x2: sub(ks[ks.length - 1]) }) }));
-      } else morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
-      // the order of the steps (two or more): one after another (t in [0, m]) or all at once (t in [0, 1])
-      let order = null;
-      if (nSt > 1) {
-        order = selectEl('homOrderSel', allAtOnce() ? 'all' : 'steps', [['steps', $t('One after another')], ['all', $t('All at once')]], (v) => setHomAll(v === 'all'), $t('Deformation: the steps one after another or all at once'));
-        if (hasD) { order.disabled = true; order.value = 'steps'; order.dataset.tip = $t('d/dz is not a map: its step deforms on its own, so the steps run one after another'); }
-      }
-      // (v16, SPEC 6.6: with a bracket's pre or post, "f₁ →" and "→ f₄" around the scrubber, and the transport says so)
-      const rp = S.focus === 0 ? rangeParts() : null;
-      let scrub;
-      if (rp && (rp.pre.length || rp.post.length)) {
-        const ks = morphRange().steps;
-        const preTip = rp.pre.length ? $tn('{list} is applied first, in full', '{list} are applied first, in full', rp.pre.length, { list: stepRuns(rp.pre) }) : '';
-        const postTip = rp.post.length ? $tn('{list} is applied last, in full', '{list} are applied last, in full', rp.post.length, { list: stepRuns(rp.post) }) : '';
-        scrub = h('div', { class: 'tscrub tfixed' },
-          rp.pre.length ? h('span', { class: 'tfix tpre', 'data-tip': preTip, html: `${stepRuns(rp.pre, true)} →` }) : null,
-          h('div', { class: 'trail' }, rng, ticks),
-          rp.post.length ? h('span', { class: 'tfix tpost', 'data-tip': postTip, html: `→ ${stepRuns(rp.post, true)}` }) : null);
-        d.setAttribute('aria-description', [$tn('Deforming step {list}.', 'Deforming steps {list}.', ks.length, { list: stepRuns(ks) }), preTip && preTip + '.', postTip && postTip + '.'].filter(Boolean).join(' '));
-        // (a phone: the labels are left out once the range input would be under 120 px wide; the bracket above says the
-        // same. syncTransport checks it on the frames that follow; never shown again until the dock is rebuilt, so the
-        // scrubber does not flip between two widths)
-        if (brPhone()) {
-          scrub.dataset.fit = '1';
-          let nf = 0;
-          const tick = () => { if (!scrub.isConnected || !scrub.dataset.fit || ++nf > 40) return; const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } else requestAnimationFrame(tick); };
-          requestAnimationFrame(tick);
-        }
-      } else { scrub = h('div', { class: 'tscrub' }, rng, ticks); d.removeAttribute('aria-description'); }
-      // (v16, SPEC 6.7: the phone's Display sheet row, Deformed steps [f_a]–[f_b]; built but hidden on desktop)
-      let trow = null;
-      if (S.focus === 0 && activeSteps().length >= 2) {
-        const n = nSteps(), r = homRangeOk() || { a: 1, b: n }, dd = HR.lastDeriv();
-        // (review v16 user-4: each choice names its step, 'f₁ Exponential', and the row says where the deformation
-        // starts, as the desktop menu's key slot does)
-        const optName = (k) => { const st = S.steps[k - 1], d = st && Funcs.DEFS[st.type]; try { return st && d ? cardName(st, d) : ''; } catch (e) { return ''; } };
-        const opt = (k, dis) => { const nm = optName(k); const o = h('option', { value: String(k) }, nm ? `${fUni(k)} ${nm}` : fUni(k)); if (dis) o.disabled = true; return o; };
-        const sa = h('select', { class: 'sel', 'aria-label': $t('First deformed step'), onchange: (e) => { const a = +e.target.value, cur = homRangeOk() || { a: 1, b: nSteps() }; setHomRange({ a, b: Math.max(a, cur.b) }); } }, ...Array.from({ length: n }, (_, i) => opt(i + 1, false)));
-        const sb = h('select', { class: 'sel', 'aria-label': $t('Last deformed step'), onchange: (e) => { const b = +e.target.value, cur = homRangeOk() || { a: 1, b: nSteps() }; setHomRange({ a: Math.min(cur.a, b), b }); } }, ...Array.from({ length: n }, (_, i) => opt(i + 1, i + 1 < dd)));
-        sa.value = String(r.a); sb.value = String(r.b);
-        trow = h('div', { class: 'trange' }, h('span', { class: 'tr-label' }, $t('Deformed steps')), h('span', { class: 'tr-sels' }, sa, h('span', { class: 'tr-dash', 'aria-hidden': 'true' }, '–'), sb),
-          h('span', { class: 'tr-from', html: $t('from {v}', { v: subTags(rangeStart('html')) }) }),
-          dd > 1 ? h('span', { class: 'tr-note' }, $t('A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.')) : null);
-      }
-      const tread = h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout());
-      const speed = seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { setOpt('morphSecs', +v); save(); }, $t('Speed'));
-      const loop = checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { setOpt('loop', v); save(); sndToggleCue(!!v); });
-      // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
-      const paths = side === 'R' ? [pathsToggle(hasD)] : [];
-      // a phone: two rows (the scrubber the full width with the readout on its handle; below it play, the speed, Paths
-      // and the Steps picker, which holds the range, the order and Loop, and ×)
-      let kids;
-      if (brPhone()) {
-        const pick = h('div', { class: 'tpick', id: 'stepsPick', hidden: true }, ...(trow ? [trow] : []), ...(order ? [order] : []), loop);
-        const open = h('button', { class: 'tsteps', id: 'stepsBtn', type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': 'stepsPick', onclick: () => { pick.hidden = !pick.hidden; open.setAttribute('aria-expanded', String(!pick.hidden)); } }, stepsLabel());
-        scrub.append(tread);
-        kids = [play, scrub, speed, ...paths, open, pick];
-      } else kids = [play, scrub, tread, speed, ...(order ? [order] : []), loop, ...paths, ...(trow ? [trow] : [])];
-      f.append(...kids,
-        h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
-      paintFader(rng);
-      watchFader(rng);
-      // ([v16.5 fix regress-1] a row too tight for the readout in words: the short form, measured once here, where the
-      // dock is laid out anyway)
-      { const lab = /** @type {HTMLElement | null} */ (f.querySelector('#morphLabel')), tc = f.querySelector('.tclose');
-        if (lab && tc && play.getClientRects().length && tc.getBoundingClientRect().top > play.getBoundingClientRect().bottom - 4) { lab.dataset.short = '1'; setText(lab, morphReadout(true)); } }
-      // (v16: a phone's transport labels, measured once the dock is laid out: here, then on the next frames and renders)
-      if (scrub.dataset.fit) { const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } }
-    }
-  }
-  // the Paths toggle of the deformation (key P while the deformation shows in X → Y; the palette): the live paths
-  // t -> H_t(z) on the merged plane and globe, remembered in the saved state, and the figure's default
-  // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
-  function pathsToggle(hasD = morphHasDeriv()) {
-    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
-    syncPathsBtn(b, S.morphPaths !== false, hasD);
-    return b;
-  }
   // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
   // press does; off, with the reason, when there are no paths to draw (noPaths: a d/dz)
   function syncPathsBtn(b, on, noPaths) {
@@ -897,24 +778,6 @@
     // (a disabled button gets no pointer events, so its reason is also its description)
     const desc = noPaths ? tip : '';
     if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
-  }
-  function setMorphPaths(on) {
-    if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
-    setOpt('morphPaths', !!on);
-    const b = $('pathsBtn');
-    if (b) syncPathsBtn(b, !!on, b.disabled);
-    requestRender('R'); drawLegend(); save();
-    tourEmit('paths-toggled', { on: !!on });
-  }
-  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
-  function setHomAll(all) {
-    const before = morphLen();
-    setOpt('homAll', !!all);
-    const after = morphLen();
-    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
-    else if (!morph.open) morph.T = after;
-    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
-    tourEmit('order-changed', { all: !!S.homAll });
   }
   const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
@@ -928,7 +791,32 @@
     const out = [];
     if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
     if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+    if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
+  }
+  // a control that does not apply on the shown plane: in place, with the one disabled look and its reason as the tip
+  function disableCtl(el, reason) {
+    svDisableWhy(el, reason);
+    const inp = el.querySelector('input');
+    if (inp) { inp.disabled = true; inp.setAttribute('aria-description', reason); }
+  }
+  // the steps view's Opacity slider: svOpacity's range in whole percents, valuetext and the value beside it saying the
+  // percent; setFillOpacity (S.alpha's one setter) keeps it and the regions' own slider at one value
+  const opacityText = (v) => I18N.num(Math.round(v * 100)) + ' %';
+  function syncOpacityRange(rng) {
+    const v = svOpacity();
+    rng.value = String(v); rng.setAttribute('aria-valuetext', opacityText(v));
+    rng.nextElementSibling.textContent = opacityText(v);
+    paintFader(rng);
+  }
+  // (on the Landscape the sheets are opaque: the slider is there, disabled, after the Landscape's own controls, and its tip says so)
+  function opacityScrub(idSuffix, land) {
+    const rng = h('input', { type: 'range', class: 'sv-opacity', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, 'aria-label': $t('Opacity'), oninput: (e) => setFillOpacity(+e.target.value) });
+    const tip = land ? $t('The Landscape draws its sheets opaque; opacity applies to the plane.') : $t('How much the layers behind show through where the picture covers a point more than once.');
+    if (land) { rng.disabled = true; rng.setAttribute('aria-disabled', 'true'); rng.setAttribute('aria-description', tip); }
+    const row = h('label', { class: 'fader-row compact' + (land ? ' is-disabled' : ''), 'data-tip': tip }, h('span', { class: 'fl' }, $t('Opacity')), rng, h('span', { class: 'fval mono' }));
+    syncOpacityRange(rng);
+    return row;
   }
   function buildFootL(f) {
     const Fn = fnText();
@@ -945,14 +833,23 @@
           buildRightFoot(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
-    if (lPhase()) {
+    // the colour panel: the same controls on every plane of the steps view, before and after the colour plane; one that
+    // has no meaning on the shown plane stays in place, disabled, its reason the tip
+    if (lPhase() || (SV.on && !lLand())) {
       const land = lLand();
       if (!land) f.append(styleSeg());
       if (S.dc === 'cauchy' && lColor()) {
         const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
         // (#235: with poles inside the curve, which halves show; the words say what the picture is)
-        if (kind === 'split') f.append(seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')));
-        const noteHtml = !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+        // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
+        const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
+        const offZ = SV.on && svT() !== 0;
+        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
+        if (parts) {
+          if (partsWhy) for (const b of parts.querySelectorAll('button')) { b.disabled = true; b.dataset.tip = partsWhy; b.setAttribute('aria-description', partsWhy); }
+          f.append(parts);
+        }
+        const noteHtml = SV.on && svT() !== 0 ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
           : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
           : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
           : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
@@ -960,7 +857,11 @@
         f.append(h('span', { class: 'foot-note', html: noteHtml }));
       }
       f.append(...colourScrubs(land, ''));
-      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines));
+      if (lColor() || SV.on) {
+        const ol = checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }, ICONS.outlines);
+        if (!lColor()) disableCtl(ol, $t('Outlines are drawn on the colour plane'));
+        f.append(ol);
+      }
     }
     if (lGlobe()) {
       f.append(checkEl('eqChkL', xView().eq, $t('Equator'), (v) => { xView().eq = v; requestRender('L'); save(); }), resetCamBtn(camL, CAML));
@@ -975,7 +876,8 @@
         h('label', { class: 'fader-row compact' }, h('span', { class: 'fl' }, $t('Scale')), h('input', { type: 'range', id: 'lscaleRange', min: 0.25, max: 2, step: 0.05, value: S.lscale || 1, 'aria-label': $t('Height scale'), oninput: (e) => { setOpt('lscale', +e.target.value); requestRender('L'); save(); } })),
         checkEl('unitLevelChk', S.unitLevel, $t('Unit level'), (v) => { setOpt('unitLevel', v); requestRender('L'); save(); }),
         seg('viewSeg', '', [['iso', '3/4'], ['top', $t('Top')], ['front', $t('Front')]], (v) => tweenCam(cam, { iso: { yaw: -38 * DEG, pitch: 30 * DEG }, top: { yaw: -90 * DEG, pitch: 88 * DEG }, front: { yaw: -90 * DEG, pitch: 8 * DEG } }[v]), $t('View')),
-        resetCamBtn(cam, CAM3));
+        resetCamBtn(cam, CAM3),
+        ...(SV.on ? [opacityScrub('', true)] : []));
     }
   }
   // The deformation plane has its own view (merged-views review: it shared Y's, so zooms leaked both ways): Y's split
@@ -1000,7 +902,7 @@
     morph.T = parked != null ? Math.min(parked, morphLen()) : still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
     morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (morph.playing) sndMorphStart();
-    setPlayIcon();
+    
     soundFunctionChanged(); sndRelayout();
     if (draft && draft.target) draft = null;
     // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
@@ -1020,28 +922,12 @@
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
     morph.open = false; morph.playing = false; morph.seg = null; snd.morphArm = false;
     morph.T = morphLen();
-    syncPlaying();
     soundFunctionChanged(); sndRelayout();
     if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
     applyLayout();
     if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R');
     tourEmit('deformation-toggled', { on: false });
-  }
-  const toggleTransport = () => (morph.open ? closeTransport() : openTransport());
-  function setPlayIcon() {
-    const b = $('morphPlay');
-    if (!b) return;
-    b.innerHTML = morph.playing ? ICONS.pause : ICONS.play;
-    // (v16.5 UX104: the tooltip reads data-tip, which a title set later never reached, so it kept saying Pause; the
-    // tooltip is written itself, with the key)
-    const lab = morph.playing ? $t('Pause') : $t('Play');
-    b.removeAttribute('title');
-    b.setAttribute('data-tip', lab + '  K');
-    b.setAttribute('aria-label', lab);
-    // (v16.1: paused, the scrubber shows T exactly; while playing syncTransport moves it in half-pixel steps)
-    const sl = !morph.playing ? $('morphRange') : null;
-    if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
   let legendNeedle = null, legendMod = null;
   const WHEEL_STOPS = ['#F58C7E', '#EA9853', '#CFA93E', '#A5B953', '#6EC580', '#27C8AF', '#1CC3D8', '#53B8F7', '#8EAAFD', '#B99BF5', '#DB8FD6', '#F089AC'];
@@ -1058,16 +944,21 @@
   const keyHex = (a) => '#' + keyRGB(a).map((x) => Math.round(255 * x).toString(16).padStart(2, '0')).join('');
   // the key as a CSS conic gradient: arg increasing counterclockwise from 1 (the folded legend chip, the header button)
   const keyConic = () => `conic-gradient(from 90deg, ${Array.from({ length: 25 }, (_, i) => keyHex(-i * 15 * DEG)).join(', ')})`;
-  const LEG = { W: 136, H: 72, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
+  // (Hc: the key's height when it is one line of text with no ring)
+  const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the Landscape's key under Plaster: the height and the contours, with no hue
+  const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
+    // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
+    if (lLand()) return '3d';
     // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
     if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
-    return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
+    return lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
@@ -1135,8 +1026,15 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
     if (!el || (!head && box.classList.contains('collapsed'))) return;
+    // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    if (head && c0.width) {
+      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
+    }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
     for (let i = 0; i < 3; i++) {
       const c = el.getBoundingClientRect();
@@ -1178,9 +1076,11 @@
       const nm = $t('Colour key');
       if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
-    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
-      box.dataset.kind = kind; box.dataset.pal = GLR.palette();
-      box.style.setProperty('--wheel', keyConic());
+    // (the chip's glyph is the hue wheel; the Landscape under Plaster paints no hue, so its glyph keeps the neutral ink)
+    const hueless = plasterKey(kind);
+    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette() || box.dataset.hueless !== String(hueless))) {
+      box.dataset.kind = kind; box.dataset.pal = GLR.palette(); box.dataset.hueless = String(hueless);
+      if (hueless) box.style.removeProperty('--wheel'); else box.style.setProperty('--wheel', keyConic());
     }
     if (side === 'L') {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
@@ -1196,12 +1096,15 @@
     }
     if (!want) return;
     const st = legendState[side];
-    const { W, H: Hh, dpr } = LEG;
-    if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; st.drawn = ''; }
+    // (the steps view's Cauchy style off plane z: the reason alone, in a box of one line)
+    const compact = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    const { W, dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H;
+    if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; st.drawn = ''; }
+    st.h = Hh;
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1221,7 +1124,7 @@
     if (img) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { cx, cy, R, sx, sy, sw, sh } = LEG;
-    if (legendNeedle != null) {
+    if (legendNeedle != null && !compact) {
       ctx.strokeStyle = TH.ink; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(legendNeedle) * R, cy - Math.sin(legendNeedle) * R); ctx.stroke();
     }
@@ -1232,8 +1135,13 @@
       ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, sy - 2); ctx.lineTo(mx, sy + sh + 2); ctx.stroke();
     }
   }
+  // the modulus key's facts, shared by the pane and the export's still and video: the bands' light and dark ends, the
+  // factor per band, and the caption words around the plane's variable
+  const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
+  const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
+  const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
   function paintLegend(ctx, anyCut, kind, st) {
-    const { W, H: Hh } = LEG;
+    const W = LEG.W, Hh = st.h || LEG.H;
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
@@ -1292,32 +1200,42 @@
       if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
       return;
     }
+    // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
+    const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
+    // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
+    const noRing = cauchyOff || plasterKey(kind);
+    st.ring = !noRing;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
-    for (let i = 0; i < 360; i++) {
+    if (!noRing) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
-    ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
-    // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
-    ctx.font = `italic 500 11px ${TH.math}`; ctx.fillStyle = TH.ink2;
-    ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
-    ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
-    ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
+    if (!noRing) {
+      ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
+      // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
+      ctx.font = `italic 500 11px ${TH.math}`; ctx.fillStyle = TH.ink2;
+      ctx.textAlign = 'left'; ctx.fillText('1', cx + R + 3, cy);
+      ctx.textAlign = 'right'; ctx.fillText('−1', cx - R - 3, cy);
+      ctx.textAlign = 'center'; ctx.fillText('i', cx, cy - R - 6); ctx.fillText('−i', cx, cy + R + 7);
+    }
     const n = S.sectors || 12;
     // one right-aligned run: words in the UI face, the variables (F, F′, w) in STIX italic as on the ring
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
+    // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
+      st.caption = t;
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
-      let x = LEG.W - 8;
-      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width; }
+      // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
+      let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
+      for (const [p, f] of parts) { ctx.font = f; x -= ctx.measureText(p).width * (cauchyOff ? 0.5 : 1); }
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, 62 + dy); x += ctx.measureText(p).width; }
+      for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (SV.on && svCarriedFrom() && !lPhase()) {
+    if (kind === 'color' && SV.on && svCarriedFrom() && !lPhase()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
@@ -1328,6 +1246,7 @@
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
+      st.caption = words.join(' ');
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
@@ -1341,7 +1260,9 @@
     const Fl = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     // the landscape paints Tiles unless the style is Plain (P10)
     const plainL = S.dc === 'phase';
-    if (kind !== '3d' && plainL) { caption(`arg ${Fl}`); return; }
+    if (kind !== '3d' && plainL) { caption(keyCaption(true, Fl)); return; }
+    // (the steps view's Cauchy style with no picture on this plane: the reason, no bands that are not drawn)
+    if (SV.on && kind === 'color' && S.dc === 'cauchy' && svCauchyWhy(cauchyPlot())) { st.strip = false; caption(cauchyOff ? $t('Cauchy: on z only') : $t('No curve selected')); return; }
     // modulus strip
     st.strip = !(kind === 'color' && S.dc === 'classic');
     if (kind === 'color' && S.dc === 'classic') {
@@ -1354,7 +1275,7 @@
     } else {
       for (let b = 0; b < 3; b++) {
         const g = ctx.createLinearGradient(sx + b * sw / 3, 0, sx + (b + 1) * sw / 3, 0);
-        g.addColorStop(0, TH.dark ? '#3a4650' : '#9aa4ab'); g.addColorStop(1, TH.dark ? '#c9d2d8' : '#eef2f4');
+        g.addColorStop(0, keyStops(TH.dark)[0]); g.addColorStop(1, keyStops(TH.dark)[1]);
         ctx.fillStyle = g; ctx.fillRect(sx + b * sw / 3, sy, sw / 3, sh);
       }
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
@@ -1364,10 +1285,12 @@
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
-      else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
+      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
     }
-    const Fn = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
-    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
+    // (the steps view's Height key describes h(F), the same quantity on every plane)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
+    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
   // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
   // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
@@ -1403,7 +1326,7 @@
       glide.set(morph.T);
     } else if (morph.playing || !glide.moving() || glide.x !== morph.T) {
       // (Play, the scrubber or a tick moved T last: the glide starts from where T is now)
-      if (morph.playing) { morph.playing = false; snd.morphArm = false; setPlayIcon(); }
+      if (morph.playing) { morph.playing = false; snd.morphArm = false; }
       glide.set(morph.T);
     }
     glide.nudge(d, morphLen());
@@ -1437,15 +1360,7 @@
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
   const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
-  // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
-  function morphTick(d) {
-    const m = morphLen(), T = morph.T, eps = 1e-6;
-    let to = d > 0 ? Math.floor(T + eps) + 1 : Math.ceil(T - eps) - 1;
-    to = Math.max(0, Math.min(m, to));
-    if (morph.playing) { morph.playing = false; snd.morphArm = false; }
-    morph.T = to; morph.seg = null; morph.u = 0; morph.hold = 0;
-    setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R', 'L');
-  }
+
   function togglePlay() {
     morph.playing = !morph.playing;
     morph.last = 0;
@@ -1453,12 +1368,11 @@
     if (morph.playing && morph.T >= morphLen()) morph.T = 0;
     morph.seg = null; morph.hold = 0;
     if (morph.playing) sndMorphStart(); else snd.morphArm = false;
-    setPlayIcon();
     requestRender('R');
   }
 
   // (#385) the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(true); requestRender('L', 'R', 'T'); });
+    onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R'); });
   }

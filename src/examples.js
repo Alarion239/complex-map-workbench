@@ -1,5 +1,5 @@
 'use strict';
-// Examples and the guide (issue #20, phase 3: moved out of app.js): loading an example, its fitted view, the examples
+// Examples and the guide: loading an example, its fitted view, the examples
 // gallery and its thumbnails, and the guide (on a desktop and on a touch screen). The app hands it what it needs once,
 // Examples.init(api) at start-up (src/app/15-examples-guide.js, examplesApi): its functions and constants as they are,
 // and the state it reassigns (currentExample, ...) as getters on api, read as A.S and so on; S itself is replaced
@@ -7,7 +7,7 @@
 // app reads too (currentExample, exFitKey, exThumbs, exWait) stay the app's.
 const Examples = (() => {
   let A = null;
-  let EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit,
+  let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
@@ -15,7 +15,7 @@ const Examples = (() => {
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
-    // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
+    // (on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
     // same 48 px, the examples' views unchanged; measured from the head it took the whole plane and the fit went NaN)
     const f = $('leftFoot'), pr = A.paneL.ocanvas && A.paneL.ocanvas.getBoundingClientRect(), fr = f && !f.hidden && f.parentNode === $('plotL') ? f.getBoundingClientRect() : null;
     return Math.max(40, fr && pr && fr.height > 0 ? pr.bottom - fr.top : 0) + 8;
@@ -38,7 +38,7 @@ const Examples = (() => {
   let exTry = null;
   function exTryStop() { if (exTry) { for (const off of exTry.offs) off(); exTry = null; } }
   // (the steps view has its own line for an example whose classic one names X, Y, Deformation or a card: trySv, closed by
-  // tryDoneSv, and Show me's chapter tourSv; the others, and a line with no events of its own, keep the classic fields; #442)
+  // tryDoneSv, and Show me's chapter tourSv; the others, and a line with no events of its own, keep the classic fields)
   const exSv = () => !!(A.svOn && A.svOn());
   const exTryText = (ex) => (exSv() && ex.trySv) || ex.try;
   const exTryDone = (ex) => (exSv() && ex.tryDoneSv) || ex.tryDone;
@@ -64,15 +64,15 @@ const Examples = (() => {
     phHold();
     const ex = spec || EX[i];
     if (!ex) return;
-    // what plays along a curve belongs to the scene it was started in (notes/sea-song review ui-1)
+    // what plays along a curve belongs to the scene it started in
     sndStopPlay(false);
-    // (v16.5 UX74) an example's Try line goes with the example
+    // an example's Try line goes with the example
     if (Tour.laneHide) Tour.laneHide('example');
     exTryStop();
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) A.currentExample = i;
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
-    if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
+    if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // (its tooltip: the whole name)
     setShapes([]); setSteps([]);
     // [issue #5] an example's own shared numbers (the partial sums' N) are marked ex: the next example takes away the ones it does
     // not define, and gives back a number of the user's that one of them stood in for; the user's other numbers stay
@@ -81,7 +81,7 @@ const Examples = (() => {
       const ps = [];
       for (const q of A.S.params) {
         if (!q.ex || mine.some((p) => p.name === q.name)) { ps.push(q); continue; }
-        // (the user's number it stood in for is kept in the state, on its own entry: q.ex.was, so a reload, a link or a scene
+        // (the user's number it stood in for is kept in the state, on its own entry in q.ex, so a reload, a link or a scene
         // that opens with the example does not lose it)
         const back = q.ex && q.ex.was ? Params.sanitize([q.ex.was])[0] : null;
         if (back) ps.push(back);
@@ -97,7 +97,7 @@ const Examples = (() => {
       if (mine.length || ps.length !== A.S.params.length || ps.some((q, i) => q !== A.S.params[i])) setParams(ps);
     }
     setSel(null);   // (a new example selects its last step)
-    // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
+    // an example opens as its blurb describes: the views it names (in the legacy fields rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
     // landscape's sheets and height as it sets them. The layout comes first (merged-views.md): the meshing window below
     // is the X pane's box, which must have its new width (a merge or a split changes it)
@@ -110,7 +110,7 @@ const Examples = (() => {
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
     defMem.y = null; defMem.d = null; defMem.dkey = '';
-    // (v16.5 UX74) an example with a melody shows its Try line before the layout, so its plane is fitted with the
+    // an example with a melody shows its Try line before the layout, so its plane is fitted with the
     // line's room already taken (shown after the fit, the line pushed the spiral's top out of the plane)
     const laned = !spec && (ex.song || ex.shapes.some((sh) => sh.listen)) && sndPieceHint(true);
     applyLayout();
@@ -120,7 +120,7 @@ const Examples = (() => {
     // an example's box that must be in view (a phone's narrow plane): its view's scale at most, centred on the box
     exFitTo(ex);
     A.paneL.setView(A.S.srcView);
-    // (review v16 regress-6: the window goes into the state too, so a link, a scene file or an autosave made from the
+    // (the window goes into the state too, so a link, a scene file or an autosave made from the
     // example carries it, and the recipient meshes in the sender's window whatever the size of their pane)
     A.clipWin = viewBox(A.S.srcView);
     setOpt('clipWin', A.clipWin);
@@ -128,11 +128,11 @@ const Examples = (() => {
     A.selected = null;
     for (const sh of ex.shapes) {
       const ns = newShape(sh.kind, JSON.parse(JSON.stringify(sh)));
-      // a melody's data keeps the chain it was composed for and the key of its points (sndListenOf)
+      // a melody's data keeps the chain it is composed for and the key of its points (sndListenOf)
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
       pushShape(ns);
     }
-    // (#293) an example may name the curve it is about, by index or id: a style that works on the selected curve, as Cauchy,
+    // an example may name the curve it is about, by index or id: a style that works on the selected curve, as Cauchy,
     // opens with it. The selection is the planes', not the saved state's, so a link made from the example does not carry it
     if (ex.selected != null) {
       const sh = typeof ex.selected === 'number' ? A.S.shapes[ex.selected] : A.S.shapes.find((x) => x.id === ex.selected);
@@ -142,7 +142,7 @@ const Examples = (() => {
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
     if (!spec) Params.render();
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');
-    // (an example that is played: the Phase key's n it was made for, one colour line a note)
+    // (an example that is played: the Phase key's n it is made for, one colour line a note)
     if (ex.sectors) setOpt('sectors', ex.sectors);
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find(sndIsSong);
@@ -157,14 +157,14 @@ const Examples = (() => {
     closePalette();
     rebuild();
     buildShapeList();
-    buildPipeline();
+    chainRebuilt();
     setFocus(ex.focus || 0);
     commit();
-    // (v16.5 UX25: what opened, with Undo, when there is work to go back to; the button names it until an edit)
+    // (what opened, with Undo, when there is work to go back to; the button names it until an edit)
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
     if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
-    // (issue #34, D7) every other example says what to try, in the tour's docked line, Show me starting the chapter about
+    // every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && exTryText(ex) && Tour.lane && !laned) {
       Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: exTryText(ex), drop: 'title', onClose: exTryStop,
@@ -234,9 +234,9 @@ const Examples = (() => {
     const okey = focusKey(anchor);
     const items = EX.map((ex, i) => {
       const img = h('img', { class: 'ex-thumb', alt: '', width: 48, height: 32 });
-      // (v16.5 UX25: the empty canvas is "New", first, the way to start fresh)
+      // (the empty canvas is "New", first, the way to start fresh)
       const b = h('button', { class: 'ex-item' + (i === 0 ? ' ex-new' : ''), role: 'menuitem', hidden: !exOk(ex) || null, 'aria-current': i === A.currentExample ? 'true' : null, onclick: () => { closePalette(); loadExample(i); focusBack(anchor, okey); } }, img,
-        h('span', { class: 'ex-text' }, h('span', { class: 'ex-nl' }, h('span', { class: 'ex-name' }, i === 0 ? $t('New: empty canvas') : ex.name), ex.song || ex.shapes.some((sh) => sh.listen) ? h('span', { class: 'ex-snd', title: $t('With sound'), 'aria-label': $t('With sound') }, '♫') : null), h('span', { class: 'ex-blurb' }, ex.blurb || '')));   // (v16.5 UX74: ♫ beside the name, not in it: .ex-name stays the example's name)
+        h('span', { class: 'ex-text' }, h('span', { class: 'ex-nl' }, h('span', { class: 'ex-name' }, i === 0 ? $t('New: empty canvas') : ex.name), ex.song || ex.shapes.some((sh) => sh.listen) ? h('span', { class: 'ex-snd', title: $t('With sound'), 'aria-label': $t('With sound') }, '♫') : null), h('span', { class: 'ex-blurb' }, ex.blurb || '')));   // (♫ beside the name, not in it: .ex-name stays the example's name)
       return { b, img, i };
     });
     closePalette();
@@ -254,7 +254,7 @@ const Examples = (() => {
       if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(anchor, okey); }
     });
     armOutside(anchor);
-    // fill thumbnails one per frame so the menu opens at once; (issue #72) one example's programs compile at a time:
+    // fill thumbnails one per frame so the menu opens at once; one example's programs compile at a time:
     // the next thumbnail waits until the one before has landed (a cold Direct3D 11 link takes seconds, and many at once
     // held the GPU from the user's own view)
     let q = 0;
@@ -273,7 +273,7 @@ const Examples = (() => {
   // ---------------- guide ----------------
   // the guide's TeX in $…$ as typeset spans (the guide sets every [data-tex] after it is built)
   const guideTex = (s) => s.replace(/\$([^$]+)\$/g, (_, x) => `<span class="gtex" data-tex="${x.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></span>`);
-  // v16.5 UX17: the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
+  // the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
   // or a gesture of the desktop (the tools on the left, the right pane, the Inspector, a double-click, a right-click,
   // Shift, a key) is given in a phone's words. A paragraph is found by its section's heading and its place in the
   // section, so the desktop wording can change without this list. The Deformation section gets a line on where its
@@ -281,7 +281,7 @@ const Examples = (() => {
   const GUIDE_TOUCH = [
     [null, 0, `Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. <i>X</i> is always the domain (or the input of a step shown alone) and <i>Y</i> its output: <i>X</i> shows the shapes, <i>Y</i> their images. One of them fills the screen and the other is the small picture in its corner: tap that picture to swap them. With a panel open, or with the phone turned, they stand side by side.`],
     [`Regions`, 0, `Draw with the tools of the bottom row (its More key holds the others and a formula box), or type a set in that box, such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears in <i>Y</i>; the fill fades out where the mesh ends. Regions are coloured by the phase of <i>z</i>, with grid lines in <i>z</i>-coordinates, both carried along by the map, so every point can be followed.`],
-    [`Function chain`, 0, `Add a step with the + in the chain bar; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in its search to add it directly. Tap a card: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.`],
+    [`Function chain`, 0, `Add a step with the + at the end of the thread; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in its search to add it directly. Tap a step on the thread: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.`],
     [`Function chain`, 2, `A typed formula that is a chain of catalog steps, such as <span class="chip ftag" data-tex="\\sin(z^2+1)"></span>, shows in its editor how it is built: <span class="chip ftag" data-tex="z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class="chip ftag" data-tex="z^2+\\sin z"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.`],
     [`Shared numbers|Numbers`, 0, `Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Numbers</b>, the <i>a</i> = key at the start of the chain bar, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the ⋯ menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.`],
     [`Shared numbers|Numbers`, 1, `<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; shown alone, its <i>X</i> is the <i>z</i>-plane.`],
@@ -296,7 +296,7 @@ const Examples = (() => {
     [`Guarantees`, 0, `The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Tap the tile, and its editor shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`],
     [`Zeros and poles`, 0, `Choose <i>Zeros and poles</i> (in Polynomial &amp; custom) to build a map by placing its zeros and poles: drag the dots (zeros) and open circles (poles) in the step's input plane, or type them in the step's editor. Hold a finger on one to remove it, turn it into a pole or a zero, or edit it. The picture shows the map at once: colors circle a zero and a pole in opposite senses.`],
   ];
-  const GUIDE_TOUCH_DEFORM = `On a phone, <b>Deformation</b> is the key at the end of the chain bar. While it plays, the row along the bottom holds Undo, play, the time <i>t</i>, the speed (tap it: 1×, 2×, ½×), Paths and ×; the plane's Display key holds the order, Loop and the deformed steps.`;
+  const GUIDE_TOUCH_DEFORM = `On a phone, the play key on the thread runs the deformation along the chain; hold it to choose the speed and Loop.`;
   function guideTouch(m) {
     const hs = [...m.querySelectorAll('h3')];
     // (a section may go by another name in a later build: 'Shared numbers|Numbers' finds either)
@@ -381,7 +381,7 @@ const Examples = (() => {
       [`${k('⇧ 1')} ${k('⇧ 2')}`, $t('Plane, Sphere of X (in Phase: of the portrait)')], [`${k('⇧ 3')} ${k('⇧ 4')}`, $t('Plane, Sphere of Y')], [k('Z'), $t('Fit both planes')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
-      [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
+      [`${k('←')} ${k('→')}`, $t('Previous or next plane; with a shape selected, nudge it')], [`${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe (steps view): move the probe')], [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];
     m.innerHTML = `
@@ -390,7 +390,7 @@ const Examples = (() => {
       <h3>${$t(`Regions`)}</h3>
       <p>${$t(`Draw with the tools on the left, or type a set such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. Regions are coloured by the phase of <i>z</i>, with grid lines in <i>z</i>-coordinates, both carried along by the map, so every point can be followed.`)}</p>
       <h3>${$t(`Function chain`)}</h3>
-      <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a number of the Numbers section. Double-click a card, or press <b>Show alone</b> in the Inspector, to show that step alone. Drag a card's header onto a connector, or press Alt+← or Alt+→, to reorder.`, { x: k('+') })}</p>
+      <p>${$t(`Add a step with {x} or the + at the end of the thread; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a step on the thread to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a number of the Numbers section. Press <b>Show alone</b> in the Inspector to show that step alone. Press Alt+← or Alt+→ on a step to move it along the thread.`, { x: k('+') })}</p>
       <p>${$t(`Each card's picture follows the open view: card <i>k</i> shows <i>F</i><sub><i>k</i></sub>, the map up to its step, as an image in <i>X</i> → <i>Y</i>, a phase portrait in Phase and a relief in Landscape, so the last card is the main picture. The <b>F</b> tile closes the chain: see Guarantees.`)}</p>
       <p>${$t(`<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane; every later plane and card shows its image, and the <i>z</i>-plane and the planes before it show its preimage, everything the steps between them map into it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.`)}</p>
       <p>${$t(`A typed formula that is a chain of catalog steps, such as <span class="chip ftag" data-tex="\\sin(z^2+1)"></span>, shows in the Inspector how it is built: <span class="chip ftag" data-tex="z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class="chip ftag" data-tex="z^2+\\sin z"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.`)}</p>
@@ -428,7 +428,7 @@ const Examples = (() => {
       <p>${$t(`<b>Export</b> in the top bar (or {x}) makes a figure of the open view: Save PDF, PNG or SVG, Copy image for a document, or Save + copy LaTeX for Overleaf, with a caption that states exactly what is drawn. On a phone the sheet offers Share first and keeps the print settings folded.`, { x: k(mod.trim() + ' E') })}</p>
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
-    if (touchUI()) guideTouch(m);   // (v16.5 UX17)
+    if (touchUI()) guideTouch(m);
     guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');
@@ -446,7 +446,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

@@ -3,7 +3,7 @@
 // CONTRIBUTING.md). Each limit may not rise above its number on the branch this one starts from (the pull request's
 // base, GITHUB_BASE_REF in CI, else origin/main; a base without SIZE_BUDGET has nothing to compare), and each names a
 // file that exists. Notes only, so that a change elsewhere that shrinks a file never fails here: a number above its
-// file's size (lower it to the size) and a file now under the 1,500-line aim (drop it from SIZE_BUDGET).
+// file's size (lower it to the size) and a file under the 1,500-line aim (drop it from SIZE_BUDGET).
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');

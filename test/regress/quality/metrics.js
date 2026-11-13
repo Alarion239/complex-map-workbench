@@ -134,13 +134,12 @@ function sheetKey(win, P = []) {
     return D;
   };
 }
-// the tie step of the sheet key, in octaves: keys in one step of it tie (Inverse.front's own)
-const { TIE_D } = require('../../../src/inverse.js');
-// members in front-to-back order: key D ascending; ties (keys in one TIE_D step): larger Im z, then larger Re z in front
+// the tie band of the sheet key, in octaves (Inverse.front's own): keys within it of each other tie
+const { dTie } = require('../../../src/inverse.js');
+// members in front-to-back order: key D ascending; ties (keys within the tie band): larger Im z, then larger Re z in front
 // (SPEC 5.2)
 function frontOrder(cands, key) {
-  const q = (D) => (D === Infinity ? Infinity : Math.round(D / TIE_D));
-  const dk = (a, b) => (q(a.D) !== q(b.D) ? a.D - b.D : 0);
+  const dk = (a, b) => (dTie(a.D, b.D) ? 0 : a.D - b.D);
   return cands.map((z) => ({ z, D: key(z) })).sort((a, b) => dk(a, b) || (b.z.im - a.z.im) || (b.z.re - a.z.re));
 }
 // the displayed parity at a pixel from the front member, given tok(z) -> {par (0 | 1), cellPx, edgePx}. A member
@@ -423,7 +422,7 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
   }
   if (pm) {
     if (strict) {
-      // parity of nothing is unknown: null when nothing was scored or far fewer pixels than the truth can score
+      // parity of nothing is unknown: null when nothing is scored or far fewer pixels than the truth can score
       const none = !parN || parN < MIN_SCORED * parExp;
       if (none) problems.push(`parity scored on ${parN} of the ${parExp} pixels the truth can score: reported as null`);
       m.parity_acc = none ? null : parOk / parN;
