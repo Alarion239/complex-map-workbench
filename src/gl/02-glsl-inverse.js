@@ -604,7 +604,8 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
   // merge with a twin (partial and bound) still take. exp(H) at alpha 0.3, dpr 2: 6.0 -> 4.5 ms per pass (for B 3
   // and 5 this path measured 4-10 % slower: the scan below stays there). Both paths decide first, then shade a kept
   // candidate at the one ixShadeAdm call site and insert it their own way: a shader compiler inlines every call, so two
-  // call sites would hold two copies of the shading.
+  // call sites would hold two copies of the shading. (The scan keeps its indentation inside if (!fast): the text B 3 and
+  // 5 compile stays the same.)
   bool fast = (cv >= 1.0 || ga >= 50.0) && ixK() + 2 >= IX_B;
   if (fast && nb == IX_B && !ixFront(D, tz, bD[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
 ` : ''}  // position: the entries in front of the candidate (a prefix of the sorted buffer)
