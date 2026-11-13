@@ -15,7 +15,7 @@
 //  (4) scrub.mobius_halfplane: the scene's chain pole blaschke^-1(1) is where mobiusHalfplanePole() says (the app's
 //      own step functions blow up next to it), it crosses the half-plane's boundary in both drags (40 -> 80 -> 40
 //      deg), and the scene before the fix (blaschke alone: pole 1/conj(a), fixed) never moved it.
-//  (5) view_moved of the orbit units (Sphere view of z^i): with the pointer left inside the pane after a pointer
+//  (5) view_moved of the orbit units (the image of z^i on the globe): with the pointer left inside the pane after a pointer
 //      sweep WITHOUT a button the pane differs (the old check would pass on hover alone); shotAtRest() gives
 //      identical hashes for that sweep and different ones after a real left-button orbit.
 const fs = require('fs');
@@ -23,7 +23,7 @@ const path = require('path');
 const http = require('http');
 const { launch, sleep } = require('./cdp');
 const R = require('./run');
-const { sceneState, mobiusHalfplanePole } = require('./scenes');
+const { sceneState, wState, mobiusHalfplanePole } = require('./scenes');
 
 const HERE = __dirname, ROOT = path.resolve(HERE, '..', '..', '..');
 const argv = process.argv.slice(2);
@@ -117,17 +117,17 @@ async function main() {
 
   // (5) view_moved of the orbit units: hover alone must not count as a moved view
   try {
-    await R.openApp(sceneState('ziH', { rightMode: 'sphere', meshN: 240 }));
-    const r = await B.ev(`(() => { const e = document.getElementById('overlayR').getBoundingClientRect(); return { cx: e.left + e.width / 2, cy: e.top + e.height / 2 }; })()`);
-    const h0 = await R.shotAtRest('R');
+    await R.openApp(wState('ziH', { meshN: 240 }), R.AT.globeW);
+    const r = await B.ev(`(() => { const e = document.getElementById('overlayL').getBoundingClientRect(); return { cx: e.left + e.width / 2, cy: e.top + e.height / 2 }; })()`);
+    const h0 = await R.shotAtRest('L');
     for (let k = 0; k <= 30; k++) { await B.move(r.cx - 80 + k * 160 / 30, r.cy - 30 + k * 60 / 30); await sleep(16); }
     await R.settle(await R.pageNow());
-    const hInside = await R.paneShot('R');
-    const hRest = await R.shotAtRest('R');
+    const hInside = await R.paneShot('L');
+    const hRest = await R.shotAtRest('L');
     check('(5) old protocol: a sweep without a button changes the pane while the pointer is inside', hInside !== h0, `${h0.slice(0, 8)} -> ${hInside.slice(0, 8)}`);
     check('(5) shotAtRest: the same sweep leaves the pane unchanged (view_moved false)', hRest === h0, `${h0.slice(0, 8)} -> ${hRest.slice(0, 8)}`);
-    await R.dragLeg('R', 160, 60, 'left');
-    const hOrbit = await R.shotAtRest('R');
+    await R.dragLeg('L', 160, 60, 'left', 40, 16, true);
+    const hOrbit = await R.shotAtRest('L');
     check('(5) shotAtRest: a left-button orbit changes the pane (view_moved true)', hOrbit !== h0, `${h0.slice(0, 8)} -> ${hOrbit.slice(0, 8)}`);
   } catch (e) { check('(5) the app could be opened at ' + BASE, false, String(e).slice(0, 200)); }
   await B.close();

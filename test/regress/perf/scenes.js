@@ -1,9 +1,9 @@
 'use strict';
-// Scenes of the perf suite: saved states (the app's localStorage format, see blankState()/loadState() in
-// src/app.js) written before the app loads. Keep them stable: the baseline is only comparable for identical scenes.
+// Scenes of the perf suite: saved states (the app's localStorage format, see blankState() in
+// src/app/01-core.js) written before the app loads; the page opens them in the steps view. Keep them stable: the baseline is only comparable for identical scenes.
 // Shape ids are fixed so __cmwInfo() rows can be matched across runs.
 
-const BASE = { v3: true, v4: true, v5: true, nextId: 50, focus: 0, rightMode: 'image', targets: [], pattern: 'checker', lines: true, unit: true, snap: true, alpha: 0.85, outline: true, leftSphere: false, sheets: false, rightView: null };
+const BASE = { v3: true, v4: true, v5: true, nextId: 50, focus: 0, targets: [], pattern: 'checker', lines: true, unit: true, snap: true, alpha: 0.85, outline: true, sheets: false };
 
 const SCENES = {
   // the example a first visit opens (EX[1] 'Strip to disk': |Im z| < pi/2 -> exp -> (w-1)/(w+1))
@@ -30,10 +30,10 @@ const SCENES = {
     },
   },
   // a 4-step chain with a pole, a branch cut and a power (fix-ups on the CPU)
-  // shapes of planes 1, 2 and 3 of a 3-step chain beside one of the z-plane: X (the z-plane) pulls each
-  // back per pixel through its steps (O(n²) step evaluations a pixel over the planes), Y draws them forward
+  // shapes of planes 1, 2 and 3 of a 3-step chain beside one of the z-plane: the plane z pulls each back per pixel
+  // through its steps (O(n²) step evaluations a pixel over the planes)
   stages3: {
-    label: 'shapes in planes 1-3 of z^2 -> +1 -> exp (preimages pulled back in X)',
+    label: 'shapes in planes 1-3 of z^2 -> +1 -> exp (preimages pulled back to z)',
     state: {
       shapes: [
         { id: 's1', kind: 'disc', c: [0.2, 0.1], r: 0.5 },
@@ -84,76 +84,84 @@ const SCENES = {
     },
   },
 
-  // ---- scenes of SPEC 12.5 (phase P0): exact images through infinity. The right view is pinned (the views of the
-  // quality suite's scenes), so a change of the auto-fit cannot change what a unit measures. ----
+  // ---- scenes of SPEC 12.5 (phase P0): exact images through infinity. The view of the image is pinned (wView, the
+  // views of the quality suite's scenes), so a change of the auto-fit cannot change what a unit measures. ----
   // z^i of the upper half-plane: the annulus e^-pi < |w| < 1, infinitely many sheets accumulating at z = 0
   ziH: {
     label: 'z^i of the upper half-plane (infinitely many sheets)',
+    wView: { cx: 0, cy: 0, s: 190 },
     state: {
       shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
       steps: [{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true }],
-      srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 190 },
+      srcView: { cx: 0, cy: 1, s: 60 },
     },
   },
   // P5 (SPEC 12.5): the forward fallback. e^{z + 1/z} of the upper half-plane (a custom formula with z twice: no
   // inverse, drawn from a SphereMesh), and exp(exp(z)) of it (an unbounded range outside the innermost family: forward)
   custom_e_z1z: {
     label: 'e^{z+1/z} of the upper half-plane (custom, forward: SphereMesh)',
+    wView: { cx: 0, cy: 0, s: 40 },
     state: {
       shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
       steps: [{ type: 'custom', params: { expr: 'e^{z+\\frac{1}{z}}', cut: 180 }, on: true }],
-      srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 40 },
+      srcView: { cx: 0, cy: 1, s: 60 },
     },
   },
   expexp_H: {
     label: 'exp(exp z) of the upper half-plane (forward by the outer-family rule: SphereMesh)',
+    wView: { cx: 0, cy: 0, s: 40 },
     state: {
       shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
       steps: [{ type: 'exp', params: {}, on: true }, { type: 'exp', params: {}, on: true }],
-      srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 40 },
+      srcView: { cx: 0, cy: 1, s: 60 },
     },
   },
   // exp of the upper half-plane: every w != 0, infinitely many sheets
   expH: {
     label: 'exp of the upper half-plane (infinitely many sheets)',
+    wView: { cx: 0, cy: 0, s: 60 },
     state: {
       shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
       steps: [{ type: 'exp', params: {}, on: true }],
-      srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
+      srcView: { cx: 0, cy: 1, s: 60 },
     },
   },
   // the quality suite's bounded golden scenes (disc_cube, joukowski, annulus_log, poly_mobius), same maps, shapes and
   // views, in the perf suite's look (checker, alpha 0.85, net and unit circle on)
   disc_cube: {
     label: 'disc |z - (0.6+0.3i)| < 0.8 under z^3 (bounded, overlapping sheets)',
+    wView: { cx: 0.15, cy: 1, s: 74.5 },
     state: {
       shapes: [{ id: 's1', kind: 'disc', c: [0.6, 0.3], r: 0.8 }],
       steps: [{ type: 'pown', params: { n: 3 }, on: true }],
-      srcView: { cx: 0.4, cy: 0.2, s: 120 }, rightView: { cx: 0.15, cy: 1, s: 74.5 },
+      srcView: { cx: 0.4, cy: 0.2, s: 120 },
     },
   },
   joukowski: {
     label: 'Joukowski airfoil (bounded control)',
+    wView: { cx: 0, cy: 0, s: 117 },
     state: {
       shapes: [{ id: 's1', kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true }],
       steps: [{ type: 'joukowski', params: {}, on: true }],
-      srcView: { cx: 0, cy: 0, s: 70 }, rightView: { cx: 0, cy: 0, s: 117 },
+      srcView: { cx: 0, cy: 0, s: 70 },
     },
   },
   annulus_log: {
     label: 'principal log of 0.5 < |z| < 2 (bounded control)',
+    wView: { cx: 0, cy: 0, s: 72 },
     state: {
       shapes: [{ id: 's1', kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 }, on: true }],
-      srcView: { cx: 0, cy: 0, s: 70 }, rightView: { cx: 0, cy: 0, s: 72 },
+      srcView: { cx: 0, cy: 0, s: 70 },
     },
   },
   poly_mobius: {
     label: 'pentagon under the Cayley map (bounded control)',
+    wView: { cx: 0, cy: 0, s: 200 },
     state: {
       shapes: [{ id: 's1', kind: 'polygon', pts: [[-1.5, 0.3], [1.2, 0.2], [1.8, 1.4], [0.3, 2.2], [-1.2, 1.6]] }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }],
-      srcView: { cx: 0.15, cy: 1.2, s: 80 }, rightView: { cx: 0, cy: 0, s: 200 },
+      srcView: { cx: 0.15, cy: 1.2, s: 80 },
     },
   },
   // a disk automorphism (scrubbable phi) followed by the Mobius map (1 + w)/(1 - w) (preset 'Disk -> right
@@ -164,10 +172,11 @@ const SCENES = {
   // on settle only) could be tempted to resample on every motion frame (SPEC 9.1, review E4)
   mobius_halfplane: {
     label: 'disk automorphism then (1 + w)/(1 - w) of the upper half-plane (scrub phi: the pole crosses the boundary)',
+    wView: { cx: 0, cy: 0, s: 60 },
     state: {
       shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }],
       steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 40 }, on: true }, { type: 'mobius', params: { a: '1', b: '1', c: '-1', d: '1' }, on: true }],
-      srcView: { cx: 0, cy: 0.5, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
+      srcView: { cx: 0, cy: 0.5, s: 60 },
     },
   },
   // the Mandelbrot example (#6) at its default N: the region is the escape test |iter(u^2 + z, u, 0, 64)| <= 2 (a loop
@@ -194,10 +203,11 @@ const SCENES = {
   // expH plus a small disc: hovering the disc's row in the shape list dims the half-plane (alpha / 2)
   hoverdim: {
     label: 'exp of the upper half-plane and of a disc (shape-list hover dims the other shape)',
+    wView: { cx: 0, cy: 0, s: 60 },
     state: {
       shapes: [{ id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] }, { id: 's2', kind: 'disc', c: [0.5, 1], r: 0.5 }],
       steps: [{ type: 'exp', params: {}, on: true }],
-      srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
+      srcView: { cx: 0, cy: 1, s: 60 },
     },
   },
   // pointer paths (notes/ux-build/w1-review-regress.json): a Line grid plus several
@@ -239,6 +249,12 @@ function sceneState(name, over = {}) {
   if (!sc) throw new Error('unknown scene ' + name);
   return Object.assign({}, BASE, JSON.parse(JSON.stringify(sc.state)), over);
 }
+// the same state for a unit that stands on the last plane: the steps view has one camera for every plane (srcView), so
+// a scene with its own view of the image (wView) opens with that camera
+function wState(name, over = {}) {
+  const st = sceneState(name, over), w = SCENES[name].wView;
+  return w ? Object.assign(st, { srcView: Object.assign({}, w) }) : st;
+}
 
 // shapes for the in-page mesh benchmark (Region.buildMesh), one per area kind, plus unbounded variants
 const MESH_SHAPES = [
@@ -256,4 +272,4 @@ const MESH_SHAPES = [
   { name: 'formula_halfstrip', s: { kind: 'formula', expr: '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0' }, unbounded: true },
 ];
 
-module.exports = { SCENES, sceneState, MESH_SHAPES, mobiusHalfplanePole, MOBIUS_HALFPLANE_A };
+module.exports = { SCENES, sceneState, wState, MESH_SHAPES, mobiusHalfplanePole, MOBIUS_HALFPLANE_A };
