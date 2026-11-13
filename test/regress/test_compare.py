@@ -90,34 +90,34 @@ class Quality(unittest.TestCase):
         self.assertEqual(v['runs']['zi_H.mask'], 'NEW')
 
     def test_new_run_that_crashed_fails(self):
-        cur = {'zi_H.polar': qrun('zi_H.polar', ok=False, problems=['runner error: boom']),
+        cur = {'zi_H_out4.mask': qrun('zi_H_out4.mask', ok=False, problems=['runner error: boom']),
                'zi_H.mask': qrun('zi_H.mask', metrics=dict(GOOD))}
         rc, out, v = self.gate({}, cur)
         self.assertEqual(rc, 1, out)
-        self.assertEqual(v['runs']['zi_H.polar'], 'FAIL')
+        self.assertEqual(v['runs']['zi_H_out4.mask'], 'FAIL')
         rc, out, v = self.gate({}, cur, '--enforce-targets')
         self.assertEqual(rc, 1, out)
 
     def test_target_on_a_run_without_the_metric_is_not_met(self):
-        # zi_H.polar must reach parity >= 0.999: a run with no parity value (null, or a crashed run) does not
-        cur = {'zi_H.polar': qrun('zi_H.polar', metrics=dict(GOOD, parity_acc=None))}
+        # zi_H.mask must keep hole_leak <= 0: a run with no hole_leak value (null, or a crashed run) does not
+        cur = {'zi_H.mask': qrun('zi_H.mask', metrics=dict(GOOD, hole_leak=None))}
         rc, out, v = self.gate({}, cur)
         self.assertEqual(rc, 0, out)                       # reported only
-        t = [x for x in v['targets'] if x['run'] == 'zi_H.polar' and x['metric'] == 'parity_acc']
+        t = [x for x in v['targets'] if x['run'] == 'zi_H.mask' and x['metric'] == 'hole_leak']
         self.assertTrue(t and not t[0]['met'], t)
         rc, out, v = self.gate({}, cur, '--enforce-targets')
         self.assertEqual(rc, 1, out)
         self.assertIn('target not met', out)
-        cur = {'zi_H.mask20': qrun('zi_H.mask20', metrics={'iou': 1, 'hole': 0, 'spill': 0, 'color_off': 0, 'hole_leak': 0})}
-        rc, out, v = self.gate({}, cur, '--enforce-targets')   # opacity_min missing altogether
+        cur = {'zi_H_out4.mask': qrun('zi_H_out4.mask', metrics={'iou': 1, 'hole': 0, 'spill': 0})}
+        rc, out, v = self.gate({}, cur, '--enforce-targets')   # hole_leak missing altogether
         self.assertEqual(rc, 1, out)
 
     def test_gated_metric_that_became_null_fails(self):
-        base = {'zi_H.polar': qrun('zi_H.polar', metrics=dict(GOOD, parity_acc=0.95))}
-        cur = {'zi_H.polar': qrun('zi_H.polar', metrics=dict(GOOD, parity_acc=None, parity_n=5000))}
+        base = {'zi_H_out4.mask': qrun('zi_H_out4.mask', metrics=dict(GOOD, parity_acc=0.95))}
+        cur = {'zi_H_out4.mask': qrun('zi_H_out4.mask', metrics=dict(GOOD, parity_acc=None, parity_n=5000))}
         rc, out, v = self.gate(base, cur)
         self.assertEqual(rc, 1, out)
-        self.assertEqual(v['runs']['zi_H.polar'], 'FAIL')
+        self.assertEqual(v['runs']['zi_H_out4.mask'], 'FAIL')
 
     def test_color_off_is_gated(self):
         base = {'expH.mask': qrun('expH.mask', metrics=dict(GOOD))}

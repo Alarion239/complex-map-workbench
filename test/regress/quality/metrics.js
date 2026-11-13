@@ -1,7 +1,11 @@
 'use strict';
-// Image-quality metrics of one rendered right plane against the exact ground truth of its scene.
+// Image-quality metrics of one rendered image (the steps view's last plane) against the exact ground truth of its scene.
 //
-// Pixel classes (from the rendered color, nearest of a set of reference colors and their blends):
+// 'cover' (the suite's runs): the steps view paints the carried colour inside the regions, a hue per point, over the
+// plane's paper. A pixel within COVER_BG of the paper colour is BG, any other colour FILL: the run scores where the
+// image is covered (IoU, holes, spill), not its colour.
+// Pixel classes of the other classifiers (from the rendered color, nearest of a set of reference colors and their
+// blends):
 //   FILL  the shape's fill (c0; for the checker also its alternate color c0-alt and blends between them)
 //   BG    the plane and its graph paper (plane, grid lines, axes)
 //   ANNOT boundary strokes (edge color), cut banks and their blends. Not counted as fill or background.
@@ -50,6 +54,7 @@ const PAD = 6;             // px: the truth grid is padded so the distance trans
 const PARITY_MIN_CELL = 3; // px: image checker cells smaller than this are not scored
 const PARITY_MIN_EDGE = 1.5; // px: pixels this close to a checker cell edge are not scored
 const UNKNOWN_DIST = 48;   // RGB distance (0-255 units) beyond which a color is ANNOT whatever is nearest
+const COVER_BG = 24;       // 'cover': RGB distance from the paper within which a pixel is the paper
 const COLOR_TOL = 6;       // RGB distance from the expected opaque fill colour above which a pixel counts in color_off
 const LEAK_T = 0.05;       // mask-type runs: a hole pixel on the plane -> c0 blend with more fill than this leaks
 const TIE_OCT = 0.01;      // octaves: members whose sheet keys D differ by less may swap front (SPEC 3.10 / 5.4: the
@@ -65,6 +70,10 @@ const FILLSEG = 32;        // the nearest reference is a blend of a fill colour 
 // colors: CSS tokens read from the page ({'--c1': '#3B6FD4', ...}); variant 'mask' (solid) or 'pattern' (checker)
 function makeClassifier(colors, variant) {
   const g = (k, d) => hexRGB(colors[k], d);
+  if (variant === 'cover') {
+    const p = g('--plane', '#FCFDFD'), lim = COVER_BG * COVER_BG;
+    return (r, gg, b) => ((r - p[0]) ** 2 + (gg - p[1]) ** 2 + (b - p[2]) ** 2 <= lim ? CL_BG : CL_FILL);
+  }
   const c0 = g('--c1', '#3B6FD4'), alt = g('--c1-alt', '#8CABE5'), edge = g('--c1-edge', '#093B9B');
   const plane = g('--plane', '#FCFDFD'), minor = g('--grid-minor', '#E2EEF2'), medium = g('--grid-medium', '#D3E6ED'), major = g('--grid-major', '#B5D4E0');
   const axis = g('--axis', '#2E3D47'), cut = g('--cut', '#CC3311'), ink = g('--ink', '#121A20'), halo = g('--halo', '#FCFDFD');
@@ -296,7 +305,9 @@ function pctl(arr, p) { if (!arr.length) return 0; const a = Float64Array.from(a
 // parity: 'checker' | 'front' | 'polar' | null (default: 'checker' for variant 'pattern', else none);
 // opacity: a makeOpacity() function to report the fill opacity of the interior (mask-type runs);
 // strict: the rules of the SPEC 12.4 groups (see the header); colorErr: a makeColorErr() function (strict runs)
-function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = null, band = BAND, strict = false, colorErr = null, cellColor = null }) {
+// skip: pixels left out of every count (a Uint8Array, 1 = skipped; 'cover' runs: what the plane draws over the paper
+// that is neither fill nor background, the axes and the cuts)
+function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = null, band = BAND, strict = false, colorErr = null, cellColor = null, skip = null }) {
   const T = truthG;
   const pm = parity !== undefined ? parity : (variant === 'pattern' ? 'checker' : null);
   const cls = new Uint8Array(W * H);
@@ -311,7 +322,7 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
   const problems = [];
   const map = Buffer.alloc(W * H * 4);
   const put = (k, c) => { map[4 * k] = c[0]; map[4 * k + 1] = c[1]; map[4 * k + 2] = c[2]; map[4 * k + 3] = 255; };
-  const COL = { band: [214, 214, 214], inOk: [168, 212, 168], inUnscored: [205, 230, 205], outOk: [255, 255, 255], hole: [228, 26, 28], spill: [30, 100, 230], annot: [245, 190, 40], parBad: [140, 20, 160], colorBad: [255, 120, 0] };
+  const COL = { skip: [236, 236, 250], band: [214, 214, 214], inOk: [168, 212, 168], inUnscored: [205, 230, 205], outOk: [255, 255, 255], hole: [228, 26, 28], spill: [30, 100, 230], annot: [245, 190, 40], parBad: [140, 20, 160], colorBad: [255, 120, 0] };
   // the truth's own verdict on whether a pixel can be scored for parity (strict: the expected count)
   const parKind = (k) => {
     if (pm === 'checker' ? T.nPre[k] !== 1 : T.parity[k] === -1) return 'multi';
@@ -322,6 +333,7 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
   };
   for (let k = 0; k < W * H; k++) {
     const d = T.sdf[k], c = cls[k] & 3, par = (cls[k] >> 2) & 1;
+    if (skip && skip[k]) { put(k, COL.skip); continue; }
     if (T.holeIn && T.holeIn[k]) {
       leakIn++;
       // strict mask-type runs: a translucent fill (on the plane -> c0 blend) leaks too, e.g. one sheet at alpha 0.2
@@ -384,7 +396,8 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
   };
   if (strict) {
     m.n_annot_hole = annHole;
-    if (!nIn && !nOut) problems.push('every pixel lies in the excluded band: nothing was scored');
+    // (nothing scored: the coverage is unknown, never a perfect IoU of 1)
+    if (!nIn && !nOut) { problems.push('every pixel lies in the excluded band: nothing was scored'); m.iou = null; m.hole = null; m.spill = null; }
   }
   if (opa) {
     // fill opacity of the interior: min, 1st percentile, mean, fraction below 0.99 (n_opacity: pixels scored)
@@ -473,4 +486,4 @@ function makeCellColor(colors) {
   return (par) => (par ? alt : c0);
 }
 
-module.exports = { makeCellColor, CL_BG, CL_FILL, CL_ANNOT, CL_UNKNOWN, BAND, PAD, PARITY_MIN_CELL, PARITY_MIN_EDGE, UNKNOWN_DIST, COLOR_TOL, LEAK_T, TIE_OCT, MIN_SCORED, NEAR_ANNOT, FILLSEG, makeClassifier, makeOpacity, makeColorErr, sheetKey, frontOrder, frontParity, pixelMap, truthGrid, evaluate, goldenDiff, edt2 };
+module.exports = { makeCellColor, CL_BG, CL_FILL, CL_ANNOT, CL_UNKNOWN, BAND, PAD, PARITY_MIN_CELL, PARITY_MIN_EDGE, UNKNOWN_DIST, COVER_BG, COLOR_TOL, LEAK_T, TIE_OCT, MIN_SCORED, NEAR_ANNOT, FILLSEG, makeClassifier, makeOpacity, makeColorErr, sheetKey, frontOrder, frontParity, pixelMap, truthGrid, evaluate, goldenDiff, edt2 };
