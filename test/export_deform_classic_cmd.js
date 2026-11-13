@@ -456,6 +456,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
+  const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, send, settled, pvState });
   const filled = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.total > 0 && s.ready === s.total); })()`;
   // (in the page: the preview's picture at timeline index k against the saved video's frame k, decoded, and against the
   // exact render at its t, all at the preview's size; mean abs difference of 255)
@@ -504,13 +505,8 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   await clickSel('#xfPvPlay'); await sleep(150);
   const p0 = await pvState(); await sleep(700); const p1 = await pvState();
   ok('preview: Pause stops it (the index and the picture stay), the button says Play', !p0.playing && p1.i === p0.i && p1.stats.draws === p0.stats.draws && p1.btn === 'Play', { p0, p1 });
-  await ev(`document.getElementById('xfPvSeek').focus(); 1`);
-  await key('ArrowRight'); await sleep(100); const k1 = await pvState();
-  // (End and Home are not in the kit's key table: raw key events)
-  const navKey = async (k, vk) => { await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: k, code: k, windowsVirtualKeyCode: vk }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: k, windowsVirtualKeyCode: vk }); };
-  await navKey('End', 35); await sleep(100); const k2 = await pvState();
-  await navKey('Home', 36); await sleep(100); const k3 = await pvState();
-  ok('preview: the scrubber takes the keyboard (Right: one frame on; End; Home), paused', k1.i === p1.i + 1 && !k1.playing && k2.i === 210 && k3.i === 0 && k3.seek[0] === 0, { p1: p1.i, k1: k1.i, k2: k2.i, k3: k3.i });
+  const { mid, k0, k1, k2, k3 } = await scrubberKeys();
+  ok('preview: the scrubber takes the keyboard (Right: one frame on; End; Home), paused', k0.i === mid && !k0.playing && k1.i === mid + 1 && !k1.playing && k2.i === 210 && k3.i === 0 && k3.seek[0] === 0, { mid, k0: k0.i, k1: k1.i, k2: k2.i, k3: k3.i });
   await ev(`document.getElementById('xfPvPlay').focus(); 1`); await key(' '); await sleep(600);
   const k4 = await pvState();
   ok('preview: Space on the button plays again', k4.playing && k4.i > 0 && k4.btn === 'Pause', k4);
