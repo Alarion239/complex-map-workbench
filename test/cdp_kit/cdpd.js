@@ -100,7 +100,25 @@ H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
 // (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
 // result is read by value from its handle, which is released at once.
+// (#1328) an answer the kit cannot give as data: a page exception ({ __exc }) and a wait that ran out (H.settled's ok false).
+// Each is recorded as a fault of the suite, and counts as handled once the suite reads what says so (`__exc`; `ok` or `at`),
+// so a suite that checks the answer is as it was and one that reads on as if the page had answered fails at its end,
+// with the expression or the wait and the text (kitFaults in its result; ci/browser.js failures()).
+const FAULTS = [];
+const faultAnswer = (ans, key, what) => {
+  const f = { what, handled: false };
+  FAULTS.push(f);
+  const guarded = Object.assign({}, ans);
+  for (const k of key) Object.defineProperty(guarded, k, { enumerable: true, configurable: true, get() { f.handled = true; return ans[k]; } });
+  return guarded;
+};
+// faults(clear): the faults so far that the suite has not read (what the suite's result lists as kitFaults); clear forgets all
+H.faults = (clear = false) => { const u = FAULTS.filter((x) => !x.handled).map((x) => x.what); if (clear) FAULTS.length = 0; return u; };
 H.ev = async (expr, timeout = 20000) => {
+  const r = await evRaw(expr, timeout);
+  return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
+};
+const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
   const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
@@ -177,7 +195,8 @@ H.settled = async (o = {}) => {
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
-  return r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  const ans = r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${o.until ? JSON.stringify(String(o.until).slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
 };
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
@@ -245,12 +264,37 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-H.load = async (ns, st, extra, viewName) => {
-  await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
+// load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded, its
+// hooks are defined and the app has built the chain of the saved state: the plane list (__cmwSteps().planes, in either view)
+// holds a plane for a step (two or more: the origin plane and the step's; a saved step shown alone leaves just those two, and
+// the app adopts the whole chain at once), and a state with no active step asks no plane. The app starts after the page's
+// load event (software GL, a busy machine), so a read right after the load event finds an empty chain. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for
+// again, and one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
+// A document whose body has stopped arriving (still "loading" with its response not finished) after stallMs (LOAD_STALL_MS by
+// default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
+const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2;
+// pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
+// since its start; 0 where an event has not come) and how many scripts and sheets it has, and how many planes its chain has built (null before the hook answers)
+const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
+H.load = async (ns, st, extra, viewName, opts = {}) => {
+  const origin = opts.origin || 'http://localhost:8793';
+  await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
-  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+  const url = origin + '/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '');
+  await send('Page.navigate', { url }, S);
+  const want = Array.isArray(o.steps) && o.steps.some((q) => q.on !== false) ? 2 : 0;
+  const ready = `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && (() => { try { return __cmwSteps().planes.length >= ${want}; } catch (e) { return false; } })()`;
+  const limitMs = opts.limitMs || LOAD_LIMIT_MS, stallMs = opts.stallMs || LOAD_STALL_MS, t0 = Date.now();
+  let r, reloads = 0, tNav = t0;
+  do {
+    r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, stallMs, limitMs - (Date.now() - t0))), until: ready });
+    if (!r.ok && reloads < LOAD_RELOADS && Date.now() - tNav >= stallMs) {
+      const pg = await pageNow();
+      if (pg.readyState === 'loading' && pg.nav && pg.nav.responseEnd === 0) { reloads++; tNav = Date.now(); await send('Page.navigate', { url }, S); }
+    }
+  } while (!r.ok && Date.now() - t0 < limitMs);
+  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${want} planes wanted; ${JSON.stringify(r)}; reloads ${reloads}; page ${JSON.stringify(await pageNow())})`);
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
@@ -260,7 +304,7 @@ H.load = async (ns, st, extra, viewName) => {
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
-H.fs = fs; H.path = path; H.DIR = DIR;
+H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });
@@ -282,10 +326,13 @@ H.fs = fs; H.path = path; H.DIR = DIR;
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
+      FAULTS.length = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
+      const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
+      if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
       fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }

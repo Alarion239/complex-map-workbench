@@ -128,6 +128,21 @@ async function rounds(name, n, steps, opt = {}) {
   info[name] = { warmup: { L: ratio(start.L, pre.L), R: ratio(start.R, pre.R) }, start: `L ${fmt(start.L)} | R ${fmt(start.R)}`, end: `L ${fmt(end.L)} | R ${fmt(end.R)}`, uEndOverStart: { L: ratio(end.L, start.L), R: ratio(end.R, start.R) }, worstBack: +(worst * 100).toFixed(4) + ' %', worstDrift: +(worstMid * 100).toFixed(4) + ' %', reads: reads.slice(0, 8) };
   return { start, end };
 }
+const { reloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));
+// the language row of the open More sheet, scrolled into view (the sheet scrolls: the row starts below the fold of a phone
+// and a tap outside the viewport reaches nothing)
+const langRow = (v) => `.ph-sheet .ph-seg button[data-v="${v}"]`;
+const SCROLL_SETTLE_MS = 300;
+const tapLang = async (v) => {
+  await ev(`document.querySelector(${JSON.stringify(langRow(v))}).scrollIntoView({ block: 'center' }), 1`);
+  await settle(SCROLL_SETTLE_MS);
+  await tapSel(langRow(v), 200);
+};
+// the reloaded page speaks language v (English has no lang attribute value of its own: the document's default)
+const speaks = async (v) => {
+  const got = await ev(`document.documentElement.lang || 'en'`);
+  if (got !== v) fails.push({ name: `the language switch to ${v} did not change the page's language`, got });
+};
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 
@@ -233,8 +248,9 @@ for (const mk of mapsFor) {
   } else if (part === 'lang') {
     const pick = (v) => async () => {
       await ev(`Phone.open('more')`); await settle(400);
-      await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`, 200);
-      await sleep(2600); await settle(600);
+      const old = await ev('performance.timeOrigin');
+      await tapLang(v);
+      await reloaded(old); await speaks(v); await settle(600);
       await ev(`Phone.close()`); await settle(400);
     };
     await swapTap();
@@ -343,8 +359,9 @@ for (const mk of mapsFor) {
     if (want('lang')) {
       const pick = async (v) => {
         await ev(`Phone.open('more')`); await settle(400);
-        await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`, 200);
-        await sleep(2600); await settle(600);
+        const old = await ev('performance.timeOrigin');
+        await tapLang(v);
+        await reloaded(old); await speaks(v); await settle(600);
         await ev(`Phone.close()`); await settle(400);
       };
       await fresh('rv-lang'); await userViews(); await swapTap();

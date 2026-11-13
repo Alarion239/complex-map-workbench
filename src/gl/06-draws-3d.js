@@ -1716,6 +1716,9 @@
         }
       }
     }
+    // (Inside regions: the colour is kept inside the mask first, so the silhouette over it is drawn at the mask's alpha:
+    // inside the regions it lies over the colour, as in a frame with no mask, and outside them it is the regions' globe's)
+    if (masked) { writeMask(true, true); keepInAlpha(); }
     // silhouette: the circle of tangency seen from the eye, 1.25 px axis at 50%
     const D2 = eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2];
     if (D2 > 1.0001) {
@@ -1728,9 +1731,10 @@
       const pt = (t) => [0, 1, 2].map((k) => ctr[k] + rho * (Math.cos(t) * u[k] + Math.sin(t) * w[k]));
       const sil = [];
       for (let i = 0; i < 160; i++) sil.push(segM(pt(2 * Math.PI * i / 160), pt(2 * Math.PI * (i + 1) / 160), 0.625 * dpr));
+      if (masked) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
       drawMarks(MVP, sil, axis, 0.5, { once: true });   // last: it writes depth
+      if (masked) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
-    if (masked) { writeMask(true, true); keepInAlpha(); }
     resetState();
     return { MVP, eye, key: sph.key, carried };
   }
