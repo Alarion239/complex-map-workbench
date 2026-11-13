@@ -161,7 +161,11 @@ const HOOK = `(() => {
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pack);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dfb);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rfb);
-    const kind = 'B' + ((/const int IX_B = (\\d+)/.exec(t) || [])[1]) + (t.includes('#define IX_CARRY') ? 'c' : '') + (t.includes('#define IX_STAGED') ? 's' : '') + (t.includes('#define IX_ANISO') ? 'g' : '') + (t.includes('#define IX_NR_PASS') ? 'n' : '');
+    // (the variant, then what the draw exercises: the shape's kind (7 a formula), the carried colour's stages uGs, uGt
+    // (uGs >= uGt: G the identity) and whether G is analytic, a staged shape's plane)
+    const U = (nm) => { const l = gl.getUniformLocation(p, nm); return l ? gl.getUniform(p, l) : null; }, sh = U('uShape'), gs = U('uGs'), st = U('uShStage');
+    const kind = 'B' + ((/const int IX_B = (\\d+)/.exec(t) || [])[1]) + (t.includes('#define IX_CARRY') ? 'c' : '') + (t.includes('#define IX_STAGED') ? 's' : '') + (t.includes('#define IX_ANISO') ? 'g' : '') + (t.includes('#define IX_NR_PASS') ? 'n' : '')
+      + (sh ? ':k' + sh[0] : '') + (gs !== null ? ':G' + gs + '-' + U('uGt') + (U('uGan') ? 'a' : '') : '') + (st ? ':s' + st : '');
     const u = new Uint32Array(buf.buffer);
     rec['inv|' + kind + '|' + vp.join(',') + '|' + uniformKey(gl, p)] = { h: hash(u), blank: blankOf(u) };
   };
@@ -193,6 +197,14 @@ const SCENES = [
   { name: 'classic-a0.3', view: 'classic', state: Object.assign({}, STRIP, { alpha: 0.3 }), xs: [null] },
   // a shape on plane 1 (its own staged program)
   { name: 'staged', view: 'steps', state: Object.assign({}, STRIP, { shapes: STRIP.shapes.concat([{ id: 's3', kind: 'disc', c: [0, 0.3], r: 0.4, stage: 1, ci: 2, visible: true }]) }), xs: [0.5, 1.5] },
+  // the carried colour's other branches: colour plane 0 (G the identity), and a chain that is not analytic (G at three points)
+  { name: 'strip-T0', view: 'steps', state: STRIP, pre: ['__cmwSteps({ T: 0 })'], xs: [0.5] },
+  { name: 'conj', view: 'steps', state: Object.assign({}, STRIP, { steps: [STRIP.steps[0], { type: 'conj', params: {}, on: true }] }), xs: [0.5] },
+  // Inside regions: the formula region drawn by the carried program (ixCentral there)
+  { name: 'strip-in', view: 'steps', state: STRIP, pre: ["__cmwSteps({ scope: 'in' })"], xs: [0.5] },
+  // B = 8 on the globe and in the staged program
+  { name: 'globe-a0.3', view: 'steps', state: Object.assign({}, STRIP, { alpha: 0.3 }), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
+  { name: 'staged-a0.3', view: 'steps', state: Object.assign({}, STRIP, { alpha: 0.3, shapes: STRIP.shapes.concat([{ id: 's3', kind: 'disc', c: [0, 0.3], r: 0.4, stage: 1, ci: 2, visible: true }]) }), xs: [0.5] },
   // a typed formula's NEWT op
   { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5] },
   // the globe
