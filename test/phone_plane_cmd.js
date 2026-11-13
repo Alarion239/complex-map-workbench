@@ -24,6 +24,9 @@ const settle = async (extra = 'true', max = 20000) => {
   }
 };
 const TOL = 0.005;
+// the language switch asks for its reload this long after the tap, while the wait that follows the tap is already in
+// flight in the old page (a wait in flight when the new page commits is cut off with "Inspected target navigated or closed")
+const LANG_RELOAD_LATE_MS = 400;
 const SHAPES = [
   { id: 's1', kind: 'formula', ci: 0, visible: true, expr: '|\\Im z|<1' },
   { id: 's2', kind: 'line', ci: 1, visible: true, a: [0, 0.5], b: [1, 0.5] },
@@ -81,6 +84,7 @@ async function rounds(name, n, steps) {
   }
   info[name] = { start: fmt(start), worstBack: +(worst * 100).toFixed(4) + ' %' };
 }
+const { reloaded, holdClick } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 
@@ -113,7 +117,10 @@ for (const mk of mapsFor) {
       // (the sheet scrolls: the row may start below the fold)
       await ev(`document.querySelector('.ph-sheet .ph-seg button[data-v="${v}"]').scrollIntoView({ block: 'center' }), 1`);
       await settle();
+      const old = await ev('performance.timeOrigin');
+      await holdClick(LANG_RELOAD_LATE_MS);
       await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`);
+      await reloaded(old);
       await settle(`(document.documentElement.lang || 'en') === '${v}'`);
       await ev(`Phone.close()`);
     };
