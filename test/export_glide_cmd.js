@@ -25,6 +25,9 @@ const CONTROL_ZOOM = 1.1, CONTROL_SHIFT = 0.1;
 const CMP_W = 320;
 // a globe still's panel and the pane's canvas on the screen agree in width over height to this (css px rounding)
 const ASPECT_TOL = 0.02;
+// a sphere's mark (0, infinity, 1, i, -1, -i) is labelled when its normal makes more than this with the line to the eye: the screen's
+// labels start to show above it
+const GLOBE_LABEL_FACE = 0.05;
 // a box may overshoot the figure's size by this much (SVG units) to count as inside it
 const FIT_SLACK = 0.01;
 // the hue ring is marked 1, i, -1, -i
@@ -129,7 +132,17 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     // draws what the pane draws: no level curves of its own
     const de = await ld(end.decoded), rc = (img) => { const c = document.createElement('canvas'); c.width = 60; c.height = 80; c.getContext('2d').drawImage(img, 0.89 * img.width, 0.1 * img.height, 0.08 * img.width, 0.14 * img.height, 0, 0, 60, 80); return c.getContext('2d').getImageData(0, 0, 60, 80).data; };
     const r0 = rc(dv), r1 = rc(de); let sr = 0; for (let i = 0; i < r0.length; i += 4) sr += Math.abs(r0[i] - r1[i]) + Math.abs(r0[i + 1] - r1[i + 1]) + Math.abs(r0[i + 2] - r1[i + 2]);
-    return { mad, three, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
+    // (the sphere's marks 0, infinity, 1, i, -1, -i: the still carries each one that faces the camera of the first frame, as the
+    // screen shows it; the camera is the art layer's at the still's panel, and a mark faces it when its normal has a positive
+    // component along the line to the eye above GLOBE_LABEL_FACE)
+    let labels = null;
+    if (${surf === 'sphere'}) {
+      const ga = await __cmwFig.glideArt(0, { wpt: im[2], hpt: im[3], dpi: 96, raw: true, look: 'light' }), e = ga.globe.eye;
+      const facing = (p) => { const v = [e[0] - p[0], e[1] - p[1], e[2] - p[2]]; return (v[0] * p[0] + v[1] * p[1] + v[2] * p[2]) / Math.hypot(...v); };
+      const marks = [[0, 0, -1], [0, 0, 1], [1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0]];
+      labels = { still: f.boxes.filter((b) => b.kind === 'globe-label').length, facing: marks.filter((p) => facing(p) > ${GLOBE_LABEL_FACE}).length };
+    }
+    return { mad, three, labels, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
   if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
@@ -139,6 +152,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > STILL_DRAWN_MIN && t3.first.mad < bound, fp);
     // the still's shape is checked against the pane's own size, not against the figure's path that the frame also takes
     if (surf === 'sphere') ok(`${tag}: the globe still's panel has the pane's width over height (${t3 && t3.dom})`, !!t3 && t3.dom != null && Math.abs(t3.asp - t3.dom) < ASPECT_TOL, fp);
+    if (surf === 'sphere') ok(`${tag}: the still carries the sphere's labels that face the first frame's camera (${fp && fp.labels && fp.labels.facing})`, !!fp.labels && fp.labels.facing > 0 && fp.labels.still === fp.labels.facing, fp);
     ok(`${tag}: the same comparison fails on a frame zoomed by ${CONTROL_ZOOM} and on one shifted by ${CONTROL_SHIFT} of the crop`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
   }
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
