@@ -41,6 +41,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .iform .ftex:not(.long) { min-height: 22px; }
 .inote { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
 .inote:empty { display: none; }
+.ihint { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
+.ihint:empty { display: none; }
+.ihint-x { white-space: nowrap; font-family: var(--f-mono); }
+.ihint .ihint-use { margin-left: 4px; }
+:root.ph .ihint .ihint-use { min-width: 44px; min-height: 44px; }
 .ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
 .ierr:empty { display: none; }
 /* fields: one row each, 32 px, the symbol (30 px, or as wide as it is: uₖ₊₁ =), the field, the Argand button */

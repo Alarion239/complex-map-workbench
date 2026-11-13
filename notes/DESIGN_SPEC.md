@@ -642,7 +642,7 @@ The instrument is calm. There are no entrance animations, no staggered reveals a
 | Interaction | Motion |
 |---|---|
 | Hover on a control | Color and border change at `--t-fast`. Nothing moves. |
-| Fit, reset view, example load | The view tweens over `--t-view` with `--ease-out`: center linear, scale interpolated in log space. |
+| Fit, reset view, example load, zoom to zeros/poles | The view tweens over `--t-view` with `--ease-out` as one zoom about a fixed point: the scale is interpolated in log space, and the center moves so that the world point the start and end views put at the same screen position stays there throughout, as under a wheel zoom (`Pane.tweenAt`). With the scale unchanged it is a plain eased pan. |
 | Wheel zoom | Cursor-anchored. Each notch eases to its target over 120ms (log scale). A trackpad pinch applies immediately. |
 | **Chain change** (add, remove, invert, reorder, bypass, preset, example) | **The image plane morphs from the old image to the new one along that step's homotopy** over `--t-hom` with `--ease-inout`, at mesh ≤ 160, then swaps to full resolution. This is the signature moment. Continuous edits (typing, scrubbing, dragging a cut) update live with no tween. |
 | Popover, menu or palette open | Opacity 0→1 plus a 4px translate from the anchor side, `--t-med` `--ease-out`. Close is `--t-fast`, opacity only. Palette results don't animate. |

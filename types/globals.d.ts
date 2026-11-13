@@ -30,7 +30,7 @@ declare const Params: typeof import('../src/params.js');
 declare const SEASONG: typeof import('../src/seasong.js').SEASONG;
 // loaded from the CDN by the page (build.py)
 declare const MathJax: any;
-// view.js exports only Views to node; the page also uses its Pane class and Axes helpers
+// view.js exports Axes, Pane and Views to node; the page uses all three
 declare const Pane: any;
 declare const Axes: any;
 // the node branches of the files that also run in the unit tests
