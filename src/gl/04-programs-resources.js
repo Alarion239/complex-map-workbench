@@ -1,12 +1,60 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
+    // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
+    uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
+  // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
+  // with the log the zeta loops call: a vertex shader's transform feedback, read back, so each entry is what log(float(k))
+  // gives there. If that pass cannot run, the host's float32 logs stand in
+  let logKData = null;
+  // A GPU's log may differ from Math.log by a few float32 ulps; the table is kept only while every entry is within this relative distance of it
+  const LOGK_GPU_REL_TOL = 1e-5;
+  function logK() {
+    if (logKData) return logKData;
+    const n = GLChain.ZETA_LN_K_COUNT, out = new Float32Array(n);
+    out[0] = 1;
+    for (let k = 1; k < n; k++) out[k] = Math.fround(Math.log(k));
+    const e = { name: 'logK' };
+    startLink(e, '#version 300 es\nprecision highp float;\nout vec4 tfOut;\nvoid main() {\n  int i = gl_VertexID;\n  tfOut = vec4(log(max(float(4 * i), 1.0)), log(float(4 * i + 1)), log(float(4 * i + 2)), log(float(4 * i + 3)));\n  gl_Position = vec4(0.0);\n}\n', HEAD + TF_FS, true);
+    finishLink(e);
+    const p = e.p;
+    if (e.state === 'ready') {
+      const tf = gl.createTransformFeedback(), buf = gl.createBuffer(), vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING), gpu = new Float32Array(n);
+      gl.bindVertexArray(null);
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, buf);
+      gl.bufferData(gl.COPY_WRITE_BUFFER, gpu.byteLength, gl.DYNAMIC_READ);
+      gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+      gl.useProgram(p);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, buf);
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, n / 4);
+      gl.endTransformFeedback();
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+      gl.bindBuffer(gl.COPY_READ_BUFFER, buf);
+      gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, gpu);
+      gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+      gl.bindVertexArray(vao);
+      gl.deleteBuffer(buf); gl.deleteTransformFeedback(tf);
+      if (gpu.every((x, k) => k === 0 || (Number.isFinite(x) && Math.abs(x - out[k]) <= LOGK_GPU_REL_TOL * (1 + out[k])))) { gpu[0] = 1; out.set(gpu); }
+    }
+    if (p) gl.deleteProgram(p);
+    logKData = out;
+    return out;
+  }
+  // a freshly linked program's constant arrays, set once (a program's uniforms stay while it lives)
+  function programConstants(loc, p) {
+    if (loc.uLogK) { const d = logK(); gl.useProgram(p); gl.uniform4fv(loc.uLogK, d); }
+  }
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
     gl.compileShader(s);
     return s;
   }
-  // ?glprof (issue #72): every program's link timed, for slow shader compilers (ANGLE's Direct3D 11 runs FXC at link
+  // ?glprof: every program's link timed, for slow shader compilers (ANGLE's Direct3D 11 runs FXC at link
   // time). A record per link: the program (name, its chain version's key, map mode, inverse or not, source sizes), when
   // it started, and when it was done: KHR_parallel_shader_compile's COMPLETION_STATUS seen by a 5 ms poll, or the
   // return of a link read that waited (no extension, tests, exports). GLR.profile() returns them; ci/glprof.js reads them.
@@ -73,6 +121,7 @@
       loc[name] = gl.getUniformLocation(p, u.name);
       if (name in SAMPLER_UNITS) gl.uniform1i(loc[name], SAMPLER_UNITS[name]);
     }
+    programConstants(loc, p);
     e.loc = loc; e.state = 'ready';
   }
   const F_UTIL = UTIL + FADE;
@@ -87,9 +136,12 @@
   // depth orders the sheets, so a fragment behind the front sheet drawn already is dropped before its colour
   // (a sheet program without a clipped cut: REGION_VS's own option, whose mask (CARRY_MASK_FS, the same vertex stage)
   // the fill draws through: drawRegionCarry)
-  const REGION_K_VS = (fetch, sheet, clip) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip });
-  const REGION_K_FS = (clip) => () => UTIL + DCOLOR + CARRY_FS(false, false, false, !!clip);
-  const REGION_KM_FS = () => UTIL + CARRY_MASK_FS;
+  const REGION_K_VS = (fetch, sheet, clip, centre) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip, centre: !!centre });
+  // (centre: vP read at the pixel centre, not at the centroid of the pixel's covered samples; the vertex stage's and the
+  // fragment stage's qualifiers match)
+  const REGION_K_FS = (clip, key, centre) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre);
+  const PEEL_PROGS = ['regionK', 'regionKC', 'regionKN', 'regionKCN', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
+  const REGION_KM_FS = (key) => () => UTIL + CARRY_MASK_FS(key);
   // chain: the program includes the chain (one per chain structure); the others compile once
   const DEFS = {
     region: { chain: true, vs: () => REGION_VS(false, 'chain'), fs: () => F_UTIL + REGION_FS(false) },
@@ -97,24 +149,25 @@
     region0: { chain: false, vs: () => FIN + REGION_VS(false, 'local'), fs: () => F_UTIL + REGION_FS(false) },
     // (the steps view's carried colour, REGION_K_VS / REGION_K_FS; regionKC from the map cache, regionKS on each
     // triangle's own sheet)
-    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS() },
+    regionK: { chain: true, vs: () => REGION_K_VS('chain'), fs: REGION_K_FS(false) },
+    // (regionK and regionKC for a chain with no cut: the colour at the pixel centre, so the pixels along a triangle's edges read
+    // the point the map's plot reads, not one up to half a pixel off)
+    regionKN: { chain: true, vs: () => REGION_K_VS('chain', false, false, true), fs: REGION_K_FS(false, false, true) },
+    regionKCN: { chain: true, vs: () => REGION_K_VS('tex', false, false, true), fs: REGION_K_FS(false, false, true) },
     // (and from the map cache: the places evaluated once per lattice point by the region tiling's transform feedback,
     // drawRegion's regionC; a chain program still, for the colour's chainRange per fragment)
-    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS() },
-    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS() },
-    // (and the fill after regionKC: only the triangles the cached places tear, on their centre's sheet)
-    regionKSC: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_K_FS() },
-    // (regionKS and regionKSC for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
+    regionKC: { chain: true, vs: () => REGION_K_VS('tex'), fs: REGION_K_FS(false) },
+    regionKS: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_K_FS(false) },
+    // (regionKS for a chain whose path has a clipped cut: REGION_VS's clip, CARRY_FS's clip)
     regionKSclip: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true, true), fs: REGION_K_FS(true) },
-    regionKSCclip: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true, true), fs: REGION_K_FS(true) },
-    // (regionKSC and regionKSCclip with the fill's values from its point pass, fillPts: drawRegionCarry, fillPoints)
-    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS() },
-    // (the masks of regionKS, regionKSC and regionKSCpt: their vertex stage, CARRY_MASK_FS's fragments, so a torn
+    // (the fill after regionKC: only the triangles the cached places tear, on their centre's sheet, each place read from
+    // the fill's point pass, fillPts: drawRegionCarry, fillPoints; regionKSCclippt for a clipped cut)
+    regionKSCpt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_K_FS(false) },
+    // (the masks of regionKS and regionKSCpt: their vertex stage, CARRY_MASK_FS's fragments, so a torn
     // triangle shows only where the map sends its points; started with them, prestartCarry, and drawn once linked:
     // carryPrep)
-    regionKSm: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_KM_FS },
-    regionKSCm: { chain: true, sheet: true, vs: () => REGION_K_VS('tex', true), fs: REGION_KM_FS },
-    regionKSCptm: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_KM_FS },
+    regionKSm: { chain: true, sheet: true, vs: () => REGION_K_VS('chain', true), fs: REGION_KM_FS(false) },
+    regionKSCptm: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, points: true, own: true }), fs: REGION_KM_FS(false) },
     regionKSCclippt: { chain: true, sheet: true, vs: () => REGION_VS(false, 'tex', { carry: true, sheet: true, clip: true, points: true }), fs: REGION_K_FS(true) },
     fillPts: { chain: true, sheet: true, vs: () => FILL_PTS_VS, fs: () => RT4_FS, tf: 'rt' },
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
@@ -140,16 +193,19 @@
     // TEMP-DEBUG-HOOK
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
-    // (#366 F: the steps view's carried colour, CARRY_VS)
+    // (the steps view's carried colour, CARRY_VS)
     carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
     carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
+    // (the same on the globe, CARRY_GLOBE_VS)
+    carryG: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(false) },
+    carryGId: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(true) },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
-    // (#235: the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
+    // (the residue theorem's picture of the same style; its chain's F, compiled when the style first shows for a chain)
     cauchyF: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHYF_FS },
     pre: { chain: true, vs: () => QUAD_VS, fs: () => PRE_FS('') },
     preS: { chain: true, vs: () => SPHERE_VS, fs: () => PRE_FS('', true) },
     // (the heights, uPass 0, and the refinement, 1 and 2: one program, one call site of the chain, LAND_TF_VS)
-    // (issue #47: and the edge pass, uPass 3, of the cut kind tfKind gives this chain version and map mode)
+    // (and the edge pass, uPass 3, of the cut kind tfKind gives this chain version and map mode)
     landTF: { chain: true, vs: (ch, mode) => UTIL_V + HEIGHT + LAND_TF_VS(tfKind(ch, mode)), fs: () => TF_FS, tf: true, kind: (ch, mode) => tfKind(ch, mode) },
     // (the refinement's levels and vertices: no chain, compiled once per page, LAND_LV_VS / LAND_RP_VS / LAND_RA_VS)
     landLv: { chain: false, vs: () => LAND_LV_VS, fs: () => TF_FS, tf: true },
@@ -161,9 +217,9 @@
     landEdgeH: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('H'), fs: () => TF_FS, tf: true },
     landEdge2: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('2'), fs: () => TF_FS, tf: true },
     // (the base cells: the base's fragment stage, F at the fragment and no fade, so a formula's first Landscape compiles
-    // what it did before the walls; r2 review math-2)
+    // as a Landscape without walls does)
     land: { chain: true, vs: () => LAND_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true) },
-    // (#846: the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
+    // (the steps view's carried landscape: places and heights, normals, the draw; LAND_CARRY_TF_VS)
     landCarryTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_CARRY_TF_VS, fs: () => TF_FS, tf: true },
     landCarryPlace: { chain: true, vs: () => UTIL_V + LAND_CARRY_PLACE_TF_VS, fs: () => TF_FS, tf: true },
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
@@ -183,12 +239,18 @@
     landSheetC: { chain: true, sheet: true, vs: () => LAND_SHEET_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(true) },
     probeSheet: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(true), fs: () => MARK_FS },
     mark: { chain: false, vs: () => MARK_VS, fs: () => MARK_FS },
-    sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_FS(false) },
-    sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_FS(true) },
+    sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(false) },
+    sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(true) },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
+    carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
     keepA: { chain: false, vs: () => QUAD_VS, fs: () => 'out vec4 o;\nvoid main() { o = vec4(0.0); }\n' },
   };
+  // The carried colour's layers (GLR.carryLayers) order the sheets by the key of each fragment's source point, as the exact
+  // pass does (the vertex stage's depth is interpolated across a triangle, so two triangles of one sheet, or two sheets
+  // whose keys are a tie order apart, would not compare): each tessellated-mesh program has a variant 'P' that writes it
+  PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true, /^regionKC?N$/.test(n)) }); });
+  ['regionKSm', 'regionKSCptm'].forEach((n) => { DEFS[n.slice(0, -1) + 'Pm'] = Object.assign({}, DEFS[n], { fs: REGION_KM_FS(true) }); });
   // vertex-stage subset of UTIL (no derivatives)
   const UTIL_V = `
 float wabs(vec2 w) {
@@ -199,7 +261,7 @@ float wabs(vec2 w) {
 }
 `;
   // A stage gets the chain library only when it calls into it (the fragment stages of the map-cache, region and line
-  // programs do not), so each added step compiles about half the GLSL it used to (spec 8.7); a stage whose only use
+  // programs do not), so each added step compiles about half the GLSL (spec 8.7); a stage whose only use
   // is cfin gets FIN.
   let libRe = null;
   function libUse(src) {
@@ -213,7 +275,7 @@ float wabs(vec2 w) {
     }
     return libRe.test(src) ? 2 : /\bcfin\b/.test(src) ? 1 : 0;
   }
-  // (issue #47) the cut kind landTF's own edge pass handles for chain version ch in map mode `mode`, so that the
+  // the cut kind landTF's own edge pass handles for chain version ch in map mode `mode`, so that the
   // surface's heights and its edge pass are one program: 'S' in map mode 0 when every cut a step of the chain can make
   // is one the stages' sheets continue (cutModeOf's mode 1, chainSheetRange), else 'N': the plain heights (mapF), no
   // edge pass compiled in, and the frames with cuts use the separate edge program (landEdgeS / landEdgeH / landEdge2).
@@ -249,7 +311,7 @@ float wabs(vec2 w) {
   const PROG_KEEP = 3;   // chain versions kept per program (undo, redo and bypass toggles reuse them)
   // the id of program `name` in progs: chain programs per chain version and map mode (the draw's map, as use() applies
   // it to version ch), the others once; landTF also per kind (tfKind): a log's or z^a's cut angle and branch are
-  // uniforms, so the chain's key stays when its cuts change kind (sheet <-> other) and the kind flips S <-> N (#168 review)
+  // uniforms, so the chain's key stays when its cuts change kind (sheet <-> other) and the kind flips S <-> N
   function progId(name, ch, map) {
     const d = DEFS[name];
     if (!(d && d.chain)) return name + '|static';
@@ -344,13 +406,22 @@ float wabs(vec2 w) {
     }
     return n;
   }
-  // ((#366 prototype) the steps view's glide: the current chain's programs by name and map mode, started in the
+  // (the steps view's glide: the current chain's programs by name and map mode, started in the
   // background (KHR_parallel_shader_compile) so the first glide finds them linked: the region meshes, the lines, their
   // transform feedback, the colour plot and the pull-backs, in modes 0 (a plane) and 1 (a step's homotopy))
-  // (without the extension a link blocks: perf's suggestion on #448, they are linked one at a time in idle time
+  // (without the extension a link blocks: they are linked one at a time in idle time
   // instead, so the block lands before the first glide rather than in it)
+  // the [name, mode] programs prestartNames was asked for, per chain key (progStatus counts them: a caller's list
+  // is the one place a name is written); the chains before the last few are forgotten
+  const wanted = new Map();
+  function noteWanted(names, modes) {
+    let w = wanted.get(cur.key);
+    if (!w) { w = new Map(); wanted.set(cur.key, w); if (wanted.size > PROG_KEEP + 2) wanted.delete(wanted.keys().next().value); }
+    for (const n of names) for (const m of modes) w.set(n + '|' + m, [n, m]);
+  }
   function prestartNames(names, modes) {
     if (!ok || lost || sideMode || !cur.info) return 0;
+    noteWanted(names, modes);
     if (!pcExt) {
       const todo = [];
       for (const name of names) for (const m of modes) if (DEFS[name]) todo.push([name, m]);
@@ -374,7 +445,24 @@ float wabs(vec2 w) {
     if (n) schedulePoll();
     return n;
   }
-  // (issue #72) the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
+  // How far the current chain's programs that prestartNames was asked for have come: {done, total}. done: linked (or
+  // failed: nothing more will come of it); a program not started counts in total only. The chain's other programs still
+  // compiling are counted in total as well, so the answer is complete only when nothing of the chain is left linking:
+  // its programs that a draw starts at their first use (as the carried colour's region fills; while one links, no
+  // inverse program of the chain is started, invProgram) and its inverse programs (the exact images'; an inverse
+  // program's askKey: the key of the chain whose draw or state query asked for it last)
+  function progStatus() {
+    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
+    const w = wanted.get(cur.key), ids = [];
+    // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
+    if (!w) return { done: 0, total: 1 };
+    for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
+    const extra = [];
+    for (const e of progs.values()) if (e.state === 'pending' && (e.inv ? e.askKey === cur.key : e.chain && !e.side && e.key === cur.key)) extra.push(e.id);
+    const r = warmCount([['chain', ids]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
+    return { done: r.done, total: r.total };
+  }
+  // the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
   // -> the number started
   function prestartLand() {
@@ -471,11 +559,11 @@ float wabs(vec2 w) {
   let freshT = -1e9;
   // A surface's chain programs are taken into use together, in one frame: ANGLE completes each one's Metal side at its
   // first draw, and a formula's first Landscape drew its heights' program a frame or more before its surface's, which
-  // held the GPU process twice (r2 review math-2: a second stall of 0.85 to 1.1 s under load; the base, one stall).
+  // held the GPU process twice (a second stall of 0.85 to 1.1 s under load; the base, one stall).
   // A member finishes only when every member of its group has compiled; the group counts as one for FRESH_MS
   // (a group is one chain version in one map mode: a draw takes all three with the same map)
   const GROUPS = [['landTF', 'land', 'floor'], ['landSheetTF', 'landSheet', 'floor']];
-  // (the floor goes with the surface it is drawn under: All sheets' when their programs were asked for, r3: through the
+  // (the floor goes with the surface it is drawn under: All sheets' when their programs were asked for: through the
   // principal group it started the principal programs alongside the sheets', a second family compiling at a cold open)
   const groupOf = (e) => (e.name === 'floor' ? (progs.has(progId('landSheet', e.ch, { mode: e.mode })) ? GROUPS[1] : GROUPS[0]) : GROUPS.find((g) => g.includes(e.name)) || null);
   function groupDone(e) {
@@ -526,7 +614,7 @@ float wabs(vec2 w) {
     // which draws can now redraw: main (the current chain and its history), side (side chains)
     if ((main || sided) && api.onReady) api.onReady({ main, side: sided });
   }
-  // (issue #72, I) How long the current chain's area draws (region, or tfRegion for the cached path; the deformation's
+  // How long the current chain's area draws (region, or tfRegion for the cached path; the deformation's
   // start for a mode still compiling) have had nothing to draw: their own programs still linking and no earlier chain
   // version ready to stand in. 0 as soon as a draw would find a program (one ready, or a link complete, so the frame
   // that leaves the app's stand-in draws the GPU picture: no blank frame between), when none was asked for yet, or
@@ -570,7 +658,9 @@ float wabs(vec2 w) {
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
   // compile; null when nothing can draw: frameErr says why for a failed compile, framePending for one in flight.
   // map: the draw's map (the one passed to use()), which picks the program of its mode
-  function program(name, map) {
+  // exact: the current chain's own program or null, never an earlier chain version's (a program of another chain reads
+  // the map's indices as its own steps and paints another picture)
+  function program(name, map, exact) {
     const P = getProg(name, cur, true, map);
     if (P) return P;
     const e = progs.get(progId(name, cur, map));
@@ -579,7 +669,7 @@ float wabs(vec2 w) {
     if (!cur.info) return null;
     framePending = true;
     if (e && e.state === 'pending') standIn(e.id);
-    if (sideMode) return null;   // a side chain draws only with its own programs
+    if (exact || sideMode) return null;   // a side chain draws only with its own programs
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
@@ -615,7 +705,7 @@ float wabs(vec2 w) {
     let p = 0;
     while (p < a.length && p < b.length && a[p] === b[p]) p++;
     const mode = map.mode || 0;
-    // (v16: a changed step inside the post: the start of the bracketed part, from the source plane)
+    // (a changed step inside the post: the start of the bracketed part, from the source plane)
     if ((mode === 1 || mode === 3) && (map.post || 0) >= p + 1) { const lo = mode === 1 ? (map.hi || 0) - 1 : (map.a || 0); return { mode: 0, a: map.base || 0, b: Math.min(lo, p) }; }
     if (mode === 1 && (map.hi || 0) > p) return { mode: 0, a: map.base || 0, b: (map.hi || 0) - 1 };
     if ((mode === 2 || mode === 3) && (map.b || 0) > p) return { mode: 0, a: map.base || 0, b: map.a || 0 };
@@ -643,7 +733,7 @@ float wabs(vec2 w) {
   function use(P, map) {
     gl.useProgram(P.p);
     // TEMP-DEBUG-HOOK (removed before publishing)
-    // (walls tests, issue #52) api._lwLog = []: [name, time] of each program's first use, for the cold-open timing
+    // (walls tests) api._lwLog = []: [name, time] of each program's first use, for the cold-open timing
     try { if (api._lwLog && !P.used1) api._lwLog.push([P.name || '', performance.now()]); } catch (e) { /* api is not built yet */ }
     // TEMP-DEBUG-HOOK
     P.used1 = true;
@@ -952,9 +1042,9 @@ float wabs(vec2 w) {
     res.vaos.set(key, v);
     return v;
   }
-  // (v16.1) frees the entries of res evaluated under the app key cacheKey, at every template size: the forward stand-in
+  // frees the entries of res evaluated under the app key cacheKey, at every template size: the forward stand-in
   // a shape drew while its inverse program compiled, once the inverse pass draws it. Nothing looks that evaluation up
-  // again unless the shape falls back to forward, which evaluates it anew (gate v16: sphere.logUHP kept 1.2 MB)
+  // again unless the shape falls back to forward, which evaluates it anew (sphere.logUHP kept 1.2 MB)
   function dropCached(res, cacheKey) {
     if (!res || !res.tf || !cacheKey) return 0;
     let n = 0;
@@ -987,7 +1077,7 @@ float wabs(vec2 w) {
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
       data[o + pc + 4] = d.tri[t];
     }
-    // ((#366 prototype) d.dynamic: the data kept, for updatePreMesh to move its vertices frame by frame)
+    // (d.dynamic: the data kept, for updatePreMesh to move its vertices frame by frame)
     const buf = makeBuf(data, d.dynamic ? gl.DYNAMIC_DRAW : undefined);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
@@ -999,7 +1089,7 @@ float wabs(vec2 w) {
     for (const [r] of preAll) { if (preBytes <= PRE_BYTES) break; if (r !== res) destroy(r); }
     return res;
   }
-  // ((#366 prototype) a flat dynamic mesh's vertices moved: pos as createPreMesh's (2 per vertex, 6 per triangle), the
+  // (a flat dynamic mesh's vertices moved: pos as createPreMesh's (2 per vertex, 6 per triangle), the
   // other attributes kept; one upload, no new buffer)
   function updatePreMesh(res, pos) {
     if (!ok || !res || !res.data || res.sph || !res.n) return false;
@@ -1049,7 +1139,7 @@ float wabs(vec2 w) {
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
-    const k = !sph && st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
+    const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
@@ -1144,7 +1234,7 @@ float wabs(vec2 w) {
   // each drawn as one pixel into its texel of tex (W x H, RG32F). Blending, depth, culling and the scissor are off
   // for the pass; the pane's framebuffer, viewport and these switches are restored after it.
   // alloc false: tex already has W x H RG32F storage (a reused scratch texture)
-  // (maskRGB, maskA: the frame's write mask (writeMask); the pass writes its texel's RG whatever it is, #440)
+  // (maskRGB, maskA: the frame's write mask (writeMask); the pass writes its texel's RG whatever it is)
   let rtFbo = null, maskRGB = true, maskA = true;
   // (rgba: RGBA32F storage)
   function runRT(P, vao, count, instances, tex, W, H, alloc = true, rgba = false) {
@@ -1216,7 +1306,7 @@ float wabs(vec2 w) {
   // current program compiled (an older ready program under the same app key, or an earlier version's stand-in at this
   // template size): those entries can never be looked up again (the current chain's key is checked first, and the
   // stand-in is only drawn while the current program is pending), so they are freed now instead of holding their
-  // texture until the resource is rebuilt (U-b gate: a loaded example kept a second full-size evaluation of each shape)
+  // texture until the resource is rebuilt (a loaded example kept a second full-size evaluation of each shape)
   function dropSuperseded(c, e) {
     for (const o of [...c.values()]) {
       if (o === e || o.L !== e.L) continue;
@@ -1259,7 +1349,7 @@ float wabs(vec2 w) {
   // after its map cache pass: gate {e, skip, kpx, lim} is the cache entry, the skip buffer and the uKPx, uKLim the fill
   // draws with; gate.two: the second run too (uFPass 1), the places of the fill's pass 1, into tex1. -> {tex, tex1, W, P}
   // for the fill's uFT (unit 12), uFTW, uFTP; or null (fillPts compiling, no float target, too many points for one
-  // texture), and the fill evaluates its points itself
+  // texture), and the sheet program draws in the fill's place (carryPrep)
   function fillPoints(res, L, map, gate) {
     if (L > 2 || !rtOK) return null;
     const P = program('fillPts', map);
@@ -1314,8 +1404,8 @@ float wabs(vec2 w) {
   // outer ring's sizes): its map cache's scratch texture (tmpEntry's slot, kept as the carry's) and, for a chain whose
   // cuts the fill draws, its point pass's (fillPoints: both runs' for a cut not clipped), each at the size its draw
   // asks for; and the vertex arrays of its map cache's pass, its point pass and its draw (meshTFVAO, fillPtsVAO,
-  // meshVAO; no cells skipped), so that draw creates none of them
-  function carryReserve(res, L) {
+  // meshVAO) with the cells skip leaves out (none without it), so that draw creates none of them
+  function carryReserve(res, L, skip) {
     if (!ok || !rtOK || !res || !res.n) return false;
     const tpl = regionTemplate(L), W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(tpl.P * res.n / W));
     if (H > maxTex) return false;
@@ -1341,13 +1431,19 @@ float wabs(vec2 w) {
       }
     }
     meshTFVAO(res, L);
-    if (res.fillPts) fillPtsVAO(res, res.skip0);
-    meshVAO(res, L);
+    if (res.fillPts) fillPtsVAO(res, skip || res.skip0);
+    meshVAO(res, L, skip);
     return true;
   }
-  // (how many point passes have run: the tests' proof that the fill took its values from one)
+  // (the tests' record of the fill: runs, how many point passes have run; frames, the fill's frames drawn from the point
+  // pass (points) or with the sheet program standing in (standIn); reverts, frames that stood in after the point pass
+  // had drawn for the same fill program, so a program build switches to the point pass at most once)
   let fillPtsRuns = 0;
-  const fillPointsRuns = () => fillPtsRuns;
+  const fillStats = { points: 0, standIn: 0, reverts: 0 }, fillDrewPts = new WeakSet();
+  function noteFill(Q, pts) {
+    if (pts) { fillStats.points++; fillDrewPts.add(Q); } else if (Q && fillDrewPts.has(Q)) fillStats.reverts++; else fillStats.standIn++;
+  }
+  const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
   // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
   let carryProbe = {};

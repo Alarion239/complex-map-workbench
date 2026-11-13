@@ -242,7 +242,7 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
@@ -307,7 +307,7 @@
         clipWin = nb;
         setOpt('clipWin', clipWin);
         if (rightAuto && rImage()) fitRight(true);
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R');
       }
       save();
   };
@@ -433,7 +433,7 @@
     }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to }; return; }
+      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
     }
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
@@ -1075,7 +1075,7 @@
     const [x, y] = evXY(pane, e);
     if (drag && drag.mode !== 'probe') { // a touch probe (long press) moves like a hover
       if (drag.x != null && !drag.far && Math.hypot(x - drag.x, y - drag.y) > 4) drag.far = true;   // (a pan, not a click)
-      if (drag.mode === 'gdraw' || drag.mode === 'ghandle' || drag.mode === 'gmove') { globeMove(pane, drag.side, e, x, y); return; }
+      if (drag.mode === 'gdraw' || drag.mode === 'ghandle' || drag.mode === 'gmove') { drag.gx = x; drag.gy = y; globeMove(pane, drag.side, e, x, y); return; }
       if (drag.mode === 'orbit') {
         const c = drag.cam || cam3();
         const dyaw = -(x - drag.lx) * 0.35 * DEG, dpitch = (y - drag.ly) * 0.35 * DEG;
@@ -1086,7 +1086,7 @@
         requestRender(drag.side === 'L' ? 'L' : 'R');
         return;
       }
-      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R', 'T'); return; }
+      if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1121,7 +1121,7 @@
       if (drag.mode === 'cut') {
         // (in a later plane the pointer is pulled back to the cut's own plane, in an earlier one mapped forward to it; where there
         // is no such point the cut holds)
-        const zc = drag.fwd ? drag.fwd(z) : drag.F ? cutPull(drag.F, z, drag.q, drag.from, drag.to) : z;
+        const zc = drag.fwd ? drag.fwd(z) : drag.F ? cutPull(drag.F, z, drag.q, drag.from, drag.to, drag.Fc) : z;
         if (!zc || !CX.isFin(zc)) return;
         if (drag.F) drag.q = zc;
         setCut(drag.step, Math.atan2(zc.im - drag.p.im, zc.re - drag.p.re) / DEG, S.snap);
@@ -1183,6 +1183,8 @@
       }
     }
     // hover
+    if (side === 'L') probeHover = { pane, e };
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
@@ -1276,6 +1278,14 @@
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
   let rHover = null; // a point hovered in the right (image) plane
   const copyValue = { L: '', R: '' };
+  // (#955) While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
+  // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
+  // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
+  let probeHover = null, probeHeld = false;
+  function probeMoving() {
+    if (probe) { probe = null; setReadouts(null); }
+    probeHeld = !!probeHover;
+  }
   function setReadouts(z) {
     const lr = $('leftReadout'), ro = $('rightReadout');
     if (!lr || !ro) return;
@@ -1293,6 +1303,8 @@
     const zt = Math.max(zTol, 1e-12 * Math.max(Math.abs(z.re), Math.abs(z.im)));
     const zr = { re: Math.abs(z.re) < zt ? 0 : z.re, im: Math.abs(z.im) < zt ? 0 : z.im };
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
+    // (a finger found the hold-and-slide, on whichever plane: the scale chip stops teaching it)
+    if (ptrTouch && !probeLearned()) { try { localStorage.setItem('cmw-probe-learned', '1'); } catch (e) { /* */ } probeLearnedV = true; }
     // (the steps view's own probe, for the tour and an example's Try line: the shown plane, the value of the map into the colour
     // plane at the point (undefined past it, where the plane carries shapes and no colour of its own), #442)
     if (SV.on && tourL.probe) {
@@ -1310,7 +1322,15 @@
       // panels.md 2: z, |z|, arg, then F as modulus and angle with its swatch (first, so it is never cut); where the
       // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
       // (the steps view's colour plane reads its own variable above: no second row for the identity)
-      const fv = (dp) => SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
+      // (the steps view's Landscape reads F at the point, the whole chain's value, and the height it stands at, h(F),
+      // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
+      const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
+      const hRow = (dp) => {
+        const fin = CX.isFin(hF), hv = !fin ? NaN : landValue(hF);
+        const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
+        return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
+      };
+      const fv = (dp) => land ? (landOffRegion(render3D.mask, z) ? '' : hRow(dp)) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
       const forms = [
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))) + fv(4),
         () => rk(vin, fmtCxHtml(z, 4, zTol)) + fv(4),
@@ -1318,7 +1338,7 @@
       ];
       // (the steps view's readout on a phone is two lines, as the classic one: z on the first, the map into the colour plane on the
       // second, where one line of both was cut at 360–390 px)
-      const two = SV.on && document.documentElement.classList.contains('ph') && svMapName('text') !== null;
+      const two = SV.on && document.documentElement.classList.contains('ph') && (land || svMapName('text') !== null);
       if (two) {
         const z2 = [() => rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re))), () => rk(vin, fmtCxHtml(z, 4, zTol)), () => rk(vin, fmtCxHtml(z, 3, zTol))];
         const m2 = [() => fv(4), () => fv(4), () => fv(2)];
@@ -1354,8 +1374,6 @@
         lr.innerHTML = forms[i]();
         if (i === forms.length - 1 || [...lr.children].every(fits)) break;
       }
-      // (a finger found the hold-and-slide: the scale chip stops teaching it)
-      if (ptrTouch && !probeLearned()) { try { localStorage.setItem('cmw-probe-learned', '1'); } catch (e) { /* */ } probeLearnedV = true; }
     }
     // Y: the image of the probe (F at t = end)
     const w = wOnce !== undefined ? wOnce : focusF()(z);
@@ -1384,6 +1402,11 @@
   // idle readouts show the scale; refreshed after every render when nothing is probed (the left readout keeps the
   // preimage count while the right plane is hovered)
   function idleReadouts() {
+    // (#955) the thread came to rest: the probe reads the pointer's point of this frame
+    if (probeHeld && SV.on && !svMoving()) {
+      probeHeld = false;
+      if (probeHover && !drag) { onMove(probeHover.pane, 'L', probeHover.e); return; }
+    }
     // (a globe gesture's chip shows the set being drawn or edited until release)
     if (probe || (drag && /^g(draw|handle|move)$/.test(drag.mode))) return;
     const lr = $('leftReadout'), ro = $('rightReadout');
@@ -1441,8 +1464,14 @@
     // (v16.4) the user's pan or orbit, once it moved: the tour's view tasks (notes/tour/INTEGRATION.md 9)
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
-    if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
-    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') {
+      // a release at a place the last move did not reach (moves can be merged or dropped while a frame is busy) is the gesture's end
+      const [x, y] = evXY(pane, e), lx = d.gx != null ? d.gx : d.x, ly = d.gx != null ? d.gy : d.y;
+      if (lx != null && Math.hypot(x - lx, y - ly) > 0.5) { drag = d; try { globeMove(pane, d.side || side, e, x, y); } finally { drag = null; } }
+      globeUp(pane, d.side || side, d);
+      return;
+    }
+    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; probeHover = null; probeHeld = false; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
     if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
@@ -1458,13 +1487,13 @@
         scheduleFix();
         commit();
       }
-      requestRender('L', 'R', 'T', 'OL');
+      requestRender('L', 'R', 'OL');
       return;
     }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
       if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
-      requestRender('L', 'R', 'T');
+      requestRender('L', 'R');
     }
     if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
@@ -1543,27 +1572,12 @@
         if (s) { e.preventDefault(); if (key === 'd') duplicateShape(s); else moveShape(s.id, kk === ']' ? 1 : -1); return; }
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // (v16.5 UX97) the deformation: K plays or pauses, Shift+← and Shift+→ go to the previous or next step's tick
-      if (morph.open && key === 'k') { e.preventDefault(); togglePlay(); return; }
-      if (morph.open && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); morphTick(e.key === 'ArrowRight' ? 1 : -1); return; }
       // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
-      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
+      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
         const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
         if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }
       }
       if (e.shiftKey && key === 'm') { e.preventDefault(); soundToggle(); return; }
-      // views (merged-views.md): 1 X → Y, 2 Phase, 3 Landscape. One map for the surfaces in every view (merged-views
-      // review): Shift 1, 2 Plane, Sphere of the left or only panel (X in X → Y, the portrait in Phase), Shift 3, 4 of
-      // Y (X → Y). By e.code, so Shift 1 is not "!" and the digits work on any layout (AZERTY included); before every
-      // e.key shortcut, so a digit key that types '+' or '?' (Swiss ⇧1, Czech 1) still picks a view
-      const dg = /^(?:Digit|Numpad)([1-4])$/.exec(e.code || '');
-      if (dg && (e.shiftKey || +dg[1] <= 3)) {
-        const d = +dg[1];
-        if (e.shiftKey) { const sf = d % 2 === 1 ? 'plane' : 'sphere'; if (d <= 2) { if (!lLand()) setView('L', sf); } else if (S.view.main === 'xy') setView('R', sf); }
-        else setMain(MAINS[d - 1][0]);
-        e.preventDefault();
-        return;
-      }
       if (kk === '[') setPanels(!S.hideLeft, S.hideRight);
       if (kk === ']') setPanels(S.hideLeft, !S.hideRight);
       if (e.key === 'Backspace' && polyDraftOpen()) { e.preventDefault(); polyBack(); return; }
@@ -1572,7 +1586,6 @@
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
-      if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
       // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
       if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
       if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }

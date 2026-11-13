@@ -1,89 +1,8 @@
 /* ======================================================================
-   v15 desktop and tablet (notes/ui-redesign-2/desktop/DESIGN.md): the chain's cards are a type and a picture, the
-   F tile closes the chain, the right panel is the Inspector. build.py puts this file at the end of page.html's style.
+   desktop and tablet (notes/ui-redesign-2/desktop/DESIGN.md): the right panel is the Inspector. build.py puts this file at the end of page.html's style.
    ====================================================================== */
-/* ---------- the chain: 188 px (36 head + 8 + 134 card + 10) ---------- */
+/* ---------- the chain's row: 188 px ---------- */
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
-.pipe-head .compose { display: none; }
-.pipe-head #viewAllBtn:disabled { opacity: 0.5; }
-/* ([#357] a row too narrow for the controls: the heading gives way, still read by a screen reader; app.js) */
-.pipe-head.notitle > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.pipeline { align-items: stretch; padding: 8px 12px 10px; scroll-snap-type: x proximity; }
-.card {
-  flex: 1 1 0; width: auto; min-width: 120px; max-width: 208px; height: 134px; contain-intrinsic-size: auto 134px;
-  container-type: inline-size; outline-offset: -2px;
-}
-.card.region-card { flex-basis: 0; width: auto; contain-intrinsic-size: auto 134px; }
-.card-head { flex: 0 0 36px; height: 36px; gap: 5px; padding: 0 6px; }
-.card .grip { display: none; }
-.card .nm {
-  flex: 1 1 auto; min-width: 0; margin-left: 0; white-space: normal; overflow: hidden; text-overflow: clip;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  font: 600 12px/13px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); hyphens: manual; overflow-wrap: normal; word-break: normal;
-}
-.card .ty { display: inline-grid; place-items: center; flex: 0 0 14px; width: 14px; height: 14px; color: var(--ink-2); }
-.card .ty svg { width: 14px; height: 14px; display: block; }
-@container (max-width: 139px) { .card .card-head .ty { display: none; } }
-/* hover actions sit over the name (absolute), so the name keeps its width */
-.card .acts { position: absolute; right: 3px; top: 6px; z-index: 2; display: flex; opacity: 0; pointer-events: none; background: var(--surface); border-radius: var(--r-2); box-shadow: -6px 0 6px var(--surface); }
-/* (keyboard focus shows them; a click's focus does not, so a selected card keeps its name readable) */
-.card .acts { opacity: 0; }
-.card:hover .acts, .card:focus-visible .acts, .card:has(:focus-visible) .acts { opacity: 1; pointer-events: auto; }
-.card:focus-within:not(:hover):not(:has(:focus-visible)):not(:focus-visible) .acts { opacity: 0; pointer-events: none; }
-.card .thumb { flex: 1 1 auto; height: auto; min-height: 0; border-bottom: 0; }
-.card .thumb-var { display: none; }
-/* a picture that waits for its exact redraw (a drag in progress): a thin bar under it, never an approximate picture */
-.card .thumb::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line-strong); opacity: 0; transition: opacity var(--t-fast) var(--ease-out); z-index: 1; pointer-events: none; }
-.card.stale .thumb::before { opacity: 1; }
-.card .tlab { position: absolute; right: 4px; bottom: 5px; z-index: 1; padding: 0 4px; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--overlay); font: 400 10px/15px var(--f-mono); color: var(--ink-2); pointer-events: none; }
-.card .tlab:empty { display: none; }
-.card > .ftex-row, .card > .params, .card > .note, .card > .pchips, .card > .err-msg, .card > .swatches { display: none !important; }
-/* states: selected = accent outline; shown alone = accent index tag; bypassed = the hatch; error = red border */
-.card.focus { border-color: var(--line); outline: 0; }
-.card.focus .idx { background: var(--accent); color: var(--accent-ink); }
-.card.sel, .card.sel:hover { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
-.card.sel.quiet { border-color: var(--line-strong); outline-color: var(--line-strong); }
-.card.focus:focus-visible, .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.card.bad, .card.bad:hover, .card.bad.sel { border-color: var(--error); outline-color: var(--error); }
-/* connectors: 28 px, the variable above the arrow; the + on hover */
-.conn { flex: 0 0 28px; width: 28px; height: 134px; --conn-y: 76px; align-self: flex-start; }
-.conn-line svg { width: 28px; }
-.conn-add { left: 5px; }
-.conn-f { display: none; }
-.conn-last + .add-card { margin-left: 0; }
-.add-card { flex: 0 0 44px; width: 44px; height: 134px; padding: 0; gap: 0; align-self: flex-start; }
-.add-card > span:not(:first-child) { display: none; }
-/* the F tile closes the chain: F and its lit guarantees (no "1 of 8") */
-.ftile {
-  position: relative; flex: 0 0 88px; width: 88px; height: 134px; margin-left: 8px; padding: 0 6px; align-self: flex-start;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); color: var(--ink); cursor: pointer;
-  scroll-snap-align: start; transition: border-color var(--t-fast) var(--ease-out);
-}
-.ftile:hover { border-color: var(--line-strong); }
-.ftile.sel { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
-.ftile:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.ftile .fF { font: italic 500 26px/1 var(--f-math); }
-.ftile > .fwm { display: none; }   /* (#246: the phone's chain sheet names the row; the laptop's tile is F and its lamps) */
-.ftile .fl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 76px; }
-.ftile .lamp { display: flex; align-items: flex-start; gap: 5px; font: 500 11px/13px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--ink-2); text-align: left; hyphens: manual; }
-.ftile .lamp::before { content: ""; flex: 0 0 8px; width: 8px; height: 8px; margin-top: 2.5px; border-radius: var(--r-1); background: var(--good); }
-.ftile .lamp[hidden] { display: none; }
-.ftile .lampq { color: var(--muted); }
-.ftile .lampq:empty { display: none; }
-.ftile .fnone { font: 500 11px/13px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); text-align: center; }
-.ftile .fnone[hidden] { display: none; }
-/* names only (the Names switch): heads alone */
-.pipeline.compact .card { height: 36px; flex-basis: 0; width: auto; contain-intrinsic-size: auto 36px; }
-.pipeline.compact .card > :not(.card-head) { display: none !important; }
-.pipeline.compact .card-head { border-bottom: 0; }
-.pipeline.compact .conn { height: 36px; --conn-y: 22px; }
-.pipeline.compact .conn-var { display: none; }
-.pipeline.compact .add-card { height: 36px; flex-direction: row; }
-.pipeline.compact .ftile { height: 36px; flex-direction: row; gap: 8px; width: auto; flex-basis: auto; min-width: 88px; padding: 0 10px; }
-.pipeline.compact .ftile .fF { font-size: 19px; }
-.pipeline.compact .ftile .fl { flex-direction: row; }
-.pipeline.compact .ftile .lamp ~ .lamp { display: none; }
 
 /* ---------- the Inspector (the right panel) ---------- */
 .panel.right { overflow: hidden; }
@@ -97,7 +16,7 @@
 .ihead .ty { display: inline-grid; place-items: center; width: 14px; height: 14px; color: var(--ink-2); flex: 0 0 14px; }
 .ihead .ty svg { width: 14px; height: 14px; display: block; }
 .ihead .ttl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-/* (D1, issue #23) the step's title opens the search ready to replace it: "Möbius ▾" */
+/* the step's title opens the search ready to replace it: "Möbius ▾" */
 .ihead .ttl-btn { padding: 2px 4px; margin-left: -4px; border-radius: var(--r-1); cursor: pointer; }
 .ihead .ttl-btn::after { content: ' ▾'; color: var(--ink-2); font-size: 11px; }
 .ihead .ttl-btn:hover { background: var(--well); }
@@ -116,23 +35,28 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .iform .ftex.long { white-space: normal; font: var(--t-label); color: var(--muted); }
 .iform .wl { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13px; }
 .iform .wl > div { white-space: nowrap; }
-/* ([#465] the formula read as text is as tall as the typeset line it stands for, so the sheet does not move when MathJax
+/* (the formula read as text is as tall as the typeset line it stands for, so the sheet does not move when MathJax
    arrives: a step line is a line of text; F's line keeps the height of a typeset one with scripts) */
 .iform .tex-fallback { min-height: 0; line-height: 1.15; vertical-align: top; }
 .iform .ftex:not(.long) { min-height: 22px; }
 .inote { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
 .inote:empty { display: none; }
+.ihint { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
+.ihint:empty { display: none; }
+.ihint-x { white-space: nowrap; font-family: var(--f-mono); }
+.ihint .ihint-use { margin-left: 4px; }
+:root.ph .ihint .ihint-use { min-width: 44px; min-height: 44px; }
 .ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
 .ierr:empty { display: none; }
-/* fields: one row each, 32 px, the symbol (30 px, or as wide as it is: uₖ₊₁ =, #336), the field, the Argand button */
+/* fields: one row each, 32 px, the symbol (30 px, or as wide as it is: uₖ₊₁ =), the field, the Argand button */
 #propsPanel .params { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 0 0 10px; }
 #propsPanel .params .pf, #propsPanel .params .pf.wide { grid-template-columns: minmax(30px, max-content) minmax(0, 1fr); gap: 6px; min-height: 32px; grid-column: auto; }
 #propsPanel .params .pl { font: italic 500 15px/20px var(--f-math); color: var(--ink-2); overflow: visible; }
 #propsPanel .params .pl sub { font-size: 10px; font-style: normal; }
 #propsPanel .params .inp, #propsPanel .params select.inp { height: 32px; font-size: 13px; padding: 0 10px; }
 #propsPanel .params .pair > .inp:has(+ .argand) { padding-right: 34px; }
-/* [issue #260] Add ray, Add equipotential: the value and its button on one row */
-/* ([#358] the value keeps about five characters; a button that does not fit beside it (ru, it) wraps under it and
+/* Add ray, Add equipotential: the value and its button on one row */
+/* (the value keeps about five characters; a button that does not fit beside it (ru, it) wraps under it and
    fills that line) */
 #propsPanel .params .pf.dh-add .pair { display: flex; flex-wrap: wrap; gap: 6px; }
 #propsPanel .params .pf.dh-add .pair > .inp { flex: 999 1 64px; min-width: 64px; }
@@ -201,14 +125,13 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   .layout.hide-left { --lw: 36px; }
   .layout.hide-right { --rw: 36px; }
   .layout:not(.hide-right) > .panel.right { position: relative; z-index: auto; top: auto; bottom: auto; right: auto; width: auto; background: var(--panel); border-color: var(--line); border-radius: var(--r-3); box-shadow: none; animation: none; }
-  .ftile { flex-basis: 72px; width: 72px; }
 }
 /* 768 to 1023: no right column; the Inspector docks under the chain (320 px): Selection two thirds, Parameters one third */
 @media (min-width: 768px) and (max-width: 1023px) {
   .layout { --rw: 0px; grid-template-columns: var(--lw) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 320px; row-gap: 8px; }
   .layout.hide-right { grid-template-rows: minmax(0, 1fr) 0; row-gap: 0; }
   .layout > .panel.left { grid-row: 1 / -1; }
-  /* (v16.4, r3 review fix pass) while the guided tour's strip holds the stage's first row (--tour-h), the left drawer
+  /* while the guided tour's strip holds the stage's first row (--tour-h), the left drawer
      starts under it: a drawer a step opens never covers the strip. Without the tour --tour-h is unset: top 0 as before */
   .layout:not(.hide-left) > .panel.left { top: var(--tour-h, 0px); }
   .layout > .stage { grid-row: 1; }
@@ -225,62 +148,38 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   #propsPanel .insp-step .params:not(.zp):not(.matrix2) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
   #propsPanel .params.zp { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
   #propsPanel .params.zp .pf.zp-adds, #propsPanel .params.zp .zp-hint { grid-column: 1 / -1; }
-  .ftile { flex-basis: 72px; width: 72px; }
 }
 /* the phone keeps its stacked page until its own redesign: the Inspector is a disclosure after the chain */
 @media (max-width: 767px) {
   .stage { grid-template-rows: none; }
   .stage > #tourSlot, .stage > .panes, .stage > #gutterRow, .stage > .pipe-wrap { grid-row: auto; }
-  .card { flex: 0 0 min(180px, 56vw); width: min(180px, 56vw); max-width: none; }
-  .card.region-card { flex-basis: min(160px, 50vw); width: min(160px, 50vw); }
-  .ftile { flex: 0 0 88px; }
-  .pipeline.compact .card { flex-basis: min(160px, 50vw); width: min(160px, 50vw); }
 }
 .iform mjx-container[display="true"] { margin: 0 !important; text-align: left !important; }
-.card.region-card.focus .idx { background: var(--well); color: var(--ink); }
-/* (the lit names are words, not the old lamp rows) */
-.ftile .lamp, .iglist .lamp { min-height: 0; padding: 0; border-top: 0; cursor: inherit; background: none; grid-template-columns: none; transition: none; }
-.ftile .lamp:hover, .iglist .lamp:hover { background: none; }
-.ftile .lamp .lampname, .iglist .lamp .lampname { font: inherit; color: inherit; white-space: normal; overflow: visible; }
-.ftile .lampq, .iglist .lampq { font: 400 10px/13px var(--f-mono); text-align: left; }
-/* a narrower stage (below 1440): 16 px connectors, a 36 px add tile, so the region, three steps and F fit at 1024 */
-@media (min-width: 768px) and (max-width: 1439px) {
-  .conn { flex-basis: 16px; width: 16px; }
-  .conn-var { font-size: 11px; }
-  .conn-line svg { width: 16px; }
-  .conn-add { left: -1px; }
-  .add-card { flex-basis: 36px; width: 36px; }
-  .ftile { flex-basis: 72px; width: 72px; margin-left: 6px; }
-  .ftile .lamp { font-size: 11px; }
-}
+/* (the lit names are words, not lamp rows) */
+.iglist .lamp { min-height: 0; padding: 0; border-top: 0; cursor: inherit; background: none; grid-template-columns: none; transition: none; }
+.iglist .lamp:hover { background: none; }
+.iglist .lamp .lampname { font: inherit; color: inherit; white-space: normal; overflow: visible; }
+.iglist .lampq { font: 400 10px/13px var(--f-mono); text-align: left; }
 /* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1280 in
    English, 1440 in Russian: the app's name left the bar and gave its room to the words); Examples keeps its word */
 @media (min-width: 1024px) and (max-width: 1439px) {
-  /* ([v16.5 check app-1] the icon and its shortcut are never cut, "Ctrl K" included: the open example's name after
+  /* (the icon and its shortcut are never cut, "Ctrl K" included: the open example's name after
      Examples gives way instead, ending in an ellipsis) */
   #examplesBtn { flex-shrink: 1; min-width: 0; }
   #examplesBtn > .mlabel, #examplesBtn > .ic-slot { flex-shrink: 0; }
 }
-@media (min-width: 1024px) and (max-width: 1279px) {
-  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
-  .top .cmd-field .cmd-text { display: none; }
-}
-@media (min-width: 1280px) and (max-width: 1439px) {
-  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
-  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
-}
-/* ([v16.5 check app-2] app.js hdrFit: where the search's words would be cut, its short label, else its icon and
-   shortcut alone) */
+/* (app.js hdrFit: the words of Export, Share, Theme and Sound fold first; where the search's words would still be cut, its
+   short label, else its icon and shortcut alone) */
 :root:not(.ph) .top.cmd-short #cmdBtn .ct-l { display: none; }
 :root:not(.ph) .top.cmd-short #cmdBtn .ct-s { display: inline; }
 :root:not(.ph) .top.cmd-cut .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
 :root:not(.ph) .top.cmd-cut .cmd-field .cmd-text { display: none; }
 .pane.under-insp .legend-chip:not(.calc-chip) { right: calc(8px + var(--insp-w, 288px)); margin-right: 0; }
-/* (v16.5 UX20, restores "nothing covers the work uninvited") the plane's key and its display options in the pane head
+/* the plane's key and its display options in the pane head
    (app.js placeKeys): the key a short chip (glyph and words) that unfolds under the head while pointed at, focused or
    clicked open; the options behind the Display options button. A phone keeps them on the plane (phone.css) */
 .pane-head { position: relative; z-index: 11; overflow: visible; }
-/* ([#337] a chip in the plot (a phone's) drops below the readout it would touch; the pane head's pop-up has its own drop) */
+/* (a chip in the plot (a phone's) drops below the readout it would touch; the pane head's pop-up has its own drop) */
 .plot > .legend-chip { margin-top: var(--lg-drop, 0px); }
 .pane-head > .legend-chip { position: relative; top: auto; right: auto; margin: 0 0 0 4px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 4px; line-height: normal;
   background: transparent; border: 1px solid var(--line); box-shadow: none; overflow: visible; cursor: pointer; font: var(--t-label); color: var(--ink-2); flex: 0 1 auto; min-width: 0; }
@@ -291,7 +190,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 7px 7px; box-shadow: inset 0 0 0 1px var(--ink-2); }
 .pane-head > .legend-chip.collapsed::after { content: none; }
 .pane-head > .legend-chip > .lg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-/* ([#356] a head too narrow for its view tabs: the chip folds to its glyph (its words stay its accessible name), then
+/* (a head too narrow for its view tabs: the chip folds to its glyph (its words stay its accessible name), then
    the head packs closer, then its status light goes; app.js fitTitle) */
 .pane-head > .legend-chip.glyph { gap: 0; padding: 0 4px; }
 .pane-head > .legend-chip.glyph > .lg-sum { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
@@ -299,12 +198,12 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head.tight :is(#leftTabs, #rightTabs) > button { padding: 0 4px; }
 .pane-head.tight > .led { margin: 0 2px; }
 .pane-head.noled > .led { display: none; }
-.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: -1px; box-sizing: content-box;
+.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: calc(-1px - var(--lg-shift, 0px)); box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
 .pane-head > .options { position: static; display: inline-flex; flex: 0 0 auto; min-height: 0; max-width: none; padding: 0; margin-left: 2px; background: none; border: 0; box-shadow: none; }
-/* (#247) the head's own controls, compact and on one row: the style's glyphs alone (option 1: each style's name is its
+/* the head's own controls, compact and on one row: the style's glyphs alone (option 1: each style's name is its
    tooltip and accessible name, and the chosen one's the header's style button), and the checks with an icon as icon
    toggles (the word their tooltip and accessible name); n, the grid step and what does not fit are behind ⋯ */
 .pane-head > .options { align-items: center; gap: 4px; }
@@ -330,7 +229,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane.under-insp .pane-head > .legend-chip, .pane.under-insp .pane-head > .options { margin-right: 0; right: auto; }
 /* (the temporary Inspector over the plane's right part: the head's chips and button stay left of it) */
 .pane.under-insp > .pane-head { padding-right: calc(var(--insp-w, 288px) + 6px); }
-/* (v16.5 UX80) a placed message (app.js placeToasts) takes the room between the planes' button columns: it wraps
+/* a placed message (app.js placeToasts) takes the room between the planes' button columns: it wraps
    rather than growing over them */
 #toastHost[data-placed] { translate: -50% 0; }
 #toastHost[data-placed] .toast { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
@@ -338,17 +237,14 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* (steps view) a message over the plot's bottom edge, clear of the thread's strip: wrapped, never wider than the plot less the
    zoom buttons' columns */
 #toastHost[data-placed="plot"] .toast { height: auto; min-height: 36px; white-space: normal; }
-/* (#515) the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
+/* the message keeps the width of its words and the buttons wrap under it when the room is short: a squeezed message
    once wrapped to four lines and cut its longest word (ru, 1024) */
-#toastHost[data-placed]:not([data-placed="head"]) .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
-#toastHost[data-placed]:not([data-placed="head"]) .toast > span { flex: 1 1 auto; }
+#toastHost[data-placed] .toast { flex-wrap: wrap; justify-content: flex-end; row-gap: 2px; }
+#toastHost[data-placed] .toast > span { flex: 1 1 auto; }
 #toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
-/* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
-#toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
-#toastHost[data-placed="head"] .toast .toast-act { height: 24px; }
 /* (on the thread's rail the buttons wrap under a long message, one row of the toast each: at 24 px the two rows and the padding stay inside the strip's 64 px; the phone keeps its 44 px targets) */
 :root:not(.ph) #toastHost[data-placed="rail"] .toast .toast-act { height: 24px; min-height: 24px; }
-/* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
+/* the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
 .pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
 .pane-head > .empty-chip[hidden] { display: none; }
 .pane-head > .empty-chip.tight > .btn { font-size: 0; width: 26px; padding: 0; }
@@ -362,9 +258,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head > .head-note { flex: 0 0 auto; min-width: 0; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--t-label); color: var(--muted); }
 .pane-head > .head-note[hidden] { display: none; }
 .pane-head > .head-note i { font: var(--t-math-s); color: var(--ink-2); }
-/* (a long lit name breaks by syllables in the narrow tile, in the page's language) */
-.ftile .lamp .lampname { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; min-width: 0; }
-.ftile .fl { min-width: 0; }
 @media (max-width: 767px) { .rail .rail-icons { display: none; } }
 /* a step shown alone: the chip in X's head, with its × back to the whole chain */
 .alone-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 22px; margin-right: 6px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
@@ -387,25 +280,12 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .alone-chip sub { font-size: 10px; }
 .alone-chip .icon-btn { width: 20px; height: 20px; color: var(--accent); }
 .alone-chip .icon-btn svg { width: 12px; height: 12px; }
-/* (a lit name and its qualifier: "Rational", then "deg 2" under it, inside the narrow tile) */
-.ftile .lamp { display: grid; grid-template-columns: 8px minmax(0, 1fr); column-gap: 5px; align-items: start; }
-.ftile .lamp::before { grid-row: 1; grid-column: 1; }
-.ftile .lamp .lampname { grid-column: 2; }
-.ftile .lamp .lampq { grid-column: 2; }
 .insp-step .isub { font: 400 13px/18px var(--f-math); color: var(--ink-2); }
-/* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
-/* design-7: the hover actions sit on the picture's top-right corner, on a small surface; the name keeps its width */
-.card .acts { top: 40px; right: 4px; padding: 1px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
-/* design-13: the card of the step the deformation is in; a held picture shows no t (its t is not the current one) */
-.card.playing, .card.playing:hover, .card.sel.quiet.playing { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
-.card.stale .tlab { visibility: hidden; }
-/* russian-2: a Russian card name breaks by syllables with a hyphen, never inside a word without one */
-:root[data-lang="ru"] #pipeline .card .nm { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: normal; word-break: normal; }
+/* ---------- fixes from the interface review ---------- */
 /* russian-11: the words of a domain condition in the interface's type */
 .idom .itxt { font: inherit; color: inherit; }
 /* design-5: the temporary Inspector with X and Y side by side takes the stage's right 296 px while it is open */
 .layout.temp-dock > .stage { margin-right: 296px; }
-#clearChain[hidden], #clearChain.toast-away { display: none !important; }
 /* design-16: at 768 to 1023 the zeros fill the left column and the poles the right, under a₃ */
 @media (min-width: 768px) and (max-width: 1023px) {
   #propsPanel .params.zp { grid-auto-flow: row dense; }
@@ -413,21 +293,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   #propsPanel .params.zp > .pf.zp-item:has(.zp-sym.zeros) { grid-column: 1; }
   #propsPanel .params.zp > .pf.zp-item:has(.zp-sym.poles) { grid-column: 2; }
 }
-/* russian-1, design-15: in Russian the tile's word takes the tile's whole width under its lamp, one word a line
-   (short predicative forms: «Аналитична»); «Дробно-линейна» breaks at its own hyphen only */
-:root[data-lang="ru"] .ftile .fl { align-items: stretch; width: 100%; max-width: none; }
-:root[data-lang="ru"] .ftile .lamp { grid-template-columns: minmax(0, 1fr); justify-items: center; row-gap: 2px; text-align: center; }
-:root[data-lang="ru"] .ftile .lamp::before { grid-row: auto; grid-column: 1; margin-top: 0; }
-:root[data-lang="ru"] .ftile .lamp .lampname, :root[data-lang="ru"] .ftile .lamp .lampq { grid-column: 1; text-align: center; hyphens: manual; -webkit-hyphens: manual; overflow-wrap: normal; }
-@media (min-width: 768px) and (max-width: 1439px) { :root[data-lang="ru"] .ftile .lamp { font-size: 10px; } }
-:root[data-lang="ru"] .pipeline.compact .ftile .lamp { row-gap: 1px; }
-/* russian-12: below 1100 px the Russian plane subtitle gives way (it was cut to «область определени…») */
+/* russian-12: below 1100 px the Russian plane subtitle gives way (it would be cut to «область определени…») */
 @media (min-width: 768px) and (max-width: 1099px) { :root[data-lang="ru"] .pane-title .sub { display: none; } }
 /* russian-9: an inline formula in a hint never breaks inside */
 .prm-empty i { white-space: nowrap; }
-/* design-14: the chain's listbox is an empty owner (aria-owns the options); it takes no room */
-#pipeline > .chain-lb { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
-/* v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps, as the Inspector shows it — a fold
+/* a formula that is a chain of catalog steps, as the Inspector shows it — a fold
    after the fields with the derivation z ↦ … ↦ F (each row named at the right, wrapping under its formula when it needs
    the room) and one small secondary button. Existing tokens only, so light and dark come free. */
 .split-offer { margin: 0 0 10px; border-top: 1px solid var(--line); }
@@ -455,10 +325,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .split-offer .so-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .split-offer .so-btn:disabled { opacity: 0.5; cursor: default; }
 .split-offer.one .so-btn { margin-top: 2px; }
-/* the new cards of a split unfold (200 ms) */
-@keyframes cardBorn { from { opacity: 0; transform: scaleX(0.6); } to { opacity: 1; transform: none; } }
-#pipeline .card.born { animation: cardBorn 200ms var(--ease-out, ease-out); transform-origin: left center; }
-@media (prefers-reduced-motion: reduce) { #pipeline .card.born { animation: none; } }
 /* the alone chip walks the steps: ‹ and › show the previous and next step alone */
 .alone-chip .ac-nav { width: 20px; height: 20px; color: var(--accent); font: 600 13px/1 var(--f-ui); }
 .alone-chip .ac-nav:disabled { opacity: 0.4; }
@@ -475,55 +341,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* the Add as n steps row's formula column: the start of its derivation, z ↦ z² ↦ ⋯ (fitPalTex) */
 .drv-start { display: inline-flex; align-items: baseline; column-gap: 4px; font-size: 13px; }
 .drv-start .drv-dots { font: 400 13px/1 var(--f-math); color: var(--muted); }
-/* v16: the deformation's bracket over the chain (notes/deform-range/SPEC.md 6.2): a line in the chain bar's top padding
-   from connector a to connector b + 1, built from borders in whole CSS px; its ends are sliders over their connectors */
-#pipeline { position: relative; }
-/* [issue #6] Repeat × N: a line under a block's cards, its chip on the last card's lower edge */
-.rep-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; }
-.rep-bracket[hidden] { display: none; }
-.rep-line { position: absolute; height: 5px; box-sizing: border-box; border: 1.5px solid var(--accent); border-top: 0; border-radius: 0 0 3px 3px; pointer-events: none; }
-.rep-chip { position: absolute; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 1px; height: 18px; padding: 0 2px 0 6px; border-radius: 9px; background: var(--surface); border: 1px solid var(--accent); font: 600 11px/16px var(--f-ui); color: var(--accent); white-space: nowrap; }
-.rep-chip .rep-n { width: 3.2ch; border: 0; padding: 0; background: transparent; font: inherit; color: var(--ink); text-align: center; -moz-appearance: textfield; appearance: textfield; }
-.rep-chip .rep-n::-webkit-inner-spin-button, .rep-chip .rep-n::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.rep-chip .rep-off { border: 0; background: transparent; color: var(--ink-2); font: 500 12px/16px var(--f-ui); width: 16px; height: 16px; padding: 0; border-radius: 8px; cursor: pointer; }
-.rep-chip .rep-off:hover, .rep-chip .rep-off:focus-visible { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
-.chain-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; animation: br-in 120ms var(--ease-out); }
-.chain-bracket[hidden] { display: none; }
-@keyframes br-in { from { opacity: 0; } to { opacity: 1; } }
-.br-line { position: absolute; box-sizing: border-box; border: 1.5px solid var(--ink-2); border-bottom: 0; border-radius: 2px 2px 0 0; pointer-events: none; }
-.br-end { position: absolute; cursor: ew-resize; touch-action: none; border-radius: var(--r-1); }
-.br-end:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.chain-bracket:has(.br-end:is(:hover, :focus-visible, .drag)) .br-line { border-color: var(--accent); border-width: 2px; }
-#pipeline.card-drag .br-end { pointer-events: none; }
-/* (review v16 user-3) the ends show as grab handles at rest, a small pill where the line turns down; the line's top
-   edge carries a tooltip (a thin strip above the cards, so it never takes a card's clicks) */
-.br-end::before { content: ""; position: absolute; left: 50%; top: 0; width: 7px; height: 13px; margin-left: -3.5px; box-sizing: border-box; border-radius: 4px; background: var(--surface); border: 1.5px solid var(--ink-2); }
-.br-end:is(:hover, :focus-visible, .drag)::before { background: var(--accent); border-color: var(--accent); }
-.br-line::before { content: ""; position: absolute; left: 6px; right: 6px; top: -5px; height: 9px; pointer-events: auto; }
-#pipeline.card-drag .br-line::before { pointer-events: none; }
-.conn.br-at .conn-add { display: none; }
-/* [v17 UX64] the bracket's label over the middle of its line, "Deforming f₁–f₂", and its All steps reset; the
-   bracketed cards are tinted */
-.br-label { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; height: 16px; padding: 0 6px; border-radius: 8px; background: var(--surface); font: 500 11px/16px var(--f-ui); color: var(--ink-2); white-space: nowrap; z-index: 1; }
-.br-label[hidden] { display: none; }
-.br-label .br-what i { font: italic 500 11px/16px var(--f-math); }
-.br-label .br-what sub { font-size: 0.75em; line-height: 0; }
-.br-all { height: 16px; padding: 0 4px; border: 0; border-radius: 4px; background: none; font: 500 11px/16px var(--f-ui); color: var(--accent); cursor: pointer; }
-.br-all:hover { text-decoration: underline; }
-.br-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
-#pipeline .card.br-in { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-@media (prefers-reduced-motion: no-preference) { .br-line { transition: left 120ms var(--ease-out), width 120ms var(--ease-out); } .chain-bracket.drag .br-line { transition: none; } }
-@media (prefers-reduced-motion: reduce) { .chain-bracket { animation: none; } }
-/* the transport with a bracket's pre or post: "f₁ →" and "→ f₄" around the scrubber (SPEC 6.6) */
-.tscrub.tfixed { gap: 6px; flex-wrap: nowrap; }
-.tscrub > .trail { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; height: 100%; }
-.tscrub > .trail > input[type="range"] { flex: 1 1 auto; width: 100%; }
-.tfix { flex: 0 0 auto; font: italic 500 11px/12px var(--f-math); color: var(--ink-2); white-space: nowrap; }
-.tfix i { font: inherit; }
-.tfix[hidden] { display: none; }
-/* the phone's Deformed steps row lives in the Display sheet; on desktop it is built but hidden (SPEC 6.7) */
-.tdock > .trange { display: none; }
-.trange { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 6px; width: 100%; }
 .trange .tr-label { flex: 0 1 auto; font: var(--t-label); color: var(--ink-2); }
 .trange .tr-sels { flex: 1 1 200px; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .trange .tr-sels > select { flex: 1 1 0; min-width: 0; height: 44px; }
@@ -532,18 +349,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .trange .tr-from { flex: 1 1 100%; font: 400 13px/18px var(--f-math); color: var(--muted); }
 .trange .tr-from i { font-style: italic; }
 .trange .tr-from sub { font-size: 0.75em; line-height: 0; }
-/* ---- v16.5 wave 1, the chain (notes/ux-build/w1-chain-AS-BUILT.md) ---- */
-/* UX22: the + card says Add function while the chain has three steps or fewer: a vertical label in the same 44 px */
-.add-card.labelled > span:nth-child(2) { display: block; writing-mode: vertical-rl; transform: rotate(180deg); font: 500 12px/14px var(--f-ui); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); white-space: nowrap; max-height: 104px; overflow: hidden; text-overflow: ellipsis; }
-.add-card.labelled { gap: 8px; }
-.pipeline.compact .add-card.labelled > span:nth-child(2) { display: none; }
-/* UX81: the insert ⊕ between cards is 24 px, and shows after a card that has the keyboard too */
-.conn-add { width: 24px; height: 24px; top: calc(var(--conn-y) - 12px); margin-left: -3px; }
-.conn-add svg { width: 14px; height: 14px; }
-.card:focus-visible + .conn .conn-add, .card:focus-within + .conn .conn-add { opacity: 1; }
+/* ---- the chain (notes/ux-build/w1-chain-AS-BUILT.md) ---- */
 .mv-btn { display: none; }
 :root.ph .ph-sheet #propsPanel .ihead .mv-btn { display: inline-grid; place-items: center; font: 500 19px/1 var(--f-ui); }
-/* UX85: Show alone in words where there is no hover (a phone's editor sheet) */
+/* Show alone in words where there is no hover (a phone's editor sheet) */
 .alone-btn .ab-l { display: none; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { width: auto; padding: 0 10px; gap: 6px; display: inline-flex; align-items: center; }
 /* (on a phone the step's name keeps its line; ← → Show alone ⋯ take ONE line under it, so the head grows by the name's
@@ -555,32 +364,27 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root.ph .ph-sheet #propsPanel .ihead .alone-btn .ab-l { display: inline; font: 500 13px/20px var(--f-ui); white-space: nowrap; }
 @container (max-width: 259px) { :root.ph .ph-sheet #propsPanel .ihead .alone-btn .ab-l { display: none; } :root.ph .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { width: 44px; padding: 0; justify-content: center; } }
 @container (max-width: 311px) { :root.ph[data-lang="ru"] .ph-sheet #propsPanel .ihead .alone-btn .ab-l { display: none; } :root.ph[data-lang="ru"] .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { width: 44px; padding: 0; justify-content: center; } }
-/* UX84: an empty chain's F tile reads F = z */
-.ftile .fid { display: none; }
-.ftile.ident .fid { display: inline; }
-.ftile.ident .fF { font-size: 19px; white-space: nowrap; }
-:root.ph .ftile .fid { display: none !important; }
-/* UX82: no row of letters; the highlighted row names its properties in words */
+/* no row of letters; the highlighted row names its properties in words */
 .pal-pw { display: none; font: 500 11px/14px var(--f-ui); color: var(--good); white-space: nowrap; }
 .pal-item.sel .pal-pw { display: inline; }
 :root.ph .pal-pw { display: none !important; }
-/* UX23: a formula error in grey, the place it stopped marked; Enter greyed while there is nothing to run. The typed
+/* a formula error in grey, the place it stopped marked; Enter greyed while there is nothing to run. The typed
    text in the palette input's face (the mono face draws "(" like "(", not "[") */
 .pal-err { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; color: var(--muted); }
 .pal-err .pe-q { font: 500 15px/20px var(--f-ui); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .pal-err .pe-bad { text-decoration: underline wavy var(--warn); text-underline-offset: 4px; background: var(--warn-soft); border-radius: 2px; }
 .pal-enter.off { opacity: 0.45; }
-/* UX33: a word before a field's symbol */
+/* a word before a field's symbol */
 .pf.worded, #propsPanel .params .pf.worded { grid-template-columns: max-content minmax(0, 1fr); }
 .pl .pw { font: 500 12px/16px var(--f-ui); font-style: normal; color: var(--muted); }
 .pl.worded { overflow: visible; }
-/* UX32: a placeholder reads as a hint, not as typed text */
+/* a placeholder reads as a hint, not as typed text */
 #formulaInput::placeholder, .prm-new .inp::placeholder { font: italic 400 13px/1 var(--f-ui); color: var(--muted); opacity: 0.8; }
-/* UX65: an unused number, and the numbers a step uses */
+/* an unused number, and the numbers a step uses */
 .prm-unused { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 0; }
 .prm-unused .prm-note { color: var(--muted); font: 400 12px/16px var(--f-ui); }
 .inote.inums { color: var(--ink-2); }
-/* UX25: Examples ▾ keeps its name; the open example's name is muted after it until the first edit */
+/* Examples ▾ keeps its name; the open example's name is muted after it until the first edit */
 @media (min-width: 1024px) {
   :root:not(.ph) .top #examplesBtn > .mlabel { display: inline; white-space: nowrap; }
   :root:not(.ph) .top #examplesBtn > .ic-slot { order: 1; }
@@ -588,10 +392,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   :root:not(.ph) .top #examplesBtn > .exlabel.stale, :root:not(.ph) .top #examplesBtn > .exlabel:empty { display: none; }
 }
 .examples .ex-item.ex-new { border-bottom: 1px solid var(--line); }
-@media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* Italian too (issue #61): the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
-@media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* [v17 D4, D5; #247] in the X → Y view each pane head's pattern button: the pattern's swatch, its pop-up the regions'
+/* (app.js hdrFit: the example's name gives way, after the words of Export, Share, Theme and Sound, where the bar has no room for it) */
+:root:not(.ph) .top.ex-off #examplesBtn > .exlabel { display: none; }
+/* in the X → Y view each pane head's pattern button: the pattern's swatch, its pop-up the regions'
    display (page.html #regionsHome) */
 .pane-head .pat-btn { height: 26px; padding: 0 3px 0 5px; gap: 2px; }
 .pane-head .pat-btn .disp-caret { display: inline-flex; width: 12px; height: 12px; }
@@ -614,7 +417,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* (the ⋯ pop-up shows the words: each style's under its glyph, each toggle's beside its check) */
 .disp-pop .ic-tg > .tg-ic { display: none; }
 .disp-pop > .psec-body { padding: 0; }
-/* [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4): its path and ‹ Back to f₂, the shape's
+/* the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4): its path and ‹ Back to f₂, the shape's
    head, its fields one per line at the panel's width, Used by, Duplicate and Delete */
 .sh-insp { display: flex; flex-direction: column; gap: 6px; }
 .sh-crumbs { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font: var(--t-label); color: var(--muted); }
@@ -626,29 +429,37 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sh-insp > .shape-edit .inp { height: 32px; padding: 0 8px; }
 .sh-acts { display: flex; gap: 8px; margin-top: 8px; }
 
-/* ---------- (#366 prototype) the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
-:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #viewSwitch, :root.sv #morphBtn, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
+/* ---------- the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
+:root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
 :root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
 :root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
-/* (the pane keeps its column whatever its thread's length, #497: the grid's one column is no wider than the pane, and its
+/* (the pane keeps its column whatever its thread's length: the grid's one column is no wider than the pane, and its
    items may be narrower than their content) */
 :root.sv #paneL { grid-template-columns: minmax(0, 1fr); }
 :root.sv #paneL > * { min-width: 0; }
 :root.sv:not(.ph) #paneL > .pane-head { grid-row: 1; }
 :root.sv:not(.ph) #paneL > .pane-body { grid-row: 2; }
-:root.sv:not(.ph) #paneL > .tdock { grid-row: 3; }
 :root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
-/* (#441) the plane's head on one row: the bar as wide as its controls (the style row keeps the rest), its surface one
-   button with a menu; short of room the colour-plane button is its wheel alone (sv-c1), then the title loses its role (sv-c2) */
+/* The plane's head on one row: the bar as wide as its controls (the style row keeps the rest), its surface one
+   button with a menu; short of room the scope's switch is a menu button (sv-sm), then the colour-plane button is its wheel
+   alone (sv-c1), then the surface button is its icon (sv-si), then the title's role is its first word (sv-rs), then the title loses its role (sv-c2) last */
 :root.sv:not(.ph) .sv-head { flex: 0 1 auto; flex-wrap: nowrap; }
-.sv-surf1 { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sv-surf1 { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .sv-surf1 svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.sv-scope-menu { display: none; align-items: center; gap: var(--s-2); white-space: nowrap; }
+.sv-scope-menu svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.sv-head.sv-sm .sv-seg.sv-scope { display: none; }
+.sv-head.sv-sm .sv-scope-menu { display: inline-flex; }
+.sv-head.sv-si .sv-surf1 .sv-surf-i { display: inline-flex; }
+.sv-head.sv-si .sv-surf1 .sv-surf-t { display: none; }
 .sv-head.sv-c1 .sv-cp .sv-cp-t { display: none; }
 .sv-head.sv-c1 .sv-cp { min-width: 32px; justify-content: center; }
+.sv-head.sv-rs .sv-title .sv-role[data-short] { font-size: 0; }
+.sv-head.sv-rs .sv-title .sv-role[data-short]::before { content: attr(data-short); font-size: 13px; }
 .sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
-:root.sv:not(.ph) #paneL .pane-head { gap: 8px; flex-wrap: wrap; min-height: 40px; padding: 4px 6px 4px 10px; }
-.sv-head { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
-.sv-title { font: italic 400 19px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: 4px; }
+:root.sv:not(.ph) #paneL .pane-head { gap: var(--s-4); flex-wrap: wrap; min-height: 40px; padding: var(--s-2) 6px var(--s-2) 10px; }
+.sv-head { display: flex; align-items: center; gap: var(--s-4); min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
+.sv-title { font: italic 400 19px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: var(--s-2); }
 .sv-title sub { font-style: normal; font-size: 0.75em; }
 :root.sv .chip.readout .rteach { white-space: normal; }
 :root.sv .ruler-corner sub { font-style: normal; font-size: 0.75em; }
@@ -656,10 +467,10 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-title .sv-role { font: 400 13px/1 var(--f-ui); color: var(--muted); }
 .sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.sv-strip { position: relative; display: flex; align-items: stretch; gap: 8px; flex: 0 0 auto; min-width: 0; height: 64px; margin-top: 8px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
+.sv-strip { position: relative; display: flex; align-items: stretch; gap: var(--s-4); flex: 0 0 auto; min-width: 0; height: 68px; margin-top: var(--s-4); padding: 10px var(--s-4) 6px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
 .sv-nav:disabled { opacity: .4; cursor: default; }
-/* (a thread longer than its rail scrolls in it, with no bar: the view keeps the shown plane in sight, #497) */
+/* (a thread longer than its rail scrolls in it, with no bar: the view keeps the shown plane in sight) */
 .sv-rail { position: relative; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: none; cursor: ew-resize; scroll-padding-inline: 32px; }   /* (a focused plane or chip is scrolled clear of the fade at the rail's edges) */
 .sv-rail::-webkit-scrollbar { display: none; }
 .sv-track { position: relative; z-index: 1; display: flex; align-items: center; height: 100%; width: max-content; min-width: 100%; }
@@ -678,8 +489,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* (the steps measured at their own widths, for the rail's fit; and the chips as their letters alone, when the thread fits no other way) */
 .sv-strip.sv-measure .sv-step { flex: 0 0 auto; }
 .sv-strip.sv-letters .sv-fchip .sv-fn { display: none; }
-.sv-strip.sv-letters .sv-fwrap .sv-fchip { min-width: 24px; justify-content: center; padding: 0 2px 0 8px; }
-.sv-fchip, .sv-wholemap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
+.sv-strip.sv-letters .sv-fwrap .sv-fchip { min-width: 24px; justify-content: center; padding: 0 2px 0 var(--s-4); }
+.sv-fchip, .sv-wholemap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--s-5); font: 500 13px/16px var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; cursor: pointer; overflow: hidden; }
 .sv-fchip:hover, .sv-wholemap:hover { border-color: var(--accent); }
 /* the whole-map chip is the round F alone (its words are its label and tip), after the rail: in view and pressable at rest however
    long the thread, and never over a plane or a chip */
@@ -690,37 +501,39 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-fchip:focus-visible, .sv-wholemap:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-fchip .sv-fk, .sv-wholemap .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }
 .sv-fchip .sv-fn, .sv-wholemap .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; height: 36px; }
+.sv-choice { flex: 0 0 auto; align-self: center; height: 36px; display: inline-flex; align-items: center; gap: 6px; justify-content: space-between; }
+.sv-choice-i { display: inline-flex; width: 16px; height: 16px; opacity: .7; }
+.sv-choice-i svg { width: 16px; height: 16px; }
+.sv-choice[aria-disabled="true"] { cursor: default; }
 .sv-playmore { align-self: center; flex: 0 0 auto; width: 36px; height: 36px; }
-.sv-playpop { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: grid; gap: 6px; max-width: min(320px, calc(100vw - 16px)); padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
+.sv-playpop { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: grid; gap: 6px; max-width: min(320px, calc(100vw - 16px)); padding: 10px var(--s-5); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
 .sv-playpop[hidden], .sv-playpop-why[hidden] { display: none; }
-.sv-playpop-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
+.sv-playpop-r { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-playpop-why { margin: 0; font: 400 13px/1.35 var(--f-ui); color: var(--muted); }
 .sv-plane { position: relative; z-index: 1; }
 /* the glide's place on the strip: a ring round the shown plane's node that moves with it */
 .sv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* (inside the rail, which scrolls and so clips what overhangs it (#501), the planes' and the chips' focus rings are drawn
-   inside their buttons: the layout gate's focus-ring rule, #470) */
+/* (inside the rail, which scrolls and so clips what overhangs it, the planes' and the chips' focus rings are drawn
+   inside their buttons: the layout gate's focus-ring rule) */
 .sv-rail .sv-plane:focus-visible, .sv-rail .sv-fchip:focus-visible { outline-offset: -2px; }
 .sv-rail .sv-thumb:focus-visible { outline-offset: 0; }
 .sv-thumb { position: absolute; z-index: 2; top: var(--sv-node-y, calc(50% - 9px)); left: -13px; width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; }
-/* (between planes: a playhead across the thread, under the chips, whose words it would otherwise cover; ux's wave 12
-   sweep) */
+/* (between planes: a playhead across the thread, under the chips, whose words it would otherwise cover) */
 .sv-thumb.between { z-index: 0; top: 0; left: -1px; width: 2px; height: 100%; margin-top: 0; border: 0; border-radius: 1px; background: var(--accent); }
-/* (the thread's hidden ends fade out, so more of it shows to be there: #501 review) */
+/* (the thread's hidden ends fade out, so more of it shows to be there) */
 .sv-rail.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px); mask-image: linear-gradient(90deg, transparent, #000 28px); }
 .sv-rail.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
 .sv-rail.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
 .sv-cp { display: inline-flex; align-items: center; gap: 6px; }
-/* chain editing on the thread (#437): a step's pill is its chip and its ⋯ (two buttons); a bypassed step is dashed with its
+/* chain editing on the thread: a step's pill is its chip and its ⋯ (two buttons); a bypassed step is dashed with its
    name struck through; "+ Add function" ends the thread; a step shown alone has its "Whole chain" chip at the left */
 /* "+ Add function" is the strip's own, after the rail, and a "+" where the strip is narrow */
 .sv-strip { container-type: inline-size; }
 .sv-fwrap { position: relative; z-index: 1; max-width: 100%; height: 34px; display: inline-flex; align-items: center; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px; overflow: hidden; }
 .sv-fwrap:hover, .sv-fwrap:focus-within { border-color: var(--accent); }
-.sv-fwrap .sv-fchip { height: 32px; min-width: 0; border: 0; border-radius: 16px 0 0 16px; background: transparent; padding: 0 4px 0 12px; }
+.sv-fwrap .sv-fchip { height: 32px; min-width: 0; border: 0; border-radius: 16px 0 0 16px; background: transparent; padding: 0 var(--s-2) 0 var(--s-5); }
 .sv-fwrap .sv-fchip:hover { border-color: transparent; }
-.sv-more { flex: 0 0 auto; position: relative; width: 24px; height: 24px; margin-right: 4px; padding: 0; display: grid; place-items: center; color: var(--ink-2); background: transparent; border: 0; border-radius: 12px; cursor: pointer; }
+.sv-more { flex: 0 0 auto; position: relative; width: 24px; height: 24px; margin-right: var(--s-2); padding: 0; display: grid; place-items: center; color: var(--ink-2); background: transparent; border: 0; border-radius: 12px; cursor: pointer; }
 .sv-more::after { content: ""; position: absolute; inset: -4px; }
 .sv-more svg { width: 16px; height: 16px; }
 .sv-more:hover { background: var(--hover, rgb(127 127 127 / .16)); color: var(--ink); }
@@ -742,8 +555,15 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 .sv-fwrap.off { border-style: dashed; color: var(--ink-2); }
 .sv-fwrap.off .sv-fn { text-decoration: line-through; }
 .sv-fwrap.off .sv-fk { color: var(--ink-2); }
-.sv-add, .sv-whole { flex: 0 0 auto; position: relative; z-index: 1; height: 34px; display: inline-flex; align-items: center; gap: 6px; margin: 0 4px 14px 10px; padding: 0 12px; font: 500 13px/16px var(--f-ui); color: var(--accent); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; cursor: pointer; white-space: nowrap; }
-.sv-whole { margin: 0 8px 14px 0; border-style: solid; }
+.sv-add, .sv-whole { flex: 0 0 auto; position: relative; z-index: 1; height: 34px; display: inline-flex; align-items: center; gap: 6px; margin: 0 var(--s-2) var(--rail-clear) 10px; padding: 0 var(--s-5); font: 500 13px/16px var(--f-ui); color: var(--accent); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; cursor: pointer; white-space: nowrap; }
+.sv-alone { flex: 0 0 auto; position: relative; z-index: 1; display: inline-flex; align-items: stretch; height: 34px; margin: 0 var(--s-2) var(--rail-clear) 10px; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; overflow: hidden; }
+.sv-alone .sv-whole { height: auto; margin: 0; background: none; border: 0; border-radius: 0; }
+.sv-awalk { flex: 0 0 auto; width: 34px; display: inline-grid; place-items: center; font: 400 19px/1 var(--f-ui); color: var(--ink); background: none; border: 0; border-left: 1px dashed var(--line-strong); cursor: pointer; touch-action: manipulation; }
+.sv-awalk.off { opacity: .4; cursor: default; }
+.sv-whole-pin .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }
+.sv-whole-pin { flex: 0 0 34px; align-self: center; width: 34px; padding: 0; justify-content: center; margin: 0; }
+.sv-awalk:focus-visible, .sv-alone .sv-whole:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sv-whole { margin: 0 var(--s-4) var(--rail-clear) 0; border-style: solid; }
 .sv-add { align-self: center; margin: 0; }
 .sv-add:hover, .sv-whole:hover { border-color: var(--accent); }
 .sv-add:focus-visible, .sv-whole:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -751,22 +571,24 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 @container (max-width: 780px) { .sv-add { padding: 0; width: 34px; justify-content: center; } .sv-add-t { display: none; } }
 .sv-add.fold { padding: 0; width: 34px; justify-content: center; }
 .sv-add.fold .sv-add-t { display: none; }
-.sv-empty { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(90%, 340px); padding: 10px 16px; pointer-events: none; text-align: center; font: 500 15px/1.4 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 2px 10px rgb(0 0 0 / .18); z-index: 3; }
+.sv-empty { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(90%, 340px); padding: 10px var(--s-6); pointer-events: none; text-align: center; font: 500 15px/1.4 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 2px 10px rgb(0 0 0 / .18); z-index: 3; }
 .sv-empty[hidden] { display: none; }
-.sv-speed:disabled, .sv-order:disabled, .sv-thumb[aria-disabled="true"] { opacity: .4; }
+.sv-choice[aria-disabled="true"], .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"], .sv-thumb[aria-disabled="true"] { opacity: .4; }
+.sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"] { cursor: default; }
+label.check[aria-disabled="true"] { opacity: .4; cursor: default; }
 .sv-plane.sv-skip { opacity: .4; }
 @media (pointer: coarse) { .sv-wholemap { height: 44px; width: 44px; border-radius: 22px; } .sv-more { width: 32px; height: 32px; } .sv-more::after { inset: -6px; } .sv-fwrap { height: 44px; border-radius: 22px; } .sv-fwrap .sv-fchip { height: 42px; } .sv-add, .sv-whole { height: 44px; border-radius: 22px; } }
-/* play along the thread (#438): the band of the range, its clear button, the loop toggle, a touch's hold */
+/* play along the thread: the band of the range, its clear button, the loop toggle, a touch's hold */
 .sv-band { position: absolute; z-index: 0; top: calc(50% - 7px - 13px); height: 26px; box-sizing: border-box; border: 1.5px solid var(--accent); border-radius: 13px; background: color-mix(in srgb, var(--accent) 16%, transparent); pointer-events: none; }
 .sv-band[hidden] { display: none; }
-/* (24 px, above the chip row: the strip's chips fill its height, so no spot inside the rail is clear of them (eyes on #460)) */
+/* (24 px, above the chip row: the strip's chips fill its height, so no spot inside the rail is clear of them) */
 .sv-bandx { position: absolute; z-index: 3; left: clamp(var(--rl, 0px), calc(var(--bx, 0px) - 6px), calc(var(--rr, 100%) - 24px)); top: -20px; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; font: 400 15px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 50%; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
 .sv-bandx[hidden] { display: none; }
 .sv-bandx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-play { font-size: 19px; }
 .sv-play[data-on="true"] { display: flex; align-items: center; justify-content: center; gap: 5px; }
 .sv-bar { width: 5px; height: 18px; border-radius: 1px; background: currentColor; }
-.sv-strip .sv-loop, .sv-strip .sv-paths { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 12px; }
+.sv-strip .sv-loop, .sv-strip .sv-paths { align-self: center; flex: 0 0 auto; height: 36px; min-height: 36px; box-sizing: border-box; padding: 0 var(--s-5); }
 :root:not(.ph) .sv-playback { display: none; }
 .sv-loop.on, .sv-paths.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .sv-rail.hold .sv-thumb { background: color-mix(in srgb, var(--accent) 25%, transparent); transition: background .45s linear; }
@@ -774,17 +596,31 @@ select.sel.sv-speed, select.sel.sv-order { flex: 0 0 auto; align-self: center; h
 @media (prefers-reduced-motion: reduce) { .sv-rail.hold .sv-thumb { transition: none; } }
 .sv-scrim { position: fixed; inset: 0; z-index: 56; background: rgba(0, 0, 0, .35); }
 .sv-scrim[hidden], .sv-sheet[hidden] { display: none; }
-.sv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 57; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line-strong); border-radius: var(--r-4) var(--r-4) 0 0; display: grid; gap: 12px; }
+.sv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 57; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--panel); border-top: 1px solid var(--line-strong); border-radius: var(--r-4) var(--r-4) 0 0; display: grid; gap: var(--s-5); }
 .sv-sheet-h { display: flex; align-items: center; justify-content: space-between; font: 600 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-sheet-why { margin: -4px 0 0; font: 400 13px/1.35 var(--f-ui); color: var(--muted); }
 .sv-sheet-why[hidden] { display: none; }
-.sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
-.sv-sheet select.sel.sv-speed, .sv-sheet select.sel.sv-order { display: block; height: 44px; min-width: 140px; font-size: 15px; }
+.sv-sheet-r { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
+.sv-sheet .sv-choice { height: 44px; min-width: 140px; font-size: 15px; }
 .sv-sheet .sv-loop, .sv-sheet .sv-paths { height: 44px; min-width: 96px; }
 .sv-sheet .btn { min-height: 44px; min-width: 44px; }
-/* (#364) the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
+/* the Phase head's empty ⋯ slot, for a style with no options: the ⋯'s own size, so the style row never moves */
 .pane-head .opts-slot { flex: 0 0 26px; width: 26px; height: 26px; }
 
 /* the colouring's picker in the phone's Display sheet: every row a 44 px target */
 html.ph .cp-pop .check, html.ph .cp-pop .cp-go, html.ph .cp-pop .seg button, html.ph .cp-pop select.sel { min-height: 44px; }
 html.ph .cp-pop .seg { display: grid; grid-template-columns: repeat(3, 1fr); }
+
+/* the steps view's targets' note: the words in the head; folded, its icon alone (its words are its accessible name and tip) */
+.pane-head > .sv-tnote .sv-tn-i, .pane-head > .sv-tnote .sv-tn-n { display: none; }
+.pane-head > .sv-tnote .sv-tn-i { width: 16px; height: 16px; }
+.pane-head > .sv-tnote.tn-chip, .pane-head > .sv-tnote.tn-icon { display: inline-flex; align-items: center; gap: var(--s-2); }
+.pane-head > .sv-tnote.tn-chip .sv-tn-i, .pane-head > .sv-tnote.tn-chip .sv-tn-n { display: inline-flex; }
+.pane-head > .sv-tnote.tn-chip .sv-tn-t, .pane-head > .sv-tnote.tn-icon .sv-tn-t, .pane-head > .sv-tnote.tn-icon .sv-tn-n { display: none; }
+.pane-head > .sv-tnote { text-overflow: clip; }
+.pane-head > .sv-tnote[hidden] { display: none; }
+html.ph .ph-tnote { font: var(--t-label); color: var(--muted); padding: 4px 0; white-space: normal; }
+/* the strip's overflow order (svFitStrip): Speed and Loop leave it for the Playback ⋯, the Whole chain pill gives way to its pin */
+.sv-strip.sv-fold-play > .sv-speed, .sv-strip.sv-fold-play > .sv-loop { display: none; }
+.sv-strip.sv-fold-whole .sv-alone .sv-whole { display: none; }
+:root:not(.ph) .sv-strip:not(.sv-fold-whole) > .sv-whole-pin { display: none; }

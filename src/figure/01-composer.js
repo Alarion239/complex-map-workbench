@@ -22,10 +22,10 @@
   const hash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36).slice(0, 5); };
   let uid = 0;
   // one figure at a time: its id namespace, its glyph table, the boxes of everything typeset (for collision checks)
-  XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
+  XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; XD.texts = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
-  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. The composer typesets synchronously, so it notes the promise, sets
   // nothing for that formula (uncached) and goes on; the build (05-captions.js) waits for XD.waits and builds again.
   // MathJax throws only for the first formula that asks for a range still loading: another one with a letter of it
@@ -41,7 +41,7 @@
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
   const texCache = new Map();
-  // a Russian figure: Russian notation (tg, sh, ln). (#490) Its words, and the Italian ones with an accented letter
+  // a Russian figure: Russian notation (tg, sh, ln). Its words, and the Italian ones with an accented letter
   // (è, perché, più), are MathJax's too: the STIX2 font has Cyrillic and the accented Latin letters in its upright,
   // bold, italic and bold italic text, so words and maths are one face
   XD.tex = (tex, pt, color = '#000') => mjTex(XD.lang === 'ru' && I18 ? I18.notation(tex, 'ru') : tex, pt, color);
@@ -81,12 +81,76 @@
     const base = ay === 'top' ? y + it.a : ay === 'bottom' ? y - it.d : ay === 'mid' ? y + it.a / 2 - it.d / 2 : y;
     return { x0: left, x1: left + it.w, y0: base - it.a, y1: base + it.d, left, base };
   };
+  // a label's or caption's TeX as the plain Unicode people read ("w₂", "Re z", "1/z", "log|F|"): operator names and
+  // symbols by one table, a fraction as a/b and a root as √x or ⁿ√x (a part that is not one symbol, or a power or root of one, in parentheses), a bar as a combining
+  // overline, a subscript digit as its Unicode form; a command the table lacks is left out
+  const SUB = '₀₁₂₃₄₅₆₇₈₉', SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const SYM = { infty: '∞', pi: 'π', cdot: '·', times: '×', lvert: '|', rvert: '|', vert: '|', circ: '∘', to: '→', mapsto: '↦', in: '∈', pm: '±', le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠',
+    alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+    arg: 'arg ', log: 'log', ln: 'ln', exp: 'exp', sin: 'sin ', cos: 'cos ', tan: 'tan ', sinh: 'sinh ', cosh: 'cosh ', tanh: 'tanh ', Re: 'Re ', Im: 'Im ' };
+  // (a fraction's or root's part: bare when it is one symbol, a power or a root of one, in parentheses otherwise)
+  const ATOM = '[^\\s+\\-×·/^√()](?:[₀-₉]|\\u0304)*';
+  const ROOT = `(?:ⁿ|[${SUP}])*√(?:${ATOM}|\\(.*\\))`;
+  const BARE = new RegExp(`^(?:${ATOM}(?:\\^${ATOM})?|${ROOT})$|^\\(.*\\)$`);
+  const part = (v) => (BARE.test(v) ? v : `(${v})`);
+  // an index as superscript digits, n as ⁿ, any other index in parentheses
+  const rootIndex = (n) => (/^\d+$/.test(n) ? [...n].map((c) => SUP[+c]).join('') : n === 'n' ? 'ⁿ' : `(${XD.plain(n)})`);
+  // the argument at s[i]: a braced group (balanced) without its braces, a command, or one character; [text, next index]
+  const argAt = (s, i) => {
+    while (s[i] === ' ') i++;
+    if (s[i] === '{') {
+      let depth = 0, j = i;
+      for (; j < s.length; j++) { if (s[j] === '{') depth++; else if (s[j] === '}' && --depth === 0) break; }
+      return [s.slice(i + 1, j), j + 1];
+    }
+    if (s[i] === '\\') { const m = /^\\(?:[A-Za-z]+|.)/.exec(s.slice(i)); return [m ? m[0] : '', i + (m ? m[0].length : 1)]; }
+    return [s[i] || '', i + 1];
+  };
+  const plainRaw = (tex) => {
+    const s = String(tex);
+    let out = '';
+    for (let i = 0; i < s.length;) {
+      const c = s[i];
+      if (c === '{' || c === '}') { i++; continue; }
+      if (c === '_' || c === '^') {
+        const [a, j] = argAt(s, i + 1), t = XD.plain(a);
+        out += c === '_' && /^\d+$/.test(t) ? [...t].map((d) => SUB[+d]).join('') : c + t;
+        i = j; continue;
+      }
+      if (c !== '\\') { out += c; i++; continue; }
+      const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+      if (!m) { const x = s[i + 1] || ''; out += ',;:! '.includes(x) ? ' ' : x; i += 2; continue; }
+      const name = m[1];
+      i += m[0].length;
+      if (/^(?:operatorname|text|textit|textbf|mathrm|mathit|mathbf)$/.test(name)) { const [a, j] = argAt(s, i); out += plainRaw(a); i = j; }
+      else if (name === 'frac' || name === 'dfrac') {
+        const [n, j] = argAt(s, i), [d, k] = argAt(s, j);
+        out += `${part(XD.plain(n))}/${part(XD.plain(d))}`; i = k;
+      } else if (name === 'sqrt') {
+        let idx = '', j = i;
+        while (s[j] === ' ') j++;
+        if (s[j] === '[') { const e = s.indexOf(']', j); if (e > 0) { idx = s.slice(j + 1, e); i = e + 1; } }
+        const [a, k] = argAt(s, i);
+        out += `${idx ? rootIndex(idx) : ''}√${part(XD.plain(a))}`; i = k;
+      } else if (name === 'bar' || name === 'overline') { const [a, j] = argAt(s, i); out += `${XD.plain(a)}̄`; i = j; }
+      else if (name !== 'displaystyle') out += SYM[name] || '';
+    }
+    return out;
+  };
+  XD.plain = (tex) => plainRaw(tex).replace(/\s+/g, ' ').trim();
+  // the kinds of label that carry text, in reading order: a panel's name (its title or its variable), the map arrow's label, the colour key's words,
+  // the axis titles (ticks, point labels and captions carry none)
+  const TEXT_KINDS = ['title', 'panel-letter', 'arrow', 'key', 'axis-name'];  // ('ring-mark', a key's 1, i, -1, -i, carries none)
   XD.rec = null;
   // place a typeset item; ax: start|middle|end, ay: base|mid|top|bottom. kind tags the box for the preflight
   XD.at = (it, x, y, ax = 'start', ay = 'base', kind = 'label', halo = 0) => {
     const b = XD.boxOf(it, x, y, ax, ay);
     if (XD.rec) XD.rec.push({ tex: it.tex, pt: it.pt, color: it.color, x, y, ax, ay, halo });
     XD.boxes.push({ kind, tex: it.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
+    if (XD.texts && TEXT_KINDS.includes(kind)) {
+      const text = XD.plain(it.tex);
+      if (text) XD.texts.push({ kind, text, x: b.x0, base: b.base, w: b.x1 - b.x0, h: b.y1 - b.y0 });
+    }
     for (const [k, d] of it.glyphs) XD.glyphs.set(`${XD.ns}-${k}`, d);
     const inner = it.inner.split('@NS@').join(XD.ns);
     const g = `<g transform="translate(${f2(b.left - it.vb0 * it.k)} ${f2(b.base)}) scale(${+it.k.toFixed(6)})">`;
@@ -248,11 +312,19 @@
 
   // ---------- the figure ----------
   XD.svg = (spec) => {
+    const title = spec.title ? `<title>${String(spec.title).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>` : '';
+    const desc = spec.desc ? `<desc>${String(spec.desc).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</desc>` : '';
     const meta = spec.meta ? `<metadata id="${XD.ns}-meta"><![CDATA[${JSON.stringify(spec.meta)}]]></metadata>` : '';
     const glyphs = [...XD.glyphs.entries()].map(([id, d]) => `<path id="${id}" d="${d}"/>`).join('');
     const W = f2(spec.W), H = f2(Math.ceil(spec.H * 100) / 100);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}</svg>`;
-    return { svg, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
+    // the invisible text layer over the glyph paths: each label's words, spread over its glyph box, in reading order (the
+    // panels' names, the arrow's label, the key's words by line, the axis titles; each left to right; the figure's title is the
+    // <title> and the PDF's title)
+    const texts = XD.texts.filter((q) => q.w > 0 && q.h > 0).sort((a, b) => TEXT_KINDS.indexOf(a.kind) - TEXT_KINDS.indexOf(b.kind) || (a.kind === 'key' ? a.base - b.base || a.x - b.x : a.x - b.x));
+    const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const layer = texts.length ? `<g class="cmw-text">${texts.map((q) => `<text x="${f2(q.x)}" y="${f2(q.base)}" font-size="${f2(q.h)}" textLength="${f2(q.w)}" lengthAdjust="spacingAndGlyphs" fill="#000000" fill-opacity="0">${esc(q.text)}</text>`).join('')}</g>` : '';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}pt" height="${H}pt" viewBox="0 0 ${W} ${H}">${title}${desc}${meta}<defs>${glyphs}${spec.defs || ''}</defs><rect width="${W}" height="${H}" fill="#ffffff"/>${spec.items.join('')}${layer}</svg>`;
+    return { svg, title: spec.title || null, desc: spec.desc || null, W: +W, H: +H, meta: spec.meta || null, boxes: XD.boxes.slice(), texts, lines: spec.lines || [], glyphs: Object.fromEntries(XD.glyphs) };
   };
   // point markers (shape carries identity in grey): dot | square | tri | diamond | ring | cross
   XD.marker = (kind, px, py, r, fill, stroke, sw) => {
@@ -500,7 +572,7 @@
       line.push(wd); lw += (line.length > 1 ? sp : 0) + ww;
     }
     if (line.length) lines.push(line);
-    // (export review r3, verify-new-1) TeX's line spacing: baselines 1.2 pt apart (\baselineskip), unless the depth of a
+    // TeX's line spacing: baselines 1.2 pt apart (\baselineskip), unless the depth of a
     // line and the height of the next would leave less than \lineskiplimit (0) between them; then they are \lineskip
     // (0.1 pt) apart. A tall superscript (${H^{(2)}_{s}}'$) never touches the line above
     const lh = pt * 1.2, lskip = pt * 0.1;
@@ -516,7 +588,7 @@
   };
 
   // ---------- formats ----------
-  // (a library the offline page carries as a JSON block, build.py, #393, runs from a Blob URL; else from its CDN)
+  // (a library the offline page carries as a JSON block, build.py, runs from a Blob URL; else from its CDN)
   const loadScript = (src, id, b = id && document.getElementById(id)) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = b ? URL.createObjectURL(new Blob([JSON.parse(b.textContent)], { type: 'text/javascript' })) : src; s.async = true; s.onload = res; s.onerror = rej; document.head.append(s); });
   let pdfLibs = null;
   const pdfLib = () => {
@@ -533,7 +605,7 @@
     if (!lib) throw new Error('The PDF library could not be loaded');
     const doc = new lib.jsPDF({ unit: 'pt', format: [fig.W, fig.H], orientation: fig.W > fig.H ? 'landscape' : 'portrait', compress: true, putOnlyUsedFonts: true });
     const info = (v) => (fig.lang !== 'en' && I18 ? I18.pdfText(v) : v);
-    doc.setProperties({ title: fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
+    doc.setProperties({ title: fig.title || fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
     if (fig.meta && doc.addMetadata) {
       const json = JSON.stringify(fig.meta).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
       try { doc.addMetadata(`<cmw:scene>${json}</cmw:scene>`, 'https://complex-map-workbench/ns/1.0/'); } catch (e) { /* metadata is optional */ }
@@ -544,12 +616,24 @@
       const at = a + b, x = /\sx="([^"]*)"/.exec(at), y = /\sy="([^"]*)"/.exec(at), rest = at.replace(/\s[xy]="[^"]*"/g, '');
       const path = `<path${rest} d="${(fig.glyphs || {})[id] || ''}"/>`;
       return x || y ? `<g transform="translate(${x ? x[1] : 0} ${y ? y[1] : 0})">${path}</g>` : path;
-    }).replace(/<metadata[\s\S]*?<\/metadata>/, '');
+    }).replace(/<metadata[\s\S]*?<\/metadata>/, '').replace(/<g class="cmw-text">[\s\S]*?<\/g>/, '');
     const el = new DOMParser().parseFromString(src, 'image/svg+xml').documentElement;
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden';
     host.append(el); document.body.append(host);
     try { await lib.svg2pdf(el, doc, { x: 0, y: 0, width: fig.W, height: fig.H }); } finally { host.remove(); }
+    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order; the standard font has
+    // Latin only, so a subscript digit is written as the digit and a letter it lacks is left out
+    if (doc.setLanguage) { try { doc.setLanguage(fig.lang === 'ru' ? 'ru-RU' : fig.lang === 'it' ? 'it-IT' : 'en-US'); } catch (e) { /* the language is optional */ } }
+    doc.setFont('helvetica', 'normal');
+    for (const q of fig.texts || []) {
+      const n = q.text.normalize('NFKD').replace(/\p{M}/gu, '');
+      if (/(?![\x00-\x7f])\p{L}/u.test(n)) continue;
+      const t = n.replace(/[^\x20-\x7e]/g, '');
+      if (!t) continue;
+      doc.setFontSize(q.h);
+      doc.text(t, q.x, q.base, { renderingMode: 'invisible' });
+    }
     return doc.output('blob');
   };
   // PNG of the whole figure at dpi: opaque (RGB, or grey for B/W), pHYs, the scene in iTXt

@@ -36,10 +36,13 @@
     for (const s of list || []) {
       if (!s || s.visible === false || !TKIND[s.kind] || TKIND[s.kind] > 10) continue;
       const gk = gKind(s);
-      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
+      // stage: the plane the shape lies on; a shape of plane k > 0 holds the points z of plane 0 whose F_{0->k}(z) it
+      // holds, so its clip primitive and box (in its own plane) say nothing of z
+      const stage = Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
+      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
       recs.set(s.id, rec);
       let prim = null;
-      try { prim = Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
+      try { prim = Region.clipPrimitive && !stage ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
       const pk = packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
@@ -60,7 +63,7 @@
         const ax = s.a[0], ay = s.a[1], dx = s.b[0] - ax, dy = s.b[1] - ay, L = Math.hypot(dx, dy) || 1;
         thru0 = Math.abs((dx * ay - dy * ax) / L) <= 1e-12 * Math.hypot(ax, ay) ? 1 : 0;
       } else if (s.kind === 'sector') thru0 = Math.hypot(s.c[0], s.c[1]) <= 1e-12 ? 1 : 0;
-      if (gk) thru0 = s._g.thru0 ? 1 : 0;             // v16: from incidence [C9]
+      if (gk) thru0 = s._g.thru0 ? 1 : 0;             // from incidence
       rec.C = [at0, thru0, 0, 0];
       rec.offset = data.length / 4;
       const n0 = data.length, n = packPrim(prim, data);
@@ -69,7 +72,7 @@
       rec.clipU.set(data.slice(n0 + 4, n0 + 4 + 64));
       // the early-out box (polygons, bounded formulas); x0 > x1: none
       rec.box = [1, 1, 0, 0];
-      if (!s.complement && (s.kind === 'polygon' || s.kind === 'formula')) {
+      if (!stage && !s.complement && (s.kind === 'polygon' || s.kind === 'formula')) {
         let bb = null;
         try { bb = s.kind === 'polygon' ? Region.bboxOf(s) : Region.formulaBox(s); } catch (e) { bb = null; }
         if (bb && [bb.x0, bb.x1, bb.y0, bb.y1].every(Number.isFinite) && bb.x0 <= bb.x1 && bb.y0 <= bb.y1) rec.box = [bb.x0, bb.y0, bb.x1, bb.y1];
@@ -130,6 +133,12 @@
   // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
   // footprint down is G'(z) dY from the one across, else G at z + dY too
   const INV_CARRY = { carry: true, pre: '', main: '' };
+  // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
+  // test adds weigh on the programs that never draw one)
+  const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
+  const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
@@ -145,6 +154,26 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 }
 `;
   }
+  // The NEWT roots pass (#938): when the plan's first inverted op is a NEWT op (inverse.nr = {j, targets, main}, from
+  // GLChain.buildInverse), a roots program (nr.main, IX_NR_PASS) writes that op's members for each pixel's w into
+  // IX_NR_N RGBA32F targets, seeded from the previous frame's (uNrPrev*, uNrPrevOn, uNrPrevT), and the inverse program
+  // reads them (uNrTex*, uNrRead) where the op's input is the pixel's own w (ixPixW) instead of walking. Texel:
+  // ixNrTexel, the pixel relative to the pass's viewport. IX_NR_N: the targets drawn, at most nr.targets, the GPU's draw
+  // buffers and 6; the GLSL walks any members beyond them in place.
+  let nrMaxDb = 0;
+  function nrCount(nr) {
+    if (!nr || !(nr.targets > 0) || !rtOK) return 0;
+    if (!nrMaxDb) nrMaxDb = gl.getParameter(gl.MAX_DRAW_BUFFERS) || 1;
+    return Math.min(nr.targets, nrMaxDb, 6);
+  }
+  function nrDecl(n, pass) {
+    const k = Array.from({ length: n }, (_, i) => i);
+    return `#define IX_NR_N ${n}\n${pass ? '#define IX_NR_PASS 1\n' : ''}vec2 ixPixW = vec2(3.0e38);\nivec2 ixNrTexel = ivec2(0);\n`
+      + (pass ? k.slice(1).map((i) => `layout(location = ${i}) out vec4 o${i};\n`).join('') + k.map((i) => `uniform highp sampler2D uNrPrev${i};\n`).join('') + 'uniform int uNrPrevOn; uniform float uNrPrevT;\n'
+        : k.map((i) => `uniform highp sampler2D uNrTex${i};\n`).join('') + 'uniform int uNrRead;\n');
+  }
+  // the part of an inverse program's key that its extra source adds
+  const extraKey = (extra) => (extra ? (extra.carry ? carryKey(extra) + '|' + (extra.nrPass ? 'nr:' + hashStr(extra.main) + '|' : '') : 'test:' + hashStr(extra.pre + extra.main) + '|') : '');
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
@@ -154,6 +183,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
+    const nrN = globe ? 0 : nrCount(info.inverse.nr);
+    if (nrN) pre = nrDecl(nrN, !!(extra && extra.nrPass)) + pre;
     const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns() : '') + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
@@ -181,6 +212,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       loc[name] = gl.getUniformLocation(p, u.name);
       if (name in SAMPLER_UNITS) gl.uniform1i(loc[name], SAMPLER_UNITS[name]);
     }
+    programConstants(loc, p);
     e.loc = loc; e.state = 'ready'; e.readyAt = performance.now();
   }
   function evictInv() {
@@ -203,9 +235,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!inv) return { state: 'none', reason: 'no inverse program for this chain' };
     if (!inv.ok) return { state: 'none', reason: inv.reason };
     // (the carried colour's variant fails on its own: the region tiling's program of the chain still draws)
-    const ik = inv.key + (extra && extra.carry ? '|carry' : '');
+    const ik = inv.key + (extra && extra.carry ? '|' + carryKey(extra) : '') + (extra && extra.nrPass ? '|nr' : '');
     if (invFailed.has(ik)) return { state: 'error', reason: 'compile failed' };
-    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const id = invProgKey(inv, B, globe, fk);
     let e = progs.get(id);
     if (!e) {
@@ -221,6 +253,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       evictInv();
     }
     e.used = ++useClock; e.frame = invFrame;
+    if (!sideMode) e.askKey = cur.key;
     if (e.state === 'pending') {
       if (!pcExt || syncDepth > 0 || gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR)) {
         finishInv(e);
@@ -236,11 +269,11 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a ready inverse program of the current chain, view kind and formula bundle for another B class (never starts a
   // compile): a larger B first (exact for any alpha), else the largest smaller one (its front B sheets exact, the rest
   // through their transmittance, SPEC 13.12). warm: only programs already drawn (their first draw, the Metal pipeline
-  // build, stalled the GPU process 75-200 ms: P2 review)
+  // build, stalls the GPU process 75-200 ms)
   function invAltProgram(Bwant, globe, extra, warm) {
     const info = cur.info, inv = info && info.inverse;
-    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|carry' : ''))) return null;
-    const fk = (extra ? (extra.carry ? 'carry|' : 'test:' + hashStr(extra.pre + extra.main) + '|') : '') + (pack ? pack.formsKey : '');
+    if (!inv || !inv.ok || invFailed.has(inv.key + (extra && extra.carry ? '|' + carryKey(extra) : ''))) return null;
+    const fk = extraKey(extra) + (pack ? pack.formsKey : '');
     const order = [3, 5, INV_B_MAX].filter((b) => b !== Bwant).sort((a, b) => (a > Bwant) !== (b > Bwant) ? (a > Bwant ? -1 : 1) : (a > Bwant ? a - b : b - a));
     for (const B of order) {
       const e = progs.get(invProgKey(inv, B, globe, fk));
@@ -317,8 +350,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return d;
   }
   // ---- half-resolution target (cost guard) ----
-  // A pane's consecutive half-resolution passes share one batch (P2 review: one target bind, clear and upsample per
-  // pass cost more than half resolution saved): the first binds and clears the half target, each draws its scissored
+  // A pane's consecutive half-resolution passes share one batch (one target bind, clear and upsample per
+  // pass would cost more than half resolution saves): the first binds and clears the half target, each draws its scissored
   // part, and flushHalf() (before any other draw of GLR: the api entry points call it) upsamples the union of their
   // scissor boxes once.
   let halfTex = null, halfFbo = null, halfW = 0, halfH = 0;
@@ -363,7 +396,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -396,9 +429,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // K (SPEC 4.2): the front count for the early stop and admission: 1 when alpha >= 0.999, else
   // ceil(ln(1/255) / ln(1 - alpha))
   const invK = (alpha) => (alpha >= 0.999 ? 1 : Math.max(1, Math.ceil(Math.log(1 / 255) / Math.log(1 - Math.min(alpha, 0.999999)))));
-  // B, the compile-time buffer (4.2; P2 benchmark, SPEC 13.10, 13.12): the buffer lives in registers across the whole
+  // B, the compile-time buffer (4.2; SPEC 13.10, 13.12): the buffer lives in registers across the whole
   // walk, and its size dominated the pass cost (dpr 2, z^i(H) marginal pass: B 3 1.4 ms at alpha 1, B 5 2.0 at 0.85,
-  // B 8 3.3 at 0.7, B 16 8.4-10.8 at 0.5-0.3, P2 review). Classes by the shape's own (undimmed) alpha: 3 (alpha >=
+  // B 8 3.3 at 0.7, B 16 8.4-10.8 at 0.5-0.3). Classes by the shape's own (undimmed) alpha: 3 (alpha >=
   // 0.999, K 1), 5 (alpha >= 0.5), 8 (below). The buffer keeps the front B sheets exactly; the covering candidates it
   // does not keep enter the composite through their exact transmittance, coloured with the buffer's mean (the walk then
   // has no early stop: K > B). Their share of the light is (1 - alpha)^B: 0 for alpha >= 0.67 (B 5 holds K), at most
@@ -432,6 +465,97 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // 'pending' (a compile in flight or not yet allowed to start) sets frameStatus().pending; 'error': the shape cannot
   // be drawn inverse this frame (no program, a failed compile, a side draw without a ready program, a plan / prep
   // mismatch); both fall through to the forward draw.
+  // the roots pass's targets: two sets (ping-pong) of n RGBA32F textures of the pass's size, each set with its
+  // framebuffer; nrLast: the set the last pass wrote, its key (size, view, op list, plan) and t, and token, which a
+  // drawInverse of that frame names (st.nr) to read it
+  const nrSets = [null, null];
+  let nrLast = null, nrToken = 0;
+  function nrSet(i, n, W, H) {
+    let S = nrSets[i];
+    if (S && S.n === n && S.W === W && S.H === H) return S;
+    if (S) { S.tex.forEach((t) => gl.deleteTexture(t)); gl.deleteFramebuffer(S.fbo); }
+    S = { n, W, H, tex: [], fbo: gl.createFramebuffer() };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
+    for (let k = 0; k < n; k++) {
+      const t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE15);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + k, gl.TEXTURE_2D, t, 0);
+      S.tex.push(t);
+    }
+    S.ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    nrSets[i] = S;
+    if (nrLast && nrLast.set === i) nrLast = null;
+    return S;
+  }
+  function nrBind(S, n) {
+    for (let k = 0; k < n; k++) { gl.activeTexture(gl.TEXTURE6 + k); gl.bindTexture(gl.TEXTURE_2D, S ? S.tex[k] : null); }
+  }
+  // The NEWT roots pass of a flat inverse draw st (drawInverse's: map, plan, prep, inv, view, dpr; t: the NEWT op's t;
+  // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
+  // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
+  // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
+  function newtRoots(st) {
+    const inv = st && st.inv, nr = inv && inv.nr, n = ok ? nrCount(nr) : 0;
+    if (!n || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return { state: 'none' };
+    const pr = invProgram(INV_B_MAX, false, true, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
+    if (pr.state !== 'ready') return { state: pr.state };
+    const W = Math.max(1, Math.round(st.pw)), H = Math.max(1, Math.round(st.ph));
+    const v = st.view || { cx: 0, cy: 0, s: 1 }, dpr = st.dpr || 1, map = st.map || {};
+    const key = [W, H, v.cx, v.cy, v.s, dpr, inv.key, map.a || 0, map.b || 0, cur.key, cur.hash].join('|');
+    const prev = nrLast && nrLast.key === key ? nrLast : null;
+    const wi = nrLast ? 1 - nrLast.set : 0, S = nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
+    if (!S.ok) return { state: 'error' };
+    flushHalf();
+    const P = pr.P;
+    P.warm = true;
+    gl.useProgram(P.p);
+    // (the prior set is bound for reading even when it is not the same frame's: never the set drawn into)
+    nrBind(Sp || nrSets[1 - wi], n);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
+    gl.drawBuffers(Array.from({ length: n }, (_, k) => gl.COLOR_ATTACHMENT0 + k));
+    gl.viewport(0, 0, W, H);
+    // (every channel written: a frame's colour mask may leave alpha out, and a target's .w holds a root's part)
+    // (the frame's colour mask is the renderer's record, maskRGB / maskA: getParameter would wait on the GPU process)
+    const scOn = gl.isEnabled(gl.SCISSOR_TEST), blOn = gl.isEnabled(gl.BLEND);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true);
+    if (!cur.invData || cur.invData.length !== 4 * inv.slots) { cur.invData = new Float32Array(4 * inv.slots); inv.fill(cur.invData); cur.invFill = inv; }
+    else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
+    if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
+    if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+    u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
+    u4f(P, 'uVp', 0, 0, W, H);
+    u2f(P, 'uCenter', hi32(v.cx), hi32(v.cy));
+    u2f(P, 'uCenterLo', v.cx - hi32(v.cx), v.cy - hi32(v.cy));
+    u2f(P, 'uInvScale', 1 / (v.s * dpr), 1 / (v.s * dpr));
+    u1i(P, 'uNrPrevOn', prev ? 1 : 0); u1f(P, 'uNrPrevT', prev ? prev.t : 0);
+    gl.bindVertexArray(empty());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(vpX, vpY, fw, fh);
+    if (scOn) gl.enable(gl.SCISSOR_TEST);
+    if (blOn) gl.enable(gl.BLEND);
+    gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
+    return { state: 'drawn', token: nrLast.token };
+  }
+  // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
+  // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
+  // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
+  // as ready
+  function inverseState(st) {
+    if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
+    const globe = st.viewKind === 'globe', look = st.look || {};
+    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? (!globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
+    if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
+    return pr.state;
+  }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe';
@@ -439,13 +563,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!rec || !rec.ok) return 'error';
     const look = st.look || {};
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
-    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, flat only)
-    const extra = st.carry && !globe ? INV_CARRY : st.extra;
+    // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
+    // globe)
+    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
     // (st.motion) or any live frame (st.coldOk === false: the app warms it at an idle moment with warmInverse, then
-    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider, P2 review), else
+    // redraws). Another ready, warm B class of the same program draws instead (the opacity slider), else
     // the forward stand-in ('pending'). Exports (coldOk) and direct callers draw it, stall included.
     const defer = st.motion || st.coldOk === false;
     if (pr.state === 'pending' || (pr.state === 'ready' && !pr.P.warm && defer)) {
@@ -474,6 +599,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     else if (cur.invFill !== inv) { inv.fill(cur.invData); cur.invFill = inv; }
     if (P.loc.uInv) gl.uniform4fv(P.loc.uInv, cur.invData);
     u1i(P, 'uIxA', map.a || 0); u1i(P, 'uIxB', map.b || 0);
+    // (the roots of the frame's NEWT roots pass, newtRoots: read where its size is this pass's)
+    if (P.loc.uNrRead) {
+      const R = st.nr && nrLast && nrLast.token === st.nr && !half && nrSets[nrLast.set].W === fw && nrSets[nrLast.set].H === fh ? nrLast : null;
+      u1i(P, 'uNrRead', R ? 1 : 0);
+      if (R) nrBind(nrSets[R.set], R.n);
+    }
     if (P.loc.uIxRef) gl.uniform2fv(P.loc.uIxRef, d.ref);
     if (P.loc.uIxN) gl.uniform1iv(P.loc.uIxN, d.N);
     if (P.loc.uIxRK) gl.uniform1iv(P.loc.uIxRK, d.RK);
@@ -483,7 +614,14 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u4f(P, 'uIxStopMob', ...d.stopMob);
     if (P.loc.uIxStopT) gl.uniform4fv(P.loc.uIxStopT, d.stopT);
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
-    u1i(P, 'uIxTail', d.tail);
+    u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
+    u1i(P, 'uShStage', rec.stage);
+    // st.edge {w, a}: the boundary band alone, w device px wide at alpha a (a shape of a later plane only: the band and the
+    // grow live in the staged program). uEdgeW is the band's half width: it reaches w / 2 to each side of the boundary
+    const staged = rec.stage > 0;
+    u1i(P, 'uEdgeOnly', staged && st.edge ? 1 : 0);
+    if (staged && st.edge) { u1f(P, 'uEdgeW', 0.5 * st.edge.w); u1f(P, 'uEdgeA', st.edge.a); }
+    u1f(P, 'uStageGrow', staged ? st.grow || 0 : 0);
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
@@ -521,6 +659,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const aDraw = look.alpha ?? 1, aOwn = look.alphaOwn ?? aDraw;
     u1i(P, 'uKsat', Math.max(1, Math.min(64, invK(aDraw))));
     u1i(P, 'uKall', Math.abs(aDraw - aOwn) < 1e-6 ? 1 : 0);
+    u1i(P, 'uLastOpaque', look.lastOpaque ? 1 : 0);
     // shape
     uploadPack();
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, invTex);
@@ -532,7 +671,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u4f(P, 'uShBox', ...rec.box);
     // look (regionUniforms with the pattern origin Q = 0: the walk's z is absolute)
     regionUniforms(P, Object.assign({ pattern: 'solid' }, look, { dpr: st.dpr || 1 }), [0, 0]);
-    if (extra === INV_CARRY) {
+    if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
       u1i(P, 'uPattern', 9);
@@ -815,9 +954,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, fillPointsOn, fillPointsRuns, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
@@ -846,9 +985,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     get inverseDraws() { return invDraws; },
     get inverseHalfDraws() { return invHalfDraws; },
     // globe passes drawn with a scissor (globeScissorOf) and their scissored device px (tests)
+    get carriedGlobeGraticule() { return carriedGlobeGraticule; },
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
     // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program)
-    _src: { warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    _src: { logK, DEFS, warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
     createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, updatePreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
@@ -856,21 +996,21 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
     // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
-    // and that program has not landed yet
-    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
+    // and that program has not landed yet; refining: the Landscape's refinement follows (the frame is drawn without it)
+    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
-    // (issue #72) false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
+    // false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
     // the draw that asks for it
     get parallelCompile() { return !!pcExt; },
     // whether programs `names` of the current chain (static ones by name) are linked for map; never starts one (with no
     // chain there is no chain program to wait for: true, and the card draws as it would)
     linked(names, map) { return !cur.info || names.every((n) => { const e = DEFS[n] && progs.get(progId(n, cur, map)); return !!e && e.state === 'ready'; }); },
-    // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)
+    // how many programs are compiling (the panes' "Preparing the GPU" note counts them)
     get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
     // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
-    // (issue #72, I) ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
+    // ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
     // hold on its links
     bareMs, holdLinks, chainProgs,
     // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
@@ -901,8 +1041,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // All sheets for map (GPU map spec) with window W: {K (surfaces drawn, at most 24), total, W, infinite} or null
     // when the current chain cannot draw it (no multivalued step in (a, b], a homotopy, a d/dz in (a, b] with a > 0,
     // or no chainSheetRange in the chain's GLSL)
-    // TEMP-DEBUG-HOOK (removed before publishing)
-    // (v16 tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
+    // TEMP-DEBUG-HOOK
+    // (tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
     // transform feedback: a Float32Array of pairs, or null while the program compiles or without WebGL
     evalMap(map, pts) {
       if (!ok || lost || !cur.info) return null;
@@ -935,13 +1075,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.deleteBuffer(vbo); gl.deleteBuffer(out); gl.deleteVertexArray(vao);
       return res;
     },
-    // (v16 tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
+    // (tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
-    // (walls tests, issue #52) the landscape's grid and refinement read back
+    // (walls tests) the landscape's grid and refinement read back
     landMesh: lwMesh, landRefine: lwRefine, landHeld: lwHeld,
-    // (issue #47: the programs compiled so far, name|chain|mode and state)
+    // (the programs compiled so far, name|chain|mode and state)
     landProgs: () => [...progs.values()].map((e) => `${e.id} ${e.state}`),
-    // (issue #47: a program's sources for the current chain, landTF of a given kind, to time its link)
+    // (a program's sources for the current chain, landTF of a given kind, to time its link)
     landSrc: (name, mode, kind) => {
       const d = DEFS[name], save = d.vs;
       if (kind) d.vs = () => UTIL_V + HEIGHT + LAND_TF_VS(kind);

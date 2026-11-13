@@ -30,7 +30,7 @@ function chain(stepsIn) {
   const HR = HomRange.make({ n, stepFn, isDeriv, stepActive, stageF, rangeF, built: () => built, C });
   return { S, HR, n, stageF, rangeF, isDeriv, stepFn, stepActive, rebuild, get built() { return built; } };
 }
-// the v15.2 morphState (app.js before v16), for "today unchanged": the map and the key
+// a reference morphState, to compare the map and the key against
 function v152(ch, T, rel) {
   const S = ch.S, n = ch.n(), stepActive = ch.stepActive, isDeriv = ch.isDeriv;
   const steps = S.focus > 0 ? (stepActive(S.focus) ? [S.focus] : []) : Array.from({ length: n }, (_, i) => i + 1).filter(stepActive);
@@ -210,7 +210,7 @@ check('the cases ran', cases >= 24, cases);
   r = edit((st) => st.splice(1, 1));
   check('remove the left end: keeps the index, shrinks', r && r.a === 2 && r.b === 2, r);
   ch = mk(); S = ch.S; set(2, 3);
-  r = edit((st) => { const [x] = st.splice(1, 1); st.splice(3, 0, x); });   // f2 moved after f4: [f1 f3 f4 f2 f5]
+  r = edit((st) => { const [x] = st.splice(1, 1); st.splice(3, 0, x); });   // f2 moved after f4: the order is f1 f3 f4 f2 f5
   check('move an end across the other: their span', r && r.a === 2 && r.b === 4, r);
   ch = mk(); S = ch.S; set(2, 4);
   r = edit((st) => { st.splice(3, 1, { type: 'cosh', params: FN.defaults('cosh'), on: true, uid: 'f7' }, { type: 'tanh', params: FN.defaults('tanh'), on: true, uid: 'f8' }); if (S.homRange.ub === 'f4') S.homRange.ub = 'f8'; });
