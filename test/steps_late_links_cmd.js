@@ -14,8 +14,9 @@
 //   until the app's warm-up has gone through its groups and nothing links: ready stays true (the programs of views no
 //   pane shows, the globes' and the Landscape's, are no part of it), no program links twice, and no Landscape program
 //   is started in map mode 1 (no pane draws one);
-// - on a fresh page, the Landscape shown while the warm-up links its programs: ready never reads true while one of
-//   them links, from the pane's first frame of it on (they are the pane's now).
+// - on a fresh page, the Landscape shown while the warm-up links its programs: from the pane's first frame of it on,
+//   they are the pane's (GLR.pending() reads none of them offView) and ready counts them (its programs part is never
+//   complete while one of them links).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -128,8 +129,9 @@ try {
   }
   // the partial sums on a fresh page while the warm-up links its Landscape programs (a view no pane shows), then the
   // Landscape shown: from the left pane's first frame of it until its programs have landed and ready, sampled in the
-  // page as above, no sample may read ready while one of them links (landTF, land, floor of the chain, in any map
-  // mode: they are the pane's now, and what a glide there draws waits for them)
+  // page as above, no sample may find one of them that links (landTF, land, floor of the chain, in any map mode) set
+  // aside as a view's no pane shows, nor ready's programs part complete while one links: they are the pane's now, and
+  // what a glide there draws waits for them
   {
     const ex = names.indexOf(NEWT_EX), landLinking = '/^(landTF|land|floor)\\|/.test(p.id) && p.key === GLR.chainKey';
     await go(`${BASE}/test.html?ns=lll${Date.now()}&lang=en&view=steps`);
@@ -144,10 +146,10 @@ try {
         const st = __cmwPaneStatus('L');
         if (!st || !(st.t > s.t0)) return;
         s.n++;
-        const land = GLR.pending().filter((p) => ${landLinking}).map((p) => p.id.split('|')[0]);
+        const linking = GLR.pending().filter((p) => ${landLinking}), land = linking.map((p) => p.id.split('|')[0] + (p.offView ? ' (offView)' : ''));
         if (land.length) s.linking++;
-        const q = __cmwSteps();
-        if (q.ready.ready && land.length && s.bad.length < 5) s.bad.push({ t: Math.round(performance.now()), land, parts: JSON.parse(JSON.stringify(q.ready.parts)) });
+        const q = __cmwSteps(), pr = q.ready.parts.programs;
+        if (land.length && (pr && pr.done === pr.total || linking.some((p) => p.offView)) && s.bad.length < 5) s.bad.push({ t: Math.round(performance.now()), land, parts: JSON.parse(JSON.stringify(q.ready.parts)) });
       };
       const frame = () => { if (s.on) { look(); requestAnimationFrame(frame); } };
       const onReady = GLR.onReady;
@@ -159,7 +161,7 @@ try {
     })()`);
     const r6 = await settled({ max: WARM_MS, until: `window.__llLand.n > 0 && __cmwSteps().ready.ready && !GLR.pending().some((p) => ${landLinking})` });
     const smp = await ev('(() => { const s = window.__llLand; s.on = false; clearInterval(s.timer); return { n: s.n, linking: s.linking, bad: s.bad }; })()');
-    ok(`${NEWT_EX}, the Landscape shown while the warm-up links its programs: ready never reads true while one of them links`, r5.ok && r6.ok && !!smp && smp.linking > 0 && smp.bad.length === 0, { bad: smp && smp.bad, samples: smp && { n: smp.n, linking: smp.linking }, wait: [r5, r6] });
+    ok(`${NEWT_EX}, the Landscape shown while the warm-up links its programs: they are the pane's, and ready counts them while one links`, r5.ok && r6.ok && !!smp && smp.linking > 0 && smp.bad.length === 0, { bad: smp && smp.bad, samples: smp && { n: smp.n, linking: smp.linking }, wait: [r5, r6] });
     info.land = smp && { n: smp.n, linking: smp.linking };
   }
 } finally {

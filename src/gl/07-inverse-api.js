@@ -1009,8 +1009,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     linked(names, map) { return !cur.info || names.every((n) => { const e = DEFS[n] && progs.get(progId(n, cur, map)); return !!e && e.state === 'ready'; }); },
     // how many programs are compiling (the panes' "Preparing the GPU" note counts them)
     get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
-    // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
-    pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
+    // the programs compiling, as {id, key, offView} (key: the chain structure key, 'static' for the others; offView: a
+    // view's no pane shows, e.offView)
+    pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key, offView: !!e.offView }); return out; },
     // ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
     // hold on its links
     bareMs, holdLinks, chainProgs,
