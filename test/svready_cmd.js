@@ -8,7 +8,7 @@ const ns = 'svr' + Date.now();
 await load(ns, {});
 await ev('(__cmwExample(1), 1)');
 const base = await ev('location.origin');
-await nav(`${base}/test.html?ns=${ns}&glhold&view=steps`);
+await go(`${base}/test.html?ns=${ns}&glhold&view=steps`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
 await ev('(__cmwSteps({ go: 99, now: true }), 1)');
 await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });

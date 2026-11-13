@@ -608,7 +608,7 @@ await section('L47', async () => {
 await section('RU', async () => {
   await laptop();
   await load(NS + 'ru', SD, `localStorage.setItem('cmw-lang', 'ru')`);
-  await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1500);
+  await go(`${U}?ns=${NS}ru&lang=ru`); await settle(1500);
   info.ruLang = await ev(`I18N.lang`);
   await tool('hyper');
   info.ruChip = await chipT();
