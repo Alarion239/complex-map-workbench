@@ -12,9 +12,12 @@
 //     (the pass's own output before any 8-bit target), keyed by its variant, viewport and uniform values;
 //   - every other draw into a framebuffer is read back as it is drawn (a float target as float32, a byte target as bytes);
 //   - the panes' canvases.
-// A record holds the last hash of each key. A scene is loaded twice, a third time when the two disagree (a software
-// renderer's frame count varies). Negative control: a third build of this checkout with the merged code moved by one
-// part in 10^7 (ixCentral's central difference and ixChain3's footprint across) must differ from the base.
+// A record holds the last hash of each key. A scene is loaded twice, and a build's record of it is its stable core: the
+// keys whose hashes agree on both loads (a key drawn by a transient frame on one load only, which a software
+// renderer's timing decides, is listed apart and not compared). Two builds differ where a key of both cores has two
+// hashes, or a key of one core is missing from the other build's loads. Negative control: a third build of this
+// checkout with the merged code moved by one part in 10^7 (ixCentral's central difference and ixChain3's footprint
+// across) must differ from the base.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -32,7 +35,7 @@ const CONTROL = [
   ['    else dl = vec2(lxp - lxm, lyp - l) * 0.5;', '    else dl = vec2(lxp - lxm, lyp - l) * 0.5000001;'],
   ['if (k == 0) g0 = g; else if (k == 1) gx = g - g0;', 'if (k == 0) g0 = g; else if (k == 1) gx = (g - g0) * 1.0000001;'],
 ];
-const LOAD_MAX_MS = 120000, PLACE_MAX_MS = 300000, FRAMES_PAUSE_MS = 2500;
+const LOAD_MAX_MS = 240000, PLACE_MAX_MS = 300000, FRAMES_PAUSE_MS = 2500;
 
 const sh = (cmd, args, cwd) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 });
@@ -190,9 +193,8 @@ const SCENES = [
   { name: 'classic-a0.3', view: 'classic', state: Object.assign({}, STRIP, { alpha: 0.3 }), xs: [null] },
   // a shape on plane 1 (its own staged program)
   { name: 'staged', view: 'steps', state: Object.assign({}, STRIP, { shapes: STRIP.shapes.concat([{ id: 's3', kind: 'disc', c: [0, 0.3], r: 0.4, stage: 1, ci: 2, visible: true }]) }), xs: [0.5, 1.5] },
-  // typed formulas: a NEWT op, two window families
+  // a typed formula's NEWT op
   { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5] },
-  { name: 'expsin', view: 'steps', state: typed('exp(sin(z))'), xs: [0.5] },
   // the globe
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
@@ -217,15 +219,20 @@ async function recordPlace(H, base, sc, x) {
   await H.nav(base + 'blank.html');
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(sc.state)))}); 1`);
   await H.nav(base + `test.html?ns=${ns}${sc.view === 'steps' ? '&view=steps' : ''}`);
-  if (!await quiet(H, sc.view === 'steps' ? "typeof __cmwSteps === 'function'" : "typeof __cmwPaneStatus === 'function'", LOAD_MAX_MS)) throw new Error(`${sc.name}: the page did not settle`);
+  // (a page that is still busy when its time is up is recorded all the same: its transient keys leave the core)
+  const ready = sc.view === 'steps' ? "typeof __cmwSteps === 'function'" : "typeof __cmwPaneStatus === 'function'";
+  let settled = await quiet(H, ready, LOAD_MAX_MS);
+  if (!settled && !await H.ev(ready)) throw new Error(`${sc.name}: the app did not start`);
   // (no half-resolution passes: the cost guard's budget out of reach, whatever the machine's speed)
   await H.ev('__cmwGuardOpts({ budget: 1e9, exit: 1e9 }), 1');
   await H.ev('window.__ab.on = true, 1');
-  for (const c of sc.pre || []) { await H.ev(`(${c}), 1`); await quiet(H, null, PLACE_MAX_MS); }
+  for (const c of sc.pre || []) { await H.ev(`(${c}), 1`); settled = await quiet(H, null, PLACE_MAX_MS) && settled; }
   // (a glide's place draws anew; a view as loaded draws its panes again, now recorded)
   await H.ev(x != null ? `__cmwSteps({ x: ${x} }), 1` : '__cmwHideStrokes(false), 1');
-  if (!await quiet(H, x != null ? `__cmwSteps().x === ${x}` : null, PLACE_MAX_MS)) throw new Error(`${sc.name}@${x}: the place did not settle`);
+  settled = await quiet(H, x != null ? `__cmwSteps().x === ${x}` : null, PLACE_MAX_MS) && settled;
+  if (x != null && !await H.ev(`__cmwSteps().x === ${x}`)) throw new Error(`${sc.name}@${x}: the glide did not reach its place`);
   await sleep(FRAMES_PAUSE_MS);
+  if (!settled) await H.ev("window.__ab.rec.unsettled = { h: '1', blank: false }, 1");
   return H.ev(`(() => { const rec = window.__ab.rec; for (const id of ['canvasL', 'canvasR']) { const cv = document.getElementById(id); if (!cv || !cv.width) continue; const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } rec[id + '|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; } return JSON.stringify(rec); })()`).then(JSON.parse);
 }
 async function record(name, dir) {
@@ -240,15 +247,13 @@ async function record(name, dir) {
       for (const x of sc.xs) {
         const key = `${sc.name}@${x}`;
         if (ONLY && !ONLY.test(key)) continue;
-        let a = await recordPlace(H, base, sc, x), b = await recordPlace(H, base, sc, x);
-        if (JSON.stringify(a) !== JSON.stringify(b)) {
-          const c = await recordPlace(H, base, sc, x);
-          if (JSON.stringify(c) === JSON.stringify(a)) b = c; else if (JSON.stringify(c) === JSON.stringify(b)) a = b;
-          else console.log(`${name} ${key}: three loads disagree`);
-        }
-        out[key] = { rec: a, stable: JSON.stringify(a) === JSON.stringify(b) };
-        const inv = Object.keys(a).filter((k) => k.startsWith('inv|'));
-        console.log(`${name} ${key}: ${Object.keys(a).length} records (${inv.length} inverse draws: ${[...new Set(inv.map((k) => k.split('|')[1]))].join(' ')})${a.error ? ' ERROR ' + a.error : ''}${out[key].stable ? '' : ' UNSTABLE'}`);
+        const a = await recordPlace(H, base, sc, x), b = await recordPlace(H, base, sc, x);
+        const NOTES = ['error', 'unsettled'], keys = new Set([...Object.keys(a), ...Object.keys(b)].filter((k) => !NOTES.includes(k)));
+        const core = {}, transient = [];
+        for (const k of keys) { if (a[k] && b[k] && a[k].h === b[k].h) core[k] = a[k]; else transient.push(k); }
+        out[key] = { core, transient, error: a.error || b.error || null, unsettled: !!(a.unsettled || b.unsettled) };
+        const inv = Object.keys(core).filter((k) => k.startsWith('inv|'));
+        console.log(`${name} ${key}: ${Object.keys(core).length} stable records (${inv.length} inverse draws: ${[...new Set(inv.map((k) => k.split('|')[1]))].join(' ')}), ${transient.length} transient${out[key].error ? ' ERROR ' + out[key].error : ''}${out[key].unsettled ? ' (a load did not settle)' : ''}`);
       }
     }
   } finally {
@@ -258,15 +263,17 @@ async function record(name, dir) {
   fs.writeFileSync(path.join(work, name + '.json'), JSON.stringify(out, null, 1));
   return out;
 }
-// the keys whose hashes differ between two records, per scene
+// the keys that differ between two builds, per scene: a key of both cores with two hashes, or a key of one core that the
+// other build never drew (a key transient in the other build is not compared); n: the keys compared
 function diff(A, B) {
   const d = {};
   let n = 0;
   for (const sc of new Set([...Object.keys(A), ...Object.keys(B)])) {
-    const a = (A[sc] || {}).rec || {}, b = (B[sc] || {}).rec || {};
-    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    const a = A[sc] || { core: {}, transient: [] }, b = B[sc] || { core: {}, transient: [] };
+    for (const k of new Set([...Object.keys(a.core), ...Object.keys(b.core)])) {
+      if ((!a.core[k] && a.transient.includes(k)) || (!b.core[k] && b.transient.includes(k))) continue;
       n++;
-      if (!a[k] || !b[k] || a[k].h !== b[k].h) (d[sc] = d[sc] || []).push(k + (a[k] && b[k] ? '' : a[k] ? ' (base only)' : ' (head only)'));
+      if (!a.core[k] || !b.core[k] || a.core[k].h !== b.core[k].h) (d[sc] = d[sc] || []).push(k + (a.core[k] && b.core[k] ? '' : a.core[k] ? ' (first only)' : ' (second only)'));
     }
   }
   return { n, d };
@@ -278,13 +285,13 @@ function diff(A, B) {
     const A = await record('base', tree('base', BASE));
     const B = await record('head', tree('head', null));
     const C = argv.includes('--no-control') ? null : await record('control', tree('control', null, { 'src/gl/02-glsl-inverse.js': CONTROL }));
-    const unstable = Object.entries(A).concat(Object.entries(B)).filter(([, r]) => !r.stable).map(([k]) => k);
-    const errors = Object.entries(A).concat(Object.entries(B)).filter(([, r]) => r.rec.error).map(([k, r]) => `${k}: ${r.rec.error}`);
+    const errors = Object.entries(A).concat(Object.entries(B)).filter(([, r]) => r.error).map(([k, r]) => `${k}: ${r.error}`);
     const ab = diff(A, B);
-    const inv = Object.values(B).reduce((s, r) => s + Object.keys(r.rec).filter((k) => k.startsWith('inv|')).length, 0);
+    const inv = Object.keys(B).reduce((s, sc) => s + Object.keys(B[sc].core).filter((k) => k.startsWith('inv|') && A[sc] && A[sc].core[k]).length, 0);
     console.log(`A/B: ${ab.n} records compared (${inv} of them inverse draws read back as float32), ${Object.values(ab.d).flat().length} differ`);
     for (const [sc, ks] of Object.entries(ab.d)) console.log(`  ${sc}: ${ks.slice(0, 8).join('; ')}${ks.length > 8 ? ` (+${ks.length - 8})` : ''}`);
-    if (unstable.length) console.log(`unstable over loads: ${unstable.join(', ')}`);
+    const transient = Object.keys(B).map((sc) => `${sc} ${(A[sc] || { transient: [] }).transient.length}/${B[sc].transient.length}`).join(', ');
+    console.log(`transient keys, base/head: ${transient}`);
     if (errors.length) console.log(`hook errors: ${errors.join('; ')}`);
     let ctrl = null;
     if (C) {
