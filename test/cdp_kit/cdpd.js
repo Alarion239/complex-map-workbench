@@ -240,7 +240,8 @@ H.loadView = async (view, ns, st, o = {}) => {
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 // load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded, its
 // hooks are defined and the app has built the chain of the saved state: the plane list (__cmwSteps().planes, in either view)
-// holds the origin plane and one plane per active step; a state with no step asks no plane. The app starts after the page's
+// holds a plane for a step (two or more: the origin plane and the step's; a saved step shown alone leaves just those two, and
+// the app adopts the whole chain at once), and a state with no active step asks no plane. The app starts after the page's
 // load event (software GL, a busy machine), so a read right after the load event finds an empty chain. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for
 // again, and one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
 // A document whose body has stopped arriving (still "loading" with its response not finished) after stallMs (LOAD_STALL_MS by
@@ -256,7 +257,7 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   const url = origin + '/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '');
   await send('Page.navigate', { url }, S);
-  const want = Array.isArray(o.steps) && o.steps.length ? 1 + o.steps.filter((q) => q.on !== false).length : 0;
+  const want = Array.isArray(o.steps) && o.steps.some((q) => q.on !== false) ? 2 : 0;
   const ready = `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && (() => { try { return __cmwSteps().planes.length >= ${want}; } catch (e) { return false; } })()`;
   const limitMs = opts.limitMs || LOAD_LIMIT_MS, stallMs = opts.stallMs || LOAD_STALL_MS, t0 = Date.now();
   let r, reloads = 0, tNav = t0;

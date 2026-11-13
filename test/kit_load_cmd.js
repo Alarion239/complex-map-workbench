@@ -8,8 +8,8 @@
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const RATE = 20, LATE_MS = 4000, SHORT_LIMIT_MS = 2500;   // the CPU slowed this many times; the app's start held back this long after the page's load event
-const ST = { shapes: [], steps: [{ type: 'recip', params: {}, on: true }] };
-const PLANES = 1 + ST.steps.length;
+const ST = { shapes: [], steps: [{ type: 'recip', params: {}, on: true }, { type: 'sin', params: {}, on: true }] };
+const PLANES = 1 + ST.steps.length, WANT = 2;   // (planes in the chain; planes load() waits for)
 const hold = await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
   const add = document.addEventListener;
   document.addEventListener = function (type, fn, opt) {
@@ -34,6 +34,6 @@ info.ms = ms; info.limit = err2;
 ok(`a page slowed ${RATE} times starts later than ${LATE_MS} ms`, ms > LATE_MS, ms);
 ok('load() did not throw', !err, err);
 ok('the steps chain is built when load() returns', !!now && now.on && now.planes >= PLANES, now);
-ok('a chain not built within the limit fails load(), naming the limit and the planes wanted', !!err2 && new RegExp('not ready after ' + SHORT_LIMIT_MS + ' ms \\(' + PLANES + ' planes wanted').test(err2), err2);
+ok('a chain not built within the limit fails load(), naming the limit and the planes wanted', !!err2 && new RegExp('not ready after ' + SHORT_LIMIT_MS + ' ms \\(' + WANT + ' planes wanted').test(err2), err2);
 ok('load() answered with the lamps', !!r && typeof r.lamps === 'string' && !r.__exc, r);
 return { pass: fails.length === 0, fails, info };
