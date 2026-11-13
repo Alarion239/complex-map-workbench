@@ -322,11 +322,10 @@ float wabs(vec2 w) {
   // Landscape (prestart with offView, prestartLand, and the members of its group, groupDone), until a draw asks for it
   // (getProg). Nothing waits for it: its landing asks no pane to redraw (pollCompiles), progStatus does not count it,
   // it holds no inverse program back (invProgram), and prestartModes starts it in no other map mode.
-  // (startingOffView: what getProg's new programs are, true while prestartLand starts them)
-  let startingOffView = false;
   // The program `name` for chain version ch (null for programs without the chain) and the draw's map (its mode: one
-  // program per mode, MAP); start: begin compiling if needed. Returns the program once it is ready, else null.
-  function getProg(name, ch, start, map) {
+  // program per mode, MAP); start: begin compiling if needed; offView: a program it starts is a view's no pane shows.
+  // Returns the program once it is ready, else null.
+  function getProg(name, ch, start, map, offView) {
     const d = DEFS[name];
     if (!d) throw new Error('unknown program ' + name);
     if (d.chain && !(ch && ch.info)) return null;
@@ -336,7 +335,7 @@ float wabs(vec2 w) {
     let e = progs.get(id);
     if (!e) {
       if (!start) return null;
-      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain), born: performance.now(), offView: startingOffView };
+      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain), born: performance.now(), offView: !!offView };
       progs.set(id, e);
       e.rt = d.tf === 'rt' && rtOK;
       try { const [vs, fs] = sources(name, ch, mode); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
@@ -368,15 +367,12 @@ float wabs(vec2 w) {
     if (!ok || lost || !pcExt) return 0;
     let n = 0;
     for (const name of names) {
-      const d = DEFS[name], id = name + '|static';
-      if (!d || d.chain || progs.has(id)) continue;
-      const e = { id, name, key: 'static', mode: 0, chain: false, ch: null, state: 'pending', used: ++useClock, side: false, offView: !!offView };
-      progs.set(id, e);
-      e.rt = d.tf === 'rt' && rtOK;
-      try { const [vs, fs] = sources(name, null); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); n++; } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
+      const d = DEFS[name];
+      if (!d || d.chain || progs.has(name + '|static')) continue;
+      // (finished by the poll when its link lands, or at its first use, whichever comes first)
+      getProg(name, null, true, null, offView);
+      n++;
     }
-    // finished by the poll when their links land (or at their first use, whichever comes first)
-    if (n) schedulePoll();
     return n;
   }
   // A deformation is coming (the app: the pointer on its toggle): the current chain's programs that the views draw now
@@ -477,14 +473,11 @@ float wabs(vec2 w) {
   function prestartLand() {
     if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
     let n = prestart(LAND_STATIC, true);
-    startingOffView = true;
-    try {
-      for (const name of LAND_CHAIN) {
-        if (progs.has(progId(name, cur, { mode: 0 }))) continue;
-        getProg(name, cur, true, { mode: 0 });
-        n++;
-      }
-    } finally { startingOffView = false; }
+    for (const name of LAND_CHAIN) {
+      if (progs.has(progId(name, cur, { mode: 0 }))) continue;
+      getProg(name, cur, true, { mode: 0 }, true);
+      n++;
+    }
     return n;
   }
   // the static programs of the 2D views' first frame (the grid, cached fills and curves, identity fills and curves),
@@ -584,8 +577,8 @@ float wabs(vec2 w) {
     if (!g || !pcExt) return true;
     for (const n of g) {
       if (n === e.name) continue;
-      const id = progId(n, e.ch, { mode: e.mode }), q = progs.get(id);
-      if (!q) { getProg(n, e.ch, true, { mode: e.mode }); const m = progs.get(id); if (m) m.offView = !!e.offView; return false; }
+      const q = progs.get(progId(n, e.ch, { mode: e.mode }));
+      if (!q) { getProg(n, e.ch, true, { mode: e.mode }, e.offView); return false; }
       if (q.state === 'pending' && !gl.getProgramParameter(q.p, pcExt.COMPLETION_STATUS_KHR)) return false;
     }
     return true;
