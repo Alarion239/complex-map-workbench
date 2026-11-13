@@ -15,6 +15,9 @@ const DRAWN_MIN = 0.04;
 const FIT_SLACK = 0.01;
 // the hue ring is marked 1, i, -1, -i
 const RING_MARKS = 4;
+// the options of the glide video every check here records: 1 s per step, as the other API-made videos (export_cmd.js; #531). A
+// video renders secs x fps x steps frames and a hold shows its kept picture again, so the length is what the suite's time follows
+const VIDEO_OPT = { size: '1280x720', fps: 30, secs: 1, ends: 'once' };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -31,11 +34,10 @@ const open = async (exN, surf) => {
 for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land']]) {
   const tag = `ex ${exN} ${surf}`;
   await open(exN, surf);
-  const vopt = { size: '1280x720', fps: 30, secs: 2, ends: 'once' };
   const v = await ev(`await (async () => { try {
     const g = __cmwFig.glide(), at0 = __cmwSteps().x;
-    const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(vopt)}, keepForCheck: true });
-    const n = __cmwFig.videoTimes(${JSON.stringify(vopt)}, g.hi - g.lo).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
+    const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)}, keepForCheck: true });
+    const n = __cmwFig.videoTimes(${JSON.stringify(VIDEO_OPT)}, g.hi - g.lo).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
     return { g, at0, at1: __cmwSteps().x, ext: r.ext, codec: r.codec, frames: r.frames, expect: n, fps: r.fps, W: r.W, H: r.H, mad: chk && chk.mad, t: chk && chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 600000);
   if (!v || v.err) { fails.push({ name: `${tag}: video`, got: v }); continue; }
@@ -49,8 +51,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
   // being that window widened to 16:9 (both at 320 px wide, so the pixels compare the same picture)
   const fp = await ev(`await (async () => { try {
-    const mv = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
-    const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(mv.frames - 1, 640, 360);
+    const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(${v.frames} - 1, 640, 360);
     const f = await __cmwFig.build({});
     if (!f) return { none: 1 };
     const ld = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
