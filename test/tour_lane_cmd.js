@@ -6,24 +6,19 @@
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const lane = () => ev(`(() => { const l = document.querySelector('.tour-lane[data-lane="continue"]'); if (!l) return null; const b = l.getBoundingClientRect(); return { vis: b.height > 0, text: l.querySelector('.tl-text').textContent.replace(/\\s+/g, ' ').trim(), acts: [...l.querySelectorAll('.tl-act .tl-long')].map((a) => a.textContent.trim()), x: !!l.querySelector('.tl-x') }; })()`);
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const TOUR = `typeof Tour === 'object'`;
 const LANE = `!!document.querySelector('.tour-lane[data-lane="continue"]')`;
-// (the page opens in the view the kit pins, the steps view for this suite's tag: a seeded state, then the app)
-const openPage = async (ns) => {
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify({ v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } }))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}`);
-  await settled({ until: TOUR });
-};
+const STATE = { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
+// (the page opens in the view the kit pins, the steps view for this suite's tag)
+const openPage = async (ns) => { await loadView(null, ns, STATE); await settled({ until: TOUR }); };
 const reload = async () => { await go(await ev('location.href')); await settled({ until: TOUR }); };
 await view(1440, 900, false, false);
 const ns = 'tourlane' + Date.now();
 await openPage(ns);
-if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'] };
+if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'] };
 
-// ---- UX76: a reload in the middle of the Views chapter
-await ev(`Tour.start({ chapter: 'views' })`); await settled({ until: `Tour.isActive()` });
+// ---- UX76: a reload in the middle of the Playing the chain chapter
+await ev(`Tour.start({ chapter: 'playing' })`); await settled({ until: `Tour.isActive()` });
 await ev(`Tour.next()`); await settled({ until: `Tour.current().step >= 1` });
 const at = await ev(`Tour.current()`);
 await reload();
@@ -32,16 +27,16 @@ ok('the page knows the tour was cut short', await ev(`Tour._t.cutShort()`), at);
 ok('the line is offered', await ev(`Tour.offerContinue()`), at);
 await settled({ until: LANE });
 let l = await lane();
-ok('the line says Continue the tour: Views, with Continue and ×', l && l.vis && /^Continue the tour: Views/.test(l.text) && l.acts.includes('Continue') && l.x, l);
+ok('the line says Continue the tour: Playing the chain, with Continue and ×', l && l.vis && /^Continue the tour: Playing the chain/.test(l.text) && l.acts.includes('Continue') && l.x, l);
 await ev(`document.querySelector('.tour-lane[data-lane="continue"] .tl-act').click()`); await settled({ until: `Tour.isActive()` });
 const cur = await ev(`Tour.current()`);
-ok('Continue picks the tour up at the step it stopped at', cur && at && cur.chapter === 'views' && cur.step === at.step, { cur, at });
+ok('Continue picks the tour up at the step it stopped at', cur && at && cur.chapter === 'playing' && cur.step === at.step, { cur, at });
 ok('... and the line is gone', !(await lane()), null);
 await ev(`Tour.stop()`); await settled({ until: `!Tour.isActive()` });
 await reload();
 ok('a tour ended by the user is not offered after a reload', !(await ev(`Tour._t.cutShort()`)), null);
 // × forgets where it stopped: the help menu has no Continue the tour any more
-await ev(`Tour.start({ chapter: 'views' })`); await settled({ until: `Tour.isActive()` });
+await ev(`Tour.start({ chapter: 'playing' })`); await settled({ until: `Tour.isActive()` });
 await reload();
 await ev(`Tour.offerContinue()`); await settled({ until: LANE });
 await ev(`document.querySelector('.tour-lane[data-lane="continue"] .tl-x').click()`); await settled({ until: `!(${LANE})` });

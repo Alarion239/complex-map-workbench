@@ -33,8 +33,8 @@ const AREAS = {
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
   i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
-  views: ['views', 'formulas'],
-  desktop: ['views', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
+  views: ['views-1', 'views-2', 'views-3', 'formulas'],
+  desktop: ['views-1', 'views-2', 'views-3', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
   // the layout gate (#470): a change that can move layout runs every language (#611: Russian and Italian have the longest
   // words, where text spills first); the languages' tables alone run Russian and Italian
@@ -50,7 +50,7 @@ const AREAS = {
 // of the suites that call a hook the diff changes; T3 when the diff's hooks cannot be named, no suite calls them, or a
 // hook is called outside the browser suites and unit tests), lines (the areas of the changed lines that match a pattern:
 // [[RegExp, ...areas]]; without a diff, every one of them), runs (a JSON file of runs, ci/layout_baseline.json: the
-// areas of the runs whose entry changed, { run: [...areas] }; every one without a diff or when it cannot be read), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
+// areas of the runs whose entry changed, { run: [...areas] }; every one without a diff or when it cannot be read), suites (ci/suite_views.js: the shards of the suites whose entry differs between the two commits, every suite without a diff or when it cannot be read; the smoke shard too), harness (the smoke shard proves the runner), t0 (the unit tests cover it). Every GLSL page whose inputs (ci/glsl.js) include the path runs as well.
 const full = (why) => ({ full: true, why });
 const ui = (...areas) => ({ areas });
 const T0 = { t0: true };
@@ -75,10 +75,10 @@ const MAP = [
   ['src/app/04-labels-zeros-poles.js', ui('views', 'constructions')],                     // labels, zeros and poles
   ['src/app/05-panes-rulers.js', ui('views', 'desktop', 'phone')],                         // view fitting, panes, rulers
   ['src/app/06-deformation.js', ui('deform')],                                             // the deformation
-  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // thumbnails, the render loop
+  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // the render loop
   ['src/app/09-pane-titles.js', ui('desktop', 'phone')],                                   // pane titles, option strips
   ['src/app/10-tools-menus.js', ui('constructions', 'desktop', 'phone')],                  // the tools and menus
-  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's cards
+  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's edits, Repeat and range
   ['src/app/12-command-palette.js', ui('desktop', 'i18n')],                                // the command palette
   ['src/app/13-export-captions.js', ui('export', 'i18n')],                                 // guarantees, export, captions
   ['src/app/14-interaction.js', ui('constructions', 'desktop', 'phone')],                  // pointer and keys
@@ -139,10 +139,11 @@ const MAP = [
   // CI itself
   // (#611) the layout ratchet's baseline: the shard of each run whose rows changed (en: layout-1; ru, it: layout-2)
   ['ci/layout_baseline.json', { runs: { en: ['layout-en'], ru: ['layout-i18n'], it: ['layout-i18n'] } }],
+  ['ci/suite_views.js', { suites: true }],                                    // (the view each suite tests: the suites whose entry changed)
   ['ci/impact.js', HARNESS],                                                  // (test/t_impact.js covers it)
   ['ci/reference.js', { glsl: 'all', quality: true, perf: true }],            // the paired gates' reference build
   ['ci/quality.js', { quality: true }],
-  ['ci/perf_shard{,s}.js', { perf: true }],
+  ['ci/perf_{shard,shards,busy,verdicts}.js', { perf: true }],
   ['ci/**', HARNESS],                                                         // (ci/glsl.js: an input of every page)
   ['.github/**', HARNESS],
   // the development tools and the docs
@@ -255,18 +256,29 @@ function hooksOfDiff(from, head, f) {
 function linesOfDiff(from, head, f) {
   try { return git('diff', '-U0', '--no-renames', from, head, '--', f).split('\n').filter((l) => /^[-+](?![-+]{2} )/.test(l)).map((l) => l.slice(1)); } catch (e) { return null; }
 }
-// [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits (an added or removed
-// run included); null when either side cannot be read or parsed
-function runsOfDiff(from, head, f) {
-  const runs = (rev) => { try { return JSON.parse(showAt(rev, f)).runs || {}; } catch (e) { return null; } };
-  const a = runs(from), b = runs(head);
+// the keys whose entry differs between two commits (an added or removed key included) in the object load(rev) reads
+// from f; null when either side cannot be read
+function changedEntries(from, head, f, load) {
+  const a = load(from), b = load(head);
   if (!a || !b) return null;
   return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+}
+// [#611] the runs of a JSON file { runs: { <run>: ... } } whose entry differs between two commits; null when either side
+// cannot be read or parsed
+function runsOfDiff(from, head, f) {
+  return changedEntries(from, head, f, (rev) => { try { return JSON.parse(showAt(rev, f)).runs || {}; } catch (e) { return null; } });
+}
+// the suites whose entry of VIEWS in ci/suite_views.js differs between two commits (a note too: it can hide a tag
+// change); null when either side cannot be loaded
+function suitesOfDiff(from, head, f) {
+  return changedEntries(from, head, f, (rev) => {
+    try { const m = { exports: {} }; new Function('module', 'exports', 'require', showAt(rev, f))(m, m.exports, (id) => require(id)); return m.exports.VIEWS; } catch (e) { return null; }
+  });
 }
 // files: the changed paths; opts: { full: reason, glslDeep: reason (every GLSL chain on Windows too), sameBuild: true |
 // false | null (not checked), hooksOf: (path) -> the test hooks its diff changes, or null (the CLI's, from the diff),
 // linesOf: (path) -> its changed lines, or null (the CLI's, from the diff), runsOf: (path) -> the runs whose entry
-// changed, or null (the CLI's, from the diff) }
+// changed, or null (the CLI's, from the diff), suitesOf: (path) -> the suites whose entry changed, or null (the CLI's, from the diff) }
 // -> the plan
 function select(files, opts = {}) {
   const reasons = [];   // { path, rule, effect: text }
@@ -308,6 +320,13 @@ function select(files, opts = {}) {
       const keys = Object.keys(e.runs).filter((k) => !changed || !known || changed.includes(k));
       for (const k of keys) for (const a of e.runs[k]) for (const id of AREAS[a]) browser.add(id);
       wantSmoke = true; got.push(`the shards of runs ${keys.join(', ') || 'none'} (${!changed ? 'no diff' : known ? 'its changed runs' : `a changed run the row does not know: ${changed.filter((k) => !(k in e.runs)).join(', ')}`})`);
+    }
+    if (e.suites) {
+      const diff = opts.suitesOf ? opts.suitesOf(f) : null;
+      const ids = new Set();
+      for (const t of diff || Object.keys(require('./suite_views').VIEWS)) if (!EXCLUDED[t]) for (const id of shardsOfSuite(t)) ids.add(id);
+      for (const id of ids) browser.add(id);
+      wantSmoke = true; got.push(`the shards of the suites ${diff ? 'whose entry changed' : 'listed (no diff, or unreadable)'}: ${[...ids].join(', ') || 'none'}`);
     }
     if (e.harness) { wantSmoke = true; got.push('the smoke shard'); }
     if (e.suite) {
@@ -421,7 +440,7 @@ if (require.main === module) {
     if (r.status === 0 || r.status === 10) same = r.status === 0;
     else { console.error('the same-build check failed: the build counts as changed'); same = false; }
   }
-  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null, linesOf: from ? (f) => linesOfDiff(from, head, f) : null, runsOf: from ? (f) => runsOfDiff(from, head, f) : null });
+  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same, hooksOf: from ? (f) => hooksOfDiff(from, head, f) : null, linesOf: from ? (f) => linesOfDiff(from, head, f) : null, runsOf: from ? (f) => runsOfDiff(from, head, f) : null, suitesOf: from ? (f) => suitesOfDiff(from, head, f) : null });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
   else if (argv.includes('--github')) {
     // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)
@@ -442,4 +461,4 @@ if (require.main === module) {
     process.exit(rc);
   }
 }
-module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe, hookCallers, hooksOfDiff, runsOfDiff };
+module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe, hookCallers, hooksOfDiff, runsOfDiff, suitesOfDiff };

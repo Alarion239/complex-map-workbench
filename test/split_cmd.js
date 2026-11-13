@@ -1,16 +1,18 @@
-// a formula in steps and one simple function in the search (notes/formula-steps/DESIGN.md 14.2), in the built
-// page (dist/test.html), English and Russian, light and dark, desktop 1440, tablet 1024 and 768, phone 390 and 360
+// A formula in steps and one simple function in the search (notes/formula-steps/DESIGN.md 14.2), in the steps view, in the
+// built page (dist/test.html), English and Russian, light and dark, desktop 1440, tablet 1024 and 768, phone 390 and 360
 // with Android Chrome emulation:
 //  1. the search: a query that is one catalog step lists that step first and Enter adds it (no formula step); two or
 //     more steps keep the formula first and offer Add as n steps second; a sum of two functions of z is a formula only;
 //     the same from the add-step menu;
 //  2. the Inspector's offer: rows and button, clear of every plane, hidden while the formula is typed key by key;
-//  3. the split: the steps and texts, the selection, the planes unchanged (X → Y, Phase, Landscape: 0 px at 8/255),
-//     the toast, Undo by the toast, by Ctrl/⌘Z; 4. inside a chain; 5. with the deformation open (frame and T);
+//  3. the split: the steps and texts, the selection, F's picture unchanged (the plane, the sphere and the Landscape: 0 px
+//     at 8/255), the toast, Undo by the toast, by Ctrl/⌘Z; 4. inside a chain;
 //  6. a shared number: c reads −a, a slider sweep keeps the chain equal to F and one GPU program;
-//  7. a one-step formula step: Replace with the Sine step, Undo; 8. the alone walk ‹ ›;
+//  7. a one-step formula step: Replace with the Sine step, Undo;
 //  9. Russian (tg z, no English left, the summary at most 2 lines and the button 1 line); 10. dark; 11. tablet;
-// 12. phone (the Editor sheet, 44 px, the split, the chain bar); 13. the tour stop; 14. frame times; 15. export.
+// 12. phone (the Editor sheet, 44 px, the split, the thread); 13. the tour stop; 15. export.
+// The deformation open and the alone walk ‹ › are split_deform_cmd.js. It runs in the steps view (ci/suite_views.js:
+// steps({ pin: true })): a step opens in the Inspector from its chip on the thread, and "F" is the last plane of the thread.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/split_cmd.js
 // Prints {pass, fails, info}; screenshots go to <daemon folder>/shots/split-*.png.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -23,6 +25,9 @@ const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const DESKUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+// the Landscape's two axis names carry the plane's index (Re w₁, Im w₁ before the split, w₃ after it, F being the last plane):
+// 49 px at 8/255 measured, and the surface itself unchanged
+const LAND_AXIS_NAME_PX = 60;
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
 const F1 = (expr, cut = 180) => ({ type: 'custom', params: { expr, cut }, on: true });
 async function open(ns, st, q = '') {
@@ -30,14 +35,22 @@ async function open(ns, st, q = '') {
   await send('Page.navigate', { url: `http://localhost:${PORT}/blank-${ns}.html` }); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: SHAPES, steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await nav(U(ns, q)); await settle(2200);
+  await go(U(ns, q)); await settle(2200);
+  // (the thread has drawn a chip for each step of the state)
+  await settled({ until: `document.querySelectorAll('#svStrip .sv-step').length === ${o.steps.length}`, max: 15000 });
 }
 const steps = () => ev('__cmwP().steps');
 const sel = () => ev('__cmwCards().sel');
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
-// the planes (below their heads, whose titles name the step count), as pixels
-const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; const ft = p.querySelector('.pane-foot, .opts'); out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4, height: Math.round(r.bottom - top - 44) }); } return out; })()`);
-async function planes() { await hideToasts(true); await settle(1800); const rs = await planesRect(); const out = []; for (const r of rs) out.push(await img(r)); await hideToasts(false); return out; }
+// (a step's chip on the thread opens it in the Inspector; F is the last plane of the thread)
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
+const toF = () => ev(`(() => { const n = __cmwSteps().planes.length - 1; __cmwSteps({ go: n, now: true, T: n, scope: 'in' }); return 1; })()`);
+// (the plane's picture without the colour legend in its top right corner, whose label names the plane (w₃ or w₁), and without
+// the thread's strip under it: LEGEND_W is the legend's width (about 150 px) and its margin, STRIP_H the strip (64 px) and the
+// ruler above it)
+const LEGEND_W = 170, STRIP_H = 100;
+const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4 - ${LEGEND_W}, height: Math.round(r.bottom - top - ${STRIP_H}) }); } return out; })()`);
+async function planes() { await hideToasts(true); await toF(); await settled(); const rs = await planesRect(); const out = []; for (const r of rs) out.push(await img(r)); await hideToasts(false); return out; }
 function diff(a, b) {
   if (a.length !== b.length) return -1;
   let n = 0;
@@ -47,7 +60,7 @@ function diff(a, b) {
 // the palette: type q, read the rows (group headers start with #)
 async function pal(q, fnOnly) {
   await ev(`document.querySelector('.pop.palette') ? 1 : 0`) && await key('Escape');
-  const r = await clickSel(fnOnly ? '#addStepBtn' : '#cmdBtn'); await settle(200);
+  const r = await clickSel(fnOnly ? '#svStrip .sv-add' : '#cmdBtn'); await settle(200);
   if (typeof r === 'string') return null;
   await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); return 1; })()`);
   await settle(150);
@@ -108,7 +121,7 @@ await grab();
 
 // ---------------- 2–3. the offer and the split ----------------
 await open('fsB', { steps: [F1('\\sin(z^2+1)')] });
-await clickSel('#pipeline .card[data-k="1"]'); await settle(900);
+await selectStep(1); await settle(900);
 {
   const b = await block();
   ok('offer: 4 rows and the button', b && !b.hidden && b.rows === 4 && b.btn === 'Split into 3 steps', b);
@@ -130,13 +143,13 @@ await clickSel('#pipeline .card[data-k="1"]'); await settle(900);
 {
   const before = JSON.stringify(await steps());
   const views = {};
-  for (const main of ['xy', 'phase', 'land']) {
-    await ev(`__cmwSetMain('${main}'), 1`); await settle(1200);
+  for (const main of ['plane', 'sphere', 'land']) {
+    await ev(`__cmwSteps({ surf: '${main}' }), 1`); await settle(1200);
     const p0 = await planes();
-    await clickSel('#pipeline .card[data-k="1"]'); await settle(500);
+    await selectStep(1); await settle(500);
     await clickSel('#propsPanel .split-offer .so-btn'); await settle(500);
     const s = await steps();
-    if (main === 'xy') {
+    if (main === 'plane') {
       ok('split: 3 steps with their texts', JSON.stringify(s.map((x) => [x.type, x.params])) === JSON.stringify([['pown', { n: 2 }], ['add', { c: '1' }], ['sin', {}]]), s);
       ok('split: the first new step is selected', await sel() === 1, await sel());
       const t = await ev('__qa.toasts()');
@@ -151,14 +164,14 @@ await clickSel('#pipeline .card[data-k="1"]'); await settle(900);
     }
     const p1 = await planes();
     views[main] = diff(p0, p1);
-    ok(`split: ${main} unchanged (px over 8/255)`, views[main] === 0, views[main]);
+    ok(`split: ${main} unchanged (px over 8/255${main === 'land' ? `, at most ${LAND_AXIS_NAME_PX} for the axis names` : ''})`, views[main] <= (main === 'land' ? LAND_AXIS_NAME_PX : 0), views[main]);
     // Undo by Ctrl+Z (phase) and ⌘Z (xy, land)
-    await key('z', main === 'phase' ? 2 : 4);
+    await key('z', main === 'sphere' ? 2 : 4);
     await settle(600);
     ok(`split: undo (${main}) gives the formula back`, JSON.stringify(await steps()) === before, await steps());
   }
   info.splitPx = views;
-  await ev(`__cmwSetMain('xy'), 1`); await settle(600);
+  await ev(`__cmwSteps({ surf: 'plane' }), 1`); await settle(600);
 }
 await grab();
 
@@ -166,7 +179,7 @@ await grab();
 const CH3 = [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }];
 await open('fsC', { steps: CH3 });
 {
-  await clickSel('#pipeline .card[data-k="2"]'); await settle(700);
+  await selectStep(2); await settle(700);
   const p0 = await planes();
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(500);
   const s = await steps();
@@ -175,26 +188,13 @@ await open('fsC', { steps: CH3 });
   const p1 = await planes();
   ok('chain: planes unchanged', diff(p0, p1) === 0, diff(p0, p1));
   await key('z', 4); await settle(600);
-  // the deformation open at T = 1.5
-  await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
-  await ev('__cmwMorph({ T: 1.5 })'); await settle(1200);
-  await clickSel('#pipeline .card[data-k="2"]'); await settle(500);
-  const q0 = await planes();
-  await clickSel('#propsPanel .split-offer .so-btn'); await settle(400);
-  const T = (await ev('__cmwMorph({})')).T;
-  ok('deformation: T 1.5 -> 2.5', Math.abs(T - 2.5) < 1e-12, T);
-  const q1 = await planes();
-  info.morphPx = diff(q0, q1);
-  ok('deformation: the frame is unchanged', info.morphPx === 0, info.morphPx);
-  await shot('split-morph');
-  await ev('__cmwMorph({ open: false })'); await settle(300);
 }
 await grab();
 
 // ---------------- 6. a shared number ----------------
 await open('fsD', { steps: [F1('(z-a)^3')], params: [{ name: 'a', value: 0.7, min: -2, max: 2, step: 0.01 }] });
 {
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(700);
+  await selectStep(1); await settle(700);
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(700);
   const s = await steps();
   ok('shared: c₁ reads -a', s[0].type === 'add' && s[0].params.c === '-a' && s[1].type === 'pown' && +s[1].params.n === 3, s);
@@ -217,7 +217,7 @@ await grab();
 // ---------------- 7. a one-step formula step ----------------
 await open('fsE', { steps: [F1('sin z')] });
 {
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(700);
+  await selectStep(1); await settle(700);
   const b = await block();
   ok('one: "This is the step “Sine”." with Replace', b && !b.hidden && /This is the step “Sine”\./.test(b.sum) && b.btn === 'Replace with “Sine”', b);
   await shot('split-one-en', { x: 1140, y: 40, width: 300, height: 360 });
@@ -235,26 +235,12 @@ await open('fsE', { steps: [F1('sin z')] });
   ok('one: Undo', JSON.stringify(await steps()) === before);
   // a refusal: the ⋯ item is disabled with its reason
   await open('fsE2', { steps: [F1('z^2+\\sin z')] });
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(600);
+  await selectStep(1); await settle(600);
   await clickSel('#propsPanel .insp-step .ihead .more'); await settle(300);
   const it = await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /Split into steps/.test(x.textContent)); return b ? { dis: b.disabled, tip: b.getAttribute('aria-description') } : null; })()`);
   ok('refusal: Split into steps disabled with its reason', it && it.dis && it.tip === 'Not a chain of catalog steps', it);
   { const bb = await block(); ok('refusal: no offer', !bb || bb.hidden === true, bb); }
   await key('Escape');
-}
-await grab();
-
-// ---------------- 8. the alone walk ----------------
-await open('fsF', { steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }, { type: 'sin', params: {}, on: true }] });
-{
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(400);
-  await key('l'); await settle(500);
-  const st = async () => ev(`({ f: __cmwCards().focus, prev: document.querySelector('#aloneChip .ac-nav.prev').disabled, next: document.querySelector('#aloneChip .ac-nav.next').disabled })`);
-  const seq = [await st()];
-  for (let i = 0; i < 3; i++) { await clickSel('#aloneChip .ac-nav.next'); await settle(300); seq.push(await st()); }
-  await clickSel('#aloneChip .ac-nav.prev'); await settle(300); seq.push(await st());
-  ok('alone walk: 1 → 2 → 3 → 3 → 2, ends disabled', seq.map((x) => x.f).join() === '1,2,3,3,2' && seq[0].prev && !seq[0].next && seq[2].next && !seq[2].prev, seq);
-  await shot('split-alone-chip', { x: 260, y: 40, width: 460, height: 60 });
 }
 await grab();
 
@@ -271,7 +257,7 @@ await open('fsR', { steps: [] }, '&lang=ru');
 }
 await open('fsR', { steps: [F1('\\operatorname{tg}(z^2+1)')] }, '&lang=ru');
 {
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(900);
+  await selectStep(1); await settle(900);
   const b = await block();
   ok('ru: the offer', b && !b.hidden && b.rows === 4 && b.btn === 'Разложить на 3 шага' && /^Составлена из 3 шагов/.test(b.sum), b);
   ok('ru: no English in the offer', latin(b.text).length === 0, latin(b.text));
@@ -295,7 +281,7 @@ await grab();
 // ---------------- 10. dark ----------------
 await view(1440, 900, true, false);
 await open('fsB', { steps: [F1('\\sin(z^2+1)')] });
-await clickSel('#pipeline .card[data-k="1"]'); await settle(900);
+await selectStep(1); await settle(900);
 await shot('split-offer-en-dark', { x: 1140, y: 40, width: 300, height: 520 });
 { const bb = await block(); ok('dark: the offer', bb && !bb.hidden, bb); }
 
@@ -303,7 +289,7 @@ await shot('split-offer-en-dark', { x: 1140, y: 40, width: 300, height: 520 });
 for (const [w, h] of [[1024, 768], [768, 1024]]) {
   await view(w, h, false, false);
   await open('fsT', { steps: [F1('\\sin(z^2+1)')], hideRight: false });
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(900);
+  await selectStep(1); await settle(900);
   const b = await block();
   ok(`tablet ${w}: the offer in the docked Inspector, no sideways overflow`, b && !b.hidden && b.rows === 4 && b.overflow <= 0 && b.r[0] + b.r[2] <= w, b);
   ok(`tablet ${w}: clear of the planes`, await clearOfPlanes() === true);
@@ -313,15 +299,13 @@ for (const [w, h] of [[1024, 768], [768, 1024]]) {
 // ---------------- 12. phone ----------------
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
 const tap0 = async (sel_, wait = 450) => { const c = await ev(`(() => { const e = document.querySelector(${JSON.stringify(sel_)}); if (!e || !e.getClientRects().length) return null; e.scrollIntoView({ block: 'nearest', inline: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`); if (!c) return false; await touch(c[0], c[1]); await settle(wait); return true; };
-// (#246: on a phone the chain's cards and Add function are rows of the chain sheet; while it is closed, a tap on one is
-// first the tap on "N steps ▾" that opens it, as a user's)
-const tap = async (sel_, wait = 450) => { if (await tap0(sel_, wait)) return true; if (!/#pipeline|#addStepBtn/.test(sel_) || !(await tap0('.ph-csteps', 600))) return false; return tap0(sel_, wait); };
+const tap = async (sel_, wait = 450) => tap0(sel_, wait);
 await send('Emulation.setUserAgentOverride', { userAgent: ANDROID, acceptLanguage: 'en-US,en' });
 for (const [w, h, lang, dark] of [[390, 844, 'en', false], [360, 780, 'en', false], [390, 844, 'ru', false], [390, 844, 'en', true]]) {
   const tag = `${w}-${lang}${dark ? '-dark' : ''}`;
   await view(w, h, dark, true);
   await open('fsP', { steps: [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)')] }, lang === 'ru' ? '&lang=ru' : '');
-  await tap('#pipeline .card[data-k="2"]', 900);
+  await tap('#svStrip .sv-step[data-k="2"] .sv-fchip', 900);
   const b = await block();
   ok(`phone ${tag}: the offer in the Editor sheet`, b && !b.hidden && b.rows === 4, b);
   ok(`phone ${tag}: the button ≥ 44 px tall and full width`, b && b.btnH >= 44 && b.btnW >= w - 80, b && [b.btnH, b.btnW]);
@@ -331,9 +315,8 @@ for (const [w, h, lang, dark] of [[390, 844, 'en', false], [360, 780, 'en', fals
     await tap('#propsPanel .split-offer .so-btn', 900);
     const s = await steps();
     ok(`phone ${tag}: split`, s.map((x) => x.type).join() === 'exp,pown,add,sin', s.map((x) => x.type));
-    const vis = await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="2"]'), bar = document.querySelector('.pipe-wrap'); if (!c || !bar) return null; const r = c.getBoundingClientRect(), q = bar.getBoundingClientRect(); return r.left >= q.left - 1 && r.right <= q.right + 1; })()`);
-    ok(`phone ${tag}: the chain bar shows card 2`, vis === true, vis);
-    ok(`phone ${tag}: ‹ › omitted`, await ev(`(() => { const b = document.querySelector('#aloneChip .ac-nav.next'); return !b || !b.getClientRects().length; })()`));
+    const vis = await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"]'), bar = document.getElementById('svStrip'); if (!c || !bar) return null; const r = c.getBoundingClientRect(), q = bar.getBoundingClientRect(); return r.left >= q.left - 1 && r.right <= q.right + 1; })()`);
+    ok(`phone ${tag}: the thread shows the chip f₂`, vis === true, vis);
     await shot(`split-phone-${tag}-after`);
   }
 }
@@ -359,7 +342,7 @@ await open('fsTour', { steps: [] });
       ok('tour: the Try completes on the click', (await steps()).map((x) => x.type).join() === 'pown,add,sin', await steps());
       break;
     }
-    await key('ArrowRight'); await settle(1500);
+    await ev(`Tour.next(), 1`); await settle(1500);
   }
   info.tourSeen = seen;
   ok('tour: the offer shows only at its stop', seen.some(([t]) => /A formula in steps/.test(t || '')) && seen.every(([t, v]) => (/A formula in steps/.test(t || '') ? v : !v)), seen);
@@ -367,23 +350,10 @@ await open('fsTour', { steps: [] });
 }
 await grab();
 
-// ---------------- 14. frame times: 12 nested sines, the deformation open ----------------
-{
-  let e = 'z'; for (let i = 0; i < 12; i++) e = `\\sin(${e})`;
-  await open('fsS', { steps: [F1(e)] });
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(700);
-  await clickSel('#propsPanel .split-offer .so-btn'); await settle(1500);
-  ok('12 sines: 12 steps', (await steps()).length === 12);
-  await ev('__cmwMorph({ open: true, playing: true })'); await settle(1500);
-  info.sines12 = await ev('await __qa.frames(3000)');
-  await ev('__cmwMorph({ open: false })');
-  ok('12 sines, the deformation playing: p95 ≤ 20 ms', info.sines12.p95 <= 20, info.sines12);
-}
-
 // ---------------- 15. export ----------------
 for (const lang of ['en', 'ru']) {
   await open('fsX', { steps: [F1('\\sin(z^2+1)')] }, lang === 'ru' ? '&lang=ru' : '');
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(600);
+  await selectStep(1); await settle(600);
   await clickSel('#propsPanel .split-offer .so-btn'); await settle(1200);
   const r = await ev(`await (async () => { try { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? { cap: f.captionTex, n: f.captionTex.length } : null; } catch (e) { return { err: String(e).slice(0, 300) }; } })()`, 180000);
   ok(`export ${lang}: a figure with a caption ≤ 700 characters`, r && !r.err && r.cap && r.n <= 700 && !/undefined|NaN|null/.test(r.cap), r);

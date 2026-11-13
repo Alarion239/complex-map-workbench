@@ -1,4 +1,4 @@
-// v16 constructions, the interface (notes/constructions-v16/SPEC.md 4-12, 15, 16, 18 "constr_cmd"). In the real app,
+// The constructions, the interface (sections 4-12, 15, 16, 18 of the constructions spec). In the real app,
 // with real pointer events (mouse, and touch on the phone):
 //   A (desktop 1440, light, English): Circle through 3 points from two points and a zero of f₁ (the press on ζ₁ picks,
 //     never drags; Shift-click still adds a zero); dragging ζ₁ moves the disc (it passes through ζ₁ exactly); a
@@ -16,14 +16,50 @@
 //   F frame times while dragging a point with 1, 10 and 50 dependents (BUDGET60: rAF work and the pointermove handler
 //     p95 ≤ 14 ms, frame delta p95 ≤ 16.7 ms; 50 is reported).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/constr_cmd.js
-// Prints {pass, fails, info}; shots go to <daemon folder>/shots/cm-*.png (copied to notes/constructions-v16/shots).
-const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
+// Prints {pass, fails, info}; shots go to <daemon folder>/shots/cm-*.png.
+// (CMW_ONLY=A,G runs those sections alone)
+const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
+// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
+// full names become the tile labels, so each suite states the label once)
+const CHIP_NAMES = [
+  ['Circle through 3 points', '3-pt circle'],
+  ['Perpendicular circle', 'Perpendicular'],
+  ['Touching circle', 'Touching'],
+  ['Окружность по трём точкам', 'По 3 точкам'],
+  ['Ортогональная окружность', 'Ортогональная'],
+  ['Касающаяся окружность', 'Касание']
+];
+const chipLabel = async (c) => {
+  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
+  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
+};
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
 const near = (a, b, e = 1e-9) => Math.abs(a - b) <= e * Math.max(1, Math.abs(a), Math.abs(b));
+// (waits for the page to be quiet and `cond` true, in short waits: a navigation that ends one wait ends only that one.
+// With only, just `cond`, which is also true of a page still loading)
+const calm = async (cond, ms, only = false) => {
+  for (let t = 0; t < ms; t += 1000) {
+    try { if ((await settled({ only, max: 1000, until: cond })).ok) return true; } catch (e) { await sleep(250); }
+  }
+  return false;
+};
+// (the same wait, as a check: a wait that gives up fails the suite, naming the condition)
+const must = async (cond, ms, only = false) => {
+  const r = await calm(cond, ms, only);
+  ok('waited: ' + cond, r, { ms });
+  return r;
+};
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+// (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
+const dragH = async (x0, y0, x1, y1, n, dt) => {
+  await move(x0, y0);
+  await settle(150);
+  return drag(x0, y0, x1, y1, n, dt);
+};
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -33,7 +69,17 @@ const CI = (o) => ev(`__cmwCI(${JSON.stringify(o || null)})`);
 const ST = () => CI({ shapes: true });
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const last = (st) => st.list[st.list.length - 1];
-const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
+// (the steps view's plane re-fits when a tool's chip row opens or closes: a point's screen place is read once it has
+// stopped moving)
+const planeRest = async () => {
+  if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
+  await must('!__cmwSteps().moving', 4000);
+};
+const tool = async (id) => {
+  const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
+  await settle(120); await planeRest();
+  return r;
+};
 const parseZ = (t) => { const v = String(t).replace(/\s/g, '').replace(/−/g, '-'); const m = /^([-+]?\d*\.?\d+(?:e[-+]?\d+)?)?(?:([-+])(\d*\.?\d*)i)?$/.exec(v); if (!m) return null; return [m[1] ? +m[1] : 0, m[2] ? (m[2] === '-' ? -1 : 1) * (m[3] === '' ? 1 : +m[3]) : 0]; };
 const mods = async (type, x, y, m, buttons) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: buttons || 0, clickCount: 1, modifiers: m || 0 });
 // a drag with modifiers held (1 Alt, 8 Shift)
@@ -69,8 +115,14 @@ await section('A', async () => {
   // 14. the plane menu on a crossing: Mark the intersection
   const xc = await W(1.5 + 0.8 / Math.SQRT2, -0.5 + 0.8 / Math.SQRT2);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: xc[0] + 1, y: xc[1] + 1 });
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: xc[0] + 1, y: xc[1] + 1, button: 'right', buttons: 2, clickCount: 1 });
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: xc[0] + 1, y: xc[1] + 1, button: 'right', buttons: 0, clickCount: 1 });
+  await send(
+    'Input.dispatchMouseEvent',
+    { type: 'mousePressed', x: xc[0] + 1, y: xc[1] + 1, button: 'right', buttons: 2, clickCount: 1 }
+  );
+  await send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseReleased', x: xc[0] + 1, y: xc[1] + 1, button: 'right', buttons: 0, clickCount: 1 }
+  );
   await settle(300);
   info.planeMenu = await ev(`[...document.querySelectorAll('.ctx-menu .mi')].map((b) => b.textContent.trim())`);
   ok('the plane menu on a crossing: Mark the intersection', (info.planeMenu || []).some((t) => t.startsWith('Mark the intersection')), info.planeMenu);
@@ -83,7 +135,14 @@ await section('A', async () => {
   await move(a[0] + 3, a[1] - 2); await settle(80);
   const r0 = await CI();
   ok('hover: the ring is on z₀ with the chip "on z₀"', r0.ring && r0.ring.cls === 'point' && r0.ring.chip === 'on z₀', r0.ring);
-  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
+  ok(
+    'the draft chip names the pick',
+    (await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t') &&
+      document.querySelector('#draftChipL .cm-t').textContent`))) ===
+      'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels',
+    await ev(`(document.querySelector('#draftChipL') || {}).textContent`)
+  );
+  // (what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -102,7 +161,8 @@ await section('A', async () => {
   await shot('cm-d1440-c3-done');
   // 2. drag ζ₁ (Select): the disc follows; Shift-click with Circle through 3 points still adds a zero
   await tool('select');
-  await drag(z[0], z[1], z[0] + 48, z[1] - 32, 10, 16); await settle(300);
+  const zd = await W(1, 0.5);   // (the plane moves with the Inspector's width in the steps view)
+  await dragH(zd[0], zd[1], zd[0] + 48, zd[1] - 32, 10, 16); await settle(300);
   st = await ST();
   const zeta = parseZ(st.zeros);
   const c3b = byId(st, c3.id);
@@ -120,7 +180,7 @@ await section('A', async () => {
   // 3. a half-plane from polygon vertex v0 to vertex v2: both ends bind and follow the vertex
   await tool('halfplane');
   const v0 = await W(-2.5, 1), v2 = await W(0.5, 1.2);
-  await drag(v0[0] + 3, v0[1] - 2, v2[0] - 2, v2[1] + 3, 10, 16); await settle(300);
+  await dragH(v0[0] + 3, v0[1] - 2, v2[0] - 2, v2[1] + 3, 10, 16); await settle(300);
   st = await ST();
   const hp = last(st);
   ok('half-plane: both ends bound to the polygon vertices', hp.kind === 'halfplane' && hp.at && hp.at.a.s === 's3' && hp.at.a.h === 'v0' && hp.at.b.h === 'v2' && hp.a[0] === -2.5 && hp.b[0] === 0.5, hp);
@@ -129,7 +189,7 @@ await section('A', async () => {
   // drag vertex v0 (select the polygon first): the half-plane's end follows
   await tool('select');
   await clickSel('.shape[data-id="s3"] .shape-name'); await settle(200);
-  await drag(v0[0], v0[1], v0[0] - 24, v0[1] + 16, 8, 16); await settle(300);
+  await dragH(v0[0], v0[1], v0[0] - 24, v0[1] + 16, 8, 16); await settle(300);
   st = await ST();
   const poly = byId(st, 's3'), hp2 = byId(st, hp.id);
   ok('the half-plane follows the dragged vertex', hp2.a[0] === poly.pts[0][0] && hp2.a[1] === poly.pts[0][1] && poly.pts[0][0] !== -2.5, [hp2.a, poly.pts[0]]);
@@ -137,12 +197,12 @@ await section('A', async () => {
   // 9. drawing tools: a segment from the circle's stroke (no crossing there) binds nothing; from a crossing, a helper
   await tool('segment');
   const sStroke = await W(1.5, 0.3), sEnd = await W(2.8, 1.5);
-  await drag(sStroke[0], sStroke[1], sEnd[0], sEnd[1], 6, 16); await settle(250);
+  await dragH(sStroke[0], sStroke[1], sEnd[0], sEnd[1], 6, 16); await settle(250);
   st = await ST();
   const sg = last(st);
   ok('a drawing tool never makes a point on a curve', sg.kind === 'segment' && !sg.at && !st.list.some((p) => p.def && p.def.op === 'glider' && p.id !== gl.id), sg);
   const X2 = [1.5 - 0.8 / Math.SQRT2, -0.5 - 0.8 / Math.SQRT2], x2 = await W(X2[0], X2[1]), x2e = await W(-0.5, -2.4);
-  await drag(x2[0] + 3, x2[1] - 3, x2e[0], x2e[1], 6, 16); await settle(250);
+  await dragH(x2[0] + 3, x2[1] - 3, x2e[0], x2e[1], 6, 16); await settle(250);
   st = await ST();
   const sg2 = last(st), hl = st.list.find((p) => sg2.at && sg2.at.a && p.id === sg2.at.a.s);
   ok('a crossing snap: the start binds to a helper meet point', !!hl && hl.helper === true && hl.owner === sg2.id && hl.def.op === 'meet' && dist(hl.p, X2) < 1e-12, [sg2.at, hl]);
@@ -185,30 +245,31 @@ await section('A', async () => {
   ok('the Point tool on a stroke: a point on the curve', gl.def && gl.def.op === 'glider' && gl.def.args[0].s === 's4' && Number.isFinite(gl.t), gl);
   ok('… on the circle', near(dist(gl.p, [1.5, -0.5]), 0.8, 1e-12), gl.p);
   await tool('select');
-  // ([v16.5 rail SPEC 2.3] a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
-  // within the glide zone; the old drag, 58 px straight off the stroke, now frees it at the drop point)
+  // (a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
+  // within the glide zone; a drag of 58 px straight off the stroke frees it at the drop point)
   const g1 = await W(1.5 + 0.8 * Math.cos(5.85), -0.5 + 0.8 * Math.sin(5.85));
-  await drag(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
+  await dragH(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
   st = await ST();
   const gl2 = byId(st, gl.id);
   ok('dragged, it slides along the circle', !!gl2 && gl2.t !== gl.t && near(dist(gl2.p, [1.5, -0.5]), 0.8, 1e-12), [gl.t, gl2.t, gl2.p]);
   // 6. a fixed constructed point: a drag says what it is built from
   const mp = await W(m.p[0], m.p[1]);
-  await drag(mp[0], mp[1], mp[0] + 30, mp[1], 6, 16); await settle(250);
+  await dragH(mp[0], mp[1], mp[0] + 30, mp[1], 6, 16); await settle(250);
   st = await ST();
   ok('a meet point does not move', byId(st, m.id).p[0] === m.p[0], byId(st, m.id).p);
   info.builtToast = await toastText();
-  // ([v16.5 rail SPEC 2.4] a meet point comes off by a pull: 30 px is the stretch zone, so it stays, with the chip
+  // (a meet point comes off by a pull: 30 px is the stretch zone, so it stays, with the chip
   // "Pull further to free z₃" while held, and no "built from" toast; ux165_rail_cmd C and D test the pull itself)
   ok('… a 30 px drag only stretches it (v16.5: a pull frees a meet point)', !/is built from/.test(info.builtToast), info.builtToast);
   // 7. Midpoint of z₀, z₁; a circle through z₀, z₁ and the midpoint: the half-plane, A = 0 exactly
-  a = await W(-1.5, 0); b = await W(0.5, -1);
   await tool('midpoint');
+  a = await W(-1.5, 0); b = await W(0.5, -1);
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(300);
   st = await ST();
   const mid = last(st);
   ok('Midpoint', mid.def && mid.def.op === 'midpoint' && mid.p[0] === -0.5 && mid.p[1] === -0.5, mid);
   await tool('circle3');
+  a = await W(-1.5, 0); b = await W(0.5, -1);
   const mq = await W(-0.5, -0.5);
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80); await click(mq[0], mq[1]); await settle(300);
   st = await ST();
@@ -218,16 +279,37 @@ await section('A', async () => {
   ok('its row: the half-plane left of z₀ → z₁', info.colRow === 'the half-plane left of z₀ → z₁', info.colRow);
   // drag z₀: it stays a half-plane through z₀, z₁ (incidence), and its line passes through the moved z₀
   await tool('select');
-  await drag(a[0], a[1], a[0] - 20, a[1] - 26, 8, 16); await settle(300);
+  a = await W(-1.5, 0);
+  await dragH(a[0], a[1], a[0] - 20, a[1] - 26, 8, 16); await settle(300);
   st = await ST();
   const z0 = byId(st, 's1').p, col2 = byId(st, col.id), mid2 = byId(st, mid.id);
   ok('after a drag of z₀: still A = 0, the midpoint follows', col2.kind === 'halfplane' && col2.A === 0 && mid2.p[0] === (z0[0] + 0.5) / 2, [col2.kind, col2.A, mid2.p, z0]);
   const cr = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
   ok('… its edge passes through z₀ and z₁', !!col2.a && Math.abs(cr(col2.a, col2.b, z0)) < 1e-12 && Math.abs(cr(col2.a, col2.b, [0.5, -1])) < 1e-12, [col2.a, col2.b]);
   // a drag of the midpoint says what it is built from by the point, not in a toast
+  await planeRest();
   const mp2 = await W(mid2.p[0], mid2.p[1]);
-  await drag(mp2[0], mp2[1], mp2[0] + 30, mp2[1], 6, 16); await settle(250);
+  // (the chip lasts 1.2 s: it is read right after the first move, as a page that draws slowly may not answer in time
+  // later)
+  await move(mp2[0], mp2[1]); await settle(80);
+  await send(
+    'Input.dispatchMouseEvent',
+    { type: 'mousePressed', x: mp2[0], y: mp2[1], button: 'left', buttons: 1, clickCount: 1 }
+  );
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mp2[0] + 5, y: mp2[1], button: 'left', buttons: 1 });
   info.builtChip = { chip: (await CI()).freeChip, toast: await toastText() };
+  for (let i = 2; i <= 6; i++) {
+    await send(
+      'Input.dispatchMouseEvent',
+      { type: 'mouseMoved', x: mp2[0] + 5 * i, y: mp2[1], button: 'left', buttons: 1 }
+    );
+    await sleep(16);
+  }
+  await send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseReleased', x: mp2[0] + 30, y: mp2[1], button: 'left', clickCount: 1 }
+  );
+  await settle(250);
   ok('a drag of the midpoint: "built from … drag those" by the point, no toast', / is built from .*: drag those$/.test(info.builtChip.chip || '') && !/is built from/.test(info.builtChip.toast), info.builtChip);
   ok('… and the midpoint stays', byId(await ST(), mid.id).p[0] === mid2.p[0], byId(await ST(), mid.id).p);
   await shot('cm-d1440-collinear');
@@ -258,14 +340,14 @@ await section('A', async () => {
   st = await ST();
   const [fa, fb] = st.list.slice(-2);
   await tool('line');
-  await drag(pA[0], pA[1], pB[0], pB[1], 6, 16); await settle(250);
+  await dragH(pA[0], pA[1], pB[0], pB[1], 6, 16); await settle(250);
   st = await ST();
   const ln = last(st);
   ok('a line through two free points', ln.at && ln.at.a.s === fa.id && ln.at.b.s === fb.id, ln.at);
   await tool('select');
   const lm = await W(-1.8, 2.55);
   await click(lm[0], lm[1]); await settle(150);
-  await drag(lm[0], lm[1], lm[0], lm[1] - 40, 8, 16); await settle(250);
+  await dragH(lm[0], lm[1], lm[0], lm[1] - 40, 8, 16); await settle(250);
   st = await ST();
   ok('dragging the line moves both points', byId(st, fa.id).p[1] > 2.7 && byId(st, fb.id).p[1] > 3 && byId(st, ln.id).a[1] === byId(st, fa.id).p[1], [byId(st, fa.id).p, byId(st, fb.id).p]);
   // the disc on ζ₁ pans X (its press is not a move)
@@ -273,7 +355,7 @@ await section('A', async () => {
   const c3n = byId(await ST(), c3.id);
   const dc = await W(c3n.c[0] - 0.3, c3n.c[1] - 0.6);
   await click(dc[0], dc[1]); await settle(150);
-  await drag(dc[0], dc[1], dc[0] + 30, dc[1] + 10, 6, 16); await settle(250);
+  await dragH(dc[0], dc[1], dc[0] + 30, dc[1] + 10, 6, 16); await settle(250);
   st = await ST();
   ok('a disc built on ζ₁: a drag pans X, the disc does not move', byId(st, c3.id).c[0] === c3n.c[0] && (await ev(`JSON.stringify(__cmwW2S('L', 0, 0))`)) !== v0view, [byId(st, c3.id).c, c3n.c]);
   info.panToast = await toastText();
@@ -287,7 +369,7 @@ await section('A', async () => {
   await key('Delete'); await settle(300);
   st = await ST();
   info.delToast = await toastText();
-  // [UX54] the other points keep their names: no z₂ becomes z₁
+  // the other points keep their names: no z₂ becomes z₁
   const nm1 = await zNames();
   info.delNames = { before: nm0, after: nm1 };
   ok('delete z₁: the other points keep their names', nm0.some((x) => x.name === 'z₂') && !nm1.some((x) => x.name === 'z₁') && nm1.every((x) => (nm0.find((y) => y.id === x.id) || {}).name === x.name), info.delNames);
@@ -323,7 +405,7 @@ await section('B', async () => {
   const zeta0 = parseZ(String(st.zeros).split(',')[0]);
   await tool('select');
   const zz = await W(zeta0[0], zeta0[1]);
-  await drag(zz[0], zz[1], zz[0] - 20, zz[1] + 30, 8, 16); await settle(300);
+  await dragH(zz[0], zz[1], zz[0] - 20, zz[1] + 30, 8, 16); await settle(300);
   st = await ST();
   const zeta = parseZ(String(st.zeros).split(',')[0]), c3b = byId(st, c3.id);
   ok('after a reload ζ₁ still drives its disc', near(dist(zeta, c3b.c), c3b.r, 1e-12) && zeta[0] !== zeta0[0], [zeta, c3b.c, c3b.r]);
@@ -353,7 +435,15 @@ await section('C', async () => {
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
   // (a chip drops its keyboard tail when it would wrap and fits one line without it; #35: it first drops the
   // tool's name, which the pane head's chip shows, and keeps the tail when that fits)
-  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  ok(
+    'RU draft chip',
+    [
+      'Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена',
+      'Выберите точку или пустое место · 1 из 3 · Esc — отмена',
+      'Выберите точку или пустое место · 1 из 3 · По 3 точкам'
+    ].includes(await chipLabel(await ev(`document.querySelector('#draftChipL .cm-t').textContent`))),
+    await ev(`document.querySelector('#draftChipL .cm-t').textContent`)
+  );
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');
@@ -364,7 +454,9 @@ await section('C', async () => {
   ok('RU row', info.ruRow === 'круг, ограниченный окружностью через z₀, z₁ и ζ₁', info.ruRow);
   await shot('cm-d1440-ru-done');
   await tool('select');
-  await click(b[0], b[1]); await settle(150);
+  const bSel = await W(0.5, -1);   // (read again: the plane re-fits when the tool's chip row closes)
+  await move(bSel[0], bSel[1]); await settle(80);
+  await click(bSel[0], bSel[1]); await settle(150);
   await key('Delete'); await settle(300);
   info.ruToast = await toastText();
   ok('RU delete toast', info.ruToast === 'Удалено: z₁ и зависимые фигуры (1).', info.ruToast);
@@ -462,7 +554,7 @@ await section('F', async () => {
       let t0 = 0; window.addEventListener('pointermove', () => { t0 = performance.now(); }, true); window.addEventListener('pointermove', () => { if (window.__pm) window.__pm.push(performance.now() - t0); });
       return 1; })()`);
     const p = await W(-1, 0);
-    await drag(p[0], p[1], p[0] + 60, p[1] - 40, 45, 16);
+    await dragH(p[0], p[1], p[0] + 60, p[1] - 40, 45, 16);
     await settle(200);
     const r = await ev(`(()=>{ const q = (a, p) => { const b = (a || []).slice().sort((x, y) => x - y); return b.length ? +b[Math.min(b.length - 1, Math.floor(p * b.length))].toFixed(2) : null; };
       const r = { work_p95: q(__frw, 0.95), work_max: q(__frw, 1), delta_p50: q(__frd, 0.5), delta_p95: q(__frd, 0.95), move_p95: q(__pm, 0.95), n: (__frd || []).length };
@@ -517,14 +609,20 @@ await section('G', async () => {
   const L0 = await W(-1.5, 0.5);
   await click(L0[0], L0[1]); await settle(150);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: L0[0], y: L0[1] });
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L0[0], y: L0[1], button: 'left', buttons: 1, clickCount: 1 });
+  await send(
+    'Input.dispatchMouseEvent',
+    { type: 'mousePressed', x: L0[0], y: L0[1], button: 'left', buttons: 1, clickCount: 1 }
+  );
   for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: L0[0], y: L0[1] - 9 * i, button: 'left', buttons: 1 }); await sleep(16); }
   await settle(120);
   st = await ST();
   const mm = byId(st, m.id);
   ok('G: mid-gesture the meet is undefined (hidden)', mm.cundef && mm.cundef.code === 'nomeet' && mm.visible === false, mm);
   await shot('cm-d1440-ghost');
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L0[0], y: L0[1] - 90, button: 'left', buttons: 0, clickCount: 1 });
+  await send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseReleased', x: L0[0], y: L0[1] - 90, button: 'left', buttons: 0, clickCount: 1 }
+  );
   await settle(300);
   info.undefRow = await ev(`(document.querySelector('.shape[data-id="${m.id}"] .d') || {}).textContent`);
   ok('G: its row gives the reason', info.undefRow === 'The curves do not meet here', info.undefRow);
@@ -541,7 +639,10 @@ await section('G', async () => {
   ok('G: a circle on ζ₁', cz.def && cz.def.args.some((r) => r.zp), cz.def);
   await tool('select');
   const box = await ev(`(() => { const r = document.querySelector('#paneL canvas:last-of-type').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; })()`);
-  await drag(zq[0], zq[1], box[2] + 30, zq[1], 14, 16); await settle(400);
+  // (off the plane through its top edge, which has room above it in both views; the point's place is read again, the
+  // plane moved)
+  const zqNow = await W(1.5, -1);
+  await dragH(zqNow[0], zqNow[1], zqNow[0], box[1] - 30, 14, 16); await settle(400);
   st = await ST();
   info.zpToast = await toastText();
   ok('G: ζ₁ removed; the circle is undefined, not deleted', st.zeros === '' && byId(st, cz.id) && byId(st, cz.id).cundef && byId(st, cz.id).cundef.code === 'zpRemoved', [st.zeros, byId(st, cz.id)]);
@@ -551,8 +652,11 @@ await section('G', async () => {
   await key('z', 4); await settle(300);
   st = await ST();
   ok('G: undo brings ζ₁ and the circle back', st.zeros === '1.5-1i' && !byId(st, cz.id).cundef, [st.zeros, byId(st, cz.id).cundef]);
-  // the export caption names the circle through its points
-  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  // the export caption names the circle through its points (the plain picture: a phase figure names no shapes; the
+  // steps view opens coloured)
+  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+    return f ? f.captionTex : null;
+    })()`);
   info.capEn = cap;
   ok('G: the caption: the circle through z₂ = …, z₀ = … and ζ₁ = …', /the (circle|disc bounded by the circle) through z₂ = .*, z₀ = .* and ζ₁ = 1\.5 − i/.test(cap || '') || /through/.test(cap || ''), cap);
   // drawing in Y: Circle through 3 points picks z₂″ (F(z₂) of X's point) and two empty spots
@@ -560,7 +664,10 @@ await section('G', async () => {
   const st0 = await ST();
   const wz = await ev(`(() => { const s = __cmwCI({shapes:true}).list.find((x) => x.id === 'u5'); return s.p; })()`);
   const w5 = await ev(`(() => { const z = [-1, -1.5]; return [z[0] - 1.5, z[1] + 1]; })()`);   // f₁(z) = z − 1.5 + i
-  const y0 = await W(w5[0], w5[1], 'R'), y1 = await W(1, 1.2, 'R'), y2 = await W(-1.2, 1.5, 'R');
+  // (Y: the classic right pane, or the steps view's one plane on its last step)
+  const sv = await ev(`document.documentElement.classList.contains('sv')`), Y = sv ? 'L' : 'R';
+  if (sv) { await ev(`__cmwSteps({ go: 1, now: true })`); await settle(900); }
+  const y0 = await W(w5[0], w5[1], Y), y1 = await W(1, 1.2, Y), y2 = await W(-1.2, 1.5, Y);
   await move(y0[0] + 2, y0[1] + 2); await settle(100);
   info.yRing = (await CI()).ring;
   await click(y0[0] + 2, y0[1] + 2); await settle(80); await click(y1[0], y1[1]); await settle(80); await click(y2[0], y2[1]); await settle(300);
@@ -570,10 +677,12 @@ await section('G', async () => {
   await shot('cm-d1440-y');
   // Russian caption
   await nav(`${U}?ns=${NS}g&lang=ru`); await settle(1800);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+    return f ? f.captionTex : null;
+    })()`);
   info.capRu = capRu;
   ok('G: the Russian caption names the circle', /проходящей через|проходящая через/.test(capRu || ''), capRu);
-  // v16 verify-2: no English inside the Russian caption (outside maths and TeX commands)
+  // no English inside the Russian caption (outside maths and TeX commands)
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
   ok('G verify-2: the Russian caption has no English words', !!capRu && !/[A-Za-z]{3,}/.test(ruText), ruText.match(/.{0,30}[A-Za-z]{3,}.{0,30}/g));
   await grab();
@@ -584,7 +693,10 @@ await section('H', async () => {
   await view(1440, 900, false, false);
   await load(NS + 'h', { shapes: [{ id: 'h1', kind: 'point', p: [-0.5, 0.3], ci: 0, visible: true }, { id: 'h2', kind: 'point', p: [0.6, -0.2], ci: 1, visible: true }], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50 });
   await settle(800);
-  await key('2', 8); await settle(900);   // X: Sphere
+  // (X: Sphere, by its key in the classic view, by the surface switch in the steps view)
+  if (await ev(`document.documentElement.classList.contains('sv')`)) await ev(`__cmwSteps({ surf: 'sphere' }), 1`);
+  else await key('2', 8);
+  await settle(900);
   ok('H: X shows its globe', (await ev(`__cmwState().view.L ? __cmwState().view.L.surf : JSON.stringify(__cmwState().view)`)) === 'sphere' || /sphere/.test(JSON.stringify(await ev(`__cmwState().view`))), await ev(`__cmwState().view`));
   await tool('circle3');
   const lift = async (x, y) => ev(`Region.Globe.lift(${x}, ${y})`);
@@ -597,11 +709,16 @@ await section('H', async () => {
     await click(p2[0] - 1, p2[1] + 2); await settle(100);
     const c = await ev(`(() => { const r = document.querySelector('#paneL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
     let qN = await CI({ gs: ['L', [0, 0, 1]] });
-    for (let k = 0; k < 4 && !qN; k++) { await drag(c[0], c[1] - 60, c[0], c[1] + 60, 10, 16); await settle(500); qN = await CI({ gs: ['L', [0, 0, 1]] }); }
+    for (let k = 0; k < 4 && !qN; k++) {
+      await dragH(c[0], c[1] - 60, c[0], c[1] + 60, 10, 16);
+      await settle(500);
+      qN = await CI({ gs: ['L', [0, 0, 1]] });
+    }
     info.globe.qN = qN;
     ok('H: the draft survives the turn', ((await CI()).draft || { picks: [] }).picks.length === 2, (await CI()).draft);
     ok('H: N is on the globe face after the turn', !!qN, qN);
     if (qN) {
+      qN = (await CI({ gs: ['L', [0, 0, 1]] })) || qN;   // (read again: the turn may still be settling)
       await click(qN[0] + 2, qN[1] - 2); await settle(400);
       const st = await ST();
       const cc = last(st);
@@ -627,22 +744,22 @@ await section('I', async () => {
   ok('I: a polygon with its first two vertices bound to z₀, z₁', pg.kind === 'polygon' && pg.at && pg.at.v0.s === 'i1' && pg.at.v1.s === 'i2' && !pg.at.v2, pg);
   await tool('select');
   await clickSel(`.shape[data-id="${pg.id}"] .shape-name`); await settle(200);
-  await drag(a[0], a[1], a[0] - 30, a[1] + 20, 8, 16); await settle(300);
+  await dragH(a[0], a[1], a[0] - 30, a[1] + 20, 8, 16); await settle(300);
   st = await ST();
   const z0 = byId(st, 'i1').p, pg2 = byId(st, pg.id);
   ok('I: a press on the bound vertex drags z₀; the polygon follows', z0[0] < -1.2 && pg2.pts[0][0] === z0[0] && pg2.pts[0][1] === z0[1] && pg2.pts[2][1] === 1, [z0, pg2.pts]);
-  // a free point dropped on another point: no binding, no merge [C22]
+  // a free point dropped on another point: no binding, no merge
   const zq = await W(z0[0], z0[1]);
   await clickSel('.shape[data-id="i2"] .shape-name'); await settle(150);
   const bq = await W(1, -1);
-  await drag(bq[0], bq[1], zq[0] + 2, zq[1] - 1, 10, 16); await settle(300);
+  await dragH(bq[0], bq[1], zq[0] + 2, zq[1] - 1, 10, 16); await settle(300);
   st = await ST();
   ok('I: a free point dropped on a point stays free', !byId(st, 'i2').at && !byId(st, 'i2').def, byId(st, 'i2'));
   await grab();
 });
 
 await section('R', async () => {
-  // the v16 review fixes (notes/constructions-v16/ledger.json), in the app
+  // the in-app checks
   await view(1440, 900, false, false);
   const RS = {
     shapes: [
@@ -663,7 +780,7 @@ await section('R', async () => {
   // user-5: a line bound to two points reads by its points
   const lrow = await ev(`(document.querySelector('.shape[data-id="rl"] .d') || {}).textContent`);
   ok('R user-5: the bound line\'s row is "line through z₀ and z₁"', lrow === 'line through z₀ and z₁', lrow);
-  // v16 verify-4: the definition is not cut off in its row at 1440 (it takes the full width under the name)
+  // the definition is not cut off in its row at 1440 (it takes the full width under the name)
   const lclip = await ev(`(() => { const e = document.querySelector('.shape[data-id="rl"] .d > .cm-def'); return e ? [e.scrollHeight, e.clientHeight, e.scrollWidth, e.clientWidth] : null; })()`);
   ok('R verify-4: the bound line\'s definition is shown whole', !!lclip && lclip[0] <= lclip[1] + 1 && lclip[2] <= lclip[3] + 1, lclip);
   // user-11: the definition wraps, and the tooltip holds it whole
@@ -727,7 +844,7 @@ await section('R', async () => {
 });
 
 await section('V', async () => {
-  // v16 verify-1: in Select, a press on a point of a 3-point Circle (Curve) takes the point, not the circle through it
+  // in Select, a press on a point of a 3-point Circle (Curve) takes the point, not the circle through it
   await view(1440, 900, false, false);
   const pt = (id, p, ci) => ({ id, kind: 'point', p, ci, visible: true });
   await load(NS + 'v', { shapes: [Object.assign(pt('v0', [-2, 1.5], 4), { label: 'P' }), pt('v1', [-1, -0.5], 0), pt('v2', [1, -0.5], 1), pt('v3', [0.2, 1], 2),
@@ -744,7 +861,7 @@ await section('V', async () => {
   const sel1 = (await CI({ shapes: true })).selected;
   ok('V verify-1: a click on z₁ of a 3-point circle selects z₁', sel1 === 'v2', sel1);
   const r0 = byId(await ST(), 'vc').r;
-  await drag(a[0], a[1], b[0], b[1], 12, 16); await settle(400);
+  await dragH(a[0], a[1], b[0], b[1], 12, 16); await settle(400);
   const st = await ST(), p1 = byId(st, 'v1').p, p2 = byId(st, 'v2').p, c = byId(st, 'vc');
   ok('V verify-1: dragging z₁ moves only z₁, and the circle follows it', near(p1[0], -1) && near(p1[1], -0.5) && Math.abs(p2[0] - 1.5) < 0.02 && Math.abs(p2[1]) < 0.02 && Math.abs(c.r - r0) > 1e-3 && near(dist(p2, c.c), c.r, 1e-9), [p1, p2, c.c, c.r, r0]);
   await grab();

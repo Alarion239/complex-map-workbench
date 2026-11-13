@@ -4,18 +4,11 @@
 const fails = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const STATE = { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
-// (the page opens in the view the kit pins, the steps view for this suite's tag: a seeded state, then the app)
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const openPage = async (ns) => {
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({ v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image' }, STATE)))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}`);
-};
 const STRIP = `typeof Tour === 'object' && !!document.querySelector('.ts-chap')`;
 await view(1440, 900, false, false);
-await openPage('tourchap' + Date.now());
+await loadView(null, 'tourchap' + Date.now(), STATE);
 await settled({ until: `typeof Tour === 'object'` });
-if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'] };
+if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'] };
 await ev(`Tour.start({ chapter: 'basics' })`); await settled({ until: STRIP });
 const st = () => ev(`(() => { const c = document.querySelector('.ts-chap'); return { vis: !!(c && c.getClientRects().length), txt: c ? c.textContent.trim() : null, exp: c ? c.getAttribute('aria-expanded') : null, cur: Tour.current().id }; })()`);
 let s = await st();
@@ -27,10 +20,10 @@ ok('each chapter has its minutes and the running one is marked', menu && /min/.t
 await ev(`(() => { const b = document.querySelectorAll('.tour-menu .mi')[1]; b.click(); })()`); await settled({ until: `Tour.current().chapter !== 'basics'` });
 s = await st();
 ok('a pick starts that chapter', s.cur !== 'basics', s);
-await ev(`Tour.end && Tour.end()`); await settled({ until: `!document.querySelector('.ts-chap')` });
+await ev(`Tour.stop()`); await settled({ until: `!document.querySelector('.ts-chap')` });
 // a phone keeps its short count in the text, no chapter button
 await view(390, 844, true, true);
-await openPage('tourchapph' + Date.now());
+await loadView(null, 'tourchapph' + Date.now(), STATE);
 await settled({ until: `typeof Tour === 'object'` });
 await ev(`Tour.start({ chapter: 'basics' })`); await settled({ until: `!!document.querySelector('.tour-strip')` });
 s = await st();

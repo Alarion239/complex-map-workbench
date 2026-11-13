@@ -1,13 +1,14 @@
 // [#465] No raw TeX on the screen: a formula's source (\text{кривая, 5 точек}, \frac{1}{z}, z^{2}, u_k) never shows as
 // text, before MathJax has loaded (or where it cannot: a blocked CDN) nor after. Scanned: the visible text, the
 // accessible names and tooltips (aria-label, title, data-tip, alt) and the text drawn on canvases (fillText,
-// strokeText, recorded from the page's first script). Where: drawn shapes (a curve, a polygon, a disc, a point) in
-// the steps view, on the plane z, on the plane w₁, on the sphere and on the landscape, each selected in turn, then every example of the gallery, on the page without MathJax
-// (test-nomj.html: what the page shows until MathJax arrives) and with it (test-mj.html: MathJax 4 and its STIX2 font
-// from vendor/, no CDN), and the shapes at a phone's width. One language per run (LANG, ci/browser_suites.js); the page
-// with MathJax only where MJ is set (en and ru: Alexander's report was Russian with MathJax, a Cyrillic \text MathJax
-// did not set; it is not set for it, whose tooltips, names and canvas text read the same with MathJax or without and are
-// read on the page without it). It runs in the steps view (ci/suite_views.js: steps({ pin: true })). A command file for a CDP daemon.
+// strokeText, recorded from the page's first script). Where: drawn shapes (a curve, a polygon, a disc, a point) in the
+// steps view, on the plane z, on the plane w₁, on the sphere and on the landscape, each selected in turn, then every
+// example of the gallery, on the page without MathJax (test-nomj.html: what the page shows until MathJax arrives) and
+// with it (test-mj.html: MathJax 4 and its STIX2 font from vendor/, no CDN), and the shapes at a phone's width. One
+// language per run (LANG, ci/browser_suites.js); the page with MathJax only where MJ is set (en and ru: Alexander's
+// report was Russian with MathJax, a Cyrillic \text MathJax did not set; it is not set for it, whose tooltips, names
+// and canvas text read the same with MathJax or without and are read on the page without it). It runs in the steps view
+// (ci/suite_views.js: steps({ pin: true })). A command file for a CDP daemon.
 const fails = [], info = { scanned: 0 };
 const LANG = globalThis.LANG || 'ru';
 const MJ = globalThis.MJ !== false;
@@ -16,18 +17,10 @@ const BASE = `http://localhost:${PORT}`;
 // the raw-TeX scan (test/lib/raw_tex_scan.js): the canvas text is recorded before the page's own scripts run
 const RT = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'raw_tex_scan.js'), 'utf8'));
 await send('Page.addScriptToEvaluateOnNewDocument', { source: RT.RECORDER });
-const scan = RT.scanner({ ev, LANG, fails, info });
+const scan = RT.scanner({ ev, settled, LANG, fails, info });
 // (no wait for the exact images: they put no formula on screen, only ruler ticks and the panes' status, and the canvas
 // text is recorded for the page's whole life, so a later scan reads what a late frame drew)
-// (the page is quiet, MathJax is there where it is wanted, then a window for it to typeset: MathJax has no event for the
-// end of its work, so that window is measured time)
-const settle = async (mj) => {
-  const t0 = Date.now();
-  await settled();
-  if (mj) await settled({ until: `!!(window.MathJax && MathJax.tex2svg)`, max: 10000 });
-  await settled({ floor: mj ? 1200 : 400 });
-  info.settleMs = (info.settleMs || 0) + Date.now() - t0;
-};
+const settle = scan.settle;
 const SHAPES = [
   { id: 's1', kind: 'curve', pts: [[-1, 0], [-0.5, 0.6], [0, 0.2], [0.5, 0.8], [1, 0.1]], ci: 0, visible: true },
   { id: 's2', kind: 'polygon', pts: [[-1.5, -1], [-0.5, -1.2], [-0.8, -0.3]], ci: 1, visible: true },

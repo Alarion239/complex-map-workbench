@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -53,7 +53,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   (`20-init.js`) keeps only the start-up: an area's wiring is in that area's part (`19-shell.js` the header, menus and
   panels; `19-phone.js` the phone layout's adapter), so a change to it runs that area's shards (#385). A row can also
   select by the diff's lines: `src/page.html`'s export dialog CSS (`.xf-…`, `.modal.xf`, `#xf…`) runs the export shards
-  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. Every GLSL page whose inputs
+  too (`lines`; with no diff to read, they run). A suite file runs the shard it is in, a new one the catch-all `new`. `ci/suite_views.js` runs the shards of the suites whose entry differs from the reference's (a pin flip, a note; `suites`; with no diff to read, every suite's). Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
@@ -85,6 +85,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   Failed, cancelled or none: the run is the usual one, so a green Gate never stands on a commit before a gate passed
   there. Either way it has a concurrency group of its own and never cancels the push's run (#379,
   `test/t_gate_ready.js`).
+- **A stack** (#787): PRs into the integration branch are often stacked, each head holding the lower PRs, so every
+  push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
+  request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
+  takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed or is still going, this
+  PR gets tier `none` like a ready-for-review mirror: nothing runs, and its Gate check waits for the top's run and carries
+  its verdict (so it is never green before that run passed). A failed, cancelled or missing run of the top means this PR
+  runs its own tier. A push to the top cancels its run, so the Gate checks that carried it fail: re-run them (or push)
+  once the top's new run is going. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
+  summary says which run would have gated this head, and every PR still runs its tier.
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
@@ -218,6 +227,46 @@ artifact.
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
   cause (no frame missed, t still moving, the program still compiling), is printed in the summary, and does not fail
   the job; the GPU machines run the suites at full speed.
+- **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
+  It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
+  on the 24.04 image one file of about 18 MB) and installs them with `dpkg`. Those files are kept in an Actions cache,
+  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
+  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
+  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
+  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
+  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
+  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+    none, or when they do not install, the same version comes from a fallback mirror on another domain:
+    kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
+    `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
+    `mirrors.us.kernel.org`, for http, ftp and rsync; `mirrors.edge.kernel.org` is kernel.org's HTTPS front for its
+    mirrors and is not on the list. What keeps the files intact is apt's check of the mirror against Ubuntu's archive
+    keyring, as for Ubuntu's own mirrors. The fallback has a sources file and package lists of its own (the runner's
+    are untouched). Then come 2 more downloads from Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh
+    of the lists.
+  - **After a Mesa update**, until GitHub's image has it: each pocket's package list names only its newest version,
+    so the fallback fails (apt: `Version '…' was not found`) unless the image's version is still published in the
+    security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
+    stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
+    newer version, which the job does not save under the key that names the image's.
+  - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
+    not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
+    cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
+    (`timeout -k 5` sends SIGKILL 5 s after SIGTERM).
+  - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
+    file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause:
+    the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
+    errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
+    lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
+    lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
+- **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
+  name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
+  job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
+  there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
+  image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
+  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine). Moving the browser
+  jobs to Ubuntu 26.04 and unpinning them is #1507.
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
@@ -290,11 +339,30 @@ npm ci && node tools/inspect.js --base origin/claude/funny-darwin-l5uis3 --head 
 `node ci/standards.js --ref REV` (the Plan job runs it against the paired gates' reference) reads the lines a change
 adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and reports what CONTRIBUTING.md's Code rules
 let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
-item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it
-adds (`asserts`). It reports in the job summary and as warning annotations on the lines, and never fails the job; with
+item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it adds
+(`asserts`; assertions moved into a test file the diff creates, a split, are not counted as dropped). The words `was`, `now` and
+`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines, and never fails the job; with
 `--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
+
+### Perf on a loaded machine
+
+A reading taken while something else runs on the machine says nothing about the code. The paired perf shards on our own
+machines (`ci/perf_shard.js` without `--advisory`; GitHub's machines are never idle and are not guarded) therefore:
+1. wait, before each measured pass, up to 5 minutes for the 1-minute load to fall under `max(4, 0.45 x cores)` (4.5 on
+   `mac-gpu`), and log the load before and after and the busiest processes (`ci/perf_busy.js`), so the log shows whether
+   the load is ours (the two `build.py` runs) or not;
+2. pass that limit and `--load-wait 60` to `run.js`, whose `meta.busyUnits` then lists every unit that started busy (the pair
+   still runs: both halves see the same machine);
+3. mark a FAIL of such a unit **BUSY** in `compare_perf.py`: reported, never counted, and the unit is run again with the
+   units that failed. A unit that started busy in any pass counts as red only with 2 passes that started quiet
+   (`merge_runs.py` records `meta.passBusy` and `meta.passUnits` per pass). When no metric counts as failed but some FAIL was
+   BUSY, `compare_perf.py` and the shard exit **3**, "invalid: machine busy": no verdict either way; run again on a
+   quiet machine.
+
+`test/t_perf_busy.js` (the wait, with a fake load source) and `test/regress/test_compare.py` (BUSY, the two clean
+passes, exit 3) test it.
 
 ## Reading the results
 
@@ -312,10 +380,19 @@ worse (reference → this change, with the rule it broke), what improved, and th
 - To make the gate binding: *Settings → Branches → Add branch ruleset* (or *Add rule*) for `main` → *Require status
   checks to pass* → add **Gate**.
 
+## Perf shards and their parts
+
+The perf suite's units (`node test/regress/perf/run.js --list`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`, `pointer-morph`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-morph`, `interaction-hover`, `interaction-cards`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
+
+- **On GitHub's machines** (the Gate) every shard is one job, as before the parts; a by-hand run's *shards* input also takes part ids.
+- **On the GPU gate** (`gpu-gate.yml`, `--leaves`) the `steps` shard stands for its eight parts, one job each (its *leaves*): a run is about 3 minutes for `steps-first`, 4 for `steps-default` and `steps-zeta`, 5–6 for `steps-king` (`steps-globe`, about 2 on lavapipe, `steps-land`, `steps-cold` and `steps-long` are not timed yet; each unit's limit is 15 minutes), plus about a minute a job for the build and the quiet wait. The *shards* input takes shard ids, part ids and two groups: `all` (or nothing) is every shard (the wave sweep), `classic` the shards that are not split; `steps` is its eight parts. A part named beside its own whole shard is covered by it; an unknown id fails the plan. The loaded-Mac guard runs once per job, and a unit's reference and current runs are in the same job.
+- **A probe** has no units of its own: it is a dispatch of one part (e.g. `steps-king`) with the *reps* input (default 3; a probe uses 6).
+- **The verdict of each shard** is one log line, `PERF <leaf> <head8> vs <ref8>: PASS|FAIL|BOTH|INVALID (exit n), FAIL k BOTH k PASS k, passes n, <s> s`, and `verdict.json` in the shard's artifact. A shard whose job throws (a stalled unit, run.js exit 4 or 5, a failed build) writes `INVALID (exit 2)` with the error, and one with no change to compare writes `SKIPPED`. The run's final job collects them into one table (`ci/perf_verdicts.js`): shard, verdict, failing rows; a shard the plan chose that wrote no verdict at all (its job never started) is a row `no verdict` and counts as not passing. *skip* names ids the way *only* does: a shard's id leaves out its parts too. `node ci/perf_shard.js --shard steps-king` runs one part locally.
+
 ## Running a job by hand
 
 *Actions → Gate (or GPU gate) → Run workflow*: choose the branch, optionally the reference (a commit or branch), only
-some perf shards (e.g. `views,phone`), and *force* to run the paired gates when the app did not change (an A/A run of
+some perf shards or parts of them (e.g. `views,phone` or `steps-king,pointer-drag`; [Perf shards and their parts](#perf-shards-and-their-parts)), the GPU gate also how many *reps*, and *force* to run the paired gates when the app did not change (an A/A run of
 the same app on both sides shows the noise). The GPU gate's *glsl* input, `skip`, leaves out the GLSL and quality jobs
 so that the perf shards start at once: by hand the Windows GLSL tier is ten jobs, about 7 hours, ahead of perf (a
 measurement then, not the full gate). The Gate's *perf* box runs the perf suite on GitHub's machines (Windows,
@@ -332,6 +409,7 @@ node ci/quality.js --ref origin/main               # image quality, paired again
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
+node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
@@ -403,6 +481,7 @@ Settings (environment variables):
 |---|---|
 | `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
+| `CMW_DPR` | the device pixel ratio the browser daemon's `view()` emulates (default 1; `steps_glide_look_cmd.js` runs at 1 and at 2, ci/browser_suites.js) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
 | `CMW_GLSL_CACHE` | a folder kept between runs for `ci/glsl.js`'s Chrome profile, with the GPU program cache on: a shader program compiled before (same source) is not compiled again. The GPU gate sets it on its machines ([RUNNERS.md](RUNNERS.md)); delete the folder to start cold |
 | `CMW_GLSL_STALL_MIN` | minutes without CPU in the browser after which `ci/glsl.js` closes it and reports the page as stalled (default: never; the GPU gate sets 20) |
@@ -415,6 +494,8 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
+| `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
@@ -422,10 +503,10 @@ Settings (environment variables):
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
-| `ci/perf_shard.js`, `ci/perf_shards.js` | one paired perf shard; the shards |
+| `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
-| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |

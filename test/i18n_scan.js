@@ -3,7 +3,7 @@
 // placeholder, data-tip, data-desc, alt, aria-description) of the document, and a MutationObserver also records text
 // that appears for a moment (toasts, live regions). A string with a Latin word of two or more letters that is not on
 // the allowed list (math, key names, file formats, units, product names, the app's name) is recorded once, with where
-// and in which state it was seen. window.__i18nLeft() returns the records.
+// and in which state it appeared. window.__i18nLeft() returns the records.
 (() => {
   if (window.__i18nScan) return;
   const ALLOW = new Set([

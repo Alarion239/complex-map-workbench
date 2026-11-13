@@ -1,5 +1,5 @@
-// "No English left" (phase 2b, notes/i18n/PHASE2B.md): walk the Russian interface through its views, every example and
-// card, the deformation, every drawing tool and shape editor, the context menus, the palette, the guide, the help menu,
+// "No English left" (phase 2b, notes/i18n/PHASE2B.md): walk the Russian interface through its views, every example,
+// the deformation, every drawing tool and shape editor, the context menus, the palette, the guide, the help menu,
 // the export dialog and its controls, the sound popover, every step of every tour chapter, and on narrow screens the
 // drawers and the tool sheet. test/i18n_scan.js records every string with a Latin word that is not allowed (math, key
 // names, file formats, product names, the app's name). Run with a copy of test/cdp_kit on the port that serves dist/:
@@ -20,7 +20,7 @@ const center = async (sel) => ev(`(() => { const e = document.querySelector(${JS
 const more = async () => { const vis = await ev(`getComputedStyle(document.getElementById('hdrMoreBtn')).display !== 'none'`); if (vis) { await clickId('hdrMoreBtn'); await sleep(300); } return vis; };
 await S('start');
 // the header and its menus (through More where the bar folds)
-for (const id of ['settingsBtn', 'exportBtn', 'shareBtn', 'helpBtn', 'soundMore', 'examplesBtn']) {   // ([v17 D5] Language is in Settings)
+for (const id of ['settingsBtn', 'exportBtn', 'shareBtn', 'helpBtn', 'soundMore', 'examplesBtn']) {   // (Language is in Settings)
   if (await more()) await S('more menu');
   await clickId(id); await S('menu ' + id, 500); await esc(); await esc();
 }
@@ -33,14 +33,12 @@ await ev(`__cmwSetView('L', 'plane'), __cmwSetView('R', 'plane'), 1`); await S('
 await ev(`__cmwMorph({ open: true }), 1`); await S('deformation', 1200);
 await key('p'); await S('deformation paths', 800);
 await ev(`__cmwMorph({ open: false }), 1`); await sleep(400);
-// every example, every card of its chain, hover readouts
+// every example, hover readouts
 const nEx = await ev(`(() => { let n = 0; for (const b of document.querySelectorAll('[data-example], .gal-item')) n++; return n; })()`);
 for (let i = 0; i < 40; i++) {
   const ok = await ev(`(() => { try { __cmwExample(${i}); return true; } catch (e) { return String(e); } })()`);
   if (ok !== true) break;
   await S('example ' + i, 1500);
-  const nc = await ev(`document.querySelectorAll('#pipeline .card').length`);
-  for (let c = 0; c < nc; c++) { await ev(`(() => { const c = document.querySelectorAll('#pipeline .card')[${c}]; c && c.click(); })()`); await S(`example ${i} card ${c}`, 500); }
   for (const sel of ['#overlayL', '#overlayR']) { const c = await center(sel); if (c) { await move(c[0], c[1]); await S(`example ${i} hover ${sel}`, 400); } }
   await ev(`__cmwSetMain('phase'), 1`); await S(`example ${i} phase`, 900);
   await ev(`__cmwSetMain('land'), 1`); await S(`example ${i} land`, 900);
@@ -129,8 +127,7 @@ if (W < 1024) {
   await ev(`(() => { const t = document.getElementById('toolMore'); if (t) t.open = false; })()`);
 }
 const left0 = await ev(`__i18nLeft()`);
-// v15 (review russian-14): the Inspector for every card and the F tile, Parameters (add, a refused name, rename, the
-// number's menu), the planes' menu on X (a zeros-and-poles chain, a shape) and, on a phone, every sheet
+// The Inspector, Parameters (add, a refused name, rename, the number's menu), the planes' menu on X (a zeros-and-poles chain, a shape) and, on a phone, every sheet
 const ns15 = `xbi-walk15-${W}-${Date.now()}`;
 const ST15 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 60 },
   shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6 }, { id: 's2', kind: 'line', a: [0, 0.8], b: [1, 0.8] }],
@@ -140,10 +137,6 @@ await ev(`localStorage.setItem('complex-map-workbench-v1:${ns15}', ${JSON.string
 await nav(`${BASE}test.html?ns=${ns15}&lang=ru`); await sleep(4000);
 await ev(SCAN);
 const tryEv = async (js) => { try { return await ev(js); } catch (e) { return null; } };
-for (const k of [0, 1, 2, 3, 'F']) {
-  await tryEv(`(() => { const e = document.querySelector(${JSON.stringify(k === 'F' ? '#pipeline .ftile' : '#pipeline .card[data-k="KK"]')}.replace('KK', ${JSON.stringify(String(k))})); e && e.click(); return 1; })()`);
-  await S('inspector ' + k, 900);
-}
 await tryEv(`(() => { const d = document.querySelector('#propsPanel details.ifold'); if (d) d.open = true; for (const x of document.querySelectorAll('#propsPanel details.ifold')) x.open = true; return 1; })()`); await S('inspector F folds', 500);
 await tryEv(`(() => { const b = document.querySelector('.prm-add button'); b && b.click(); return 1; })()`); await S('parameters: new number', 500);
 await type('д'); await key('Enter'); await S('parameters: a refused name', 500); await key('Escape'); await sleep(200);
@@ -160,8 +153,8 @@ if (!PHONE) {
   await tryEv(`(Phone.open('edit', { params: true }), 1)`); await S('phone sheet numbers', 800); await tryEv('(Phone.close(true), 1)');
 }
 const left15 = await ev(`__i18nLeft()`);
-// v16 (review v16 regress-8): the deformation range's interface: the transport with a bracket (push-forward, pullback,
-// t = 0.5), a card's ⋯ → Deformation ▸ with its "from …" keys (desktop), the palette's range commands, the phone's
+// The deformation range's interface: the transport with a bracket (push-forward, pullback,
+// t = 0.5), the palette's range commands, the phone's
 // Deformed steps row in the Display sheet, the bracket's aria text, and the Mountain King example's hint
 const ns16 = `xbi-walk16-${W}-${Date.now()}`;
 const ST16 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 90 },
@@ -174,10 +167,6 @@ await tryEv(`(__cmwMorph({ range: { a: 2, b: 3 } }), 1)`); await S('v16 bracket 
 await tryEv(`(__cmwMorph({ T: 0.5 }), 1)`); await S('v16 bracket 2-3 t = 0.5', 600);
 await tryEv(`(__cmwMorph({ range: { a: 1, b: 2 } }), 1)`); await S('v16 bracket 1-2 pullback', 900);
 if (!PHONE) {
-  for (const k of [2, 3]) {
-    await tryEv(`await (async () => { document.querySelector('#pipeline .card[data-k="${k}"] .more').click(); await new Promise((r) => setTimeout(r, 400)); const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /^(Deformation|Деформация)/.test((x.querySelector('.mi-label') || x).textContent.trim())); if (b) b.click(); return 1; })()`);
-    await S('v16 card ' + k + ' Deformation submenu', 500); await esc();
-  }
   for (const q of ['прообраз', 'скобк', 'bracket']) { await key('k', 4); await sleep(500); await type(q); await S('v16 palette ' + q, 600); await key('Escape'); await sleep(200); }
 } else {
   await tryEv(`(Phone.open('display'), 1)`); await S('v16 phone Display sheet, Deformed steps', 900); await tryEv('(Phone.close(true), 1)'); await sleep(300);

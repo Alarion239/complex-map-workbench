@@ -1,13 +1,12 @@
 // Laptop keyboard in the steps view: the tool grid is one Tab stop and the arrows move inside it, and F6 / Shift+F6
 // move between the areas: top bar, tools, the plane, the thread (on its ring), the Inspector, wrapping both ways; Tab on a focused
-// plane steps through its shapes; the Construct tools have letters. The classic view's chain cards and its X → Y → chain areas are
-// kbd_nav_classic_cmd.js. A command file for a CDP daemon.
+// plane steps through its shapes; the Construct tools have letters. A command file for a CDP daemon.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'kbd_nav_kit.js'), 'utf8')), where = K.where;
 await K.open();
 // one Tab stop per group
-const stops = await ev(`({ tools: [...document.querySelectorAll('#tools .tool')].filter((t) => t.tabIndex >= 0).length, all: document.querySelectorAll('#tools .tool').length, chain: [...document.querySelectorAll('#pipeline .card, #pipeline .ftile')].filter((t) => t.tabIndex >= 0).length, cards: document.querySelectorAll('#pipeline .card, #pipeline .ftile').length })`);
+const stops = await ev(`({ tools: [...document.querySelectorAll('#tools .tool')].filter((t) => t.tabIndex >= 0).length, all: document.querySelectorAll('#tools .tool').length })`);
 info.stops = stops;
 ok('the tool grid is one Tab stop', stops.tools === 1 && stops.all > 5, stops);
 // arrows inside the tool grid

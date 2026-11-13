@@ -35,7 +35,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     if (!g.centred && !g.none) check(`${w}×${h} ${g.id}: the lit patch holds the anchor`, g.frac >= 0.9 && g.area > 40, g);
     // (issue #34 T2: a step whose control changes a plane or a card lights that too, not the button alone: two lit
     // areas, or one that holds both the control and what it changes)
-    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'basics/chain', 'views/switch', 'deform/toggle', 'deform/paths', 'deform/order', 'deform/range', 'branches/inverse'].includes(g.id) && w === 1440) {
+    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'basics/chain', 'deform/toggle', 'deform/paths', 'deform/order', 'deform/range', 'branches/inverse'].includes(g.id) && w === 1440) {
       const more = g.nHoles >= 2 || (g.hole[2] - g.hole[0]) > 3 * (g.anchor[2] - g.anchor[0]);
       check(`${w}×${h} ${g.id}: the control and what it changes are lit`, more, g);
     }
@@ -46,7 +46,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${w}×${h} ${g.id}: Next moves on`, false, before); break; }
   }
 }
-check('every chapter was walked at both sizes', ['basics', 'views', 'deform', 'analysis', 'branches', 'sound', 'export', 'keys'].every((c) => seen.some((x) => x.startsWith('1440:' + c + '/')) && seen.some((x) => x.startsWith('1024:' + c + '/'))), seen);
+check('every chapter was walked at both sizes', (await ev('Tour._t.CHAPTERS.map((c) => c.id)')).every((c) => seen.some((x) => x.startsWith('1440:' + c + '/')) && seen.some((x) => x.startsWith('1024:' + c + '/'))), seen);
 const L = logs().filter((l) => /EXC|\[tour\]/i.test(l.t + l.m)).slice(0, 12);
 check('no exceptions or tour warnings', !L.length, L);
 await view(1440, 900, false, false);

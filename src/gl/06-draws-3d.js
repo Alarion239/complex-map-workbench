@@ -45,7 +45,7 @@
   const dirOf = (az, el) => { const a = az * Math.PI / 180, e = el * Math.PI / 180; return [Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), Math.sin(e)]; };
   const bearing = (b) => 90 - b;
   const KEY_DIR = dirOf(bearing(135), 50), FILL_DIR = dirOf(bearing(-45), 20);
-  // The globe's key light (issue #287; SHADE_GLOBE in 01-state-glsl-2d.js): it follows the camera, 25 deg above and
+  // The globe's key light (SHADE_GLOBE in 01-state-glsl-2d.js): it follows the camera, 25 deg above and
   // 20 deg to the left of the line of sight in the camera's own frame (lookAt's: world z up), so the face we look at
   // is lit the same from every side. cam: the drawSphere camera ({yaw, pitch, tx, ty, tz}, camera()'s defaults).
   const GLOBE_KEY_EL = 25 * Math.PI / 180, GLOBE_KEY_AZ = 20 * Math.PI / 180;
@@ -58,6 +58,12 @@
     const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];               // z x x: screen up
     const ce = Math.cos(GLOBE_KEY_EL), se = Math.sin(GLOBE_KEY_EL), ca = Math.cos(GLOBE_KEY_AZ), sa = Math.sin(GLOBE_KEY_AZ);
     return [0, 1, 2].map((k) => ce * ca * z[k] + se * y[k] - ce * sa * x[k]);
+  }
+  // the graticule of a program with SPHERE_LINES: net ('cart', 'polar', else the plain one), the lattice's tiers in the
+  // grid colour (its coverage is what the shader uses)
+  function sphereNetUniforms(P, net, gridMajor) {
+    u1i(P, 'uNet', net === 'cart' ? 1 : net === 'polar' ? 0 : 2);
+    u3(P, 'uMinor', gridMajor); u3(P, 'uMed', gridMajor); u3(P, 'uMajor', gridMajor);
   }
   // the light of a program that draws on the globe (its uKeyDir; sph: drawSphere's {MVP, eye, key})
   const globeLight = (P, sph) => u3(P, 'uKeyDir', (sph && sph.key) || globeKey(null));
@@ -93,7 +99,7 @@
   const lands = new Map();
   let lastLand = null;
   // How the real discontinuities of the principal surface are found (LAND_EDGE_VS uCutMode), from the steps the map
-  // applies (GLChain cutKinds; review math-3): 0 none (no cut: the map is continuous away from its poles, no edge
+  // applies (GLChain cutKinds): 0 none (no cut: the map is continuous away from its poles, no edge
   // pass), 1 by the continuation of the chain's sheets (roots, powers, log, z^n's path), 2 by bisection (cuts the
   // sheets cannot continue: an inverse trig or Joukowski step, arg in a formula, a formula's path through its branch
   // points, a d/dz after a cut, the straight-line map mode 2). A step's path counts only while it runs, 0 < t < 1.
@@ -122,18 +128,17 @@
     return other || mode === 2 ? 2 : 1;
   }
   const edgeName = (cm, m) => (cm === 2 ? 'landEdge2' : m && (m.mode === 1 || m.mode === 3) ? 'landEdgeH' : 'landEdgeS');
-  // (issue #47) landTF of chain version ch in map mode `mode` runs the edge pass of cut mode cm itself (uPass 3): then
+  // landTF of chain version ch in map mode `mode` runs the edge pass of cut mode cm itself (uPass 3): then
   // no edge program is compiled or first drawn for it
   const ownEdge = (ch, mode, cm) => cm === 1 && tfKind(ch, mode) === 'S';
   // A deformation at t = 0 has no cut yet: the edge pass its t > 0 will need starts compiling now, and is first drawn
-  // (a pass that writes nothing) at rest once it has settled, before the play that needs it (r3 review speed-3)
+  // (a pass that writes nothing) at rest once it has settled, before the play that needs it
   function edgeAhead(P1, em, st, rf, cmNow, P3now) {
     if (P1.ch !== cur) return;
     if (!(em.mode === 1 || em.mode === 3)) {
       // (no deformation shown: the edge passes a deformation of each step would use start compiling in the background,
       // at rest once this surface has been drawn, so that opening the deformation, which plays at once, finds them
-      // linked; nothing is drawn with them here. r3 verify-1: compiled only at the open, the pass was never ready in a
-      // rest frame and the whole play drew the former rule's torn walls)
+      // linked; nothing is drawn with them here)
       // (after this surface's own passes have been taken into use: the refinement's programs and the edge pass it
       // draws now, so that the cold open's links are not delayed by it)
       if (st.motion || !rf || !rf.Lp || !rf.Lp.drawnOnce || !rfWarmAll || !Array.isArray(P1.ch.info.cutKinds)) return;
@@ -162,23 +167,23 @@
   function landHeights(st, N, mode, H, mu, aspect, rf) {
     const b = st.box;
     const P1 = program('landTF', st.map), P2 = program('landNrm');
-    // (one cache per grid size: the stage cards' small landscapes no longer evict the pane's)
+    // (one cache per grid size: the stage cards' small landscapes do not evict the pane's)
     let land = lands.get(N) || null;
     if (!P1 || !P2) return land;   // compiling: keep the last heights
     // (the map P1 draws: a deformation's start while its own mode compiles, mapIn)
     const em = mapIn(P1, st.map) || {};
     const cm = cutModeOf(P1.ch.info, em);
     // the edge pass must be of the same chain version and map mode as the heights. While it compiles (a new chain), the
-    // surface is drawn at once by the former rule (a triangle across a height step over 0.3 H left out: cuts -1), and
-    // with its real cuts when the pass is ready (review pictures-1: the block stayed empty for seconds)
-    // (r3: once it has settled; a figure, a film or an export takes it as soon as it has compiled)
+    // surface is drawn at once by the fallback rule (a triangle across a height step over 0.3 H left out: cuts -1), and
+    // with its real cuts when the pass is ready (the block would stay empty for seconds otherwise)
+    // (once it has settled; a figure, a film or an export takes it as soon as it has compiled)
     // (never first drawn while something moves: the deformation's edge pass, first drawn 0.9 s into a play, held a
-    // frame 90 to 250 ms, r3 review speed-3; at rest then)
+    // frame 90 to 250 ms; at rest then)
     const own = ownEdge(P1.ch, P1.mode, cm);
     const P3r = cm && !own ? program(edgeName(cm, em), em) : null;
     // (a deformation's own pass, once it has settled, is first drawn even while it plays: the play starts at the open,
-    // and waiting for a rest frame left the whole play, every loop, to the former rule's torn walls; one first-draw
-    // instead, at the play's start when the pass was compiled ahead (edgeAhead), r3 verify-1)
+    // and waiting for a rest frame would leave the whole play, every loop, with torn walls; one first-draw
+    // at the play's start when the pass was compiled ahead (edgeAhead))
     const defo = em.mode === 1 || em.mode === 3;
     const P3 = own ? P1 : P3r && (rf && rf.full || (settled(P3r) && (P3r.used1 || defo || !(st.motion && !st.full)))) ? P3r : null;
     if (P3r && !P3 && st.motion) rfLater();
@@ -187,7 +192,7 @@
     const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapIn(P1, st.map)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu, cuts].join('|');
     if (land && land.key === key) { lastLand = land; landRefine(st, land, P1, N, mode, H, mu, aspect, rf); return land; }
     if (!land) {
-      // (the pane's grid and the stage cards' (64) are kept, one each: a former pane size is freed, review math-5)
+      // (the pane's grid and the stage cards' (64) are kept, one each: another pane size is freed)
       for (const [k, l] of lands) {
         if ((k === 64) !== (N === 64)) continue;
         rfFree(l);
@@ -204,7 +209,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); u1i(P1, 'uPass', 0);
-    // (landTF built on the stages' sheets, issue #47: its heights are the continuation at each point's own centre over
+    // (landTF built on the stages' sheets: its heights are the continuation at each point's own centre over
     // the stages the map applies, a..b)
     if (tfKind(P1.ch, P1.mode) === 'S') { const m0 = mapIn(P1, st.map) || {}; u1i(P1, 'uSheetA', m0.a || 0); u1i(P1, 'uSheetB', m0.b || 0); }
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, land.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -217,7 +222,7 @@
       u1i(P3, 'uHMode', mode); u1f(P3, 'uH', H); u1f(P3, 'uMu', mu);
       // (bisection steps: the cut to 2^-14 of an edge in mode 1, the step's shrinking over 12 halvings in mode 2)
       u1i(P3, 'uSteps', 13); u1i(P3, 'uTwo', 2);
-      if (P3 === P1) u1i(P3, 'uPass', 3);   // (landTF's own edge pass, issue #47)
+      if (P3 === P1) u1i(P3, 'uPass', 3);   // (landTF's own edge pass)
       u1i(P3, 'uSheetA', m.a || 0); u1i(P3, 'uSheetB', m.b || 0); u1i(P3, 'uSheetW', 0);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
       for (let d = 0; d < 3; d++) {
@@ -242,8 +247,89 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
-  // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
+  // The steps view's carried landscape (st.carry {map, s, T, hT, hT2, u, lim, src, key}): plane s's grid over its box src
+  // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
+  // each vertex at the height of the stages (s, hT] at its point (hT default T), blended over u into that of the stages
+  // (s, hT2] (default hT: the glide's two planes read their heights from different planes across a d/dz step), and coloured by G = the stages (s, T]
+  // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
+  // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
+  // frame's, when the glide arrives
+  let landC = null;
+  // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
+  const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
+  const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
+  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
+  function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
+    const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
+    const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
+    if (!polar && (!landC || landC.N !== N)) {
+      if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
+      landC = { N, tex1: floatTex(), tex2: floatTex() };
+    }
+    const out = polar ? o : landC;
+    if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
+    use(P1, c.map);
+    u1i(P1, 'uN', N);
+    u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    const h1 = c.hT == null ? c.T : c.hT;
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
+    runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
+    use(P2);
+    u1i(P2, 'uN', N);
+    u4f(P2, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    u2f(P2, 'uAspect', aspect[0], aspect[1]);
+    u1f(P2, 'uStep', carryStep(mode, H)); u1f(P2, 'uLim', c.lim); u1f(P2, 'uPatch', polar ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out.tex1);
+    gl.activeTexture(gl.TEXTURE15);
+    runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
+    return out;
+  }
+  // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
+  // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
+  // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
+  // i + 1
+  const landCP = [];
+  function carryPlaces(st, N, polar, slot = 0) {
+    const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
+    if (!P) return false;
+    if (!landCP[slot]) landCP[slot] = floatTex();
+    use(P, c.map);
+    u1i(P, 'uN', N);
+    u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+    u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP[slot], N, N, gl.RGBA32F, gl.RGBA);
+    gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
+    return true;
+  }
+  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
+  // the slot after them): their textures, kept between frames
+  const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
+  // (the steps view's Inside regions) st.mask {cv, key, box, cut}: a canvas over box (plane coordinates), opaque on the
+  // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
+  // passes' scratch unit); outside it the surface is plain (LAND_FS), or with cut not drawn; null: the colour everywhere
+  let maskTex = null, maskKey = null;
+  function maskUniforms(P, m) {
+    u1f(P, 'uMaskOn', m ? 1 : 0);
+    u1f(P, 'uMaskCut', m && m.cut ? 1 : 0);
+    if (!m || !P.loc.uMask) return;
+    gl.activeTexture(gl.TEXTURE15);
+    if (!maskTex) maskTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    if (maskKey !== m.key) {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, m.cv);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      maskKey = m.key;
+    }
+    u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
+  }
+  // TEMP-DEBUG-HOOK
+  // (walls tests; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
   function lwRead(tex, w, h) {
     if (!tex || !(w > 0) || !(h > 0)) return null;
     const fb = gl.createFramebuffer(), out = new Float32Array(4 * w * h);
@@ -312,11 +398,11 @@
   const RF_REST_S = 18e6, RF_FRAME = 3e6;
   // the moving budget for a pane mesh of N vertices per side: RF_MOVE up to 256 cells, then falling with the cells'
   // count, since the base passes take the frame's GPU time as the mesh grows (at Max they take nearly all of it: the
-  // refinement then made the GPU fall behind, and each read of the levels waited for it; r2 review math-3)
+  // refinement then made the GPU fall behind, and each read of the levels waited for it)
   const rfMove = (N) => RF_MOVE * Math.min(1, (256 / Math.max(N - 1, 1)) * (256 / Math.max(N - 1, 1)));
   let rfTimer = 0;
-  // a mesh entry's refinement objects (textures, read-back buffer and fence), freed with it (r2 review math-4: a dropped
-  // mesh left them to the garbage collector, ~100 MB at Max)
+  // a mesh entry's refinement objects (textures, read-back buffer and fence), freed with it (a dropped
+  // mesh would leave them to the garbage collector, ~100 MB at Max)
   function rfFree(o) {
     if (!o) return;
     for (const k of ['lvTex', 'lstTex', 'rfTex', 'latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) { gl.deleteTexture(o[k]); o[k] = null; }
@@ -326,6 +412,7 @@
     o.rf = null; o.lvKey = o.rkey = o.rbFor = null; o.lvRaw = null; o.rfRows = 0; o.rfRaw = o.rbData = null; o.lvDim = o.lstRows = 0;
   }
   function rfLater() {
+    frameRefining = true;
     if (rfTimer || typeof setTimeout !== 'function') return;
     rfTimer = setTimeout(() => { rfTimer = 0; if (api.onReady) api.onReady({ main: true }); }, 180);
   }
@@ -335,6 +422,7 @@
   // copied aside with a fence, the surface is drawn unrefined, and the refinement follows a frame or two later (rfPoll)
   let pollTimer = 0;
   function rfPoll() {
+    frameRefining = true;
     if (pollTimer || typeof setTimeout !== 'function') return;
     pollTimer = setTimeout(() => { pollTimer = 0; if (api.onReady) api.onReady({ main: true }); }, 24);
   }
@@ -344,7 +432,7 @@
   // per frame at least 48 ms apart, each by a draw that writes nothing, and not in the frame that first draws the
   // surface's own program. Until then the surface is drawn unrefined
   // (they link in the background, started together once the surface has been drawn: a static program's first use
-  // otherwise linked it on the main thread, 30 to 280 ms for landLv at a cold open, r3 review speed-2)
+  // otherwise links it on the main thread, 30 to 280 ms for landLv at a cold open)
   const RF_PROGS = ['landLv', 'landRP', 'landRA', 'landR', 'landB'];
   let rfWarmT = -1e9, rfWarmAll = false;
   function rfWarmed(Lp) {
@@ -381,8 +469,8 @@
   let rfWarmTex = null;
   // o: the mesh entry; n floats of the scratch buffer; progs: the programs this frame's passes used; returns the levels
   // or null (pending)
-  // The read-back buffer of o for one read, bytes long: a fresh one each time, as in r2 (r3: a kept one, written again
-  // after its read, made Chrome warn that its shadow copy was discarded on every read, and the reads took 30 to 50 ms
+  // The read-back buffer of o for one read, bytes long: a fresh one each time (a kept one, written again
+  // after its read, makes Chrome warn that its shadow copy was discarded on every read, and the reads take 30 to 50 ms
   // at the Max mesh instead of under 1)
   function rbOf(o, bytes) {
     if (o.rbBuf) gl.deleteBuffer(o.rbBuf);
@@ -424,14 +512,14 @@
   // The levels in flight are read when the GPU has done the last Landscape frame's work (lvTail, a fence at its end),
   // at the start of a frame or between frames (lvIdle, polled): getBufferSubData waits for the GPU process to work
   // through what is queued before it, and read in the middle of a frame, or before the GPU had finished the one
-  // before, a read at the Max mesh while playing took 1.6 ms in the median and 9 to 30 ms one time in ten (r3, the
-  // frames that ran over the vsync)
+  // before, a read at the Max mesh while playing takes 1.6 ms in the median and 9 to 30 ms one time in ten (the
+  // frames that run over the vsync)
   let lvTail = null, lvIdleT = 0, lvIdleN = 0;
   // (a read waits for the GPU's idle moment at most LV_LATE ms after its pass: under load that moment can be missed
   // frame after frame, and the levels then stood still while the walls moved)
   const LV_LATE = 60;
   function lvCollect() {
-    // (no read in flight: the tail fence goes, r3 review speed-4)
+    // (no read in flight: the tail fence goes)
     if (lvTail && !lvInFlight()) { gl.deleteSync(lvTail); lvTail = null; }
     if (lvTail) {
       const st = gl.clientWaitSync(lvTail, 0, 0);
@@ -525,12 +613,12 @@
   let nzK = new Int32Array(0), nzV = new Uint8Array(0), cutC = new Uint8Array(0);
   // dil (the principal surface while something moves, a number of cells): the unrefined cells within dil cells of a
   // refined one, across its wall (not a cell left to the cut rule), are refined to level 1 across the wall. The levels
-  // come a frame or two late and from the cheaper estimate, and a wall that had moved into a cell they still call
-  // flat was drawn with the base cells' chords and F at the fragment (no facetW there, see LAND_FS): the sawtooth of
-  // r2 review verify-1. Level 1 costs 30 evaluations a cell
+  // come a frame or two late and from the cheaper estimate, and a wall that moves into a cell they still call
+  // flat is drawn with the base cells' chords and F at the fragment (no facetW there, see LAND_FS): a sawtooth.
+  // Level 1 costs 30 evaluations a cell
   function rfPlan(lvRaw, M, cost, rowsOf, cap, fill, dil) {
     const Mq = (M + 3) >> 2, len = lvRaw.length;
-    // (one pass over the cells, the non-zero ones kept: r3, a Map per cell took 1.3 ms a build at the Max mesh, and
+    // (one pass over the cells, the non-zero ones kept: a Map per cell takes 1.3 ms a build at the Max mesh, and
     // two passes over the 262 144 cells 1.5)
     if (nzK.length < len) { nzK = new Int32Array(len); nzV = new Uint8Array(len); }
     if (dil && cutC.length < len) cutC = new Uint8Array(len);
@@ -542,7 +630,7 @@
     const codes = [];
     for (let v = 1; v < 64; v++) if (cnt[v]) codes.push(v);
     // (over the budget, every cell drops by the same d levels in both directions, so the chord error grows by the
-    // same factor 4^d everywhere: a top cap left the steepest cells 16 times over and the rest exact; r2 review math-1)
+    // same factor 4^d everywhere: a top cap would leave the steepest cells 16 times over and the rest exact)
     const capOf = (v, d) => Math.max((v & 7) - d, 0) + 8 * Math.max((v >> 3) - d, 0);
     const costOf = (w) => (w ? cost(w & 7, w >> 3) : 0);
     const total = (d) => { let c = 0; for (const v of codes) c += cnt[v] * costOf(capOf(v, d)); return c; };
@@ -550,8 +638,8 @@
     while (D < 4 && total(D) > cap) D++;
     const Lc = 4 - D;
     // (then what the drop left of the budget goes back to whole groups of equal wanted levels, a level at a time, the
-    // steepest first: one drop is 4 times the cost, so it left up to three quarters of the budget unspent, and a finer
-    // mesh, which wants a level less everywhere, could end with fewer evaluations than the default; r2 verify-4. At
+    // steepest first: one drop is 4 times the cost, so it leaves up to three quarters of the budget unspent, and a finer
+    // mesh, which wants a level less everywhere, could end with fewer evaluations than the default. At
     // rest only (fill): the moving budget keeps the uniform drop it was measured with)
     const fin = new Int32Array(64);
     for (const v of codes) fin[v] = capOf(v, D);
@@ -619,13 +707,13 @@
   }
   function rfApply(o, p) {
     const { M, Mq, lv, list, lrows: rows, rows: y } = p;
-    // (never upload levels of another grid's size: drawn unrefined instead, r3 verify-2)
+    // (never upload levels of another grid's size: drawn unrefined instead)
     if (lv.length !== Mq * M * 4 || list.length < 1024 * rows) return { groups: [], entries: 0, rows: 0, capped: true, Lc: 0, drop: 0, evals: 0, need: 0, want: '', filled: 0 };
     if (!o.lvTex) { gl.activeTexture(gl.TEXTURE15); o.lvTex = floatTex(); o.lstTex = floatTex(); o.rfTex = floatTex(); }
     gl.activeTexture(gl.TEXTURE15);
     gl.bindTexture(gl.TEXTURE_2D, o.lvTex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-    // (the same sizes as the last build: written in place, r3)
+    // (the same sizes as the last build: written in place)
     if (o.lvDim === M) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, Mq, M, gl.RGBA, gl.FLOAT, lv);
     else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Mq, M, 0, gl.RGBA, gl.FLOAT, lv); o.lvDim = M; }
     gl.bindTexture(gl.TEXTURE_2D, o.lstTex);
@@ -656,15 +744,15 @@
     const move = rf.motion && !rf.full;
     // (moving: the levels from the half cells, capped to the budget; at rest the quarter cells' lattice, in full: a
     // mesh built while moving is rebuilt when it stops, rfLater)
-    // (uLat: 1 at rest, the quarter cells; moving, 0 the half cells, 2 over 256 cells the base heights only, math-3)
+    // (uLat: 1 at rest, the quarter cells; moving, 0 the half cells, 2 over 256 cells the base heights only)
     const lat = !move, lmode = lat ? 1 : (M > 256 ? 2 : 0), lk = rkey + ['|c', '|L', '|b'][lmode];
     if (land.rkey === rkey && land.rf && (move || !land.rf.partial)) return;
-    // (moving with the heights unchanged, as in an orbit or a zoom: the mesh built at rest stays, math-5)
+    // (moving with the heights unchanged, as in an orbit or a zoom: the mesh built at rest stays)
     if (move && land.rf && !land.rf.partial && land.rfFor === land.key) return;
     // (moving with new heights over 256 cells, as the sheets: the base mesh, its steep triangles with facetW (landB),
-    // refined when it stops. The levels' read-back waited 40 to 100 ms for the GPU process in every moving frame that
-    // took one, 4 to 8 a second at the Max mesh (r3 review speed-3: hitches of 92 to 252 ms), and the levels came too
-    // late for walls that moved 15 to 20 cells between two reads (pictures-1))
+    // refined when it stops. The levels' read-back waits 40 to 100 ms for the GPU process in every moving frame that
+    // takes one, 4 to 8 a second at the Max mesh (hitches of 92 to 252 ms), and the levels come too
+    // late for walls that move 15 to 20 cells between two reads)
     if (move && M > 256) { if (land.rfFor !== land.key) land.rf = null; rfLater(); return; }
     const common = (P) => {
       u1i(P, 'uM', M); u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0); u2f(P, 'uAspect', aspect[0], aspect[1]);
@@ -681,17 +769,17 @@
     for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, land.edges[d]); }
     if (land.lvKey !== lk) {
       // the fenced levels of this key, or while something moves of any earlier one (a frame or two late: never read
-      // synchronously while moving, which held the CPU until the GPU had drained, r2 review math-3; a cell that now
+      // synchronously while moving, which would hold the CPU until the GPU had drained; a cell that
       // holds a jump counts as level 0, REFINE)
       const got = lvReady(land, move ? null : lk);
-      // (a read of another grid's levels is dropped: r3 verify-2)
+      // (a read of another grid's levels is dropped)
       if (got && got.length === Mq * M * 4) { land.lvRaw = got; land.lvKey = land.rbGot; land.lvM = M; }
       // (a new pass once the one in flight has been read, lvCollect; meanwhile the list stands and its vertices follow
       // the heights)
       if (land.lvKey !== lk && !land.rbFence) {
         // The levels' pass: the lattice (the chain on the grid of quarter cells, of half cells while moving) in strips
         // of whole cells, each under ~8 MB, then the levels of the strip's cells, copied into the read-back buffer
-        // (the whole lattice was 67 MB at Max, and the shared scratch buffer grew to match; r2 review math-4)
+        // (the whole lattice would be 67 MB at Max, and the shared scratch buffer would grow to match)
         const s = lat ? 4 : 2, sN = s * M + 1;
         const cs = Math.max(1, Math.min(M, Math.floor((8 * 1024 * 1024 / (16 * sN) - 1) / s)));
         rbOf(land, Mq * M * 16);
@@ -741,7 +829,7 @@
     const r = move && land.rf && land.rfRaw === land.lvRaw && land.rfCap === cap ? land.rf
       : rfBuild(land, land.lvRaw, M, (lx, ly) => 5 * nv(lx, ly), (lx, ly, n) => Math.ceil(2 * n * nv(lx, ly) / RF_W), cap, !move,
         // (moving: about 8 px either side of a wall, 2 to 4 cells, a wall playing at 1x moved that far between reads;
-        // none over 256 cells: at Fine and Max even one cell held the frame's p95 1 to 3 ms over the base's, r3)
+        // none over 256 cells: at Fine and Max even one cell holds the frame's p95 1 to 3 ms over the base's)
         !move || M > 256 ? 0 : Math.max(2, Math.min(4, Math.ceil(8 / Math.max(rf.pxW * 2 * Math.max(aspect[0], aspect[1]) / M, 0.5)))));
     land.rfRaw = land.lvRaw; land.rfCap = cap;
     for (const g of r.groups) {
@@ -767,12 +855,12 @@
     land.rf = r; land.rkey = rkey; land.rfFor = land.key;
     if (r.partial) rfLater();
     // (at rest, built: the passes' scratch textures go, the lattice's, the points' and their values, up to ~30 MB at
-    // the Max mesh after a play; they are made again when something moves, r3 review speed-4)
+    // the Max mesh after a play; they are made again when something moves)
     if (!move && !rf.full) freeScratch(land);
   }
   // The pane's Landscape is not on the screen (the app calls this from each frame of the left pane that draws another view):
-  // its refinement goes with its textures and buffers, ~47 MB after a play at the default mesh against the heights' 8 MB
-  // (issue #50). The heights stay; the refinement is built again, as at a first open, when Landscape comes back. The
+  // its refinement goes with its textures and buffers, ~47 MB after a play at the default mesh against the heights' 8 MB.
+  // The heights stay; the refinement is built again, as at a first open, when Landscape comes back. The
   // stage cards' small grid (64) is left alone
   function landRelease() {
     for (const [n, l] of lands) if (n !== 64 && (l.lvTex || l.rbBuf)) { rfFree(l); freeScratch(l); }
@@ -788,13 +876,20 @@
   // a, b, W, infinite (a log or irrational power among the steps), steps}; null when the map has no multivalued step
   // in (a, b], cannot be drawn as sheets (a homotopy, or a d/dz in (a, b] with a > 0) or the chain has no
   // chainSheetRange (GLChain). Combos 0..K-1 go to chainSheetRange as they are (it decodes them, steps in chain order).
-  function sheetPlan(map, W, end) {
+  // The drawn surfaces as combos: uniq (the combos that are distinct sheets of the map's values, in order, from the app)
+  // when it lists some of the K combos, else all K. {K: surfaces drawn, map: Int32Array(SHEET_MAX) surface -> combo}
+  function surfaceMap(uniq, K) {
+    const map = new Int32Array(SHEET_MAX);
+    const list = Array.isArray(uniq) && uniq.length && uniq.length <= K && uniq.every((c) => Number.isInteger(c) && c >= 0 && c < K) ? uniq : null;
+    for (let i = 0; i < SHEET_MAX; i++) map[i] = list ? (list[i] ?? 0) : i;
+    return { K: list ? list.length : K, map };
+  }
+  function sheetPlan(map, W, end, uniq) {
     const info = cur.info;
     if (!info || !hasSheets(info) || !info.sheets || !Array.isArray(info.sheets.steps)) return null;
     const m = map || {};
     // a deformation (modes 1 and 3): H_t on the sheets that become F's (chainSheetHom; notes/v16-user5/SHEETS-DESIGN.md),
-    // the pieces of the steps the map applies; a = the source stage, b = the last stage applied. end > 0 (F's last step,
-    // v16.1 review math-5): F's pieces and digits throughout (b = end, chainSheetHom's end): surface c is F's surface c
+    // the pieces of the steps the map applies; a = the source stage, b = the last stage applied. end > 0 (F's last step): F's pieces and digits throughout (b = end, chainSheetHom's end): surface c is F's surface c
     // at every t, a step not begun keeps its digits, and the count is F's
     if (m.mode === 1 || m.mode === 3) {
       end = Math.max(0, Math.floor(+end || 0));
@@ -804,9 +899,9 @@
       W = clamp(Math.round(W) || 2, 1, 4);
       let total = 1;
       for (const s of ps) total *= s.n > 0 ? s.n : 2 * W + 1;
-      const K = Math.min(SHEET_MAX, total);
-      if (K < 2) return null;
-      return { K, total, a: m.base || 0, b: end > 0 ? end : Math.max(m.mode === 1 ? m.hi || 0 : m.b || 0, m.post || 0), W, infinite: ps.some((s) => !(s.n > 0)), steps: ps, hom: true };
+      const K = Math.min(SHEET_MAX, total), sm = surfaceMap(uniq, K);
+      if (sm.K < 2) return null;
+      return { K: sm.K, map: sm.map, total, a: m.base || 0, b: end > 0 ? end : Math.max(m.mode === 1 ? m.hi || 0 : m.b || 0, m.post || 0), W, infinite: ps.some((s) => !(s.n > 0)), steps: ps, hom: true };
     }
     if ((m.mode || 0) !== 0) return null;
     // a > 0: the steps in (a, b] from points of the w_a-plane (chainSheetRange); never across a d/dz (its input is a
@@ -825,12 +920,47 @@
       if (typeof info.sheets.total === 'function') { const t = Math.floor(+info.sheets.total(W, b, a)); if (t > 0) total = t; }
       if (typeof info.sheets.combos === 'function') { const c = Math.floor(+info.sheets.combos(W, b, a)); if (c > 0) K = c; }
     } catch (e) { /* keep the product */ }
-    K = Math.min(SHEET_MAX, K);
+    const sm = surfaceMap(uniq, Math.min(SHEET_MAX, K));
+    K = sm.K;
     if (K < 2) return null;
-    return { K, total: Math.max(total, K), a, b, W, infinite: steps.some((s) => !(s.n > 0)), steps };
+    return { K, map: sm.map, total: Math.max(total, K), a, b, W, infinite: steps.some((s) => !(s.n > 0)), steps };
   }
   // per-cell sheet heights (LAND_SHEET_TF_VS): cache keyed like landHeights, plus the stage, window and combos
   let landS = null;
+  // the sheets' heights over the grid of M x M cells (box b, or a pole's patch about polar, CARRY_Z), each cell's four
+  // corners a texel, a tile of the texture a sheet's
+  function sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, tex) {
+    const texW = tileC * 2 * M, texH = tileR * 2 * M;
+    use(P1, sp.hom ? st.map : null);
+    u1i(P1, 'uN', M + 1);
+    u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    u2f(P1, 'uAspect', aspect[0], aspect[1]);
+    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
+    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1i(P1, 'uPass', 0);
+    gl.activeTexture(gl.TEXTURE15);
+    runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, tex, texW, texH, gl.RGBA32F, gl.RGBA);
+  }
+  // a carried pole's patch's sheets' heights (about polar, N points a side at most), in slot i of landSP; kept while its
+  // chain, sheets and polar stand. null until the heights' program has compiled
+  const landSP = [];
+  function sheetPatchHeights(st, sp, polar, N, slot, mode, H, mu, aspect) {
+    const P1 = program('landSheetTF', sp.hom ? st.map : null);
+    if (!P1 || !hasSheets(P1.ch.info)) return null;
+    const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
+    const M = Math.max(8, Math.min(N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
+    const b = st.carry.src || st.box;
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), polar.join(','), M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const o = landSP[slot] || (landSP[slot] = { tex1: floatTex() });
+    if (o.key !== key) {
+      sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, o.tex1);
+      o.key = key;
+    }
+    return { polar, N: M + 1, tex1: o.tex1, tileC, slot: slot + 1 };
+  }
   function sheetHeights(st, sp, N, mode, H, mu, aspect, rf) {
     const P1 = program('landSheetTF', sp.hom ? st.map : null);
     if (!P1 || !hasSheets(P1.ch.info)) return landS && landS.want === N && landS.K === sp.K ? landS : null;
@@ -838,23 +968,12 @@
     const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
     let M = Math.max(Math.min(N - 1, 96), Math.floor(Math.sqrt(2 * (N - 1) * (N - 1) / K)));
     M = Math.max(8, Math.min(M, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
-    const texW = tileC * 2 * M, texH = tileR * 2 * M;
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     if (landS && landS.key === key) { sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf); return landS; }
     if (!landS) landS = { tex1: floatTex() };
-    use(P1, sp.hom ? st.map : null);
-    u1i(P1, 'uN', M + 1);
-    u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    u2f(P1, 'uAspect', aspect[0], aspect[1]);
-    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
-    // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
-    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
-    u1i(P1, 'uPass', 0);
-    gl.activeTexture(gl.TEXTURE15);
-    runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landS.tex1, texW, texH, gl.RGBA32F, gl.RGBA);
+    sheetCellsTF(st, sp, P1, b, null, M, tileC, tileR, mode, H, mu, aspect, landS.tex1);
     Object.assign(landS, { key, N: M + 1, want: N, K, tileC, a: sp.a, b: sp.b, W: sp.W, sheet: true, rkey: null });
     sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf);
     return landS;
@@ -862,7 +981,7 @@
   // All sheets' refinement passes (landSheetRF, the chain program of heights ch): started once the surface has been
   // drawn, and taken into use RF_LATE ms after its link has landed. A chain program's first draw completes its Metal
   // side in the GPU process, and drawn at once after its link it held every frame of the page for 0.4 to 1 s; drawn
-  // later, that work has mostly been done in the background (r3 cold opens: 0.6 s later, the stalls fell to a quarter).
+  // later, that work has mostly been done in the background (0.6 s later, the stalls fall to a quarter).
   // A figure, a film or an export waits for it (the link read at once)
   const RF_LATE = 900;
   let rfLateT = 0;
@@ -874,6 +993,7 @@
     if (!P.settleT) P.settleT = now;
     if (now - P.settleT >= RF_LATE) return true;
     if (!rfLateT && typeof setTimeout === 'function') rfLateT = setTimeout(() => { rfLateT = 0; if (api.onReady) api.onReady({ main: true }); }, RF_LATE - (now - P.settleT) + 8);
+    frameRefining = true;
     return false;
   }
   // (P0: the heights' program; the passes' program is of its chain version and map mode)
@@ -885,7 +1005,11 @@
       const e = progs.get(progId('landSheetRF', ch, mm));
       if (e && e.state === 'pending') { finishLink(e); P = e.state === 'ready' ? e : null; }
     }
-    if (!P) return null;   // (compiling: the poll redraws when it lands)
+    if (!P) {   // (compiling: the poll redraws when it lands)
+      const e = progs.get(progId('landSheetRF', ch, mm));
+      if (e && e.state === 'pending') frameRefining = true;
+      return null;
+    }
     return rf.full || settled(P) ? P : null;
   }
   // All sheets' refinement: one pair of levels per cell for every sheet; a refined sub-cell is a block of 4 x 2 texels
@@ -893,8 +1017,8 @@
   function sheetRefine(st, sp, o, P0, mode, H, mu, aspect, rf) {
     const M = o.N - 1, Mq = (M + 3) >> 2, K = o.K, b = st.box;
     if (!rf) { o.rf = null; return; }
-    // (the refinement's passes: their own program, once it has settled; until then the surface is drawn as it was for
-    // these heights, else unrefined)
+    // (the refinement's passes: their own program, once it has settled; until then the mesh built for
+    // these heights stays, else the surface is unrefined)
     const P1 = sheetRF(rf, P0);
     if (!P1) { if (o.rfFor !== o.key) o.rf = null; return; }
     const rkey = o.key + '|' + rf.pxW.toPrecision(3) + '|' + rf.minPx;
@@ -903,7 +1027,7 @@
     // mesh built while moving is rebuilt when it stops, rfLater)
     const lat = !move, lk = rkey + (lat ? '|L' : '|c');
     // (moving with a mesh over 256 cells: the sheets' base pass alone takes the frame's GPU time at Max, and a read
-    // of the levels then waits for it; the base mesh while moving, refined when it stops; r2 review math-3)
+    // of the levels then waits for it; the base mesh while moving, refined when it stops)
     if (move && !rf.full && (o.want || 0) - 1 > 256) { if (o.rfFor !== o.key) o.rf = null; rfLater(); return; }
     if (o.rkey === rkey && o.rf && (move || !o.rf.partial)) return;
     if (move && o.rf && !o.rf.partial && o.rfFor === o.key) return;
@@ -911,7 +1035,7 @@
     u1i(P1, 'uN', M + 1); u1i(P1, 'uM', M);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
-    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC);
+    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
@@ -924,11 +1048,11 @@
       // (as landRefine: while something moves the fenced levels of an earlier key stand in, never a synchronous read)
       const got = lvReady(o, move ? null : lk);
       // (a read of another grid's levels is dropped: All sheets' M follows the sheets' count, which changes between the
-      // steps of a deformation, and the levels of the former M uploaded at the new size failed every frame, r3 verify-2)
+      // steps of a deformation, and the levels of another M uploaded at the new size would fail every frame)
       if (got && got.length === Mq * M * 4) { o.lvRaw = got; o.lvKey = o.rbGot; o.lvM = M; }
       if (o.lvKey !== lk && move && o.rbFence && o.lvRaw && o.lvM === M) { /* one read in flight: the earlier levels */ }
       else if (o.lvKey !== lk) {
-        // (pending, or a read of other levels in flight, read first (rbOf): drawn as it was for these heights, else
+        // (pending, or a read of other levels in flight, read first (rbOf): the mesh built for these heights stays, else
         // unrefined meanwhile)
         if (o.rbFence && !rf.full) { if (o.rfFor !== o.key) o.rf = null; return; }
         u1i(P1, 'uPass', 1);
@@ -981,7 +1105,7 @@
     }
     // At rest: built over several frames, at most RF_FRAME evaluations each, into textures of its own, and swapped in
     // when complete; meanwhile the mesh drawn is kept when it is of these heights (built while moving), else the
-    // surface is drawn unrefined. The budget at rest is the user's case in full (r2 review math-1: capped at rest)
+    // surface is drawn unrefined. The budget at rest is the user's case in full
     if (!o.nb || o.nb.rkey !== rkey) {
       if (o.nb) rfFree(o.nb);
       o.nb = { rkey, gi: 0, row: 0, raw: o.lvRaw };
@@ -1019,7 +1143,7 @@
   //      was drawn: {K, total, W, N, infinite}, null for the principal branch)}
   // map may be a homotopy (mode 1 / 2 at t): its heights are cached per t like any other map
   // the pane's last Landscape (t: when one was last asked for; key: the chain whose own surface it drew), for the cards
-  // (the pane's last draw and chain; per card chain, the start of its wait and whether it has drawn: issue #49)
+  // (the pane's last draw and chain; per card chain, the start of its wait and whether it has drawn)
   const landPane = { t: -1e9, key: null, wait: new Map(), drawn: new Set(), first: -1e9 };
   let landPollT = 0;
   function landPoll() {
@@ -1028,12 +1152,17 @@
   }
   function drawLandscape(st) {
     if (!ok) return null;
-    // TEMP-DEBUG-HOOK (removed before publishing)
-    // (walls tests, issue #52) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
+    // TEMP-DEBUG-HOOK
+    // (walls tests) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
     // the scene stands still, as the motion part measures it
     if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
     // TEMP-DEBUG-HOOK
     lvCollect();
+    // the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
+    if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
+    // (a carry that moves nothing, plane s at rest: its own refined cells, the colour of the stages up to T)
+    const idc = st.carry && st.sheets && st.carry.map.mode === 0 && st.carry.map.a === st.carry.map.b && st.carry.s === st.carry.map.a ? st.carry.T : null;
+    if (idc != null) st = Object.assign({}, st, { carry: null, colT: idc });
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -1056,16 +1185,15 @@
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
-    const sp = st.sheets ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
+    const sp = st.sheets && (!st.carry || program('landCarryPlace', st.carry.map)) ? sheetPlan(st.map, st.sheets.W, st.sheets.end, st.sheets.uniq) : null;
     // A step card's Landscape (st.card) waits for the pane's: its programs start once the pane has drawn this chain's
-    // surface, and are taken into use once they have settled (r3: compiled alongside the pane's All sheets, they slowed
-    // its link, and their first draws in later frames stalled the GPU process again, r2 review verify-2)
+    // surface, and are taken into use once they have settled (compiled alongside the pane's All sheets, they would slow
+    // its link, and their first draws in later frames would stall the GPU process again)
     const now = performance.now();
     if (!st.card) landPane.t = now;
     else if (cur.info && !sideMode) {
-      // (at most 3 s from a card's first wait for its chain: a long play or orbit no longer keeps the cards empty, r3
-      // review speed-5. The start is kept per card's chain: with one start for all, two cards reset each other's every
-      // frame and stayed empty through a play started early, issue #49)
+      // (at most 3 s from a card's first wait for its chain: a long play or orbit does not keep the cards empty. The start is kept per card's chain: with one start for all, two cards would reset each other's every
+      // frame and stay empty through a play started early)
       let w0 = landPane.wait.get(cur.key);
       if (w0 == null) {
         landPane.wait.set(cur.key, w0 = now);
@@ -1074,11 +1202,11 @@
       if (landPane.key !== cur.key && now - landPane.t < 1500 && now - w0 < 3000) { framePending = true; landPoll(); return info; }
       if (!settled(program('landTF', st.map)) || !settled(program('land', st.map))) { framePending = true; return info; }
       // (a card's first draw of its chain's surface, the one that may stall the GPU process, waits for 2 frames after
-      // another card's: cards released together no longer stall one moving frame, issue #48's cold open)
+      // another card's: cards released together do not stall one moving frame)
       if (!landPane.drawn.has(cur.key) && now - landPane.first < 34) { framePending = true; return info; }
     }
     // (the surface's programs start compiling together; they are taken into use together, groupDone. All sheets: the
-    // sheets' programs and the floor; the principal branch's start with a view that draws it, r3)
+    // sheets' programs and the floor; the principal branch's start with a view that draws it)
     if (cur.info && !sideMode) for (const n of sp ? ['landSheetTF', 'landSheet', 'floor'] : GROUPS[0]) getProg(n, cur, true, st.map);
     const Ls = sp ? program('landSheet', st.map) : null;   // (both sheet programs start compiling here)
     // the refinement's scale: px per world unit at the camera's fitted distance for this frame's size (not the orbit's
@@ -1086,14 +1214,14 @@
     const fitD = fitDist(landGeom(box, st.scale).radius, (st.cam && st.cam.fov) || 28 * Math.PI / 180, fw, fh, 1.05);
     const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
     const dbg = {};
-    // TEMP-DEBUG-HOOK (removed before publishing)
-    // (walls tests, issue #52) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
+    // TEMP-DEBUG-HOOK
+    // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
     Object.assign(dbg, api._lw || {});
     // TEMP-DEBUG-HOOK
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights
-    // is kept (orbiting and zooming never rebuild). r2 review math-5
+    // is kept (orbiting and zooming never rebuild)
     let pxS = pxW0;
     if (!st.motion || st.full) {
       const ga = landGeom(box, st.scale);
@@ -1102,15 +1230,25 @@
       pxS = Math.max(pxW0, fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * dN));
     }
     const rf = st.refine === false || dbg.noRef ? null : { pxW: Math.pow(2, Math.round(4 * Math.log2(Math.max(pxS, 1))) / 4), motion: !!st.motion, full: !!st.full, minPx: dbg.minPx || 0.1, Lp: getProg('land', cur, false, st.map), Ls };
-    let hs = sp ? sheetHeights(st, sp, N, mode, H, mu, aspect, rf) : null;
+    // (carried, the sheets' cells are plane s's, over its box src, and the sheets are not refined)
+    let hs = sp ? sheetHeights(st.carry ? Object.assign({}, st, { box: st.carry.src || st.box }) : st, sp, N, mode, H, mu, aspect, st.carry ? null : rf) : null;
     if (!Ls) hs = null;
     // (while the sheets' programs compile, the principal branch stands in only with programs that have run before, an
-    // earlier version of the chain's: a formula's first All-sheets Landscape drew its principal branch with programs of
-    // its own first, and the GPU process stalled once for them and once more for the sheets', r2 review verify-2)
+    // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
+    // its own first would stall the GPU process once for them and once more for the sheets')
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (the carry's pole patches, made before the draw: each a TF pass of its own)
+    const pp = [];
+    const farPatches = [];
+    if (st.carry && !hs && hd) for (const polar of (st.carry.polar || []).slice(0, CARRY_POLES)) {
+      const o = landPP[pp.length] || (landPP[pp.length] = {});
+      pp.push({ polar, N: CARRY_POLE_N, o: carryHeights(st, CARRY_POLE_N, mode, H, mu, aspect, polar, o) });
+    }
+    // (the far patches, the last: their own textures)
+    if (st.carry && !hs && hd) for (const [k, polar] of (st.carry.far || []).slice(0, CARRY_FAR_N.length).entries()) farPatches.push({ polar, N: CARRY_FAR_N[k], o: carryHeights(st, CARRY_FAR_N[k], mode, H, mu, aspect, polar, landPP[CARRY_POLES + k] || (landPP[CARRY_POLES + k] = {})) });
     if (!hd) return info;
-    // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
+    // (the pane's other surface keeps its heights, not its refinement: toggling All sheets would hold both)
     if (!st.card) {
       if (hs) { const lp = lands.get(N); if (lp && lp.lvTex) { rfFree(lp); freeScratch(lp); } }
       else if (landS && landS.lvTex) { rfFree(landS); freeScratch(landS); }
@@ -1138,8 +1276,12 @@
       u1f(P, 'uFogNear', fogNear);
       u1f(P, 'uFogFar', fogFar);
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
+      maskUniforms(P, st.mask);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
-      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', hs.b); u1i(P, 'uSheetW', hs.W); }
+      // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
+      // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
+      const colT = st.carry ? st.carry.T : st.colT, colB = hs && colT != null && colT < hs.b ? colT : hs ? hs.b : 0;
+      if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
     };
@@ -1160,17 +1302,67 @@
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', C.shadowA);
       u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1);
       u1f(Fp, 'uPlateA', alpha);
+      // (the shadow's cut, where the mask is over the floor's own block)
+      const fm = st.mask && st.mask.cut && st.mask.box.x0 === box.x0 && st.mask.box.x1 === box.x1 && st.mask.box.y0 === box.y0 && st.mask.box.y1 === box.y1 ? st.mask : null;
+      maskUniforms(Fp, fm);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
-    if (!below) floorPass(0.8);
+    // (st.reliefOnly: the figure's coverage render, the relief alone on a transparent frame)
+    if (!below && !st.reliefOnly) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
-    const Lp = hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
+    const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
+    if (st.carry && !hs) {
+      const Pc = program('landCarry', st.carry.map);
+      use(Pc, st.carry.map);
+      common(Pc);
+      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+      u3(Pc, 'uCut', C.cut);
+      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
+      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
+      u2f(Pc, 'uClipA', aspect[0], aspect[1]);
+      const sb = st.carry.src || box;
+      u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
+      // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
+      gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+      gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+      gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+      // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
+      // the box's cells, so a patch shows only where they leave a hole)
+      const drawPatch = (p) => {
+        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
+      };
+      gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
+      for (const p of pp) drawPatch(p);
+      gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      for (const p of farPatches) drawPatch(p);
+      gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+      info.refine = null;
+      info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
+    }
     // (asked for before Lp is bound: a program that finishes its link here binds itself)
     const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
     // (moving, the principal surface: its steep base triangles by landB, once the refinement's programs have run, STEEP;
     // not while the mesh built at rest for these heights stands, an orbit or a zoom: its walls are refined)
     const LB = Lp && !hs && rf && st.motion && !st.full && rfWarmAll && !(hd.rf && !hd.rf.partial && hd.rfFor === hd.key) ? program('landB') : null;
+    // (its pass is run before the sheets' program is set up: it makes its own program current)
+    // (the carry's pole patches and far patches, each sheet at its own height: their places first, the box's grid's last,
+    // which stays on unit 11)
+    const sheetPatches = [];
+    if (st.carry && hs) {
+      const polar = (st.carry.polar || []).slice(0, CARRY_POLES), far = (st.carry.far || []).slice(0, CARRY_FAR_N.length);
+      [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, CARRY_FAR_N[k]])].forEach(([p, n], i) => {
+        const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect);
+        if (h && carryPlaces(st, h.N, p, h.slot)) sheetPatches.push(Object.assign(h, { far: i >= polar.length }));
+      });
+    }
+    const carried = !!st.carry && !!hs && carryPlaces(st, hs.N);
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
@@ -1187,11 +1379,14 @@
         // coincide (t near 0), faint at t = 1 and for a map's sheets at rest
         const cm = st.map && (st.map.mode === 1 || st.map.mode === 3) ? clamp(+st.map.t || 0, 0, 1) : 1;
         const cue = dbg.cue || st.sheetCue || 'tint';
-        // (OKLab lightness x (1 +- uCue): +-14 % at t = 0, +-4 % at t = 1 and for a map's sheets; r2 review pictures-1)
+        // (OKLab lightness x (1 +- uCue): +-14 % at t = 0, +-4 % at t = 1 and for a map's sheets)
         u1f(Lp, 'uCue', cue === 'none' ? 0 : 0.14 - 0.10 * cm * cm * (3 - 2 * cm));
         u1i(Lp, 'uCueK', hs.K);
         u1f(Lp, 'uZBias', 4e-6);
-        u1i(Lp, 'uSheetK', hs.K);
+        u1i(Lp, 'uSheetK', hs.K); u1iv(Lp, 'uSheetMap', sp.map);
+        u1i(Lp, 'uCarry', carried ? 1 : 0);
+        u2f(Lp, 'uClipA', aspect[0], aspect[1]);
+        if (carried) { info.carried = true; u4f(Lp, 'uCBox', box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1)); }
       } else {
         u1i(Lp, 'uCuts', hd.cuts || 0);
         for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, hd.edges[d]); }
@@ -1206,7 +1401,30 @@
         gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, hd.lstTex);
         gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, hd.rfTex);
       }
+      // (carried: the stencil marks the pixels the box's cells and the pole patches drew, so a far patch draws only where
+      // they left a hole)
+      const patched = carried && sheetPatches.length > 0;
+      if (patched) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
       gl.drawArraysInstanced(gl.TRIANGLES, 0, !hs || clip ? 9 : 3, (hs ? hs.K : 1) * 2 * (hd.N - 1) * (hd.N - 1));
+      if (patched) {
+        // (a little behind the box's cells, so a patch shows only where they leave a hole)
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
+        u1i(Lp, 'uPatch', 1); u1i(Lp, 'uRefOn', 0); u1f(Lp, 'uCLim', st.carry.lim);
+        const drawPatch = (p) => {
+          u1i(Lp, 'uN', p.N); u4f(Lp, 'uPolar', ...p.polar);
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.tex1);
+          gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[p.slot]);
+          gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
+        };
+        for (const p of sheetPatches) if (!p.far) drawPatch(p);
+        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        for (const p of sheetPatches) if (p.far) drawPatch(p);
+        gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
+        gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
+        info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
+      }
       const cellPx = rf ? rf.pxW * 2 * Math.max(aspect[0], aspect[1]) / (hd.N - 1) : 0;
       if (LB) {
         use(LB);
@@ -1240,7 +1458,7 @@
       }
       lvTailMark();
     }
-    if (below) {
+    if (below && !st.reliefOnly) {
       gl.enable(gl.BLEND);
       gl.depthMask(false);
       floorPass(0.22);
@@ -1256,7 +1474,7 @@
     const boxM = [];
     for (let i = 0; i < 4; i++) boxM.push(segM([cs[i][0], cs[i][1], floorZ], [cs[(i + 1) % 4][0], cs[(i + 1) % 4][1], floorZ], 0.5 * dpr));
     gl.depthMask(false);
-    drawMarks(MVP, boxM, C.box, below ? 0.4 : 0.8, { zBias: 0.0002 });
+    if (!st.reliefOnly) drawMarks(MVP, boxM, C.box, below ? 0.4 : 0.8, { zBias: 0.0002 });
     info.backCorner = [cs[far][0], cs[far][1]];
     // source outlines printed on the floor plate: clipped to the plate, fading with its outer rim, and hidden
     // wherever the surface covers them (plain depth test: never drawn through the relief)
@@ -1265,7 +1483,7 @@
     gl.depthFunc(gl.LEQUAL);
     for (const o of st.outlines || []) {
       if (!o || !o.res) continue;
-      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: 1.25 * dpr, color: col3(o.color, C.modLine), alpha: below ? 0.45 : 1, fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
+      drawLines(o.res, { map: o.map || null, cacheKey: o.cacheKey || null, dpr, M: 4, width: (o.width || 1.25) * dpr, color: col3(o.color, C.modLine), alpha: below ? 0.45 : 1, fade: plate, floor: { MVP, box, aspect, floorZ, clip: plate } });
     }
     // unit level: the plane h(|F| = 1)
     if (st.unitLevel) {
@@ -1287,11 +1505,12 @@
       const Pp = program(hs ? 'probeSheet' : 'probe', st.map);
       if (Pp) {
         use(Pp, st.map);
-        if (hs) { u1i(Pp, 'uSheetA', hs.a); u1i(Pp, 'uSheetB', hs.b); u1i(Pp, 'uSheetW', hs.W); }
+        if (hs) { u1i(Pp, 'uSheetA', hs.a); u1i(Pp, 'uSheetB', hs.b); u1i(Pp, 'uSheetW', hs.W); u1iv(Pp, 'uSheetMap', sp.map); }
         uM4(Pp, 'uMVP', MVP);
         u2f(Pp, 'uPx', fw, fh);
         u1f(Pp, 'uZBias', 0);
         u2f(Pp, 'uProbe', st.probe.x ?? st.probe.re ?? st.probe[0], st.probe.y ?? st.probe.im ?? st.probe[1]);
+        u1f(Pp, 'uFlat', st.probe.flat ? 1 : 0);
         u4f(Pp, 'uBox', box.x0, box.y0, BW, BH);
         u2f(Pp, 'uAspect', ax, ay);
         u1f(Pp, 'uFloorZ', floorZ);
@@ -1307,7 +1526,30 @@
       }
     }
     resetState();
+    if (idc != null) info.carried = true;
     return info;
+  }
+
+  // a w-box {x0, x1, y0, y1} -> its scissor [x, y, w, h] in device px of the current frame (bottom-left origin), padded
+  // by pad device px; null when it covers the frame; [0, 0, 0, 0] when it misses the frame
+  function scissorOf(b, view, dpr = 1, pad = 4) {
+    if (!b || !view || ![b.x0, b.x1, b.y0, b.y1].every(Number.isFinite)) return null;
+    const k = view.s * dpr;
+    const x0 = Math.floor(fw / 2 + (b.x0 - view.cx) * k) - pad, x1 = Math.ceil(fw / 2 + (b.x1 - view.cx) * k) + pad;
+    const y0 = Math.floor(fh / 2 + (b.y0 - view.cy) * k) - pad, y1 = Math.ceil(fh / 2 + (b.y1 - view.cy) * k) + pad;
+    const cx0 = Math.max(0, x0), cy0 = Math.max(0, y0), cx1 = Math.min(fw, x1), cy1 = Math.min(fh, y1);
+    if (cx1 <= cx0 || cy1 <= cy0) return [0, 0, 0, 0];
+    if (cx0 <= 0 && cy0 <= 0 && cx1 >= fw && cy1 >= fh) return null;
+    return [cx0, cy0, cx1 - cx0, cy1 - cy0];
+  }
+  function scissorAround(sc) {
+    const [x, y, w, h] = sc;
+    return [[0, 0, fw, y], [0, y + h, fw, fh - y - h], [0, y, x, h], [x + w, y, fw - x - w, h]].filter((q) => q[2] > 0 && q[3] > 0);
+  }
+  function standInOf(b, view, dpr = 1) {
+    const sc = scissorOf(b, view, dpr, 0);
+    if (sc === null) return 'whole';
+    return sc[2] > 0 ? { sc, around: scissorAround(sc) } : null;
   }
 
   // SPEC 4.8 on a globe (P3): the scissor [x, y, w, h] (device px of the current pane, bottom-left origin, padded by pad)
@@ -1388,7 +1630,7 @@
     gl.depthMask(true);
     const phase = st.mode === 'color';
     const P = program(phase ? 'sphereP' : 'sphere', st.map);
-    // (#440) st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
+    // st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
     // these regions write the frame's alpha, then the globe draws its colour alone over them, kept where the alpha is
     const masked = !!(P && st.maskRegions && keepInAlpha(true));
     // (a mask that cannot draw yet draws nothing: never the colour over the whole globe)
@@ -1412,9 +1654,7 @@
       u3(P, 'uPlaneCol', plane);
       u3(P, 'uGridMaj', gridMajor);
       u3(P, 'uAxisCol', axis);
-      // the lattice's tiers in the grid colour (its coverage is what the shader uses)
-      u1i(P, 'uNet', st.net === 'cart' ? 1 : st.net === 'polar' ? 0 : 2);
-      u3(P, 'uMinor', gridMajor); u3(P, 'uMed', gridMajor); u3(P, 'uMajor', gridMajor);
+      sphereNetUniforms(P, st.net, gridMajor);
       globeLight(P, sph);
       const g = sphere();
       gl.disable(gl.BLEND);
@@ -1423,8 +1663,20 @@
       gl.bindVertexArray(null);
       gl.enable(gl.BLEND);
     }
+    // st.carried: the steps view's carried colour over the globe (drawCarriedGlobe's st), in the same mask; then
+    // the globe's depth again, which the passes below are tested against
+    const cm = st.carried ? gl.getParameter(gl.COLOR_WRITEMASK) : null;
+    const carried = !!(P && st.carried && drawCarriedGlobe(Object.assign({ dpr, net: st.net, gridMajor }, st.carried), sph));
+    if (carried) {
+      gl.colorMask(false, false, false, false);
+      use(P, st.map); uM4(P, 'uMVP', MVP); u3(P, 'uEye', eye);
+      gl.depthFunc(gl.LEQUAL);
+      const g = sphere();
+      gl.bindVertexArray(g.vao); gl.drawElements(gl.TRIANGLES, g.count, gl.UNSIGNED_INT, 0); gl.bindVertexArray(null);
+      gl.colorMask(cm[0], cm[1], cm[2], cm[3]);
+    }
     // st.pre: target preimages over the globe (drawPreimage's st without view: {map, targets, halo, haloA, wGrid}), or a
-    // list of them, one per map ([#253] the shapes of each later plane)
+    // list of them, one per map (the shapes of each later plane)
     if (P) for (const pr of Array.isArray(st.pre) ? st.pre : st.pre ? [st.pre] : []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null }));
     // lifted regions and their edges: tested against the globe, never against each other (a casing written to
     // depth would otherwise hide parts of its own stroke)
@@ -1464,6 +1716,9 @@
         }
       }
     }
+    // (Inside regions: the colour is kept inside the mask first, so the silhouette over it is drawn at the mask's alpha:
+    // inside the regions it lies over the colour, as in a frame with no mask, and outside them it is the regions' globe's)
+    if (masked) { writeMask(true, true); keepInAlpha(); }
     // silhouette: the circle of tangency seen from the eye, 1.25 px axis at 50%
     const D2 = eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2];
     if (D2 > 1.0001) {
@@ -1476,11 +1731,12 @@
       const pt = (t) => [0, 1, 2].map((k) => ctr[k] + rho * (Math.cos(t) * u[k] + Math.sin(t) * w[k]));
       const sil = [];
       for (let i = 0; i < 160; i++) sil.push(segM(pt(2 * Math.PI * i / 160), pt(2 * Math.PI * (i + 1) / 160), 0.625 * dpr));
+      if (masked) gl.blendFuncSeparate(gl.DST_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
       drawMarks(MVP, sil, axis, 0.5, { once: true });   // last: it writes depth
+      if (masked) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     }
-    if (masked) { writeMask(true, true); keepInAlpha(); }
     resetState();
-    return { MVP, eye };
+    return { MVP, eye, key: sph.key, carried };
   }
   // lifted regions on the globe (drawSphere's st.regions, or its mask's): an exact image's inverse pass over the globe's
   // triangles, or its forward meshes while that pass cannot draw; tested against the globe's depth, never written

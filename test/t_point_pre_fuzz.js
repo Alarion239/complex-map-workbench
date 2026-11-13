@@ -1,4 +1,4 @@
-// Inverse.pointPre against a brute-force solve (#291, the wave 9 maths sweep): seeded random chains of 1 to 3 steps in
+// Inverse.pointPre against a brute-force solve (#291): seeded random chains of 1 to 3 steps in
 // its exact class (affine, Möbius, 1/z, Blaschke, z^n with n in ±2..4, a principal root, a quadratic formula, a degree-2
 // rational, zeros and poles, Joukowski) and random p (generic, the image of a random point, at and near a critical
 // value, a RAT2 step's value at infinity carried through the steps after it: RAT2 is linear there, one finite root,

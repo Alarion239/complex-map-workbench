@@ -35,34 +35,6 @@
     if (Number.isInteger(S.sel) && S.sel >= 0 && S.sel <= n) return S.sel;
     return S.focus > 0 && S.focus <= n ? S.focus : n;
   }
-  function syncSel() {
-    const sel = selOf(), quiet = !!(morph.playing && morph.open);
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) {
-      const on = +c.dataset.k === sel;
-      c.classList.toggle('sel', on); c.classList.toggle('quiet', on && quiet);
-      if (c.getAttribute('aria-selected') !== String(on)) c.setAttribute('aria-selected', String(on));
-      c.tabIndex = on ? 0 : -1;   // (review design-14: one tab stop, the selected option; the arrows move inside)
-    }
-    const ft = /** @type {HTMLElement | null} */ (document.querySelector('#pipeline .ftile'));
-    if (ft) { ft.classList.toggle('sel', sel === 'F'); ft.setAttribute('aria-selected', String(sel === 'F')); ft.tabIndex = sel === 'F' ? 0 : -1; }
-    syncPlaying();
-    const wb = $('viewAllBtn');
-    if (wb) wb.disabled = S.focus === 0;
-  }
-  // the card of the step the deformation is in (review design-13): one after another, the step at t; all at once, the
-  // last card, which shows the deformation itself
-  let playKey = '';
-  function syncPlaying() {
-    let k = 0;
-    if (morph.open && morphOn()) {
-      const steps = morphRange().steps;
-      k = allAtOnce() ? steps[steps.length - 1] : steps[Math.max(0, Math.min(steps.length - 1, Math.floor(morph.T - (morph.T >= steps.length ? 1e-9 : 0))))];
-    }
-    const key = String(k || 0);
-    if (key === playKey && (!k || document.querySelector('#pipeline .card.playing'))) return;
-    playKey = key;
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) c.classList.toggle('playing', !!k && +c.dataset.k === k);
-  }
   // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
   function syncAloneChip() {
     const head = document.querySelector('#paneL .pane-head');
@@ -110,7 +82,7 @@
     if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
-    if (tc) want.push(['tool', tc.count ? tc.name + ' · ' + tc.count : tc.name, $t('Leave the tool'), '']);
+    if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
@@ -127,14 +99,16 @@
     const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
-      box.replaceChildren(...want.map(([m, label, tip, key]) => h('span', { class: 'mode-chip', 'data-mode': m },
+      box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
         h('span', { class: 'mc-t' }, label),
+        ...(count ? [h('span', { class: 'mc-n' }, h('span', { class: 'mc-sep' }, ' · '), count)] : []),
         ...(m === next || m === 'tool' ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
     if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
     box.hidden = !want.length;
+    if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');
     if (ac) {
       let k = ac.querySelector('.kbd');
@@ -149,7 +123,6 @@
     setSel(k);
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
-    syncSel();
     svFSync();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
@@ -228,7 +201,7 @@
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
-      svOn: () => SV.on, regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -274,6 +247,33 @@
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
   // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
   let artLandBox = null;
+  // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
+  const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
+  // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
+  // the shapes to it from z (carried: the caption says "the images of ... under it")
+  function svCapParts(o) {
+    const c = figCapParts(o);
+    if (!SV.on || morphOn()) return c;
+    const q = svFigParts(), carried = !q.coloured && q.k > 0;
+    // (F, the map from z into the last plane: the composite's formula in z, as the classic caption has it)
+    if (q.name === 'F') return Object.assign(c, { Fname: 'F', lvar: 'z', mapTex: c.formula ? `F(z)=${c.formula}` : null, carried });
+    const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
+    return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
+  }
+  // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
+  const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in
+  function srcWindowBox() { const v = S.srcView, w = effW('L'), hh = paneL.h > MIN_PANE_PX ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; }
+  // the shown plane's paths figure: the paths of the step that leads to it. {i, m, Fat, z, end} (Fat(t): z -> the thread's
+  // place i - 1 + t; surf: the surface the plane is shown on), or {why} when there is none ('first': plane 0; 'deriv': a d/dz
+  // step), null on the Landscape
+  function svPathsFig() {
+    const P = svPlanes(), i = Math.round(SV.g.x);
+    if (!SV.on || (SV.surf !== 'plane' && SV.surf !== 'sphere') || P.length < 2) return null;
+    if (i < 1) return { why: 'first', name: svName(P[i]) };
+    if (derivIn(P[i - 1], P[i])) return { why: 'deriv' };
+    const src = svPathsSeg(P, i - 1, i, i);
+    return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
     // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
@@ -282,25 +282,81 @@
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
-    viewKind: figViewKind,
+    viewKind: svFigView,
+    svOn: () => SV.on,
+    // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it, in o.box when one is
+    // given (the stage is moved to it for the one render and back)
+    svFrames: () => svPlanes().map((k, i, P) => {
+      const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
+      return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
+    }),
+    svArt: async (i, o) => {
+      const keep = SV.i;
+      svGo(i, true);
+      const at = SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
+        : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
+      try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
+    },
+    svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
+    // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
+    // it is drawn on, null without a step or where the left pane shows no picture of that surface; svGlideArt draws the
+    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving),
+    // at o.box on the plane and at the frame's o.wpt x o.hpt in the screen's camera on the sphere and the Landscape, and
+    // svGlideText is the screen's own words for that place
+    svGlide: () => {
+      const P = svPlanes();
+      if (!SV.on || P.length < 2 || (SV.surf === 'sphere' ? !lGlobe() : SV.surf === 'land' ? !lLand() : SV.surf !== 'plane')) return null;
+      const R = svRange();
+      return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
+    },
+    svGlideArt: async (x, o) => {
+      const keep = { x: SV.g.x, span: SV.span };
+      SV.span = null; SV.g.set(x);
+      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : o); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+    },
+    svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
+    // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
+    // i of the thread, which places the shapes' images there
+    svBox: () => paneBox(paneL, leftView()),
+    svSurf: () => SV.surf,
+    svMaskOn,
+    // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
+    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
+    // plane the line saying where the colour is carried from; and the plane's name for the axis title
+    svKey: (x) => {
+      if (!SV.on) return null;
+      // (the plane the key and the title name is the thread's nearest one: they change at the midpoint between two)
+      const keep = { x: SV.g.x, span: SV.span, i: SV.i };
+      if (x != null) { SV.span = null; SV.g.set(x); SV.i = Math.max(0, Math.min(svPlanes().length - 1, Math.round(x))); }
+      try {
+        const plain = S.dc === 'phase', n = S.sectors || 12, name = svKeyName(), from = svCarriedFrom();
+        return { plain, n, name, title: svName(svStage()), stops: keyStops(false), factor: keyFactor(n), perBand: $t('per band'), caption: keyCaption(plain, name), carried: from ? { from, text: $tx('key line', 'colour carried from {p}', { p: from }) } : null };
+      } finally { if (x != null) { SV.g.set(keep.x); SV.span = keep.span; SV.i = keep.i; } }
+    },
+    svFrameF: (i) => rangeF(0, svPlanes()[i]),
+    // the name, in TeX, of the map from plane i of the thread to plane j: F, f_2, f_2∘f_1
+    // the planes' names (z, w₂) and the ends of the Play range as indexes into them, null when none is marked
+    svPlaneNames: () => svPlanes().map(svName),
+    svRangeEnds: () => { const R = svRange(); return R ? [R.lo, R.hi] : null; },
+    svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
     homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
     morphLen,
     // L0: the z-plane's window (the shapes' own plane, also at a focused step)
-    screenBox: (side) => { if (side !== 'L0') return viewBoxOf(side); const v = S.srcView, w = effW('L'), hh = paneL.h > 20 ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; },
+    screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(side),
     // a pane's view (centre, px per unit), for the export window of an unbounded set (independent of the pane's size)
     viewOf: (side) => { const v = side === 'L0' ? S.srcView : side === 'L' ? leftView() : V.right; return { cx: v.cx, cy: v.cy, s: v.s }; },
     landBox: () => landBox(),
     paneAspect: (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return (real.h > 20 ? real.h : other.h) / effW(side); },
     panelVar,
-    fname: () => (morphOn() ? 'H_t' : fNameTex()),
+    fname: () => (morphOn() ? 'H_t' : SV.on ? svCapParts().Fname : fNameTex()),
     // ([#383] the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
     fTex: () => fNameTex(), parkedAt: () => parkedAt(),
-    formulaTex: () => figCapParts().formula,
-    formulaRaw: () => figCapParts().raw,
-    capParts: figCapParts,
+    formulaTex: () => svCapParts().formula,
+    formulaRaw: () => svCapParts().raw,
+    capParts: svCapParts,
     sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
@@ -329,7 +385,7 @@
     return {
       BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers,
+      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
       pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
@@ -337,6 +393,7 @@
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
+      get artRelief() { return artRelief; }, set artRelief(v) { artRelief = v; },
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },

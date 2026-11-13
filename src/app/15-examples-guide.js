@@ -50,7 +50,7 @@
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
     {
-      name: $t('A formula in LaTeX'), tryDone: [[{ on: 'formula-edited' }]], try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('A formula in LaTeX'), tryDone: [[{ on: 'formula-edited' }]], try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a colour plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
@@ -81,13 +81,13 @@
       steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }], rightMode: 'color', dc: 'cauchy', selected: 0,
     },
     {
-      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), trySv: $t('Try: on the d/dz chip, ⋯ → Move left (Alt+←), and watch the picture change.'), tryDoneSv: [[{ on: 'step-moved' }]], tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: choose Landscape and follow the cut of the logarithm.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: click the chip f₁, then Show all sheets in the Inspector.'), tryDoneSv: [[{ on: 'sheets-shown' }, { on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -156,22 +156,22 @@
       steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('A Julia set that its map keeps'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 2 }], [{ on: 'repeat-changed', test: (e) => e.n > 2 }]], try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('A Julia set that its map keeps'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 2 }], [{ on: 'repeat-changed', test: (e) => e.n > 2 }]], try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), trySv: $t('Try: on the chip f₁, ⋯ → Repeat…, then raise N in the Inspector: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.75, u, z, 64)|\\le 2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.75' } }],
     },
     {
-      name: $t('Douady’s rabbit'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 }]], try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('Douady’s rabbit'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 }]], try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), trySv: $t('Try: on the chip f₁, ⋯ → Repeat…, N = 3 in the Inspector: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.1226+0.7449i, u, z, 96)|\\le 2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.1226+0.7449i' } }],
     },
     {
-      name: $t('Newton’s method for z³ − 1'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 1 && e.n <= 3 }]], try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
+      name: $t('Newton’s method for z³ − 1'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n >= 1 && e.n <= 3 }]], try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), trySv: $t('Try: lower N in the Inspector\'s Repeat row of f₁ to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
       shapes: [{ kind: 'rect', a: [-2, -2], b: [2, 2] }],
       steps: [{ type: 'custom', params: { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }, repeat: { n: 20, len: 1 } }], rightMode: 'color',
     },
     {
-      name: $t('The Julia set of z² + i'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 && e.len === 2 }]], try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
+      name: $t('The Julia set of z² + i'), tryDone: [[{ on: 'repeat-changed', test: (e) => e.n === 3 && e.len === 2 }]], try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), trySv: $t('Try: on the chip f₂, ⋯ → Repeat → f₁–f₂, twice, then N = 3 in the Inspector: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
       shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
     },
@@ -221,6 +221,7 @@
     if (b) {
       b.setAttribute('data-tip', $t('Theme: {name}', { name })); b.setAttribute('aria-label', $t('Theme: {name}', { name })); b.removeAttribute('title');
       const tl = b.querySelector('.tlabel'); if (tl) tl.textContent = name; // the markup already reads "Theme: "
+      const ic = b.querySelector('.ic-slot'); if (ic) ic.innerHTML = ICONS[{ auto: 'theme', light: 'themeLight', dark: 'themeDark' }[t]] || '';   // (the icon shows the state: half disc Auto, sun Light, moon Dark)
     }
   }
   // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.js): the
@@ -266,7 +267,7 @@
     syncPalBtn();
     if (!changed || !paneL) return;
     drawLegend();
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   function syncPalBtn() {
     const b = $('palBtn');
@@ -326,6 +327,11 @@
     }
     x.putImageData(img, 0, 0);
   }
+  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z
+  function regionsNote() {
+    const note = document.querySelector('#regionsBox > .lbl');
+    if (note) note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
+  }
   function buildDisplay() {
     // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)
     for (const sw of document.querySelectorAll('.pat-btn .disp-sw')) drawPhaseSwatch(sw);
@@ -335,6 +341,7 @@
     $('meshRange').min = 0; $('meshRange').max = 1000; $('meshRange').step = 1;
     $('meshRange').value = meshToPos(S.meshN);
     showMeshVal(S.meshN);
+    regionsNote();
     $('linesChk').checked = !!S.lines;
     $('chevChk').checked = !!S.chev;
     $('unitChk').checked = S.unit !== false;
@@ -347,7 +354,6 @@
     const lo = +r.min || 0, hi = r.max === '' ? 100 : +r.max, v = +r.value;
     const fill = `${((v - lo) / (hi - lo || 1)) * 100}%`;
     r.style.setProperty('--fill', fill);
-    if (r.closest('.tscrub')) r.closest('.tscrub').style.setProperty('--fill', fill);
   }
 
   // below 1280 px the guarantees panel is an overlay drawer, below 1024 px the tools panel too
@@ -394,8 +400,6 @@
     lay.classList.toggle('hide-right', !!S.hideRight);
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
-    $('pipeline').classList.toggle('compact', !!S.compact);
-    setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
     const panes = document.querySelector('.panes');
     // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
     // so it reads as a view of its own, not an expanded pane
@@ -429,7 +433,7 @@
       layoutFoot();
       sourceViewChanged();
       if (rightAuto && rImage() && solo() !== 'L') fitRight();
-      requestRender('L', 'R', 'T');
+      requestRender('L', 'R');
       sndRelayout();   // (sound: the plane under a still pointer moved)
     }
   }
@@ -461,7 +465,7 @@
     $('meshRange').value = meshToPos(n);
     showMeshVal(n);
     if (rightAuto && rImage()) fitRight();
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
     save();
   }
 
@@ -473,7 +477,6 @@
     L: [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']],
     R: [['plane', $t('Plane'), '⇧3'], ['sphere', $t('Sphere'), '⇧4']],
   };
-  const MAINS = [['xy', 'X → Y', '1', '<i>X</i><span class="arr"> → </span><i>Y</i>'], ['phase', $t('Phase'), '2', $t('Phase')], ['land', $t('Landscape'), '3', $t('Landscape')]];
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
@@ -544,9 +547,36 @@
     updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();
   }
   // the head controls show the state
+  // The canvas stack's surface and fit keys, on each plane's .viewstack. Sphere carries the surface in aria-pressed; a key the surface cannot
+  // use stays in its place, aria-disabled, with its reason as the tooltip and as the note the key's aria-describedby names.
+  function setStackKey(btn, note, off, why, tip) {
+    if (off) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
+    btn.title = off ? why : tip;
+    note.textContent = off ? why : '';
+  }
+  function syncStackKeys() {
+    for (const side of ['left', 'right']) {
+      const L = side === 'left', sph = $(side + 'Sph');
+      if (!sph) continue;
+      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
+      sph.setAttribute('aria-pressed', String(on));
+      sph.innerHTML = MODE_ICONS.sphere;
+      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
+    }
+  }
+  // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
+  function stackSphere(side) {
+    if ($(side === 'L' ? 'leftSph' : 'rightSph').getAttribute('aria-disabled') === 'true') return;
+    if (svSphereKey() != null) return;
+    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');
+    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
+    if (t) t.click();
+  }
   function syncViewControls() {
     const main = S.view.main;
-    setSeg($('viewSwitch'), main);
+    document.documentElement.classList.toggle('view-land', main === 'land');
     setSeg($('leftTabs'), xView().surf);
     setSeg($('rightTabs'), S.view.R.surf);
     // the landscape is its own surface: no Plane | Sphere in its head
@@ -554,21 +584,7 @@
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
     // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
     for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
-    // the view names the map in focus (P13)
-    const vs = $('viewSwitch');
-    if (vs) for (const b of /** @type {Iterable<HTMLElement>} */ (vs.children)) {
-      const F = fnText(), tip = { xy: $t(`X → Y: the shapes and their images  1`), phase: $t('Phase portrait of {F}  2', { F }), land: $t('Landscape of {F}  3', { F }) }[b.dataset.mode];
-      if (b.dataset.tip !== tip) b.dataset.tip = tip;
-    }
-    // the Deformation toggle: pressed while the transport is open; with no active step it explains instead of acting
-    const mb = $('morphBtn');
-    if (mb) {
-      const can = morphRange().steps.length > 0;
-      mb.setAttribute('aria-pressed', String(!!morph.open));
-      mb.setAttribute('aria-disabled', String(!can && !morph.open));
-      const tip = !can && !morph.open ? (S.focus > 0 ? $t('This step is off: turn it on to deform') : $t('Add a function to deform')) : morph.open ? $t('Close the deformation  M') : $t('Deformation of {F}  M', { F: S.focus > 0 ? fnText() : 'F' });
-      if (mb.dataset.tip !== tip) mb.dataset.tip = tip;
-    }
+    syncStackKeys();
   }
   // Snap (the Draw heading and the rail) and Unit circle (Display) show the state (P3)
   function syncSnapUnit() {
@@ -602,7 +618,7 @@
       hgt = Math.max(96, Math.min(r.height * 0.5, hgt));
       for (const snapTo of [96, 188]) if (Math.abs(hgt - snapTo) < 12) hgt = snapTo;
       document.documentElement.style.setProperty('--chain-h', Math.round(hgt) + 'px');
-      setOpt('compact', hgt < 140); $('pipeline').classList.toggle('compact', S.compact); setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
+      setOpt('compact', hgt < 140);
     }, () => store('cmw-chain-h2', parseInt(getComputedStyle(stage).getPropertyValue('--chain-h')) || 188));
     const col = $('gutterCol');
     if (col) {
@@ -618,6 +634,8 @@
   function setupTooltips() {
     const tip = $('tip');
     if (!tip) return;
+    // (a focus counts as keyboard navigation when a Tab or arrow key came this many ms before it)
+    const NAV_KEY_MS = 300;
     let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
     // (v16.5 UX17) the tool descriptions that say click, in touch words (the others drag, hold or pick)
     const TOUCH_DESC = {
@@ -626,7 +644,7 @@
       segment: () => $t('Tap one end and then the other, or drag between them.'),
       line: () => $t('Tap two points, or drag through them; the line extends to infinity.'),
       ray: () => $t('Tap the start and then a point on the ray, or drag from the start.'),
-      circle: () => $t('Tap the center and then a point on the circle, or drag from the center.'),
+      circle: () => $t('Tap the centre and then a point on the circle, or drag from the centre.'),
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
       touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
@@ -677,7 +695,7 @@
     document.addEventListener('focusin', (e) => {
       const tg = /** @type {HTMLElement} */ (e.target);
       const el = tg && tg.closest ? tg.closest('[data-tip],[title]') : null;
-      if (!el || performance.now() - navKeyAt > 300 || !el.matches(':focus-visible')) return;
+      if (!el || performance.now() - navKeyAt > NAV_KEY_MS || !el.matches(':focus-visible') || el.closest('.ph-sheet')) return;   // (a phone's sheet has no hover tips: its choices carry their words)
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();
       cur = el; kbdTip = el;
@@ -687,8 +705,8 @@
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     // (#247: also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
-    const LP_SEL = '.tool[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
-      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip]';
+    const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
@@ -781,10 +799,10 @@
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
     }
   }
-  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between the
-  // areas (the top bar, the tools, X, Y, the chain, the Inspector; in the steps view the top bar, the tools, the
-  // plane, the thread, the Inspector). A phone keeps every control a stop
-  const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
+  // a laptop's tool grids are one Tab stop each, the arrows move inside, and F6 moves between the areas (the top bar,
+  // the tools, X, Y, the Inspector; in the steps view the top bar, the tools, the plane, the thread, the Inspector). A
+  // phone keeps every control a stop
+  const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
   const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
@@ -838,7 +856,6 @@
       { id: 'tools', el: () => act('#tools'), has: (el) => !!el.closest('#secDraw, #railTools') },
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
       { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
-      { id: 'chain', el: () => act('#pipeline'), has: (el) => !!el.closest('#pipeline') },
       // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
       { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
@@ -868,26 +885,11 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'pipeline', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
+    for (const id of ['shapeList', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }
     roveRadios(); roveGroups();
-  }
-  // radiogroups without their own handler: arrows (and Home/End) move the checked radio and the focus with it
-  function radioKeys(group) {
-    group.addEventListener('keydown', (e) => {
-      const dir = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-      if (!dir && e.key !== 'Home' && e.key !== 'End') return;
-      const rs = [...group.querySelectorAll('[role="radio"]')];
-      const i = rs.findIndex((r) => r.getAttribute('aria-checked') === 'true');
-      const j = e.key === 'Home' ? 0 : e.key === 'End' ? rs.length - 1 : Math.max(0, Math.min(rs.length - 1, i + dir));
-      e.preventDefault();
-      if (j === i || !rs[j]) return;
-      rs[j].click();
-      const on = group.querySelector('[role="radio"][aria-checked="true"]');
-      if (on) on.focus({ preventScroll: true });
-    });
   }
   // toast with an optional action (used instead of confirmation dialogs).
   // An Undo toast is bound to the history entry it announces: it undoes exactly that action, and the next
@@ -908,35 +910,43 @@
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
   // on the host) and when the layout changes.
+  // (the bar's height for the plane's keys lives in a stylesheet of its own, so that the root never carries a style attribute)
+  let liftSheet = null;
+  function toastLift(px) {
+    if (px == null && !liftSheet) return;
+    if (!liftSheet) { liftSheet = new CSSStyleSheet(); document.adoptedStyleSheets = [...document.adoptedStyleSheets, liftSheet]; }
+    liftSheet.replaceSync(px == null ? '' : ':root { --ph-toast-h: ' + px + 'px; }');
+  }
   function placeToasts() {
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
-    // (D1, issue #23) Clear chain gives the chain head's room to a message placed there, and is back when it goes (the
-    // message has its own Undo)
-    const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
-    away(false);
-    // (#515, ux's choice A on the layout check: in the steps view a message takes only the thread's rail, whose planes and
-    // steps step aside while it shows; the < > and the speed stay live, and going on through the thread dismisses it)
-    const strip = $('svStrip'), stripAway = (on) => { if (strip) strip.classList.toggle('sv-toast', on); };
-    stripAway(false);
-    // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
-    if (document.documentElement.classList.contains('ph')) { clear(); return; }
-    if (!host.firstElementChild) return;
+    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    const phone = document.documentElement.classList.contains('ph');
+    if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
-    const rail = document.documentElement.classList.contains('sv') && strip ? box(strip.querySelector('.sv-rail')) : null;
-    // (the F chip and "+ Add function" beside the rail step aside with the planes, and the message takes their room too)
-    const aside = rail ? [strip.querySelector('.sv-wholemap'), strip.querySelector('.sv-add')].map(box).filter(Boolean) : [];
-    const room = rail ? Math.max(rail.right, ...aside.map((b) => b.right)) - rail.left : 0;
-    if (rail && rail.width >= 160 && host.children.length === 1) {
-      stripAway(true);
-      host.setAttribute('data-placed', 'rail');
-      st.left = Math.round(rail.left + room / 2) + 'px';
-      st.maxWidth = Math.round(room - 8) + 'px';
-      const tw = host.firstElementChild.getBoundingClientRect();
-      st.bottom = Math.round(H0() - rail.bottom + (rail.height - tw.height) / 2) + 'px';
+    // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip, as wide as the plot
+    // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
+    // the tool row, which the planes and the sheet give up)
+    if (phone) {
+      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
+      if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
+      host.setAttribute('data-placed', 'phone-plot');
+      st.bottom = Math.round(H0() - sb.top + 8) + 'px';
+      toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
+      return;
+    }
+    // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
+    // centred, 2 × 64 px narrower than the plot so that the zoom buttons stay free; it covers no control of the strip)
+    const plot = document.documentElement.classList.contains('sv') ? box($('plotL')) : null;
+    if (plot && plot.width >= 240) {
+      const sb = box($('svStrip')), floor = sb && sb.top > plot.top ? Math.min(plot.bottom, sb.top) : plot.bottom;
+      host.setAttribute('data-placed', 'plot');
+      st.left = Math.round(plot.left + plot.width / 2) + 'px';
+      st.maxWidth = Math.round(plot.width - 128) + 'px';
+      st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
     const chain = box(document.querySelector('.pipe-wrap'));
@@ -957,26 +967,6 @@
         for (const r of keys) if (r.bottom > top - 80) hi = Math.min(hi, r.left - 8);
       }
     } else {
-      // ([v16.5 fix regress-3, the user's rule "nothing covers the work area uninvited"] a desktop's message goes in the
-      // chain head's free middle, between its title and Pictures | Names, when it fits there whole on one line: it then
-      // covers neither a plane nor a control. Only a message too long for it goes above the chain, as UX80 placed it)
-      const hd = document.querySelector('.pipe-head'), grow = hd && hd.querySelector(':scope > .grow'), hb = box(hd);
-      if (hb && grow && hb.height > 0 && hb.height < 60 && host.children.length === 1) {
-        away(true);
-        const kids = [...hd.children].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none'), gi = kids.indexOf(grow);
-        const a = gi > 0 ? Math.max(...kids.slice(0, gi).map((e) => e.getBoundingClientRect().right)) : hb.left;
-        const b = gi >= 0 && gi < kids.length - 1 ? Math.min(...kids.slice(gi + 1).map((e) => e.getBoundingClientRect().left)) : hb.right;
-        host.setAttribute('data-placed', 'head'); st.maxWidth = 'none';
-        const tw = host.firstElementChild.getBoundingClientRect(), room = b - a - 24;
-        if (room >= 160 && tw.width <= room && tw.height <= hb.height) {
-          st.left = Math.round((a + b) / 2) + 'px';
-          st.bottom = Math.round(H - hb.bottom + (hb.height - tw.height) / 2) + 'px';
-          st.maxWidth = Math.round(room) + 'px';
-          return;
-        }
-        away(false);
-        host.setAttribute('data-placed', '');
-      }
       // the planes side by side: between X's and Y's button columns; one plane: left of its own
       const stacks = ['paneL', 'paneR'].map((id) => { const p = $(id); return p && p.getClientRects().length ? box(p.querySelector('.viewstack')) : null; });
       const plots = ['plotL', 'plotR'].map((id) => box($(id)));
@@ -989,27 +979,82 @@
     st.bottom = Math.round(H - top + 8) + 'px';
     st.maxWidth = Math.round(hi - lo) + 'px';
   }
+  // A message over a dialog takes no click meant for the dialog (page.html): it is live, its × included, only where it lies clear of
+  // every control of the dialog
+  function syncToastLive() {
+    const host = $('toastHost');
+    if (!host) return;
+    const t = host.firstElementChild, modal = document.querySelector('.modal-bg');
+    let live = false;
+    if (t && modal) {
+      const r = t.getBoundingClientRect();
+      live = ![...modal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')].some((c) => { const b = c.getBoundingClientRect(); return b.width > 0 && b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom; });
+    }
+    host.toggleAttribute('data-clear-of-dialog', live);
+  }
+  function refreshToasts() { placeToasts(); syncToastLive(); }
+  // A message leaves with a 150 ms slide and fade (toast-out); Esc closes it unless a dialog, menu or another handler has taken the key.
+  const TOAST_OUT_MS = 150;
+  function closeToast(t) {
+    if (!t.isConnected || t.classList.contains('toast-out')) return;
+    t.classList.add('toast-out');
+    setTimeout(() => t.remove(), TOAST_OUT_MS);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.repeat || document.querySelector('.modal-bg, #popHost > *, .hdr-menu:popover-open')) return;
+    const t = document.querySelector('#toastHost .toast:not(.toast-out)');
+    if (t) closeToast(/** @type {HTMLElement} */ (t));
+  });
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
-  // o.ms: how long an ordinary one stays)
+  // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
+  // message or the focus is in it)
+  const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
     if (!host) return;
     host.innerHTML = '';
     const t = h('div', { class: 'toast', role: 'status', 'data-undo': isUndo ? '' : null }, h('span', null, msg));
-    if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { t.remove(); action(); } }, actionLabel));
-    if (o && o.sticky) { t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => t.remove() })); host.append(t); return t; }
+    if (actionLabel) t.append(h('button', { class: 'toast-act', onclick: () => { closeToast(t); action(); } }, actionLabel));
+    // (the classic phone's timed message keeps its bar's room for the words and goes by itself; a press on the words closes any)
+    const rt = document.documentElement.classList;
+    if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
+    t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
-    let left = (o && o.ms) || 5000, t0 = performance.now(), timer = setTimeout(() => t.remove(), left);
-    t.addEventListener('pointerenter', () => { clearTimeout(timer); left -= performance.now() - t0; });
-    t.addEventListener('pointerleave', () => { t0 = performance.now(); timer = setTimeout(() => t.remove(), Math.max(800, left)); });
+    if (o && o.sticky) return t;
+    let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
+    const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
+    const hold = (d) => { held += d; if (held === 1 && d > 0) { clearTimeout(timer); left -= performance.now() - t0; } else if (held === 0) run(Math.max(800, left)); };
+    run(left);
+    // a touch that drags the message down dismisses it past 32 px, and lets it back otherwise
+    t.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' || !e.isPrimary || /** @type {Element} */ (e.target).closest('button')) return;
+      const y0 = e.clientY, id = e.pointerId;
+      let dy = 0;
+      hold(1); t.setPointerCapture(id);
+      const move = (m) => { if (m.pointerId !== id) return; dy = Math.max(0, m.clientY - y0); t.style.setProperty('--drag', dy + 'px'); t.style.translate = '0 var(--drag)'; };
+      const end = (u) => {
+        if (u.pointerId !== id) return;
+        t.removeEventListener('pointermove', move); t.removeEventListener('pointerup', end); t.removeEventListener('pointercancel', end);
+        t.style.removeProperty('translate');
+        hold(-1);
+        // (a drag is no press: the click that follows it does not reach the host's press-to-dismiss)
+        if (dy > TOAST_DRAG_NO_PRESS_PX) { const eat = (c) => c.stopPropagation(); t.addEventListener('click', eat, true); setTimeout(() => t.removeEventListener('click', eat, true), TOAST_CLICK_EAT_MS); }
+        if (u.type === 'pointerup' && dy >= TOAST_DRAG_DISMISS_PX) closeToast(t); else t.style.removeProperty('--drag');
+      };
+      t.addEventListener('pointermove', move); t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end);
+    });
+    t.addEventListener('pointerenter', () => hold(1));
+    t.addEventListener('pointerleave', () => hold(-1));
+    t.addEventListener('focusin', () => hold(1));
+    t.addEventListener('focusout', () => hold(-1));
     return t;
   }
   // what the examples and the guide (src/examples.js) need from the app: its functions and constants, and the state
   // they reassign as getters (and setters for the state they write)
   function examplesApi() {
     return {
-      EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette,
+      EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,

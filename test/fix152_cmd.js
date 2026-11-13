@@ -1,4 +1,4 @@
-// v15.2 review fixes (notes/workflows/ledger-v152.json): the formula-in-steps findings of review-v152-steps.json and
+// Review fixes: the formula-in-steps findings and
 // regress-2, in the built page (dist/test.html), English and Russian, desktop 1440 and phone 390 (Android Chrome):
 //  steps-1  the palette flow (the formula shown alone) and Add as n steps keep the planes: F, not the first sub-step;
 //           with other steps the toast says which step is shown;
@@ -93,6 +93,8 @@ await open('fxB', { steps: [] });
 {
   // Add as 3 steps into an empty chain: F is the typed formula, shown whole (planes = the formula as one step)
   await palPick('\\sin(z^2+1)', 'Add as 3 steps');
+  // (the palette draws the highlighted row's preview and its caption 60 ms after the highlight moves: wait for it)
+  info.capWait = await settled({ max: 5000, until: '!!document.querySelector(".pal-cap .pal-rows")' });
   info.capRows = await ev(`(() => { const l = document.querySelector('.pal-cap .pal-rows'); if (!l) return null; const box = l.parentNode.getBoundingClientRect(); const ts = [...l.querySelectorAll('.drv-tex')].map((t) => t.getBoundingClientRect()); return { n: ts.length, inside: ts.every((r) => r.left >= box.left - 0.5 && r.right <= box.right + 0.5), lines: new Set(ts.map((r) => Math.round(r.top))).size, fs: l.style.fontSize, over: l.scrollWidth - l.clientWidth }; })()`);
   ok('steps-2: the caption shows all 4 rows of the derivation inside its box (fitted or wrapped, never cut)', info.capRows && info.capRows.n === 4 && info.capRows.inside && info.capRows.over <= 1, info.capRows);
   await shot('fix-steps2-caption', { x: 300, y: 60, width: 840, height: 640 });

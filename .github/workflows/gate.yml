@@ -39,7 +39,7 @@ on:
         type: boolean
         default: false
       shards:
-        description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
+        description: Only these perf shards or parts of them (comma-separated ids of ci/perf_shards.js; empty or all = every shard)
         required: false
         default: ''
       glsl:
@@ -75,8 +75,15 @@ jobs:
     permissions:
       actions: read
     outputs:
-      mirror: ${{ steps.look.outputs.mirror }}
+      mirror: ${{ steps.look.outputs.mirror || steps.cover.outputs.mirror }}
+      mirror_pr: ${{ steps.look.outputs.mirror && github.event.pull_request.number || steps.cover.outputs.mirror_pr }}
+      mirror_sha: ${{ steps.look.outputs.mirror && github.event.pull_request.head.sha || steps.cover.outputs.mirror_sha }}
     steps:
+      # (ci/gate_run_of.sh)
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: ci/gate_run_of.sh
+          sparse-checkout-cone-mode: false
       - id: look
         if: github.event.action == 'ready_for_review' && github.event.pull_request.base.ref != 'main'
         shell: bash
@@ -87,18 +94,55 @@ jobs:
         run: |
           set -eu
           [[ "$PR" =~ ^[0-9]+$ ]] || { echo "mirror=" >> "$GITHUB_OUTPUT"; exit 0; }
-          other=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/gate.yml/runs?head_sha=$HEAD_SHA&per_page=100" \
-            --jq "[.workflow_runs[] | select(.id != $GITHUB_RUN_ID and ((.pull_requests // []) | any(.number == $PR)))] | sort_by(.created_at) | last | if . == null then \"none\" else \"\\(.id) \\(.status) \\(.conclusion // \"\")\" end") || other="error (the look-up failed)"
+          other=$(ci/gate_run_of.sh "$HEAD_SHA" "$PR") && found=1 || found=0
           echo "the newest other Gate run of #$PR on $HEAD_SHA: $other"
-          case "$other" in
-            *" completed success") echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
-                                   echo "Gated by run ${other%% *} of this PR on this commit (it passed): nothing runs again." >> "$GITHUB_STEP_SUMMARY" ;;
-            *" queued "|*" in_progress "|*" waiting "|*" requested "|*" pending ")
-               echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
-               echo "Run ${other%% *} of this PR is gating this commit ($other): nothing runs again; the Gate job waits for it and carries its verdict." >> "$GITHUB_STEP_SUMMARY" ;;
-            *) echo "mirror=" >> "$GITHUB_OUTPUT"
-               echo "No passing Gate run of this PR on this commit yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY" ;;
-          esac
+          if [ "$found" = 1 ]; then
+            case "$other" in
+              *" completed success") echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
+                                     echo "Gated by run ${other%% *} of this PR on this commit (it passed): nothing runs again." >> "$GITHUB_STEP_SUMMARY" ;;
+              *) echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
+                 echo "Run ${other%% *} of this PR is gating this commit ($other): nothing runs again; the Gate job waits for it and carries its verdict." >> "$GITHUB_STEP_SUMMARY" ;;
+            esac
+          else
+            echo "mirror=" >> "$GITHUB_OUTPUT"
+            echo "No passing Gate run of this PR on this commit yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      # (#787) a pull request into another branch than main whose head another open pull request into the same branch
+      # contains (a stack: each head holds the lower ones): the top of the stack gates all of them, so this one carries
+      # that run's verdict instead of running its own tier. The compare API says which open PRs contain this head; the
+      # one furthest ahead is the top. Switched on by the repository variable GATE_STACK_SKIP = on; otherwise the summary
+      # only says what would have happened and the run is the usual one
+      - id: cover
+        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main' && steps.look.outputs.mirror == ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          SWITCH: ${{ vars.GATE_STACK_SKIP }}
+        run: |
+          set -u
+          [[ "$PR" =~ ^[0-9]+$ ]] || exit 0
+          top=''; ahead=0
+          while read -r n sha; do
+            [ "$n" = "$PR" ] && continue
+            st=$(gh api "repos/$GITHUB_REPOSITORY/compare/$HEAD_SHA...$sha" --jq '"\(.status) \(.ahead_by)"') || continue
+            case "$st" in "ahead "*) a=${st#ahead }; if [ "$a" -gt "$ahead" ]; then ahead=$a; top="$n $sha"; fi ;; esac
+          done < <(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&base=$BASE&per_page=100" --paginate --jq '.[] | "\(.number) \(.head.sha)"' || true)
+          if [ -z "$top" ]; then echo "No open pull request into $BASE contains this head: this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          tn=${top%% *}; ts=${top##* }
+          other=$(ci/gate_run_of.sh "$ts" "$tn") && found=1 || found=0
+          echo "#$tn ($ts) contains this head; its newest Gate run on it: $other"
+          if [ "$found" != 1 ]; then
+            echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          run=${other%% *}
+          if [ "$SWITCH" != on ]; then
+            echo "Report only (GATE_STACK_SKIP is not on): #$tn contains this head and run $run gates it ($other); with the switch on, this run would carry that verdict and run nothing. It runs its own tier." >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
+          echo "mirror=$run" >> "$GITHUB_OUTPUT"; echo "mirror_pr=$tn" >> "$GITHUB_OUTPUT"; echo "mirror_sha=$ts" >> "$GITHUB_OUTPUT"
+          echo "Stacked under #$tn: run $run of #$tn on $ts contains this head and gates it ($other); nothing runs here and the Gate job carries its verdict." >> "$GITHUB_STEP_SUMMARY"
 
   plan:
     name: Plan
@@ -117,6 +161,8 @@ jobs:
       quality_force: ${{ steps.tier.outputs.quality_force }}
       perf_force: ${{ steps.tier.outputs.perf_force }}
       mirror: ${{ needs.ready.outputs.mirror }}
+      mirror_pr: ${{ needs.ready.outputs.mirror_pr }}
+      mirror_sha: ${{ needs.ready.outputs.mirror_sha }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -177,10 +223,16 @@ jobs:
           # (#379: marked ready for review into another branch than main, a passing Gate run of this PR on the same commit,
           # the job ready: nothing is selected)
           MIRROR: ${{ needs.ready.outputs.mirror }}
+          MIRROR_PR: ${{ needs.ready.outputs.mirror_pr }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set -eu
           if [ -n "$MIRROR" ]; then
-            why="marked ready for review into ${BASE}: run ${MIRROR} of this PR gates this commit (passed, or still running: the Gate job carries its verdict); nothing to re-run"
+            if [ "$MIRROR_PR" = "$PR" ]; then
+              why="marked ready for review into ${BASE}: run ${MIRROR} of this PR gates this commit (passed, or still running: the Gate job carries its verdict); nothing to re-run"
+            else
+              why="stacked under #${MIRROR_PR}: run ${MIRROR} of #${MIRROR_PR}, whose head contains this one, gates this commit (passed, or still running: the Gate job carries its verdict); nothing to re-run"
+            fi
             printf '%s\n' "tier=none" "why=$why" "browser=[]" "glsl=[]" "quality=[]" "perf=false" "quality_force=" "perf_force=" >> "$GITHUB_OUTPUT"
             printf '**Tier none**: %s\n' "$why" >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -274,7 +326,7 @@ jobs:
       - name: Shader cache (restore)
         if: runner.os == 'Windows'
         id: shaders
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
           key: glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-${{ hashFiles('src/glsl.js', 'src/gl/**', 'src/funcs.js', 'src/derivs.js', 'src/natpaths.js', 'src/sheets.js', 'src/formulasteps.js', 'src/parse.js', 'src/symbolic.js', 'src/invops.js', 'src/invpatterns.js', 'src/inverse.js', 'test/glsl_test.js', 'test/glsl_test_adv.js', 'test/glsl_inverse_test.js') }}
@@ -287,7 +339,7 @@ jobs:
           CMW_GLSL_CACHE: ${{ runner.os == 'Windows' && format('{0}/cmw-glsl-cache', runner.temp) || '' }}
       - name: Shader cache (save)
         if: always() && runner.os == 'Windows' && steps.shaders.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
           key: ${{ steps.shaders.outputs.cache-primary-key }}
@@ -372,17 +424,21 @@ jobs:
     # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
     # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
     # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
-    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900).
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). The job runs on GitHub's Ubuntu 24.04
+    # image, not ubuntu-latest: the layout shards gate on the renderer their baseline was made on (ci/layout_baseline.json:
+    # this image's lavapipe, with its Vulkan and LLVM versions in the renderer's name), so on another image they fail
+    # until a new baseline is made there; and the jobs of one run must not land on two images while ubuntu-latest moves.
+    # TODO(#1507): run the job on Ubuntu 26.04 with a new layout baseline made there, and unpin it.
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     strategy:
       fail-fast: false
       # (at most 8 shards of one run at a time: the hosted runners are shared by every open pull request, and a run that
-      # holds all of them leaves the others half done; the full gate's 29 shards take four rounds, a tier's few run at once)
+      # holds all of them leaves the others half done; the full gate's 31 shards take four rounds, a tier's few run at once)
       max-parallel: 8
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.browser) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       CMW_ANGLE: vulkan
@@ -399,18 +455,30 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      # (#504: the image's package lists usually know the package, so it installs without refreshing them first; they are
-      # refreshed only when that fails, as before. Each part's time goes to the log)
+      # Mesa's Vulkan drivers (ci/lavapipe.sh): from Ubuntu's mirrors, or, when they cannot be reached, from an Actions
+      # cache of the package's files, or from a fallback mirror on another domain. The cache is keyed by the runner's
+      # image and the package's version in the image's lists, restored by that exact key only (files from another image
+      # are never installed), and saved after an install from a mirror, Ubuntu's or the fallback, of that version only
+      # (after a Mesa update, a download with refreshed lists installs a newer one; a pull request's run reads its own
+      # saves and main's)
+      - name: Mesa cache key
+        id: mesa-key
+        run: ci/lavapipe.sh --key >> "$GITHUB_OUTPUT"
+      - name: Mesa cache (restore)
+        id: mesa-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/cmw-lavapipe-debs
+          key: ${{ steps.mesa-key.outputs.key }}
       - name: Mesa's Vulkan drivers (lavapipe)
-        # (needrestart's scan for services to restart after the install, about 1.4 s, has nothing to restart here: off,
-        # on sudo's own line, since sudo resets the environment)
-        run: |
-          t0=$(date +%s.%N)
-          if dpkg -s mesa-vulkan-drivers >/dev/null 2>&1; then echo "mesa-vulkan-drivers: already installed"
-          elif sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers; then echo "mesa-vulkan-drivers: installed from the image's lists"
-          else sudo apt-get update -qq && sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers && echo "mesa-vulkan-drivers: installed after apt-get update"
-          fi
-          awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN { printf "Mesa step: %.1f s\n", b - a }'
+        id: mesa
+        run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"
+      - name: Mesa cache (save)
+        if: (steps.mesa.outputs.source == 'mirror' || steps.mesa.outputs.source == 'fallback') && steps.mesa.outputs.version == steps.mesa-key.outputs.version && steps.mesa-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/cmw-lavapipe-debs
+          key: ${{ steps.mesa-key.outputs.key }}
       # (ci/browser.js asks the job's first Chrome for its renderer before the first suite, and fails the job when it has
       # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
@@ -443,8 +511,9 @@ jobs:
           SEL_GLSL: ${{ needs.plan.outputs.glsl != '[]' }}
           SEL_QUALITY: ${{ needs.plan.outputs.quality != '[]' }}
           SEL_BROWSER: ${{ needs.plan.outputs.browser != '[]' }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR: ${{ github.event.pull_request.number }}
+          # (the mirrored run: this PR's own on this commit, or the run of the PR above it in a stack)
+          HEAD_SHA: ${{ needs.plan.outputs.mirror_sha }}
+          PR: ${{ needs.plan.outputs.mirror_pr }}
           MIRROR: ${{ needs.plan.outputs.mirror }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -465,7 +534,7 @@ jobs:
               case "$got" in completed*) break ;; error*) fails=$((fails + 1)); [ "$fails" -lt 5 ] || break ;; esac
               sleep 60
             done
-            if [ "$got" = "completed success $HEAD_SHA true" ]; then echo "Gated by run $MIRROR of this PR on this commit (it passed)." >> "$GITHUB_STEP_SUMMARY"; exit $bad; fi
+            if [ "$got" = "completed success $HEAD_SHA true" ]; then echo "Gated by run $MIRROR of #$PR on $HEAD_SHA (it passed)." >> "$GITHUB_STEP_SUMMARY"; exit $bad; fi
             echo "::error::run $MIRROR is not a passing Gate run of #$PR on $HEAD_SHA ($got)"; exit 1
           fi
           [ "${{ needs.unit.result }}" = success ] || { echo "::error::unit: ${{ needs.unit.result }}"; bad=1; }

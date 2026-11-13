@@ -14,6 +14,12 @@
 #endif
 const float IX_LN2 = 0.6931471805599453;
 const float IX_BIG = 1e9;
+// (the sheet key's tie band, Inverse.front's TIE_D: 2^-14 octave and the same part of D; 2^-14 = 0.00006103515625)
+const float IX_TIE_D = 0.00006103515625;
+float ixTieBand(float D) { return IX_TIE_D * (1.0 + D); }
+// (the early stops' margin: the tie band and 2^-8 octave more for the error of the lower bounds: Inverse's stopBand)
+const float IX_STOP_D = 0.00390625;
+float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #if IX_LAM
 #define IX_HASLAM(L) (L).hasLam
 #else
@@ -25,13 +31,26 @@ uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
 uniform int uKsat; uniform int uKall;
+// uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
+// through, so a point covered once keeps its colour at any uAlpha
+uniform int uLastOpaque;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
 uniform highp sampler2D uPts; uniform int uShOff; uniform ivec4 uShape; uniform vec4 uShA; uniform vec4 uShB; uniform vec4 uShC;
 uniform int uFormSlot;
+#ifdef IX_STAGED
+// uShStage > 0 (programs with IX_STAGED: the carried one for the shapes of later planes): the shape lies on plane uShStage and holds the points z whose F_{0->uShStage}(z) it holds
+uniform int uShStage;
+// uEdgeOnly = 1: the pass draws the shape's boundary band alone, not its fill: alpha uEdgeA over the pixels within uEdgeW
+// device px of the boundary of any candidate (the colour channels stay zero: it is drawn into a mask's alpha)
+uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA;
+// uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
+uniform float uStageGrow;
+float ixEdge;
+#endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
-${PAT_UNIFORMS}out vec4 o;
+${PAT_UNIFORMS}layout(location = 0) out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
 vec2 ixDwX, ixDwY;
 const int IX_B = ${B};
@@ -201,7 +220,19 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   int kind = uShape.x;
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
-  if (IX_HASLAM(L) && abs(L.lam.x) > 60.0) {
+#ifdef IX_STAGED
+  if (uShStage > 0) {
+    // (the shape's level at the point's image on its plane, along the image of the footprints)
+    if (!zf) return;
+    vec2 g0 = chainRange(z, 0, uShStage), gx = chainRange(z + dX, 0, uShStage) - g0, gy = chainRange(z + dY, 0, uShStage) - g0;
+    if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
+    z = g0; dX = gx; dY = gy;
+  }
+  bool ixOwn = uShStage == 0;
+#else
+  const bool ixOwn = true;
+#endif
+  if (ixOwn && IX_HASLAM(L) && abs(L.lam.x) > 60.0) {
     bool big = L.lam.x > 0.0, at0 = uShC.x > 0.5;
     float th = L.lam.y;
     if (kind == 4) { if (big || uShC.y > 0.5) ixDirHalf(uShA.zw, th, dLX, dLY, cs, s, n); else s = at0 ? IX_BIG : -IX_BIG; return; }
@@ -233,12 +264,13 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + dist(z, W) / R) + sum over P of max(0, log2(rs / |z - p|)) ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
-  float D = log2(1.0 + ixBoxDist(z) / uWinR);
+  // (the distance to W's centre, Inverse.sheetKey; |z - c| >= the box distance, so the walk's bounds hold)
+  float D = log2(1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR);
   for (int i = 0; i < 4; i++) {
     if (i >= uSingN) break;
     vec2 p = uSing[i];
@@ -263,7 +295,7 @@ vec2 ixMobT(vec2 u) {
 }
 // 2^D of a finite point without the logs (the same order as ixSheetKey)
 float ixKeyExp(vec2 z) {
-  float K = 1.0 + ixBoxDist(z) / uWinR;
+  float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
   for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(z - uSing[i])); }
   return K;
 }
@@ -405,11 +437,13 @@ float ixDKTail() {
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
 bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  if (D1 != D2) return D1 < D2;
+  // (keys within the tie band of each other are ties: Inverse.front's)
+  if (abs(D1 - D2) > ixTieBand(min(D1, D2))) return D1 < D2;
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
 }
-// ---- early stop (3.6) ----
+// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the stop band
+// (a member within the tie band may still come in front by the tie rule) ----
 float ixRayBoxDist(vec2 a, vec2 v, float smax) {
   float lo = 0.0, hi = smax;
   if (!(abs(v.x) > 1e-30)) { if (a.x < uWin.x || a.x > uWin.z) lo = IX_INF; }
@@ -439,14 +473,14 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
     float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
-    return LB > dk;
+    return LB > dk + ixStopBand(dk);
   }
 #endif
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
   float lb = ixLastD;
   // (the members still to come start at the next one, z_m + q: a member past the front need not be walked to stop)
   if (ixLastFin) { vec2 q = cdiv(p, uIxAB[j].xy), qd = goUp ? q : -q; lb = log2(1.0 + ixRayBoxDist(ixLastZ + qd, qd, IX_INF) / uWinR); }
-  return lb > dk + 1e-12;
+  return lb > dk + ixStopBand(dk);
 }
 bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
@@ -465,7 +499,7 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       }
     }
   }
-  return lb > dk + 1e-12;
+  return lb > dk + ixStopBand(dk);
 }
 // ---- patterns with analytic footprints (6.1, 6.2) ----
 vec2 ixDivL(vec2 a, vec2 b) { return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-37); }
@@ -526,6 +560,10 @@ float ixLog2Det(vec4 J) {
 // ---- one candidate (SPEC 4.2 Leaf): coverage with the facing rule, then admission (twin merge, shading on admission)
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
+#ifdef IX_CARRY
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
+  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
+#endif
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average
@@ -623,6 +661,11 @@ float invLeaf(Lf L, out bool cov) {
   }
 #endif
   if (!done) ixShapePx(z, zf, dX, dY, L, dLX, dLY, s, n);
+#ifdef IX_STAGED
+  // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
+  if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
+  if (uEdgeOnly == 1 && s == s) ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0) * uEdgeA);
+#endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
   bool facing = bound && dot(n, lgi) < -0.5;
@@ -660,15 +703,22 @@ ${globe ? `  vec3 P = normalize(vP);
   ixAwX = ixDwX; ixAwY = ixDwY;
   ixPix = sqrt(abs(ixDwX.x * ixDwY.y - ixDwX.y * ixDwY.x));` : `  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
   vec2 w = uCenter + (f * uInvScale + uCenterLo);
+#ifdef IX_NR_N
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+#endif
   ixDwX = vec2(uInvScale.x, 0.0); ixDwY = vec2(0.0, uInvScale.y);
   ixPix = uInvScale.x;`}
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
+#ifdef IX_STAGED
+  ixEdge = 0.0;
+#endif
   invWalk(w);
-  float T = 1.0;
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0, ixEdge); return; }\n#endif\n'}  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
-    float a = uAlpha * bC[i] / U;
+    bool farthest = uLastOpaque == 1 && i == nb - 1 && ixTr >= 1.0 && !ixTailInf;
+    float a = (farthest ? 1.0 : uAlpha) * bC[i] / U;
     C += T * a * ixUnpack(bCol[i]);
     T *= 1.0 - a;
   }
@@ -679,12 +729,33 @@ ${globe ? `  vec3 P = normalize(vP);
     for (int i = 0; i < IX_B; i++) { if (i >= nb) break; mc += ixUnpack(bCol[i]); }
     mc /= float(nb);
     C += T * (1.0 - ixTr) * mc; T *= ixTr;
-    if (ixTailInf) { C += T * mc; T = 0.0; }
+    if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}
+}
+`;
+  // the carried colour's layers (GLR.carryLayers): uL's layers 0 .. uN-1 front to back, alpha 1 where a layer covers the pixel,
+  // composited as the exact pass does: each layer at uA, the farthest opaque
+  const CARRY_LAYERS_FS = `
+uniform highp sampler2DArray uL; uniform int uN; uniform float uA;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  vec3 C = vec3(0.0);
+  float T = 1.0;
+  vec4 cur = texelFetch(uL, ivec3(p, 0), 0);
+  for (int j = 0; j < 8; j++) {
+    if (j >= uN || cur.a < 0.5) break;
+    vec4 nxt = j + 1 < uN ? texelFetch(uL, ivec3(p, j + 1), 0) : vec4(0.0);
+    float a = nxt.a < 0.5 ? 1.0 : uA;
+    C += T * a * cur.rgb;
+    T *= 1.0 - a;
+    cur = nxt;
+  }
+  o = vec4(C, 1.0 - T);
 }
 `;
   // half-resolution passes (cost guard, motion frames): the half-size target, upscaled bilinearly over the pane

@@ -6,6 +6,7 @@ global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
 const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
+const { InvOps } = require('../src/invops.js');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
 const QUICK = process.argv.includes('--quick');
@@ -412,10 +413,10 @@ const showRun = (r) => (r.forward ? `${r.name.padEnd(46)} -> forward (${r.forwar
   check('exp∘Cayley of H: exact Möbius image box (bounded)', ecH.ok && ecH.rspec[1].kind === 'box' && ecH.rspec[1].exact && Number.isFinite(ecH.need[1]), JSON.stringify(ecH.rspec[1]));
 }
 
-// (c) termination and cost (review P1, findings 1 and 5). Lattice and member indices beyond 2^53 used to stall
+// (c) termination and cost. Lattice and member indices beyond 2^53 must not stall
 // `n++` loops in singular() / prepare() (out of memory); each case runs in a child process with a 400 MB heap and a
 // 10 s timeout, so a regression fails here instead of hanging the suite. Then prepare() of shapes whose image boxes
-// used to cost 10^7 evaluations: <= IMAGEBOX_CAP evaluations per box and well under the 4 ms frame budget class.
+// could cost 10^7 evaluations: <= IMAGEBOX_CAP evaluations per box and well under the 4 ms frame budget class.
 section('(c) termination and cost');
 {
   const { spawnSync } = require('child_process');
@@ -1029,6 +1030,211 @@ section('singularAfter (ζ after an injective plan)');
   q = planOf([{ type: 'exp' }, { type: 'zeta' }], 0, 1);
   check('e^z then ζ: not injective, so null (the lines scan)', q.plan.ok && !q.plan.injective && Inverse.singularAfter(q.plan, WIN0, q.built[1].sing, 16) === null);
   check('Γ names no set (its poles run along a line\'s reach): it keeps the scan', Funcs.build(St('gamma')).sing === undefined);
+}
+
+// Inverse.homOps: the ops of a step's homotopy at t compose to the homotopy itself (the glide frames' inverse pass);
+// a straight-line homotopy and a step with no ops have none
+{
+  const cases = [['exp', {}], ['mobius', { a: '1', b: '-1', c: '1', d: '1' }], ['affine', { a: '2i', b: '1' }], ['pown', { n: 3 }], ['sin', {}],
+    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}]];
+  for (const [type, params] of cases) {
+    const b = Funcs.build(St(type, params));
+    for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
+      const h = Inverse.homOps(b, t), H = b.hom(t);
+      let e = Infinity;
+      if (h.ok) {
+        e = 0;
+        for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4)]) {
+          let w = z;
+          for (const o of h.ops) w = o.fwd(w);
+          const v = H(z);
+          e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+        }
+      }
+      check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
+    }
+  }
+  // root, powa and log: exact ops (no Newton), and every z of a cut plane's sheet is among its w's preimages by them
+  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }]];
+  for (const [type, params] of exact) {
+    const b = Funcs.build(St(type, params));
+    for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
+      const h = Inverse.homOps(b, t), H = b.hom(t), kinds = h.ok ? h.ops.map((o) => o.kind).join() : h.reason;
+      let e = 0, miss = 0;
+      for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4), C(1.9, 0.1), C(-1.2, -1.5)]) {
+        const v = H(z);
+        if (!h.ok || !CX.isFin(v)) continue;
+        let w = z;
+        for (const o of h.ops) w = o.fwd(w);
+        e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+        let us = [v];
+        // (a log family's members: m about its range, kept when the member's lambda lies in it)
+        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12) : o.pre(x));
+        for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => pre(h.ops[i], x).map((m) => m.u));
+        if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
+      }
+      check(`homOps ${type} ${JSON.stringify(params)} at t = ${t}: exact ops (no NEWT) that compose to H_t and find z over H_t(z)`, h.ok && !/NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
+    }
+  }
+  const lin = Funcs.build(St('custom', { expr: 'z+0.2*conj(z)' }));
+  check('homOps: a straight-line homotopy has none', !Inverse.homOps(lin, 0.5).ok);
+  check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
+}
+
+// Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
+// homotopy with no exact ops, and by Inverse.homOps' exact chain C^-1((Cz)^(1+t)) (MOB C, ROOTPOW 1 + t on the branch
+// arg Cz in (-pi/2, 3pi/2], MOB C^-1). The homotopy, tanh((1 + t) artanh z - i pi t / 2) on the
+// disc and coth((1 + t) arcoth z) outside it, has one or two points over w; the NEWT op walks from w and back from
+// f's two points over w. Each finds every one on a 40 x 26 grid of w over [-6.2, 6.2] x [-4, 4] at t = .25, .5, .75
+// (the points within 0.02 of the unit circle, where the path has its cut, left out), and no other
+{
+  const b = Funcs.build(St('joukowski'));
+  const tanh = CX.tanh, atanh = CX.atanh;
+  for (const t of [0.25, 0.5, 0.75]) {
+    const o = InvOps.opNewt(t, b.hom, Inverse.stepOps(b).ops), Hh = b.hom(t);
+    const h = Inverse.homOps(b, t), kinds = h.ok ? h.ops.map((q) => q.kind).join() : h.reason;
+    // (the exact chain's points over w: every member of each op's family, a log family's within its range)
+    const preOf = (q, x) => (q.fam && q.fam.type === 'log' ? [...Array(2 * q.fam.count + 1).keys()].map((m) => q.fam.member(x, m - q.fam.count, q.fam.L0(x))).filter((r) => r.lam.im > q.fam.lo - 1e-12 && r.lam.im <= q.fam.hi + 1e-12) : q.pre(x));
+    const exactPre = (w) => { let us = [w]; for (let k = h.ops.length - 1; k >= 0; k--) us = us.flatMap((x) => preOf(h.ops[k], x).map((r) => r.u)); return us.filter((u) => CX.isFin(u)); };
+    // (each branch's points over w: z = tanh((artanh w + i pi (k + t / 2)) / (1 + t)) on the disc, 1 / tanh((artanh(1 / w)
+    // + i pi k) / (1 + t)) outside it, kept where H gives w back)
+    const pts = (w) => {
+      const out = [], aw = atanh(w), ac = atanh(CX.inv(w));
+      for (let k = -3; k <= 3; k++) {
+        for (const z of [tanh(CX.scale(CX.add(aw, C(0, Math.PI * (k + t / 2))), 1 / (1 + t))), CX.inv(tanh(CX.scale(CX.add(ac, C(0, Math.PI * k)), 1 / (1 + t))))]) {
+          if (!Number.isFinite(z.re) || !Number.isFinite(z.im) || CX.abs(CX.sub(Hh(z), w)) > 1e-7 || out.some((e) => CX.abs(CX.sub(e, z)) < 1e-9)) continue;
+          out.push(z);
+        }
+      }
+      return out;
+    };
+    let miss = 0, extra = 0, n2 = 0, xMiss = 0, xExtra = 0, xErr = 0;
+    for (let i = 0; i < 40; i++) {
+      for (let j = 0; j < 26; j++) {
+        const w = C(-6.2 + (i + 0.5) * 12.4 / 40, -4 + (j + 0.5) * 8 / 26), T = pts(w), G = o.pre(w).map((m) => m.u);
+        const far = (z) => Math.abs(CX.abs(z) - 1) > 0.02;
+        if (T.length > 1) n2++;
+        if (T.some((z) => far(z) && !G.some((g) => CX.abs(CX.sub(g, z)) < 1e-6))) miss++;
+        if (G.some((g) => !T.some((z) => CX.abs(CX.sub(g, z)) < 1e-6))) extra++;
+        if (h.ok) {
+          const X = exactPre(w);
+          for (const x of X) xErr = Math.max(xErr, CX.abs(CX.sub(Hh(x), w)) / (1 + CX.abs(w)));
+          if (T.some((z) => far(z) && !X.some((x) => CX.abs(CX.sub(x, z)) < 1e-6))) xMiss++;
+          if (X.some((x) => !T.some((z) => CX.abs(CX.sub(x, z)) < 1e-6))) xExtra++;
+        }
+      }
+    }
+    check(`homOps joukowski at t = ${t}: the exact chain MOB, ROOTPOW, MOB (no NEWT) gives H_t(z) = w and finds every point over w, and no other`, kinds === 'MOB,ROOTPOW,MOB' && xErr < 1e-12 && xMiss === 0 && xExtra === 0, { kinds, xErr, xMiss, xExtra });
+    check(`opNewt joukowski at t = ${t}: NEWT seeded by JOUK finds every point over w, and no other`, o.kind === 'NEWT' && o.fam.count === 3 && miss === 0 && extra === 0 && n2 > 100, { miss, extra, n2 });
+  }
+}
+
+// Region.interiorPoint: a point of positive level for every area kind (unbounded ones from the window), the centre of
+// the bounding box when it lies inside, [0.5, ~0] for the strip 0 < Re z < 1; none for a curve
+{
+  const win = { x0: -4, x1: 4, y0: -4, y1: 4 };
+  const cases = [
+    ['disc', { kind: 'disc', c: [1, 2], r: 1 }, [1, 2]], ['rect', { kind: 'rect', a: [-1, -1], b: [3, 1] }, [1, 0]],
+    ['polygon', { kind: 'polygon', pts: [[0, 0], [2, 0], [0, 2]] }, null], ['halfplane', { kind: 'halfplane', a: [0, 0], b: [1, 0] }, null],
+    ['annulus', { kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }, null], ['sector', { kind: 'sector', c: [0, 0], r: 2, t1: 0, t2: 90 }, null],
+    ['formula strip', { kind: 'formula', expr: '0<\\Re z<1' }, null], ['disc complement', { kind: 'disc', c: [0, 0], r: 1, complement: true }, null],
+  ];
+  for (const [name, sh, exact] of cases) {
+    const p = Region.interiorPoint(sh, win), L = Region.levelOf(sh);
+    check(`Region.interiorPoint ${name}: a point of positive level`, !!p && L(C(p[0], p[1])) > 0, p);
+    if (exact && p) check(`Region.interiorPoint ${name}: the bounding box's centre`, Math.hypot(p[0] - exact[0], p[1] - exact[1]) < 1e-9, p);
+  }
+  const sp = Region.interiorPoint({ kind: 'formula', expr: '0<\\Re z<1' }, win);
+  check('Region.interiorPoint strip 0 < Re z < 1: Re 0.5, Im near 0', !!sp && Math.abs(sp[0] - 0.5) < 0.2 && Math.abs(sp[1]) < 0.2, sp);
+  check('Region.interiorPoint: none for a curve', Region.interiorPoint({ kind: 'circle', c: [0, 0], r: 1 }, win) === null);
+}
+// What a NEWT op's members reach of the true image of a region, for a step with no exact inverse: H_t is the step's
+// homotopy, the region is where an in-region root of H_t(z) = w counts (inRegion), anchor {re, y0, y1} (the op's
+// seeds are spread over its y0..y1), seeds the grid (re, im ranges and step) of the true image's search (Newton, 40 steps,
+// residual <= 1e-9 (1 + |w|)), and the w are an n x n grid over box. A w is in the true image when the search finds an
+// in-region root; it is drawn when one of the op's members lies in the region
+// (viaHom: the op as the app builds it, Inverse.homOps(b, t) with the anchor set on it, else InvOps.opNewt's own without a pole)
+function newtShare(b, t, anchor, inRegion, seeds, box, n, viaHom) {
+  const o = viaHom ? Inverse.homOps(b, t).ops[0] : InvOps.opNewt(t, b.hom, null, undefined, anchor), Ht = b.hom(t);
+  if (viaHom) o.p.anchor = anchor;
+  const dH = (u) => { const h = 1e-6; return CX.scale(CX.sub(Ht(C(u.re + h, u.im)), Ht(C(u.re - h, u.im))), 0.5 / h); };
+  const trueRoot = (w) => {
+    for (const re of seeds.re) {
+      for (let im = seeds.im0; im <= seeds.im1; im += seeds.dim) {
+        let u = C(re, im), ok = true;
+        for (let k = 0; k < 40 && ok; k++) { u = CX.sub(u, CX.div(CX.sub(Ht(u), w), dH(u))); ok = CX.isFin(u) && CX.abs(u) < 1e3; }
+        if (ok && inRegion(u) && CX.abs(CX.sub(Ht(u), w)) <= 1e-9 * (1 + CX.abs(w))) return true;
+      }
+    }
+    return false;
+  };
+  let truth = 0, drawn = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const w = C(box.x0 + (i + 0.5) * (box.x1 - box.x0) / n, box.y0 + (j + 0.5) * (box.y1 - box.y0) / n);
+      if (!trueRoot(w)) continue;
+      truth++;
+      if (o.pre(w).some((m) => inRegion(m.u))) drawn++;
+    }
+  }
+  return { truth, drawn, share: drawn / truth };
+}
+const MIN_TRUTH = 40;
+const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
+// zeta: the strip 0 < Re z < 1 within the source window y 10.45..28.55 (the zeros of (1 - t) z + t zeta(z)), w over [-0.4, 1.4] x (1 - t) [10.45, 28.55] +- 1 (the window's image under (1 - t) z)
+{
+  const b = Funcs.build(St('zeta')), floor = FLOOR_ZETA;
+  for (const t of [0.25, 0.5, 0.75, 0.9, 0.99]) {
+    const r = newtShare(b, t, { re: 0.5, y0: 10.45, y1: 28.55 }, (u) => u.re > 0 && u.re < 1 && u.im > 10.45 && u.im < 28.55, { re: [0.2, 0.5, 0.8], im0: 0, im1: 110, dim: 2 }, { x0: -0.4, x1: 1.4, y0: (1 - t) * 10.45 - 1, y1: (1 - t) * 28.55 + 1 }, 14);
+    check(`opNewt zeta at t = ${t}: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
+  }
+}
+// zeta in the window of its strip's pole: the source window Im -2.8..13.8 (the glide's frame over Re -10.1..11.1 is the same
+// window), where most of the strip's image is that of the neighbourhood of the pole z = 1, which no ladder seed reaches
+// (#1084): the op as the app builds it (a pole member in place of the deflated one), against the same truth
+{
+  const b = Funcs.build(St('zeta')), op = Inverse.homOps(b, 0.75).ops[0];
+  check('opNewt zeta: the op carries the pole z = 1 (residue 1, regular part Euler\'s constant) and its own program key', !!op.p.pole && Math.hypot(op.p.pole.p.re - 1, op.p.pole.p.im) < 1e-12 && Math.abs(op.p.pole.res.re - 1) < 1e-6 && Math.abs(op.p.pole.reg.re - 0.5772156649) < 1e-6 && Inverse.opSig(op) === 'NEWTP', op.p.pole);
+  const series = Inverse.homOps(Funcs.build(St('series')), 0.5).ops[0];
+  check('opNewt series: no pole, the plain program key', series.p.pole === null && Inverse.opSig(series) === 'NEWT', series.p.pole);
+  const floor = { 0.5: 0.95, 0.75: 0.95 };
+  for (const t of [0.5, 0.75]) {
+    const r = newtShare(b, t, { re: 0.5, y0: -2.8, y1: 13.8 }, (u) => u.re > 0 && u.re < 1 && u.im > -2.8 && u.im < 13.8, { re: [0.2, 0.5, 0.8], im0: -3, im1: 14, dim: 0.5 }, { x0: -10.1, x1: 11.1, y0: -2.8, y1: 13.8 }, 32, true);
+    check(`opNewt zeta at t = ${t} over the pole's image: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
+  }
+}
+// the exponential series sum z^n / n! (no exact inverse), the disc |z| < 2, w over [-3, 3]^2: the members keep reaching
+// the true image
+{
+  const b = Funcs.build(St('series')), floor = { 0.25: 1, 0.5: 1, 0.75: 0.95 };
+  for (const t of [0.25, 0.5, 0.75]) {
+    const r = newtShare(b, t, { re: 0, y0: -2, y1: 2 }, (u) => CX.abs(u) < 2, { re: [-2, -1, 0, 1, 2], im0: -2, im1: 2, dim: 1 }, { x0: -3, x1: 3, y0: -3, y1: 3 }, 12);
+    check(`opNewt exp series at t = ${t}: the members reach at least ${floor[t]} of the true image of the disc`, r.truth > 30 && r.share >= floor[t], r);
+// Inverse.homOps by Newton (InvOps.opNewt) for a polynomial step: its homotopy is a polynomial in u of the step's
+  }
+}
+// degree (the straight line for a formula, the zoom for the catalog's polynomial), so the NEWT op's members are every
+// root of H_t(u) = w: the partial sum of the exponential to z^8 / 8! and z^3 - z have 8 and 3 distinct points over each
+// w of a 20 x 20 grid over [-6, 6]^2 at t = .002 to .998, each where H_t is w
+{
+  // (two roots closer than DISTINCT (1 + |root|) count as one; a root is off when H_t of it is further than ON_W
+  // (1 + |w|) from w)
+  const DISTINCT = 1e-6, ON_W = 1e-8;
+  for (const [name, st, deg] of [['sum z^n / n!, n <= 8', St('custom', { expr: '\\sum_{n=0}^{8} \\frac{z^n}{n!}', cut: 180 }), 8], ['z^3 - z', St('poly', { co: '1, 0, -1, 0' }), 3]]) {
+    const b = Funcs.build(st);
+    for (const t of [0.002, 0.25, 0.5, 0.75, 0.998]) {
+      const o = Inverse.homOps(b, t).ops[0], Hh = b.hom ? b.hom(t) : null;
+      let short = 0, off = 0;
+      for (let i = 0; i < 20; i++) {
+        for (let j = 0; j < 20; j++) {
+          const w = C(-6 + (i + 0.5) * 0.6, -6 + (j + 0.5) * 0.6), G = o.pre(w).map((m) => m.u);
+          if (G.length !== deg || G.some((g, k) => G.some((h, m) => m < k && CX.abs(CX.sub(g, h)) <= DISTINCT * (1 + CX.abs(g))))) short++;
+          if (Hh && G.some((g) => CX.abs(CX.sub(Hh(g), w)) > ON_W * (1 + CX.abs(w)))) off++;
+        }
+      }
+      check(`homOps ${name} at t = ${t}: NEWT^${deg} finds every root of H_t(u) = w`, o.kind === 'NEWT' && o.p.deg === deg && o.fam.count === deg && Inverse.opSig(o) === `NEWT^${deg}` && short === 0 && off === 0, { kind: o.kind, short, off });
+    }
+  }
 }
 
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
