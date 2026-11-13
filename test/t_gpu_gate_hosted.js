@@ -1,9 +1,9 @@
 // gpu-gate.yml, machines windows-hosted (#378): mode glprof on GitHub's windows-latest (ANGLE's Direct3D 11 on WARP,
 // the same FXC on the CPU as the laptop), this commit against the reference. The plan's machines step, run with bash,
 // maps it and refuses it for the gates; the glprof job runs on windows-latest without --require-hardware and with the
-// reference, one round; every other machine keeps its self-hosted runner. And (#169, 2026-11-01) the Windows GPU runner
-// is gone: the default and every event run the Mac alone, windows fails at once, both runs the Mac with a warning, so
-// no job waits for a machine that is not there. Node and bash, no YAML library.
+// reference, one round; every other machine keeps its self-hosted runner. And (#169) the Windows GPU runner, a desktop,
+// is on request only: windows and both send it jobs, the default and every event run the Mac alone, so no job waits
+// for a desktop that is off. Node and bash, no YAML library.
 // Run: node test/t_gpu_gate_hosted.js
 'use strict';
 const fs = require('fs');
@@ -31,14 +31,17 @@ if (m) {
   ok('windows-hosted, glprof: the hosted machine', machines('windows-hosted', 'glprof').out === 'machines=["Windows-hosted"]', machines('windows-hosted', 'glprof'));
   const g = machines('windows-hosted', 'gate');
   ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /glprof only/.test(g.err), g);
-  // (#169: there is no Windows GPU runner: nothing may be sent to it, it would queue forever)
-  const w = machines('windows', 'gate');
-  ok('windows: refused at once, naming #169 (no machine would take it)', w.status !== 0 && w.out === '' && /Windows GPU runner removed \(#169\)/.test(w.err), w);
+  // (#169: the Windows desktop is on request only: only windows and both send it jobs, they would wait while it is off)
+  const quiet = (r) => r.status === 0 && !/::(error|warning)::/.test(r.err);
+  for (const mode of ['gate', 'glprof', 'suites']) {
+    const w = machines('windows', mode);
+    ok(`windows, ${mode}: the Windows desktop alone`, quiet(w) && w.out === 'machines=["Windows"]', w);
+  }
   const b = machines('both', 'gate');
-  ok('both: the Mac alone, with a warning naming #169', b.status === 0 && b.out === 'machines=["macOS"]' && /::warning::Windows GPU runner removed \(#169\)/.test(b.err), b);
+  ok('both: the Windows desktop and the Mac', quiet(b) && b.out === 'machines=["Windows","macOS"]', b);
   for (const [inp, why] of [['mac', 'mac'], ['', 'no input: a push, the nightly run, the label gpu-gate']]) {
     const r = machines(inp, 'gate');
-    ok(`${why}: the Mac alone`, r.status === 0 && r.out === 'machines=["macOS"]', r);
+    ok(`${why}: the Mac alone, no job for the desktop`, quiet(r) && r.out === 'machines=["macOS"]', r);
   }
 }
 fs.rmSync(dir, { recursive: true, force: true });

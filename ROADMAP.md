@@ -162,8 +162,8 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
 - **PRs merge in waves.** Each goes into an integration branch; one wave PR from that branch into `main`, a draft until
   the wave is complete, runs the whole gate once it is marked ready for review (unit tests, the browser suites, GLSL tests on Direct3D 11 and Metal, the
   quality suite, the perf suite's checks).
-- **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Windows
-  laptop and Mac: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
+- **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Mac and, on
+  request, on a Windows desktop: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
 - **A merged wave is a release.** `v17.0-beta.N` is wave N; `v17.0` comes when #30 and #34 are done, then `v17.x`.
   The steps, in order:
   1. The wave's work is tracked on the board, issue #236 (who works on what, freezes, what is next).
