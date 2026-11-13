@@ -66,9 +66,9 @@ on:
         required: false
         default: ''
       walk:
-        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples; mountain: only the Mountain King, its Landscape and deformation; steps: the steps view on Strip to disk, the zeros of zeta and the Mountain King: a glide, a scrub and a plane past the colour plane, #439)'
+        description: 'Mode glprof: the walk (all: every example and the views; extended: also #238''s steps, the start-up minute, the gallery; quick: three examples; mountain: only the Mountain King, its Landscape and deformation; steps: the steps view on Strip to disk, the zeros of zeta and the Mountain King: a glide, a scrub and a plane past the colour plane, #439; typed: typed formulas, pasted and typed at 150 and 450 ms per character, and the first glide on the plane and the globe, ci/glprof_typed.js, #1544)'
         type: choice
-        options: [all, extended, quick, mountain, steps]
+        options: [all, extended, quick, mountain, steps, typed]
         default: all
       variant:
         description: 'Mode glprof: a second side, this build with the loop guards of #206 stripped (unroll), the sides in turn (#238 item 3)'
