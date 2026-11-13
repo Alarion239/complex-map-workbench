@@ -126,7 +126,7 @@ await settle(1000);
 // Russian
 await laptop();
 await load(NS + 'ru', SD, `localStorage.setItem('cmw-lang', 'ru')`);
-await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1500);
+await go(`${U}?ns=${NS}ru&lang=ru`); await settle(1500);
   info.ruTitle = await ev(`document.getElementById('leftTitle').textContent`);
   ok('RU X\'s title starts "X ·"', /^X · /.test(info.ruTitle), info.ruTitle);
   info.ruHeads = await ev(`[...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent)`);

@@ -1,5 +1,5 @@
-// The steps view's Opacity on the carried meshes (GLR.carryLayers): with the exact images off, the plane's rest frame is
-// drawn by the carried meshes (svCarryRegions), the frame a glide draws. z² on a disc about 0.3+0.1i covers each w in the
+// The steps view's Opacity on the carried meshes (GLR.carryLayers): with the shapes forced forward (__cmwForceForward), the plane's rest frame
+// is drawn by the carried meshes (svCarryRegions), the frame a glide draws. z² on a disc about 0.3+0.1i covers each w in the
 // disc's image twice, a small disc about 1.4 once (two sheets: their keys differ by the tie order alone only near the
 // real axis, where the depth's resolution cannot separate them).
 // - at 100 % the meshes draw the front layer alone: no layered frame, and the pane's pixels after a visit to 50 % are the
@@ -14,9 +14,9 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const { lpx } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 await view(1200, 800, false, false);
-const openPage = async (exact, alpha) => {
+const openPage = async (meshes, alpha) => {
   const ns = 'svom' + Date.now();
-  const st = { v3: true, v4: true, v5: true, v6: true, exactImages: exact, alpha,
+  const st = { v3: true, v4: true, v5: true, v6: true, exactImages: true, alpha,
     shapes: [{ id: 's2', kind: 'disc', c: [0.3, 0.1], r: 1, ci: 0, visible: true }, { id: 's3', kind: 'disc', c: [1.4, 0], r: 0.3, ci: 1, visible: true }],
     steps: [{ type: 'pown', params: { n: 2 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
@@ -29,6 +29,7 @@ const openPage = async (exact, alpha) => {
   await settled({ max: 15000, until: `__cmwSteps().stage === 1 && !__cmwSteps().moving && __cmwSvFixed()` });
   await ev(`[...document.querySelectorAll('.pane-head button')].find((b) => b.textContent.trim() === 'Inside regions').click(); 1`);
   await settled({ max: 15000, until: '__cmwSvFixed()' });
+  if (meshes) await ev(`__cmwForceForward(['s2', 's3']); 1`);
   await settled({ max: 60000, until: `__cmwSvFixed() && (() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()` });
 };
 const set = async (v) => {
@@ -45,17 +46,19 @@ const frames = () => ev(`GLR.carryLayerFrames()`);
 const canvasHash = async () => { await settled({ max: 30000, until: 'GLR.pendingLinks === 0' }); await sleep(600); return hashNow(); };
 const hashNow = () => ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i++) h = (h * 31 + d[i]) | 0; return h; })()`);
 const MESH = {}, EXACT = {};
-await openPage(false, 1);
+await openPage(true, 1);
 const f0 = await frames();
 MESH[1] = await read(); const h1 = await canvasHash();
 await set(0.85); MESH[0.85] = await read(); const f85 = await frames();
 await set(0.5); MESH[0.5] = await read();
 await set(1); const h1b = await canvasHash(); const f1 = await frames();
-for (const a of [1, 0.85, 0.5]) { await openPage(true, a); EXACT[a] = await read(); }
-info.frames = { f0, f85, f1 };
+let fExact = 0;
+for (const a of [1, 0.85, 0.5]) { await openPage(false, a); EXACT[a] = await read(); fExact += await frames(); }
+info.frames = { f0, f85, f1, fExact };
 const last = PTS.length - 1;
 ok('at 100 % no layered frame is drawn', f0 === 0, info.frames);
 ok('below 100 % layered frames are drawn (the page is on the meshes)', f85 > 0, info.frames);
+ok('without the hook the same scene draws no layered frame at any opacity (it is not on the meshes)', fExact === 0, info.frames);
 ok('after a visit to 50 %, the opaque frame at 100 % is the pixels it was', h1 === h1b, { h1, h1b });
 // the points on the pane where the meshes' front sheet is the exact pass's
 const idx = [...PTS.keys()].filter((k) => k < last && MESH[1][k] && EXACT[1][k] && diff(MESH[1][k], EXACT[1][k]) <= 6);

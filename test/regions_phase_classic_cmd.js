@@ -7,7 +7,7 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, go, sleep, settled: settled });
 await view(1440, 900, false, false);
 await openSaved(`rgph-new-${Date.now() % 1000000}`, { v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50 });
 // ---- 4. the laptop's Regions button and its pop-up: no pattern swatch anywhere in the page

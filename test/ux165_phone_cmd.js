@@ -17,7 +17,7 @@ const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'E
 const fresh = async (ns, w, h, dark, mobile, extra = '') => {
   await view(w, h, !!dark, !!mobile);
   await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
-  await nav(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
+  await go(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
   ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
 };
 const withState = async (ns, w, h, mobile, st) => { await view(w, h, false, !!mobile); await load(`ux165p-${ns}-${Date.now()}`, st); await settle();

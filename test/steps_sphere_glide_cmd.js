@@ -9,9 +9,12 @@
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+// (quiet: the programs and jobs are ready, no glide or play is under way and the sphere is idle; __cmwSteps().moving is also
+// true for a place parked between two planes, which is a still view, so it is not the wait)
+const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running)";
 const quiet = () => settled({
   floor: 400, max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  until: QUIET_UNTIL,
 });
 // (the left pane's pixels in a saturated colour: the phase portrait's, not the globe's paper or its grey marks)
 const coloured = () => ev(`(() => {
@@ -36,6 +39,10 @@ await seed(ns, st);
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
 await settled({ max: 60000, until: `typeof __cmwSteps === 'function'` });
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere', scope: 'in', T: 1 }); 1`); await quiet();
+// (the quiet wait does not come during a glide: a plane step is under way right after it starts)
+await ev(`__cmwSteps({ go: 1 }); 1`);
+ok('a glide under way is not quiet', (await ev(QUIET_UNTIL)) === false, await ev('__cmwSteps().anim'));
+await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
 const where = await ev('(() => { const s = __cmwSteps(); return { i: s.i, T: s.T, scope: s.scope, surf: s.surf }; })()');
 R.rest = { steps: where, coloured: await coloured() };
 ok('at rest on plane z: the globe shows the region in colour', R.rest.coloured > 0, R.rest);

@@ -74,7 +74,25 @@ H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
 // (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
 // result is read by value from its handle, which is released at once.
+// (#1328) an answer the kit cannot give as data: a page exception ({ __exc }) and a wait that ran out (H.settled's ok false).
+// Each is recorded as a fault of the suite, and counts as handled once the suite reads what says so (`__exc`; `ok` or `at`),
+// so a suite that checks the answer is as it was and one that reads on as if the page had answered fails at its end,
+// with the expression or the wait and the text (kitFaults in its result; ci/browser.js failures()).
+const FAULTS = [];
+const faultAnswer = (ans, key, what) => {
+  const f = { what, handled: false };
+  FAULTS.push(f);
+  const guarded = Object.assign({}, ans);
+  for (const k of key) Object.defineProperty(guarded, k, { enumerable: true, configurable: true, get() { f.handled = true; return ans[k]; } });
+  return guarded;
+};
+// faults(clear): the faults so far that the suite has not read (what the suite's result lists as kitFaults); clear forgets all
+H.faults = (clear = false) => { const u = FAULTS.filter((x) => !x.handled).map((x) => x.what); if (clear) FAULTS.length = 0; return u; };
 H.ev = async (expr, timeout = 20000) => {
+  const r = await evRaw(expr, timeout);
+  return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
+};
+const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
   const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
@@ -151,7 +169,8 @@ H.settled = async (o = {}) => {
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
-  return r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  const ans = r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${o.until ? JSON.stringify(String(o.until).slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
 };
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
@@ -256,10 +275,13 @@ H.fs = fs; H.path = path; H.DIR = DIR;
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
+      FAULTS.length = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
+      const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
+      if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
       fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }
