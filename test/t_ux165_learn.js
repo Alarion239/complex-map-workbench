@@ -4,6 +4,7 @@
 // The browser side is test/ux165_learn_cmd.js. Run: node test/t_ux165_learn.js
 const fs = require('fs');
 const path = require('path');
+globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
 const { Tour } = require('../src/tour.js');
 const T = Tour._t;
 let fails = 0, n = 0;

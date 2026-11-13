@@ -1,8 +1,8 @@
 // @ts-check
 'use strict';
 // The catalog's homotopies and natural paths (notes/ui-design/natural-paths.md), and the deformation caption's phrases
-// for them: moved out of funcs.js (issue #20, the file-size budget), which takes these names back at the top of its
-// closure (const { ... } = NatPaths), so Funcs and its callers read them as before. A closure of its own, as every
+// for them: funcs.js takes these names at the top of its
+// closure (const { ... } = NatPaths), so Funcs and its callers read them. A closure of its own, as every
 // module of src/ is, so that the test pages that inline the sources into one script see one name, NatPaths.
 const NatPaths = (() => {
   const { C } = CX;
@@ -91,7 +91,7 @@ const NatPaths = (() => {
   }
   // the branch of a power homotopy, as words
   const branchWords = (cut, k) => (Math.abs(cut - 180) < 1e-9 && !k ? $t('principal branch') : $t('branch with the cut at $\\arg=%{cut}^\\circ$, sheet %{k}', { cut: CX.texNum(cut, 2), k }));
-  // (v16.1 review user-1) a root's, power's or log's path while the Landscape draws it on every sheet (homTex's
+  // a root's, power's or log's path while the Landscape draws it on every sheet (homTex's
   // o.sheets): no branch is named, since each surface takes its own
   const branchOr = (o, cut, k) => (o && o.sheets ? $t('on every sheet') : branchWords(cut, k));
   // z^{1 + (alpha - 1) t} with a real exponent: 1 + (n - 1) t written out
@@ -191,7 +191,7 @@ const NatPaths = (() => {
   // elliptic rotation u → −u of the Cayley plane, which is z → 1/z) so that H_1 = 1/(exterior) = tanh(arcoth(z)/2).
   const arcothS = (z) => serS('atanh', CX.inv(z));
   const cothX = (w) => CX.inv(serS('tanh', w));
-  // Inside the unit disk (Cz in the left half-plane) the branch arg Cz ∈ (π/2, 3π/2) instead of the principal one, so
+  // Inside the unit disk (Cz in the left half-plane) the branch arg Cz ∈ (π/2, 3π/2), not the principal one, so
   // the path is continuous and injective on the disk too (J is): with arcoth z = artanh z − iπ/2 there and
   // coth(x − iπ/2) = tanh x, H_t(z) = tanh((1 + t) artanh z − iπt/2) for |z| < 1. One branch arg Cz ∈ (−π/2, 3π/2)
   // in all: its cut is the lower unit semicircle (between the disk and the exterior); the upper one closes onto [−1, 1].

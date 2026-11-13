@@ -130,7 +130,7 @@ async function pageNow() { return B.ev('performance.now()'); }
 async function openApp(state) {
   const ns = `perf${process.pid}_${++nsCounter}`;
   const key = `complex-map-workbench-v1:${ns}`;
-  // (v15: the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
+  // (the app's chain is 188 px; the scenes keep a 272 px chain, through the test hook)
   const id = await B.addInit(`window.__cmwChainH = 272; if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)}) { try { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`);
   const t0 = Date.now();
   await B.nav(`${BASE}test.html?ns=${ns}`);
@@ -146,7 +146,7 @@ async function openApp(state) {
   if (OPENED) OPENED.push(health);
   return { ns, loadMs: Date.now() - t0, mathjax: mj, settled: !s.timeout, state: st, health };
 }
-// [#292] what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
+// what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
 // have geometry (a mesh or lines). A paired run compares the two sides' (refCannot): a reference that fails where the
 // current build succeeds lacks the feature the unit measures (a formula its parser cannot read draws nothing)
 let OPENED = null;   // the scenes the running unit opened on the running side
@@ -451,7 +451,7 @@ async function modeUnit(pre, scene, mode, kind) {
   const viewSide = await B.ev(`typeof __cmwPaneOf === 'function' ? __cmwPaneOf(${JSON.stringify(mode)}, ${JSON.stringify(st.sphereMode || 'image')}) : 'R'`);
   detail(`${pre}.viewPane`, viewSide);
   // Merged views (notes/ui-design/merged-views.md): Phase and Landscape are one wide panel, with no other pane beside
-  // them (__cmwOtherPane: null). The old layout's other pane was the shapes plane X next to the view, so `.panL` then
+  // them (__cmwOtherPane: null). Where the other pane is the shapes plane X next to the view, `.panL`
   // pans X's plane in the X → Y view (the same picture, the same pane width as the reference's), and the view is
   // switched back before `.panR` / `.orbit`. A build without the hook has the other pane beside the view.
   const otherSide = await B.ev(`typeof __cmwOtherPane === 'function' ? __cmwOtherPane(${JSON.stringify(mode)}, ${JSON.stringify(st.sphereMode || 'image')}) : ${JSON.stringify(viewSide === 'R' ? 'L' : 'R')}`);
@@ -540,7 +540,7 @@ async function examplesUnit() {
       const s = await settle(from);
       const mem = await B.ev('__perf.mem()');
       const info = await B.ev('__cmwInfo()');
-      // compiles (SPEC 12.5): the programs linked for this load, when the last one was ready, and the inverse
+      // compiles (SPEC 12.5): the programs linked for this load, when the last one is ready, and the inverse
       // programs (none before P2): their compile + first draw (from the first inverse link to the end of the first
       // frame that drew with one) and the time from the call to that frame. A slow inverse compile may outlast the
       // settle (the app shows a forward stand-in meanwhile): wait for its first frame, bounded
@@ -573,7 +573,7 @@ async function examplesUnit() {
     put(`${id}.compile_ms`, 'oneshot_ms', 'ms', r.compile, { name: r.name });
     put(`${id}.inv_programs`, 'info', '', r.invProgs, { name: r.name });
     put(`${id}.inv_compile_ms`, 'info', 'ms', r.invCompile, { name: r.name });
-    // expect: an inverse program was linked in some rep, so a value must exist (null would mean the harness lost it)
+    // expect: an inverse program is linked in some rep, so a value must exist (null would mean the harness lost it)
     put(`${id}.inv_first_draw_ms`, 'limit', 'ms', r.invFirst, { name: r.name, limit: INV_FIRST_DRAW_LIMIT, expect: r.invProgs.some((n) => n > 0), never_drew: r.invNever.some(Boolean) });
     // a rep whose inverse program never drew is not outvoted by the median: the value is then the worst rep
     if (r.invNever.some(Boolean)) RES.metrics[`${id}.inv_first_draw_ms`].value = r3(Math.max(...r.invFirst.filter(Number.isFinite)));
@@ -616,9 +616,9 @@ async function examplesColdUnit() {
   }
 }
 
-// programs linked in [a, b] (page times): how many, when the last forward one was ready (ms after a; 0 when nothing
-// was compiled), and the inverse programs: count, ready, compile + first draw, first inverse frame after a. An inverse
-// program that was linked but drew no frame by b is NOT "nothing measured": inv_first_draw_ms is then the whole
+// programs linked in [a, b] (page times): how many, when the last forward one is ready (ms after a; 0 when nothing
+// is compiled), and the inverse programs: count, ready, compile + first draw, first inverse frame after a. An inverse
+// program linked with no frame drawn by b is NOT "nothing measured": inv_first_draw_ms is then the whole
 // window b - (its link), a lower bound of the real time (inv_never_drew), so the 250 ms limit still judges it.
 const INV_FIRST_DRAW_LIMIT = 250;   // SPEC 4.7: compile plus first draw of the inverse program <= 250 ms
 async function compileStats(a, b) {
@@ -637,8 +637,8 @@ async function compileStats(a, b) {
     inv_never_drew: never,
   };
 }
-// after an inverse program was linked (since page time a), wait (bounded) for the first frame drawn with one:
-// returns that frame's end time, or null when none came within timeout (or no inverse program was linked)
+// once an inverse program is linked (since page time a), wait (bounded) for the first frame drawn with one:
+// returns that frame's end time, or null when none comes within timeout (or no inverse program is linked)
 async function waitInverseFrame(a, timeout = 5000) {
   const t0 = Date.now();
   for (;;) {
@@ -654,7 +654,7 @@ async function pathsSayInverse() {
   return B.ev(`(() => { if (typeof __cmwPaths !== 'function') return null; try { const p = __cmwPaths(); return Array.isArray(p) && p.some((r) => r && r.role === 'R' && (r.viewKind || 'flat') === 'flat' && r.path === 'inverse'); } catch (e) { return null; } })()`);
 }
 // the unit measured the path it meant to: when the app says a shape is inverse (or, without the hook, an inverse
-// program was linked), some draws of the unit must have used an inverse program (SPEC 12.5; before P2: true)
+// program is linked), some draws of the unit must have used an inverse program (SPEC 12.5; before P2: true)
 async function inverseDrawnCheck(name, draws, linkedSince = 0) {
   const says = await pathsSayInverse();
   const linked = (await B.ev(`__perf.progsSince(${linkedSince}).some((p) => p[2])`));
@@ -674,7 +674,7 @@ async function scrubUnit(morph = false) {
     await sleep(400);
     await settle(await pageNow());
   }
-  // (v15: a step's fields are in the Inspector, #i1_phi, once step 1 is selected; earlier builds: the card's #p1_phi)
+  // (a step's fields are in the Inspector, #i1_phi, once step 1 is selected; without an Inspector: the card's #p1_phi)
   const PHI = `(document.getElementById('i1_phi') || document.getElementById('p1_phi'))`;
   await B.ev(`(() => { if (document.querySelector('#propsPanel .insp-sel') && !document.getElementById('i1_phi')) { const c = document.querySelector('#pipeline .card[data-k="1"]'); if (c) c.click(); } return 1; })()`);
   await sleep(200);
@@ -729,14 +729,14 @@ async function morphOpenUnit() {
   }
 }
 
-// [#326] The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
+// The step cards after a chain edit (4 steps, chain4): step 2's n is typed 2 → 3 → 2 in the Inspector, as a
 // user would, and the cards redraw on their own schedule (renderThumbs). Per edit, with the CPU profiler on from the
 // edit until every card is fresh again: the time spent drawing the cards (samples under renderThumbs) and their longest
 // unbroken stretch, which is the longest task the cards add (the #326 target: none over 100 ms once they draw in idle
 // slices); also the edit's longest task overall (a chain change also links programs), how many went over 100 ms, how
-// long the cards took to be fresh, and whether every card was drawn
+// long the cards took to be fresh, and whether every card is drawn
 const CARDS_TASK_LIMIT = 100;   // ms: #326's "no task over 100 ms" from the cards
-const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
+const CARDS_FRESH = `(() => { if (typeof __cmwCards !== 'function') return null; const c = __cmwCards().cards; if (!c) return null; return c.length > 0 && c.every((q) => q.sig && !q.stale); })()`;
 // a CPU profile -> {ms, link, sync, longest}: the time in samples whose stack holds fn, and the longest run of
 // consecutive such samples
 // (link: the part of ms in a program link, the link status read that waits for it; sync: the part in a GPU read-back,
@@ -795,7 +795,7 @@ async function cardsRebuildUnit() {
     await B.ev('typeof __cmwCardsNow === "function" && __cmwCardsNow(); 1');
     await settle(await pageNow());
     nCards = await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`);
-    // (v15: a step's fields are in the Inspector once its card is selected, #i2_n; earlier builds: the card's #p2_n)
+    // (a step's fields are in the Inspector once its card is selected, #i2_n; without an Inspector: the card's #p2_n)
     await B.ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="2"]'); if (c && !document.getElementById('i2_n')) c.click(); return 1; })()`);
     await sleep(300);
     await settle(await pageNow());
@@ -835,12 +835,12 @@ async function cardsRebuildUnit() {
   put(`${pre}.all_drawn`, 'check', '', [allDrawn && nCards >= 4]);
 }
 
-// [#326] The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
+// The step cards at start-up, cold, with the CPU profiler on from before the navigation until every card is
 // drawn: `page`, the default page as a first visit opens it (no saved state; #326's 0.7 s and #350's target), and
 // `chain4`, a saved 4-step chain (many cards). Per scene: the time to the first drawn frame, the cards' longest
 // unbroken stretch under renderThumbs (limit 100 ms: #326 draws them after the first frame, in idle slices), their
 // total, the part of it spent waiting for program links (GPU work: on a software renderer it lands on the main thread,
-// inside renderThumbs, so its stretch there is mostly links; a real GPU's numbers count), and whether every card was
+// inside renderThumbs, so its stretch there is mostly links; a real GPU's numbers count), and whether every card is
 // drawn (not by when: openApp's own waits, MathJax's up to 12 s, would hide it)
 async function openFresh() {
   // (a first visit: a namespace with nothing saved, the app's own default page)
@@ -903,6 +903,43 @@ async function svFirstGlideUnit() {
     put(`${pre}.frame_p95_ms`, 'info', 'ms', first95);
     put(`sv.warm_glide.${scene}.frame_p95_ms`, 'frame_ms', 'ms', warm95);
   }
+}
+// [#1157] the steps view's prestart re-runs after every chain edit, in idle time: a step is added and the pane is
+// dragged (n moves, 16 ms apart) while svReady() still counts work to do; then a power step is added and its n typed
+// (digits 80 ms apart) in the same state. Each window's frames are judged by the same frame_ms rule as every other
+// frame p95 (the reference and the tolerance are the unit's, none is new or loosened); the longest of them and the work
+// left at the window's start are info rows
+async function svPrestartEditUnit() {
+  const frame = [], longest = [], left = [], tframe = [], tlongest = [];
+  for (let i = 0; i < REPS; i++) {
+    await B.nav(`${BASE}test.html?ns=perfspe${process.pid}_${++nsCounter}&view=steps`);
+    await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+    await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+    await settle(await pageNow());
+    await B.until('__cmwSteps().ready.ready === true', SETTLE_TIMEOUT, 50);
+    await B.ev(`__cmwAddStep('joukowski', {}), 1`);
+    await B.until('__cmwSteps().ready.ready === false', SETTLE_TIMEOUT, 20);
+    const r = await B.ev('(() => { const s = __cmwSteps(); return s.ready ? s.ready.total - s.ready.done : -1; })()');
+    const w = await dragLeg('L', 200, 120, 'left', 150, 16);
+    frame.push(quant(w.frame, 0.95));
+    longest.push(Math.max(0, ...w.frame));
+    left.push(r);
+    // (typing: the new step's n field, focused, then its digits as key input)
+    await B.ev(`__cmwAddStep('pown', { n: 2 }), 1`);
+    await B.until('(() => { const e = document.querySelector(\'input[id$="_n"]\'); return !!(e && e.offsetParent); })()', SETTLE_TIMEOUT, 20);
+    await B.ev(`(() => { const e = document.querySelector('input[id$="_n"]'); e.focus(); e.select(); return 1; })()`);
+    const a = await pageNow();
+    for (const ch of '3232') { await B.send('Input.insertText', { text: ch }); await sleep(80); }
+    const b = await pageNow();
+    const tw = await windowStats(a, b);
+    tframe.push(quant(tw.frame, 0.95));
+    tlongest.push(Math.max(0, ...tw.frame));
+  }
+  put('sv.prestart_edit.type.frame_p95_ms', 'frame_ms', 'ms', tframe);
+  put('sv.prestart_edit.type.longest_ms', 'info', 'ms', tlongest);
+  put('sv.prestart_edit.drag.frame_p95_ms', 'frame_ms', 'ms', frame);
+  put('sv.prestart_edit.drag.longest_ms', 'info', 'ms', longest);
+  put('sv.prestart_edit.work_left', 'info', '', left);
 }
 // The steps view's cold glides with the carried colour: on a fresh page (the default one and the Mountain King),
 // idle SV_IDLE_MS, then the first glide to plane 1, and back; then a step added (the same function again,
@@ -1109,7 +1146,7 @@ async function svInteractUnit(scene) {
       for (const scope of ['all', 'in']) {
         await B.ev(`__cmwSteps({ scope: '${scope}', go: 0, now: true }), 1`);
         await settle(await pageNow());
-        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane is not where it was)
+        // (read again before each leg: the rail follows the plane a scrub arrives on, so the last plane moves)
         const stripAt = () => B.ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2 }; })()`);
         const r1 = await stripAt();
         const l1 = await leg(() => B.drag(r1.x0, r1.y, r1.x1, r1.y, { n: 40, dt: 16 }), attr);
@@ -1176,6 +1213,16 @@ async function svInteractUnit(scene) {
 // scope ('all': Everywhere | 'in': Inside regions), planes: [a, b] the glide's two planes (default [0, 1]), info: its rows
 // are info, state: the saved page to open instead of the default one}. On a build whose Landscape changes plane at once, with no frames between (surf 'land'), the unit fails, so a
 // reference without the Landscape's glide makes it NEW (refCannot)
+// Opens the steps view on a fresh page (state: the saved page to start from, else the default one) and waits for its first frame
+// and the typesetter.
+async function openSteps(state) {
+  const gns = `perfsvg${process.pid}_${++nsCounter}`;
+  const seed = state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(gns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + gns)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`) : null;
+  await B.nav(`${BASE}test.html?ns=${gns}&view=steps`);
+  if (seed) await B.removeInit(seed);
+  await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
+  await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+}
 const SV_GLIDE_JANK_MS = 25;
 async function svGlideUnit(scene, o = {}) {
   const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all', [pa, pb] = o.planes || [0, 1];
@@ -1191,6 +1238,7 @@ async function svGlideUnit(scene, o = {}) {
     await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
     const lbl = (await B.ev('__cmwLabelStats.list')).slice(0, -1);   // (the frames on the move: the last pass is the landing's, at rest)
     const b = await pageNow(), bl1 = await B.ev('__svBl.n'), c1 = await B.ev('__perf.counters().links');
+    if (c1 > c0) console.error(`[perf] ${id}: ${c1 - c0} program(s) linked in a glide to plane ${to}: ` + JSON.stringify(await B.ev(`__perf.linkNames(${a})`)));
     const w = await windowStats(a, b);
     return Object.assign(w, { blits: bl1 - bl0, links: c1 - c0, labels: lbl.map((p) => p.ms), jank: await jankIn(a, b), a, b });
   };
@@ -1203,12 +1251,7 @@ async function svGlideUnit(scene, o = {}) {
         // (the reps stop early, said in the details, when the next would pass this dpr's half of 75% of the unit's time
         // limit: fewer reps, not a timeout, which aborts the whole run)
         if (i > 0 && (Date.now() - td) / i * (i + 1) > budget / 2) { detail(`${pre}.reps`, `${i} of ${REPS} (the next rep would pass the unit's time budget)`); break; }
-        const gns = `perfsvg${process.pid}_${++nsCounter}`;
-        const seed = o.state ? await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(gns)}) { try { localStorage.setItem(${JSON.stringify('complex-map-workbench-v1:' + gns)}, ${JSON.stringify(JSON.stringify(o.state))}); } catch (e) {} }`) : null;
-        await B.nav(`${BASE}test.html?ns=${gns}&view=steps`);
-        if (seed) await B.removeInit(seed);
-        await B.until('typeof __cmwSteps === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
-        await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
+        await openSteps(o.state);
         if (EX[scene]) await B.ev(`__cmwExample(${exampleIndex(EX[scene])}), 1`);
         await settle(await pageNow());
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
@@ -1253,6 +1296,36 @@ async function svGlideUnit(scene, o = {}) {
     if (o.info) for (const [k, m] of Object.entries(RES.metrics)) if (k.startsWith(pre + '.') && k !== `${pre}.dpr_ok`) m.kind = 'info';
   }
 }
+// The GL bytes the steps view's Landscape holds while it carries a glide (Surface: Landscape, All sheets): the carried grid's
+// heights, the pole patches' and far rings' textures, whatever the sheets add. The glide is held at the middle of the plane
+// run [a, b] on a page opened fresh, then __perf.mem() (the live and peak bytes of every buffer, texture and renderbuffer the
+// page allocated: the allocator's count, so a software renderer reads the same as a GPU) is read, with how many patches the
+// frame draws, and the live bytes the Landscape added to those the plane surface held. One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), and the default page's Möbius step, whose
+// poles are in the carried box. Info rows: the phones' limit is read off them, nothing gates (#1205).
+async function svLandBytesUnit() {
+  const cases = [
+    { tag: 'k2', state: SV_SHEETS_STATE },
+    { tag: 'k4', state: svRootState(4) },
+    { tag: 'k6', state: svRootState(6) },
+    { tag: 'poles', state: null },
+  ];
+  for (const c of cases) {
+    const pre = `sv.land_bytes.${c.tag}`;
+    await openSteps(c.state);
+    await settle(await pageNow());
+    const flat = await B.ev('__perf.mem()');   // (the page's own bytes on the plane surface: what the Landscape adds is the rest)
+    await B.ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 1, now: true }), 1`);
+    await settle(await pageNow());
+    await B.ev(`__cmwSteps({ x: 1.5, now: true }), 1`);
+    await settle(await pageNow());
+    const mem = await B.ev('__perf.mem()'), carry = await B.ev('(() => { const c = __cmwLandCarry(); return c ? { patches: c.patches, patchN: c.patchN, far: (c.far || []).length } : null; })()');
+    put(`${pre}.gpu_live_bytes`, 'info', 'B', [mem.live]);
+    put(`${pre}.gpu_peak_bytes`, 'info', 'B', [mem.peak]);
+    put(`${pre}.gpu_land_added_bytes`, 'info', 'B', [mem.live - flat.live]);
+    put(`${pre}.patches`, 'info', '', [carry ? carry.patches : 0]);
+    detail(`${pre}.carry`, JSON.stringify(carry));
+  }
+}
 async function cardsStartupUnit() {
   await B.send('Profiler.enable');
   await B.send('Profiler.setSamplingInterval', { interval: 250 });
@@ -1278,7 +1351,7 @@ async function cardsStartupUnit() {
       const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
       first.push(f.length ? f[0][6] : null);
       allDrawn = allDrawn && ok;
-      if (i === 0) detail(`${pre}.cards`, await B.ev(`typeof __cmwCards === 'function' ? __cmwCards().cards.length : 0`));
+      if (i === 0) detail(`${pre}.cards`, await B.ev(`typeof __cmwCards === 'function' ? (__cmwCards().cards || []).length : 0`));
     }
     put(`${pre}.first_frame_ms`, 'oneshot_ms', 'ms', first);
     put(`${pre}.cards_longest_ms`, 'limit', 'ms', [Math.max(0, ...longestS)], { limit: CARDS_TASK_LIMIT, samples: longestS.map(r3) });
@@ -1292,8 +1365,8 @@ async function cardsStartupUnit() {
 }
 
 // The deformation playing in the Phase and Landscape views (merged-views review): one full-width panel paints H_t at
-// every frame (868 px wide at 1440 x 900, against v11's ~430 px pane). The scene opens in the view (rightMode color /
-// 3d: the Phase / Landscape view here, the old layout's pane in the reference), the toggle (#morphBtn) opens the
+// every frame (868 px wide at 1440 x 900, against a ~430 px pane). The scene opens in the view (rightMode color /
+// 3d: the Phase / Landscape view here, the pane in the reference), the toggle (#morphBtn) opens the
 // deformation, which plays; 2 s of playback are measured. The reference cannot paint H_t in its phase pane (its
 // deformation is a view of the right pane), so this unit is like-for-unlike against it and is gated by the absolute
 // 60 fps budget (compare_perf BUDGET60: frame p95 <= 14 ms, fps >= 55); `.view` says which picture played.
@@ -1489,7 +1562,7 @@ async function imageRUnit(pre, scene, dpr, over = {}) {
 async function smUnit(pre, scene) {
   const o = await openApp(sceneState(scene, { rightMode: 'image', meshN: 240 }));
   detail(`${pre}.open`, o);
-  const sm = () => B.ev(`typeof __cmwSphere === 'function' ? (() => { const s = __cmwSphere(); return { built: s.stats.built, maxSlice: s.stats.maxSlice, ms: s.stats.ms, slices: s.stats.slices, partial: s.stats.partial, entries: s.entries.map((e) => [e.why, e.n, e.ms, e.settleMs, e.partial]), maxPerSlot: Math.max(0, ...Object.values(s.entries.reduce((m, e) => { m[e.slot] = (m[e.slot] || 0) + 1; return m; }, {}))) }; })() : null`);
+  const sm = () => B.ev(`typeof __cmwSphere === 'function' ? (() => { const s = __cmwSphere(); return { built: s.stats.built, maxSlice: s.stats.maxSlice, ms: s.stats.ms, slices: s.stats.slices, long: s.stats.long || [], partial: s.stats.partial, entries: s.entries.map((e) => [e.why, e.n, e.ms, e.settleMs, e.partial]), maxPerSlot: Math.max(0, ...Object.values(s.entries.reduce((m, e) => { m[e.slot] = (m[e.slot] || 0) + 1; return m; }, {}))) }; })() : null`);
   const s0 = await sm();
   detail(`${pre}.sphere_mesh`, s0);
   if (s0) {
@@ -1524,7 +1597,7 @@ async function scrubMobiusUnit() {
     const cl = GLR.createLines; GLR.createLines = function () { c.up++; return cl.apply(this, arguments); };
     const sc = Region.sampleCurve; Region.sampleCurve = function () { c.samp++; return sc.apply(this, arguments); }; return 1; })()`);
   const count = () => B.ev('[__lineCount.up, __lineCount.samp]');
-  // (v15: the Inspector's #i1_phi once step 1 is selected; earlier builds: the card's #p1_phi)
+  // (the Inspector's #i1_phi once step 1 is selected; without an Inspector: the card's #p1_phi)
   const PHI = `(document.getElementById('i1_phi') || document.getElementById('p1_phi'))`;
   await B.ev(`(() => { if (document.querySelector('#propsPanel .insp-sel') && !document.getElementById('i1_phi')) { const c = document.querySelector('#pipeline .card[data-k="1"]'); if (c) c.click(); } return 1; })()`);
   await sleep(200);
@@ -1661,8 +1734,8 @@ async function hoverDimUnit() {
   put(`${pre}.no_job`, 'check', '', [busy === 0]);
 }
 
-// ---------------- wave 1's pointer and per-frame work (issue #63) ----------------
-// Work wave 1 added to pointer paths and to the frame (notes/ux-build/w1-review-regress.json regress-6, regress-7):
+// ---------------- pointer and per-frame work ----------------
+// Work on pointer paths and on the frame (notes/ux-build/w1-review-regress.json regress-6, regress-7):
 // the snap and detent search of a hover with Point or a construction tool, of a body drag with Snap on and of a rail
 // glide; the hover probe's readout on X; the Y render's target note and the overlay frame's undo state while the
 // deformation plays. On the GPU gate these meet the 60 fps budget (frames, input handlers); on GitHub's machines they
@@ -2003,7 +2076,7 @@ unit('mesh', 'CPU mesh build per shape kind (Region.buildMesh) and mesh quality'
 for (const scene of ['default', 'logUHP', 'chain4']) {
   for (const meshN of MESHES) unit(`image.${scene}.m${meshN}`, `Image mode, ${SCENES[scene].label}, mesh ${meshN}: statics, remesh, pan L/R${meshN === 240 ? ', wheel zoom L/R' : ''}`, () => imageUnit(scene, meshN));
 }
-// [#253] shapes of later planes pulled back in X: one pass per plane, one blit
+// shapes of later planes pulled back in X: one pass per plane, one blit
 unit('image.stages3.m240', `Image mode, ${SCENES.stages3.label}: statics, remesh, pan L/R, wheel zoom L/R`, () => imageUnit('stages3', 240));
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
@@ -2022,6 +2095,7 @@ unit('morph.open', 'opening the deformation on examples 7 and 4 (choosing its ar
 unit('cards.startup', 'the step cards at start-up (a first visit of the default page; a saved 4-step chain): first frame, longest card stretch, its links, all cards drawn (#326)', cardsStartupUnit);
 unit('cards.rebuild', 'the step cards after a chain edit (chain4, step 2 n 2 -> 3 -> 2): longest task until the cards are fresh, tasks over 100 ms (#326)', cardsRebuildUnit);
 unit('sv.cold_glide', 'the steps view: the first glide on a fresh page (default, the Mountain King) and a glide at once after a step is added: longest frame, jank, frame p95, the poles\' synchronous ms', svColdGlideUnit, { timeoutS: 900 });
+unit('sv.prestart_edit', 'the steps view: a step added, the pane dragged and a step\'s n typed while the prestart runs (#1157): the frame p95 and longest frame of each, and the work svReady() still counts', svPrestartEditUnit);
 unit('sv.long_session', 'the steps view: the Mountain King scrubbed 20 times on one page, frame p95 and the live GL objects per scrub', svLongSessionUnit, { timeoutS: 900 });
 unit('sv.first_glide', 'the steps view (?view=steps, #366): the first glide after the view opened and idled 3 s, its longest frame (no synchronous link, A2) and LINK_STATUS waits; a warm glide (default page, zeta)', svFirstGlideUnit);
 unit('sv.interact.default', 'the steps view (#366 K, on a GPU), the default page, parked half-way: the strip scrub (Everywhere, Inside regions), an Inside-regions pan, a globe orbit; GL copies per scrub frame', () => svInteractUnit('default'));
@@ -2040,7 +2114,14 @@ unit('sv.glide.cut_globe', 'the steps view on the globe (Surface: Sphere, on a G
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
 unit('sv.glide.land', 'the steps view\'s Landscape (Surface: Landscape, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere (the carried grid, its heights and colour moving with the points); info rows only, until it has a baseline', () => svGlideUnit('default', { id: 'sv.glide.land', surf: 'land', info: true }));
 unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the same glide in Inside regions (the carried region mask); info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_in', surf: 'land', scope: 'in', info: true }));
+// (All sheets on a multivalued chain: √z then z + 2 with the Landscape's glide between w₁ and w₂, whose carry starts from
+// z's plane to keep the √z step's sheets)
+const SV_SHEETS_STATE = Object.assign({}, SV_CUT_STATE, { rightMode: '3d', sheets: true, height: 'im' });
+unit('sv.glide.land_sheets', 'the steps view\'s Landscape with All sheets (Surface: Landscape, on a GPU), √z then z + 2: a warm glide there and back between w₁ and w₂ at dpr 1 and 2, the carry from z\'s plane drawing the √z step\'s two sheets (#1099); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets', surf: 'land', state: SV_SHEETS_STATE, planes: [1, 2], info: true }));
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
+// (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
+function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
+unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows (#1205)', svLandBytesUnit);
 unit('morph.play.views', 'the deformation playing in the full-width Phase and Landscape panels (H_t at every frame; 60 fps budget)', morphViewsUnit);
 unit('hover.default', 'hover preimage tracking, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover preimage tracking, z^3 - 1', () => hoverUnit('cubic'));
@@ -2252,7 +2333,7 @@ async function main() {
     }
     OPENED = null;
     RES = RES_B; BASE = BASE_B; B = B_B;
-    // [#292] a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
+    // a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
     // compare_perf.py reports the unit's metrics as NEW instead of comparing them with an empty scene's
     if (RES_A) {
       const why = refCannot(scenes.get(RES_A) || [], scenes.get(RES_B) || [], failed.get(RES_A), failed.get(RES_B));

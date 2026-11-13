@@ -1,9 +1,8 @@
 // @ts-check
 'use strict';
 // The constructions on a curve C (notes/orthogonal-circle): Inside C only and Between z0 and z1 (segments/SPEC.md),
-// the perpendicular circle (SPEC.md) and the touching circle (TANGENT-SPEC.md). Moved out of constr.js (issue #20,
-// the file-size budget) as a factory constr.js calls where these sections stood, with the names of its own they
-// read; constr.js takes the names back.
+// the perpendicular circle (SPEC.md) and the touching circle (TANGENT-SPEC.md). A factory constr.js calls with the names of its own it
+// reads; constr.js takes the names it returns.
 const ConstrOrtho = (host) => {
   const {
     FLIPPED, INF, TAU, abs, add, canonKey, decOf, decompose, div, dot, eqP, fOf, flipG, formOfFields, gc, geomOf,
@@ -66,7 +65,7 @@ const ConstrOrtho = (host) => {
     else { q.kind = 'ray'; q.fields = { a: fe[0].slice(), b: mid.slice(), m: undefined, c: undefined, r: undefined, complement: undefined }; }
     return q;
   }
-  // [issue #70] "Between z0 and z1": the true hyperbolic segment of K from P to Q (no tails): of the two arcs of K between
+  // "Between z0 and z1": the true hyperbolic segment of K from P to Q (no tails): of the two arcs of K between
   // them, the one that K's two meets with C do not cut (P and Q on the same side of C, inside or outside). On opposite
   // sides each arc holds a meet: undefined ('betweenSides'). A point on C is an end of the segment. The same seg object as
   // segOf's (ends, u0, D, H, k), so gliders, crossings, hit tests, the images and the globe treat it as that arc.
@@ -107,7 +106,7 @@ const ConstrOrtho = (host) => {
     return fOf(Gc, add(g.p, steep ? [-1, 0] : [0, 1])) < 0 ? 1 : -1;
   }
   // the two sides of a perpendicular circle's C, by their words: {line, steep, Gc, sides: [[word, seg], [word, seg]],
-  // seg (0, 1 or -1), dflt (segSideOf)} | null. A circle: in (bounded), out; a line: above, below (left, right when
+  // seg (0, 1, -1), dflt (segSideOf)} | null. A circle: in (bounded), out; a line: above, below (left, right when
   // steeper than 45 degrees)
   function segSides(state, id, env) {
     const ctx = makeCtx(state, env, null), e = ctx.idx.get(id), s = e && e.s, d = s && s.def;
@@ -175,7 +174,7 @@ const ConstrOrtho = (host) => {
     }
     return gl.map((g) => g.id);
   }
-  // [issue #70] Constr.setBetween(state, id, on, env): Between z0 and z1 on (true) or off on the perpendicular circle id (on
+  // Constr.setBetween(state, id, on, env): Between z0 and z1 on (true) or off on the perpendicular circle id (on
   // clears Inside C only: the two are one choice). Its gliders move so none leaves the drawn curve: on, a glider off the
   // segment goes to its nearer end; off, every glider keeps its point. One state change (the caller records one undo
   // step). Returns the ids of K's gliders, or null
@@ -456,7 +455,7 @@ const ConstrOrtho = (host) => {
     if (ta && tb && sameG(ta.G, tb.G) && !isInf(ta.tp) && !isInf(tb.tp) && eqP(ta.tp, tb.tp)) return ta.tp;
     return null;
   }
-  // the meets of a seg K and the curve C it is built on: the drawn ends, bitwise (order K, C:
+  // the meets of a seg K and the curve C it was built on: the drawn ends, bitwise (order K, C:
   // index i is the meet i of K's form with C's; order C, K: the entering rule reverses at a right angle, so i <-> 1 - i)
   function segAt(pa, pb) {
     const ka = pa.seg && pa.G && pa.G.sg, kb = pb.seg && pb.G && pb.G.sg;

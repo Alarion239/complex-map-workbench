@@ -14,6 +14,9 @@
   let sideMode = false, side = null;
   const sideChs = new Map();
   let frameErr = '', framePending = false;
+  // the Landscape's refinement is still to come: the frame was drawn without it and a redraw follows (rfPoll, rfLater,
+  // settled, sheetRF)
+  let frameRefining = false;
   // the programs of the current chain that a draw drew a stand-in for (an earlier version, the deformation's start, or
   // nothing), program id -> chain key, until each lands, fails or is dropped: frameStatus().waiting, over every pane of
   // the frame (pending is only the last begin's or viewport's: the Sphere view draws two panes); frameCompiling: since
@@ -408,7 +411,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `centroid out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -719,33 +722,39 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the sheet key of the inverse path (SPEC 5.1, 5.2) per fragment, as its depth (flat pre-mapped meshes, uKeyOn 1):
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
-  // preKeyDepth(sa, stepped), sa the source point: x = KEY_STEPS D + 0.999 (tie order), depth x / (x + 1024).
-  // - KEY_STEPS = 256 = 1 / Inverse.front's TIE_D: keys a tie step apart are one unit of x apart, and the tie order,
-  //   in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys within a step. A map symmetric
-  //   about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|) would otherwise order
-  //   fragment by fragment.
-  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): KEY_STEPS D rounded to its step, as Inverse.front
-  //   and the inverse pass compare keys, so two sheets in one step are ordered by the tie order alone. Not stepped (a
-  //   vertex stage: REGION_VS's carry option): KEY_STEPS D itself, since a depth interpolated across a triangle whose
-  //   vertices straddle a step would order the sheets wrongly over the whole triangle.
+  // preKeyDepth(sa, stepped), sa the source point: depth = (s + 0.999 (tie order)) / (KEY_SMAX + 1), s = KEY_STEPS ln(1 + D).
+  // - KEY_STEPS = 2^14: the key's steps per unit of ln(1 + D). Inverse.front ties two sheets within a relative band of
+  //   2^-14 (1 + D), a constant step of ln(1 + D), so the key is uniform in that variable: keys a tie step apart are one
+  //   unit of s apart, and the tie order, in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys
+  //   within a step. A map symmetric about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|)
+  //   would otherwise order fragment by fragment.
+  // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): s rounded to its step, so two sheets in one
+  //   step are ordered by the tie order alone. Not stepped (a vertex stage: REGION_VS's carry option): s itself, since a
+  //   depth interpolated across a triangle whose vertices straddle a step would order the sheets wrongly over the whole
+  //   triangle.
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
-  // - x / (x + 1024) maps x >= 0 into [0, 1), monotone, finest for small D (depth 0.5 at D = 4). D is capped at 1e4
-  //   (a point that far behind is behind every point that matters) so x stays finite.
-  const PRE_KEY_DECL = `uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
-// (the key's steps per octave: 1 / Inverse.front's TIE_D)
-const float KEY_STEPS = 256.0;
+  // - D is capped at KEY_DMAX = 63 (a point that far behind is behind every point that matters), so s <= KEY_SMAX
+  //   = 2^14 ln 64 (about 2^16.1) and the depth is linear in [0, 1): a step spans about 2^7.9 of the 24-bit depth buffer's levels,
+  //   which keep the tie order apart.
+  // uPeelOn = 1 (the carried colour's layers, GLR.carryLayers): only the fragments behind the previous layer's key, which
+  // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
+  const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
+  const PRE_KEY_DECL = `${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
+const float KEY_STEPS = 16384.0;
+const float KEY_DMAX = 63.0;
+const float KEY_SMAX = 68141.0;
 float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
-  float d = min(D, 1e4) * KEY_STEPS;
+  float d = log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
   float x = (stepped ? floor(d + 0.5) : d) + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
-  return x / (x + 1024.0);
+  return x / (KEY_SMAX + 1.0);
 }
 `;
-  const PRE_KEY = '  gl_FragDepth = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n';
+  const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
@@ -1224,7 +1233,7 @@ void main() {
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
-  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
+  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
@@ -1275,15 +1284,16 @@ void main() {
 `;
   // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE, TIERS and SPHERE_LINES): the side away from the camera left out, so the sheet
   // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour under the globe's graticule
-  // (at the lifted point) and light, as the globe's phase portrait draws it
+  // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule 0 leaves the graticule out
   const CARRY_GLOBE_FS = (id) => {
     let t = CARRY_FS(id);
     for (const [a, b] of [
-      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye;\n'],
+      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye; uniform float uGraticule;\n'],
       ['void main() {\n', 'void main() {\n  vec3 vv = normalize(uEye - vPos);\n  if (dot(vNor, vv) < 0.0) discard;\n'],
       [`  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`, `  vec3 nn = normalize(vNor);
   float net, re, eq;
   sphereLines(nn, net, re, eq);
+  net *= uGraticule; re *= uGraticule; eq *= uGraticule;
   o = vec4(toSrgb(shade(toLin(phaseLines(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), net, re, eq)), nn, vv, 1.0)), 1.0);`],
     ]) {
       if (!t.includes(a)) throw new Error('CARRY_GLOBE_FS: ' + a.slice(0, 40));
@@ -1297,8 +1307,10 @@ void main() {
   // torn across a cut meets the other side is the cut's image, pixel for pixel; the depth, the sheet key of the
   // fragment's source point, then lets the colour program draw only the fragment kept in front. One chain (mapPoint),
   // none of the colour's: a fragment stage with two inlined chains links many times slower
-  const CARRY_MASK_FS = `
-centroid in vec2 vP; in vec2 vW;
+  // (key: the depth is the sheet key of the fragment's source point, as CARRY_FS's with a key, for the carried colour's
+  // layers: GLR.carryLayers)
+  const CARRY_MASK_FS = (key) => `
+${key ? PRE_KEY_DECL : ''}centroid in vec2 vP; in vec2 vW;
 flat in float vWTol; flat in float vTorn;
 out vec4 o;
 void main() {
@@ -1306,7 +1318,7 @@ void main() {
     vec2 dw = mapPoint(vP) - vW;
     if (!(abs(dw.x) <= vWTol && abs(dw.y) <= vWTol)) discard;
   }
-  o = vec4(0.0);
+${key ? '  vec2 sa = vP;\n' + PRE_KEY : ''}  o = vec4(0.0);
 }
 `;
   // the Cauchy integral of the nodes (zeta_j, w_j = F(zeta_j) dzeta_j / 2 pi i): sum_j w_j / (zeta_j - z). Inside the

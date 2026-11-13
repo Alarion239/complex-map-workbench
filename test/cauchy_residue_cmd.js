@@ -25,6 +25,8 @@ const open = async (shapes, steps) => {
   await view(1440, 900, false, false);
   await load('cr' + Date.now() + Math.floor(Math.random() * 1000), stateOf(shapes, steps));
   await settle(1200);
+  // (the steps view offers Cauchy while z is the colour plane: the curve lies on z)
+  await ev(`typeof __cmwSteps === 'function' && __cmwSteps().on ? (__cmwSteps({ T: 0 }), 1) : 0`);
   await ev(`__cmwSetMain('phase'); __cmwSelect('s1'); document.querySelector('[id="dcSeg"] [data-v="cauchy"]').click(); 1`);
   await settle(1500);
 };
@@ -73,7 +75,7 @@ ok('A Both = the two halves', dist(a3.at(outP[0], outP[1]), a5.at(outP[0], outP[
 ok('A the integral and f₋ outside differ (the sign: a half turn of the phase)', dist(a1.at(outP[0], outP[1]), a3.at(outP[0], outP[1])) > 30, [a1.at(outP[0], outP[1]), a3.at(outP[0], outP[1])]);
 
 // ---- A2: the control and the words (the note is behind the ⋯ of the pane head: opened to read it)
-const optsText = () => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); const p = document.querySelector('.opts-pop'); const t = p ? p.textContent : ''; const seg = document.getElementById('cauchySeg') || (p && p.querySelector('#cauchySeg')); const o = { text: t, seg: seg ? [...seg.children].map((x) => x.textContent.trim() + (x.classList.contains('on') ? '*' : '')) : null, segId: !!seg }; if (p) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return o; })()`);
+const optsText = () => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); const p = document.querySelector('.opts-pop'); const t = p ? p.textContent : ''; const seg = document.getElementById('cauchySeg') || (p && p.querySelector('#cauchySeg')); const o = { text: t, seg: seg ? [...seg.children].map((x) => x.textContent.trim() + (x.classList.contains('on') ? '*' : '')) : null, segId: !!seg, off: seg ? [...seg.children].every((x) => x.disabled) : null }; if (p) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return o; })()`);
 const A2 = await optsText();
 info.A2 = A2;
 ok('A2 with a pole inside the curve there is a Both | Inside | Outside choice, Both on', A2.seg && A2.seg.join() === 'Both*,Inside,Outside', A2);
@@ -93,12 +95,16 @@ ok('A2 clicking Inside sets the part shown; the caption data follows', inCap && 
 await ev(`(() => { const o = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (document.querySelector('.opts-pop') && o) o.click(); return 1; })()`);
 await ev('__cmwCauchyOpt("both", false)'); await settle(400);
 await open(CIRCLE, custom('z^{2}'));
+const SV = await ev(`typeof __cmwSteps === 'function' && !!__cmwSteps().on`);
+// (the run's label: ci/browser.js pins the page to the classic view for the classic run, window.__cmwPinView; each run is in the view it names)
+const RUN_STEPS = (await ev('window.__cmwPinView')) !== 'classic';
+ok('the run is in the view its label names (steps: the steps view, classic: the classic view)', SV === RUN_STEPS, { SV, RUN_STEPS });
 const A3 = await optsText();
-ok('A2 with no pole inside there is no choice and the old note ("F inside, 0 outside")', !A3.segId && /inside, 0 outside/.test(A3.text), A3);
+ok('A2 with no pole inside no choice (steps: the control is there, disabled; classic: absent) and the old note ("F inside, 0 outside")', (SV ? A3.segId && A3.off : !A3.segId) && /inside, 0 outside/.test(A3.text), A3);
 ok('A2 (and the caption data says plain)', (await ev(`Export.figCapParts().cauchy`)).kind === 'plain', null);
 await open(CIRCLE, custom('\\exp\\left(\\frac{1}{z}\\right)'));
 const A4 = await optsText();
-ok('A2 e^(1/z): the note says it is computed numerically, no choice', !A4.segId && /computed numerically/.test(A4.text), A4);
+ok('A2 e^(1/z): the note says it is computed numerically, no choice (steps: the control disabled; classic: absent)', (SV ? A4.segId && A4.off : !A4.segId) && /computed numerically/.test(A4.text), A4);
 ok('A2 (and the caption data says numeric)', (await ev(`Export.figCapParts().cauchy`)).kind === 'numeric', null);
 await open(CIRCLE, custom('\\frac{1}{z-1}'));
 const A5 = await optsText();

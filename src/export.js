@@ -1,5 +1,5 @@
 'use strict';
-// Export and captions (issue #20, phase 3: moved out of app.js): plane images and the LaTeX of the map with its
+// Export and captions: plane images and the LaTeX of the map with its
 // guarantees, article figures, the captions (as segments and as LaTeX), and the figure export's renderer and the state
 // it reads (src/figure.js; notes/export-design/AS-BUILT.md). The app hands it what it needs once, Export.init(api) at
 // start-up (src/app/13-export-captions.js, exportApi): its functions and constants as they are, and the state it
@@ -34,7 +34,7 @@ const Export = (() => {
       sndExportDone();
       return true;
     }
-    // true only when the file was saved (or handed to the browser's download): a declined or refused save is false, so
+    // true only when the file is saved (or handed to the browser's download): a declined or refused save is false, so
     // the export dialog never says "Saved" for it
     if (!d) { sndError(); toast($t('Saving files is not available in this view.')); return false; }
     try {
@@ -58,7 +58,7 @@ const Export = (() => {
   const FIG_DPI = 300;
   const PT = 96 / 72;                  // px per point
   const mjCache = new Map();
-  // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
+  // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one not
   // yet loaded throws with e.retry, a promise. mj() typesets synchronously, so it notes the promise and gives the
   // fallback for that formula (uncached); buildFigure waits for mjWaits and builds again. (Another formula with a
   // letter of a range still loading comes back with it as <text> in a system font, not a throw: uncached as well)
@@ -106,7 +106,7 @@ const Export = (() => {
     const top = y - it.h - it.va;
     return it.markup.replace('<svg', `<svg x="${left.toFixed(2)}" y="${top.toFixed(2)}"`);
   }
-  // SPEC 10.6: prepareExport(panels, alive) -> true when the export may draw, false when it was cancelled (alive()
+  // SPEC 10.6: prepareExport(panels, alive) -> true when the export may draw, false when it is cancelled (alive()
   // turned false: an option changed or the dialog closed). Asynchronous and time-sliced: it refines the lines and
   // waits (bounded, polling every 25 ms, never blocking) for the inverse programs that each panel's current view draws
   // with: the right plane or the w-globe (role R), the left plane at a focused stage or the z-globe (role L, also at
@@ -143,8 +143,8 @@ const Export = (() => {
     }
     return alive() && warmExport(panels, alive, morphFig);
   }
-  // (issue #72) renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
-  // Direct3D 11 takes seconds: the tab froze. So the panels are first drawn small with nothing waiting (renderOff's
+  // renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
+  // Direct3D 11 takes seconds, which would freeze the tab. So the panels are first drawn small with nothing waiting (renderOff's
   // warm), the deformation's map modes started too, and the programs are awaited here, polled, while the export's
   // progress shows; renderOff then finds them linked (or links the odd one still missing). Awaited: the ones this
   // warm-up started and the current chain's; not the others compiling meanwhile (the idle warm-up's, the gallery's).
@@ -202,7 +202,7 @@ const Export = (() => {
     // none) is waited for here, and only then
     const wait = !warm && GLR.ok && GLR.inverseStatus && (GLR.inverseStatus(A.S.alpha, 'flat') === 'pending' || GLR.inverseStatus(A.S.alpha, 'globe') === 'pending');
     // the forward programs are always waited for: a deformation frame may need a map mode the screen never drew
-    // (gl.js MAP compiles one program per mode), and a static program's first use no longer waits on screen
+    // (gl.js MAP compiles one program per mode), and a static program's first use does not wait on screen
     const waitFwd = !warm && GLR.ok;
     A.offRender = true;
     if (wait) GLR.syncCompile = true;
@@ -232,7 +232,7 @@ const Export = (() => {
   // the variable of a panel's coordinates, in TeX
   function panelVar(side) {
     if (side === 'L') return leftStage() === 0 ? 'z' : `w_{${leftStage()}}`;
-    // (the plane Y rests on while ‹ › have it on a step's, #383, is that step's: w_j)
+    // (the plane Y rests on while ‹ › have it on a step's, is that step's: w_j)
     return A.S.focus === 0 && rightStage() === nSteps() ? 'w' : `w_{${rightStage()}}`;
   }
   // a tick number in TeX: as few decimals as the step needs; powers of ten far from 1
@@ -261,8 +261,8 @@ const Export = (() => {
     return null;
   }
   // ---- the caption, as segments: {t: text} and {m: TeX}; also as LaTeX source ----
-  // (one pass over the special characters: a replacement's own braces are not escaped again, as they were when the backslash
-  // was replaced first and the braces after it)
+  // (one pass over the special characters: a replacement's own braces are not escaped again, as they would be when the backslash
+  // is replaced first and the braces after it)
   const texEsc = (s) => String(s).replace(/[\\#$%&_{}~^]/g, (c) => (c === '\\' ? '\\textbackslash{}' : c === '~' ? '\\textasciitilde{}' : c === '^' ? '\\textasciicircum{}' : '\\' + c));
   // a caption sentence as segments: the template is translated whole (DESIGN.md 1) and its %{slots} hold segments,
   // so the word order follows the language. cs 'gen': the genitive form ("the images of ...", Russian needs the case)
@@ -284,10 +284,10 @@ const Export = (() => {
     if (tex) tex = inlineFrac(tex.replace(/\\left\|/g, '|').replace(/\\right\|/g, '|').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')).replace(/\\tfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2');
     const P = (a) => CX.tex(C(a[0], a[1]), 3);
     const M = (m) => ({ m });
-    // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга», math-4)
+    // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга»)
     const phrase = (c) => {
       const sp = (src, params) => capT(src, params, c);
-      // (v16: constructions by their definitions; [v16.4 review user-2, user-3] a phrase that must be closed when more text
+      // (constructions by their definitions; a phrase that must be closed when more text
       // follows (a Russian participial phrase, a stacked "in the domain") ends with a closing comma, {pc}: pcTidy drops it
       // before punctuation and at the end)
       if (s.def || s.at) { const ph = Construct.phrase(s, P); if (ph) { const r = sp(ph.src, ph.params); if (ph.close) r.push({ t: ',', pc: 1 }); return r; } }
@@ -313,7 +313,7 @@ const Export = (() => {
         }
         case 'segment': return sp('the segment %{m}', { m: M(`[${P(s.a)},\\,${P(s.b)}]`) });
         // (a line stored from a cap on a globe has a unit direction and is written by its equation, Region normalTex)
-        // (v16 review picture-7: "\text{…}" in any language is the line-through form: by its two points, never as maths)
+        // ("\text{…}" in any language is the line-through form: by its two points, never as maths)
         case 'line': return tex && !/^\\text\{/.test(tex) ? sp('the line %{m}', { m: M(tex) }) : sp('the line through %{a} and %{b}', { a: M(P(s.a)), b: M(P(s.b)) });
         case 'ray': return sp('the ray from %{a} through %{b}', { a: M(P(s.a)), b: M(P(s.b)) });
         case 'circle': return sp('the circle %{m}', { m: M(tex) });
@@ -328,16 +328,16 @@ const Export = (() => {
         case 'sector': return capT('the sector %{m}', { m: M(tex) }, s.r > 0 ? c : c === 'gen' ? 'gen-angle' : 'angle');
         case 'formula': return sp('the set %{m}', { m: M(tex) });
         case 'fcurve': return sp('the curve %{m}', { m: M(tex) });
-        // (the grid's name is a translated \text{} at the front of its TeX: review math-3)
+        // (the grid's name is a translated \text{} at the front of its TeX)
         case 'cgrid': return sp('a Cartesian grid on %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\}\s*/, '')) });
         case 'pgrid': return sp('a polar grid in %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\},\s*/, '')) });
-        // ([issue #260] by their equations: arg Φ_M(z) = 2π·θ, |Φ_M(z)| = r)
+        // (by their equations: arg Φ_M(z) = 2π·θ, |Φ_M(z)| = r)
         case 'dhray': return sp('the external ray %{m}', { m: M(tex) });
         case 'dheq': return sp('the equipotential %{m}', { m: M(tex) });
         default: return Region.KINDS[s.kind] ? sp('a %{kind}', { kind: Region.KINDS[s.kind].label.toLowerCase() }) : sp('a shape', {});
       }
     };
-    // (v16: a 3-point region and a bound half-plane say their side themselves: "the outside of the circle through …")
+    // (a 3-point region and a bound half-plane say their side themselves: "the outside of the circle through …")
     if (s.complement && kindType(s) === 'area' && !(s.def || (s.at && s.kind === 'halfplane'))) return capT('the complement of %{segs}', { segs: phrase('gen') }, cs);
     return phrase(cs);
   }
@@ -350,7 +350,7 @@ const Export = (() => {
     return out;
   };
   const cap1 = (segs) => { const s = segs.slice(); if (s[0] && s[0].t) s[0] = { t: s[0].t.charAt(0).toUpperCase() + s[0].t.slice(1) }; return s; };
-  // [v16.4 review user-2] a phrase's closing comma ({pc}) stays only before more words: it goes before punctuation, an
+  // a phrase's closing comma ({pc}) stays only before more words: it goes before punctuation, an
   // opening bracket, another comma and at the end (keepEnd: a list that a template continues; it is left as PC_MARK,
   // which figure.js's polish resolves the same way once the sentence is whole). [verify-1] It also goes before the
   // English "and" (a list's or a meet's): there it would read as a list break; Russian keeps it («…, и~…»)
@@ -364,14 +364,14 @@ const Export = (() => {
       return !(nx.t != null && /^\s*(?:[,.;:()]|and\b)/.test(nx.t));
     }).map((g, i, a) => (g.pc && keepEnd && !a.slice(i + 1).some((x) => x.m != null || x.b != null || (x.t != null && /\S/.test(x.t))) ? { t: PC_MARK } : g));
   }
-  // (upto: only the steps through that stage: the plane ‹ › rest Y on, #383)
+  // (upto: only the steps through that stage: the plane ‹ › rest Y on)
   function compositeTexShort(upto) {
     const act = activeSteps().filter((j) => upto == null || upto < 0 || j <= upto);
     let arg = { s: 'z', p: 4 };
     for (const j of act) arg = A.built[j - 1].tex(arg);
     return act.length ? (arg.s.length <= 320 ? arg.s : null) : 'z';
   }
-  // the sentence on the image's shading: the phase of z carried by the map (#363: the one region fill), and its grid
+  // the sentence on the image's shading: the phase of z carried by the map (the one region fill), and its grid
   // lines when they are drawn (the pattern 'solid' of the steps view's masks draws no image a caption describes)
   function patternSegs() {
     if (A.S.pattern !== 'phase') return [];
@@ -390,7 +390,7 @@ const Export = (() => {
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const mapF = Ftex ? `${Fname0}(${lv})=${Ftex}` : `${Fname0}`;
     // the deformation drawn in one panel (Phase or Landscape of H_t, or X → Y's merged globe): the picture is H_t at
-    // the current t, so the caption names H_t and says which t and which homotopy (merged-views review)
+    // the current t, so the caption names H_t and says which t and which homotopy
     const hm = morphOn() && (panels.includes('L') ? lPaintsF() : true);
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
@@ -426,8 +426,8 @@ const Export = (() => {
       else if (lGlobe() && lPhase()) push(...lab('a'), ...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
       else if (lLand()) {
         const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[A.S.height || 'log'];
-        // (v16.1 user-5: what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
-        // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets)
+        // (what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
+        // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets; standards-ok: a spec path in notes/)
         const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname0) : null;
         push(...lab('a'), ...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
       } else if (vis.length) push(...lab('a'), ...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
@@ -559,7 +559,9 @@ const Export = (() => {
       if (!sel || !alive()) return null;
       mfFigCache.key = key; mfFigCache.sel = sel;
     }
+    // o.keep(z): only the points it accepts are named and returned (the sphere's figure draws those seen from the camera's side)
     if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
+    else if (o.keep) sel = Object.assign({}, sel, { kept: sel.kept.filter((k) => o.keep(k.sp.z)) });
     // (a steps-view source: the sentence naming the paths, for the figure's own caption to carry)
     if (o.src) {
       let sent;
@@ -578,7 +580,7 @@ const Export = (() => {
   // mesh ended on a budget, which the dialog's note reports)
   // (each call tags its export meshes with its own generation, so a cancelled call's cleanup never drops the meshes
   // of the call that replaced it)
-  // (#288: a pass that met a range of MathJax's STIX2 font not yet loaded, mjWaits, is built again once the ranges are
+  // (a pass that met a range of MathJax's STIX2 font not yet loaded, mjWaits, is built again once the ranges are
   // in, at most 8 passes)
   async function buildFigure(opt) {
     const gen = ++sm.exportGen;
@@ -614,8 +616,8 @@ const Export = (() => {
     if (!(await prepareExport(panels, alive, isMorph && !opt.upTo, { pw, dpr, gen: opt.expGen || 0 }))) return null;
     // One panel per task, in the light theme for print (switched for that panel only, so no frame on screen runs in
     // it), and every raster's encoding in a task of its own: toBlob reads the pixels back synchronously and waits
-    // for the GPU to finish what was drawn before. Two 300 dpi globe panels and the first readback in one task
-    // blocked the main thread for 51-60 ms (P3 review); a task here is one panel's draw, or one readback.
+    // for the GPU to finish what is drawn before. Two 300 dpi globe panels and the first readback in one task
+    // would block the main thread for 51-60 ms; a task here is one panel's draw, or one readback.
     const nextTask = () => new Promise((r) => setTimeout(r, 0));
     const drawn = [];
     for (const side of panels) {
@@ -720,7 +722,7 @@ const Export = (() => {
     }
     let H = panelTop + PH + Math.max(...panels.map(mB)) + keyH + 6;
     let capSegs;
-    I18N.using(opt.lang || I18N.lang, () => { // (review math-2: the caption in the figure's language)
+    I18N.using(opt.lang || I18N.lang, () => { // (the caption in the figure's language)
     if (isMorph && panels.includes('R')) {
       const keepT = morph.T;
       morph.T = Tend;
@@ -743,9 +745,9 @@ const Export = (() => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${(W / 96).toFixed(3)}in" height="${(H / 96).toFixed(3)}in" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${body}${capMarkup}</svg>`;
     return { svg, W, H, captionTex: captionLatex(capSegs), morph: mSel ? { kept: mSel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], meet: !!k.meet })), budget: mSel.budget, nCands: mSel.nCands, labelled: mSel.labelled ? [mSel.labelled.sp.z.re, mSel.labelled.sp.z.im] : null, log: mSel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) } : null };
   }
-  // (export review r3, video-1) the light theme's tokens, read once per class list: an export render in the dark theme
-  // swaps TH in memory instead of flipping data-theme (each flip recalculated every style and, through the theme
-  // observer, rebuilt the panels: 78-440 ms tasks per video frame). The one flip here is undone in the same block,
+  // the light theme's tokens, read once per class list: an export render in the dark theme
+  // swaps TH in memory instead of flipping data-theme (a flip recalculates every style and, through the theme
+  // observer, rebuilds the panels: 78-440 ms tasks per video frame). The one flip here is undone in the same block,
   // and themeChanged skips a notice whose theme is unchanged.
   let lightTH = null, lightKey = null;
   function lightTheme() {
@@ -774,12 +776,12 @@ const Export = (() => {
         if (fv) { const k = wpx / effW(side); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
         if (o.T != null) { morph.T = o.T; morph.playing = false; }
         // (o.look 'light': the screen's look in the light theme, for a video; else the art layer on white paper)
-        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artCam = true; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
+        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
         A.TH = Object.assign({}, light); inkCache.clear();
         if (A.artMode) { A.TH.plane = '#ffffff'; A.TH.planeRGB = GLR.hexRGB('#ffffff'); }
         cv = renderOff(side, wpx, hpx, dpr);
       } finally {
-        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artCam = false; A.artSkip = null; A.artNoLab = false;
+        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artCam = false; A.artRelief = false; A.artSkip = null; A.artNoLab = false;
         Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
         morph.T = keep.T; morph.playing = keep.playing;
         A.TH = thKeep; inkCache.clear();
@@ -788,6 +790,8 @@ const Export = (() => {
       const land = A.artLand, globe = A.artGlobe;
       if (GLR.gpuDone) await GLR.gpuDone();
       if (!alive()) return null;
+      // (o.reliefOnly: the alpha plane alone, 255 where the relief covers the pixel)
+      if (o.reliefOnly) { const q = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, cov = new Uint8Array(cv.width * cv.height); for (let i = 0; i < cov.length; i++) cov[i] = q[4 * i + 3]; return { w: cv.width, h: cv.height, cov, land }; }
       // (a video frame: the canvas itself, no readback)
       if (o.raw) return { w: cv.width, h: cv.height, cv, land, globe };
       const id = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, n = cv.width * cv.height, rgb = new Uint8Array(n * 3);
@@ -821,7 +825,7 @@ const Export = (() => {
   // (o.letters: points named A, B, C... as the Homework figure names them)
   function figCapParts(o = {}) {
     const vis = A.S.shapes.filter((s) => s.visible !== false);
-    // (export review r3, verify2-new-1) o.skip: the points a globe figure cannot show (on the far side of the sphere)
+    // o.skip: the points a globe figure cannot show (on the far side of the sphere)
     // are left out of the list of what it shows; the caption says they are hidden. The other points keep their names.
     const skipped = (s) => !!(o.skip && s.kind === 'point' && s.p && o.skip.some((z) => z.re === s.p[0] && z.im === s.p[1]));
     const skipAll = vis.every(skipped);
@@ -839,7 +843,7 @@ const Export = (() => {
     const hm = morphOn() && lPaintsF();
     let hom = null;
     if (morphOn()) { try { const m = morphLen(), hs = morphHomSegs(m); hom = { T: morph.T, m, tex: captionLatex(hs.segs), inner: hs.inner ? captionLatex(hs.inner) : null, innerShort: hs.innerShort ? captionLatex(hs.innerShort) : null }; } catch (e) { hom = null; } }
-    // (export review r3) the steps the homotopy names f_1, f_2, ...: their maps, for the caption's displayed chain
+    // the steps the homotopy names f_1, f_2, ...: their maps, for the caption's displayed chain
     let chain = null;
     if (morphOn() && A.S.focus === 0) {
       const ks = morphRange().steps;
@@ -921,7 +925,7 @@ const Export = (() => {
     // Russian notation (tg, sh, ...) at the export boundary (DESIGN.md 6); English is unchanged
     return I18N.notation(out.join('\n'));
   }
-  // (v16.5 V02: the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
+  // (the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
   function exportMenuItems(withShare) {
     const items = /** @type {any[]} */ ([
       { label: $t('Export figure…'), fig: true, key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
@@ -931,14 +935,14 @@ const Export = (() => {
       { label: $t('Copy LaTeX with guarantees'), icon: 'copy', run: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); } },
       { label: $t('Save LaTeX with guarantees (.txt)'), save: true, run: () => saveFile('complex-map.txt', latexDocument()) },
     ]);
-    // ([v17 D5] the link and the scene files are Share's on a laptop; the phone's sheet lists both)
+    // (the link and the scene files are Share's on a laptop; the phone's sheet lists both)
     if (withShare) items.push('sep', ...shareMenuItems());
     // files cannot be offered in this view: only the copy remains
     // (by a flag, not by the label: the label is translated)
     if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
     return items;
   }
-  // v15: the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
+  // the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
   function shareMenuItems() {
     const items = [
       { label: $t('Copy link to this figure'), icon: 'copy', run: () => { copyFigureLink(); } },

@@ -1,5 +1,5 @@
 'use strict';
-// Shared numbers, links and scene files (v15; notes/ui-redesign-2/constructions/DESIGN.md 1, phase 1).
+// Shared numbers, links and scene files (notes/ui-redesign-2/constructions/DESIGN.md 1).
 //
 // A shared number is {name, value, min, max, step} (a free number, a slider) or {name, expr, min, max, step} (a number
 // by formula of other numbers: b = 2a + 1). The list lives in the app's state (S.params) so that saving, undo and the
@@ -9,7 +9,7 @@
 // names as their values: step parameters (Funcs.build), zeros and poles, shape fields, region and curve formulas.
 // A field's text keeps the names; the app re-evaluates the fields that use a number when it changes.
 //
-// Public API (the interface between the v15 builds): mount(el), list(), get(name), set(name, value), on('change', fn),
+// Public API: mount(el), list(), get(name), set(name, value), on('change', fn),
 // and the hook (install()). Also: add, remove, rename, check, display, tex, namesIn, unknownIn, resolve, evalReal,
 // attach(host), and the links and scene files (encodeLink, decodeLink, scene, readScene).
 const Params = (() => {
@@ -27,7 +27,7 @@ const Params = (() => {
   // a name as shown: a₁, α₂ (the index as subscript digits)
   const display = (nm) => String(nm).replace(/\d+$/, (d) => [...d].map((c) => SUBD[+c]).join(''));
   const tex = (nm) => (Expr.nameTex ? Expr.nameTex(nm) : nm);
-  // the canonical name of what was typed: a, a1 (from a1, a_1, a_{1}, a₁), α (from α, alpha, \alpha); null if none
+  // the canonical name of what is typed: a, a1 (from a1, a_1, a_{1}, a₁), α (from α, alpha, \alpha); null if none
   function canon(raw) {
     let s = String(raw == null ? '' : raw).trim().replace(/^\\/, '');
     s = s.replace(/[₀-₉]/g, (c) => String(SUBD.indexOf(c))).replace(/_\{?\s*(\d+)\s*\}?$/, '$1');
@@ -44,9 +44,9 @@ const Params = (() => {
     r: $t('r is |z| in region formulas: use ρ or R'), i: $t('i is the imaginary unit'), e: $t("e is Euler's number"),
     'θ': $t('θ is arg z in region formulas: use φ or t'), 'π': $t('π is the constant 3.14159…'), 'ϑ': $t('θ is arg z in region formulas: use φ or t'),
   });
-  // (review russian-7: a Cyrillic look-alike typed on a Russian layout reads as its Latin letter, as in formulas)
+  // (a Cyrillic look-alike typed on a Russian layout reads as its Latin letter, as in formulas)
   const LOOK = { 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'к': 'k', 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
-  // [#240] letters a step binds: n, the index of every series, is never a new number; u (a recurrence's variable) and
+  // letters a step binds: n, the index of every series, is never a new number; u (a recurrence's variable) and
   // the field's own bound letters are not while a step binds them. A number by such a name in an older scene still
   // loads (sanitize), and its fields keep reading the bound letter as the index
   function reservedWhy(nm, bound) {
@@ -106,7 +106,7 @@ const Params = (() => {
     return out;
   }
   const unknownIn = (src, opts) => namesIn(src, opts).filter((nm) => !find(nm));
-  // (review verify-7: a value or formula that fails because of a Cyrillic letter, a look-alike read as an unknown Latin
+  // (a value or formula that fails because of a Cyrillic letter, a look-alike read as an unknown Latin
   // name or a letter the parser cannot read, says so in the name field's words, not with a Latin name the user never
   // typed; a look-alike of a known number still reads as that number)
   function cyrMsg(src, msg) {
@@ -354,7 +354,7 @@ const Params = (() => {
       if (isNum(q.im) && q.im !== 0) p.im = q.im;
       if (typeof q.expr === 'string' && q.expr.trim()) p.expr = q.expr.trim().slice(0, 500);
       if (q.play === 'bounce' || q.play === 'loop') p.play = q.play;
-      // an example's own number: the next example takes it away (examples.js); ex.was is the user's number of that name it
+      // an example's own number: the next example takes it away (examples.js); the user's number of that name it
       // stands in for, which comes back then
       if (q.ex === true) p.ex = true;
       else if (q.ex && typeof q.ex === 'object') { const w = q.ex.was && typeof q.ex.was === 'object' ? sanitize([Object.assign({}, q.ex.was, { ex: undefined })])[0] : null; p.ex = w ? { was: w } : true; }
@@ -480,12 +480,12 @@ const Params = (() => {
   const fmt = (v) => {
     if (!isNum(v)) return '';
     const s = String(+v.toPrecision(6));
-    // (screen text: the true minus, U+2212, as the rest of the interface; review math-14, russian-10)
+    // (screen text: the true minus, U+2212, as the rest of the interface)
     return (typeof I18N !== 'undefined' && I18N.lang !== 'en' && I18N.num ? I18N.num(s) : s).replace(/-/g, '−');
   };
   // the text of a value field: the formula of a number by formula, else the value (the exact value when short)
   const valText = (p) => (p.expr ? p.expr : isComplex(p) ? reprC({ re: +p.value.toPrecision(12), im: +p.im.toPrecision(12) }) : String(+p.value.toPrecision(12)));
-  // (as shown in an idle field: the true minus; the parser reads it back, review math-14)
+  // (as shown in an idle field: the true minus; the parser reads it back)
   const valShow = (p) => valText(p).replace(/-/g, '−');
   function mount(el) {
     style();
@@ -495,9 +495,9 @@ const Params = (() => {
     draw(m);
     return { el, refresh: () => draw(m), destroy: () => { mounts.delete(m); el.innerHTML = ''; } };
   }
-  // [v16.5 fix user-1] the "Not used yet" line follows the chain: which numbers nothing uses, and the step Use in would
+  // the "Not used yet" line follows the chain: which numbers nothing uses, and the step Use in would
   // take; the app calls syncUnused when the chain or the selected step changes, and the panel redraws only when that
-  // changed (a step added with its number in one undo step, from the palette, used to leave the line stale)
+  // changed (a step added with its number in one undo step, from the palette, also refreshes the line)
   let unusedSig = null;
   const unusedKey = () => arr().map((p) => (usedBy(p.name).length ? '' : p.name + '>' + (((host && host.useIn && host.useIn(p.name)) || {}).label || ''))).join('|');
   // (while a slider is dragged its row keeps its DOM: a redraw would end the drag; the line follows at the release)
@@ -506,7 +506,7 @@ const Params = (() => {
   function render(skip) {
     if (!skip) unusedSig = unusedKey();
     for (const m of mounts) {
-      if (!m.el.isConnected) continue;   // (review regress-7: a detached mount is never drawn)
+      if (!m.el.isConnected) continue;   // (a detached mount is never drawn)
       // while a slider of the panel is dragged, only the other rows' values follow (the row being dragged keeps its DOM)
       if (skip) { syncAll(m, skip); continue; }
       draw(m);
@@ -526,12 +526,12 @@ const Params = (() => {
     const el = m.el;
     const focus = document.activeElement && el.contains(document.activeElement) ? /** @type {HTMLElement} */ (document.activeElement).dataset.prmFocus : null;
     el.innerHTML = '';
-    // (v16.5 UX65: one name, Numbers, for the section, the key, the hint and the button)
+    // (one name, Numbers, for the section, the key, the hint and the button)
     const sec = h('section', { class: 'psec prm', 'aria-label': $t('Numbers') });
-    // (review design-17: one add control, + Number at the end of the list)
+    // (one add control, + Number at the end of the list)
     sec.append(h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))));
     const a = arr();
-    // (#361: a list only with rows to list: its one child with none is the hint, which is not a list item)
+    // (a list only with rows to list: its one child with none is the hint, which is not a list item)
     const listEl = h('div', { class: 'prm-list', role: a.length ? 'list' : null });
     if (!a.length && !m.adding) listEl.append(h('div', { class: 'prm-empty', html: $t('Type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.') }));
     for (const p of a) listEl.append(row(m, p));
@@ -541,9 +541,9 @@ const Params = (() => {
     el.append(sec);
     if (focus) { const f = el.querySelector(`[data-prm-focus="${CSS_ESC(focus)}"]`); if (f) f.focus({ preventScroll: true }); }
   }
-  const CSS_ESC = (s) => (typeof CSS !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/"/g, '\\"'));
+  const CSS_ESC = (s) => (typeof window !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/[\\"]/g, '\\$&'));
   function newRow(m) {
-    // (v16.5 UX32: the next free letter is there as real text, selected: Add works at once, and typing replaces it)
+    // (the next free letter is there as real text, selected: Add works at once, and typing overwrites it)
     const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), value: nextFree(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
     const err = h('div', { class: 'prm-err', role: 'alert' });
     // cx: the new number is complex (1 + i to start from), real otherwise
@@ -564,7 +564,7 @@ const Params = (() => {
     setTimeout(() => { if (inp.isConnected) { inp.focus(); inp.select(); } }, 0);
     return h('div', null, box, err);
   }
-  // (v16.5 UX32) the first letter not taken by a number or by the app: a, b, c, …
+  // the first letter not taken by a number or by the app: a, b, c, …
   function nextFree() {
     for (const c of 'abcdghkmnpqrstuvαβγλμρ') if (!check(c).error) return c;
     return '';
@@ -626,7 +626,7 @@ const Params = (() => {
     }
     if (p._err) showErr(p._err);
     r.append(err);
-    // (v16.5 UX65: a number nothing uses yet says so, and offers the way in: + a in a formula step)
+    // (a number nothing uses yet says so, and offers the way in: + a in a formula step)
     if (!usedBy(nm).length) {
       const use = host && host.useIn ? host.useIn(nm) : null;
       r.append(h('div', { class: 'prm-unused' }, h('span', { class: 'prm-note' }, use ? $t('Not used yet.') : $t('Not used yet: type {x} in a formula.', { x: d })),
@@ -696,7 +696,7 @@ const Params = (() => {
   // ---------------- links and scene files ----------------
   // A link holds the figure in its hash: #cmw=1.<base64url of deflate-raw(JSON)> (0.<base64url of JSON> where the
   // browser has no CompressionStream). The JSON is {v: 1, s: state}; the state goes through the app's sanitizeState,
-  // so a link made by an earlier build opens as its saved state would.
+  // so a link opens as its saved state would.
   const LINK_V = 1;
   const b64u = {
     enc(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
@@ -745,7 +745,7 @@ const Params = (() => {
   return {
     mount, list, get, set, on, install, attach, add, remove, rename, check, canon, display, tex, namesIn, unknownIn, resolve, replaceName,
     evalReal, evalVal, rest, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused, sliding: () => sliding,
-    encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; },
+    encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; }, _cssEsc: CSS_ESC,
   };
 })();
 Params.install();
