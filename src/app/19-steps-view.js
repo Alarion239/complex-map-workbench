@@ -898,9 +898,10 @@
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane and of the chain's other glides (svRingAhead, svRingNext), SV_POLE_BUDGET ms an idle moment at most, so a
-  // glide finds them made. One job at a time (svPoleJob, its token: a new one ends the one before); it reads its inputs
-  // (the chain, clipWin, the camera) afresh each slice, and svPolesWatch starts it again once they change after it ended
+  // the plane and, while svRingSizes is under half its limit, of the chain's other glides (svRingAhead, svRingNext),
+  // SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time (svPoleJob, its token: a
+  // new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh each slice, and
+  // svPolesWatch starts it again once they change after it ended
   let svPoleJob = 0, svPoleBusy = false;
   function svPolesAhead() {
     const tok = ++svPoleJob;
@@ -1085,7 +1086,7 @@
   function svExactGlide(b, u) {
     if (!GLR.inverseState) return false;
     const h = svHomPaths(b, u).h;
-    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i) === 'ready');
+    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
   }
   // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
   let svHomMemo = null;
@@ -1093,8 +1094,13 @@
     if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
     return svHomMemo;
   }
-  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths), as the carried colour draws it
-  const svInvState = (h, i) => { const p = h.paths[i]; return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1), carry: true, staged: shapeStage(h.list[i]) > 0 }); };
+  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths) of the glide frame at
+  // (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
+  // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1)
+  const svInvState = (h, i, b, u) => {
+    const p = h.paths[i];
+    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
+  };
   // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
   // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
   // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
@@ -1107,7 +1113,7 @@
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
-    const linking = !!h && h.paths.some((p, i) => svInvState(h, i) === 'pending');
+    const linking = !!h && h.paths.some((p, i) => svInvState(h, i, g.b, g.u) === 'pending');
     svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
@@ -1400,8 +1406,8 @@
   // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
   // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
   // first glide finds them made). Those two glides first, then every other glide of the chain (a scrub crosses them
-  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room, so that no mesh
-  // made for a far glide drops one of the glides next to the thread
+  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room and svRingSizes is
+  // under half its limit, so that no mesh made for a far glide drops one of the glides next to the thread
   function svRingNext() {
     if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
@@ -1598,7 +1604,7 @@
   // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
-    svHoldB = 0;
+    svHoldB = 0; svRedrawDue = false;
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
@@ -3006,10 +3012,13 @@
       (window.requestIdleCallback || setTimeout)(svPrestart);
     }, ms);
   }
+  // a program of the main panes landed (GLR.onReady) and the left pane has drawn no frame since (svDrawPlane clears it)
+  let svRedrawDue = false;
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
   // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the carried
-  // colour's warm draw made, and the idle jobs finished (the pole tracks, the outer ring, the meshes). total is 0 only
-  // while the GPU layer or the chain is not up; ready is true only when done = total > 0
+  // colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the meshes); while svRedrawDue,
+  // the left pane's frame that draws with the program that landed, a part not done. total is 0 only while the GPU layer
+  // or the chain is not up; ready is true only when done = total > 0
   function svReady() {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
@@ -3018,6 +3027,7 @@
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     parts.jobs = { done: 3 - jobs, total: 3 };
+    if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
     return { done, total, parts, ready: total > 0 && done === total };

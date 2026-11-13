@@ -1,6 +1,6 @@
 # Roadmap
 
-**Live now:** v17.0-beta.16 (waves 1–16, 11 November 2026): the redesign so far, complex shared numbers, iteration, fast
+**Live now:** v17.0-beta.17 (waves 1–17, 12 November 2026): the redesign so far, complex shared numbers, iteration, fast
 Dirichlet series, the ES-module build, shapes and parameter points in every plane, exact preimages of a parameter point
 on rational chains, the phone's step bar and its ‹ › glide, an offline page you can download (7.8 MB), Try lines that close
 themselves, the tour strip's new look and task lines, screen-reader and 24 px target fixes, evenly lit globes, a Landscape
@@ -11,11 +11,12 @@ editing on the thread, play along the thread, Inside regions on the GPU, the pla
 the region machinery, Paths and Repeat, drawing and constructions on every plane, the export of the shown plane and a
 filmstrip along the thread, every glide drawn per pixel through the inverse pass (exact inverses for the root, power, log and
 Joukowski steps, Newton roots for polynomial steps), the Landscape in 3D through every glide, cut curves on the sphere, the
-glide exported as a video, one colour panel on every plane and an Opacity slider for overlapping sheets.
+glide exported as a video, one colour panel on every plane, an Opacity slider for overlapping sheets, one canvas stack
+(Zoom in, Zoom out, Fit view, Sphere) on every plane, the phone's ⋯ on every step's pill, figure labels as real text in the
+exported SVG and PDF, and a scrub that never shows a frame below the floor while a glide's pole tracks are being made.
 
-**Next:** v17.0-beta.17 (wave 17: one canvas stack on every plane, the phone's ⋯ on every step's pill, Plaster that stays
-chosen, figure labels as text in the exported SVG and PDF, region fills that read the pixel centre off the cuts (#966), and
-a test kit that fails on a page exception), then what is left of the step-by-step view's parity with the classic views (the remaining suites, the glide's own
+**Next:** v17.0-beta.18 (wave 18: the phone's plane keys as the shared stack, the exact parked plane of a repeated step
+once Alexander rules on its cost, and test-kit and CI fixes), then what is left of the step-by-step view's parity with the classic views (the remaining suites, the glide's own
 export, an All sheets control, the tour's chapters), Hear the function in the steps view, the Italian review of the new
 strings and, when the Windows laptop is back, the Landscape's Max mesh, its first draws and the step cards' idle slices, then its becoming the default view (Alexander's go), then v17.0, when
 the touch rules (#30) and the guided tour rework (#34) are done; until then each merged wave is a beta. After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
@@ -28,7 +29,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.16 is live; v17.0 waits for #30 and #34 |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.17 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | in progress: the edge pass runs in the surface's own program (#168, #47); the Max mesh at 60 fps (#48, #170) waits for a Windows measurement |
 
 ## Releases
@@ -56,6 +57,7 @@ Each merged wave is a release. Dates are the day the wave PR merged into `main` 
 | v17.0-beta.14 | 2026-11-03 | #807 (db88b0b) | The step-by-step view (`?view=steps`, still opt-in) draws the colour carried past the colour plane with the machinery that tiles the regions, exact at rest, with no torn cut and a stand-in picture while a region's mesh rebuilds; Paths show the deformation's paths during a glide, and the glide runs step by step or all at once; a Repeat N control, the F chip with the whole map, the regions' display options, drawing and constructions on every plane's own globe, a formula area that draws inverse, and the shown plane and a filmstrip along the thread as exports. Smaller: starting Listen no longer moves the plane, the toast fits the thread's strip, an empty chain opens on Inside regions, the phone's new card scrolls into view above the sheet, the Edit sheet's Undo and × sit in a 44 px strip, a phone's Try line grows the lane to a third line, every font size is on the type scale, and the Mesh quality slider has a 24 px target. Under the hood: the browser suites run in the step-by-step view, the perf gate waits for a quiet machine before each pass, and the construction speed tests are ratios. |
 | v17.0-beta.15 | 2026-11-06 | #1101 (195aa8d) | The step-by-step view (?view=steps) draws every glide per pixel through the inverse pass, with exact inverses for the root, power, log and Joukowski homotopies and Newton roots for polynomial steps; no fade at a glide's ends and no black frames Inside regions. The Landscape stays 3D on every plane and through every glide (All sheets included, the carried sheets at h(F)); the sphere and the Landscape glide with exact carried colour and pole patches; the cut curve shows on the sphere and through a glide. Exports: the glide as a video, the shown plane with its paths, the two-plane figure, and the deformation. Smaller: messages lie over the plot's bottom edge and close with Esc, ← → step the chain, the colour controls past the colour plane open the picker, the head folds its scope switch to a menu at 1024 px, the probe readout idles while the thread moves, the scrubber speaks the thread's place, the target legend, the Sound settings tour lines and the Italian strings. Under the hood: the suites run in the step-by-step view, the browser shards are rebalanced, and the classic-removal series has started. |
 | v17.0-beta.16 | 2026-11-11 | #1488 (8fafa45) | The step-by-step view: Everywhere glides through a polynomial Newton step draw through the inverse pass, the rest frame is the exact picture, and the globe's carried colour matches it; one colour panel on every plane, an Opacity slider for overlapping sheets, the Cauchy style and its parts on plane z, the paths figure on the sphere, and arrow keys that nudge a selected shape (← → step the chain; Alt + arrow moves the sound probe). The Landscape: pole patches in the carry, the glide's box and height scale from the shared camera, Inside regions drawing only the region and its image with its outline on the floor, and All sheets kept across later steps. Cut curves drawn on the globe's surface, one stroke per arc, keeping the camera while a handle is dragged. Smaller: a quiet parse hint for z^-1/2 with a one-tap bracketed power, Speed and Order as menu buttons, place readouts in the page's number format, the tour's wording and Italian line, a 44 px phone key target, and the fonts sheet no longer blocks start-up. Under the hood: classic removal P6–P8, ζ's ln k from a GPU table, suites ported to the steps view, and condition waits instead of sleeps. |
+| v17.0-beta.17 | 2026-11-12 | #1513 (b332ce1) | The step-by-step view holds the exact frame while a glide's pole tracks are still being made, so a scrub before the idle jobs finish never shows a frame below the floor. Scrub frames allocate nothing once the ring's sizes are warmed, and region fills read the pixel centre off the cuts. Every plane gets one canvas stack (Zoom in, Zoom out, Fit view, Sphere), with a disabled key's reason shown in place. Every step's pill has its ⋯ on a phone in a 44 px slot. Plaster in the Landscape's Colouring applies and stays chosen. Exported SVG and PDF figures carry their labels as real, selectable text. Under the hood: one judge for a parked glide's carried colour, a test kit that fails a suite on a page exception or a wait that ran out, suites that wait on conditions instead of sleeping, and a CI Mesa step that survives a mirror outage. |
 
 The tag for each release is pushed by Alexander, so a row can exist before its tag does.
 

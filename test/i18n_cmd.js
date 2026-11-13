@@ -33,7 +33,7 @@ const loaded = async (pause, ms = 30000) => {
 const open = async (lang, w, dark, extra = '') => {
   const phone = w < 768;
   await view(w, phone ? 844 : 900, dark, phone);
-  await nav(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
+  await go(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
   // (until MathJax has typeset the page's formulas, at most 15 s: it starts after the first paint, 3 to 5 s on a software
   // renderer, and a formula shows its fallback until then, #288)
   for (let i = 0; i < 60 && !(await ev(`!!(window.MathJax && MathJax.startup && MathJax.startup.document) && !document.querySelector('.tex-fallback')`)); i++) await sleep(250);
@@ -130,7 +130,7 @@ for (const w of [1024, 1440]) {
 {
   const ns = 'i18n-sw-' + Date.now();
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=${ns}`); await loaded(3500);
+  await go(`${U}?ns=${ns}`); await loaded(3500);
   check('switch: starts English', (await ev('I18N.lang')) === 'en');
   await key('k', 4); await until(PAL); await type('sin'); await until(ITEMS); await key('Enter'); await until(`!document.querySelector('#popHost .palette, .pop.palette') && !!document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')`);
   // a step chosen on the thread (the Inspector's step, the thread's place), the right panel hidden
@@ -160,7 +160,7 @@ for (const w of [1024, 1440]) {
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.n === before2.n && after2.sv === before2.sv);
   // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
-  await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await loaded(3500);
+  await view(390, 844, false, true); await go(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
   const pm = await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); if (!b) return null; const m = b.parentElement, r = m.getBoundingClientRect(); return { n: m.querySelectorAll('button').length, l: r.left, r: r.right, t: r.top }; })()`);
@@ -176,7 +176,7 @@ for (const w of [1024, 1440]) {
 // deformation and З its Paths; digits 1 and 2 pick X → Y and Phase, and the steps view picks its plane by stage)
 {
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
+  await go(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
   await ev(`document.activeElement && document.activeElement.blur(), 1`);
   // (a key, then the page's quiet, at most 3 s; with quiet false, no wait: the caller waits for what the key starts)
   const press = async (k, code, mods = 0, quiet = true) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); if (quiet) await settled({ max: 3000 }); };
@@ -222,7 +222,7 @@ for (const w of [1024, 1440]) {
 }
 // ---- 6: detection ----
 {
-  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await nav(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
+  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await go(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
   await view(1440, 900, false, false);
   await nav(U + '?ns=i18n-det'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (/^cmw-lang/.test(k)) localStorage.removeItem(k); })()`);
   const r1 = await as('ru-RU,ru,en', ''); check('a ru-RU browser gets Russian', r1.lang === 'ru' && r1.html === 'ru', r1);
