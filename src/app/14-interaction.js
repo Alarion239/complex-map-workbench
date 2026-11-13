@@ -1184,7 +1184,9 @@
     }
     // hover
     if (side === 'L') probeHover = { pane, e };
-    if (side === 'L' && SV.on && svMoving()) { probeMoving(); return; }
+    // (while the steps view's thread moves, the probe and its readout idle; Hear the function follows the pointer on the
+    // nearer plane's map, the point picked as a still pointer's re-pick is)
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); if (sndP.on && sndP.sonify) sndMove(x, y, sndPickAt('pointer', x, y), 'pointer'); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it

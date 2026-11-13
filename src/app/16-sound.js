@@ -85,6 +85,7 @@
   function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
+  function sndPickAt(...args) { return SH.sndPickAt(...args); }
   function sndLift(...args) { return SH.sndLift(...args); }
   function sndHoverOff(...args) { return SH.sndHoverOff(...args); }
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }

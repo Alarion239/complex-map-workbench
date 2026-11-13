@@ -33,7 +33,7 @@ const open = async (w, h, mobile, classic) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(ST))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${classic ? '' : '&view=steps'}` });
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${classic ? '&view=classic' : ''}` });
   await settled({ max: 30000, until: classic ? `typeof __cmwSound === 'function'` : `typeof __cmwSteps === 'function'` }); await settle(600);
   // sound with Hear the function in Notes, and Mathematical events (Listen along, the play's events); the stream's calls
   // logged in __hl, the cues made in __made
@@ -187,14 +187,16 @@ R.play = { label: (await S()).label, kinds: L.map((e) => e.k), g: s.g, z: s.rest
 ok('▶ under a still pointer: no branch cut on the way or at the end, where the tone is w₂\'s', noCut(L, s.live) && seat(L) && /Plane w₂/.test(R.play.label) && !!s.rest && near(s.g, id(s.rest.z)), R.play);
 ok('▶: the swell once at the start and the arrival once at its end', count(R.play.made, 'morphStart') === 1 && count(R.play.made, 'morphEnd') === 1, R.play.made);
 // with Loop on it starts over at the end: the arrival never comes on a repeat; a pause brings none either
-// (at the fast speed, and the wrap watched in the page once a frame, up to 60 s where frames are seconds apart)
+// (at the fast speed, a pass of 900 ms, with the play's clock at LOOP_CLOCK ms a frame (the steps view's clock hook): a pass
+// is 6 frames however long each takes, and the wrap is watched in the page once a frame)
+const LOOP_CLOCK = 150;
 await svDo({ loop: true }, 200); R.wrapSpeed = await speed('fast');
 await svDo({ go: 0, now: true }); await made();
 await ev(`(() => { window.__wr = { hi: 0, wrapped: false }; const f = () => { const x = __cmwSvX(), w = window.__wr; if (x < w.hi - 0.5) w.wrapped = true; w.hi = Math.max(w.hi, x); if (!w.wrapped) requestAnimationFrame(f); }; requestAnimationFrame(f); return 1; })()`);
-await svDo({ play: true }, 100);
+await svDo({ play: true, clock: LOOP_CLOCK }, 100);
 for (const t0 = Date.now(); Date.now() - t0 < 60000;) { if (await ev('window.__wr.wrapped')) break; await sleep(200); }
 R.wrap = await ev('window.__wr');
-await svDo({ play: false }, 300); await rest();
+await svDo({ play: false, clock: 0 }, 300); await rest();
 R.wrap.made = await made();
 await svDo({ loop: false }, 200); await speed('normal');
 ok('▶ with Loop on: the swell once, no arrival on its repeat or at a pause', R.wrap.wrapped && count(R.wrap.made, 'morphStart') === 1 && count(R.wrap.made, 'morphEnd') === 0, R.wrap);

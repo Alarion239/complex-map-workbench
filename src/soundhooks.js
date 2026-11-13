@@ -1400,7 +1400,7 @@ const SoundHooks = (() => {
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   }
-  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
+  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt, sndPickAt };
 })();
 import { $, DEG, TAU, h } from './util.js';
 import { CX } from './cx.js';
