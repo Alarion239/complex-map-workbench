@@ -44,7 +44,12 @@ const settle = async (ms = 120000, want = {}) => {
 // calls, as long as it takes, and fail with the hook that never came rather than a ReferenceError later. Then count what the
 // app draws (watchDraws below).
 const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSmReset', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
-const loadReady = async (ns, st, ms = 120000) => {
+// The steps view's rest frame is the exact pass's whatever a scene's saved exactImages says, so a scene whose frame must be the
+// meshes' (loadReady's fwd) has its shapes forced forward (the test hook), and the exact image is read with none forced
+let curIds = [];
+const forceFwd = (ids) => ev(`__cmwForceForward(${JSON.stringify(ids)}); 1`);
+const setExact = async (on) => { await ev(`__cmwSet("exactImages", ${on}); 1`); await forceFwd(on ? [] : curIds); };
+const loadReady = async (ns, st, ms = 120000, fwd = false) => {
   const r = await load(ns, st);
   const t0 = Date.now();
   let missing = HOOKS;
@@ -57,6 +62,8 @@ const loadReady = async (ns, st, ms = 120000) => {
     if (Date.now() - t0 > ms) { const where = await ev('({ href: location.href, readyState: document.readyState })').catch((e) => String(e).slice(0, 80)); throw new Error(`the app's test hooks are not defined ${ms / 1000} s after load(${ns}): ${JSON.stringify(missing)}; the page: ${JSON.stringify(where)}`); }
     await sleep(250);
   }
+  curIds = fwd ? (st.shapes || []).map((x) => x.id) : [];
+  if (fwd) await forceFwd(curIds);
   await watchDraws();
   return r;
 };
@@ -149,7 +156,7 @@ const CRACK = [
 await view(1440, 900, false);
 R.crack = {};
 for (const [name, steps, shapes, , view, cls] of CRACK) {
-  await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView: view }, solid, SV));
+  await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView: view }, solid, SV), 120000, true);
   const st = await settle(60000, { entries: 1, built: 1 });
   // (the shape's strokes are left out of the frame: the fill under the image of the boundary inside the image, e.g.
   // exp(H)'s positive real axis or e^{1/z}'s exp of the unit circle, is tested too; the 85 % casing over it hid it)
@@ -230,10 +237,10 @@ for (let i = 0; i < 40; i++) {
 const st1 = await settle(120000, { entries: 1, built: 2 });
 ok('8.8: the app drew the rebuilt mesh before the rest frame after it was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest1');
-await ev('__cmwSet("exactImages", true); 1');
+await setExact(true);
 const truthOk = await exactDrawn();
 await grab('truth1');
-await ev('__cmwSet("exactImages", false); 1');
+await setExact(false);
 const diff = (a, b) => ev(`(() => { const A = window.__p5[${JSON.stringify(a)}], B = window.__p5[${JSON.stringify(b)}]; if (!A || !B || A.length !== B.length) return null; let n = 0, n8 = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i+1] - B[i+1]), Math.abs(A[i+2] - B[i+2])); n++; if (d > 8) n8++; if (d > 32) n32++; } return { frac8: +(n8 / n).toFixed(5), frac32: +(n32 / n).toFixed(5) }; })()`);
 R.panFrames = { n: nDur, restVsTruth: await diff('rest1', 'truth1'), duringVsRest: [], duringVsTruth: [] };
 for (let k = 0; k < nDur; k++) { R.panFrames.duringVsRest.push(await diff('dur' + k, 'rest1')); R.panFrames.duringVsTruth.push(await diff('dur' + k, 'truth1')); }
@@ -250,7 +257,7 @@ await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ typ
 await settle(120000, { entries: 1, built: 1 });
 ok('exp(H) forward vs inverse: the app drew the mesh before the forward frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('fwd');
-await ev('__cmwSet("exactImages", true); 1');
+await setExact(true);
 const invOk = await exactDrawn();
 await grab('inv');
 R.fwdVsInv = await ev(`(() => { const A = window.__p5.fwd, B = window.__p5.inv; let n = 0, n8 = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i+1] - B[i+1]), Math.abs(A[i+2] - B[i+2])); n++; if (d > 8) n8++; if (d > 32) n32++; } return { n, frac8: +(n8 / n).toFixed(5), frac32: +(n32 / n).toFixed(5) }; })()`);
@@ -264,11 +271,11 @@ for (const [name, steps, shapes, , view, pattern] of [
   ['e1z_checker', [{ type: 'recip', params: {}, on: true }, { type: 'exp', params: {}, on: true }], [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], { cx: 0, cy: 0, s: 120 }, { cx: 0, cy: 0, s: 60 }, 'checker'],
   ['ziH_polar', [{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true }], [H], { cx: 0, cy: 1, s: 60 }, { cx: 0, cy: 0, s: 190 }, 'polar'],
 ]) {
-  await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView: view }, solid, { pattern, alpha: 1 }, SV));
+  await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView: view }, solid, { pattern, alpha: 1 }, SV), 120000, true);
   await settle(120000, { entries: 1, built: 1 });
   ok(`${name} forward vs inverse: the app drew the mesh before the forward frame was grabbed`, await meshDrawn('__cmwHideStrokes(false); 1'));
   await grab('fwd');
-  await ev('__cmwSet("exactImages", true); 1');
+  await setExact(true);
   const exact = await exactDrawn();
   await grab('inv');
   R.fwdVsInvSheets[name] = await ev(`(() => { const A = window.__p5.fwd, B = window.__p5.inv; let n = 0, n8 = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i+1] - B[i+1]), Math.abs(A[i+2] - B[i+2])); n++; if (d > 8) n8++; if (d > 32) n32++; } return { n, frac8: +(n8 / n).toFixed(5), frac32: +(n32 / n).toFixed(5) }; })()`);
@@ -277,7 +284,7 @@ for (const [name, steps, shapes, , view, pattern] of [
 }
 // ---- 10.6: an export of a forward-drawn panel meshes at the export's own resolution, then draws with it ----
 // (7 in at 300 dpi: more than 2x the screen's zoom, so the screen mesh is not valid for it; a 3 in figure reuses it)
-await ev('__cmwSet("exactImages", false); 1');
+await setExact(false);
 const stE0 = await settle();
 // (ev does not await a promise: the figure's result is polled)
 await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["L"], widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');

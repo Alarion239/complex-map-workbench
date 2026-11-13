@@ -47,10 +47,10 @@ load = async (...a) => { const r = await load0(...a); await ev(RV); return r; };
 // The figure p3rv_stroke_dpr1 (shots/) shows the dpr-1 render 8x with both masks.
 const DZI = `(w) => { const a = Math.hypot(w[0], w[1]), L = -Math.log(a); if (!(L > -Math.PI && L <= Math.PI)) return -1; const m = Math.exp(Math.atan2(w[1], w[0])), zx = m * Math.cos(-Math.log(a)), zy = m * Math.sin(-Math.log(a)); return Math.hypot(zx - 0.3, zy - 0.8) < 0.3 ? 1 : -1; }`;
 await load('p3rvS' + Date.now(), { shapes: [H, { id: 's2', kind: 'disc', c: [0.3, 0.8], r: 0.3 }], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 }, pattern: 'sphere', alpha: 0.9, lines: true, unit: false });
-await ev('__cmwSetView("R", "sphere"); __cmwSetView("L", "sphere"); 1'); await settle(3000);
-await ev('__cmwCam("R", { pitch: -0.9, yaw: -1.2 }); 1'); await settle(1200);
+await ev('__cmwSetView("L", "sphere"); 1'); await settle(3000);
+await ev('__cmwCam("L", { pitch: -0.9, yaw: -1.2 }); 1'); await settle(1200);
 R.stroke = await ev(`await (async () => {
-  const cls = ${DZI}, look = __cmwLook('s2', 'R'), lookH = __cmwLook('s1', 'R'), edge = __rv.hex(look.edge), G = __rv.picks('R'), { P, Wd, Hd } = G;
+  const cls = ${DZI}, look = __cmwLook('s2', 'L'), lookH = __cmwLook('s1', 'L'), edge = __rv.hex(look.edge), G = __rv.picks('L'), { P, Wd, Hd } = G;
   const css = getComputedStyle(document.documentElement).getPropertyValue('--halo').trim();
   const halo = /^#[0-9a-f]{6}$/i.test(css) ? __rv.hex(css) : __rv.hex(look.plane);
   const Ks = [look.color, look.color2, lookH.color, lookH.color2, look.plane].map(__rv.hex).map((U) => U.map((u, j) => 0.85 * halo[j] + 0.15 * u));
@@ -76,9 +76,9 @@ R.stroke = await ev(`await (async () => {
   for (let y = 1; y < Hd - 1; y++) for (let x = 1; x < Wd - 1; x++) { const k = y * Wd + x; if (C[k] !== 1) continue; if ([k - 1, k + 1, k - Wd, k + Wd].some((q) => C[q] === -1)) rim.push([x + 0.5, y + 0.5]); }
   const out = { rimPts: rim.length, runs: [] };
   for (const d of [1, 2, 300 / 96]) {
-    const E = await __rv.off('R', d), W = E.W, Hh = E.H, D = E.D;
+    const E = await __rv.off('L', d), W = E.W, Hh = E.H, D = E.D;
     // the same frame without the strokes: the pixels inside what the stroke drew (its casing included)
-    __cmwHideStrokes(true); const D0 = (await __rv.off('R', d)).D; __cmwHideStrokes(false);
+    __cmwHideStrokes(true); const D0 = (await __rv.off('L', d)).D; __cmwHideStrokes(false);
     const chg = new Uint8Array(W * Hh), drew = new Uint8Array(W * Hh);
     for (let k = 0; k < W * Hh; k++) chg[k] = Math.max(Math.abs(D[4 * k] - D0[4 * k]), Math.abs(D[4 * k + 1] - D0[4 * k + 1]), Math.abs(D[4 * k + 2] - D0[4 * k + 2]));
     for (let y = 1; y < Hh - 1; y++) for (let x = 1; x < W - 1; x++) {
@@ -137,6 +137,7 @@ R.stroke = await ev(`await (async () => {
   }
   return out;
 })()`, 120000);
+ok('the stroke measure found the disc\'s rim (the steps view has the one pane, the left)', R.stroke.rimPts > 150, R.stroke);
 for (const r of R.stroke.runs || []) ok(`stroke on the w-globe continuous at dpr ${r.dpr}: one component, every rim point reached`, R.stroke.rimPts > 150 && r.compsOver2 === 0 && r.reachedFrac >= 0.995, R.stroke);
 await shot('p3rv_stroke');
 // the justification figure (see above): shown full-page over the app for one screenshot, then removed

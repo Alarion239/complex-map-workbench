@@ -43,7 +43,7 @@ const open = async (ns, steps) => {
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   const o = { v3: true, v4: true, shapes: SHAPES, steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 52 } };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); try { sessionStorage.clear(); } catch (e) { /* a page with no session storage has nothing to clear */ } ; 1`);
-  await nav(URL0(ns));
+  await go(URL0(ns));
   await settle();
 };
 // the plane's world window: centre and units per pane width (u), and the pane's width

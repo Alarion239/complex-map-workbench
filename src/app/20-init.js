@@ -186,7 +186,7 @@
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
-      if (!w || w.main) { requestRender('L', 'R'); prestartModesIdle(); }
+      if (!w || w.main) { svRedrawDue = true; requestRender('L', 'R'); prestartModesIdle(); }
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };

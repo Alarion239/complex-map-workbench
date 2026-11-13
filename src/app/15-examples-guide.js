@@ -547,6 +547,33 @@
     updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();
   }
   // the head controls show the state
+  // The canvas stack's surface and fit keys, on each plane's .viewstack. Sphere carries the surface in aria-pressed; a key the surface cannot
+  // use stays in its place, aria-disabled, with its reason as the tooltip and as the note the key's aria-describedby names.
+  function setStackKey(btn, note, off, why, tip) {
+    if (off) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
+    btn.title = off ? why : tip;
+    note.textContent = off ? why : '';
+  }
+  function syncStackKeys() {
+    for (const side of ['left', 'right']) {
+      const L = side === 'left', sph = $(side + 'Sph');
+      if (!sph) continue;
+      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
+      sph.setAttribute('aria-pressed', String(on));
+      sph.innerHTML = MODE_ICONS.sphere;
+      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
+    }
+  }
+  // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
+  function stackSphere(side) {
+    if ($(side === 'L' ? 'leftSph' : 'rightSph').getAttribute('aria-disabled') === 'true') return;
+    if (svSphereKey() != null) return;
+    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');
+    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
+    if (t) t.click();
+  }
   function syncViewControls() {
     const main = S.view.main;
     document.documentElement.classList.toggle('view-land', main === 'land');
@@ -557,6 +584,7 @@
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
     // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
     for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
+    syncStackKeys();
   }
   // Snap (the Draw heading and the rail) and Unit circle (Display) show the state (P3)
   function syncSnapUnit() {
