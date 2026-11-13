@@ -409,6 +409,7 @@ node ci/quality.js --ref origin/main               # image quality, paired again
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
+node ci/fxc_size.js --ref origin/main --json f.json   # each linked program's size with every call inlined, as Windows' FXC compiles it (#1545): fails on a new program over 100 KB, or +20 % on one over 40 KB
 node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
