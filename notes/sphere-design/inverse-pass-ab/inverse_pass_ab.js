@@ -222,7 +222,8 @@ async function recordPlace(H, base, sc, x) {
   await H.ev('__cmwGuardOpts({ budget: 1e9, exit: 1e9 }), 1');
   await H.ev('window.__ab.on = true, 1');
   for (const c of sc.pre || []) { await H.ev(`(${c}), 1`); await quiet(H, null, PLACE_MAX_MS); }
-  if (x != null) await H.ev(`__cmwSteps({ x: ${x} }), 1`);
+  // (a glide's place draws anew; a view as loaded draws its panes again, now recorded)
+  await H.ev(x != null ? `__cmwSteps({ x: ${x} }), 1` : '__cmwHideStrokes(false), 1');
   if (!await quiet(H, x != null ? `__cmwSteps().x === ${x}` : null, PLACE_MAX_MS)) throw new Error(`${sc.name}@${x}: the place did not settle`);
   await sleep(FRAMES_PAUSE_MS);
   return H.ev(`(() => { const rec = window.__ab.rec; for (const id of ['canvasL', 'canvasR']) { const cv = document.getElementById(id); if (!cv || !cv.width) continue; const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } rec[id + '|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; } return JSON.stringify(rec); })()`).then(JSON.parse);
