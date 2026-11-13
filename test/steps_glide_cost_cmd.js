@@ -29,6 +29,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
 const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // the calls of the named methods of target (a page expression) whose stack holds every one of the frames named, kept in
 // the page as window[into]: each a line "name at < ... <" of the stack's first frames
 const GL_CREATES = ['createTexture', 'createBuffer', 'createVertexArray'];
@@ -41,19 +42,6 @@ const watchCalls = (target, methods, frames, into) => ev(`(() => {
   return 1;
 })()`);
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvKey === "function" && !!window.GLR' }); };
-// the thread held at x mid-glide: a scrub on the rail, not let go (window.__svScrubUp lets it go)
-// (links: wait for every program to have linked too; false while links are held)
-async function hold(x, links = true) {
-  await ev(`(() => {
-    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-    window.__svScrubUp = () => ev('pointerup', cx);
-    return 1;
-  })()`);
-  await settled({ max: 30000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < 0.01 && __cmwSteps().moving` });
-}
 // ---- the stand-ins while the carry's programs link ----
 {
   const ex = names.indexOf('Square root and its sheets');
@@ -68,7 +56,7 @@ async function hold(x, links = true) {
   await ev('GLR.holdLinks(true), 1');
   await ev(`__cmwAddStep('exp'), 1`);
   await settled({ max: 20000, panes: false, until: '!!document.querySelector(".sv-plane")' });
-  await hold(0.5, false);
+  ok('the thread is held at x = 0.5', (await hold(0.5, false)).ok, null);
   // (the glide's frames asked for the carry's own programs: the map cache's and the cached places')
   await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
@@ -79,7 +67,7 @@ async function hold(x, links = true) {
   info['while the programs link'] = { started, after: { ok: after.ok, busy: after.busy, pendingLinks: await ev('GLR.pendingLinks') } };
   const list = Array.isArray(started) ? started : [];
   ok('while the carry\'s programs link: its own are started (the map cache, the cached places, the fill and its point pass)', ['tfRegion', 'regionKC'].every((n) => list.includes(n)), started);
-  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain one)', Array.isArray(started) && !['regionKS', 'regionK'].some((n) => list.includes(n)), started);
+  ok('while the carry\'s programs link: no stand-in is started (the sheet program, the plain ones)', Array.isArray(started) && !['regionKS', 'regionK', 'regionKN'].some((n) => list.includes(n)), started);
   ok('once the links are let go: every held program links', after.ok, info['while the programs link'].after);
 }
 
@@ -181,7 +169,7 @@ async function hold(x, links = true) {
   await settled({ max: 30000 });
   // (held mid-scrub by plane 1, whose plane the left pane follows; the meshes rebuilt, so a fix-up is asked for: the
   // left pane's region under zeta, seconds of CPU work)
-  await hold(0.9, false);
+  ok('the thread is held at x = 0.9', (await hold(0.9, false)).ok, null);
   await ev(`globalThis.__svPathStats = {}, __cmwSet('meshN', __cmwState().meshN), window.__heldT = performance.now(), 1`);
   await settled({ max: 20000, panes: false, until: 'performance.now() - window.__heldT > 2000' });
   const held = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
@@ -207,6 +195,10 @@ async function hold(x, links = true) {
   }
   const idle = await settled({ max: 30000, until: '!__cmwSvKey().busy' });
   ok('before the scrubs: the idle job ends (the outer ring\'s sizes and meshes made)', idle.ok, idle);
+  // (a scrub crosses every glide of the chain: with the idle job ended, the outer ring's sizes of all of them are made,
+  // so that no frame of a scrub makes one and builds its mesh)
+  const made = await ev('__cmwSvRingMade()');
+  ok('before the scrubs: the outer ring\'s sizes of every glide are made, not only those next to the thread', made.glides > 1 && made.left === 0, made);
   // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
   await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svCarryRegions'], '__svAlloc');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a

@@ -266,6 +266,23 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
     check('a key step of a quarter turn: 3 notes, the first within 1 ms of the step, all within 105 ms, none merged', notes.length === 3 && Math.abs(notes[0].t - 1.5) <= 0.0011 && notes.every((e) => e.t - 1.5 <= 0.105) && !r.ev.some((e) => e.k === 'merged'), JSON.stringify(notes.map((e) => e.t)));
     check('a key step: dUp/dDown and arg count from the step', r.r.arg === 3, JSON.stringify(r.r));
   }
+  { // one step that crosses several colour lines (a finger's lift from 56° behind, a fast mouse step) sounds every
+    // crossing, in the direction of travel, each at least minIoi after the last: none taken for a repeat or dropped.
+    // After a rest the step's last point is the seat a second earlier, so the engine puts its hold point (holdMax) before
+    // the step; otherwise the probe stood still one frame (FRAME, in s) before it
+    const FRAME = 0.016;
+    for (const [name, o] of [['a lift after a rest', { rest: true, lift: true }], ['a lift in one frame', { rest: false, lift: true }], ['a fast step', { rest: false, lift: false }]]) {
+      for (const dir of [1, -1]) {
+        const L = HTL.Live({ n: 12 }), p0 = 0.5 / 12 + (dir > 0 ? 0 : 0.25);
+        L.seat({ t: 0, phi: p0, ln: 0, pan: 0 });
+        if (!o.rest) L.step({ t: 1 - FRAME, phi: p0, ln: 0, pan: 0 });
+        const r = L.step({ t: 1, phi: p0 + dir * 0.25, ln: 0, pan: 0, lift: o.lift }), notes = r.ev.filter((e) => e.k === 'note');
+        const cs = notes.map((e) => e.c), gaps = notes.slice(1).map((e, i) => e.t - notes[i].t);
+        check(name + ', ' + (dir > 0 ? 'up' : 'down') + ' over 3 lines: 3 notes, none merged or dropped', notes.length === 3 && r.r.arg === 3 && !r.ev.some((e) => e.k === 'merged' || e.k === 'rep-grace'), JSON.stringify(r.ev));
+        check(name + ', ' + (dir > 0 ? 'up' : 'down') + ': in the direction of travel, minIoi apart', notes.length === 3 && cs.every((c, i) => i === 0 || (dir > 0 ? c > cs[i - 1] : c < cs[i - 1])) && gaps.every((g) => g >= HT.minIoi - 1e-9), JSON.stringify(notes.map((e) => [e.c, e.t])));
+      }
+    }
+  }
   { // a tremor inside one cell: nothing; across a line: at most the line's note
     const L = HTL.Live({ n: 12 }), ev = [];
     ev.push(...L.seat({ t: 0, phi: 0.5 / 12, ln: 0.2, pan: 0 }).ev);
