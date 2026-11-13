@@ -224,8 +224,8 @@ jobs:
       # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
       # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
       # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
-      # (Windows-hosted: this commit and the reference, one round, the same step timeout, to fit too)
-      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
+      # (Windows, the desktop and the hosted machine: this commit and the reference, one round, the same step timeout, to fit too)
+      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (startsWith(matrix.machine, 'Windows') && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
