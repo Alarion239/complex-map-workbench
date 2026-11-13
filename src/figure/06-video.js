@@ -50,7 +50,7 @@
     return widenTo(cb || scr, asp);
   }
   // (export review r3, verify-editor-8) the sphere's labels in a video: 0, infinity, 1, i, -1, -i wherever their point
-  // faces the camera (n.v > 0.05), at full ink (the screen fades them near the rim, which left infinity nearly white);
+  // faces the camera (GLOBE_LABEL_FACE), at full ink (the screen fades them near the rim, which left infinity nearly white);
   // poles just beyond the globe, equator points just above |z| = 1, as on screen. g: the render's camera; returns
   // {lab, u, v} in fractions of the pane
   const GLOBE_LABS = [['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', null, 1, 0], ['i', null, 0, 1], ['−1', null, -1, 0], ['−i', null, 0, -1]];
@@ -59,7 +59,7 @@
     const out = [];
     for (const [lab, p0, re, im] of GLOBE_LABS) {
       const p = p0 || A.lift(re, im), tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]];
-      if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1) <= 0.05) continue;
+      if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1) <= GLOBE_LABEL_FACE) continue;
       const q = GLR.M4.apply(g.MVP, p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (q[3] <= 1e-6) continue;
       out.push({ lab, u: q[0] / q[3] * 0.5 + 0.5, v: 1 - (q[1] / q[3] * 0.5 + 0.5) });
