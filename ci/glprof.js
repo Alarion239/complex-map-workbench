@@ -3,7 +3,7 @@
 // app, cold (a fresh profile, the GPU program cache empty) and then warm (the same profile again: Chrome's program
 // cache), on the machine's own GPU and ANGLE back end (Direct3D 11 on Windows, Metal on the Mac). The GPU gate runs it
 // on its machines (gpu-gate.yml, mode glprof); any machine can run it.
-//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended|mountain|steps] [--step-timeout S] [--out FILE] [--cache DIR]
+//   node ci/glprof.js [--no-build] [--ref REF] [--variant unroll] [--rounds N] [--clear-metal-cache] [--walk all|quick|extended|mountain|steps|typed] [--type-ms 150,450] [--typed-budget S] [--typed-filter RE] [--step-timeout S] [--out FILE] [--cache DIR]
 // --ref: the build of another commit too (ci/reference.js), the two sides in turn, current, reference, reference,
 // current, ... (--rounds N: N pairs, default 2), each a cold and a warm pass: whatever the machine keeps between runs
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
@@ -12,7 +12,9 @@
 // first example, the steps view's main planes (Phase, Landscape, X → Y), the Sphere and the glide. --walk extended (#238's Windows list)
 // adds: the glide of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
 // opened (its thumbnails' time), the Mountain King in the Landscape, and on every pass the first minute from the page's load (the start-up bar shown, the
-// links pending, the page's long tasks, when the default example's exact image is first drawn). --walk mountain: after
+// links pending, the page's long tasks, when the default example's exact image is first drawn). --walk typed: typed (arbitrary)
+// formulas: ci/glprof_typed.js (--type-ms: the typing speeds, ms per character; --typed-budget: seconds of a cold pass after which no new
+// formula is opened, default 600; --typed-filter: only the formulas whose label matches). --walk mountain: after
 // the start only the Mountain King: its first frame, its Landscape and its glide. --walk steps (#439): the steps view (stepsWalk). --variant unroll: a
 // second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
 // constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
@@ -28,6 +30,7 @@ const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference } = require('./reference');
 const SC = require('./steps_scenes');
 const { launch, sleep } = require('../test/regress/perf/cdp');
+const { typedWalk } = require('./glprof_typed');
 
 const argv = process.argv.slice(2);
 const opt = (name, def) => { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : def; };
@@ -35,8 +38,11 @@ const flag = (name) => argv.includes('--' + name);
 const OUT = path.resolve(opt('out', path.join(ROOT, '.ci', 'glprof', 'glprof.json')));
 const CACHE = path.resolve(opt('cache', path.join(os.tmpdir(), 'cmw-glprof-profile')));
 const STEP_S = Number(opt('step-timeout', '1200'));
-const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended', MOUNTAIN = WALK === 'mountain', STEPS = WALK === 'steps';
-if (!['all', 'quick', 'extended', 'mountain', 'steps'].includes(WALK)) throw new Error(`--walk ${WALK}: all, quick, extended, mountain or steps`);
+const WALK = opt('walk', 'all'), QUICK = WALK === 'quick', EXTENDED = WALK === 'extended', MOUNTAIN = WALK === 'mountain', STEPS = WALK === 'steps', TYPED = WALK === 'typed';
+if (!['all', 'quick', 'extended', 'mountain', 'steps', 'typed'].includes(WALK)) throw new Error(`--walk ${WALK}: all, quick, extended, mountain, steps or typed`);
+const SPEEDS = opt('type-ms', '150,450').split(',').map(Number).filter((x) => x > 0);
+const TYPED_BUDGET_S = Number(opt('typed-budget', '600'));
+const TYPED_FILTER = opt('typed-filter', '') ? new RegExp(opt('typed-filter', '')) : null;
 const REF = opt('ref', '');
 const VARIANT = opt('variant', '');
 if (VARIANT && VARIANT !== 'unroll') throw new Error(`--variant ${VARIANT}: only unroll`);
@@ -134,6 +140,25 @@ const STARTUP = `(() => {
   };
 })();`;
 
+// settle(label) for a browser: waits until every link started since its last call has landed (a step's links start with
+// its first draws, about a second after it: at least 2.5 s, then quietS seconds with none open) or the step timeout
+// -> { label, s, programs, timedOut? }
+function settler(B, quietS = 1.5) {
+  let seen = 0;
+  return async (label) => {
+    const t0 = Date.now();
+    let quiet = 0;
+    for (;;) {
+      const r = await B.ev('GLR.profile()');
+      const open = r.slice(seen).filter((x) => x.ms === null).length;
+      if (!open && Date.now() - t0 > 2500) quiet++; else quiet = 0;
+      if (quiet >= Math.ceil(quietS * 4)) { const recs = r.slice(seen); seen = r.length; return { label, s: (Date.now() - t0) / 1000, programs: recs }; }
+      if (Date.now() - t0 > STEP_S * 1000) { const recs = r.slice(seen); seen = r.length; return { label, s: (Date.now() - t0) / 1000, timedOut: true, programs: recs }; }
+      await sleep(250);
+    }
+  };
+}
+
 async function pass(name, base, tag) {
   const B = await launch(EXTENDED ? { cache: CACHE, inject: STARTUP } : { cache: CACHE });
   const out = { pass: name, renderer: '', steps: [] };
@@ -141,20 +166,7 @@ async function pass(name, base, tag) {
     await B.nav(`${base}test.html?glprof&view=steps&ns=glprof${Date.now()}`);
     await B.until('typeof GLR === "object" && typeof GLR.profile === "function" && typeof __cmwExample === "function"', 120000);
     out.renderer = await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'), x = g && g.getExtension('WEBGL_debug_renderer_info'); return x ? g.getParameter(x.UNMASKED_RENDERER_WEBGL) : ''; })()`);
-    let seen = 0;
-    // a step's links start with its first draws (about a second after it): at least 2.5 s, then 1.5 s with none open
-    const settle = async (label) => {
-      const t0 = Date.now();
-      let quiet = 0;
-      for (;;) {
-        const r = await B.ev('GLR.profile()');
-        const open = r.slice(seen).filter((x) => x.ms === null).length;
-        if (!open && Date.now() - t0 > 2500) quiet++; else quiet = 0;
-        if (quiet >= 6) { const recs = r.slice(seen); seen = r.length; return { label, s: (Date.now() - t0) / 1000, programs: recs }; }
-        if (Date.now() - t0 > STEP_S * 1000) { const recs = r.slice(seen); seen = r.length; return { label, s: (Date.now() - t0) / 1000, timedOut: true, programs: recs }; }
-        await sleep(250);
-      }
-    };
+    const settle = settler(B);
     out.steps.push(await settle('start (the default example)'));
     if (EXTENDED) { await sleep(Math.max(0, 61000 - out.steps[0].s * 1000)); out.steps[0].measure = await B.ev('window.__gpStartup ? __gpStartup() : null'); }
     const steps = [];
@@ -254,6 +266,38 @@ const key = (x) => `${x.name}|${x.key}|${x.mode}`;
 const sec = (a) => a.reduce((s, x) => s + Math.max(0, x || 0), 0) / 1000;
 // a pass in numbers: links, link time and time-shared link time (s)
 const totals = (p) => { const a = flat(p); return { links: a.length, s: sec(a.map((x) => x.ms)), share: sec(a.map((x) => x.share)) }; };
+// --walk typed (ci/glprof_typed.js): per step, cold and warm: links, link seconds (the sum of the links' own start-to-done
+// times, parallel links added), the longest main-thread task (ms) and, for a glide, seconds to its first exact frame;
+// one table per run, and with a reference side the two sides' cold values side by side (the mean over a side's runs)
+const f1 = (v) => (v == null ? '' : v.toFixed(1));
+function typedRow(st) {
+  const progs = st ? st.programs : [];
+  return { links: progs.length, s: sec(progs.map((x) => x.ms)), long: st ? st.longMs : null, first: st ? st.firstS : undefined, timedOut: !!(st && st.timedOut) };
+}
+function typedTables(runs, sides) {
+  const out = [''];
+  const cell = (r) => `${r.links}, ${f1(r.s)}, ${r.long == null ? '' : r.long}${r.first === undefined ? '' : ', ' + (r.first === null ? 'none' : f1(r.first))}${r.timedOut ? ' (timed out)' : ''}`;
+  for (const r of runs) {
+    out.push(`#### Typed formulas: run ${r.run} (${r.side})`, '', 'Each cell: links, link seconds, longest main-thread task (ms), and for a glide the seconds to its first exact frame.', '',
+      '| step | cold | warm |', '|---|---|---|');
+    r.cold.steps.forEach((st, i) => out.push(`| ${st.label} | ${cell(typedRow(st))} | ${cell(typedRow(r.warm.steps[i]))} |`));
+    out.push('');
+  }
+  if (sides.length > 1) {
+    const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+    const per = sides.map((sd) => {
+      const m = new Map();
+      for (const r of runs.filter((q) => q.side === sd.side)) for (const st of r.cold.steps) { const t = typedRow(st); if (!m.has(st.label)) m.set(st.label, []); m.get(st.label).push(t); }
+      return m;
+    });
+    const agg = (a) => (a ? { links: mean(a.map((x) => x.links)), s: mean(a.map((x) => x.s)), long: Math.max(...a.map((x) => x.long || 0)), first: a.some((x) => x.first === undefined) ? undefined : mean(a.filter((x) => x.first != null).map((x) => x.first)) } : null);
+    const c = (a) => (a ? `${a.links}, ${f1(a.s)}, ${a.long}${a.first === undefined ? '' : ', ' + (a.first == null ? 'none' : f1(a.first))}` : '');
+    out.push('#### Typed formulas: the sides compared (cold; mean over a side\'s runs, the longest task its maximum)', '', `| step | ${sides[0].side} | ${sides[1].side} |`, '|---|---|---|');
+    for (const k of new Set([...per[0].keys(), ...per[1].keys()])) out.push(`| ${k} | ${c(agg(per[0].get(k)))} | ${c(agg(per[1].get(k)))} |`);
+    out.push('');
+  }
+  return out;
+}
 const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
 
 (async () => {
@@ -269,9 +313,10 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
     const tag = order.length > 1 ? `run ${i + 1} (${s.side}) ` : '';
     fs.rmSync(CACHE, { recursive: true, force: true });   // cold: nothing cached
     if (CLEAR_METAL) clearMetal();
-    const cold = await pass('cold', s.base, tag);
+    const walkPass = TYPED ? typedWalk({ launch, settler, sleep, SC, cache: CACHE, speeds: SPEEDS, budgetS: TYPED_BUDGET_S, filter: TYPED_FILTER, maxChars: 100, stepS: STEP_S, log: console.log }) : pass;
+    const cold = await walkPass('cold', s.base, tag);
     if (CLEAR_METAL) console.log(`[glprof] after the cold pass, Chrome's Metal cache: ${metalCaches().map((c) => `${c.dir} (${c.kb} KB)`).join(', ') || 'none found'}`);
-    const warm = await pass('warm', s.base, tag);
+    const warm = await walkPass('warm', s.base, tag);
     shares(cold); shares(warm);
     runs.push({ run: i + 1, side: s.side, cold, warm });
   }
@@ -322,12 +367,13 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   lines.push('', '| step | cold: links, wall s | warm: links, wall s |', '|---|---|---|');
   cold.steps.forEach((s, i) => { const w = warm.steps[i] || { programs: [], s: 0 }; lines.push(`| ${s.label}${s.timedOut ? ' (timed out)' : ''} | ${s.programs.length}, ${s.s.toFixed(1)} | ${w.programs.length}, ${w.s.toFixed(1)} |`); });
   // (--walk extended: the timed steps and the measurements, cold and warm)
-  const timed = cold.steps.map((s, i) => [s, warm.steps[i] || {}]).filter(([s]) => s.firstS !== undefined || s.measure !== undefined);
+  const timed = TYPED ? [] : cold.steps.map((s, i) => [s, warm.steps[i] || {}]).filter(([s]) => s.firstS !== undefined || s.measure !== undefined);
   if (timed.length) {
     lines.push('', '| step | cold: first s, measured | warm: first s, measured |', '|---|---|---|');
     const f = (s) => `${s.firstS === undefined ? '' : s.firstS === null ? 'timed out' : s.firstS.toFixed(1)}${s.measure !== undefined ? ' ' + esc(JSON.stringify(s.measure)) : ''}`;
     for (const [c, w] of timed) lines.push(`| ${c.label} | ${f(c)} | ${f(w)} |`);
   }
+  if (TYPED) lines.push(...typedTables(runs, sides));
   const md = lines.join('\n') + '\n';
   summary(md);
   console.log(md);   // (the job log too: the summary and the artifact are out of reach of some readers)
