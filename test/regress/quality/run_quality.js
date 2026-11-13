@@ -257,13 +257,21 @@ async function renderRun(B, run, opt) {
 }
 
 // the pixels a 'cover' run leaves out: the axes, which the plane draws over the paper after the colour (2.5 CSS px wide
-// at the origin's column and row: 2 CSS px each side), and the truth's annotation band (healed_cut's cut line, drawn
-// past the image too)
-function coverSkip(geo, T, W, H) {
+// at the origin's column and row: 2 CSS px each side); the truth's annotation band (healed_cut's cut line); and,
+// outside the true image, the cut strokes the plane draws there (a blend of the paper and --cut within
+// metrics.COVER_BG of that line: log's cut lines, z^i's cut circle), which the original suite never judged either
+function coverSkip(geo, colors, rgba, T, W, H) {
   const skip = new Uint8Array(W * H), d = geo.dpr, ox = (geo.o[0] - geo.rect[0]) * d, oy = (geo.o[1] - geo.rect[1]) * d;
+  const hex = (h, dflt) => { const m = /^#?([0-9a-f]{6})/i.exec(String(h || '').trim()) || [0, dflt]; return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)); };
+  const pl = hex(colors['--plane'], 'FCFDFD'), cu = hex(colors['--cut'], 'CC3311'), e = cu.map((x, i) => x - pl[i]), L = e.reduce((a, x) => a + x * x, 0);
+  const onCut = (k) => {
+    const p = [rgba[4 * k], rgba[4 * k + 1], rgba[4 * k + 2]];
+    const t = Math.max(0, Math.min(1, p.reduce((a, x, i) => a + (x - pl[i]) * e[i], 0) / L));
+    return Math.hypot(...p.map((x, i) => pl[i] + t * e[i] - x)) <= M.COVER_BG && t > 0.05;
+  };
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
     const k = j * W + i;
-    if (Math.abs(i + 0.5 - ox) <= 2 * d || Math.abs(j + 0.5 - oy) <= 2 * d || (T.annot && T.annot[k] <= M.BAND)) skip[k] = 1;
+    if (Math.abs(i + 0.5 - ox) <= 2 * d || Math.abs(j + 0.5 - oy) <= 2 * d || (T.annot && T.annot[k] <= M.BAND) || (!T.inside[k] && onCut(k))) skip[k] = 1;
   }
   return skip;
 }
@@ -301,7 +309,7 @@ function evalRun(run, r, outDir, writeRender = true) {
   const classify = M.makeClassifier(cap.colors, run.kind);
   const ev = M.evaluate({ rgba, W, H, truthG, classify, variant: run.kind, parity: run.parity, opacity: run.opacity ? M.makeOpacity(cap.colors) : null,
     strict: run.strict, colorErr: run.strict && run.kind !== 'cover' ? M.makeColorErr(cap.colors, run.kind) : null, cellColor: run.cellErr ? M.makeCellColor(cap.colors) : null,
-    skip: run.kind === 'cover' ? coverSkip(cap.geo, truthG, W, H) : null });
+    skip: run.kind === 'cover' ? coverSkip(cap.geo, cap.colors, rgba, truthG, W, H) : null });
   fs.writeFileSync(path.join(outDir, 'maps', run.id + '.png'), PNG.encode(W, H, ev.map));
   out.metrics = ev.metrics;
   out.problems.push(...ev.problems);

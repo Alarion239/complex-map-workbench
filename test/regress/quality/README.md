@@ -86,8 +86,9 @@ Runner options (`node run_quality.js ...`):
      0.5 px, or the run fails.
    - If the hook disappears, the runner falls back to the pinned view and adds a warning.
    - It leaves out of the score the two axes, which the plane draws over the paper after the colour (2 CSS px each side
-     of the origin's column and row), and the truth's annotation band (`healed_cut`'s cut line, drawn past the image
-     too).
+     of the origin's column and row); the truth's annotation band (`healed_cut`'s cut line); and, outside the true
+     image, the cut strokes the plane draws there (a blend of the paper and `--cut`: log's cut lines, z^i's cut circle
+     \|w\| = e^π at `zi_H_out16`), which the original suite never judged outside the image either.
 6. **Truth** (`scenes.js`, `metrics.js`). This code is independent of the app's code.
    - For a pixel centre `w`, `pre(w)` lists every candidate preimage `z`, across all branches. `w` is inside the true
      image when some candidate lies in the source region (`region(z)`, the exact level set).
@@ -167,7 +168,7 @@ passes. Each pins the app's default camera at 1440 × 900 (`__cmwCam`, written o
 **The `cover` classifier (the suite's runs).** The steps view paints the carried colour inside the regions, a hue per
 point, over the plane's paper. A pixel within **24 RGB units** of the paper (`--plane`) is BG, any other colour FILL:
 the run scores where the image is drawn, not its colour. The pixels a cover run leaves out (the axes, the annotation
-band) count nowhere.
+band, the cut strokes outside the image) count nowhere.
 
 The other classifiers (no run uses them now): every pixel gets a class from its rendered colour, the nearest of a set
 of reference colours, or of a blend of two of them. The reference colours are read from the page's CSS tokens.
