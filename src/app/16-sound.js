@@ -29,15 +29,15 @@
     // {src, h: [{t, x, y}]}; hold, holdT, pz, a slow finger's held crossing, its timer and the probe's points of the last 50 ms
     // (sndHold)
     rope: null, hand: null, fh: null, hold: null, holdT: 0, pz: null, lifting: false, lastSrc: '', ptype: '',
-    // (#580) svk, the steps view's plane last seen at the end of a frame (sndFrame): another one re-picks the probe;
+    // svk, the steps view's plane last seen at the end of a frame (sndFrame): another one re-picks the probe;
     // svSaid, the plane where "no tone past the colour plane" was said last (once a plane)
     svk: /** @type {string | null} */ (null), svSaid: '',
   };
-  // (#580) the steps view's plane as the sound reads it, null in the classic view. Pietro's call (1 and 2 Nov): the probe
-  // hears what the colours and the readout show, the map from the plane into the colour plane, and while the view glides,
-  // plays, is scrubbed or swiped or rests parked, the nearer plane's (the readout's). k and T, that plane's stage and the
-  // colour plane's; key, what the probe's function is made of; past, the colour plane's name when k is past it (its colour
-  // is carried from there, by the points: no tone, #727), else ''. Read only when asked: F, the map from plane k into the
+  // the steps view's plane as the sound reads it, null in the classic view. The probe hears what the colours and the
+  // readout show, the map from the plane into the colour plane, and while the view glides, plays, is scrubbed or swiped
+  // or rests parked, the nearer plane's (the readout's). k and T, that plane's stage and the colour plane's; key, what
+  // the probe's function is made of; past, the colour plane's name when k is past it (its colour is carried from there,
+  // by the points: no tone, TODO(#727)), else ''. Read only when asked: F, the map from plane k into the
   // colour plane (svF), and name, its name ("F", "f₂", "f₃∘f₂", or the plane's own variable where svF is the identity)
   const stepsView = () => {
     if (!SV.on) return null;

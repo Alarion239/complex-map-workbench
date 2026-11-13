@@ -13,19 +13,13 @@
 // Run: node test/t_hear_wiring.js
 const vm = require('vm');
 const CX = require('../src/cx.js');
-const { source } = require('./src_text');
+const { source, braced, fnText: fnTextOf } = require('./src_text');
 const C = CX.C, TAU = 2 * Math.PI;
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } else if (process.env.V) console.log('ok  ', name); }
 
 const HOOKS = source('soundhooks.js'), APP = source('app.js');
-// from `at` (an index of text) to the brace that closes the first one after it
-function braced(text, at, what) {
-  let d = 0;
-  for (let k = text.indexOf('{', at); k < text.length; k++) { const c = text[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return text.slice(at, k + 1); }
-  throw new Error('unbalanced ' + what);
-}
-function fnText(name) { const i = HOOKS.indexOf(`  function ${name}(`); if (i < 0) throw new Error('no function ' + name); return braced(HOOKS, i, name); }
+const fnText = (name) => fnTextOf(HOOKS, name);
 function constText(name) { const m = HOOKS.match(new RegExp(`\\n  const ${name} = [^\\n]*;\\n`)); if (!m) throw new Error('no const ' + name); return m[0]; }
 
 // ---------- the app's side (src/app/14-interaction.js) ----------
@@ -121,7 +115,7 @@ function hooks(o = {}) {
     snd: { rope: { x: 1, y: 2, src: 'pointer' }, phi: 0, last: null, kz: null, kbd: false, ptrT: -1e9, kloop: null, lastLoop: null, play: null, prep: null, prepR: null, listenN: 0, tracker: true, voice: null, ptrOn: true, cv: {} },
     F: o.F || ((z) => z), fk: 'f1', view: { cx: 0, cy: 1, s: 100 }, solo: () => '', morphOn: () => false,
     leftView: () => ctx.view, sndF: () => ctx.F, sndFKey: () => ctx.fk,
-    // (#580: the classic view: no steps view, never past its colour plane)
+    // (the classic view: no steps view, never past its colour plane)
     stepsView: () => null, sndSvQuiet: () => false, sndSvPast: () => '',
     sndSay: (s) => said.push(s), sndFmt: (z) => CX.fmt(z, 2), sndHover: (z, px, src) => calls.push(['hover', z, src]),
     sndPickAt: (src, x, y) => C((x - 400) / 100, (200 - y) / 100),
@@ -254,7 +248,7 @@ const tick = (h) => { const f = h.timers.shift(); if (f) f(); };   // (the next 
   h.fk = 'f3';
   tick(h);
   check('F changed while it prepares: dropped silently, nothing plays', samplers() === 3 && p2 && h.snd.prep === null && gos() === 2 && h.said.length === ns && !h.timers.length);
-  // another curve while one prepares: the new one replaces it
+  // another curve while one prepares: the new one takes its place
   h.fk = 'f4';
   h.G.sndListen(pts, false, '', null, shape);
   const p3 = h.snd.prep;

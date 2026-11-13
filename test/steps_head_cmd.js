@@ -34,7 +34,7 @@ const LAYOUT = `(() => {
   for (let i = 1; i < xs.length; i++) if (xs[i].x < xs[i - 1].x + xs[i - 1].w - 0.5) lap.push(xs[i - 1].id + '/' + xs[i].id);
   const inHead = (sel) => { const e = bar.querySelector(sel) || head.querySelector(sel); return !!e && e.getClientRects().length > 0; };
   return { hh: Math.round(hr.height), bar: bar.className, off, lap, cut: bs.filter((b) => b.cut).map((b) => b.id), right: Math.max(...bs.map((b) => b.x + b.w)), hw: Math.round(head.clientWidth),
-    has: { title: inHead('.sv-title'), cp: inHead('.sv-cp'), scope: inHead('.sv-scope'), surf: inHead('.sv-surf1'), styles: inHead('#dcSeg') },
+    has: { title: inHead('.sv-title'), cp: inHead('.sv-cp'), scope: inHead('.sv-scope') || inHead('.sv-scope-menu'), surf: inHead('.sv-surf1'), styles: inHead('#dcSeg') },
     cpName: (bar.querySelector('.sv-cp') || {}).getAttribute && bar.querySelector('.sv-cp').getAttribute('aria-label'),
     surfName: bar.querySelector('.sv-surf1') && bar.querySelector('.sv-surf1').getAttribute('aria-label') };
 })()`;
@@ -113,6 +113,54 @@ for (const lang of ['en', 'ru', 'it']) {
       ok(`#364 ${tag}: the style row shows (${n} styles)`, n >= 3, n);
       ok(`#364 ${tag}: switching through every style leaves the style buttons where they were`, seen.length > 0 && seen.every((r) => r === seen[0]), seen);
     }
+  }
+}
+// (#1047) the Landscape with All sheets, the chain √, cos, log and Height = Im F, at 1024 × 768: the title keeps its
+// words, whole ("z · landscape of Im F", else "z · landscape"; no word is cut) and is not folded to the plane's letter alone
+// (and at 1460 × 900 in en: the scope is a menu button and the key, folded to its glyph while the bar was short, is unfolded again, as the bar fits beside it)
+for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 768], ['en', 1460, 900]]) {
+  const okl = (n, pass, detail) => ok(`${lang} ${W} × ${H} ${n}`, pass, detail);
+  const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
+    steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
+  await view(W, H, false, false);
+  // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
+  const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
+  await seed(`${ns}land${lang}${W}`, LAND);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
+  await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
+  // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
+  await until(`(() => { const b = document.getElementById('svHead'), k = b.className + '|' + b.querySelector('.sv-title').innerText, r = window.__fk !== k; window.__fk = k;
+    return __cmwSteps().surf === 'land' && /Im F/.test(b.querySelector('.sv-title').textContent) && !r; })()`);
+  const title = await ev(`(() => { const t = document.querySelector('#svHead .sv-title'), r = t.getBoundingClientRect();
+    return { surf: __cmwSteps().surf, hh: Math.round(document.querySelector('#paneL .pane-head').getBoundingClientRect().height), w: Math.round(r.width), cw: t.clientWidth, sw: t.scrollWidth, full: t.textContent, tip: t.getAttribute('data-tip'), before: getComputedStyle(t.querySelector('.sv-role'), '::before').content.replace(/"/g, ''), cut: [...document.querySelectorAll('#svHead, #svHead *')].filter((e) => { const c = getComputedStyle(e); return c.textOverflow === 'ellipsis' || (/hidden|clip/.test(c.overflowX) && e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0 && !/^(svg|path|canvas)$/i.test(e.tagName)); }).map((e) => e.id || String(e.className).slice(0, 30)), text: t.innerText, bar: document.getElementById('svHead').className }; })()`);
+  info[`title${W}${lang}`] = title;
+  const short = /\bsv-rs\b/.test(title.bar);
+  okl('Landscape, All sheets, √ cos log: the title keeps its role, whole: "z · landscape of Im F" or "z · landscape"', title.surf === 'land' && !/\bsv-c2\b/.test(title.bar) && /Im F/.test(title.full || '') && (!short || title.before.length > 3), title);
+  okl('Landscape, All sheets: the head is one row (under 48 px)', title.hh < 48, title);
+  okl('Landscape, All sheets: the title is not folded to the plane\'s letter (it is 40 px or more: the letter, the dot and a word)', title.cw >= 40, title);
+  okl('Landscape, All sheets: the role as one word has the whole title as its tip', !short || /^z · .*Im F/.test(title.tip || ''), title);
+  okl('Landscape, All sheets: nothing in the steps bar is ellipsized or cut', title.cut.length === 0, title.cut);
+  // (#1047) the fold order: the scope's switch is a menu button before the colour-plane button is its wheel, and the title's role goes last
+  const fold = await ev(`(() => { const b = document.getElementById('svHead'), c = b.classList, m = b.querySelector('.sv-scope-menu'), sg = b.querySelector('.sv-scope:not(.sv-scope-menu)');
+    const mr = m.getBoundingClientRect(), t = b.querySelector('.sv-title').getBoundingClientRect();
+    return { cls: b.className, sm: c.contains('sv-sm'), c1: c.contains('sv-c1'), c2: c.contains('sv-c2'), keyFolded: (() => { const lg = document.getElementById('leftLegend'); return !!lg && !lg.hidden && lg.classList.contains('glyph'); })(), glyph: (() => { const lg = document.getElementById('leftLegend'); return !lg || lg.hidden || lg.classList.contains('glyph'); })(), si: c.contains('sv-si'), menuShown: mr.width > 0, segShown: sg.getBoundingClientRect().width > 0, menuH: Math.round(mr.height), tw: Math.round(t.width),
+      name: m.getAttribute('aria-label'), popup: m.getAttribute('aria-haspopup'), text: m.textContent.trim() }; })()`);
+  info[`fold${W}${lang}`] = fold;
+  if (W === 1460) okl('Landscape, All sheets: the scope is a menu button and the Height key is unfolded again, the bar fitting beside it', fold.sm && !fold.keyFolded && title.hh < 48, fold);
+  okl('the fold order: the Height key is a glyph while the scope is a menu button, unless the bar fits beside the unfolded key (one row)', !fold.sm || fold.keyFolded || fold.glyph || title.hh < 48, fold);
+  okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si), fold);
+  okl('the folded scope is one menu button, haspopup=menu, named "Where colour shows: Everywhere", its words "Everywhere"',
+    fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Where colour shows: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
+  if (lang === 'en' && fold.sm) {
+    await ev(`document.querySelector('.sv-scope-menu').click(); 1`);
+    await until(`!!document.querySelector('.pop.menu [role=menuitemradio]')`);
+    const sm = await ev(`(() => { const m = document.querySelector('.pop.menu'); return m && { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
+    okl('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Where colour shows' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
+    await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Inside/.test(b.textContent)).click(); 1`);
+    await until(`__cmwSteps().scope === 'in' && /Inside/.test(document.querySelector('.sv-scope-menu').textContent)`);
+    const after = await ev(`(() => { const m = document.querySelector('.sv-scope-menu'); return { scope: __cmwSteps().scope, name: m.getAttribute('aria-label'), text: m.textContent.trim() }; })()`);
+    okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Where colour shows: Inside regions' && after.text === 'Inside', after);
   }
 }
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);

@@ -37,14 +37,14 @@ extra_doc = json.load(open(root / 'tools' / 'ru_extra.json'))
 extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # phase 2b's new strings (notes/i18n/ru/phase2b*.json): id -> {en, ru, plural, en_plural, ctx, note}. Keyed like the
 # call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many), and they win like tools/ru_extra.json
-# (the redesign's strings, notes/i18n/ru/v15-<area>.json, after phase 2b's; a v15 table whose build is not merged
-# into this tree yet is left out, so its strings and its changes to shared ones arrive with its sources)
-# (three tables were written after v15. The video preview (work/xvv) and the phone tour's step toggle
-# (work/xvp) were merged in v15.1; v15.2 merges the formula recognizer (src/recognize.js), so its table is in too.)
-# (each piece writes notes/i18n/ru/v152-<piece>.json, read after the v15 tables, so its changes to shared
-# strings win. Every v15.2 piece is merged in this tree: the paths, the recognizer, the formula steps and the sound.
-# v16 merges the sea song (work/xvsea, v152-seasong.json), so its table is read too; no English key is in two of the
-# v152-*.json / v16-*.json tables, so their order changes no string.)
+# (the redesign's strings, the first group of notes/i18n/ru tables below, after phase 2b's; a table whose build is not
+# merged into this tree is left out, so its strings and its changes to shared ones arrive with its sources)
+# (the video preview (work/xvv), the phone tour's step toggle (work/xvp) and the formula recognizer (src/recognize.js)
+# have tables of their own, merged in this tree.)
+# (each piece writes notes/i18n/ru/v152-<piece>.json, read after the redesign's tables, so its changes to shared
+# strings win. Every piece is merged in this tree: the paths, the recognizer, the formula steps and the sound.
+# The sea song (work/xvsea, v152-seasong.json) has its table too, read as well; no English key is in two of these
+# tables, so their order changes no string.)
 V15_NOT_HERE = set()
 V152_NOT_HERE = set()
 # (the gate's fix pass and the user's requests write notes/i18n/ru/v161-<piece>.json, read last, so their changes
@@ -52,31 +52,30 @@ V152_NOT_HERE = set()
 # exact sheet captions and the export dialog's menus. A merge adds its pieces' names here.)
 V161_HERE = {'v161-user5.json'}
 # (the Perpendicular circle (work/xv163, notes/orthogonal-circle/SPEC.md 5) writes notes/i18n/ru/v163-constr.json,
-# read after the v16.1 tables; only the tables merged in this tree are listed)
+# read after the V161_HERE tables; only the tables merged in this tree are listed)
 V163_HERE = {'v163-constr.json'}
 # (Inside C only (work/xvhs, notes/orthogonal-circle/segments/SPEC.md 9) writes notes/i18n/ru/v164-segments.json,
-# read after v16.3's; an allow-list, as V161_HERE: other v16.4 rounds' tables are merged with their builds)
+# read after V163_HERE's; an allow-list, as V161_HERE: other rounds' tables are merged with their builds)
 V164_SEG_HERE = {'v164-segments.json'}
 # (tour r3, work/xvtr: notes/i18n/ru/v164-tour.json, read after every other table)
 V164_HERE = {'v164-tour.json'}
-# (the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
+# (the Help's Deformation paragraph checked against funcs.js: notes/i18n/ru/v164-help.json)
 V164_HELP_HERE = {'v164-help.json'}
-# (v16.5 wave 1: each piece wrote notes/i18n/ru/v165-ux-<piece>.json (learn, chain, plane, rail, phone), read after
-# every v16.4 table; the wave 1 merge (notes/ux-build/W1-MERGE.md) reads them as one set, in name order)
+# (each piece writes notes/i18n/ru/v165-ux-<piece>.json (learn, chain, plane, rail, phone), read after every
+# V164_* table, as one set in name order)
 V165_HERE = {'v165-ux-learn.json', 'v165-ux-chain.json', 'v165-ux-plane.json', 'v165-ux-rail.json', 'v165-ux-phone.json',
              'v165-ux-merge.json'}   # (v165-ux-merge.json: the strings the merge itself changed, keys of its own)
-# (v16.5 wave 1 fix round, notes/ux-build/w1-fix-AS-BUILT.md: notes/i18n/ru/v165-ux-fix.json, read after every other
-# v16.5 table, so a Russian it changes wins)
+# (the fix round: notes/i18n/ru/v165-ux-fix.json, read after every other v165 table, so a Russian it changes wins)
 V165_FIX_HERE = {'v165-ux-fix.json'}
-# (issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: notes/i18n/ru/v17-planemenu.json,
+# (the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: the table V17_HERE names,
 # read after every other table)
 V17_HERE = {'v17-planemenu.json'}
 # (Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
-# read after the v16.5 tables, so it overrides v152-sound.json and v164-tour.json; before v17's, which is read last)
+# read after the other v165 tables, so it overrides v152-sound.json and v164-tour.json; before V17_HERE's, which is read last)
 V165_HEAR_HERE = {'v165-hear.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_FIX_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HEAR_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_FIX_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HEAR_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # read in this order: a later table's strings win
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue
@@ -362,7 +361,7 @@ for key, val in list(resolved.items()):
         del resolved[key]
 table.update(extra)                      # this phase's entries (contexts the call sites of phase 2b will use too)
 table.update(resolved)
-# review eng-13: entries no lookup can reach hide real misses. A plural object under a key without the plural separator
+# entries no lookup can reach hide real misses. A plural object under a key without the plural separator
 # is left out ($tn never finds it; $t would show its 'other' form with a raw {n}). An entry whose key has a placeholder
 # but no literal call site is only listed (tools/ru_report.json, 'orphans'): the tour's copy and other keys are looked
 # up through a variable, which this script cannot see, so it is not dropped
@@ -376,15 +375,15 @@ for k in sorted(table):
     elif k not in site_keys and k not in extra and re.search(r'%?\{[A-Za-z_][A-Za-z0-9_]*\}', k.split(CTX)[-1]):
         orphans.append(k)
 
-# review regress-4 (v15.2): an entry from the hand-written tables (notes/i18n/ru/*.json, tools/ru_extra.json) whose
+# An entry from the hand-written tables (notes/i18n/ru/*.json, tools/ru_extra.json) whose
 # English no source holds any more (a string the code removed: the old paths captions, the old tour and guide texts on
 # sound) is dead weight that hides real misses: it is dropped and listed ('dropped', why 'removed'). "Holds" is generous:
 # the English (the one form of a plural, the text after a context) equals a string literal of src/*.js or occurs in one,
 # or in page.html. Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
 # only counted when no literal holds them ('unused', report only).
-# v15.2.1 (review verify-2): the inventory's entries that no source holds are dropped too ('dropped', why 'removed'):
-# they shipped as dead bytes (v15.2 removed 39 of them: ' Arrows that meet show points with the same image.', the old
-# palette-B cue descriptions, the old Search help; the rest are the inventory's own spellings with the placeholder
+# The inventory's entries that no source holds are dropped too ('dropped', why 'removed'):
+# they would ship as dead bytes (' Arrows that meet show points with the same image.', the old
+# palette-B cue descriptions and the old Search help are such; the rest are the inventory's own spellings with the placeholder
 # names its call sites renamed, which those call sites' resolved keys replace). Kept: what a computed lookup reaches (a
 # context looked up with a computed text), what the source holds once its concatenations ('a' + 'b') are joined and its
 # white space collapsed (a safety net), and the phase 2b fixes and leftovers, which t_i18n checks are shipped ('unused',
@@ -404,8 +403,8 @@ def js_unescape(lit):
 src_lits, src_blob, src_raw = set(), [], []
 for name, t in src_texts(root / 'src'):
     f = pathlib.Path(name)
-    # (v16.5 merge: the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
-    # source's strings: a string the source no longer calls must not be kept because the Italian table still has it)
+    # (the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
+    # source's strings: a string the source does not call must not be kept because the Italian table has it)
     if f.name in ('i18n_ru.js', 'i18n_it.js') or f.suffix not in ('.js', '.html'):
         continue
     src_raw.append(t)
@@ -449,7 +448,7 @@ for k in sorted(table):
         del table[k]
     else:
         unused.append(k)
-# (an orphan dropped as removed is no longer listed as one: what is left are the real ones)
+# (an orphan dropped as removed is not listed as one: what is left are the real ones)
 orphans = [k for k in orphans if k in table]
 
 out = root / 'src' / 'i18n_ru.js'

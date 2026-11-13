@@ -6,8 +6,8 @@
 //   with paths drawn: 3 to 18 of them, no jump, no kink, smooth, separated, the same points at every t, and a glide over the
 //   chain one run of its steps;
 // - a phone-width pane keeps a few separated paths.
-// The Paths toggle and the order select have their own suites (steps_paths_cmd, steps_order_cmd); the classic
-// Deformation dock's version of all this is deform_nat_classic_cmd. A command file for a CDP daemon (test/cdp_kit
+// The Paths toggle and the order select have their own suites (steps_paths_cmd, steps_order_cmd).
+// A command file for a CDP daemon (test/cdp_kit
 // README); prints { pass, fails, paths }.
 const fails = [], errs = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
@@ -27,7 +27,7 @@ await open(base({ hom: 'linear', shapes: [{ id: 's1', kind: 'disc', c: [-0.12, 0
   steps: [{ type: 'joukowski', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 70 } }), NS + 'old');
 const p0 = await parked(0.5);
 ok('old linear save: the paths of the natural run are drawn', !!p0.src && p0.on && p0.heads > 0 && !p0.src.seq, p0);
-const old = await ev(`(() => { const p = __cmwP(); const s = document.querySelector('#svStrip .sv-order'); return { hom: 'hom' in p, homAll: p.homAll, order: s ? { dis: s.disabled, tip: s.title } : null, homSel: !!document.getElementById('homSel') }; })()`);
+const old = await ev(`(() => { const p = __cmwP(); const s = document.querySelector('#svStrip .sv-order'); return { hom: 'hom' in p, homAll: p.homAll, order: s ? { dis: s.getAttribute('aria-disabled') === 'true', tip: s.dataset.tip } : null, homSel: !!document.getElementById('homSel') }; })()`);
 ok('old linear save: no straight-line option, no all at once, the order select off for one step', !old.hom && !old.homAll && !old.homSel && old.order && old.order.dis && /two steps or more/.test(old.order.tip), old);
 
 // 2. the paths: evenly spaced, smooth, split at cuts, the same points at every t and while a glide plays
@@ -61,18 +61,20 @@ for (const [id, sc] of Object.entries(PA)) {
   for (const x of xs) { await parked(x); ok(`paths ${id}: the same points at x = ${x}`, (await zsAt()) === zs0, null); }
   // a glide from the first plane to the last: the first frame mid-glide with paths drawn, kept where the wait found it
   // (the glide moves on meanwhile; the panes are never quiet during one). The run is the chain's own, with the same
-  // points as parked
+  // points as parked. The glide's clock is the test hook's, 300 ms a frame (about 15 frames of a Slower glide): each
+  // frame is drawn the app's way, but a runner whose frames take seconds still has frames mid-glide
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
   await settled({ max: 10000, until: `!__cmwSteps().moving` });
-  await ev(`(() => { const e = document.querySelector('#svStrip .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+  await choose('#svStrip .sv-speed', 'slower');
   const last = sc.steps.length;
-  await ev(`window.__svGlide = null; __cmwSteps({ go: ${last} }), 1`);
+  await ev(`window.__svGlide = null; __cmwSteps({ clock: 300 }); __cmwSteps({ go: ${last} }), 1`);
   await settled({ panes: false, max: 30000, until: `(() => { const s = __cmwSteps(); if (s.anim && s.paths.src && s.paths.heads > 0 && s.paths.T > 0.05) window.__svGlide = { paths: s.paths, zs: JSON.stringify(__cmwMorphCache().zs), all: s.all }; return !!window.__svGlide || !s.moving; })()` });
   const pl = await ev('window.__svGlide || null');
   ok(`paths ${id}: paths are drawn mid-glide, their moving points at H_T(z)`, !!pl && pl.paths.err < 1.5, pl);
   if (pl && last === 1) ok(`paths ${id}: the same points while a glide plays`, pl.zs === zs0, null);
   if (pl && last > 1) ok(`paths ${id}: a glide over ${last} steps is one run of them`, pl.paths.src.Tend === last && pl.paths.src.seq === true && pl.paths.src.startId === true, pl.paths.src);
   await settled({ max: 30000, until: `!__cmwSteps().moving` });
+  await ev('__cmwSteps({ clock: 0 }), 1');
   paRes[id] = { n: c.n, kinds: c.kinds, jump: +c.jump.toFixed(3), kink: +c.kink.toFixed(3), turnP99: +c.turnP99.toFixed(3), sep: +c.sep.toFixed(3), err: +p.err.toFixed(3) };
 }
 

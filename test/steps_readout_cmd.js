@@ -3,7 +3,9 @@
 //   on a plane;
 // - a glide that goes all at once reads "All steps at once · 50 %" half way along its span;
 // - it changes only with the whole percentage: held at 0.420 and at 0.424 it reads the same, and the live region has said
-//   nothing new between the two.
+//   nothing new between the two;
+// - the probe reads the point under the pointer at rest, is idle while the thread is held between two planes, and reads
+//   again on arrival at a plane (#955).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -45,4 +47,23 @@ for (const lang of ['en', 'ru', 'it']) {
     ok('en: gliding all at once it reads the span\'s percentage', all === WANT.en.all, all);
   }
 }
+// the probe (#955): on a plane the left readout reads the point under the pointer; while the thread moves (held at u = 1.5)
+// it idles, with none of the numbers the last rest frame left; on arrival at a plane it reads the point under the pointer
+// in the first parked frame, with no pointer move
+await open('en');
+const CPX = /\d+[.,]\d+ [+−-] \d+[.,]\d+i/;
+const readout = () => ev(`document.querySelector('#leftReadout').textContent`);
+const [px, py] = await ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left + r.width * 0.6, r.top + r.height * 0.4]; })()`);
+await park(0);
+await move(px, py);
+await settled({ max: 15000, until: `/\\d+[.,]\\d+ [+\\u2212-] \\d+[.,]\\d+i/.test(document.querySelector('#leftReadout').textContent)` });
+const rest0 = await readout();
+ok('en probe: at rest the readout reads the point under the pointer', CPX.test(rest0), rest0);
+await park(1.5);
+const mid = await readout();
+ok('en probe: held at u = 1.5 the readout is idle, with no rest-frame numbers', !CPX.test(mid), mid);
+await park(1);
+await settled({ max: 15000, until: `/\\d+[.,]\\d+ [+\\u2212-] \\d+[.,]\\d+i/.test(document.querySelector('#leftReadout').textContent)` });
+const arr = await readout();
+ok('en probe: on arrival at a plane it reads the point under the pointer, with no pointer move', CPX.test(arr), arr);
 return { pass: fails.length === 0, fails, info };

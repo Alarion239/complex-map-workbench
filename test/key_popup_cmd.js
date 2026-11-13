@@ -8,14 +8,14 @@ const fails = [], info = { rows: [] };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-async function openApp(lang, w, phone) {
+async function openApp(lang, w, phone, h = 800, steps = false) {
   const ns = 'kp' + Date.now();
-  await view(w, phone ? 844 : 800, false, !!phone);
+  await view(w, phone ? 844 : h, false, !!phone);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
   const o = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's1', kind: 'rect', a: [-2, -2], b: [2, 2] }], steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'color' };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang ? '&lang=' + lang : ''}` }); await sleep(2300);
-  await settle(800);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang ? '&lang=' + lang : ''}${steps ? '&view=steps' : ''}` });
+  await settled({ max: 30000, until: "typeof __cmwSetMain === 'function' && !!document.getElementById('leftLegend')" });
 }
 // the pop-up (the key's canvas, shown while the chip is pointed at) against the plot's corner chips; rects in px
 const probe = () => ev(`(() => {
@@ -71,5 +71,25 @@ for (const [lang, w] of [['ru', 390], ['', 360]]) {
     const again = await ev(topOf);
     ok(`${tag}: folded again, the chip is back where it started`, again === foldedTop, { foldedTop, again });
   }
+}
+// the steps view at 1440 x 900 (#956): the opened key's canvas lies inside the left pane, clear of its left edge
+const inPane = () => ev(`(() => {
+  const r = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+  const cv = document.getElementById('legendCanvasL'), pane = document.getElementById('paneL');
+  return { shown: getComputedStyle(cv).display !== 'none' && cv.getBoundingClientRect().width > 0, canvas: r(cv), pane: r(pane), chip: r(document.getElementById('leftLegend')) };
+})()`);
+// (the Landscape's height key is the head's chip, the one the pop-up is anchored to; the steps view's own colour key lies on the plot)
+for (const lang of ['', 'ru', 'it']) {
+  await openApp(lang, 1440, false, 900, true);
+  await ev(`__cmwSetMain('land')`);
+  await settled({ max: 8000, until: "document.getElementById('leftLegend').parentNode.classList.contains('pane-head')" });
+  const c = await center('leftLegend');
+  await move(c[0], c[1]);
+  await settled({ max: 8000, until: "getComputedStyle(document.getElementById('legendCanvasL')).display !== 'none'" });
+  const r = await inPane();
+  const tag = `steps 1440x900 land ${lang || 'en'}`;
+  info.rows.push([tag, r.shown, Math.round(r.canvas.l - r.pane.l)]);
+  ok(`${tag}: the opened key is shown`, r.shown, r);
+  ok(`${tag}: the opened key lies inside the left pane`, r.shown && r.canvas.l >= r.pane.l && r.canvas.r <= r.pane.r, r);
 }
 return { pass: fails.length === 0, fails, info: { n: info.rows.length, sample: info.rows.slice(0, 4) } };

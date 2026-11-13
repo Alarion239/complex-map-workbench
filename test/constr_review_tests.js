@@ -1,4 +1,4 @@
-// Section D of test/t_constr.js: the v16 review fixes (notes/constructions-v16/review-*.json, ledger.json).
+// Section D of test/t_constr.js: its checks.
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 module.exports = function ({ K, ok }) {

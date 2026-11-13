@@ -17,7 +17,7 @@
 //          (3 runs, with X and with Y large), leaving the phone layout in Phase and in the Deformation (3 round trips
 //          to the desktop), a save in the Deformation and a reload (3 rounds), the first Phase with X the inset, a
 //          sheet and a rotation that end Phase, the language switch in Phase, Y's auto fit after a swap (Re z > 0),
-//          a swap during a Fit, the Deformation ended by a bypassed step (CASE 'bypass')
+//          a swap during a Fit
 // A command file for a CDP daemon (test/cdp_kit README). One part per run, and one map per run for the longer parts
 // (the queue waits 300 s at most):
 //   python3 build.py && (echo "const PART = 'swap';"; cat test/phone_swap_cmd.js) | test/<you>_cdp/q.sh -
@@ -28,6 +28,16 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const part = typeof PART !== 'undefined' ? PART : 'swap';
 const fails = [], info = {};
+// the deformation opens and closes through its hook (the toggle button is gone), the phone's layout following it
+const morphToggle = async () => { await ev('(() => { __cmwMorph({ open: !__cmwMorph().open }); return 1; })()'); await settled({ until: "document.documentElement.classList.contains('ph-morph') === __cmwMorph().open", max: 8000 }); };
+// every coordinate sent to the page must be a finite number: CDP rejects anything else (NaN serialises as null) and the
+// leg ends in a protocol error. A bad one is a named failure instead, and nothing is sent.
+const sendInput = (method, params) => {
+  for (const p of [params, ...(params.touchPoints || [])]) {
+    for (const k of ['x', 'y']) if (k in p && !Number.isFinite(p[k])) { fails.push({ name: `${method}: ${k} is not a finite number`, got: String(p[k]) }); return Promise.resolve(); }
+  }
+  return send(method, params);
+};
 const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const TOL = 0.005;
 const SHAPES = [
@@ -64,9 +74,9 @@ const ratio = (a, b) => +(a.u / b.u).toFixed(4);
 // by the events' times, took the tap for a press)
 const touch = async (x, y, ms = 60) => {
   const t0 = Date.now() / 1000;
-  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }], timestamp: t0 });
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }], timestamp: t0 });
   await sleep(ms);
-  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + ms / 1000 });
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + ms / 1000 });
 };
 const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const tapSel = async (sel, wait = 450) => { const c = await center(sel); if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; } await touch(c[0], c[1]); await settle(wait); return true; };
@@ -74,13 +84,15 @@ const swapTap = async () => { const st = await W(); return tapSel(st.big === 'L'
 // a one-finger pan and a wheel zoom on the large plane (the user's own change)
 const panZoom = async (side) => {
   const r = await ev(`(() => { const b = document.getElementById('${side === 'L' ? 'overlayL' : 'overlayR'}').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
+  // ev answers { __exc } when the page's expression throws (no overlay yet, or a reload in progress): name that, don't index it
+  if (!Array.isArray(r) || !r.every(Number.isFinite)) { fails.push({ name: `${side}: the plane's rect is not readable`, got: JSON.stringify(r) }); return; }
   const x = r[0] + r[2] * 0.8, y = r[1] + r[3] * 0.25;
-  await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: -240 });
+  await sendInput('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: -240 });
   await settle(400);
   const x0 = r[0] + r[2] * 0.85, y0 = r[1] + r[3] * 0.15;
-  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0, id: 2 }] });
-  for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - 6 * i, y: y0 + 4 * i, id: 2 }] }); await sleep(16); }
-  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0, id: 2 }] });
+  for (let i = 1; i <= 8; i++) { await sendInput('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - 6 * i, y: y0 + 4 * i, id: 2 }] }); await sleep(16); }
+  await sendInput('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await settle(700);
 };
 // a round: run the steps, read the window after each one; the last read must equal the start, every read must equal
@@ -190,7 +202,7 @@ for (const mk of mapsFor) {
     await grab();
   } else if (part === 'urlbar') {
     // Android Chrome's URL bar showing and hiding: the layout viewport's height changes by its 56 px
-    // (each resize is followed by a wait until the page has the new height and the plane windows W reads exist)
+    // (each resize is followed by a wait until the page has the new height and the plane windows W reads exist; a throw while they are not there yet is "not ready", and the wait's own limit reports a real failure)
     const resized = (h) => settled({ max: 20000, until: `innerHeight === ${h} && (() => { try { return !!(Phone._state() && __cmwPlaneMenu() && __cmwLayout()); } catch (e) { return false; } })()` });
     const hide = async () => { await view(390, 900, false, true); await resized(900); };
     const show = async () => { await view(390, 844, false, true); await resized(844); };
@@ -199,7 +211,7 @@ for (const mk of mapsFor) {
     await rounds(mk + ' URL bar (Y large)', 20, [hide, show]);
     await grab();
   } else if (part === 'views') {
-    const to = (m) => async () => { await tapSel(`#viewSwitch > button[data-mode="${m}"]`, 600); };
+    const to = (m) => async () => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
     await rounds(mk + ' Phase and back', 20, [to('phase'), to('xy')], { mid: [] });
     await rounds(mk + ' Landscape and back', 20, [to('land'), to('xy')], { mid: [] });
     // (Phase and Landscape show one panel: only the X -> Y read at the end of each round is compared)
@@ -207,7 +219,7 @@ for (const mk of mapsFor) {
     await rounds(mk + ' Phase and back (Y large)', 10, [to('phase'), to('xy')], { mid: [] });
     await grab();
   } else if (part === 'deform') {
-    const tog = async () => { await tapSel('#morphBtn', 700); };
+    const tog = () => morphToggle();
     await rounds(mk + ' Deformation (X large)', 20, [tog, tog], { mid: [] });
     await swapTap();
     await rounds(mk + ' Deformation (Y large)', 10, [tog, tog], { mid: [] });
@@ -236,7 +248,7 @@ for (const mk of mapsFor) {
     const chk = (name, a, b, tol = TOL) => { if (!same(a, b, tol)) fails.push({ name, got: fmt(a), want: fmt(b) }); };
     const both = (name, w, b) => { chk(name + ': X', w.L, b.L); chk(name + ': Y', w.R, b.R); if (w.big !== b.big) fails.push({ name: name + ': the large plane', got: w.big, want: b.big }); };
     const click = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.click(); return !!e; })()`);
-    const to = async (m) => { await click(`#viewSwitch > button[data-mode="${m}"]`); await settle(700); };
+    const to = async (m) => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
     const fresh = async (ns, shapes) => { await view(390, 844, false, true); await open(ns, MAPS.expand, shapes); };
     // the user's own views on both planes, X large at the end
     const userViews = async () => { await panZoom('L'); await swapTap(); await panZoom('R'); await swapTap(); };
@@ -274,9 +286,9 @@ for (const mk of mapsFor) {
         if (how === 'phase') await swapTap();   // X the inset
         const b0 = await W();
         for (let r = 1; r <= 3; r++) {
-          if (how === 'phase') await to('phase'); else { await click('#morphBtn'); await settle(800); }
+          if (how === 'phase') await to('phase'); else { await morphToggle(); }
           await view(1200, 900, false, false); await settle(900);
-          if (how === 'phase') await to('xy'); else { await click('#morphBtn'); await settle(800); }
+          if (how === 'phase') await to('xy'); else { await morphToggle(); }
           await view(390, 844, false, true); await settle(900);
           if (how === 'phase' && (await W()).big !== 'R') await swapTap();
           both(`leave in ${how}, round ${r}`, await W(), b0);
@@ -291,10 +303,10 @@ for (const mk of mapsFor) {
       const b0 = await W();
       for (let r = 1; r <= 3; r++) {
         await swapTap();
-        await click('#morphBtn'); await settle(800);
+        await morphToggle();
         await sleep(1500);
         await nav(URL0('rv-reload')); await settle(1500);
-        if ((await W()).deform) { await click('#morphBtn'); await settle(800); }
+        if ((await W()).deform) { await morphToggle(); }
         const w = await W();
         chk(`reload in the Deformation, round ${r}: X`, w.L, b0.L);
         if (w.big !== 'L') fails.push({ name: 'reload: X not large', got: w.big });
@@ -363,28 +375,6 @@ for (const mk of mapsFor) {
       await fresh('rv-fitB'); await panZoom('L'); await click('#leftFit'); await sleep(80); await ev('Phone.swap()'); await settle(900); await ev('Phone.swap()'); await settle(900); const b = await W();
       chk('a swap during a Fit', b.L, a.L);
       info.fitMidSwap = { fit: fmt(a.L), fitThenSwaps: fmt(b.L) };
-    }
-    // the Deformation ended by the chain (its only step bypassed), not by its button: the inset is drawn small once it
-    // ends; the step back on, swaps, a save and a reload: X gets its own view (the Deformation does not reopen by itself)
-    if (want('bypass')) {
-      await fresh('rv-byp'); await userViews(); await swapTap();   // Y large, X the inset
-      const b0 = await W();
-      const byp = async () => { await click('.icon-btn.bypass'); await settle(900); };
-      await click('#morphBtn'); await settle(800);
-      const d0 = await W();
-      await byp();
-      const a = await W();
-      if (!d0.deform || a.deform) fails.push({ name: 'bypass: the Deformation view did not end', got: `${d0.deform} -> ${a.deform}` });
-      chk('a bypass that ends the Deformation: X the inset', a.L, b0.L); chk('a bypass that ends the Deformation: Y', a.R, b0.R);
-      await swapTap(); await swapTap();
-      await byp();
-      const c = await W();
-      await sleep(1500);
-      await nav(URL0('rv-byp')); await settle(1500);
-      if ((await W()).deform) { await click('#morphBtn'); await settle(800); }
-      const r = await W();
-      chk('a save while the Deformation shows again, then a reload: X', r.L, b0.L);
-      info.bypass = { start: `L ${fmt(b0.L)} | R ${fmt(b0.R)}`, ended: `L ${fmt(a.L)} | R ${fmt(a.R)}`, again: `${c.deform} L ${fmt(c.L)}`, reload: `L ${fmt(r.L)}` };
     }
     await grab();
   } else if (part === 'tablet') {

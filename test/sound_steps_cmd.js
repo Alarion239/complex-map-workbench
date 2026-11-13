@@ -1,7 +1,7 @@
-// Hear the function in the steps view (#580, behind ?view=steps). Pietro's calls (1 and 2 Nov): the sound plays what the
-// colours and the probe readout show, the map from the plane into the colour plane; while the view glides, plays, is
-// scrubbed or rests parked, the nearer plane's map; past the colour plane no tone, and one line saying where the colour
-// comes from; ▶ Play along the thread and the strip's scrub ring the Deformation's events. On the chain
+// Hear the function in the steps view: the sound plays what the colours and the probe readout show, the map from the
+// plane into the colour plane; while the view glides, plays, is scrubbed or rests parked, the nearer plane's map; past
+// the colour plane no tone, and one line saying where the colour comes from; ▶ Play along the thread and the strip's
+// scrub ring the Deformation's events. On the chain
 // z → w₁ = z² → w₂ = (w₁ − 1)/(w₁ + 1), with Hear the function on (Notes):
 //  * at rest the probe hears that map: F on z, f₂ on w₁ (also on the Sphere and the Landscape), and on a phone a
 //    finger's hold-and-slide, whose lift feeds one last step;
@@ -98,8 +98,8 @@ s = await snd(); L = await hl();
 R.glideMove = { kinds: L.map((e) => e.k), g: s.g, z: s.rest && s.rest.z, live: s.live };
 ok('after the glide the next move is a step on w₂, no branch cut', noCut(L, s.live) && L.some((e) => e.k === 'step') && !!s.rest && near(s.g, id(s.rest.z)), R.glideMove);
 
-// 2b. while it glides the probe hears the nearer plane (Pietro's call, 2 Nov): a slow glide from w₁ to w₂ re-seats on w₂'s
-// map once it is past the half-way point, before it arrives
+// 2b. while it glides the probe hears the nearer plane: a slow glide from w₁ to w₂ re-seats on w₂'s map once it is past
+// the half-way point, before it arrives
 await svDo({ go: 1, now: true });
 p = await hover(0.3, 0.5);
 R.slow = await speed('slower');
@@ -127,7 +127,7 @@ s = await snd(); L = await hl();
 R.colourMove = { kinds: L.map((e) => e.k), live: s.live };
 ok('after C the next move is a step, no branch cut', noCut(L, s.live) && L.some((e) => e.k === 'step'), R.colourMove);
 
-// 3b. past the colour plane (Pietro's call, 2 Nov): w₂ with the colour plane w₁ makes no tone and says once where the colour
+// 3b. past the colour plane: w₂ with the colour plane w₁ makes no tone and says once where the colour
 // comes from; the click query, Listen along and a loop are silent with the same line; the keyboard probe's D and Z say it
 await quiet();
 await svDo({ go: 2, now: true });
@@ -175,7 +175,7 @@ s = await snd(); L = await hl();
 R.parkMove = { kinds: L.map((e) => e.k), live: s.live };
 ok('parked: the next move is a step, no branch cut', noCut(L, s.live) && L.some((e) => e.k === 'step'), R.parkMove);
 
-// 5. ▶ along the thread under a still pointer, from z to w₂: no cut; one swell and one arrival (Pietro's call, 2 Nov)
+// 5. ▶ along the thread under a still pointer, from z to w₂: no cut; one swell and one arrival
 await svDo({ go: 0, now: true });
 await hover(0.3, 0.5); await hl(); await made();
 await svDo({ play: true }, 100);

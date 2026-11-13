@@ -1,4 +1,4 @@
-// v15.2 review fixes (notes/workflows/ledger-v152.json): the formula-in-steps findings of review-v152-steps.json and
+// Review fixes: the formula-in-steps findings and
 // regress-2, in the built page (dist/test.html), English and Russian, desktop 1440 and phone 390 (Android Chrome):
 //  steps-1  the palette flow (the formula shown alone) and Add as n steps keep the planes: F, not the first sub-step;
 //           with other steps the toast says which step is shown;

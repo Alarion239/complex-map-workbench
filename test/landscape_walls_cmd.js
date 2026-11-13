@@ -9,7 +9,7 @@
 //     splits where the oracle sees a continuous rise; dropped = triangles the shipped rule leaves out (a corner not
 //     finite, or three crossings). Edges through a declared pole, branch point or essential singularity are counted
 //     apart (the one cell that holds it is drawn, design 3.5 / 3.6).
-//   - steep walls drawn: grid edges rising more than 0.3 H that the old rule dropped, now drawn.
+//   - steep walls drawn: grid edges rising more than 0.3 H are drawn, not dropped.
 //   - round 2, the refinement (GLR.landRefine: the levels, the list and the refined vertices read back): the GPU's mesh
 //     of the refined cells and the base cells around them is watertight (every edge shared by two triangles, or on
 //     the domain's rim, or on the side of a cell the refinement leaves to the cut rule: a real jump or a corner not
