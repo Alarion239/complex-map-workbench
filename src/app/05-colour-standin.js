@@ -5,10 +5,11 @@
   // pane's CSS pixels, every STANDIN_CELLS px, a level at a time: each level is drawn once it is complete, and the next,
   // twice as fine, takes the nodes it shares with it. A stand-in starts once the plot's program has had nothing to draw
   // for SM_LINKING_MS, so a quick link never computes one, and it runs in idle slices of STANDIN_SLICE ms of evaluations
-  // (the clock read after each), none while anything moves. It spends at most STANDIN_BUDGET ms: at the end of each
-  // slice, and before each level, the work left is costed at the time per evaluation measured so far, and a stand-in
-  // whose work would not fit stops there, its finest level done still drawn. A chain whose first level does not fit gets
-  // none: the pane waits as it would without it.
+  // (the clock read after each), none while anything moves. It spends at most STANDIN_BUDGET ms: from the second slice
+  // on (the first one's evaluations wait on the JIT, many times as long as later ones), at the end of each slice and
+  // before each level, the work left is costed at the time per evaluation measured so far, and a stand-in whose work
+  // would not fit stops there, its finest level done still drawn. A chain whose first level does not fit gets none: the
+  // pane waits as it would without it.
   const STANDIN_CELLS = [64, 32, 16, 8, 4];
   const STANDIN_SLICE = 4, STANDIN_BUDGET = 250;
   // the stand-in of the plot's map in its view: {key, vkey, map, F, x0, y0, s, w, h, next (the level being
@@ -79,7 +80,7 @@
         const t = performance.now();
         if (t - t0 >= STANDIN_SLICE) {
           const spent = j.ms + t - t0;
-          return spent + standInLeft(L, L.k) * spent / j.n > STANDIN_BUDGET ? 'budget' : null;
+          return j.slices && spent + standInLeft(L, L.k) * spent / j.n > STANDIN_BUDGET ? 'budget' : null;
         }
       }
       j.grid = L; j.prev = null;
@@ -87,6 +88,6 @@
       if (L.li === STANDIN_CELLS.length - 1) return 'done';
       const spent = j.ms + performance.now() - t0;
       standInLevel(j, L.li + 1);
-      if (spent + standInLeft(j.next, 0) * spent / j.n > STANDIN_BUDGET) return 'budget';
+      if (j.slices && spent + standInLeft(j.next, 0) * spent / j.n > STANDIN_BUDGET) return 'budget';
     }
   }
