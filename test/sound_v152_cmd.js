@@ -181,10 +181,10 @@ await ev(`Sound.set({ sonify: true }); 1`);
   // sound". Three rounds of 1.5 s are counted apart; measured over 10 runs here: 0 to 2 notes in a round (the lap's own notes finished first), at most MAXHELD asked, where 15 and 30 px play none)
   {
     const MAXHELD = 3;
-    // (#338: a lap with no hold: 9 notes of the stroke and the lift's 3 (the finger's jump from 56° behind crosses 3 lines,
+    // (a lap with no hold: the stroke's 9 notes and the lift's 3 (the finger's jump from 56° behind crosses 3 lines,
     // sounded 42 ms apart, none dropped), 12 in 3 runs of 3. With the tremor held first, two of the lines the rope still
-    // owes sound in the hold instead, whenever the tremor pulls the probe over them: the same notes, earlier, and they
-    // are the hold's 0 to 2 below, so the lap's own count is read with no hold)
+    // owes sound in the hold whenever the tremor pulls the probe over them: the same notes, earlier, and they are the
+    // hold's 0 to 2 below, so the lap's own count is read with no hold)
     const q0 = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 0);
     ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes; the 5 px rope lags about 56° of arg there, so the lift's jump crosses 3 lines, each sounded)`, q0.up === 1 && q0.down === 0 && q0.notes + q0.merged >= 11 && q0.notes + q0.merged <= 12, q0);
     const q = R.touchLaps['r6_hold'] = await lap(6, 5.7, 48, 3);
