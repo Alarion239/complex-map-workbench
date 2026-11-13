@@ -1117,7 +1117,11 @@
     const h = svHomPaths(g.b, g.u).h;
     const linking = !!h && h.paths.some((p, i) => svInvState(h, i, g.b, g.u) === 'pending');
     const P = linking ? null : svTracksMissing(g.b, h);
-    if (P) svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
+    if (P) {
+      svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
+      // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
+      if (P.k > SV_POLE_K) svHomMemo = null;
+    }
     svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
