@@ -1984,11 +1984,12 @@
     return svScope() === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
   }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
-  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
-  // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
+  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, over the paper (what the
+  // plot leaves undrawn, while its program links, reads as the paper), else the plot drawn, copied to a 2D canvas, cut
+  // to the regions there and copied to the page. A new GL frame is open after it, with the colour frame's status
   function svColourIn(pane, cst) {
     const k = svStage(), map = stageMap(k);
-    if (!svMask(pane, map, k, { paint: () => GLR.drawColorPlot(cst) })) {
+    if (!svMask(pane, map, k, { paint: () => { GLR.clearRGB(TH.planeRGB); GLR.drawColorPlot(cst); } })) {
       GLR.drawColorPlot(cst);
       svColCv = svCanvas(svColCv, pane);
       const cc = svColCv.getContext('2d');
@@ -2000,7 +2001,7 @@
       pane.ctx.restore();
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    GLR.begin(pane.pw, pane.ph);
+    GLR.begin(pane.pw, pane.ph, null, true);
   }
 
   // ---- the controls: the plane's head and the chain strip ----

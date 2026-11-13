@@ -71,7 +71,7 @@ const MAP = [
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
-  ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
+  ['src/app/{02-gpu-regions,03-exact-images,05-colour-standin,07-preimages-integrals}.js', { core: true }],   // regions, exact images, the colour plot's stand-in, preimages
   ['src/app/04-labels-zeros-poles.js', ui('views', 'constructions')],                     // labels, zeros and poles
   ['src/app/05-panes-rulers.js', ui('views', 'desktop', 'phone')],                         // view fitting, panes, rulers
   ['src/app/06-deformation.js', ui('deform')],                                             // the deformation
