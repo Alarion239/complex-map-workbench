@@ -4,7 +4,7 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'curves_kit.js'), 'utf8'))({ ev, send, nav, load, shot, settled, view, fs, DIR, ok: (n, c, g) => ok(n, c, g), R });
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'curves_kit.js'), 'utf8'))({ ev, send, go, load, shot, settled, view, fs, DIR, ok: (n, c, g) => ok(n, c, g), R });
 await view(1200, 800);
 await load('shape-stroke' + Date.now(), Object.assign({}, K.BASE, {
   shapes: [

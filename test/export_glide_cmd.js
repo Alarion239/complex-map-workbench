@@ -25,6 +25,10 @@ const CONTROL_ZOOM = 1.1, CONTROL_SHIFT = 0.1;
 const CMP_W = 320;
 // a globe still's panel and the pane's canvas on the screen agree in width over height to this (css px rounding)
 const ASPECT_TOL = 0.02;
+// a box may overshoot the figure's size by this much (SVG units) to count as inside it
+const FIT_SLACK = 0.01;
+// the hue ring is marked 1, i, -1, -i
+const RING_MARKS = 4;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -204,13 +208,24 @@ for (const T of ['null', 0]) {
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
 // the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
-// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture, which has no key
+// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture with the pane's key line
 for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
   await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${go}, now: true }), 1)`);
   await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${go} && __cmwSteps().T === ${T}`, max: 15000 });
-  const sv = await ev(`await (async () => { const f = await __cmwFig.build({}); return f && f.view; })()`, 60000);
-  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv === want, sv);
+  const sv = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ view: f && f.view, key: f && f.info ? f.info.keyLine || null : null, cap: __cmwLegend().caption, W: f && f.W, H: f && f.H, ring: f ? f.boxes.filter((b) => b.kind === 'ring-mark').map((b) => ({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) : [] }); })()`, 60000));
+  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv.view === want, sv);
+  // (a plain plane's still carries the pane's key: its line is the caption the pane's legend shows; a Phase still has none of its own here)
+  // (the ring's marks, drawn by the code the plain still shares, lie inside the figure on both stills)
+  ok(`T ${T}, plane ${go}: the still's ring marks lie inside the figure`, sv.ring.length === RING_MARKS && sv.ring.every((b) => b.x0 >= -FIT_SLACK && b.y0 >= -FIT_SLACK && b.x1 <= sv.W + FIT_SLACK && b.y1 <= sv.H + FIT_SLACK), sv);
+  ok(`T ${T}, plane ${go}: the still's key line ${want === 'xyL' ? 'is the pane\'s' : 'is absent'}`, want === 'xyL' ? !!sv.key && sv.key === sv.cap : !sv.key, sv);
 }
+// a short, wide pane makes a short picture: the figure is as tall as its key, whose last line is inside it
+await view(1440, 430, false);
+await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
+await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().T === 0`, max: 15000 });
+const short = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ H: f.H, view: f.view, boxes: f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => ({ k: b.kind, y1: b.y1, tex: b.tex })) }); })()`, 60000));
+ok('a short pane: the still\'s key (ring marks and lines) lies inside the figure', short.view === 'xyL' && short.boxes.length >= 5 && short.boxes.every((b) => b.y1 <= short.H + FIT_SLACK), short);
+await view(1440, 900, false);
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);

@@ -16,6 +16,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1440, 900, false, false);
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 // the left pane's pixels, kept in the page under tag
 const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); window.__ss = window.__ss || {}; window.__ss[${JSON.stringify(tag)}] = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; return [cv.width, cv.height]; })()`);
@@ -52,22 +53,11 @@ between.d1 = await diff('x0.25', 'x0.5'); between.d2 = await diff('x0.5', 'x0.75
 info.between = between;
 ok('the frames move on: each nearer its neighbour than the planes are to each other', between.d1 < info.planes && between.d2 < info.planes, between);
 // ---- by the ends: the thread held at x mid-scrub (not let go: a parked view snaps to a plane within 1/8 of it) ----
-async function hold(x) {
-  await ev(`(() => {
-    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-    window.__svScrubUp = () => ev('pointerup', cx);
-    return 1;
-  })()`);
-  await settled({ max: 60000, until: `Math.abs(__cmwSvX() - ${x}) < 0.002 && __cmwSteps().moving` });
-  await ev(rAF2);
-}
 info.ends = {};
 for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]) {
   await rest(0);
-  await hold(x);
+  ok(`the thread is held at ${x}`, (await hold(x)).ok, null);
+  await ev(rAF2);
   const c = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null');
   await grab(tag);
   info.ends[tag] = { u: c ? c.u : null, d: await diff(tag, restTag) };
