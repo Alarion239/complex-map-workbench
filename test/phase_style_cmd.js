@@ -52,9 +52,7 @@ for (const [w, lang] of [[360, ''], [390, ''], [360, 'ru'], [390, 'ru']]) {
   ok(`phone ${w} ${lang || 'en'}: in the Landscape the style chip shows, dimmed, whole`, k && /(Style|Стиль): /.test(k.text) && k.h >= 44 && k.dis === 'true' && !k.cut, k);
   await ev(`document.querySelector('.ph-style').click()`); await settle(500);
   items = await menuItems();
-  ok(`phone ${w} ${lang || 'en'}: its menu says where the styles live and switches`, items.length === 2 && /Switch to Phase|Перейти/.test(items[1].t), items);
-  await pickItem('/Switch to Phase|Перейти/');
-  ok(`phone ${w} ${lang || 'en'}: Switch to Phase goes to the flat Phase view`, (await ev('__cmwState().view.main')) === 'phase', await ev('__cmwState().view.main'));
+  ok(`phone ${w} ${lang || 'en'}: its menu only says where the styles live: one disabled note, no way to switch the view`, items.length === 1 && items[0].dis === true && /Styles belong|Стили/.test(items[0].t), items); // standards-ok: the Switch to Phase item is deleted with the view switch
   await ev(`Phone.close(true)`); await settle(300);
 }
 await view(1440, 900, false, false);
