@@ -33,7 +33,7 @@ const open = async (w, h, mobile, classic) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(ST))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${classic ? '&view=classic' : ''}` });
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${classic ? '&view=classic' : '&view=steps'}` });
   await settled({ max: 30000, until: classic ? `typeof __cmwSound === 'function'` : `typeof __cmwSteps === 'function'` }); await settle(600);
   // sound with Hear the function in Notes, and Mathematical events (Listen along, the play's events); the stream's calls
   // logged in __hl, the cues made in __made
@@ -200,9 +200,11 @@ await svDo({ play: false, clock: 0 }, 300); await rest();
 R.wrap.made = await made();
 await svDo({ loop: false }, 200); await speed('normal');
 ok('▶ with Loop on: the swell once, no arrival on its repeat or at a pause', R.wrap.wrapped && count(R.wrap.made, 'morphStart') === 1 && count(R.wrap.made, 'morphEnd') === 0, R.wrap);
-// the strip's scrub: its landmarks ring as the Deformation's slider's do (the pointer off the plane: no resting probe)
+// the strip's scrub: its landmarks ring as the Deformation's slider's do (the pointer off the plane: no resting probe). The
+// rail is measured at rest on z, the layout the drag finds
+await svDo({ go: 0, now: true });
 const rail = await ev(`(() => { const r = document.querySelector('.sv-rail').getBoundingClientRect(), ns = [...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const q = b.getBoundingClientRect(); return q.left + q.width / 2; }); return { x: r.left + 10, y: r.top + r.height / 2, end: ns[ns.length - 1] + 4 }; })()`);
-await svDo({ go: 0, now: true }); await move(rail.x, rail.y); await settle(200); await made();
+await move(rail.x, rail.y); await settle(200); await made();
 await drag(rail.x, rail.y, rail.end, rail.y, 24, 40); await settle(400);
 R.scrub = { made: await made(), tex: await ev('Sound.scrubState().tex') };
 await rest();
