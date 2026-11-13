@@ -21,6 +21,16 @@ const SETTLE_MAX_MS = 15000;
 const POS_TOL = 1e-6;
 // the frame probe's size in px: the label does not depend on it
 const PROBE_W = 192, PROBE_H = 108;
+// the paths check parks the thread here (between the first two planes), draws the glide's frame at this width in pt, and takes the
+// frames to differ where their summed channels do by more than DRAWN
+const PATHS_PARK = 0.5, PATHS_FRAME_W = 400;
+// Paths on draws on at least this share of the frame's pixels that Paths off leaves bare (the paths of the chain below
+// cover about 0.7 % of it)
+const PATHS_MIN_SHARE = 0.002;
+// the steps view's Paths needs marked area to follow: a disc of z, then z² and a quarter turn of it (arcs)
+const PATHS_CHAIN = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0,
+  shapes: [{ id: 'd1', kind: 'disc', c: [0.3, 0.2], r: 1.4, ci: 0, visible: true }],
+  steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'affine', params: { a: 'i', b: '0' }, on: true }] };
 // a box may overshoot the figure's size by this much (SVG units) to count as inside it
 const FIT_SLACK = 0.01;
 // the hue ring is marked 1, i, -1, -i
@@ -224,5 +234,29 @@ for (const surf of ['sphere', 'land']) {
   const q = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); return { aria: b.getAttribute('aria-disabled'), sum: (document.getElementById('xfVSum') || {}).textContent }; })()`, 60000);
   ok(`${surf}: Video is enabled in the dialog, with the summary line`, q && q.aria !== 'true' && /→.*· [0-9.,]+ s/.test(q.sum || ''), q);
   await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
+}
+// the video's Paths follow the strip's: the frame the glide draws at a parked place has the pane's paths t -> H_t(z) on
+// with Paths on, and none with it off (the video's frames are the pane's picture, so the dialog has no Paths box of its own here)
+{
+  await loadView('steps', 'xglp' + Date.now() % 1e7, PATHS_CHAIN, { lang: 'en' });
+  await settled({ until: 'typeof __cmwSteps === "function" && !!document.querySelector("#svStrip")', max: 30000 });
+  const { parked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_paths_kit.js'), 'utf8'))({ ev, settled });
+  const heads = (await parked(PATHS_PARK)).heads;
+  const pr = await ev(`await (async () => {
+    const frame = async (on) => {
+      __cmwSet('morphPaths', on);
+      __cmwSteps({ park: ${PATHS_PARK} });
+      for (let i = 0; i < 6; i++) await new Promise((r) => requestAnimationFrame(r));
+      if (GLR.gpuDone) await GLR.gpuDone();
+      const r = await __cmwFig.glideArt(${PATHS_PARK}, { wpt: ${PATHS_FRAME_W}, dpi: 96, raw: true, look: 'light' });
+      return { d: r.cv.getContext('2d').getImageData(0, 0, r.cv.width, r.cv.height).data, heads: __cmwSteps().paths.heads };
+    };
+    const on = await frame(true), off = await frame(false);
+    let n = 0; for (let i = 0; i < on.d.length; i += 4) if (Math.abs(on.d[i] - off.d[i]) + Math.abs(on.d[i + 1] - off.d[i + 1]) + Math.abs(on.d[i + 2] - off.d[i + 2]) > ${DRAWN}) n++;
+    return { headsOn: on.heads, headsOff: off.heads, share: n / (on.d.length / 4) };
+  })()`, 120000);
+  info['paths on and off'] = Object.assign({ heads }, pr);
+  ok('Paths on: the pane draws paths at the parked place, and none with Paths off', heads > 0 && pr.headsOn > 0 && pr.headsOff === 0, info['paths on and off']);
+  ok(`the glide's frame draws the paths with Paths on and not with Paths off (over ${PATHS_MIN_SHARE} of its pixels differ)`, pr.share > PATHS_MIN_SHARE, info['paths on and off']);
 }
 return { pass: fails.length === 0, fails, info };
