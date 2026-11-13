@@ -115,13 +115,22 @@ if (ob) { await click(ob[0], ob[1]); await until(`(() => { const k = document.qu
 const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : '#wKeyChkR');
 check(SV ? 'key: the chip f₁ is there' : 'key: the Phase key check is there', !!kc, kc);
 if (kc) {
+  await ltInstall();
+  await ev(`window.__wheelAt = null; window.addEventListener('wheel', () => { if (window.__wheelAt == null) window.__wheelAt = performance.now(); }, true); 1`);
   await click(kc[0], kc[1]); t0 = Date.now();
   tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
-  await sleep(1000 - (Date.now() - t0));
+  // (the countdown runs on the page's clock: the wheel comes when that clock is 1 s into it, and the advance is measured on it
+  // too, late only as far as the page was blocked, as the formula step's is. A wheel that reached the page after the countdown's
+  // due moment, because the page was blocked, proves nothing and fails the check)
+  const dK = await doneAt(t0);
+  const wheelDue = dK ? dK.p + dK.left - CDMS + 1000 : 0;
+  while (dK && (await ev('performance.now()')) < wheelDue) await sleep(10);
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 });
-  at = await advancedAt(KEYSTEP, t0);
-  check('key: a wheel at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 300), at);
+  await until('window.__wheelAt != null', 3000, 10);
+  const wheelAt = await ev('window.__wheelAt');
+  const aK = await advanceFrom(KEYSTEP, dK, 300);
+  check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && wheelAt != null && wheelAt < dK.p + dK.left, [aK, dK, wheelAt]);
 }
 // (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
