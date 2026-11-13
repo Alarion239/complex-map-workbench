@@ -24,7 +24,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const open = async (ns, w = 1440, h = 900, dark = false) => {
   await view(w, h, dark, w < 500);
-  await nav(`${BASE}test.html?ns=${ns}${Date.now()}`);
+  await go(`${BASE}test.html?ns=${ns}${Date.now()}`);
   await settle(2400);
   await move(5, 5);
   // saved files: test.html saves through a plain download link; record them instead
