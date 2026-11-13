@@ -238,12 +238,32 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-H.load = async (ns, st, extra, viewName) => {
-  await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
+// load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded and its
+// hooks are defined. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for
+// again, and one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
+// A document whose body has stopped arriving (still "loading" with its response not finished) after stallMs (LOAD_STALL_MS by
+// default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
+const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2;
+// pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
+// since its start; 0 where an event has not come) and how many scripts and sheets it has
+const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
+H.load = async (ns, st, extra, viewName, opts = {}) => {
+  const origin = opts.origin || 'http://localhost:8793';
+  await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
-  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+  const url = origin + '/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '');
+  await send('Page.navigate', { url }, S);
+  const limitMs = opts.limitMs || LOAD_LIMIT_MS, stallMs = opts.stallMs || LOAD_STALL_MS, t0 = Date.now();
+  let r, reloads = 0, tNav = t0;
+  do {
+    r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, stallMs, limitMs - (Date.now() - t0))), until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+    if (!r.ok && reloads < LOAD_RELOADS && Date.now() - tNav >= stallMs) {
+      const pg = await pageNow();
+      if (pg.readyState === 'loading' && pg.nav && pg.nav.responseEnd === 0) { reloads++; tNav = Date.now(); await send('Page.navigate', { url }, S); }
+    }
+  } while (!r.ok && Date.now() - t0 < limitMs);
+  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${JSON.stringify(r)}; reloads ${reloads}; page ${JSON.stringify(await pageNow())})`);
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
@@ -253,7 +273,7 @@ H.load = async (ns, st, extra, viewName) => {
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
-H.fs = fs; H.path = path; H.DIR = DIR;
+H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });
