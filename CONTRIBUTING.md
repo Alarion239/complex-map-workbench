@@ -63,6 +63,10 @@ ruff check
   comment about the change itself.
 - **Prefer clear code to a comment that explains it.** If a block needs a comment to be followed, simplify it first.
   Maths, numerics and regular expressions are the exception: there a comment saying what is computed helps.
+- **Search before you write.** Before writing a new function, `git grep` its verb (draw, mask, solve, read,
+  compare, key, …) and the names around it, and extend what you find with a parameter. For a test, look in
+  `test/lib` and the CDP kit (`H.loadView`, `H.settled`) first; a prelude two suites need goes into a `test/lib`
+  kit.
 - **Solve today's problem.** No options, parameters, flags or generality that nothing uses yet, and no unused
   exports.
 - **Names say what a thing is or does:** long enough to be clear, short enough to read, no abbreviation a newcomer
@@ -112,7 +116,12 @@ taste that no rule here covers is a "Nit:" and never blocks.
     docs with it;
   - the PR body: its issue (`Fixes #N` or `Part of #N`), what changed, and how it was tested.
 - **reuse** checks that a change reuses the engines and helpers we already have, generalizing them where needed,
-  instead of adding a second copy.
+  instead of adding a second copy. It flags three cases:
+  - the change re-implements an engine that already exists (a renderer, a solver, a mask, a pixel reader, a test's
+    page setup);
+  - the diff contains copy-paste: the same block repeated, or a near copy of code elsewhere in the tree;
+  - the change adds a parallel path next to an existing one where a parameter that the new caller needs on the existing
+    path would do, or a second writer for state that already has a setter.
 
 A change to what the page shows also gets ux's and eyes' reviews, and a change to the renderer or the maths gets
 perf's reading of a Mac GPU run. The checklist follows Google's engineering practices,

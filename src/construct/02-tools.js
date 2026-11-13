@@ -1,7 +1,7 @@
   // ---------------------------------------------------------------- materializing a target as a ref
   // point and handle targets are refs as they are; a crossing becomes a meet point (a helper when a drawing tool made
   // it on its own), a curve a point on the curve. Returns {ref, shapes: [new shapes to create first]}
-  // ([v16.5 rail] a target on a display curve makes that curve's fixed shape first, or reuses one: o.made, by key)
+  // (a target on a display curve makes that curve's fixed shape first, or reuses one: o.made, by key)
   function materialize(t, side, o = {}) {
     if (!t) return null;
     if (t.cls === 'point') return { ref: t.ref, shapes: [] };
@@ -89,15 +89,15 @@
     const cl = classesFor('point', 'draw');
     if (!cl) return false;
     const t = snapAt(side, x, y, cl);
-    if (!t || t.cls === 'grid') return false;   // ([v16.5 rail] a lattice point: the app's snapZ, the same point)
+    if (!t || t.cls === 'grid') return false;   // (a lattice point: the app's snapZ, the same point)
     const target = side === 'R';
     if (t.cls === 'point' && t.ref.s && !t.ref.h) {
-      // [review user-14] never silent: the chip says the point is already there (Alt, or Snap off, places a new one)
+      // never silent: the chip says the point is already there (Alt, or Snap off, places a new one)
       A.select(t.ref.s);
       setRing(side, t, $t('{x} is already here', { x: refName(t.ref) }));
-      // (touch has no Alt: the escape is the Snap switch of the tools sheet, said once a session, [v16.5 fix rail-6] at the
+      // (touch has no Alt: the escape is the Snap switch of the tools sheet, said once a session, at the
       // release of a tap that did not move: a drag from here moves the point, it never asks for another; moveUp says it)
-      return 'existing';   // ([v16.5 rail SPEC 6] the app lets a drag from here move it: slide it on its curve, or pull it off)
+      return 'existing';   // (the app lets a drag from here move it: slide it on its curve, or pull it off)
     }
     if (t.cls === 'point' && typeof t.ref.zp === 'string') return false;   // (onDown already dragged the zero)
     if (t.cls === 'point') {
@@ -116,14 +116,14 @@
   // ---------------------------------------------------------------- dragging handles onto targets, built things
   function handleMove(d, side, x, y) {
     const s = d.shape;
-    // ([v16.5 rail SPEC 1.2] a selected free point dragged by its handle: the free point's drag, from the point itself)
+    // (a selected free point dragged by its handle: the free point's drag, from the point itself)
     if (s && s.kind === 'point' && d.key === 'p' && !s.def && !s.at) {
       if (!d.fd) d.fd = { p0: s.p.slice(), z0: s.p.slice(), ex: null };
       const pane = A.setView(side);
       freeDrag(d, pane, side, x, y);
       return { re: s.p[0], im: s.p[1] };
     }
-    // (a free point never merges onto a point [C22])
+    // (a free point never merges onto a point)
     if (!s || s.kind === 'point' || (!POS.test(d.key) && !/^r[12]?$/.test(d.key))) return null;
     const cl = classesFor('select', 'handle');
     if (!cl) { if (ring) setRing(side, null); d.snapT = null; return null; }
@@ -153,7 +153,7 @@
   }
   // onUp 'handle': bind the dropped handle (the helpers first)
   function handleUp(d) {
-    if (d && d.fd) { freeUp(d); setRing(null, null); return; }   // ([v16.5 rail] a free point's drop)
+    if (d && d.fd) { freeUp(d); setRing(null, null); return; }   // (a free point's drop)
     const t = d.snapT;
     setRing(null, null);
     if (!t || !d.moved || !d.shape) return;
@@ -167,22 +167,22 @@
   // a fixed constructed point stays and says why, a shape built on free points moves them, other built shapes pan
   function moveDrag(d, pane, side, x, y) {
     const s = d.shape;
-    // [v16.3 review user-1] the unit circle or an axis made a shape for a construction stays put: the press pans
+    // the unit circle or an axis made a shape for a construction stays put: the press pans
     if (s && fixedName(s)) {
       if (!d.cmWarned) { d.cmWarned = true; lastToast = A.toast($t('This is {x}: it stays fixed. To move it, choose Make free in ⋯.', { x: fixedRef(s) })); }
       d.cm = 'pan';
       return 'pan';
     }
-    // [v16.5 rail SPEC 1.2] a free point (or one pulled off its rail in this gesture) drags with snapping and attaches at
+    // a free point (or one pulled off its rail in this gesture) drags with snapping and attaches at
     // the drop; any other free shape moved by its body snaps its anchor
     if (s && d.cm !== 'pan' && (d.cmFree || (s.kind === 'point' && !s.def && !s.at))) return freeDrag(d, pane, side, x, y);
     if (s && d.cm !== 'pan' && !s.def && !s.at) return anchorMove(d, pane, side, x, y);
     if (!s || !(s.def || s.at)) return false;
     const z = pane.s2w(x, y), Z = [z.re, z.im];
     if (d.cm === 'pan') return false;
-    // [v16.5 rail SPEC 2] a point on a curve slides on it, and a pull frees it
+    // a point on a curve slides on it, and a pull frees it
     if (s.def && s.def.op === 'glider') return railDrag(d, pane, side, Z);
-    // [v16.5 rail SPEC 2.4] a meet point (a crossing the Point tool or a snap made, Intersect's): its rail is one place
+    // a meet point (a crossing the Point tool or a snap made, Intersect's): its rail is one place
     if (s.kind === 'point' && s.def && s.def.op === 'meet') return railDrag(d, pane, side, Z);
     if (s.kind === 'point' && s.def) {
       // the reason by the point being dragged, where the user is looking
@@ -208,7 +208,7 @@
     return 'pan';
   }
 
-  // ---------------------------------------------------------------- [v16.5 rail] sliding, pulling off, attaching
+  // ---------------------------------------------------------------- sliding, pulling off, attaching
   // the state at the press, kept for Esc and a second finger (2.6): the app's last undo step is that state, so a cancel
   // restores it; a gesture that changed nothing makes no step
   function railDrag(d, pane, side, Z) {
@@ -226,7 +226,7 @@
       e = find(s.def.args[0].s);
       pc = e && piecesOf(e)[s.def.args[0].part];
       if (!pc) return true;
-      p3 = pc.c3 ? pts3Of(e, isT(s) ? 1 : 0) : null;
+      p3 = pc.c3 ? pts3Of(e, planeOf(s)) : null;
       try { pr = Constr.projectPiece(pc, Z, p3); } catch (er) { pr = null; }
     }
     if (!pr || !isXY(pr.z)) return true;
@@ -255,7 +255,7 @@
     rail = { side, pc, ink: A.shapeInk(e).edge, stretch: pull.zone === 'stretch' ? { a: tg.z, b: Z, k } : null };
     const cn = fixedRef(e) || curveName(s.def.args[0]);
     setRing(side, { cls: 'rail', z: tg.z, chip: pull.zone === 'stretch' ? $t('Pull further to free {x}', { x: nm }) : tg.dAt ? $t('on {c} at {a}', { c: cn, a: tg.dAt }) : $t('on {x}', { x: cn }) }, null);
-    // [v16.3 review user-4] the recompute waits for the frame, as a free point's drag: the handler keeps the last
+    // the recompute waits for the frame, as a free point's drag: the handler keeps the last
     // target, the frame applies it once (moveUp applies one still pending at the release)
     d.cmPend = tg.seed ? { seed: tg.seed } : { t: tg.t }; d.moved = true; d.cmLive = true;
     if (!d.cmRaf) d.cmRaf = requestAnimationFrame(() => glideFlush(d));
@@ -286,7 +286,7 @@
     setTimeout(() => { if (freeChip && freeChip.until === until) { freeChip = null; A.requestRender('OL', 'OR'); } }, 1250);
   }
   // a free point's drag (1.2): onto a crossing, a curve (a display curve too), a zero or a handle, or the grid; a point
-  // shape there gets the warn ring and no snap (no merging, C22). What is drawn is where it lands. Alt or Snap off: raw
+  // shape there gets the warn ring and no snap (no merging). What is drawn is where it lands. Alt or Snap off: raw
   function freeDrag(d, pane, side, x, y, Zp) {
     const s = d.shape;
     const z = Zp ? null : pane.s2w(x, y), Z = Zp || [z.re, z.im], sc = pane.view.s;
@@ -330,7 +330,7 @@
     if (api.cm.setDef(s.id, patch) === false) { for (const c of pre) { const i = list.indexOf(c); if (i >= 0) list.splice(i, 1); } return; }
     A.cue('attach');
   }
-  // a free shape moved by its body (UX94, 1.2): its anchor, the position handle nearest the press, snaps to points,
+  // a free shape moved by its body: its anchor, the position handle nearest the press, snaps to points,
   // crossings and the grid ("the corner you grabbed lands on 1 + i"); a move never binds
   function anchorMove(d, pane, side, x, y) {
     const s = d.shape, z = pane.s2w(x, y), Z = [z.re, z.im], sc = pane.view.s;
@@ -366,7 +366,7 @@
     if (isT(s)) A.targetsChanged(false); else A.shapesChanged(false);
     return true;
   }
-  // [v16.5 rail SPEC 1.2 (b)] a point on a curve dragged on an editable globe: the globe pick projected onto its piece,
+  // a point on a curve dragged on an editable globe: the globe pick projected onto its piece,
   // the pull measured on the screen (gScreen), the same zones. 'slid' | 'freed' (the drag goes on as a free point's)
   function globeSlide(d, side, g, x, y, gc) {
     const s = d.shape;
@@ -374,7 +374,7 @@
     if (s.bind && s.bind.t) return 'slid';
     const e = find(s.def.args[0].s), pc = e && piecesOf(e)[s.def.args[0].part];
     if (!pc || !g || !g.z) return 'slid';
-    const Z = [g.z.re, g.z.im], p3 = pc.c3 ? pts3Of(e, isT(s) ? 1 : 0) : null;
+    const Z = [g.z.re, g.z.im], p3 = pc.c3 ? pts3Of(e, planeOf(s)) : null;
     let pr = null;
     try { pr = Constr.projectPiece(pc, Z, p3); } catch (er) { pr = null; }
     if (!pr || !isXY(pr.z)) return 'slid';
@@ -388,7 +388,7 @@
     if (!d.cmRaf) d.cmRaf = requestAnimationFrame(() => glideFlush(d));
     return 'slid';
   }
-  // [v16.5 rail SPEC 1.2 (c)] the Point tool on a drawn curve on an editable globe (6 px, 14 for a finger: `hit` is the
+  // the Point tool on a drawn curve on an editable globe (6 px, 14 for a finger: `hit` is the
   // app's globeCurveHit): a point on it, the globe pick projected onto the piece nearest on the screen. True when it made
   // one (one undo step). The display curves are the graticule there, not targets
   function globePoint(side, g, x, y, gc, hit) {
@@ -402,7 +402,7 @@
     return true;
   }
   // the drawn curve under a globe press (6 px, 14 for a finger), as a curve target {cls: 'curve', ref, z, t, seed, pc}:
-  // the globe pick projected onto the piece nearest on the screen ([v16.5 fix rail-5] globePoint and globeClick)
+  // the globe pick projected onto the piece nearest on the screen (globePoint and globeClick)
   function globeCurveAt(side, g, x, y, gc, hit) {
     if (!g || !g.z || !gc || !hit) return null;
     const st = S(), target = side === 'R', list = target ? st.targets : st.shapes, tol = touchNow() ? 14 : 6;
@@ -412,7 +412,7 @@
       if (e.visible === false || e.kind === 'point' || GRID.has(e.kind) || e.kind === 'formula' || !hit(e, tol)) continue;
       piecesOf(e).forEach((pc, part) => {
         let pr = null, q = null;
-        try { pr = Constr.projectPiece(pc, Z, pc.c3 ? pts3Of(e, target ? 1 : 0) : null); } catch (er) { pr = null; }
+        try { pr = Constr.projectPiece(pc, Z, pc.c3 ? pts3Of(e, planeOf(e)) : null); } catch (er) { pr = null; }
         if (!pr || !isXY(pr.z)) return;
         try { q = A.gScreen(gc, Region.Globe.lift(pr.z[0], pr.z[1])); } catch (er) { q = null; }
         const dd = q ? Math.hypot(q[0] - x, q[1] - y) : Infinity;
@@ -441,7 +441,7 @@
     if (!pr || !s || !find(s.id)) return;
     if (pr.seed) api.cm.setDef(s.id, { seed: pr.seed, live: true }); else api.cm.setDef(s.id, { t: pr.t, live: true });
   }
-  // onUp 'move': a glider's target still waiting for its frame is applied before the gesture's undo step; ([v16.5 rail])
+  // onUp 'move': a glider's target still waiting for its frame is applied before the gesture's undo step;
   // a free point's drop attaches it
   function moveUp(d) {
     if (d && d.cmTell && !d.moved && !pointDown.told) { pointDown.told = true; lastToast = A.toast($t('To place a point next to another, turn Snap off in the tools sheet.')); }
@@ -450,7 +450,7 @@
     if (d && (d.cmFree || d.fd)) freeUp(d);
     if (d && d.cmPress) { rail = null; if (ring) setRing(null, null); A.requestRender('OL', 'OR'); }
   }
-  // [review user-13] what can be dragged to change s: its definitions followed down to free points, free handles,
+  // what can be dragged to change s: its definitions followed down to free points, free handles,
   // zeros and free curves (never a fixed point that would refuse the drag in turn)
   function rootsText(s) {
     let rs = [];
@@ -459,11 +459,10 @@
     return [...new Set(rs.map((r) => refName(r)))].join(', ');
   }
   // ---------------------------------------------------------------- the four tools
-  // [v16.5 UX52] a pick's refusal is said in the construction chip, in the warning colour, for 2 s (by the pointer, not
+  // a pick's refusal is said in the construction chip, in the warning colour, for 2 s (by the pointer, not
   // at the bottom of the window); where no chip is shown, a toast. A tool change clears both
-  // (wave 1 merge: the refusals say Tap on a touch screen, Click with a mouse, as the phone piece's UX17 asked of the
-  // plane piece's lines; chipTouch() is the chip's own test)
-  // ([v16.5 fix rail-7] it goes as soon as a pick is taken, the draft is backed up or cancelled, or Esc; [rail-8] the
+  // (the refusals say Tap on a touch screen, Click with a mouse; chipTouch() is the chip's own test)
+  // (it goes as soon as a pick is taken, the draft is backed up or cancelled, or Esc; the
   // refusal names the tool in full, warnTool, even where a narrow chip's label is the short one: "3 points needs distinct
   // points" reads as nonsense)
   function pickOk() { if (pickWarnMsg) { pickWarnMsg = null; clearTimeout(pickWarnT); A.requestRender('OL', 'OR'); } }
@@ -499,9 +498,8 @@
   function click(pane, side, x, y) {
     const tool = A.tool();
     if (!isCTool(tool)) return false;
-    if (side === 'L' && A.leftStage() > 0) return false;
     if (side === 'R' && !A.targetsEditable()) return false;
-    // [v16.3 review user-11] the perpendicular or touching circle's draft (its curve, its points) is not dropped by a
+    // the perpendicular or touching circle's draft (its curve, its points) is not dropped by a
     // click in the other plane that picks no curve there: that click does nothing
     if (draftC && draftC.tool === tool && draftC.side !== side && CURVE1.has(tool) && (draftC.picks.length || curve1Ok()) && !perpCurveAt(side, x, y)) return true;
     if (!draftC || draftC.tool !== tool || draftC.side !== side) draftC = { tool, side, picks: [], curve1: null, hover: null };
@@ -518,7 +516,7 @@
       const r = touchTargetC(side, x, y), t = r.t;
       if (r.warn) { pickWarn(r.warn); return true; }
       if (r.restart) { draftC.picks = []; draftC.carried = false; draftC.doneK = null; }
-      if (t.ref && t.ref.img && !A.yWhole()) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+      if (t.ref && t.ref.img && !carriedF(side)) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
       draftC.hoverT = null;
       if (t.cls === 'ring') { finishTouch(side, t); return true; }
       draftC.picks.push(t); pickOk();
@@ -544,14 +542,14 @@
         return true;
       }
     }
-    // a co-argument pick: distinct points only ([v16.5 rail SPEC 3.2] a press on an earlier pick; two places on one curve
+    // a co-argument pick: distinct points only (a press on an earlier pick; two places on one curve
     // are two points)
     if (dupPick(t)) {
-      pickWarn($t('{x} needs distinct points', { x: warnTool(tool) }));   // ([v16.5 UX52] in the chip, by the pointer)
-      setRing(side, t, true);   // ([v16.5 fix rail-7] the chip says it now; the ring only warns, without a second label)
+      pickWarn($t('{x} needs distinct points', { x: warnTool(tool) }));   // (in the chip, by the pointer)
+      setRing(side, t, true);   // (the chip says it; the ring only warns, without a second label)
       return true;
     }
-    if (t.ref && t.ref.img && !A.yWhole()) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+    if (t.ref && t.ref.img && !carriedF(side)) { pickWarn($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
     draftC.picks.push(t); pickOk();
     if (draftC.picks.length >= NEED[tool]) finish(side); else { A.requestRender('OL', 'OR'); }
     return true;

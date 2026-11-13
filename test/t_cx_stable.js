@@ -1,8 +1,8 @@
-// Stability of the CPU forward maps fixed in P2 (src/cx.js): CX.asin / acos / asinh at large |u| (cancellation of
+// Stability of the CPU forward maps (src/cx.js): CX.asin / acos / asinh at large |u| (cancellation of
 // iz + sqrt(1 - z^2) in the upper half-plane and on the cut z < -1), CX.tan near its poles (cos 2x + cosh 2y) and
 // without the clamp to +-i for |Im z| > 20 (which made CX.tanh exactly +-1 for |Re z| > 20), and the interior branch
-// of the inverse Joukowski map (z - s at large |z|, now 1 / (z + s)). Each check fails on the pre-P2 code
-// (notes/backup-pre-sphere/src/cx.js) and passes now; the values elsewhere are unchanged (principal branches, sides
+// of the inverse Joukowski map (1 / (z + s) at large |z|, not z - s). Each check fails on the code of
+// notes/backup-pre-sphere/src/cx.js; the values elsewhere agree with it (principal branches, sides
 // of the cuts). Run: node test/t_cx_stable.js   (exit code 1 on any failure)
 global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
@@ -38,14 +38,14 @@ const dirs = Array.from({ length: 24 }, (_, k) => (k + 0.37) * Math.PI / 12);
   }
   check('asin/acos/asinh round trip to 1e-13 at |w| <= 1e12', worst < 1e-13, worst);
   if (OLD) check('the pre-P2 asin fails the same round trip (the test detects the cancellation)', !(worstOld < 1e-6), worstOld);
-  // on the cuts: the side of asin0 (z = x + 0i: x > 1 -> pi/2 - i acosh x; x < -1 -> -pi/2 + i acosh x), now without
+  // on the cuts: the side of asin0 (z = x + 0i: x > 1 -> pi/2 - i acosh x; x < -1 -> -pi/2 + i acosh x), computed without
   // cancellation for x < -1
   for (const x of [1.5, 3, 1e3, 1e8, 1e15]) {
     const ac = Math.log(x + Math.sqrt(x * x - 1));
     check(`asin(${x}) on the cut`, rel(CX.asin(C(x, 0)), C(Math.PI / 2, -ac)) < 1e-14);
     check(`asin(-${x}) on the cut`, rel(CX.asin(C(-x, 0)), C(-Math.PI / 2, ac)) < 1e-14, JSON.stringify(CX.asin(C(-x, 0))));
   }
-  // unchanged where the old form was accurate (|w| <= 2): equal to 1e-15
+  // equal to the OLD form to 1e-15 where that is accurate (|w| <= 2)
   if (OLD) {
     let d = 0;   // the largest rel(new, old) / (eps (1 + 1 / |w|))
     for (let i = 0; i < 2000; i++) { const w = C(rnd() * 4 - 2, rnd() * 4 - 2); d = Math.max(d, Math.max(rel(CX.asin(w), OLD.asin(w)), rel(CX.asinh(w), OLD.asinh(w))) / (EPS * (1 + 1 / abs(w)))); }
@@ -76,7 +76,7 @@ const dirs = Array.from({ length: 24 }, (_, k) => (k + 0.37) * Math.PI / 12);
     const zm = CX.tan(C(0.3, -y));
     check(`tan(0.3 - ${y}i) = conj tan(0.3 + ${y}i)`, zm.re === z.re && zm.im === -z.im);
   }
-  // tanh(x + iy) for |x| > 20: Im part ~ 4 e^{-2x} sin(2y) cos... (no longer exactly 0)
+  // tanh(x + iy) for |x| > 20: Im part ~ 4 e^{-2x} sin(2y) cos... (not exactly 0)
   for (const x of [21, 25, 40]) {
     const t = CX.tanh(C(x, 0.5));
     const ref = Math.sin(1) / (Math.cosh(2 * x) + Math.cos(1));   // Im tanh(x + iy) = sin 2y / (cosh 2x + cos 2y)

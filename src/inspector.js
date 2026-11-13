@@ -25,10 +25,9 @@ const Inspector = (() => {
   const FAMILY = { exp: 'exp', log: 'log', mobius: 'mobius', blaschke: 'mobius', recip: 'mobius', zp: 'zp', mul: 'linear', add: 'linear', affine: 'linear',
     pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', dh: 'special', bottcher: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
   const typeIcon = (type) => ICON[FAMILY[type] || (/^a?(sin|cos|tan|sinh|cosh|tanh|sec|csc|cot)h?$/.test(type) ? 'trig' : 'custom')];
-  const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
   const s16 = (inner, fill) => `<svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-  // (v16.5 UX85: Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
+  // (Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
   const LENS = s16('<rect x="5.25" y="4.75" width="5.5" height="6.5" rx="1"/><path d="M2 5V3.25C2 2.56 2.56 2 3.25 2H5M11 2h1.75C13.44 2 14 2.56 14 3.25V5M14 11v1.75c0 .69-.56 1.25-1.25 1.25H11M5 14H3.25C2.56 14 2 13.44 2 12.75V11"/>');
   // the specificity order of the lit names on the F tile (the strongest first)
   const STRONG = ['mobius', 'polynomial', 'rational', 'conformal', 'entire', 'homeo', 'proper', 'analytic'];
@@ -52,7 +51,7 @@ const Inspector = (() => {
       host.innerHTML = '';
       const close = h('button', { class: 'icon-btn', 'aria-label': $t('Close the editor'), 'data-tip': $t('Close  Esc'), html: ICONS.close, onclick: () => A.closeTemp() });
       tbar = h('div', { class: 'tbar' }, h('span', null, $t('Inspector')), h('span', { class: 'grow' }), h('span', { class: 'kbd' }, 'Esc'), close);
-      // (review design-21: a named region a screen reader can jump to; the temporary one is a dialog of the same name)
+      // (a named region a screen reader can jump to; the temporary one is a dialog of the same name)
       if (!host.classList.contains('temp')) { host.setAttribute('role', 'region'); host.setAttribute('aria-label', $t('Inspector')); }
       selSec = h('section', { class: 'psec insp-sel', 'aria-label': $t('Selection') });
       // (the shared numbers bring their own section: its heading, + and label; the slot only places it)
@@ -75,21 +74,20 @@ const Inspector = (() => {
       for (const lab of el.querySelectorAll('label.pl:not(.zp-sym)')) {
         const inp = el.querySelector('#' + CSS.escape(lab.htmlFor || ''));
         const key = inp && inp.dataset.pkey;
-        const sym = lab.querySelector('.ps') || lab;   // (v16.5 UX33: "Factor a₃", the word and its symbol)
+        const sym = lab.querySelector('.ps') || lab;   // ("Factor a₃", the word and its symbol)
         const t = sym.textContent;
         if (!key || SPECIAL.has(key) || [...t].length !== 1 || lab.dataset.ix || (sym === lab && lab.classList.contains('worded'))) continue;
         lab.dataset.ix = '1';
         sym.innerHTML = '';
         sym.append(t, h('sub', null, String(k)));
-        // (review design-8: the Argand button names the indexed coefficient, a₃, never the plain a of a shared number)
+        // (the Argand button names the indexed coefficient, a₃, never the plain a of a shared number)
         const ab = lab.parentNode && lab.parentNode.querySelector('.argand');
         if (ab) ab.setAttribute('aria-label', $t('Pick {label} on an Argand diagram', { label: t + sub(k) }));
       }
     }
-    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (review design-9; issue #13:
-    // the planes' menu acts on a mark, it adds none)
+    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (the planes' menu acts on a mark, it adds none)
     const touchUI = () => document.documentElement.classList.contains('ph') || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
-    // a formula wider than its well: the same formula smaller, down to 70 % (review design-4); true when it fits
+    // a formula wider than its well: the same formula smaller, down to 70 %; true when it fits
     function fitTex(node, minScale = 0.7) {
       node.style.fontSize = '';
       const form = node.closest('.iform');
@@ -114,9 +112,9 @@ const Inspector = (() => {
     // a formula in its well: the full form when it fits, else the alternative (alt), then smaller; decided once per
     // formula (a drag holds its formula, so drag frames never force a layout here). 1: the alternative is shown.
     //
-    // (#455) the choice needs the well's width: in a well that has none (the Inspector built while a phone's sheet is
+    // the choice needs the well's width: in a well that has none (the Inspector built while a phone's sheet is
     // closed) nothing is decided, and the well is watched: when its width changes (the sheet opens, the phone turns)
-    // each formula in it is decided again, here, from the arguments it was last given
+    // each formula in it is decided again, here, from the arguments it last received
     const pickArgs = new WeakMap(), pickForms = new WeakMap();
     const pickRO = typeof ResizeObserver === 'function' ? new ResizeObserver((entries) => {
       for (const { target: form } of entries) {
@@ -182,8 +180,8 @@ const Inspector = (() => {
       const S = A.S(), st = S.steps[k - 1], d = A.defOf(st), b = A.built()[k - 1];
       const deriv = A.isDerivStep(st, b);
       const lens = h('button', { class: 'icon-btn alone-btn', 'aria-pressed': 'false', html: LENS, onclick: () => A.toggleAlone(k) });
-      lens.append(h('span', { class: 'ab-l' }));   // (v16.5 UX85: "Show alone" / "Show F" in words where there is no hover)
-      // (v16.5 UX81: ← → move the step one place, in a phone's editor sheet; the laptop has Alt+← / Alt+→ on the card)
+      lens.append(h('span', { class: 'ab-l' }));   // ("Show alone" / "Show F" in words where there is no hover)
+      // (← → move the step one place, in a phone's editor sheet; the laptop has Alt+← / Alt+→ on the card)
       const n = S.steps.length;
       const mvL = h('button', { class: 'icon-btn mv-btn', 'data-tip': $t('Move left'), 'aria-label': $t('Move f{x} left', { x: sub(k) }), disabled: k <= 1 || null, onclick: () => A.moveStep(k, -1) }, '←');
       const mvR = h('button', { class: 'icon-btn mv-btn', 'data-tip': $t('Move right'), 'aria-label': $t('Move f{x} right', { x: sub(k) }), disabled: k >= n || null, onclick: () => A.moveStep(k, 1) }, '→');
@@ -195,20 +193,24 @@ const Inspector = (() => {
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl ttl-btn', role: 'button', tabindex: 0, 'data-tip': $t('Replace this step'), 'aria-label': $t('Replace f{x} {name}', { x: sub(k), name: d.label }), 'aria-haspopup': 'dialog', onclick: (e) => A.replacePalette(e.currentTarget, k), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); A.replacePalette(e.currentTarget, k); } } }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
       const flong = h('div', { class: 'ftex long', hidden: true }, $t('The formula is long; the field below holds it in full.'));
-      // (#361: it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
+      // (it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
       const form = h('div', { class: 'iform', tabindex: 0, role: 'group', 'aria-label': $t('Formula') }, ftex, flong);
+      const hint = h('div', { class: 'ihint', 'aria-live': 'polite' });
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
       const note = h('div', { class: 'inote' });
-      const nums = h('div', { class: 'inote inums', hidden: true });   // (v16.5 UX65: the numbers this step uses)
+      const nums = h('div', { class: 'inote inums', hidden: true });   // (the numbers this step uses)
       const det = h('div', { class: 'isub' });
-      // v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps shows how it is built, after
+      // a formula that is a chain of catalog steps shows how it is built, after
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true }) : null;
       const rep = buildRepeat(k);
-      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, rep.root, det, split, note, nums);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, rep, typing: false };
+      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, hint, err, params, rep.root, det, split, note, nums);
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, hint, err, note, nums, det, params, split, rep, typing: false };
+      // (the hint follows the field as it is typed: it goes the moment the bracket is)
+      const fx0 = params.querySelector('input[data-pkey="expr"]');
+      if (fx0) fx0.addEventListener('input', () => fillHint(E, fx0.value));
       if (split) {
         split.open = foldOpen();
         // (the tour's unfolding, below, is not the viewer's fold)
@@ -275,7 +277,7 @@ const Inspector = (() => {
       const show = !!(sp && (sp.kind === 'one' || sp.kind === 'many') && sp.rows);
       if (box.hidden !== !show) box.hidden = !show;
       if (!show) return false;
-      // (v16.1, user 5: the tour's stop about the offer unfolds it, so its Split button shows, without saving the fold)
+      // (the tour's stop about the offer unfolds it, so its Split button shows, without saving the fold)
       if (A.splitTour && A.splitTour() && !box.open) { box.dataset.tourOpen = '1'; box.open = true; }
       const n = sp.steps.length, one = sp.kind === 'one';
       const name = one ? A.Funcs.DEFS[sp.steps[0].type].label : '';
@@ -322,8 +324,7 @@ const Inspector = (() => {
     }
     // after a split, the keyboard goes to the first new step: its card in the classic view, its chip on the steps view's
     // thread (the button and its Inspector are rebuilt: the element is looked up again while the chain is drawn)
-    // The focus has to survive the redraw that follows a split. The classic card is drawn once, but on the steps view's
-    // thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
+    // The focus has to survive the redraw that follows a split. On the steps view's thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
     // frames) after the click; what takes it back there is not known (nothing calls blur(), the chip is not replaced). So
     // the focus is put on the chip again each frame until it has stayed FOCUS_STAYS frames; FOCUS_TRIES frames (10 s at
     // 60 Hz) bounds the wait. (A user who moves the focus elsewhere in that time has it taken back.)
@@ -331,7 +332,7 @@ const Inspector = (() => {
     function focusCard(k) {
       let n = 0, held = 0;
       const go = () => {
-        const c = /** @type {HTMLElement | null} */ (document.querySelector(A.svOn && A.svOn() ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`));
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`));
         if (c && c.isConnected) {
           if (document.activeElement !== c) { c.focus({ preventScroll: true }); held = 0; } else held++;
         }
@@ -341,7 +342,7 @@ const Inspector = (() => {
     }
     // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
     // the quiet mark on a line written with a step's display form: "in short", the full-formula explanation in its tooltip
-    // and its accessible description, one wording on F's line and on the split offer's row (#453; the step's own card says
+    // and its accessible description, one wording on F's line and on the split offer's row (the step's own card says
     // the same in its note)
     function shortMark() {
       const tip = $t('Written in short; each step\'s own field holds its full formula.');
@@ -413,7 +414,7 @@ const Inspector = (() => {
       if ((st.type === 'dh' || st.type === 'bottcher') && A.dhAdd) params.append(...dhAdds(k));
       indexLabels(params, k);
     }
-    // [issue #260] Φ_M and φ_c: an external ray of angle θ (turns, exact as p/q) and an equipotential |Φ| = r of the
+    // Φ_M and φ_c: an external ray of angle θ (turns, exact as p/q) and an equipotential |Φ| = r of the
     // step's set, added as shapes of the plane the step reads (Enter or the button; a value it cannot use is flagged)
     function dhAdds(k) {
       const row = (word, sym, val, kind, label) => {
@@ -430,11 +431,70 @@ const Inspector = (() => {
       };
       return [row($t('Ray'), '<i>θ</i>', '1/3', 'dhray', $t('Add ray')), row($t('Level'), '|Φ|', '1.1', 'dheq', $t('Add equipotential'))];
     }
-    // (v16.5 UX33) a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
+    // a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
     function hasCut(st, k) {
       if (st.type !== 'custom') return true;
       const b = A.built()[k - 1];
       return !!(b && !b.error && b.cuts && b.cuts.some((c) => c.editable));
+    }
+    // z^-1/2 reads (z⁻¹)/2 by the usual precedence. A ^ followed by a number with its optional sign and then /, with no
+    // bracket after the ^, gets a quiet hint that says so and offers the bracketed power; the reading itself is unchanged.
+    // (A product, z^2*3, is 3z² as it stands, so it gets none.) The base is a name, a number or a bracketed group.
+    const POW_HINT = /\^\s*([+\-−]?)\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/g;
+    const SUP_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    // the base that ends the text: a bracketed group (its brackets balanced) or a name or number; '' when there is none
+    function baseBefore(t) {
+      t = t.trimEnd();
+      if (t.endsWith(')')) {
+        let d = 0;
+        for (let i = t.length - 1; i >= 0; i--) {
+          if (t[i] === ')') d++;
+          else if (t[i] === '(' && --d === 0) return t.slice(i);
+        }
+        return '';
+      }
+      const m = /([A-Za-z][A-Za-z0-9]*|\d+(?:\.\d+)?)$/.exec(t);
+      return m ? m[1] : '';
+    }
+    function powHint(text) {
+      POW_HINT.lastIndex = 0;
+      for (let m; (m = POW_HINT.exec(text));) {
+        const base = baseBefore(text.slice(0, m.index));
+        if (!base) continue;
+        const [, sgn, n1, n2] = m, neg = sgn === '-' || sgn === '−';
+        // (z¹ is z: the reading drops the exponent 1)
+        const sup = n1 === '1' && !neg ? '' : /^\d+$/.test(n1) ? (neg ? '⁻' : '') + [...n1].map((d) => SUP_DIGITS[+d]).join('') : '^' + (neg ? '−' : '') + n1;
+        return { read: sup ? `(${base}${sup})/${n2}` : `${base}/${n2}`, power: `${neg ? '−' : ''}${n1}/${n2}`, fix: `${base}^(${neg ? '-' : ''}${n1}/${n2})` };
+      }
+      return null;
+    }
+    // the sentence with each expression in a span that does not break and keeps the field's monospace face
+    // (private-use characters nothing else in a translation uses: Italian's own marker is U+E001)
+    const HINT_MARK = ['\uE010', '\uE011', '\uE012'];
+    function hintSentence(p) {
+      const s = $t('Read as {read}. For the power {power}, write {fix}.', { read: HINT_MARK[0], power: HINT_MARK[1], fix: HINT_MARK[2] });
+      const val = [p.read, p.power, p.fix], out = [];
+      for (const part of s.split(/([\uE010-\uE012])/)) {
+        const at = HINT_MARK.indexOf(part);
+        out.push(at < 0 ? part : h('span', { class: 'ihint-x' }, val[at]));
+      }
+      return h('span', null, ...out);
+    }
+    function fillHint(E, text) {
+      const p = text == null ? null : powHint(text), key = p ? p.fix : '';
+      if (E.hint.dataset.key === key) return;
+      E.hint.dataset.key = key;
+      E.hint.textContent = '';
+      if (!p) return;
+      const use = () => {
+        const fx = E.params.querySelector('input[data-pkey="expr"]');
+        if (!fx) return;
+        fx.value = p.fix;
+        fx.dispatchEvent(new Event('input', { bubbles: true }));
+        fx.dispatchEvent(new Event('change', { bubbles: true }));
+        fx.focus();
+      };
+      E.hint.append(hintSentence(p), ' ', h('button', { type: 'button', class: 'btn small ihint-use', onclick: use }, $t('Use {fix}', { fix: p.fix })));
     }
     function fillStep(E) {
       const S = A.S(), k = E.k, st = S.steps[k - 1], b = A.built()[k - 1];
@@ -442,7 +502,7 @@ const Inspector = (() => {
       const bad = !!(b && b.error), off = st.on === false;
       const alone = S.focus === k;
       E.lens.setAttribute('aria-pressed', String(alone));
-      // (v16.5 UX85: one name, Show alone; while it is on, the same button reads Show F)
+      // (one name, Show alone; while it is on, the same button reads Show F)
       const lt = alone ? $t('Show F  L') : $t('Show alone  L');
       if (E.lens.dataset.tip !== lt) {
         E.lens.dataset.tip = lt; E.lens.setAttribute('aria-label', alone ? $t('Show F') : $t('Show f{x} alone', { x: sub(k) }));
@@ -452,10 +512,11 @@ const Inspector = (() => {
       const bt = off ? $t('Turn this step back on') : $t('Bypass this step');
       if (E.byp.dataset.tip !== bt) { E.byp.dataset.tip = bt; E.byp.setAttribute('aria-label', bt); }
       E.inv.disabled = !b || bad;
+      if (!E.typing) fillHint(E, st.type === 'custom' ? String(st.params.expr || '') : null);
       const errT = bad ? b.error : '';
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
-        // (a field that uses shared numbers shows their names: Funcs.build keeps them, issue #11)
+        // (a field that uses shared numbers shows their names: Funcs.build keeps them)
         // (a display form stands for the formula here; a formula of LONG characters or more is not typeset: the well
         // says that the field holds it)
         const num = shownTex(b, { s: A.wvar(k - 1), p: 4 }).s;
@@ -479,7 +540,7 @@ const Inspector = (() => {
             rn = rn.replace(/\.$/, '') + '; ' + $t('it stays one step: {why}', { why: why.charAt(0).toLowerCase() + why.slice(1) });
           }
         }
-        // (v16.5 UX33: the cut and the sheet are in their fields, so the note no longer repeats them: A.branchTag left out)
+        // (the cut and the sheet are in their fields, so the note does not repeat them: A.branchTag is left out)
         const shortNote = b.show ? $t('Written in short; the field below holds the formula in full.') : null;
         const n = [shortNote, b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
         const nt = n ? n + '.' : '';
@@ -497,8 +558,8 @@ const Inspector = (() => {
           const v = A.CX.sub(A.CX.mul(a, d), A.CX.mul(bb, c));
           const li = (x) => `<i>${x}</i>${sub(k)}`, num = (z) => A.fmt(z).replace(/-/g, '−');
           dt = `${li('a')}${li('d')} − ${li('b')}${li('c')} = ${num(v)}`;
-          // (review math-6: a determinant 0 makes the step constant; its "pole" is a removable singularity.
-          // verify-3: "(= v)", the true minus, f and z in italics)
+          // (a determinant 0 makes the step constant; its "pole" is a removable singularity.
+          // "(= v)", the true minus, f and z in italics)
           if (A.CX.mobDetZero([a, bb, c, d])) {
             const cz = A.CX.isZero(c);
             dt += '. ' + (cz ? $t('{f} is constant (= {v}).', { f: li('f'), v: num(A.CX.div(bb, d)) })
@@ -507,7 +568,7 @@ const Inspector = (() => {
         }
       }
       if (E.det.dataset.h !== dt) { E.det.dataset.h = dt; E.det.innerHTML = dt; }
-      // (v16.5 UX65) the numbers the step uses, with their values
+      // the numbers the step uses, with their values
       const nt = A.numbersOf ? A.numbersOf(k) : '';
       if (E.nums.textContent !== nt) E.nums.textContent = nt;
       E.nums.hidden = !nt;
@@ -592,7 +653,7 @@ const Inspector = (() => {
       // (F's line says so when a step it is composed of is written in its display form)
       const sm = !long && act.some((k) => built[k - 1].show);
       if (E.smark.hidden !== !sm) E.smark.hidden = !sm;
-      // (review design-4: an expanded F wider than the well is written in terms of the last w, as the mockup does,
+      // (an expanded F wider than the well is written in terms of the last w, as the mockup does,
       // with the w list under it; then smaller, never cut)
       const last = act.length > 1 && E.chain.length ? act[act.length - 1] : 0;
       let byW = false;
@@ -602,7 +663,7 @@ const Inspector = (() => {
       for (const [k, t] of E.chain) {
         const li = t.parentNode;
         if (li) li.hidden = byW && k === last;
-        // (review verify-9: in display style, at the size of F's line, when it fits; else in text style)
+        // (in display style, at the size of F's line, when it fits; else in text style)
         if (!(byW && k === last)) { const wt = wLine(k); fitPick(t, `\\displaystyle ${wt}`, wt, false); }
       }
       const warns = [];
@@ -649,7 +710,7 @@ const Inspector = (() => {
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Shapes')));
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
-      // (v16.5 UX17: on a touch screen, the phone's places)
+      // (on a touch screen, the phone's places)
       const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.'));
       return { kind: 'region', root: h('div', { class: 'iregion' }, head, sum, sw, hint), sum, sw };
     }
@@ -679,7 +740,7 @@ const Inspector = (() => {
       const sel = A.sel();
       // (a selected construction shows its Construction view while the selection is the region; construct.js)
       const cmSig = (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
-      // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
+      // (a selected free shape is edited here, on the laptop: the app's shape view)
       const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
       const sig = cmSig || shSig || sigOf(sel);
       if (sig !== cur.sig || cur.stale || !cur.el || !selSec.contains(cur.el.root)) {
@@ -710,12 +771,12 @@ const Inspector = (() => {
       cur.sig = sigOf(k);
       if (host) host.scrollTop = top;
     }
-    // the chain was rebuilt (undo, a step added or removed, a number renamed): the editor is built again at the next
+    // the chain is rebuilt (undo, a step added or removed, a number renamed): the editor is built again at the next
     // render, except under a field being typed in (it waits for the field to be left, as above)
     function invalidate() { cur.stale = true; }
-    return { render, refreshParams, invalidate, typeIcon, regionIcon, STRONG };
+    return { render, refreshParams, invalidate, STRONG };
   }
-  return { create, typeIcon, regionIcon, STRONG };
+  return { create, STRONG };
 })();
 import { Construct } from './construct.js';
 import { Params } from './params.js';

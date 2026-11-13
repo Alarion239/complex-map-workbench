@@ -1,4 +1,4 @@
-// All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md), on the shipped modules: the sheets of H_t
+// All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md; standards-ok: the name of an existing notes file), on the shipped modules: the sheets of H_t
 // at t = end are F's All sheets combo for combo, bit for bit; at t = 0 they are H_0's (the deformed pieces the identity,
 // every one of their sheets the same surface); the counts; the nodes between steps; the worked numbers of the user's
 // case (sin √z, √ bracketed); the maps that cannot be drawn as sheets. Run: node test/t_sheets_deform.js
@@ -164,7 +164,7 @@ check('cases ran', cases >= 60, cases);
   check('user: the two sheets come apart in Im at t = 1/2', apart > 0.9 * PTS.length, apart);
 }
 
-// ---- (v16.1 review math-5) F's digits: end = F's last step. Every configuration of every chain: the count is F's at
+// ---- F's digits: end = F's last step. Every configuration of every chain: the count is F's at
 // every t; at the end each surface is F's, bit for bit; one after another, surface c is continuous through every node
 // (the left limit T = j - 1e-9 and the node T = j agree combo for combo: no re-indexing, no surface that vanishes) ----
 let endCases = 0;
@@ -215,7 +215,7 @@ check('end cases ran', endCases >= 60, endCases);
   }
   check('math-5 chain: no surface changes at the node', lost === 0, lost);
 }
-// (v16.1 review math-3) sheets numbered from the step's own cut and branch: surface 0 is the step itself (the plain H_t
+// sheets numbered from the step's own cut and branch: surface 0 is the step itself (the plain H_t
 // while deforming, F at rest) at every point, with the cell centre at the point; a window is centred on F's branch
 {
   const pts = PTS.map(([, z]) => z);
@@ -237,7 +237,42 @@ check('end cases ran', endCases >= 60, endCases);
     }
   }
 }
-// (v16.1 review math-7) the drawn count and the caption's count agree: a typed near-fraction is a window
+// the Joukowski path while it deforms: a point is continued on the formula of its cell centre's side of the unit circle
+// (the disk's tanh((1 + t) artanh z - i pi t/2), the exterior's coth((1 + t) arcoth z)), as the GPU's chainSheetHom
+// continues it; a point on its centre's side is the plain H_t. The two formulas meet on the upper semicircle and
+// differ on the lower one, the path's cut. The points: 24 angles from 0.3 to 2 pi - 0.3 rad, so none lands on z = 1,
+// where the two formulas' singular points meet, each at |z| = 0.93 and 1.07, 0.07 either side of the circle
+{
+  const ch = chain([{ type: 'joukowski' }]), S = ch.S, built = ch.built, n = ch.n();
+  S.homRange = { a: 1, b: 1 };
+  const disk = (t) => (z) => CX.tanh(CX.sub(CX.mul(C(1 + t, 0), CX.atanh(z)), C(0, Math.PI * t / 2)));
+  const ext = (t) => (z) => CX.inv(CX.tanh(CX.mul(C(1 + t, 0), CX.atanh(CX.inv(z)))));
+  for (const T of [0.37, 0.75]) {
+    const m = ch.HR.state(S, T, true).map, t = m.t, H = ch.HR.cpuMap(m);
+    let toExt = 0, toDisk = 0, same = 0, agree = 0;
+    for (let i = 0; i < 24; i++) {
+      const th = 0.3 + (2 * Math.PI - 0.6) * i / 23, u = C(Math.cos(th), Math.sin(th));
+      const zin = CX.mul(C(0.93, 0), u), zout = CX.mul(C(1.07, 0), u);
+      const ev = (zc, z) => FN.sheetMapEval(S.steps, built, m, zc, z, 0, W, n);
+      const a = ev(zout, zin), b = ev(zin, zout);
+      if (!near(a, ext(t)(zin), 1e-9)) toExt++;
+      if (!near(b, disk(t)(zout), 1e-9)) toDisk++;
+      if (!near(ev(zin, zin), H(zin), 1e-9) || !near(ev(zout, zout), H(zout), 1e-9)) same++;
+      // (agree: where the centre's formula meets the point's own on the cut, which must not happen; at a looser 1e-6,
+      // so a near-miss counts as meeting; the others ask for equality to float error)
+      if (th > Math.PI && near(a, H(zin), 1e-6)) agree++;
+      checks += 4;
+    }
+    check(`jouk T=${T}: a point inside the unit circle whose centre is outside is on the exterior's formula`,
+      toExt === 0, toExt);
+    check(`jouk T=${T}: a point outside the unit circle whose centre is inside is on the disk's formula`,
+      toDisk === 0, toDisk);
+    check(`jouk T=${T}: a point on its centre's side is the plain H_t`, same === 0, same);
+    check(`jouk T=${T}: on the lower semicircle, the path's cut, the two sides' formulas differ, so the exterior's check tells the branches apart`,
+      agree === 0, agree);
+  }
+}
+// the drawn count and the caption's count agree: a typed near-fraction is a window
 check('math-7: alpha 0.333333333 is a window', FN.stepSheets(FN.build({ type: 'powa', params: Object.assign(FN.defaults('powa'), { alpha: '0.333333333' }) }))[0].n === 0);
 check('math-7: alpha 1/3 has 3 sheets', FN.stepSheets(FN.build({ type: 'powa', params: Object.assign(FN.defaults('powa'), { alpha: '0.3333333333333333' }) }))[0].n === 3);
 check('math-7: sheetCount = sheetCountOf for q <= 24', [0.5, 0.25, 1.2, 0.1, 2 / 3, 5 / 7, -1.5, 3].every((x) => FN.sheetCount(x) === FN.sheetCountOf(x)) && FN.sheetCount(0.333333333) === 0);

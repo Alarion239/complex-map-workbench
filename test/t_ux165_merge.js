@@ -1,9 +1,9 @@
-// v16.5 wave 1 merge (notes/ux-build/W1-MERGE.md): the places where the five pieces (learn, chain, plane, rail, phone)
+// The merged pieces (notes/ux-build/W1-MERGE.md): the places where the five pieces (learn, chain, plane, rail, phone)
 // meet, read from the merged sources. Each check names the pieces whose intents it keeps. Node, no browser.
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { source } = require('./src_text');
+const { source, fnText } = require('./src_text');
 // (a src/ file as build.py reads it: src/app.js is joined from src/app/*.js)
 const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 let pass = 0, fail = 0;
@@ -12,13 +12,13 @@ const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('
 const APP = R('src/integrals.js') + '\n' + R('src/examples.js') + '\n' + R('src/app.js'), CON = R('src/construct.js'), PAGE = R('src/page.html'), TOUR = R('src/tour.js'),
   MK = R('tools/make_ru_table.py');
 const count = (s, sub) => s.split(sub).length - 1;
-const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0; const j = src.indexOf('{', i); for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+const fnBody = (src, name) => fnText(src, name, { indent: '', soft: true });
 
 // ---- no conflict marker left anywhere
 for (const f of ['src/app.js', 'src/construct.js', 'src/constr.js', 'src/page.html', 'src/tour.js', 'src/phone.js', 'src/phone.css', 'src/desk.css', 'src/inspector.js', 'tools/make_ru_table.py'])
   ok(`${f}: no conflict markers`, !/^(<{7}|>{7}) /m.test(R(f)));
 
-// ---- Russian: one set holds every piece's table and the merge's own, read after every v16.4 table
+// ---- Russian: one set holds every piece's table and the merge's own, read after the earlier tables
 const m = /V165_HERE = \{([^}]*)\}/.exec(MK);
 const names = m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
 ok('make_ru_table: V165_HERE lists the five pieces and the merge', ['learn', 'chain', 'plane', 'rail', 'phone', 'merge'].every((p) => names.includes(`v165-ux-${p}.json`)), names);
@@ -30,17 +30,16 @@ const ents = Object.entries(MERGE_RU).filter(([k]) => !k.startsWith('_'));
 ok('the merge\'s table: every entry has en and ru', ents.length >= 6 && ents.every(([, v]) => v.en && v.ru), ents.length);
 ok('the merge\'s table: every string is in the shipped table', ents.every(([, v]) => TABLE[keyOf(v)] === v.ru), ents.filter(([, v]) => TABLE[keyOf(v)] !== v.ru).map(([k]) => k));
 
-// ---- learn UX97 + chain UX81: one Alt+←/→ branch in chainKey (the same key, built twice)
-const ck = fnBody(APP, 'chainKey');
-// (#595: the Alt+arrow reading is stepEditKey's, once, for the chain's cards and the steps view's chips; chainKey moves through it)
+// ---- the thread's keys: one Alt+←/→ branch (the Alt+arrow reading is stepEditKey's, once; the thread's chips
+// read it)
 const sk = fnBody(APP, 'stepEditKey');
-ok('chainKey: one Alt+arrow branch, through stepEditKey and moveCard', (sk.match(/[^!]e\.altKey && /g) || []).length === 1 && (ck.match(/[^!]e\.altKey && /g) || []).length === 0 && /stepEditKey\(e\)/.test(ck) && /moveCard\(k, ed\.move\)/.test(ck), { sk: sk.slice(0, 200), ck: ck.slice(0, 300) });
-ok('a card\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move left'\), icon: 'chevL', key: touchUI\(\) \? '' : 'Alt ←'/.test(APP) && /label: \$t\('Move right'\), icon: 'chevR', key: touchUI\(\) \? '' : 'Alt →'/.test(APP));
+ok('stepEditKey: one Alt+arrow branch, read by the thread\'s chips', (sk.match(/[^!]e\.altKey && /g) || []).length === 1 && /const ed = stepEditKey\(e\)/.test(APP), { sk: sk.slice(0, 200) });
+ok('a step\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move left'\), icon: 'chevL', key: touchUI\(\) \? '' : 'Alt ←'/.test(APP) && /label: \$t\('Move right'\), icon: 'chevR', key: touchUI\(\) \? '' : 'Alt →'/.test(APP));
 ok('menu keys (⌘D, ⌘], ⌘[) are empty on a touch screen (phone UX17)', /const modK = \(k\) => \(touchUI\(\) \? '' :/.test(APP));
 
 // ---- chain UX71 wording + learn UX71 Stop
-// (#253: a step's plane on the globe says Plane draws in it, or Show F)
-ok('X\'s chip: "choose Plane to draw in this plane, or Show F" (chain) with the listening Stop (learn)', APP.includes("choose Plane to draw in this plane, or Show F.')") && /if \(!msg\) \{ msg = listenChipMsg\(\); if \(msg\) act = \{ stop: true \}; \}/.test(APP) && !APP.includes('choose Whole chain to draw'));
+// (X's chip names no "draw in the z-plane only" hint: drawing and constructions work on every plane)
+ok('X\'s chip: no "choose Plane to draw in this plane, or Show F" (constructions and drawing work on every plane) and the listening Stop (learn)', !APP.includes("choose Plane to draw in this plane, or Show F.')") && /if \(!msg\) \{ msg = listenChipMsg\(\); if \(msg\) act = \{ stop: true \}; \}/.test(APP) && !APP.includes('choose Whole chain to draw'));
 
 // ---- chain UX25 + learn UX74 in the Examples list
 const og = fnBody(APP, 'openGallery');

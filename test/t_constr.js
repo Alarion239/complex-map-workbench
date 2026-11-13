@@ -1,10 +1,10 @@
-// Constructions (v16 CORE, notes/constructions-v16/SPEC.md 18): src/constr.js and its integration with region.js,
+// Constructions (notes/constructions-v16/SPEC.md 18): src/constr.js and its integration with region.js,   // standards-ok: the name of an existing notes file
 // inverse.js and gl.js's packing. Run: node test/t_constr.js [-v]
 //  A. the proof of concept's 66 engine tests (notes/ui-redesign-2/constructions/poc/test.js), against src/constr.js
 //  B. its 18 bridge tests (poc/bridge.test.js), against this copy's src/ (region.js, curves.js)
 //  C. the integration and exactness tests of SPEC 18: refs, ids, collinear and continuity, exact levels, sampling,
 //     formOf readers, intersections, gliders, the graph, the plans, save and load, bound numbers
-//  D. the v16 review fixes (constr_review_tests.js)
+//  D. the review checks (constr_review_tests.js)
 //  E. the Perpendicular circle, op perp (constr_perp_tests.js; notes/orthogonal-circle/SPEC.md 7)
 //  F. the Touching circle, ops touch and tangent (constr_touch_tests.js; notes/orthogonal-circle/TANGENT-SPEC.md 7)
 //  G. Inside C only, a perpendicular circle's arc on one side of C (constr_seg_tests.js; orthogonal-circle/segments/SPEC.md 11)
@@ -64,7 +64,7 @@ cur = 'A';
   ok(fAt(L, [0, 1]) < 0, 'circle3: the cyclic order 0 -> 1 -> 2 runs along +x, so the interior is the upper half-plane');
   ok(fAt(K.circle3([0, 0], [2, 0], [1, 0]), [0, 1]) > 0, 'circle3: 0 -> 2 -> 1 runs through infinity first (along -x): the lower half-plane');
   const sl = K.circle3([0.1, 0.3], [0.2, 0.6], [0.7, 2.1]);
-  // (v16 review math-3: grid points are collinear by their decimals, whatever the doubles' exact predicate says)
+  // (grid points are collinear by their decimals, whatever the doubles' exact predicate says)
   ok(sl.A === 0 && K.circle3([0.1, 0.3], [0.2, 0.6], [0.7, 2.1000001]).A !== 0, 'circle3: A is zero exactly when the points are collinear (exactly, or as the decimals typed)', sl.A);
   // continuity through collinearity: the third point crosses the line PQ; f at a fixed point varies continuously
   const zt = [0.4, 0.9];
@@ -384,10 +384,10 @@ const subst = (src, vals) => src.replace(/(?<![A-Za-z\\])([A-Za-z])(?![A-Za-z])/
   ok(true, `traced: a slider re-traces per value: ${ms.toFixed(1)} ms per step (DESIGN.md: traced curves under a slider)`);
 }
 
-// =========================================================== C. v16 CORE
+// =========================================================== C. CORE
 cur = 'C';
 require('./constr_core_tests.js')({ K, ok, near, nearP, Inverse, Curves });
-// =========================================================== D. the review fixes (notes/constructions-v16/ledger.json)
+// =========================================================== D. the review checks (notes/constructions-v16/ledger.json)   // standards-ok: the name of an existing notes file
 sect.D = [0, 0]; cur = 'D';
 require('./constr_review_tests.js')({ K, ok, near, nearP });
 

@@ -66,7 +66,7 @@ const mchip = async () => ev(`(()=>{const e=[...document.querySelectorAll('.cm-c
 const rect = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); })()`);
 const tstxt = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()).join(' | ')`);
 const deg = (p) => +(Math.atan2(p[1], p[0]) * 180 / Math.PI).toFixed(2);
-const isSteps = () => ev(`document.documentElement.classList.contains('sv')`);
+const svClassOn = () => ev(`document.documentElement.classList.contains('sv')`);
 const openEx = async (i) => { await ev(`document.getElementById('examplesBtn').click(), 1`); await settle(500); await ev(`[...document.querySelectorAll('#popHost .examples .ex-item')][${i}].click(), 1`); await settle(2500); };
 const pick = async (d) => { const p = await A(d); await move(p[0], p[1]); await settle(60); await click(p[0], p[1]); await settle(180); };
 
@@ -130,7 +130,7 @@ await tool('perp');
 await view(1366, 768, false, false);
 await load(NS + 'sp', U0({ unit: false, shapes: [{ id: 'C', kind: 'circle', c: [0, 0], r: 0.8, ci: 0, visible: true }], nextId: 30 })); await settle(900);
 // (the globe: the classic left pane's Sphere view, or the steps view's surface switch)
-if (await isSteps()) await ev(`__cmwSteps({ surf: 'sphere' })`); else await ev(`__cmwSetView('L', 'sphere'), 1`);
+if (await svClassOn()) await ev(`__cmwSteps({ surf: 'sphere' })`); else await ev(`__cmwSetView('L', 'sphere'), 1`);
 await settle(1200);
 { const GS = (re, im) => ev(`(() => { const P = Region.Globe.lift(${re}, ${im}); return __cmwCI({ gs: ['L', P] }); })()`);
   const pt = (d) => GS(0.8 * Math.cos(d * Math.PI / 180), 0.8 * Math.sin(d * Math.PI / 180));
@@ -139,7 +139,6 @@ await settle(1200);
   const st = await ST(), K = st.list.find((x) => x.def && x.def.op === 'circle3');
   ok('rail-5: three globe picks on C are gliders and the circle is C', K && Math.abs(K.r - 0.8) < 1e-12 && st.list.filter((x) => x.def && x.def.op === 'glider').length === 3, sum(st));
   await key('Escape');
-  // (Orthogonal on the globe says to switch to the plane after a press: the classic view's hint, in ux165_fix_classic_cmd.js)
   // (before any press: the chip of a tool that picks a curve says where the curve is picked)
   const q = await pt(60);
   for (const t of ['perp', 'touch', 'hyper', 'meet']) {
@@ -148,26 +147,24 @@ await settle(1200);
     ok(`rail-5: ${t} on the globe, before a press, says to switch to the plane`, /^Switch to the plane to pick the curve/.test(await mchip() || ''), await mchip());
   }
 }
-// user-1, user-5, regress-3: z^2 + a from the palette
+// z^2 + a from the palette
 await view(1366, 768, false, false);
 await nav(`${BASE}/test.html?ns=${NS}pal`); await settle(1500);
 await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); await key('Enter'); await settle(800);
-{ const headSel = (await isSteps()) ? '#svStrip' : '.pipe-head', placed = (await isSteps()) ? 'rail' : 'head';   // (the chain's head, or the steps view's thread)
+{ const headSel = '#plotL', placed = 'plot';   // (the plot, above the thread)
   const t = await ev(`(() => { const e = [...document.querySelectorAll('.prm')].find((x) => x.offsetParent); return e ? e.textContent : ''; })()`);
   ok('user-1: the number just added with its step is not "Not used yet"', !/Not used yet/.test(t), t);
   const add = await rect('.prm-add'), row = await ev(`(() => { const r = [...document.querySelectorAll('.prm-row')].filter((x) => x.offsetParent).pop(); return r ? Math.round(r.getBoundingClientRect().bottom) : null; })()`);
   ok('user-5: + Number sits right under the last number', add && row != null && add[1] - row <= 8, [add, row]);
-  const tr = await ev(`(() => { const t = document.querySelector('#toastHost .toast'); if (!t) return null; const r = t.getBoundingClientRect(), h = document.querySelector(${JSON.stringify(headSel)}).getBoundingClientRect(); return [r.top >= h.top - 1 && r.bottom <= h.bottom + 1, document.getElementById('toastHost').getAttribute('data-placed')]; })()`);
-  ok('regress-3: the "Added" message sits in the chain head (the thread, in the steps view), over no plane', tr && tr[0] && tr[1] === placed, tr); }
+  const tr = await ev(`(() => { const t = document.querySelector('#toastHost .toast'); if (!t) return null; const r = t.getBoundingClientRect(), h = document.querySelector(${JSON.stringify(headSel)}).getBoundingClientRect(); return [r.top >= h.top - 1 && r.bottom <= h.bottom + 1 && (!document.getElementById('svStrip') || !document.getElementById('svStrip').offsetParent || r.bottom <= document.getElementById('svStrip').getBoundingClientRect().top + 1), document.getElementById('toastHost').getAttribute('data-placed')]; })()`);
+  ok('the "Added" message sits over the plot, above the thread', tr && tr[0] && tr[1] === placed, tr); }
 // regress-1, regress-2: example 8 with the deformation; example 10's "Opened" toast and M
 await openEx(8); await key('m'); await settle(1200);
-// (regress-1, the deformation bar's one row, is the classic view's transport: ux165_fix_classic_cmd.js)
 await key('m'); await settle(500);
 await openEx(10); await key('m'); await settle(1200);
 { const t = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), d = document.querySelector('.tdock:not([hidden])'); if (!t || !d) return null; const a = t.getBoundingClientRect(), b = d.getBoundingClientRect(); return a.bottom <= b.top || a.top >= b.bottom; })()`);
   ok('regress-2: the toast is not over the deformation bar', t !== false, t); }
 await key('m'); await settle(500);
-// (regress-5, the planes staying put when Listen starts the melody, is in ux165_fix_classic_cmd.js)
 // regress-9: a Tab focus shows the tip; a focus the app moves does not
 await ev(`document.getElementById('undoBtn').focus(), 1`); await settle(400);
 ok('regress-9: no tip for a focus the app moves', await ev(`document.getElementById('tip').hidden`));
@@ -190,7 +187,7 @@ await ev(`sessionStorage.clear(), localStorage.removeItem('cmw-probe-learned'), 
 await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
 { const c = await ev(`(() => { const e = document.getElementById('leftReadout'); return [e.textContent, e.scrollWidth <= e.clientWidth + 1]; })()`);
   // (the same line, worded for the steps view's one plane)
-  ok('user-4: the Russian line is whole', (await isSteps() ? /Удерживайте и ведите, чтобы прочитать F\(z\)/ : /Удерживайте палец\s— F\(z\)/).test(c[0]) && c[1], c);
+  ok('user-4: the Russian line is whole', (await svClassOn() ? /Удерживайте и ведите, чтобы прочитать F\(z\)/ : /Удерживайте палец\s— F\(z\)/).test(c[0]) && c[1], c);
   await sleep(8500);
   ok('regress-4: the line is gone after 8 s', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`)));
   await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);

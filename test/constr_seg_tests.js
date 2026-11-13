@@ -2,14 +2,18 @@
 // (notes/orthogonal-circle/segments/SPEC.md 11; src/constr.js). The proto's 8 checks on the real graph (the disc model,
 // the diameter, the half-plane model, continuity through K's line case and through infinity, P across C), Intersect(K, C)
 // bitwise, the restriction of crossings, every case of SPEC 3 on each side, Use complement on C, C through its own line
-// case, the glider remap, and the plumbing (save and load, validate, v16.3's validate, describe, speed).
+// case, the glider remap, and the plumbing (save and load, the frozen copy's validate, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
-// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
-const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
+// the speed limit is a ratio of two timings taken in the same run, so it holds on any machine
+// (the seg limit: a seg K adds at most 10 us to a recompute, which takes 14.9 us on the 4-core container the limit is
+// set on, so a recompute with seg may take 1 + 10 / 14.9 = 1.67 times as long; the Mac measured the extra at 0.2 us. The
+// check takes the least of many short rounds, alternating, so that one of each lands in a quiet moment of a loaded
+// machine)
+const SEG_RATIO = 1.67, SEG_ROUNDS = 15, SEG_CALLS = 1000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
-  // (v16.3's constr.js, frozen: the build before this one reading a saved seg)
+  // (a frozen copy of constr.js: it reads a saved seg)
   const K163 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.3-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const note = (t) => { if (process.argv.includes('-v')) console.log('     ' + t); };
   const INF = K.INF, isInf = K.isInf;
@@ -231,11 +235,18 @@ module.exports = function ({ K, ok }) {
     K163.recompute(old, { all: true }, {});
     ok(v.freed === 0 && byId(old, 'k').def.seg === -1 && byId(old, 'k').kind === 'circle', 'seg: v16.3\'s validate keeps seg and recomputes the whole circle');
     ok(K.describe(st, 'k').seg === -1 && K.describe(st2, 'k').seg === -1 && K.describe(load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], 0)), 'k').seg === 0, 'seg: describe has seg');
-    // speed: a seg K adds at most 10 us per recompute
-    const time = (seg) => { const s = load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], seg, [glider('g', 0.3)])); for (let i = 0; i < 300; i++) rec(s); const t0 = process.hrtime.bigint(); for (let i = 0; i < 3000; i++) { byId(s, 'p').p = [0.3 + i * 1e-6, 0.2]; rec(s); } return Number(process.hrtime.bigint() - t0) / 3000 / 1000; };
+    // speed: a seg K makes a recompute at most SEG_RATIO times as long as one without (both timed the same way in this run,
+    // so the ratio holds on any machine and under load)
+    const timer = (seg) => {
+      const s = load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], seg, [glider('g', 0.3)]));
+      for (let i = 0; i < 300; i++) rec(s);
+      return () => { const t0 = process.hrtime.bigint(); for (let i = 0; i < SEG_CALLS; i++) { byId(s, 'p').p = [0.3 + i * 1e-6, 0.2]; rec(s); } return Number(process.hrtime.bigint() - t0) / SEG_CALLS / 1000; };
+    };
+    const whole = timer(0), withSeg = timer(1);
     let a = Infinity, b = Infinity;
-    for (let r = 0; r < 3; r++) { a = Math.min(a, time(0)); b = Math.min(b, time(1)); }
-    ok(b - a <= 10 * SPEED, `seg: a seg K adds ${(b - a).toFixed(1)} us per recompute (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; budget 10 us)`);
+    for (let r = 0; r < SEG_ROUNDS; r++) { a = Math.min(a, whole()); b = Math.min(b, withSeg()); }
+    ok(b / a <= SEG_RATIO,
+      `seg: a seg K makes a recompute ${(b / a).toFixed(2)} times as long (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; limit ${SEG_RATIO})`);
   }
 
   // ------------------------------------------------ 10. the review fixes (notes/orthogonal-circle/segments/ledger.json)

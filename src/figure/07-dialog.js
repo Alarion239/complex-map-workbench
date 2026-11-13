@@ -10,12 +10,18 @@
   function saveSet(s) { try { localStorage.setItem(LS(), JSON.stringify(s)); } catch (e) { /* storage may be blocked */ } }
   const sizeKey = (s) => (s.for === 'article' ? (s.cols === 2 ? 'article2' : 'article1') : s.for);
   // the caption language (DESIGN.md 12, i18n-22): the dialog offers it only when the interface is not English, so an
-  // English interface keeps its dialog and its captions as they were
+  // English interface keeps its dialog and its captions in English
   const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
+  // the steps view keeps its own crop, As on screen until changed there: its figure is the stage's picture
+  const cropOf = (s) => (A.svOn() ? s.svCrop || 'screen' : s.crop);
   // the build options from the remembered settings
   function optsOf(s, extra) {
     const sk = sizeKey(s);
-    return Object.assign({ for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null, ink: s.ink, crop: s.crop, axes: s.axes[s.for] || null, deform: s.deform, panels: s.panels || 'both', lang: capLangOf(s) }, extra || {});
+    return Object.assign({
+      for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
+      ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null, deform: s.deform,
+      panels: s.panels || 'both', lang: capLangOf(s),
+    }, extra || {});
   }
   const ICON = {
     article: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>',
@@ -45,7 +51,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}
+  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -54,7 +60,7 @@
 .xf-pv{display:flex;flex-direction:column;gap:6px;max-width:100%;margin:auto}.xf-scroll:not(.video) .xf-pv{display:none}.xf-pv .xf-poster{margin:0}.xf-pv.busy .xf-poster{opacity:.6;transition:opacity var(--t-med) var(--ease-out)}.xf-pv.busy .xf-pvbar{opacity:.55}
 .xf-pvcv{display:block;background:#fff;box-shadow:var(--xf-paper-shadow);cursor:pointer}.xf-pvbar{display:flex;align-items:center;gap:8px;min-width:0}.xf-pvbtn{flex:0 0 auto;width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border-radius:var(--r-2);background:var(--surface);border:1px solid var(--line);color:var(--ink);cursor:pointer}.xf-pvbtn:hover{border-color:var(--line-strong)}
 .xf-pvbtn:focus-visible,.xf-pvrange:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-pvrange{flex:1 1 auto;min-width:60px;margin:0;accent-color:var(--accent)}.xf-pvtime{font:var(--t-label);color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}.xf-pvt i{font-family:var(--f-math, serif)}.xf-pvnote{font:var(--t-label);color:var(--muted);min-height:16px;overflow-wrap:anywhere}
-@media (max-width:560px){.xf-fmtrow{flex-wrap:wrap}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
+@media (max-width:560px){#xfSvPic>button{min-height:44px}.xf-fmtrow{flex-wrap:wrap}.xf-planes{flex-direction:column;align-items:stretch}.xf-planes select.xf-select{width:100%;height:44px}.xf-planes>span{padding:0 2px}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
   const injectCSS = () => { if (document.getElementById('xfR3css')) return; const st = document.createElement('style'); st.id = 'xfR3css'; st.textContent = CSS3; document.head.append(st); };
   let dlg = null; // the open dialog's state (tests read it)
   let lastFig = null;
@@ -68,8 +74,8 @@
     const st = { set, view, building: false };
     dlg = st;
     const close = () => { closed = true; token++; pv.stop(); bg.remove(); document.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onDown, true); dlg = null; if (opener && opener.focus) opener.focus({ preventScroll: true }); };
-    // (v16.1 user-5) a press outside an open menu (Size, More formats) closes the menu only, not the dialog with it:
-    // whether a menu was open is read before the menu's own outside press closes it (window, capture)
+    // a press outside an open menu (Size, More formats) closes the menu only, not the dialog with it:
+    // whether a menu is open is read before the menu's own outside press closes it (window, capture)
     let downMenu = false;
     const onDown = () => { downMenu = !!document.querySelector('#popHost .pop.menu'); };
     window.addEventListener('pointerdown', onDown, true);
@@ -91,7 +97,7 @@
     const segB = (id, value, options, onchange, label, cls) => {
       const el = h('div', { class: 'seg xf-seg' + (cls ? ' ' + cls : ''), id, role: 'radiogroup', 'aria-label': label });
       for (const [v, l, sub, ic] of options) {
-        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
+        const b = h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(v === value), onclick: () => { if (b.getAttribute('aria-disabled') === 'true') return; for (const x of el.children) x.setAttribute('aria-checked', String(x === b)); onchange(v); } });
         if (ic) b.insertAdjacentHTML('beforeend', ic);
         b.append(h('span', { class: 'xf-sl' }, l));
         if (sub) b.append(h('small', null, sub));
@@ -176,25 +182,60 @@
     const forRow = row($t('For'), forSeg); forRow.classList.add('wide');
     const inkRow = row($t('Ink'), inkSeg); inkRow.classList.add('wide');
     // the caption language (DESIGN.md 12): offered only when the interface is not English (the English dialog is
-    // unchanged); remembered with the settings. An edited caption is dropped: it was written in the other language
+    // unchanged); remembered with the settings. An edited caption is dropped: it is in the other language
     const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' || set.capLang === 'it' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
     if (capLangRow) capLangRow.classList.add('wide');
     // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, the paths (plane and
-    // globe), or one frame at the current t (the earlier one-panel figure of Phase, Landscape and the globes)
+    // globe), or one frame at the current t (the one-panel figure of Phase, Landscape and the globes)
     const defo = defoOf(view);
+    // the steps view's glide along its thread: a video of it wherever it has a step, on the plane, the sphere and the Landscape
+    const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
+    // the steps view without a glide to record: Video is not offered until the thread has a step
+    const noGlide = A.svOn() && !glide ? $t('Add a step to make a video') : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
     if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);
     const deformOf = () => (dOpts.some((q) => q[0] === set.deform) ? set.deform : 'film');
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
+    // the steps view's picture: the shown plane, or the filmstrip of the whole thread
+    // (Two planes needs a flat surface: the Landscape's picture is 3D, and a 2D figure never stands in for it. Paths: the plane
+    // with the paths of the step that leads to it; off, with its reason, where there is no such step)
+    const svPics = [['plane', $t('Shown plane')], ['paths', $t('Paths')], ['two', $t('Two planes')], ['film', $t('Filmstrip')]];
+    const svFlat = () => A.svSurf() !== 'land';
+    const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
+    const svPicOf = () => (set.svPic === 'film' ? 'film' : set.svPic === 'two' && svFlat() ? 'two' : set.svPic === 'paths' && svpOk ? 'paths' : 'plane');
+    // the planes of the thread to draw: the Play range's ends when one is marked, else z and the last plane
+    const svNames = A.svOn() ? A.svPlaneNames() : [], svEnds = A.svOn() ? A.svRangeEnds() : null;
+    if (A.svOn()) { set.svFrom = svEnds ? svEnds[0] : 0; set.svTo = svEnds ? svEnds[1] : svNames.length - 1; }
+    const svPicSeg = A.svOn() ? segB('xfSvPic', svPicOf(), svPics, (v) => { set.svPic = v; syncPlanes(); changed(); }, $t('Picture')) : null;
+    const svPicRow = svPicSeg ? row($t('Picture'), svPicSeg) : null;
+    if (svPicRow && !svpOk) {
+      const pb = svPicRow.querySelector('[data-v="paths"]');
+      const why = svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
+      if (pb) { pb.setAttribute('aria-disabled', 'true'); pb.dataset.tip = why; pb.setAttribute('aria-description', why); }
+    }
+    if (svPicRow) svPicRow.classList.add('wide');
+    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the flat surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
+    const planeSel = (id, label, onchange) => { const el = h('select', { class: 'xf-select xf-plane', id, 'aria-label': label, onchange: () => onchange(+el.value) }); return el; };
+    const fromSel = planeSel('xfSvFrom', $t('From plane'), (v) => { set.svFrom = v; if (set.svTo <= v) set.svTo = v + 1; fillTo(); changed(); });
+    const toSel = planeSel('xfSvTo', $t('To plane'), (v) => { set.svTo = v; changed(); });
+    // ("to" lists only the planes after "from")
+    const fillTo = () => { toSel.innerHTML = ''; for (let i = set.svFrom + 1; i < svNames.length; i++) toSel.append(h('option', { value: String(i) }, svNames[i])); toSel.value = String(set.svTo); };
+    if (A.svOn()) {
+      for (let i = 0; i < svNames.length - 1; i++) fromSel.append(h('option', { value: String(i) }, svNames[i]));
+      fromSel.value = String(set.svFrom); fillTo();
+    }
+    const svPlanesRow = A.svOn() ? row($t('Planes'), h('div', { class: 'xf-fmtrow xf-planes' }, h('span', null, $t('from')), fromSel, h('span', null, $t('to')), toSel)) : null;
+    if (svPlanesRow) svPlanesRow.classList.add('wide');
+    function syncPlanes() { if (svPlanesRow) svPlanesRow.hidden = fmtOf() === 'video' || svPicOf() !== 'two'; }
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
-    // (a browser without a video encoder is told so at the format row, not after Save: export review r3, video-6)
+    // (a browser without a video encoder is told so at the format row, not after Save)
     const canVideo = typeof VideoEncoder !== 'undefined';
-    const fmtOf = () => (set.fmt === 'video' ? (defo && canVideo ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
+    const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
-    // (v16.5 UX60: Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
+    // (Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
     // opens again on Video: a video records the deformation)
     fOpts.push(['video', $t('Video')]);
     // (PNG: 600 dpi for an article, where journals ask for it; 300 dpi for homework and slides; remembered per For)
@@ -202,7 +243,7 @@
     const dpiSel = h('select', { class: 'xf-select', id: 'xfDpi', 'aria-label': $t('Resolution'), onchange: () => { set.dpiFor = Object.assign({}, set.dpiFor, { [set.for]: +dpiSel.value }); set.dpi = +dpiSel.value; saveSet(set); syncFmt(); } }, ...[300, 600].map((v) => h('option', { value: String(v) }, `${v} dpi`)));
     dpiSel.value = String(dpiOf());
     const fmtSeg = segB('xfFmt', fmtOf(), fOpts, (v) => {
-      if (v === 'video' && !defo) {
+      if (v === 'video' && !defo && !glide) {
         if (!(A.deformOn && A.deformOn())) { syncFmt(); return; }
         set.fmt = 'video'; saveSet(set); close();
         toast($t('A video records the deformation: it is on now.'));
@@ -214,7 +255,8 @@
     const fmtRow = row($t('Format'), h('div', { class: 'xf-fmtrow' }, fmtSeg, dpiSel)); fmtRow.classList.add('wide');
     { const vb = fmtSeg.querySelector('[data-v="video"]');
       if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
-      else if (vb && !defo) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
+      else if (vb && noGlide) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noGlide; vb.setAttribute('aria-description', noGlide); }
+      else if (vb && !defo && !glide) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
@@ -236,14 +278,18 @@
       vfr($t('Ends'), vseg('xfVEnds', 'ends', [['once', $t('Once')], ['loop', $t('Loop')], ['bounce', $t('Bounce')]], $t('Ends'))),
       vfr($t('Look'), vseg('xfVLook', 'look', [['light', $tx('video look', 'Light')], ['print', $tx('video look', 'Print')]], $t('Look'))),
       ...(defo === 'plane' || defo === 'deriv' || defo === 'phase' ? [vfr($t('Window'), vseg('xfVWin', 'win', [['screen', $t('As on screen')], ['fit', $t('Fit the motion')]], $t('Window')))] : []),
-      h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', $t('t label'))));
+      h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
+    // (the steps view: where the video goes and how long it is, kept current by posterSoon)
+    const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
+    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = `${glide.from} → ${glide.to} · ${I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1)} s`; };
+    if (vSum) { vSumSet(); vidBox.prepend(vSum); }
     const vidRow = row($t('Video'), vidBox); vidRow.classList.add('wide');
     // Fine-tune
     const ftBody = h('div', { class: 'xf-ft', hidden: !set.fine });
     const ftBtn = h('button', { type: 'button', class: 'xf-disc', 'aria-expanded': String(!!set.fine), onclick: () => { set.fine = !set.fine; ftBody.hidden = !set.fine; ftBtn.setAttribute('aria-expanded', String(set.fine)); ftBtn.querySelector('.xf-chev').innerHTML = set.fine ? ICON.down : ICON.right; saveSet(set); } });
     ftBtn.append(h('span', { class: 'xf-chev', html: set.fine ? ICON.down : ICON.right }), h('span', null, $t('Fine-tune')), h('small', null, view === 'xy' ? $t('Crop · Axes · Panels') : view === 'land' ? $t('Crop') : $t('Crop · Axes')));
     const fr = (label, el) => h('div', { class: 'xf-fr' }, h('span', null, label), el);
-    ftBody.append(fr($t('Crop'), segB('xfCrop', set.crop, [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { set.crop = v; changed(); }, $t('Crop'))));
+    ftBody.append(fr($t('Crop'), segB('xfCrop', cropOf(set), [['fit', $t('Fit content')], ['screen', $t('As on screen')]], (v) => { if (A.svOn()) set.svCrop = v; else set.crop = v; changed(); }, $t('Crop'))));
     const axesSeg = () => segB('xfAxes', set.axes[set.for] || PRESET[set.for].axes, [['box', $t('Box')], ['cross', $t('Cross')], ['none', $t('None')]], (v) => { set.axes[set.for] = v; changed(); }, $t('Axes'));
     let axesEl = axesSeg();
     const axesRow = fr($t('Axes'), axesEl);
@@ -255,7 +301,7 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
@@ -313,7 +359,7 @@
     const pvCv = h('canvas', { class: 'xf-pvcv', role: 'img', 'aria-label': $t('The video, as it will be saved'), hidden: true, onclick: () => pvToggle() });
     const pvBtn = h('button', { type: 'button', class: 'xf-pvbtn', id: 'xfPvPlay', onclick: () => pvToggle() });
     // (while no preview runs, between an option change and its new frames, the button and the scrubber change only the
-    // wish, which the next preview starts with: review vp-2)
+    // wish, which the next preview starts with)
     const pvRange = h('input', { type: 'range', class: 'xf-pvrange', id: 'xfPvSeek', min: '0', max: '0', step: '1', value: '0', 'aria-label': $t('Position in the video'), oninput: () => { const v = +pvRange.value; pvWant = false; if (!pv.state().id) { pvBtnSet(false); return; } pv.pause(); pv.seek(v); } });
     // (a key on the scrubber while it plays: from the frame in view, not from where the scrubber stood still)
     pvRange.addEventListener('keydown', () => { const s = pv.state(); if (s.id && s.playing) pvRange.value = String(s.i); });
@@ -327,7 +373,7 @@
     const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
     let pvWant = !reduced(), pvSize = null, pvFill = [0, 0], pvAriaAt = 0;
     // (what the frames are: the video's own, at the size shown here when that is smaller, and lightly compressed when
-    // the timeline is too long to keep them as they are; review vp-1)
+    // the timeline is too long to keep them as they are)
     const pvNoteText = () => {
       if (!pvSize) return '';
       const s = pv.state(), [r, n] = pvFill, [pw, , W, H, raw] = pvSize;
@@ -337,7 +383,7 @@
       return !s.playing && !s.shown && reduced() ? `${what} · ${$t('Paused: reduced motion is on. Press Play to watch.')}` : what;
     };
     const pvBtnSet = (on) => { pvBtn.innerHTML = on ? ICON.pause : ICON.play; pvBtn.setAttribute('aria-label', on ? $t('Pause') : $t('Play')); pvBtn.title = on ? $t('Pause') : $t('Play'); };
-    // the scrubber's value and its text for a screen reader (review vp-6): while it plays, the scrubber with focus
+    // the scrubber's value and its text for a screen reader: while it plays, the scrubber with focus
     // stands still (so a screen reader on it does not read out every frame), and its text changes at most once a second
     const pvAria = (i, now) => {
       const s = pv.state(), fps = s.fps || 30, t = pv.tOf(i), ms = performance.now();
@@ -375,8 +421,9 @@
     };
     let posterTok = 0, posterTimer = 0, extKnown = null, pvWH = null, pvKey = null;
     // (an option changed: the frames in view are stale; the preview stops, the poster dims until the new one is drawn)
-    // (the bar is dimmed and says nothing of the old video; the button shows the wish: review vp-2)
+    // (the bar is dimmed and says nothing of the last video; the button shows the wish)
     const posterSoon = () => {
+      vSumSet();
       clearTimeout(posterTimer); pv.stop(); pvCv.hidden = true; posterImg.hidden = false; pvBox.classList.add('busy');
       pvBtnSet(pvWant); pvTime.textContent = ''; pvTt.data = ''; pvRange.max = '0'; pvRange.value = '0'; pvRange.removeAttribute('aria-valuetext');
       pvNote.textContent = pvSize ? $t('Preview: drawing the frames, {p} %', { p: 0 }) : '';
@@ -390,7 +437,7 @@
         const plan = await videoPlan(opts({ video: vset, alive: () => my === posterTok && !closed }));
         if (!plan || my !== posterTok) return;
         const c = document.createElement('canvas'); c.width = plan.W; c.height = plan.H;
-        const t = Math.max(0, Math.min(plan.m, A.defo().T));
+        const t = plan.gl ? Math.max(0, Math.min(plan.m, A.svGlide().at - plan.gl.lo)) : Math.max(0, Math.min(plan.m, A.defo().T));
         if (!(await videoFrame(plan, t, c.getContext('2d', { alpha: false }))) || my !== posterTok) return;
         const k = Math.min(1, 960 / plan.W), s2 = document.createElement('canvas');
         s2.width = Math.round(plan.W * k); s2.height = Math.round(plan.H * k);
@@ -404,8 +451,8 @@
         const fr0 = plan.times.length;
         hint.textContent = $t('{w} × {h} · {fps} fps · {secs} s', { w: plan.W, h: plan.H, fps: vset.fps, secs: num(fr0 / vset.fps, 1) }) + (extKnown === 'webm' ? ' · WebM (VP9)' : '');
         wait.hidden = true; pvBox.classList.remove('busy'); pvBar.hidden = false;
-        // the preview starts from the poster's frame, so the picture does not jump (review vp-4); paused with reduced
-        // motion, only that frame is drawn until Play (review vp-5)
+        // the preview starts from the poster's frame, so the picture does not jump; paused with reduced
+        // motion, only that frame is drawn until Play
         let at = 0, best = Infinity;
         plan.times.forEach((e, i) => { if (typeof e === 'number' && Math.abs(e - t) < best - 1e-12) { best = Math.abs(e - t); at = i; } });
         pv.start(plan, { cssW, autoplay: pvWant, at, lazy: !pvWant && reduced() });
@@ -420,7 +467,8 @@
       const f = fmtOf(), vid = f === 'video';
       for (const b of fmtSeg.children) b.setAttribute('aria-checked', String(b.dataset.v === f));
       dpiSel.hidden = f !== 'png';
-      for (const r of [forRow, sizeRow, inkRow, capLangRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
+      syncPlanes();
+      for (const r of [forRow, sizeRow, inkRow, capLangRow, svPicRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
       greyBtn.hidden = vid; loupeBtn.hidden = vid; facts.hidden = vid;
@@ -428,7 +476,7 @@
       shareBtn.hidden = vid || !canShareFiles();
       vidBtn.hidden = !vid;
       dpiSel.value = String(dpiOf());
-      // (the default name follows the figure until it is edited: export review r3, editor-2)
+      // (the default name follows the figure until it is edited)
       if (!nameEdited) { nameInp.value = defaultName(view, deformOf(), f); fitName(); }
       // (the extension of the file a video will be: .mp4, or .webm where only VP9 can be encoded; video-5)
       extEl.textContent = vid ? `.${extKnown || 'mp4'}` : `.${f}`;
@@ -489,13 +537,14 @@
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
       wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
-      // (once MathJax is in, the line says what the build is doing now)
+      // (once MathJax is in, the line says what the build is doing)
       if (!XD.ready()) XD.whenReady(20000, () => my === token && !closed).then((on) => { if (on && my === token && !wait.hidden) wait.textContent = $t('Typesetting…'); });
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));
         if (my !== token || !f) return;
         fig = f; lastFig = f; st.fig = f;
         figImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f.svg);
+        figImg.alt = f.title || $t('The figure at its printed size');
         before.innerHTML = set.for === 'homework' ? `<div class="xf-prob">${$t('Problem 3.')}</div>${dummy(3, 7, true)}` : dummy(4, 11, true);
         after.innerHTML = dummy(3, 5, true);
         // (the LaTeX box at once; the caption on the paper follows when its words are typeset)
@@ -599,7 +648,7 @@
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && A.canDeform && !A.canDeform())));
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && !glide && !noGlide && A.canDeform && !A.canDeform())));
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);
@@ -658,7 +707,7 @@
   async function againRun(what) {
     const set = loadSet();
     // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
-    // and for Copy, the last figure is made again; export review r3, video-3)
+    // and for Copy, the last figure is made again)
     if (set.last && set.last.kind === 'video' && what === 'save' && defoOf(A.viewKind()) && typeof VideoEncoder !== 'undefined') { set.fmt = 'video'; saveSet(set); open(); return true; }
     const last = set.last && set.last.kind !== 'video' ? set.last : set.lastFig || { kind: 'overleaf', fmt: 'pdf' };
     if (set.last && set.last.kind === 'video' && set.fmt === 'video') set.fmt = last.fmt === 'png' || last.fmt === 'svg' ? last.fmt : 'pdf';
@@ -678,8 +727,8 @@
   }
   return {
     attach: (api) => { A = api; },
-    build, pdf, png, svgBlob, greyProof, latex, captionSVG, copyImage, open, again,
-    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), shortCaption,
+    captionFor, build, pdf, png, svgBlob, greyProof, latex, captionSVG, copyImage, open, again,
+    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), glide: () => (A && A.svGlide ? A.svGlide() : null), glideArt: (x, o) => A.svGlideArt(x, o), svKey: (x) => (A && A.svKey ? A.svKey(x) : null), shortCaption,
     settings: loadSet, saveSettings: saveSet, sizes: SIZES, presets: PRESET,
     dialog: () => dlg, last: () => lastFig, segsOf, plainOf, XD,
     geom: { senseAt, chevronAt, fitBox },

@@ -136,7 +136,7 @@
     paneL.setView(S.srcView);
     clipWin = m && m.clipWin ? Object.assign({}, m.clipWin) : S.clipWin ? Object.assign({}, S.clipWin) : viewBox(S.srcView);
     if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (review v16 regress-6: saved from here on)
-    rebuild(); buildShapeList(); buildPipeline(); buildDisplay();
+    rebuild(); buildShapeList(); chainRebuilt(); buildDisplay();
     setFocus(Math.min(S.focus || 0, S.steps.length));
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
@@ -144,7 +144,7 @@
       if (m.morph.open && morphRange().steps.length) openTransport();
       Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
       if (m.defMem) Object.assign(defMem, m.defMem);
-      if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; setPlayIcon(); syncTransport(); }
+      if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; syncTransport(); }
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
@@ -159,7 +159,7 @@
     }
     updateUndo();
     buildShapeList(); buildRightFoot(); updateFocusUI(); drawLegend();
-    scheduleFix(); requestRender('L', 'R', 'T', 'OL', 'OR', 'P');
+    scheduleFix(); requestRender('L', 'R', 'OL', 'OR', 'P');
     save();
     return true;
   }
@@ -186,7 +186,7 @@
     if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
     save();
   }
   const tourApi = {
@@ -194,7 +194,7 @@
     // are in the Inspector with the F tile selected, so asking for them selects F (and draws the Inspector at once)
     anchor: (name) => {
       if (!['composite', 'guarantees', 'domain', 'matrix'].includes(name)) return undefined;
-      if (selOf() !== 'F') { setSel('F'); syncSel(); }
+      if (selOf() !== 'F') setSel('F');
       renderProps();
       return undefined;
     },
@@ -219,7 +219,7 @@
         tourPics = { compact: !!S.compact, h: hNow };
         setOpt('compact', false);
         if (short) root.style.setProperty('--chain-h', '188px');
-        applyLayout(); requestRender('T');
+        applyLayout();
         return true;
       }
       if (!tourPics) return false;
@@ -228,7 +228,7 @@
       if (!S.compact) {
         setOpt('compact', p.compact);
         if (p.h) root.style.setProperty('--chain-h', p.h); else root.style.removeProperty('--chain-h');
-        applyLayout(); requestRender('T');
+        applyLayout();
       }
       return false;
     },

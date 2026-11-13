@@ -33,7 +33,7 @@ if (m) {
   ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /glprof only/.test(g.err), g);
   // (#169: the Windows desktop is on request only: only windows and both send it jobs, they would wait while it is off)
   const quiet = (r) => r.status === 0 && !/::(error|warning)::/.test(r.err);
-  for (const mode of ['gate', 'glprof']) {
+  for (const mode of ['gate', 'glprof', 'suites']) {
     const w = machines('windows', mode);
     ok(`windows, ${mode}: the Windows desktop alone`, quiet(w) && w.out === 'machines=["Windows"]', w);
   }
@@ -62,7 +62,7 @@ if (names) {
   ok('d3d11 accepts the laptop', N.d3d11.test('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x000046A8) Direct3D11 vs_5_0 ps_5_0, D3D11)'));
   ok('d3d11 refuses SwiftShader', !N.d3d11.test('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'));
 }
-const cmd = (/- run: node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
+const cmd = (/- run: .*node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
 ok('the hosted machine measures against the reference, one round', cmd.includes(`matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
 ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf('Windows-hosted'), cmd);
 ok('the gates never run on the hosted machine (their jobs stay self-hosted)', ['glsl', 'quality', 'perf'].every((j) => /runs-on: \[self-hosted, '\$\{\{ matrix\.machine \}\}', gpu\]/.test(job(j))));

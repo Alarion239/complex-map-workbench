@@ -13,6 +13,9 @@ where it matters, its verdict per run or metric). The cases cover the review fin
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
            [#413] the dpr-2 opacity zooms' fps and latency are reported (INFO) either way, never gated; their frame
            times, and the same metrics of every other unit, stay gated
+  busy     a FAIL of a unit that started on a busy machine is BUSY and not counted: exit 3 (invalid: machine busy)
+           when nothing else failed, 1 when a clean unit failed too; merged passes (meta.passBusy / passUnits) count a
+           unit that started busy as red only with 2 passes that started quiet; --busy-units lists the BUSY units
   merge    a unit that errored in the full run (suite.no_errors false, an error recorded) and was not re-run keeps the
            merged suite.no_errors false under --checks majority, and the paired gate fails on it; other checks still
            merge by majority
@@ -169,7 +172,7 @@ class Perf(unittest.TestCase):
         m = 'examples.13.inv_first_draw_ms'
         rc, out, st = self.gate({}, {m: pm(None, 'limit', limit=250)})                    # nothing to measure (before P2)
         self.assertEqual(rc, 0, out)
-        rc, out, st = self.gate({}, {m: pm(None, 'limit', limit=250, expect=True)})       # an inverse program was linked
+        rc, out, st = self.gate({}, {m: pm(None, 'limit', limit=250, expect=True)})       # an inverse program is linked
         self.assertEqual(rc, 1, out)
         rc, out, st = self.gate({m: pm(120, 'limit', limit=250)}, {m: pm(None, 'limit', limit=250, expect=True)})
         self.assertEqual(rc, 1, out)
@@ -215,7 +218,7 @@ class Perf(unittest.TestCase):
         self.assertEqual(st['a.f'], 'IMPROVED', out)
 
     def test_vsync_bound_zooms_report_only(self):
-        # [#413] runs 41069254062 and 41074624389: fps 47 -> 29 in one round, +14 % in the next, on the same build pair
+        # runs 41069254062 and 41074624389: fps 47 -> 29 on one run, +14 % on the other, on the same build pair
         pre = ['image.expH.a30.dpr2.zoomR.in', 'image.expH.a50.dpr2.zoomR.out', 'image.ziH.a30.dpr2.zoomR.out', 'image.ziH.a50.dpr2.zoomR.in']
         for p in pre:
             fps, lat, f95 = p + '.fps', p + '.latency_p95_ms', p + '.frame_p95_ms'
@@ -241,7 +244,7 @@ class Perf(unittest.TestCase):
         self.assertEqual((rc, st[m]), (1, 'FAIL'), out)
 
     def test_reference_cannot_run_the_unit(self):
-        # [#292] the reference lacks the feature (phase.mandel against wave 5: no iter() in its parser, an empty plane):
+        # the reference lacks the feature (phase.mandel: no iter() in its parser, an empty plane):
         # its metrics carry ref_unsupported, and the unit's are NEW, not FAIL, and listed with the reason
         why = 'shape s1 draws nothing there'
         b = {'m.fps': pm(15.1, 'throughput', unit_id='m', ref_unsupported=why), 'm.mem': pm(32768, 'mem_bytes', unit_id='m', ref_unsupported=why),
@@ -257,6 +260,76 @@ class Perf(unittest.TestCase):
         # without the mark the same numbers are compared, and fail
         rc, out, st = self.gate({k: dict(v, ref_unsupported=None) for k, v in b.items()}, {k: v for k, v in r.items() if k != 'm.moved'}, '--paired')
         self.assertEqual((rc, st['m.fps'], st['m.mem']), (1, 'FAIL', 'FAIL'), out)
+
+
+class Busy(unittest.TestCase):
+    """the loaded-machine guard in compare_perf.py: a reading taken on a busy machine is not a verdict"""
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp(prefix='cmw-busy-')
+
+    def tearDown(self):
+        shutil.rmtree(self.d, ignore_errors=True)
+
+    SLOW = {'a.frame': pm(40, 'frame_ms', unit_id='a')}      # (10 -> 40 ms: over every frame tolerance)
+    FAST = {'a.frame': pm(10, 'frame_ms', unit_id='a')}
+
+    def gate(self, base, res, meta, *extra):
+        b, r, j = (os.path.join(self.d, n) for n in ('b.json', 'r.json', 'v.json'))
+        wj(b, {'meta': PMETA, 'metrics': base})
+        wj(r, {'meta': dict(PMETA, **meta), 'metrics': res})
+        rc, out = run_quiet(compare_perf.main, ['--baseline', b, '--results', r, '--json', j, '--paired', *extra])
+        return rc, out, {row['metric']: row['status'] for row in rj(j)['rows']}
+
+    def test_clean_red_counts(self):
+        rc, out, st = self.gate(self.FAST, self.SLOW, {})
+        self.assertEqual((rc, st['a.frame']), (1, 'FAIL'), out)
+
+    def test_fail_of_a_busy_unit_is_busy_and_not_counted(self):
+        rc, out, st = self.gate(self.FAST, self.SLOW, {'loadMax': 4.5, 'busyUnits': [{'unit': 'a', 'load': 11.7}]})
+        self.assertEqual(st['a.frame'], 'BUSY', out)
+        self.assertEqual(rc, 3, out)                                # invalid: machine busy
+        self.assertIn('INVALID: machine busy', out)
+        self.assertIn('load 11.7 > 4.5', out)
+
+    def test_a_busy_unit_that_passes_is_a_pass(self):
+        rc, out, st = self.gate(self.FAST, self.FAST, {'busyUnits': [{'unit': 'a', 'load': 11.7}]})
+        self.assertEqual((rc, st['a.frame']), (0, 'PASS'), out)
+
+    def test_a_clean_failure_next_to_a_busy_one_still_fails(self):
+        base = dict(self.FAST, **{'b.frame': pm(10, 'frame_ms', unit_id='b')})
+        res = dict(self.SLOW, **{'b.frame': pm(40, 'frame_ms', unit_id='b')})
+        rc, out, st = self.gate(base, res, {'busyUnits': [{'unit': 'a', 'load': 9}]})
+        self.assertEqual((rc, st['a.frame'], st['b.frame']), (1, 'BUSY', 'FAIL'), out)
+
+    def test_merged_passes_need_two_that_started_quiet(self):
+        # three passes of unit a: busy in the first only -> two clean passes: red
+        rc, out, st = self.gate(self.FAST, self.SLOW, {'passUnits': [['a'], ['a'], ['a']], 'passBusy': [['a'], [], []]})
+        self.assertEqual((rc, st['a.frame']), (1, 'FAIL'), out)
+        # busy in two of three: one clean pass is not enough
+        rc, out, st = self.gate(self.FAST, self.SLOW, {'passUnits': [['a'], ['a'], ['a']], 'passBusy': [['a'], ['a'], []]})
+        self.assertEqual((rc, st['a.frame']), (3, 'BUSY'), out)
+        self.assertIn('only 1 of its 3 pass(es) started quiet', out)
+        # a pass that did not measure the unit is not one of its passes
+        rc, out, st = self.gate(self.FAST, self.SLOW, {'passUnits': [['a'], ['b'], ['a']], 'passBusy': [['a'], [], []]})
+        self.assertEqual((rc, st['a.frame']), (3, 'BUSY'), out)
+        # never busy: counts however few passes
+        rc, out, st = self.gate(self.FAST, self.SLOW, {'passUnits': [['a']], 'passBusy': [[]]})
+        self.assertEqual((rc, st['a.frame']), (1, 'FAIL'), out)
+
+    def test_busy_units_file_lists_what_needs_another_pass(self):
+        f = os.path.join(self.d, 'busy.txt')
+        self.gate(self.FAST, self.SLOW, {'busyUnits': [{'unit': 'a', 'load': 9}]}, '--busy-units', f)
+        with open(f) as fh:
+            self.assertEqual(fh.read(), 'a\n')
+
+    def test_merge_records_each_pass_s_busy_units(self):
+        def run(busy):
+            return {'meta': dict(PMETA, busyUnits=[{'unit': u, 'load': 9} for u in busy]),
+                    'metrics': {'a.frame': pm(10, 'frame_ms', unit_id='a')}, 'errors': []}
+        m = merge_runs.merge([run(['a']), run([]), run([])], checks='majority')
+        self.assertEqual(m['meta']['passBusy'], [['a'], [], []])
+        self.assertEqual(m['meta']['passUnits'], [['a'], ['a'], ['a']])
 
 
 class Merge(unittest.TestCase):

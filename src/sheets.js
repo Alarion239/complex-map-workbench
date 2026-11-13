@@ -1,18 +1,17 @@
 // @ts-check
 'use strict';
 // funcs.js's sheets: the whole Riemann surfaces (local cuts, every sheet: stepSheets, sheetEval) and the deformation's
-// sheets (sheetMap*). Moved out of funcs.js (issue #20, the file-size budget) as a factory funcs.js calls where it
-// stood, with the names of funcs.js it reads (each declared before the call); it returns the ones funcs.js exports
+// sheets (sheetMap*), a factory funcs.js calls, with the names of funcs.js it reads (each declared before the call); it returns the ones funcs.js exports
 const Sheets = (host) => {
   const { DEG, PI, circleAt, circleRel, isLive } = host;
   const { C } = CX;
-  const { linHom, logHom, powHom, sc } = NatPaths;
+  const { joukAt, linHom, logHom, powHom, sc } = NatPaths;
   // ---------------- whole Riemann surfaces: local cuts, every sheet ----------------
   // Each multivalued piece (an n-th root, log, a complex power, a branch node of a custom formula) is evaluated with
   // a LOCAL cut opposite the cell centre zc (cut angle = arg of the piece's input at zc + 180°, so the cut never
   // crosses the cell) and on a chosen sheet. Over all sheets the union of the cells is the covering surface.
   const SHEET_MAX = 24;
-  // (v16.1 review math-3) sheets are numbered from the step's own branch: Th = its cut (radians) + 2 pi k (its sheet k;
+  // sheets are numbered from the step's own branch: Th = its cut (radians) + 2 pi k (its sheet k;
   // a formula's branch nodes: its cut, k = 0). Digit d on the local cut of a cell centred where the piece's input is c0
   // is local sheet d + sheetOff(c0, Th): the shift from the local range (arg c0 - pi, arg c0 + pi] to the step's
   // (cut - 2 pi, cut] plus k. So digit 0 is the step itself (F, or the plain H_t) on every cell the step's cut does not
@@ -21,7 +20,7 @@ const Sheets = (host) => {
   const sheetOff = (c0, Th) => Math.floor((Th - Math.atan2(c0.im, c0.re)) / (2 * PI));
   const stepTh = (bb) => { const v = bb.vals || {}, cut = (v.cut ?? 180) * DEG, k = v.k | 0; if (bb.def.id === 'root') { const n = Math.max(2, v.n); return cut + 2 * PI * (((k % n) + n) % n); } return cut + 2 * PI * k; };
   // branches of z^s: q for a real s = p/q (q ≤ 24; 1 for an integer), 0 (infinitely many: a window) otherwise. The
-  // same exact test as sheetCountOf (v16.1 review math-7: a typed 0.333333333 is 333333333/10^9, not 1/3, so it gets
+  // same exact test as sheetCountOf (a typed 0.333333333 is 333333333/10^9, not 1/3, so it gets
   // a window, as its caption says, and not 3 surfaces under "all 3 sheets")
   function sheetCount(s) {
     if (typeof s === 'number') s = C(s, 0);
@@ -29,7 +28,7 @@ const Sheets = (host) => {
     const q = sheetCountOf(s);
     return q <= SHEET_MAX ? q : 0;
   }
-  // (v16.1 user-5) the true number of branches of z^s, for the captions (sheetCount stops at 24, where the landscape
+  // the true number of branches of z^s, for the captions (sheetCount stops at 24, where the landscape
   // switches to a window): q for a real s that is exactly a fraction p/q in lowest terms with q <= 10^6 (a typed 0.123
   // is 123/1000: 1000 sheets), Infinity otherwise (a non-real s, sqrt 2, pi: no fraction with q <= 10^6 is the double)
   function sheetCountOf(s) {
@@ -129,7 +128,7 @@ const Sheets = (host) => {
   }
   // the multivalued pieces of one built step, in the order their sheet digits are read: [{n, of}] (n sheets, 0: a
   // window of 2W + 1 sheets, 1: single-valued after all, e.g. an integer exponent; of: the piece's own number of
-  // sheets, Infinity for log, so a caption can say "k = -2, ..., 2 of infinitely many" or "of 30": v16.1 user-5)
+  // sheets, Infinity for log, so a caption can say "k = -2, ..., 2 of infinitely many" or "of 30")
   const nodeOf = (x) => (x.kind === 'sqrt' ? 2 : x.kind === 'root' ? sheetCountOf(x.s) : x.kind === 'powc' ? sheetCountOf(x.v) : Infinity);
   function stepSheets(b) {
     if (!b || b.error || !b.def || b.op === 'deriv') return [];
@@ -226,7 +225,7 @@ const Sheets = (host) => {
     return stage(b, zc, z)[1];
   }
 
-  // ---------------- the deformation's sheets (notes/v16-user5/SHEETS-DESIGN.md) ----------------
+  // ---------------- the deformation's sheets (notes/v16-user5/SHEETS-DESIGN.md; standards-ok: a spec path in notes/) ----------------
   // H_t on the sheets that become F's: every multivalued piece keeps the digit it has in F's surfaces (sheetEval) and
   // its path runs on that sheet, with the local cut opposite its input at the cell centre. GPU twin: chainSheetHom.
   // How a deformation map applies step k: 0 not at all, 1 in full, 2 its path at t. Map mode 1 (step hi at t): the
@@ -252,7 +251,7 @@ const Sheets = (host) => {
   // Funcs.sheetMapPieces(steps, built, map, end) -> [{k, n, node, how}]: the multivalued pieces a deformation map (mode 1
   // or 3) applies, in digit order (n sheets, 0: a window of 2W + 1), or null when the map cannot be drawn as sheets (a
   // d/dz among its steps, a path at t with no sheet form, another mode). end > 0 (F's last step: the landscape passes
-  // it, v16.1 review math-5): the digits are F's, read for every live step in (base, end] in chain order, and a step
+  // it): the digits are F's, read for every live step in (base, end] in chain order, and a step
   // the map does not apply yet (how 0) keeps its digits without acting, so surface c is F's surface c at every t (no
   // re-indexing when a step begins, no surface that vanishes at a node) and the count is F's
   function sheetMapPieces(steps, built, map, end = 0) {
@@ -305,14 +304,21 @@ const Sheets = (host) => {
     return [H(c0), H(w0)];
   }
   // a top-level step's path with a cut of its own at 0 < t < 1 (z^n: z^(1 + (n - 1)t), and the power path of a
-  // (z - c)^n): on the local cut opposite its input at the cell centre c0, sheet 0, so the landscape finds that cut by
-  // continuation (GPU: the step's _hc in chainSheetHom); null for any other step
+  // (z - c)^n): on the local cut opposite its input at the cell centre c0, sheet 0; the Joukowski path: the formula of
+  // c0's side of the unit circle for every z. This is how the landscape finds that cut by continuation (GPU: the
+  // step's _hc in chainSheetHom); null for any other step
   function localCutHom(bb, c0, t) {
     if (!(t > 0 && t < 1) || !bb || !bb.def) return null;
     if (bb.def.id === 'pown') {
       const n = bb.vals.n, th = Math.atan2(c0.im, c0.re) + PI;
       if (n >= 0) return powHom(C(n, 0), th, 0)(t);
       return t < 0.5 ? powHom(C(-n, 0), th, 0)(2 * t) : null;
+    }
+    if (bb.nat && bb.nat.kind === 'jouk') {
+      const J = joukAt(t, c0.re * c0.re + c0.im * c0.im < 1), lc = bb.nat.scaled && bb.natData ? bb.natData.lc : null;
+      if (!lc) return J;
+      const k = CX.exp(sc(lc, t));
+      return (z) => CX.mul(k, J(z));
     }
     const d = bb.nat && bb.nat.kind === 'pow' ? bb.natData : null;
     if (!d) return null;

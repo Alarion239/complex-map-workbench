@@ -12,6 +12,25 @@
   // key, run (an async function with the daemon's helpers), sizes (the sizes it is measured at; all when absent), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
+  // two more steps on the chain (sine, exponential), each waited for on the state the next key reads: the palette open, its
+  // list filtered to the typed name, the step in the chain
+  const STEPS = `__cmwP().steps.length`;
+  const grow = async () => {
+    for (const f of ['sine', 'exponential']) {
+      const n = await ev(STEPS);
+      await key('k', 4);
+      await settled({ only: true, until: `!!document.querySelector('.pop.palette .pal-input') && document.querySelectorAll('.pop.palette .pal-item').length > 0` });
+      const all = await ev(`document.querySelectorAll('.pop.palette .pal-item').length`);
+      await type(f);
+      await settled({ only: true, until: `document.querySelector('.pop.palette .pal-input').value === ${JSON.stringify(f)} && document.querySelectorAll('.pop.palette .pal-item').length > 0 && document.querySelectorAll('.pop.palette .pal-item').length < ${all}` });
+      await key('Enter');
+      await settled({ only: true, until: `${STEPS} > ${n} && !document.querySelector('.pop.palette')` });
+    }
+    // (the "step added" toasts are not part of the state: they would sit over the sheet)
+    await ev(`(() => { for (const t of document.querySelectorAll('#toastHost > *')) t.remove(); return 1; })()`);
+  };
+  const GROWN = `${STEPS} >= 4`;
+  const SHRINK = `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()`;
   const STATES = [
     { name: 'start' },
     { name: 'phase', go: `__cmwSetMain('phase'), 1`, wait: 1200, views: ['classic'] },
@@ -49,9 +68,11 @@
     { name: 'sheet numbers', go: `(Phone.open('edit', { params: true }), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === 'edit'` },
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
-    { name: 'chain of 4', run: async () => { for (const f of ['sine', 'exponential']) { await key('k', 4); await sleep(500); await type(f); await sleep(500); await key('Enter'); await sleep(900); } },
-      wait: 1500, ready: `document.querySelectorAll('#pipeline .card:not(.region-card)').length >= 4`,
-      after: `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()` },
+    { name: 'chain of 4', run: grow, wait: 1500, ready: GROWN, after: SHRINK },
+    // (the palette and the phone's sheets are also checked over a four-step chain, the longer chain they must fit)
+    { name: 'palette on chain of 4', dev: 'desktop', run: async () => { await grow(); await key('k', 4); }, ready: `${GROWN} && ${LAYER}`, after: SHRINK },
+    ...['edit', 'chain'].map((k) => ({ name: 'sheet ' + k + ' on chain of 4', dev: 'phone', run: async () => { await grow(); await ev(`(Phone.open(${JSON.stringify(k)}), 1)`); },
+      ready: `${GROWN} && Phone.sheet() === ${JSON.stringify(k)}`, after: SHRINK })),
   ].map((s) => (s.click && !s.ready ? Object.assign({ ready: LAYER }, s) : s));
 
   const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };

@@ -187,8 +187,10 @@ runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`), with the err
 ## 5. Check the GPU, then turn it on
 
 1. Set the variable `GPU_RUNNERS` to `true` (section 1, step 4).
-2. *Actions → GPU gate → Run workflow*, branch **main**, machines **both** → *Run workflow*. The run waits for
-   approval: open it, *Review deployments*, tick **gpu-runners**, *Approve and deploy*.
+2. *Actions → GPU gate → Run workflow*, branch **main**, machines **both** (or **windows** for the desktop alone), *glsl* **skip** →
+   *Run workflow*. Use *glsl* skip for the first run: without it the Windows GLSL tier (ten jobs, hours cold) runs
+   before quality and perf start, and the first check takes hours. The run waits for approval: open it, *Review deployments*,
+   tick **gpu-runners**, *Approve and deploy*.
 3. Each job starts with **gpu probe**, which prints the renderer Chrome got and stops the job if it is software
    rendering. Expected:
    - Windows: `ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 ...)` (or the machine's GPU).

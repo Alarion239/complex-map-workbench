@@ -1,6 +1,7 @@
-// Toasts (#515): at 1024×768, en and ru, in the classic view and in ?view=steps, after adding two steps from the palette
-// (Ctrl+K "sine", "exponential"), a desktop toast covers no plane and no control and is never cut: no violation of
-// __layout.toasts() (test/lib/layout.js) and no cut text in the toast host. A command file for a CDP daemon (test/cdp_kit README).
+// Toasts: at 1024×768, en, ru and it, in the classic view and in ?view=steps (and in the steps view at 1280 and 1440), after adding two steps from the palette
+// (Ctrl+K "sine", "exponential"), a desktop toast covers no control and is never cut: no violation of __layout.toasts()
+// (test/lib/layout.js) and no cut text in the toast host. In the steps view it lies over the left plot's bottom edge, above the
+// thread's strip, which keeps every plane and chip in place and clickable; a press on its body dismisses it. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const LIB = fs.readFileSync(path.join(DIR, '..', 'lib', 'layout.js'), 'utf8');
@@ -11,10 +12,13 @@ const nSteps = () => ev('__cmwP().steps.length');
 const add = async (word) => { const n = await nSteps(); for (let i = 0; i < 3 && (await nSteps()) === n; i++) { await key('k', 2); await settle(400); await type(word); await settle(400); await key('Enter'); await settle(150); } };
 // (the toast stays 5 s; the measure runs as soon as it shows, and the page is given a moment to place it)
 const shown = async () => { for (let i = 0; i < 20; i++) { if (await ev(`!!document.querySelector('#toastHost .toast')`)) return true; await sleep(100); } return false; };
-for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
-  const at = `${lang} ${vw}`;
-  await view(1024, 768, false);
-  await nav(`${U}?ns=toast515-${lang}-${vw}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`); await settle(2500);
+const CASES = [];
+for (const lang of ['en', 'ru', 'it']) for (const vw of ['classic', 'steps']) CASES.push([lang, vw, 1024, 768]);
+for (const [w, h] of [[1280, 800], [1440, 900]]) CASES.push(['en', 'steps', w, h]);
+for (const [lang, vw, w, h] of CASES) {
+  const at = `${lang} ${vw} ${w}`;
+  await view(w, h, false);
+  await nav(`${U}?ns=toast515-${lang}-${vw}-${w}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`); await settle(2500);
   await ev(LIB);
   await add('sine'); await add('exponential');
   // (a slow page can show the toast and drop it before the measure: another step brings a fresh one)
@@ -31,56 +35,36 @@ for (const lang of ['en', 'ru']) for (const vw of ['classic', 'steps']) {
   info[at] = r;
   if (!r.shown) fails.push(`${at}: no toast showed after adding the steps`);
   else if (r.vs.length) fails.push(`${at}: ${JSON.stringify(r.vs)}`);
-  else if (vw === 'steps' && r.over.length) fails.push(`${at}: the toast covers a plane: ${JSON.stringify(r.over)}`);
   else if (r.win === false) fails.push(`${at}: the toast leaves the window: ${JSON.stringify(r.box)}`);
   else if (r.cut > 0) fails.push(`${at}: the message is cut by ${r.cut} px`);
   if (vw === 'steps' && r.shown) {
-    // (ux's choice A: the toast takes only the thread's rail; < > and the speed stay live under it; going on dismisses it)
+    // a message over the plot's bottom edge replaces nothing: the strip's rail keeps its planes, chips and place, the toast lies
+    // inside the left plot above the strip and clear of every control of the pane, and a press on its body dismisses it
     const g = await ev(`(() => {
-      const top = (e) => { const b = e.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2; const t = document.elementFromPoint(x, y); return !!t && (t === e || e.contains(t)); };
-      const strip = document.getElementById('svStrip'), th = document.getElementById('toastHost'), t = th.querySelector('.toast');
-      const live = [...strip.querySelectorAll('.sv-nav, .sv-speed')].map((e) => ({ c: e.className, ok: top(e) }));
-      const tb = t.getBoundingClientRect(), rb = strip.querySelector('.sv-rail').getBoundingClientRect(), room = Math.max(rb.right, ...[...strip.querySelectorAll('.sv-wholemap, .sv-add')].map((e) => e.getBoundingClientRect().right));   // (the F chip and + Add function beside the rail step aside with the planes: the message may take their room)
-      return { placed: th.getAttribute('data-placed'), cls: strip.classList.contains('sv-toast'), live, inRail: tb.left >= rb.left - 1 && tb.right <= room + 1 && tb.top >= rb.top - 8 && tb.bottom <= rb.bottom + 8, tb: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), rb: [rb.left, rb.top, rb.right, rb.bottom].map(Math.round),
-        covers: [...strip.querySelectorAll('button, select, input')].filter((e) => getComputedStyle(e).visibility !== 'hidden').filter((e) => { const b = e.getBoundingClientRect(); return Math.min(b.right, tb.right) - Math.max(b.left, tb.left) > 2 && Math.min(b.bottom, tb.bottom) - Math.max(b.top, tb.top) > 2; }).map((e) => e.className) };
+      const th = document.getElementById('toastHost'), t = th.querySelector('.toast'), strip = document.getElementById('svStrip'), pl = document.getElementById('plotL').getBoundingClientRect();
+      const tb = t.getBoundingClientRect(), sb = strip.getBoundingClientRect();
+      const rail = [...strip.querySelectorAll('.sv-rail > *, .sv-wholemap, .sv-add')].filter((e) => e.getClientRects().length);
+      const hid = rail.filter((e) => getComputedStyle(e).visibility === 'hidden').length, blocked = rail.filter((e) => { const b = e.getBoundingClientRect(), el = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return !!el && th.contains(el); }).map((e) => { const b = e.getBoundingClientRect(), el = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return e.className + ' under ' + (el && (el.id || el.className)); });
+      const inter = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
+      const ctl = [...document.querySelectorAll('#paneL button, #paneL select, #paneL input')].filter((e) => !strip.contains(e) && !th.contains(e) && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').filter((e) => inter(e.getBoundingClientRect(), tb)).map((e) => e.className || e.id);
+      return { placed: th.getAttribute('data-placed'), cls: strip.classList.contains('sv-toast'), n: rail.length, hid, blocked, ctl,
+        inPlot: tb.left >= pl.left - 1 && tb.right <= pl.right + 1 && tb.top >= pl.top - 1 && tb.bottom <= pl.bottom + 1, aboveStrip: tb.bottom <= sb.top + 1 || sb.top >= pl.bottom, tb: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round) };
     })()`);
-    if (g.placed !== 'rail' || !g.cls) fails.push(`${at}: the toast is not placed over the rail: ${JSON.stringify(g)}`);
-    else if (!g.inRail) fails.push(`${at}: the toast is not inside the rail (and the F chip's room): ${JSON.stringify(g)}`);
-    else if (g.covers.length) fails.push(`${at}: the toast covers a live control: ${JSON.stringify(g)}`);
-    else if (!g.live.length || g.live.some((l) => !l.ok)) fails.push(`${at}: < > or the speed is not hit-testable under the toast: ${JSON.stringify(g.live)}`);
-    // every way of going on dismisses it and brings the rail back: < > (a press), an arrow key, a swipe from the plane's edge, a tap on a plane's dot
-    const state = () => ev(`({ toast: !!document.querySelector('#toastHost .toast'), cls: document.getElementById('svStrip').classList.contains('sv-toast'), rail: [...document.querySelectorAll('#svStrip .sv-rail > *')].every((e) => getComputedStyle(e).visibility !== 'hidden') })`);
-    const centre = (sel) => ev(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => !e.disabled && !e.classList.contains('cp') && e.getClientRects().length); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-    const ways = {
-      'the < > button': async () => { const c = await centre('#svStrip .sv-nav'); if (c) await click(c[0], c[1]); return !!c; },
-      'an arrow key': async () => { await ev(`document.activeElement && document.activeElement.blur(), document.body.focus(), 1`); await key('ArrowRight'); return true; },
-      'a swipe from the plane\'s edge': async () => { await ev(`(() => { const p = document.getElementById('plotL'), r = p.getBoundingClientRect(), y = r.top + r.height / 2;
-        const e = (type, x) => p.dispatchEvent(new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 }));
-        e('pointerdown', r.right - 10); for (let i = 1; i <= 4; i++) e('pointermove', r.right - 10 - i * 30); e('pointerup', r.right - 130); return 1; })()`); return true; },
-      'a tap on a plane\'s dot': async () => { const c = await centre('#svStrip .sv-plane'); if (c) await click(c[0], c[1]); return !!c; },
-      // (ux on #460: the rail is hidden under the message, so a press on its body only dismisses it: the shown plane stays)
-      'a tap on the message itself': async () => {
-        const c = await ev(`(() => { const e = document.querySelector('#toastHost .toast > span'); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-        if (!c) return false;
-        x0 = await ev(`__cmwSvX()`);
-        await click(c[0], c[1]);
-        return true;
-      },
-    };
-    let x0 = null;
-    let first = true;
-    for (const [way, go] of Object.entries(ways)) {
-      if (!first) { await add('sine'); await shown(); await settle(120); }
-      first = false;
-      if (!(await state()).toast) { fails.push(`${at}: no toast to dismiss by ${way}`); continue; }
-      if (!(await go())) { fails.push(`${at}: nothing to go on with by ${way}`); continue; }
-      await settle(500);
-      const after = await state();
-      if (after.toast || after.cls || !after.rail) fails.push(`${at}: going on by ${way} did not dismiss the toast and restore the rail: ${JSON.stringify(after)}`);
-      if (way === 'a tap on the message itself') {
-        const x1 = await ev(`__cmwSvX()`);
-        if (x0 == null || Math.abs(x1 - x0) > 1e-6) fails.push(`${at}: a tap on the message moved the shown plane (${x0} → ${x1}): it must only dismiss it`);
-      }
+    if (g.placed !== 'plot') fails.push(`${at}: the toast is not placed over the plot: ${JSON.stringify(g)}`);
+    else if (g.cls || g.hid || !g.n) fails.push(`${at}: the toast replaces part of the thread's strip: ${JSON.stringify(g)}`);
+    else if (g.blocked.length) fails.push(`${at}: the toast covers a control of the strip: ${JSON.stringify(g)}`);
+    else if (!g.inPlot || !g.aboveStrip) fails.push(`${at}: the toast is not inside the plot above the strip: ${JSON.stringify(g)}`);
+    else if (g.ctl.length) fails.push(`${at}: the toast covers a control of the plot: ${JSON.stringify(g.ctl)}`);
+    // a press on the message's body dismisses it and moves nothing
+    const x0 = await ev(`__cmwSvX()`);
+    const c = await ev(`(() => { const e = document.querySelector('#toastHost .toast > span'); if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+    if (!c) fails.push(`${at}: no message body to press`);
+    else {
+      await click(c[0], c[1]);
+      await settled({ max: 3000, only: true, until: `!document.querySelector('#toastHost .toast')` });
+      if (await ev(`!!document.querySelector('#toastHost .toast')`)) fails.push(`${at}: a press on the message did not dismiss it`);
+      const x1 = await ev(`__cmwSvX()`);
+      if (x0 == null || Math.abs(x1 - x0) > 1e-6) fails.push(`${at}: a press on the message moved the shown plane (${x0} → ${x1})`);
     }
   }
 }

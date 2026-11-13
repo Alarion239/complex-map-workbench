@@ -2,14 +2,15 @@
 // src/constr.js). proto/check.js's 41 checks in the house style: the core's exactness (|cos| of the angle between K and
 // C measured in BigInt from the float coefficients, incidence of P and Q), the anchors and the orientation, the graph
 // (creation, drags, the line case, the region family), Use complement on C, chains and curve kinds, gliders, meets,
-// and the plumbing (validate, save and load, v16.2's validate, plans, describe, speed).
+// and the plumbing (validate, save and load, the frozen copy's validate, plans, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
-// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
-const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
+// the speed limits are in reference operations measured in the same run (test/lib/speed_ref.js), so they hold on any machine
+const { unitsOf, cpuUnitsOf } = require('./lib/speed_ref');
+const PERP_UNITS = 110, DRAG_UNITS = 19000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
-  // (v16.1's = v16.2's constr.js, frozen: an older build reading a saved perpendicular circle)
+  // (a frozen copy of constr.js: it reads a saved perpendicular circle)
   const K161 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.2-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const INF = K.INF, isInf = K.isInf;
   const head = (t) => { if (process.argv.includes('-v')) console.log('== E. ' + t); };
@@ -328,21 +329,20 @@ module.exports = function ({ K, ok }) {
     rec(T);
     ok((K.moveRoots(T, 'k') || []).join() === 'a,b,c,P,Q', 'moveRoots: K on a 3-point C of free points moves all five');
     ok(K.describe(S, 'k').fill === 'in' && K.describe(S, 'k').op === 'perp', 'describe: op perp, fill');
-    // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P
+    // speed: perpForm alone, and a drag with 10 perpendicular circles (curves and regions) on one P, in units of a
+    // reference operation measured in this run (test/lib/speed_ref.js): each limit is set from the margin the absolute one
+    // had on the development Mac in the notes' figures (the Mac's own ratios in these units are not measured)
     const G = circ([0.3, -0.2], 1.7);
-    const n = 100000, t0 = process.hrtime.bigint();
-    for (let i = 0; i < n; i++) K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]);
-    const per = Number(process.hrtime.bigint() - t0) / n;
+    const per = unitsOf((i) => K.perpForm(G, [0.4 + i * 1e-9, 0.1], [-1.1, 0.6]));
     const W = state([{ id: 'C', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, pt('P', [0.3, 0.2])]);
     for (let j = 0; j < 10; j++) W.shapes.push(pt('Q' + j, [Math.cos(j), Math.sin(j) * 0.5]), perpShape('k' + j, 'C', 0, { s: 'P' }, { s: 'Q' + j }, j % 2 ? 'in' : 'none'));
     rec(W);
-    const c0 = process.cpuUsage();
-    for (let f = 0; f < 600; f++) { sh(W, 'P').p = [0.3 + 0.1 * Math.cos(f / 50), 0.2 + 0.1 * Math.sin(f / 50)]; rec(W, { shapes: ['P'] }); }
-    const cu = process.cpuUsage(c0), ms = (cu.user + cu.system) / 1000 / 600;
-    ok(per < 5000 * SPEED && ms < 1 * SPEED, `speed: perpForm ${per.toFixed(0)} ns; a drag with 10 dependents ${ms.toFixed(3)} ms CPU per recompute`);
+    const drag = cpuUnitsOf((f) => { sh(W, 'P').p = [0.3 + 0.1 * Math.cos(f / 50), 0.2 + 0.1 * Math.sin(f / 50)]; rec(W, { shapes: ['P'] }); });
+    ok(per < PERP_UNITS && drag < DRAG_UNITS,
+      `speed: perpForm ${per.toFixed(0)} reference operations (limit ${PERP_UNITS}); a drag with 10 dependents ${drag.toFixed(0)} (limit ${DRAG_UNITS})`);
   }
 
-  // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)
+  // ================================================ checks
   {
     const eq = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]) < 1e-12;
     // [math-2] perp on a touching circle K; Use complement on K: Q's form and a glider on Q stay
@@ -376,7 +376,7 @@ module.exports = function ({ K, ok }) {
     ok(lp.slice(0, 6).every((x) => x === 'pencil') && ra === 'pencil', 'review math-3: mirror pairs in the line y = 2x on the grid, and in the real axis: all the pencil', { lp, ra });
     // a near miss stays a circle (the rule is exact in the decimals, not a tolerance)
     ok(one(U, [0.2, 0], [5.1, 0]) === 'line' && one(U, [0.3, 0.1], [2, 0.5]) === 'circle', 'review math-3: not a mirror pair: the line through the centre, or a circle');
-    // [v16.3.1, verify-1] C through three decimal points: its centre and radius are not decimals (the circle through 0,
+    // C through three decimal points: its centre and radius are not decimals (the circle through 0,
     // 1, i has r = 0.7071…), so the mirror test runs on the points themselves. Binary and decimal mirror pairs alike:
     // the pencil, in either orientation (a flipped circle3), on a 3-point arc, and on collinear points (a line)
     const c3 = (a, b, c) => [pt('a', a), pt('b', b), pt('c', c), { id: 'C', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'c' }], fill: 'none' } }];
