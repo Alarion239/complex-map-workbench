@@ -12,18 +12,12 @@ const { Pane } = require('../src/view.js');
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } else if (process.env.V) console.log('ok  ', name); }
 
-const APP = require('./src_text').source('app.js');
-function fnText(name) {
-  const i = APP.indexOf(`  function ${name}(`);
-  if (i < 0) throw new Error('no function ' + name);
-  let d = 0;
-  for (let k = APP.indexOf('{', i); k < APP.length; k++) { const c = APP[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return APP.slice(i, k + 1); }
-  throw new Error('unbalanced ' + name);
-}
+const { source, fnText } = require('./src_text');
+const APP = source('app.js');
 const sb = { tweens: [], dirty: {}, clock: 0, Pane, Math };
 sb.performance = { now: () => sb.clock };
 vm.createContext(sb);
-vm.runInContext(fnText('stepTweens') + '\n;globalThis.stepTweens = stepTweens;', sb);
+vm.runInContext(fnText(APP, 'stepTweens') + '\n;globalThis.stepTweens = stepTweens;', sb);
 
 const MS = 260;
 // the view at each u of a tween from a to b (the app's ease: e = 1 - (1 - u)^3), and whether onDone ran

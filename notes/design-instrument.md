@@ -1021,7 +1021,7 @@ The instrument is calm. There are no entrance animations, staggered reveals or a
 | Interaction | Motion |
 |---|---|
 | Hover on any control | Color, background and border transition at `--t-fast`. Nothing moves. |
-| Fit, Reset view, example load | The view tweens over `--t-view` with `--ease-out`, interpolating the scale in log space, so zooms feel even, and moving the center so that the point the start and end views share keeps its place on screen, as under a wheel zoom (DESIGN_SPEC.md §7). |
+| Fit, Reset view, example load, zoom to zeros/poles | The view tweens over `--t-view` with `--ease-out`, interpolating the scale in log space, so zooms feel even, and moving the center so that the point the start and end views share keeps its place on screen, as under a wheel zoom (DESIGN_SPEC.md §7). |
 | Theme change | Instant. Canvases re-render on the next frame. No crossfade. |
 | Popover, menu, palette open | Opacity 0→1 plus a 4px translate from the anchor side, `--t-med` `--ease-out`. Close at `--t-fast`. |
 | Drawer open | Slides in from its edge over `--t-med`. The rail chevron rotates 180° in sync. |
