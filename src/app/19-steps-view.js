@@ -373,7 +373,7 @@
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
     if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
-    const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, grp: g.grp } : { mode: 1, base: s, hi: g.b, t: g.u });
+    const mapOf = (s) => svGlideMap(g, s);
     render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
     return true;
   }
@@ -449,7 +449,7 @@
     if (span && span.x1 < P.length && x > span.x0 + SV_REST_U && x < span.x1 - SV_REST_U && svAllOk(span.x0, span.x1)) {
       const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), grp = span.grp || null, map = { mode: 3, a, b, t: u, grp };
       // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed, each at its own time:
-      // span.grp, the steps one formula was split into during this glide, run as that formula's homotopy did)
+      // span.grp, the steps a Split during this glide made of one formula, run as that formula's homotopy runs them)
       const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, HR.groupT(grp, k, u)));
       const H = (z) => { let w = z; for (const f of homs) w = f(w); return w; };
       return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, grp, x0: span.x0, x1: span.x1 };
@@ -463,6 +463,11 @@
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
   }
+  // the map spec of a svBetween result g from the plane s, for a carried draw (s <= g.a): All at once, its span's steps
+  // (with the span's group) at g.u; else the step into g.b at g.u
+  function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, grp: g.grp } : { mode: 1, base: s, hi: g.b, t: g.u }; }
+  // a span's group ({ from, n }, or none) in a cache key
+  function svGrpKey(grp) { return grp ? `${grp.from}:${grp.n}` : ''; }
   // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
   const SV_CUT_THIN = 4;
   // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
@@ -519,7 +524,7 @@
     return {
       Fat: (T) => svBetween(lo + T * len).F, T: Math.max(0, Math.min(hi - lo, x - lo)) / len, Tend: (hi - lo) / len, seq: !all && hi - lo > 1,
       startId: start === 0,
-      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, all && SV.span.grp ? SV.span.grp : null]),
+      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svGrpKey(all ? SV.span.grp : null)]),
       alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
     };
   }
@@ -550,7 +555,7 @@
     // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
     if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
       const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
-      const map = H ? (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, grp: g.grp } : { mode: 1, base: s, hi: g.b, t: g.u }) : { mode: 0, a: s, b: a };
+      const map = H ? svGlideMap(g, s) : { mode: 0, a: s, b: a };
       const key = svCarryKey(pane, s, a);
       if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
       if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
@@ -1158,7 +1163,7 @@
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
-  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, g.grp ? `${g.grp.from}:${g.grp.n}` : '', q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
+  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, svGrpKey(g.grp), q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
   function* svRingSize(g, q, v, pw, ph) {
     const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1, grp: g.grp } : null), w = clipWin;
@@ -1920,7 +1925,7 @@
     return info;
   }
   function svSphereMoving(pane) {
-    const bt = svBetween(), { a, b, u, map, F, near, all, grp } = bt;
+    const bt = svBetween(), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
@@ -1940,7 +1945,7 @@
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
-      ? svGlobeMesh(pane, a, T, all ? { mode: 3, a, b, t: u, base: src, grp } : { mode: 1, base: src, hi: b, t: u }, a + u) : null;
+      ? svGlobeMesh(pane, a, T, svGlideMap(bt, src), a + u) : null;
     const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
@@ -3420,8 +3425,8 @@
   // same place, to the same destination, with no jump. A glide keeps its ease's progress and its time; a play keeps the time
   // it has left, so the picture's speed goes on; a reduced-motion play (a plane a tick) is remapped to its planes.
   // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; grp
-  // ({ from, n }: the steps one formula was just split into) is carried by the span, which runs those steps as the formula's
-  // own homotopy did (svBetween), so the picture is the same at the same u. It lasts to the end of this glide
+  // ({ from, n }: the steps this Split made of one formula) is carried by the span, which runs those steps as the formula's
+  // own homotopy runs them (svBetween), so the picture is the same at the same u. It lasts to the end of this glide
   function svRemapMotion(pl, grp) {
     const A = SV.anim, B = SV.play, x = SV.g.x, last = svPlanes().length - 1, cl = (v) => Math.max(0, Math.min(last, v));
     SV.motionKept = true;

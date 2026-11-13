@@ -27,10 +27,9 @@ const open = async (extra = {}) => {
 };
 const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage, win: q.win, i: q.i, names: q.names, label: q.label, src: q.paths && q.paths.src && { Tend: q.paths.src.Tend, seq: q.paths.src.seq, startId: q.paths.src.startId } }; })()');
 const hide = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
-// (below the colour key, whose text names the colour plane's function: it changes with the Split)
-const pane = async () => { await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); await ev('__cmwSteps({ bare: false })'); return i; };
-// (the same region with the points and the paths' trails on)
-const paneOver = async () => { await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); return i; };
+// the left pane below the colour key (whose text names the colour plane's function: it changes with the Split); bare: the
+// colour layer alone, else with the points and the paths' trails on
+const pane = async (bare = true) => { if (bare) await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); if (bare) await ev('__cmwSteps({ bare: false })'); return i; };
 const diff = (a, b, x0 = 0, x1 = a.w) => { if (a.w !== b.w || a.h !== b.h) return -1; let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (((j / a.ch) % a.w) >= x0 && ((j / a.ch) % a.w) < x1 && (Math.abs(a.data[j] - b.data[j]) > CH_TOL || Math.abs(a.data[j + 1] - b.data[j + 1]) > CH_TOL || Math.abs(a.data[j + 2] - b.data[j + 2]) > CH_TOL)) n++; return n; };
 const where = (a, b) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1, mx = 0; for (let j = 0; j < a.data.length; j += a.ch) { const d = Math.max(Math.abs(a.data[j] - b.data[j]), Math.abs(a.data[j + 1] - b.data[j + 1]), Math.abs(a.data[j + 2] - b.data[j + 2])); if (d > CH_TOL) { const p = j / a.ch, x = p % a.w, y = Math.floor(p / a.w); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); mx = Math.max(mx, d); } } return [x0, y0, x1, y1, mx]; };
 const splitNow = async () => { await clickSel('#svStrip .sv-step[data-k="2"] .sv-fchip'); await until("!!document.querySelector('#propsPanel .split-offer .so-btn')"); await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 6'); };
@@ -41,11 +40,11 @@ await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps(
 info.q1 = await ev('(() => { const q = __cmwSteps(); return { span: q.span, x: q.x, all: q.all, anim: q.anim && { from: q.anim.from, to: q.anim.to, ms: q.anim.ms } }; })()');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const x0 = (await sv()).x;
-const g0 = await pane(), o0 = await paneOver(), p0 = await sv();
+const g0 = await pane(), o0 = await pane(false), p0 = await sv();
 // (no Split: a glide moves the picture, never the view, so the window mid-glide is the one at rest on plane 0)
 ok('the window mid-glide is the camera at rest, with no Split', JSON.stringify(p0.win) === JSON.stringify(restWin) && p0.x > FREEZE_X, [restWin, p0.win, p0.x]);
 await splitNow();
-const g1 = await pane(), o1 = await paneOver(), p1 = await sv();
+const g1 = await pane(), o1 = await pane(false), p1 = await sv();
 info.x = [x0, p0.x, p1.x]; info.win = [p0.win, p1.win]; info.idx = [p0.i, p1.i]; info.px = diff(g0, g1); info.where = where(g0, g1); info.area = g0.w * g0.h;
 info.span = await ev('__cmwSteps().span');
 ok('the span is remapped to [0, 5] and carries the split steps as a group', !!info.span && info.span.x0 === 0 && info.span.x1 === 5 && !!info.span.grp && info.span.grp.n === 3, info.span);
@@ -75,7 +74,7 @@ await splitNow();
 await ev('__cmwSteps({ span: [0, 5] })'); await quiet();
 const c1 = await pane();
 info.noGroupPx = diff(c0, c1);
-ok('the same frame without the group differs from the frame before the Split (negative control)', info.noGroupPx < 0 || info.noGroupPx > CTRL_MIN_FRAC * info.area, [info.noGroupPx, info.area]);
+ok('the same frame without the group differs from the frame before the Split (negative control)', info.noGroupPx > CTRL_MIN_FRAC * info.area, [info.noGroupPx, info.area]);
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
 return { pass, fails, info };

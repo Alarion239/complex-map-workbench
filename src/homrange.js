@@ -21,8 +21,8 @@ const HomRange = (function (factory) {
     // a d/dz segment's straight line with exact ends: G_{k−1} itself at t <= 0 and G_k at t >= 1,
     // so an infinite end does not make the other one NaN and a signed zero keeps its side of a cut (gl.js MAP_STAGE too)
     const lerpE = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : lerpF(F0, F1, t));
-    // the time of step k in an All-at-once map at time t: t, or, for the n steps (from, from + n] that one formula was split
-    // into (map.grp = { from, n }), that formula's own run of its steps in turn, step j on [j/n, (j+1)/n] (funcs.js r.hom)
+    // the time of step k in an All-at-once map at time t: t, or, for the n steps (from, from + n] a Split made of one
+    // formula (map.grp = { from, n }), that formula's own run of its steps in turn, step j on [j/n, (j+1)/n] (funcs.js r.hom)
     const groupT = (grp, k, t) => (grp && k > grp.from && k <= grp.from + grp.n ? Math.max(0, Math.min(1, t * grp.n - (k - grp.from - 1))) : t);
     // the natural homotopy of step k at t, a map of its input plane; exact ends (D3): the identity at t <= 0, f at t >= 1
     function homF(k, t) {
