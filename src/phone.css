@@ -89,6 +89,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 124px); }
 /* (a landscape phone's planes are narrow and its readout is one line above the key: it keeps the 72 px, or Russian's "1 / дел." is cut) */
 :root.ph.ph-land .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 72px); }
+/* (and its key stands below the readout's third line, which a long hint wraps to, and 6 px further from the lane, whose top button reaches 2 px into the gap) */
+:root.ph.ph-land .legend-chip { top: 100px; right: 66px; }
 /* the big plane's chip is tagged by the plane's one name, X (Y after a swap); the readout itself says
    z = … and w = F(z) = … (no doubled z) */
 :root.ph:not(.sv) #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
@@ -113,7 +115,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
-   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, so the chip stops clipping) */
+   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
 
