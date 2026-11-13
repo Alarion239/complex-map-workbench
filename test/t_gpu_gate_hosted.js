@@ -63,8 +63,8 @@ if (names) {
   ok('d3d11 refuses SwiftShader', !N.d3d11.test('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'));
 }
 const cmd = (/- run: .*node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
-ok('the hosted machine measures against the reference, one round', cmd.includes(`matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
-ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf('Windows-hosted'), cmd);
+ok('the Windows machines measure against the reference, one round', cmd.includes(`startsWith(matrix.machine, 'Windows') && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
+ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf("startsWith(matrix.machine, 'Windows')"), cmd);
 ok('the gates never run on the hosted machine (their jobs stay self-hosted)', ['glsl', 'quality', 'perf'].every((j) => /runs-on: \[self-hosted, '\$\{\{ matrix\.machine \}\}', gpu\]/.test(job(j))));
 
 console.log(`t_gpu_gate_hosted: ${pass} passed, ${fail} failed`);
