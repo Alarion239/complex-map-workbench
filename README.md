@@ -103,8 +103,8 @@ reports strings the Russian table has and it lacks).
 - Regression suites in `test/regress/` (see its README): image quality against exact mathematical ground truth, and
   a paired performance gate against a reference build.
 - CI (`ci/README.md`): the whole gate runs on GitHub Actions for every pull request and push to `main`, on Linux,
-  Windows and macOS, split into short jobs; the real-GPU part runs on our own Mac (`ci/RUNNERS.md`;
-  the Windows laptop's runner was removed on 2026-11-01, #169).
+  Windows and macOS, split into short jobs; the real-GPU part runs on our own Mac and, on request, on a Windows
+  desktop (`ci/RUNNERS.md`, #169).
 
 ## Design notes
 

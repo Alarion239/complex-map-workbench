@@ -2,16 +2,18 @@
 
 GitHub's machines have no usable GPU, so the gate there measures only relative slowdowns under software rendering
 ([README.md](README.md)). The **GPU gate** (`.github/workflows/gpu-gate.yml`) runs the same paired perf suite, image
-quality and GLSL conformance on our **Windows laptop** and our **Mac**, with their real GPUs. Each machine becomes a
-*self-hosted runner*: GitHub's small runner program, installed on the machine. It connects out to GitHub (no ports
-are opened), waits for jobs labelled for it, runs them in a folder on the machine and reports back.
+quality and GLSL conformance on our **Mac** and, on request, our **Windows desktop**, with their real GPUs. Each
+machine becomes a *self-hosted runner*: GitHub's small runner program, installed on the machine. It connects out to
+GitHub (no ports are opened), waits for jobs labelled for it, runs them in a folder on the machine and reports back.
 
-> **The Windows laptop's runner was removed on 2026-11-01 (#169), because it slowed the laptop.** The GPU gate runs on
-> the Mac alone until a Windows GPU machine is back: the default and every event (a push to `main`, the nightly run,
-> the label `gpu-gate`) run `machines` mac; `windows` fails at once and `both` runs the Mac with a warning, so no job
-> waits for a runner that is not there. No check or doc requires a Windows GPU result meanwhile; GitHub's own Windows
-> machines (WARP) still run the Gate's Windows jobs. Section 3 stays for when a Windows runner is set up again
-> (Pietro's call, #169).
+> **The Windows desktop (runner `windows-gpu`, #169) is used on request only.** The GPU gate runs on the Mac unless
+> asked otherwise: the default and every event (a push to `main`, the nightly run, the label `gpu-gate`) run `machines`
+> mac, so no job waits for the desktop while it is off. To use it, switch it on and run the workflow by hand
+> (*Actions → GPU gate → Run workflow*) with `machines` **windows** (the desktop alone) or **both** (the desktop and
+> the Mac). Dispatch it on the pull request's branch or a measurement branch, not on `main`: a by-hand run for the
+> desktop has a concurrency group of its own per branch, so it never holds the next push to `main` pending, but it
+> replaces an earlier desktop run on the same branch. No check or doc requires a Windows GPU result; GitHub's own
+> Windows machines (WARP) still run the Gate's Windows jobs.
 
 This guide sets up both machines, once. Allow about 20 minutes per machine.
 
@@ -19,7 +21,7 @@ What you end up with:
 
 | machine | runner name | labels (the gate picks a machine by these) |
 |---|---|---|
-| Windows laptop (removed 2026-11-01, #169) | `windows-gpu` | `self-hosted`, `Windows`, `X64`, **`gpu`** |
+| Windows desktop (on request, #169) | `windows-gpu` | `self-hosted`, `Windows`, `X64`, **`gpu`** |
 | Mac | `mac-gpu` | `self-hosted`, `macOS`, `ARM64` (Apple silicon) or `X64`, **`gpu`** |
 
 ## 1. Repository settings (once, by the owner)
@@ -59,7 +61,7 @@ reaches our machines.
   logged-in desktop session. A locked screen is fine.
 - **Power:** keep the machine plugged in and stop it from sleeping on power:
   - Windows: *Settings → System → Power & battery → Screen and sleep*, "When plugged in, put my device to sleep
-    after" **Never**.
+    after" **Never**. A desktop needs nothing more (no lid, no battery); the next point is for a laptop only.
   - **A laptop: closing the lid must not sleep it.** *Control Panel → Hardware and Sound → Power Options → Choose
     what closing the lid does*, "When I close the lid", *Plugged in*: **Do nothing** (or in an administrator
     PowerShell: `powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0; powercfg /setactive SCHEME_CURRENT`).
@@ -74,11 +76,12 @@ reaches our machines.
 - **Disk:** about 5 GB free (two builds of the app, browser profiles, results). The GLSL job also keeps a shader
   cache in the runner's folder, `_work/_tool/cmw-glsl-cache` (a Chrome profile; 20-50 KB per compiled program, tens
   of MB per version of the shader code): it is what keeps that job short on Windows (ci/README.md, `CMW_GLSL_CACHE`).
-  Deleting it is safe; the next run compiles everything again, which on the Windows laptop takes hours.
+  Deleting it is safe; the next run compiles everything again, which on Windows takes hours.
 
-## 3. The Windows laptop
+## 3. The Windows machine
 
-(Its runner was removed on 2026-11-01, #169: these steps are for setting one up again.)
+The desktop, for runs on request (#169). The laptop's runner (removed on 2026-11-01) was set up with the same steps; on
+a laptop, also do the laptop points of *Power* in section 2: the lid and the battery.
 
 1. On GitHub: *Settings → Actions → Runners → New self-hosted runner* → **Windows**, architecture **x64**. The page
    shows commands with a one-time token (valid for one hour). Keep it open.
@@ -115,8 +118,9 @@ reaches our machines.
 
 5. On GitHub, *Settings → Actions → Runners* now lists **windows-gpu** as *Idle*.
 
-Laptops with two GPUs (Intel and NVIDIA): Chrome picks one by itself, usually the integrated one, which is what most
-of our users have. To pin one: *Settings → System → Display → Graphics → Google Chrome → Options*.
+Machines with two GPUs (a laptop's Intel and NVIDIA, a desktop's graphics card and its integrated GPU): Chrome picks one
+by itself, on a laptop usually the integrated one, which is what most of our users have. To pin one: *Settings →
+System → Display → Graphics → Google Chrome → Options*.
 
 ## 4. The Mac
 
@@ -184,11 +188,13 @@ runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`), with the err
 ## 5. Check the GPU, then turn it on
 
 1. Set the variable `GPU_RUNNERS` to `true` (section 1, step 4).
-2. *Actions → GPU gate → Run workflow*, branch **main**, machines **both** → *Run workflow*. The run waits for
-   approval: open it, *Review deployments*, tick **gpu-runners**, *Approve and deploy*.
+2. *Actions → GPU gate → Run workflow*, on the pull request's branch or a measurement branch (not **main**), machines **both** (or **windows** for the desktop alone), *glsl* **skip** →
+   *Run workflow*. Use *glsl* skip for the first run: without it the Windows GLSL tier (ten jobs, hours cold) runs
+   before quality and perf start, and the first check takes hours. The run waits for approval: open it, *Review deployments*,
+   tick **gpu-runners**, *Approve and deploy*.
 3. Each job starts with **gpu probe**, which prints the renderer Chrome got and stops the job if it is software
    rendering. Expected:
-   - Windows: `ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 ...)` (or the laptop's GPU).
+   - Windows: `ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 ...)` (or the machine's GPU).
    - Mac: `ANGLE (Apple, ANGLE Metal Renderer: Apple M...)`.
 
    If it says `SwiftShader`, `Microsoft Basic Render Driver` or `WARP`, the runner is not in a logged-in desktop
@@ -197,14 +203,14 @@ runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`), with the err
 
 The first run builds two copies of the app and runs every shard on both machines. On a GPU a shard takes a few
 minutes, so the whole gate takes roughly one to two hours per machine; the two machines work in parallel.
-The Windows laptop's GLSL job is the exception the first time: Direct3D 11 compiles every shader program on the CPU
+The Windows machine's GLSL job is the exception the first time: Direct3D 11 compiles every shader program on the CPU
 (the glsl page alone takes hours a side; one program took 12 minutes), where the Mac takes 7 minutes for all three
-pages. Every chain runs there only on the nightly run and by hand, in ten jobs (the glsl page in eighths, adv and
+pages. Every chain runs there only by hand (events run the Mac alone), in ten jobs (the glsl page in eighths, adv and
 inverse whole; ci/README.md, GLSL tiers): one job for all of it ran over 170 minutes on the glsl page's first side
-alone. A cold nightly run takes about 4-6 hours of the laptop's time in all (its jobs run one after another
-on the one runner), and jobs queued behind it wait. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
+alone. A cold run took about 4-6 hours of the laptop's time in all (its jobs run one after another on the one runner;
+the desktop's time is not measured yet), and jobs queued behind it wait. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
 *Disk*), so the next goes further, and from then on only programs whose code changed compile: 1/64 of the glsl page
-took 103 s cold and 7 s warm. To warm the cache in one go, run on the laptop, in a checkout of `main` (hours; not
+took 103 s cold and 7 s warm. To warm the cache in one go, run on the Windows machine, in a checkout of `main` (hours; not
 while the runner has a GLSL job):
 `$env:CMW_GLSL_CACHE='C:\actions-runner\_work\_tool\cmw-glsl-cache'; node ci/glsl.js --ref HEAD~1 --force`.
 Each page prints a line a minute while it runs, with how busy Chrome's GPU process was (busy: compiling; idle with an
@@ -214,10 +220,12 @@ idle page: stuck).
 
 - **When it runs:** every push to `main`, every night (04:17 UTC), by hand (*Actions → GPU gate → Run workflow*),
   and on a pull request from a branch of this repository with the label `gpu-gate`. Every run waits for your approval.
+  On the Mac alone, except by hand with `machines` **windows** or **both**: the Windows desktop runs on request only.
 - **What it says:** each job's summary (open the run, then the job) has a table: reference → this change for
   every metric that got worse, and a list of improvements. The raw results (JSON) are the run's artifacts.
 - **A machine is off:** its jobs wait in the queue for up to 24 hours, then GitHub cancels them. Cancel the run if
-  you know it will not come back, or turn the gate off (`GPU_RUNNERS` to `false`).
+  you know it will not come back, or turn the gate off (`GPU_RUNNERS` to `false`). That is why the Windows desktop is
+  on request: only a run that asks for it waits for it, so switch it on first.
 - **A lost job** (the machine slept, rebooted or lost its GPU mid-run, or a page reports *stalled*): re-run it
   (*Re-run failed jobs*), do not debug it. A new push or run on the same branch replaces a pull request's or a
   by-hand run anyway; a failure that comes back on the re-run is real.
@@ -247,8 +255,8 @@ Any other Mac runner problem: open an issue with the label `mac-runner`; Alexand
 | Jobs stay *Queued* | The machine is asleep, logged out, or its runner is not started (section 3 step 4, section 4 step 4). *Settings → Actions → Runners* shows *Offline*. |
 | Jobs stay *Queued* while the runner is online | It is busy: the runner window's last line is `Running job: …`. After the machine slept during a job, that job may already show as failed on GitHub while the runner still works on it; it lets go of it by itself (23 minutes on 2026-10-28), or close the runner window and start `run.cmd` again. Its log is in `C:\actions-runner\_diag\Worker_*.log`. |
 | A job fails after about 6 minutes: "The job was not acquired by Runner of type self-hosted even after multiple attempts" (runner id 0) | The runner could not acquire the job in time. Look in `_diag/Runner_*.log` for `409 Conflict` on acquire and slow token fetches, and time the token host over IPv4 and IPv6: `curl -4 -o /dev/null -w '%{time_total}\n' https://vstoken.actions.githubusercontent.com`, then the same with `-6`. On the Mac on 2026-10-29 the host resolved to an IPv6 address its network could not route, and the runner's .NET client waited 75 s before it fell back to IPv4 (curl falls back at once), by which time GitHub had withdrawn the job (81 conflicts in a row). Fix: add `DOTNET_SYSTEM_NET_DISABLEIPV6=1` to the runner's `.env` and restart the runner (`./svc.sh stop && ./svc.sh start`); it touches only the runner, and removing the line undoes it. (A sleeping machine shows differently: jobs stay *Queued*, the runner is *Offline*, or "lost communication" in the middle of a job.) |
-| "A self-hosted runner lost communication with the server" | The machine (the Windows laptop) slept or went offline in the middle of a job (#169): section 2, *Power*. Or the runner was closed or restarted during the job: on 2026-10-29 at 21:40 UTC the runner on the laptop stopped 23 minutes into `main`'s Windows GLSL job, and its logon task started a new one; the job failed 10 minutes later. Before you close or restart a runner, check that it runs no job: on Windows `Get-Process Runner.Worker` finds nothing, and the runner window's last line is `Listening for Jobs`. |
-| "Sleep" warning in **gpu probe** (Windows) | The laptop runs on battery, or closing its lid sleeps it even on power. The job still runs, but it is lost if the laptop sleeps: section 2, *Power*. |
+| "A self-hosted runner lost communication with the server" | The machine slept or went offline in the middle of a job (the Windows laptop did, #169): section 2, *Power*. Or the runner was closed or restarted during the job: on 2026-10-29 at 21:40 UTC the runner on the laptop stopped 23 minutes into `main`'s Windows GLSL job, and its logon task started a new one; the job failed 10 minutes later. Before you close or restart a runner, check that it runs no job: on Windows `Get-Process Runner.Worker` finds nothing, and the runner window's last line is `Listening for Jobs`. |
+| "Sleep" warning in **gpu probe** (a Windows laptop) | The laptop runs on battery, or closing its lid sleeps it even on power. The job still runs, but it is lost if the laptop sleeps: section 2, *Power*. |
 | A cancelled run stays *Queued* | A job that waits for a self-hosted runner is cancelled only when a runner takes it, or after 24 hours, and the run holds its concurrency group (the next push to `main` waits behind it). Force it: `gh api -X POST repos/Alarion239/complex-map-workbench/actions/runs/<run id>/force-cancel`. |
 | "No GPU" in **gpu probe** | See section 5, step 3. |
 | "Rosetta" in **gpu probe** (Mac) | The runner is the x64 package, translated on Apple silicon: install the ARM64 one (section 4, *Replacing an x64 runner with the arm64 build*). |
