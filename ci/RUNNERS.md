@@ -6,13 +6,14 @@ quality and GLSL conformance on our **Mac** and, on request, our **Windows deskt
 machine becomes a *self-hosted runner*: GitHub's small runner program, installed on the machine. It connects out to
 GitHub (no ports are opened), waits for jobs labelled for it, runs them in a folder on the machine and reports back.
 
-> **A Windows desktop runner is back (#169), used on request only.** The laptop's runner (`windows-gpu`) was removed on
-> 2026-11-01 because it slowed the laptop; the desktop takes the same name and labels (section 3). The GPU gate runs on
-> the Mac unless asked otherwise: the default and every event (a push to `main`, the nightly run, the label `gpu-gate`)
-> run `machines` mac, so no job waits for the desktop while it is off. To use it, switch it on and run the workflow by
-> hand (*Actions → GPU gate → Run workflow*) with `machines` **windows** (the desktop alone) or **both** (the desktop
-> and the Mac). No check or doc requires a Windows GPU result; GitHub's own Windows machines (WARP) still run the
-> Gate's Windows jobs.
+> **The Windows desktop (runner `windows-gpu`, #169) is used on request only.** The GPU gate runs on the Mac unless
+> asked otherwise: the default and every event (a push to `main`, the nightly run, the label `gpu-gate`) run `machines`
+> mac, so no job waits for the desktop while it is off. To use it, switch it on and run the workflow by hand
+> (*Actions → GPU gate → Run workflow*) with `machines` **windows** (the desktop alone) or **both** (the desktop and
+> the Mac). Dispatch it on the pull request's branch or a measurement branch, not on `main`: a by-hand run for the
+> desktop has a concurrency group of its own per branch, so it never holds the next push to `main` pending, but it
+> replaces an earlier desktop run on the same branch. No check or doc requires a Windows GPU result; GitHub's own
+> Windows machines (WARP) still run the Gate's Windows jobs.
 
 This guide sets up both machines, once. Allow about 20 minutes per machine.
 
@@ -187,7 +188,7 @@ runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`), with the err
 ## 5. Check the GPU, then turn it on
 
 1. Set the variable `GPU_RUNNERS` to `true` (section 1, step 4).
-2. *Actions → GPU gate → Run workflow*, branch **main**, machines **both** (or **windows** for the desktop alone), *glsl* **skip** →
+2. *Actions → GPU gate → Run workflow*, on the pull request's branch or a measurement branch (not **main**), machines **both** (or **windows** for the desktop alone), *glsl* **skip** →
    *Run workflow*. Use *glsl* skip for the first run: without it the Windows GLSL tier (ten jobs, hours cold) runs
    before quality and perf start, and the first check takes hours. The run waits for approval: open it, *Review deployments*,
    tick **gpu-runners**, *Approve and deploy*.

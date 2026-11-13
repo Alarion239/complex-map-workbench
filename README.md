@@ -104,7 +104,7 @@ reports strings the Russian table has and it lacks).
   a paired performance gate against a reference build.
 - CI (`ci/README.md`): the whole gate runs on GitHub Actions for every pull request and push to `main`, on Linux,
   Windows and macOS, split into short jobs; the real-GPU part runs on our own Mac and, on request, on a Windows
-  desktop (`ci/RUNNERS.md`; the laptop's runner was removed on 2026-11-01, #169).
+  desktop (`ci/RUNNERS.md`, #169).
 
 ## Design notes
 

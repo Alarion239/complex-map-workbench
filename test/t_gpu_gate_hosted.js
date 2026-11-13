@@ -46,6 +46,25 @@ if (m) {
 }
 fs.rmSync(dir, { recursive: true, force: true });
 
+// the concurrency group (#169): a by-hand run that asks for the desktop may wait for hours, or for as long as the desktop
+// is off, so it gets a group of its own and never holds the next push to main behind it. The group's expression, evaluated
+const grp = /^ {2}group: (.*)$/m.exec(Y.slice(Y.indexOf('\nconcurrency:')));
+ok('the concurrency group is found', !!grp);
+if (grp) {
+  const expr = /^gpu-gate-\$\{\{ (.*) \}\}$/.exec(grp[1]);
+  const group = (ev, o = {}) => {
+    const github = { event_name: ev, ref: o.ref || 'refs/heads/main', event: { pull_request: { number: o.pr } } };
+    const f = new Function('github', 'inputs', 'contains', 'fromJSON', 'format', `return ${expr[1]};`);
+    return f(github, { machines: o.machines || '' }, (a, b) => a.includes(b), JSON.parse, (t, ...a) => t.replace(/\{(\d)\}/g, (_, i) => a[i]));
+  };
+  const push = group('push'), main = (machines) => group('workflow_dispatch', { machines });
+  ok('a push to main and the nightly run keep their own groups', push === 'refs/heads/main' && group('schedule') === 'nightly', [push, group('schedule')]);
+  ok('a by-hand run on the Mac shares its branch\'s group, as before', main('mac') === push && main('') === push && main('windows-hosted') === push, [main('mac'), main('windows-hosted')]);
+  for (const mm of ['windows', 'both']) ok(`a by-hand ${mm} run never sits in main's group`, main(mm) !== push && main(mm) !== group('schedule'), main(mm));
+  ok('a desktop run replaces the one before it on its own branch only', group('workflow_dispatch', { machines: 'windows', ref: 'refs/heads/x' }) !== main('windows') && main('windows') === main('both'));
+  ok('a pull request keeps its own group', String(group('pull_request', { pr: 725 })) === '725');
+}
+
 const gp = job('glprof');
 const runsOn = (/runs-on: (.*)/.exec(gp) || [])[1] || '';
 ok('glprof runs on windows-latest for Windows-hosted, else on the machine\'s self-hosted runner',
