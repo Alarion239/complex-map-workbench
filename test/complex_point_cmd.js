@@ -98,7 +98,7 @@ ok('undo puts the number back', s.params[0].value === 1 && s.params[0].im === 1,
 ok('the row shows it as text again', (await ev(`document.querySelector('.prm-row[data-name="a"] .prm-val').value`)).replace('−', '-') === '1+i', null);
 
 // 4b. an unselected point drags the number too (a press on its body), and a drop on a curve attaches nothing
-const cp = await w2s('L', 0.5, 0);   // a click on the circle selects it: the point is not selected now
+const cp = await w2s('L', 0.5, 0);   // a click on the circle selects it: the point is not selected
 await click(cp[0], cp[1]);
 await settle(400);
 ok('the circle is selected, not the point', await ev(`__cmwPlaneMenu().selected()`) === 's2', await ev(`__cmwPlaneMenu().selected()`));
@@ -189,7 +189,7 @@ if (g0 && g1) {
   ok('on the globe an unselected point drags the number', Math.abs(ga.value + 0.3) < 0.1 && Math.abs(ga.im - 0.5) < 0.1, ga);
   ok('the point stays on the number, bound', Math.abs(gp.p[0] - ga.value) < 1e-9 && Math.abs(gp.p[1] - ga.im) < 1e-9 && gp.bind && gp.bind.p === 'a' && !gp.def && !gp.at, gp);
   ok('and it is one undo step', s.hi === hg + 1, { hi: s.hi, was: hg });
-  // the point is selected now: its handle drags the number, and a drop on the circle attaches nothing
+  // with the point selected, its handle drags the number, and a drop on the circle attaches nothing
   const g2 = await gAt(ga.value, ga.im), g3 = await gAt(0.5 * Math.SQRT1_2, 0.5 * Math.SQRT1_2);
   await drag(g2[0], g2[1], g3[0], g3[1], 10, 16);
   await settle(800);

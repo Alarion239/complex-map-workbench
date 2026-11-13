@@ -1,8 +1,8 @@
 // What the curves suites share: the formula box helpers, the exact-truth scenes (a curve added through the formula box,
 // its ink the difference between the canvas with it shown and hidden, scored against the true curve computed here) and
 // the runner of one scene. An expression for eval in a suite:
-// `const K = eval(fs.readFileSync(...))({ ev, send, nav, load, shot, settled, view, fs, DIR, ok, R })`.
-({ ev, send, nav, load, shot, settled, view, fs, DIR, ok, R }) => {
+// `const K = eval(fs.readFileSync(...))({ ev, send, go, load, shot, settled, view, fs, DIR, ok, R })`.
+({ ev, send, go, load, shot, settled, view, fs, DIR, ok, R }) => {
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 // (the page is quiet: both panes' frames done, no animation running)
 const settle = async () => { await settled({ max: 20000 }); };
@@ -136,7 +136,7 @@ const SC = [
     return out;
   } },
   // the preimage stroke is a crossing test, not a pole or a kink (review findings): tan(Re w) = 1 and 1/Re w = 1 add
-  // (maxFar: an isolated stray pixel is tolerated; the false pole-line stroke was a band ~4 px wide over the pane)
+  // (maxFar: an isolated stray pixel is tolerated; the false pole-line stroke is a band ~4 px wide over the pane)
   // no stroke along the pole lines of g (Re w = pi/2 + k pi; Re w = 0), and the complex-sided sin w = conj(sin w)
   // keeps its axes at any sub-pixel offset (|A - B| had a kink that the jump test dropped)
   { name: 'pre_target_tan_poles', maxFar: 2, target: '\\tan(\\operatorname{Re} w) = 1', steps: [{ type: 'custom', params: { expr: 'z+0.25i', cut: 180 } }], side: 'L', srcView: { cx: 1.5, cy: 0, s: 80 }, rv: { cx: 1.5, cy: 0, s: 80 },
@@ -169,7 +169,7 @@ const runScene = async (sc) => {
   // (the app has saved the shape or target the formula box added)
   await settled({ until: `(() => { const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:curves-${sc.name}') || 'null'); return !!st && (st.shapes || []).length + (st.targets || []).length > 0; })()`, max: 5000 });
   await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
-  await nav(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
+  await go(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
   await settled({ until: `typeof __cmwSet === 'function' && typeof __cmwShapes === 'function'`, max: 30000 });
   await settle();
   // (#363: the reload opens the saved pattern as the phase; the scoring reads the solid fill, the renderer's own)

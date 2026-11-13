@@ -2,18 +2,18 @@
 // (notes/orthogonal-circle/segments/SPEC.md 11; src/constr.js). The proto's 8 checks on the real graph (the disc model,
 // the diameter, the half-plane model, continuity through K's line case and through infinity, P across C), Intersect(K, C)
 // bitwise, the restriction of crossings, every case of SPEC 3 on each side, Use complement on C, C through its own line
-// case, the glider remap, and the plumbing (save and load, validate, v16.3's validate, describe, speed).
+// case, the glider remap, and the plumbing (save and load, the frozen copy's validate, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
 // the speed limit is a ratio of two timings taken in the same run, so it holds on any machine
-// (the seg limit: a seg K adds at most 10 us to a recompute, which takes 14.9 us on the 4-core container the limit was
+// (the seg limit: a seg K adds at most 10 us to a recompute, which takes 14.9 us on the 4-core container the limit is
 // set on, so a recompute with seg may take 1 + 10 / 14.9 = 1.67 times as long; the Mac measured the extra at 0.2 us. The
 // check takes the least of many short rounds, alternating, so that one of each lands in a quiet moment of a loaded
 // machine)
 const SEG_RATIO = 1.67, SEG_ROUNDS = 15, SEG_CALLS = 1000;
 const path = require('path');
 module.exports = function ({ K, ok }) {
-  // (v16.3's constr.js, frozen: the build before this one reading a saved seg)
+  // (a frozen copy of constr.js: it reads a saved seg)
   const K163 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.3-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const note = (t) => { if (process.argv.includes('-v')) console.log('     ' + t); };
   const INF = K.INF, isInf = K.isInf;

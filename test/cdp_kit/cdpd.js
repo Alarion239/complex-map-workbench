@@ -45,6 +45,11 @@ const loadWait = [];
 // machine with no route to the CDNs; a request it does not know goes on to the network. Off by default, and in CI.
 const VENDOR = process.env.CMW_VENDOR === '1' ? require(path.join(DIR, 'vendor.js')) : null;
 function vendorAnswer(p, sid) {
+  // (H.holdSheet: the Google Fonts stylesheet request, vendored or not, goes on after HOLD.ms)
+  if (HOLD.ms && /^https:\/\/fonts\.googleapis\.com\//.test(p.request.url)) { setTimeout(() => answerNow(p, sid), HOLD.ms); return; }
+  answerNow(p, sid);
+}
+function answerNow(p, sid) {
   let a;
   // (a vendored file that is not LOCK.json's: the request fails and the suite's log says why, never a silent stand-in)
   try { a = VENDOR && VENDOR.answer(p.request.url); } catch (e) { LOG.push({ t: 'EXC', m: `CMW_VENDOR: ${e.message}` }); console.error(e.message); send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }, sid).catch(() => {}); return; }
@@ -52,14 +57,42 @@ function vendorAnswer(p, sid) {
   send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, body: a.body.toString('base64'),
     responseHeaders: [{ name: 'content-type', value: a.type }, { name: 'access-control-allow-origin', value: '*' }, { name: 'cache-control', value: 'no-store' }] }, sid).catch(() => {});
 }
+// H.holdSheet(ms): the Google Fonts stylesheet request waits ms before it goes on (0 stops holding), for a page whose
+// faces arrive after first paint
+const HOLD = { ms: 0 };
 let S = null;
 const H = {};
+H.holdSheet = async (ms) => {
+  HOLD.ms = ms;
+  const patterns = (VENDOR ? VENDOR.PATTERNS : []).concat(['https://fonts.googleapis.com/*']);
+  await send('Fetch.enable', { patterns: patterns.map((urlPattern) => ({ urlPattern })) }, S);
+  // (a sheet from the browser's cache never reaches the hold)
+  await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
+};
 H.send = (m, p) => send(m, p, S);
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
 // (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
 // result is read by value from its handle, which is released at once.
+// (#1328) an answer the kit cannot give as data: a page exception ({ __exc }) and a wait that ran out (H.settled's ok false).
+// Each is recorded as a fault of the suite, and counts as handled once the suite reads what says so (`__exc`; `ok` or `at`),
+// so a suite that checks the answer is as it was and one that reads on as if the page had answered fails at its end,
+// with the expression or the wait and the text (kitFaults in its result; ci/browser.js failures()).
+const FAULTS = [];
+const faultAnswer = (ans, key, what) => {
+  const f = { what, handled: false };
+  FAULTS.push(f);
+  const guarded = Object.assign({}, ans);
+  for (const k of key) Object.defineProperty(guarded, k, { enumerable: true, configurable: true, get() { f.handled = true; return ans[k]; } });
+  return guarded;
+};
+// faults(clear): the faults so far that the suite has not read (what the suite's result lists as kitFaults); clear forgets all
+H.faults = (clear = false) => { const u = FAULTS.filter((x) => !x.handled).map((x) => x.what); if (clear) FAULTS.length = 0; return u; };
 H.ev = async (expr, timeout = 20000) => {
+  const r = await evRaw(expr, timeout);
+  return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
+};
+const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
   const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
@@ -107,7 +140,7 @@ H.go = async (url, ms = 15000) => {
   return ok;
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
-// animation frames find the document loaded, neither pane's last GPU frame pending or compiling (__cmwPaneStatus; not
+// animation frames find the document loaded, neither pane's last GPU frame pending, compiling or awaiting its Landscape refinement (__cmwPaneStatus; not
 // with o.panes false, for a check that needs no GL frame),
 // no finite animation or transition running (document.getAnimations(); an endless one, a spinner, never ends), and
 // o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
@@ -124,7 +157,7 @@ H.settled = async (o = {}) => {
       const busy = [];
       if (!only) {
       if (document.readyState !== 'complete') busy.push('loading');
-      if (panes && typeof window.__cmwPaneStatus === 'function') for (const p of ['L', 'R']) { const st = window.__cmwPaneStatus(p); if (st && (st.pending || st.compiling)) busy.push('pane ' + p + (st.compiling ? ' compiling' : ' pending')); }
+      if (panes && typeof window.__cmwPaneStatus === 'function') for (const p of ['L', 'R']) { const st = window.__cmwPaneStatus(p); if (st && (st.pending || st.compiling || st.refining)) busy.push('pane ' + p + (st.compiling ? ' compiling' : st.refining ? ' refining' : ' pending')); }
       const an = document.getAnimations().filter((a) => a.playState === 'running' && a.effect && Number.isFinite(a.effect.getComputedTiming().endTime));
       if (an.length) busy.push(an.length + ' animation(s)');
       }
@@ -136,7 +169,8 @@ H.settled = async (o = {}) => {
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
-  return r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  const ans = r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${o.until ? JSON.stringify(String(o.until).slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
 };
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
@@ -159,16 +193,33 @@ H.click = async (x, y, opts = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1, modifiers: opts.mods || 0 }, S);
 };
 H.move = async (x, y) => send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }, S);
-H.drag = async (x0, y0, x1, y1, n = 12, dt = 16) => {
+// drag(x0, y0, x1, y1, n, dt, rel): press at (x0, y0), n moves along the line to (x1, y1) dt ms apart, release. rel = { x, y, moves }
+// changes the end: the release is at (rel.x, rel.y) (default (x1, y1)), and only the first rel.moves of the n moves are sent
+// (default all), as when a busy frame drops the last moves of a gesture.
+H.drag = async (x0, y0, x1, y1, n = 12, dt = 16, rel = {}) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }, S);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }, S);
-  for (let i = 1; i <= n; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }, S);
+  const moves = rel.moves === undefined ? n : rel.moves;
+  for (let i = 1; i <= moves; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / n, y: y0 + (y1 - y0) * i / n, button: 'left', buttons: 1 }, S); await sleep(dt); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: rel.x === undefined ? x1 : rel.x, y: rel.y === undefined ? y1 : rel.y, button: 'left', clickCount: 1 }, S);
 };
 H.clickSel = async (sel) => {
   const r = await H.ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); if(!e) return null; e.scrollIntoView({block:'nearest'}); const b=e.getBoundingClientRect(); return [b.left+b.width/2,b.top+b.height/2];})()`);
   if (!r || r.__exc) return 'nosel ' + sel;
   await H.click(r[0], r[1]); return r;
+};
+// choose(css, value): the steps view's choice button (Speed, Order) set the way a user sets it: its menu opened, the item for
+// value picked (a menu a touch raised is deaf to a click for a moment, so the pick is tried again until the button holds value).
+// Returns whether it does.
+H.choose = async (sel, value) => {
+  const q = `document.querySelector(${JSON.stringify(sel)})`, want = `${q} && ${q}.value === ${JSON.stringify(value)}`;
+  for (let i = 0; i < 20 && !(await H.ev(want)); i++) {
+    await H.ev(`(() => { const b = ${q}; if (!b) return 0; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return 1; })()`);
+    await H.settled({ until: `!!document.querySelector('#popHost .menu .mi')`, only: true, max: 400 });
+    await H.ev(`(() => { const b = ${q}, c = b && b.choices.find((p) => p[0] === ${JSON.stringify(value)}), m = c && [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === c[1]); if (!m) return 0; m.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); m.click(); return 1; })()`);
+    await H.settled({ until: want, only: true, max: 400 });
+  }
+  return !!(await H.ev(want));
 };
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
 // seed(ns, state): the saved state the app reads under ns on its first load, written from the helper page (a page of the same
@@ -187,17 +238,18 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-H.load = async (ns, st, extra) => {
+H.load = async (ns, st, extra, viewName) => {
   await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns }, S); await sleep(2200);
+  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
+  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
   H.seeded = o.pattern && o.pattern !== 'phase' ? { ns: String(ns).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), pattern: o.pattern } : null;
   await H.reseed();
-  return H.ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+  return H.ev(`({lamps: __qa.lamps()})`);
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
@@ -211,9 +263,9 @@ H.fs = fs; H.path = path; H.DIR = DIR;
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (pin_view.js); with CMW_VIEW=steps, the steps
-  // view (#620: a ported suite, ci/suite_views.js steps({ pin: true }))
-  const pin = (process.env.CMW_VIEW === 'steps' ? "window.__cmwPinView = 'steps';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
+  // (#443) the steps view pinned unless a page's URL asks for ?view=classic (pin_view.js); with CMW_VIEW=classic, the
+  // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
+  const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
   fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
   const done = new Set();
@@ -223,10 +275,13 @@ H.fs = fs; H.path = path; H.DIR = DIR;
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
+      FAULTS.length = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
+      const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
+      if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
       fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }

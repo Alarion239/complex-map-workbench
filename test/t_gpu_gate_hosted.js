@@ -31,7 +31,7 @@ if (m) {
   ok('windows-hosted, glprof: the hosted machine', machines('windows-hosted', 'glprof').out === 'machines=["Windows-hosted"]', machines('windows-hosted', 'glprof'));
   const g = machines('windows-hosted', 'gate');
   ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /glprof only/.test(g.err), g);
-  // (#169: the Windows GPU runner was removed: nothing may be sent to it, it would queue forever)
+  // (#169: there is no Windows GPU runner: nothing may be sent to it, it would queue forever)
   const w = machines('windows', 'gate');
   ok('windows: refused at once, naming #169 (no machine would take it)', w.status !== 0 && w.out === '' && /Windows GPU runner removed \(#169\)/.test(w.err), w);
   const b = machines('both', 'gate');
@@ -59,7 +59,7 @@ if (names) {
   ok('d3d11 accepts the laptop', N.d3d11.test('ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x000046A8) Direct3D11 vs_5_0 ps_5_0, D3D11)'));
   ok('d3d11 refuses SwiftShader', !N.d3d11.test('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'));
 }
-const cmd = (/- run: node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
+const cmd = (/- run: .*node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
 ok('the hosted machine measures against the reference, one round', cmd.includes(`matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
 ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf('Windows-hosted'), cmd);
 ok('the gates never run on the hosted machine (their jobs stay self-hosted)', ['glsl', 'quality', 'perf'].every((j) => /runs-on: \[self-hosted, '\$\{\{ matrix\.machine \}\}', gpu\]/.test(job(j))));

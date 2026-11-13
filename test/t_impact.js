@@ -91,7 +91,7 @@ for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layo
 for (const f of ['notes/i18n/DESIGN.md', 'notes/i18n/ru/phase2b-fixes.json', 'notes/i18n/inventory_tools/build.js', 'notes/i18n/latex/xe.out', 'notes/sound/review-deformation/a.md']) ok(`T0: ${f} -> the unit tests only`, select([f]).tier === 'T0' && !select([f]).browser.length, select([f]));
 ok('T0: a notes-only diff (#516) selects no browser shard', (() => { const p = select(['notes/i18n/inventory_tools/extract.js', 'notes/i18n/latex/pdf.out', 'notes/proto/incremental/x.js', 'notes/v16-user5/review-regress-evidence/cmds/a_cmd.js']); return p.tier === 'T0' && !p.browser.length && !p.glsl.length; })());
 ok('T1: inspector, planemenu, params -> the three views parts and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views-1', 'views-2', 'views-3', 'formulas', 'smoke']));
-// ([#385] desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
+// (desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
 ok('T1: desk.css -> the desktop, phone and every layout shard', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
 ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
 // (the export dialog's CSS in page.html: its lines select the export shards too (#498: .xf-body changed and no export
@@ -108,9 +108,11 @@ ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/p
   fsx.writeFileSync(f, 'return { pass: true };\n');
   try { ok('T1: a new suite no shard lists -> the catch-all shard (new)', same(select(['test/zz_t_impact_new_cmd.js']).browser, ['new', 'smoke']), select(['test/zz_t_impact_new_cmd.js']).browser); } finally { fsx.rmSync(f, { force: true }); }
 }
+// (misc-1, misc-2 and misc-3 hold the suites no area shard lists)
+for (const [f, id] of [['pin_view_cmd.js', 'misc-1'], ['repeat_cmd.js', 'misc-2'], ['kit_ev_cmd.js', 'misc-3']]) ok(`T1: ${f} -> ${id}`, same(select([`test/${f}`]).browser, [id, 'smoke']), select([`test/${f}`]).browser);
 const suite = select(['test/tour_lit_cmd.js']);
 ok('T1: a suite -> its shard', suite.tier === 'T1' && same(suite.browser, ['tour', 'smoke']), suite.browser);
-ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_deform_cmd.js']).browser, ['export-2', 'export-3', 'export-4', 'smoke']));
+ok('T1: a suite in runs -> every shard with one of its runs', same(select(['test/export_deform_classic_cmd.js']).browser, ['export-2', 'export-3', 'export-4', 'smoke']));
 for (const f of ['ci/browser.js', '.github/workflows/gate.yml', 'test/cdp_kit/cdpd.js', 'ci/impact.js']) {
   const p = select([f]);
   ok(`T1: ${f} -> the smoke shard (the harness)`, p.tier === 'T1' && same(p.browser, ['smoke']), p);
@@ -160,7 +162,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
   ok('tools/inspect.js and its page script (the visual inspection, by hand: #470) -> T0', ['tools/inspect.js', 'test/lib/inspect_page.js'].every((f) => select([f]).tier === 'T0'));
   ok('the layout library and its matrix (#470) -> the layout shards', ['test/lib/layout.js', 'test/lib/layout_matrix.js'].every((f) => { const p = select([f]); return p.tier === 'T1' && p.browser.includes('layout-1') && p.browser.includes('layout-2'); }));
-  // ([#385] the start-up file in its parts: the params and links, init() and the start stay T3; the constructions'
+  // (the start-up file in its parts: the params and links, init() and the start stay T3; the constructions'
   // model and adapter are theirs and core; the test hooks select the suites that call a changed hook)
   for (const f of ['src/app/18-params.js', 'src/app/20-init.js', 'src/app/22-start.js']) ok(`a part: ${f} -> T3`, select([f]).tier === 'T3');
   const cm = select(['src/app/19-constructions.js']);
@@ -168,7 +170,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   // ((#366 prototype) the steps view's part: the views', the desktop's and the phone's shards)
   const sv = select(['src/app/19-steps-view.js']);
   ok('a part: src/app/19-steps-view.js -> T1, the views, desktop, phone and every layout shard', sv.tier === 'T1' && same(sv.browser, [...new Set([...AREAS.views, ...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), sv);
-  // ([#385] step 3: the area wiring init() had is in the areas' parts; the shell's and the phone adapter's parts are new)
+  // (step 3: the area wiring in init() is in the areas' parts; the shell's and the phone adapter's parts are separate)
   ok('a part: src/app/19-shell.js -> the desktop, phone and every layout shard', same(select(['src/app/19-shell.js']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
   ok('a part: src/app/19-phone.js -> the phone shards', same(select(['src/app/19-phone.js']).browser, [...AREAS.phone, 'smoke']));
   const H = 'src/app/21-test-hooks.js';
@@ -199,8 +201,8 @@ const lab = select(['README.md'], { full: 'the label full-gate' });
 ok('T3: the label full-gate (or a push, the nightly run, a run by hand) forces everything', lab.tier === 'T3' && same(lab.browser, ALL) && lab.why.includes('the label full-gate') && !lab.skipped.length, lab);
 ok('T3: one unknown path among known ones still forces everything', select(['src/tour.js', 'Makefile']).tier === 'T3');
 
-// [#385] the recent merges the analysis named, on the new rows: #370's desk.css diff now runs the phone shards; #375's,
-// #349's and #342's hunks were in init(), and since step 3 their wiring is in the chain head's, the shell's and the
+// the merged PRs the analysis named, on the new rows: #370's desk.css diff runs the phone shards; #375's,
+// #349's and #342's hunks are wired in the chain head's, the shell's and the
 // view controls' parts: their areas, not everything
 {
   const d370 = select(['src/desk.css', 'test/dh_cmd.js']);

@@ -72,7 +72,7 @@ function accept(dir) {
     r.problems = (r.problems || []).filter((p) => !/golden/.test(p));
   }
   met.meta.accepted = new Date().toISOString();
-  // a partial run (--only) updates its runs in the existing baseline; a full run replaces it
+  // a partial run (--only) updates its runs in the existing baseline; a full run rewrites it
   const all = SC.runs().map((r) => r.id), full = all.every((id) => met.runs[id]);
   let outMet = met;
   if (!full && fs.existsSync(BASELINE)) {
@@ -150,8 +150,8 @@ async function startChrome() {
   const t = await send('Target.createTarget', { url: 'about:blank' }, null);
   S = (await send('Target.attachToTarget', { targetId: t.targetId, flatten: true }, null)).sessionId;
   await send('Runtime.enable'); await send('Page.enable');
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (test/cdp_kit/pin_view.js)
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
+  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (test/cdp_kit/pin_view.js): these scenes use the classic hooks
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: "window.__cmwPinView = 'classic';\n" + fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
   await send('Emulation.setDeviceMetricsOverride', { width: VIEWPORT.width, height: VIEWPORT.height, deviceScaleFactor: VIEWPORT.dpr, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });
   const ev = async (expr, awaitPromise = false) => {
@@ -227,7 +227,7 @@ async function renderRun(B, run, opt) {
   const key = 'complex-map-workbench-v1:' + ns;
   // the saved state is written before any app script runs (fresh profile, own namespace per scene)
   const seeded = 'qreg-seeded:' + ns;
-  // (the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
+  // (the app's chain is 188 px; the scenes keep a 272 px chain, through the test hook)
   const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; window.__qregCanvas = ${JSON.stringify(run.canvas || 'canvasR')}; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
   const t0 = Date.now();
   B.logs.length = 0;

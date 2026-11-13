@@ -1,6 +1,6 @@
-// P4 review fixes (SPEC 9.1): node checks of Region.Lines (run: node test/t_lines.js)
+// P4 review checks (SPEC 9.1): node checks of Region.Lines (run: node test/t_lines.js)
 // - dash arcs anchored near the view (float32 resolves the dash period on reach-extended polylines)
-// - runs stop once the image wraps (z^i) and long curves end where their image is no longer resolved (exp)
+// - runs stop once the image wraps (z^i) and long curves end where their image is unresolved (exp)
 // - log keeps its reach (both ends far out), Mobius-affine tails still reach far
 global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');

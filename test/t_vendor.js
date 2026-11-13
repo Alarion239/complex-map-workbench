@@ -35,7 +35,7 @@ walk(path.join(ROOT, 'src'));
 ok('the faces cover every character the sources use (else: python3 tools/vendor.py)', missing.size === 0,
   [...missing].map(([c, f]) => `U+${c.codePointAt(0).toString(16).toUpperCase()} ${c} (${f})`));
 
-// the build reads vendor/ only (the URLs in build.py are the live page's tags it replaces, never fetched; a CDN URL's
+// the build reads vendor/ only (the URLs in build.py are the live page's tags, swapped for vendor/ files and never fetched; a CDN URL's
 // /npm/ path, jsDelivr's, is not the npm command)
 const build = fs.readFileSync(path.join(ROOT, 'build.py'), 'utf8');
 ok('build.py reads vendor/ and never the network', /vendor \/ 'LOCK\.json'/.test(build) && !/\burllib\b|\brequests\b|http\.client|(?<!\/)\bnpm\b|\bcurl\b|\bwget\b/.test(build));

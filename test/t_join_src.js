@@ -1,6 +1,6 @@
 'use strict';
 // tools/join_src.js: dist/tsc/app.js and gl.js are the joined parts as they are, but for an import's path, which points
-// back at src/ (#20 phase 4: './x.js' is relative to src/, where the joined file would stand, not to dist/tsc/).
+// back at src/ ('./x.js' is relative to src/, where the joined file would stand, not to dist/tsc/).
 //   node test/t_join_src.js
 const fs = require('fs'), path = require('path');
 const { repath } = require('../tools/join_src.js');

@@ -27,6 +27,7 @@ const counts = async (name, steps) => {
   await open(steps);
   const r = {};
   await rest(0); r.rest0 = (await drawn() || {}).K || 0;
+  r.title = await ev('__cmwLandSheets().title.replace(/<[^>]*>/g, "")');
   await park(0.5); r.mid = (await drawn() || {}).K || 0;
   await park(0.98); r.near = (await drawn() || {}).K || 0;
   await rest(1); r.rest1 = (await drawn() || {}).K || 0;
@@ -37,6 +38,7 @@ const counts = async (name, steps) => {
 const a = await counts('root_cos_log', [ROOT, COS, LOG]);
 ok('√, cos, log: the coinciding sheets are drawn once (5 layers at rest, not 10)', a.rest0 === 5, a);
 ok('√, cos, log: the same 5 layers parked in the glide to the next plane and at that plane at rest', a.mid === 5 && a.near === 5 && a.rest1 === 5, a);
+ok('√, cos, log: the pane title counts the 5 sheets drawn', /\b5 sheets\b/.test(a.title) && !/\b10 sheets\b/.test(a.title), a.title);
 // √ then √: four distinct sheets, none dropped
 const b = await counts('root_root', [ROOT, ROOT]);
 ok('√ then √ (distinct sheets): all 4 are drawn at rest and parked in the glide', b.rest0 === 4 && b.mid === 4, b);
