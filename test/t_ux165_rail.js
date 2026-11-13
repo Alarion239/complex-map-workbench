@@ -1,4 +1,4 @@
-// v16.5 rail (notes/ux-build/rail/SPEC.md 5.1): refKey, samePick's keys, gridStep, railPull, the turn-exact glide and
+// The rail (notes/ux-build/rail/SPEC.md 5.1): refKey, samePick's keys, gridStep, railPull, the turn-exact glide and
 // its detents, the perpendicular circle through two gliders on one circle (orthogonal, through both; antipodes: the
 // diameter), circle3 and touch with picks on C. Run: node test/t_ux165_rail.js
 'use strict';

@@ -4,7 +4,7 @@
   // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
   // traces them in idle slices and asks for the redraw when one lands)
   const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
-  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
+  Region.dhAsync = { ready: () => requestRender('L', 'R') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -21,7 +21,7 @@
     // (only the dragged shape: the others keep their meshes, and their looks, through the drag)
     return drag.capMesh && drag.shape === s ? cap : full;
   }
-  const gpu = new Map(); // shape id -> {meshKey, mesh, meshRes, lineKey, lineRes, polys, refKey, fix: {L, R}, hold, live}
+  const gpu = new Map(); // shape id -> {meshKey, mesh, meshRes, builds (of its mesh), lineKey, lineRes, polys, refKey, fix: {L, R}, hold, live}
   function destroyFix(r) {
     for (const k of Object.keys(r.fix || {})) { const f = r.fix[k]; if (f && f.extraRes) GLR.destroy(f.extraRes); }
     r.fix = {};
@@ -115,7 +115,7 @@
       const old = r.fix[job.role];
       r.fix[job.role] = make(old && old.meshKey === r.meshKey ? old : null);
       // a hold that the current mesh now covers in every role it was drawn for is no longer needed
-      if (r.hold && Object.keys(r.hold.fix).every((k) => r.fix[k] && r.fix[k].meshKey === r.meshKey)) dropHold(r);
+      if (r.hold && holdCovered(r)) dropHold(r);
     } else if (r.fix[job.role] && r.fix[job.role].meshKey === r.meshKey) {
       // the newest mesh already has its own fix-up for this role: the finished older pair is not needed
       freePair({ meshRes: job.meshRes, fix: job.fixDone });
@@ -190,15 +190,19 @@
   // a usable meshing window: finite, positive size (a degenerate one, e.g. restored from old saved state, would
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
-  function shapeGPU(s) {
+  // (o.base: the mesh's base resolution, overriding the drawing's: the steps view's whole-plane carry mesh, which has
+  // no edge to draw; each fragment's colour is its own point's exactly, the mesh only places it; o.win: the window its
+  // mesh is cut to, overriding winOf(s): the steps view's outer ring of carried points, past clipWin; o.lines false: no
+  // strokes, for a mesh only the carried colour draws: that ring)
+  function shapeGPU(s, o) {
     if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
-    const win = winOf(s);
+    const win = (o && o.win) || winOf(s);
     let r = gpu.get(s.id);
     if (!r) { r = { fix: {} }; gpu.set(s.id, r); }
     const t = kindType(s);
     const sk = shapeKey(s);
     if (t === 'area') {
-      const base = baseRes(s, r);
+      const base = (o && o.base) || baseRes(s, r);
       let bb = null;
       try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
       const ww = win.x1 - win.x0, wh = win.y1 - win.y0;
@@ -211,6 +215,7 @@
         // (the build time at each resolution: the drag-time cap reads the full-resolution one)
         (r.buildMs || (r.buildMs = {}))[base] = performance.now() - tb;
         retireMesh(r);
+        r.builds = (r.builds || 0) + 1;
         r.mesh = mesh;
         r.meshKey = key;
         r.skey = sk;
@@ -227,7 +232,7 @@
     }
     // a curve formula that no longer classifies as a curve (old saved state, a newer parser) says why in its row
     if (s.kind === 'fcurve') { try { Region.curveDesc(s); s._err = null; } catch (e) { s._err = e.message; } }
-    if (t !== 'point') {
+    if (t !== 'point' && !(o && o.lines === false)) {
       const lkey = sk + '|' + JSON.stringify(win) + (s.kind === 'formula' ? '|' + r.meshKey : '');
       if (r.lineKey !== lkey) {
         // a pair still on screen (the hold) or on its way to it (the live job's mesh) keeps the strokes it was drawn
@@ -325,6 +330,8 @@
   // the deformation transport is open, its homotopy at t
   // ((#366 prototype) the steps view colours the shown plane from the colour plane: the map into it, 19)
   const focusMap = () => (SV.on ? svMap() : endMap());
+  // the map the Cauchy style is drawn of: the whole chain, whichever plane the steps view's thread is parked at (cauchyF is the same map as a function)
+  const cauchyMap = () => (SV.on ? endMap() : focusMap());
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
@@ -398,20 +405,17 @@
       if (!opt.preview) scheduleFix();   // (a drag's fix-ups wait for the release)
       soundFunctionChanged();
       if (opt.preview) {
-        // (a drag's snap: the planes and the title only, a uniform change; the cards, the transport and the fit follow
+        // (a drag's snap: the planes and the title only, a uniform change; the Inspector, the transport and the fit follow
         // at the release, setHomRange(…, {force}))
         requestRender('L', 'R');
         const t = paneTitles();
         if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
       } else {
         if (rightAuto && morphOn() && rImage()) fitRight();
-        buildDock();
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R', 'P');
         updateFocusUI();
-        updateCards();
       }
     }
-    updateBracket();
     if (!opt.preview) save();
     const g = homRangeOk();
     tourEmit('deformation-range', g ? { a: g.a, b: g.b } : { a: 1, b: nSteps() });
@@ -447,6 +451,7 @@
         out.push({ role: 'R', F: stageF(k), key: 'S' + chainSig[k], need: needs(stageMap(k), 'R', kind) });
       }
     }
+    if (svFixWant && SV.on) out.push(svFixWant);
     return out;
   }
   const yieldNow = (ms = 0) => new Promise((r) => setTimeout(r, ms));
@@ -458,16 +463,21 @@
   const yieldTask = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.postTask === 'function'
     ? scheduler.postTask(() => {}, { priority: 'background' })
     : new Promise((r) => { yieldQ.push(r); yieldCh.port2.postMessage(0); }));
-  // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag or a playing morph
-  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open));
+  // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag, a playing morph, or the steps view's
+  // glide, scrub or play (svGliding: the left pane's plane follows the thread, and a fix-up of the plane it passes
+  // would run its slices between the scrub's frames)
+  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open) || (SV.on && svGliding()));
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
-  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them; null when the
-  // job went stale (fixJob.token moved on)
+  // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (fixBusy); null
+  // when the job went stale (fixJob.token moved on)
   async function computeFix(mesh, F, token) {
     const g = fixGen(mesh, F, { ms: FIX_SLICE });
     for (;;) {
       const st = g.next();
       if (st.done) return st.value;
+      // (the slices run, counted where a measurement sets __svPathStats)
+      const ps = globalThis.__svPathStats;
+      if (ps) ps.fixSlices = (ps.fixSlices || 0) + 1;
       await yieldNow();
       while (fixBusy() && token === fixJob.token) await yieldNow(60);
       if (token !== fixJob.token) return null;
@@ -484,8 +494,8 @@
     for (let i = 0; i < nv; i++) {
       const w = F(C(SRC[2 * i], SRC[2 * i + 1]));
       W[2 * i] = w.re; W[2 * i + 1] = w.im;
-      // ([#243] every 8 images: one of a series summed to 4096 terms takes about a millisecond)
-      if ((i & 7) === 7 && due()) { yield; t0 = performance.now(); }
+      // (the clock after every image: one of a series summed to 4096 terms takes about a millisecond)
+      if (due()) { yield; t0 = performance.now(); }
     }
     const LIM = 1e12;
     const ok = (x, y) => Math.abs(x) < LIM && Math.abs(y) < LIM;
@@ -502,7 +512,6 @@
     function* refine(ax0, ay0, bx0, by0, cx0, cy0, wa0, wb0, wc0) {
       stack.length = 0;
       stack.push([ax0, ay0, bx0, by0, cx0, cy0, wa0, wb0, wc0, 0]);
-      let n = 0;
       while (stack.length) {
         const [ax, ay, bx, by, cx, cy, wa, wb, wc, depth] = stack.pop();
         if (ok(wa.re, wa.im) && ok(wb.re, wb.im) && ok(wc.re, wc.im)) {
@@ -523,7 +532,7 @@
         stack.push([cax, cay, bcx, bcy, cx, cy, wca, wbc, wc, depth + 1]);
         stack.push([abx, aby, bx, by, bcx, bcy, wab, wb, wbc, depth + 1]);
         stack.push([ax, ay, abx, aby, cax, cay, wa, wab, wca, depth + 1]);
-        if ((++n & 15) === 0 && due()) { yield; t0 = performance.now(); }
+        if (due()) { yield; t0 = performance.now(); }
       }
     }
     for (let t = 0; t < nt; t++) {
@@ -543,10 +552,47 @@
         if (budget > 0) yield* refine(SRC[2 * a], SRC[2 * a + 1], SRC[2 * b], SRC[2 * b + 1], SRC[2 * c], SRC[2 * c + 1], C(ax, ay), C(bx, by), C(cx, cy));
         else flags[t] = 0;
       }
-      if ((t & 63) === 63 && due()) { yield; t0 = performance.now(); }
+      if (due()) { yield; t0 = performance.now(); }
     }
     return { flags, extra: new Float32Array(extra), trouble };
   }
+  // a finished fix-up res of r's current mesh under the map keyed key, installed as r.fix[role]: the role's skip flags
+  // (reused for the same mesh) and its extra mesh of refined pieces -> the fix-up
+  function installFix(r, role, key, res) {
+    const old = r.fix[role];
+    let fx = old && old.meshKey === r.meshKey && old.skip ? old : null;
+    if (!fx) fx = { meshKey: r.meshKey, skip: GLR.createSkip(r.meshRes, res.flags) };
+    else GLR.setSkip(fx.skip, res.flags);
+    if (fx.extraRes) GLR.destroy(fx.extraRes);
+    fx.extraRes = res.extra.length ? GLR.createMesh(res.extra) : null;
+    fx.mapKey = key; fx.res = res;
+    r.fix[role] = fx;
+    return fx;
+  }
+  // The steps view's fix-up target at rest or parked (role SV, drawn in the left pane): its shapes' meshes under its
+  // map (F its CPU function), refined where the map bends a cell too much (near a pole of a branch's continuation), as
+  // a region's are. The tiling's job runs it (fixTargets, runFixInner) once the view settles, waiting out the steps
+  // view's glides; a new map or shape list restarts it (scheduleFix)
+  let svFixWant = null;
+  function svWantFix(F, map, shapes) {
+    const key = mapKeyOf(map), ids = shapes.map((x) => x.id).join(',');
+    if (svFixWant && svFixWant.key === key && svFixWant.ids === ids) return;
+    svFixWant = { role: 'SV', pane: 'L', F, key, ids, shapes };
+    scheduleFix();
+  }
+  // shape s's steps-view fix-up under map for its current mesh, or null while it has none
+  function carryFix(s, map) {
+    const r = gpu.get(s.id), f = r && r.fix.SV;
+    return f && f.meshKey === r.meshKey && f.mapKey === mapKeyOf(map) ? f : null;
+  }
+  // whether every shape of the steps view's target has its fix-up (true with none asked)
+  function svFixDone() {
+    if (!svFixWant || !SV.on) return true;
+    return svFixWant.shapes.every((x) => { const r = gpu.get(x.id), f = r && r.fix.SV; return !r || !r.meshRes || (f && f.meshKey === r.meshKey && f.mapKey === svFixWant.key); });
+  }
+  // every role a hold was drawn for has its own fix-up of the current mesh (the steps view's role is not one a hold
+  // stands in for)
+  const holdCovered = (r) => Object.keys(r.hold.fix).every((k) => k === 'SV' || (r.fix[k] && r.fix[k].meshKey === r.meshKey));
   async function runFix() {
     if (!GLR.ok) return;
     // started during motion: try again once it is over (the token stays, so the job is not lost)
@@ -557,7 +603,7 @@
   }
   async function runFixInner(token) {
     for (const tg of fixTargets()) {
-      for (const s of S.shapes) {
+      for (const s of tg.shapes || S.shapes) {
         if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;   // ([#253] a later plane's shapes: forward, no fix-ups)
         const r = gpu.get(s.id);
         if (!r || !r.mesh || !r.meshRes) continue;
@@ -571,15 +617,9 @@
         const twin = Object.values(r.fix).find((f) => f && f.res && f.mapKey === tg.key && f.meshKey === r.meshKey);
         const res = twin ? twin.res : await computeFix(r.mesh, tg.F, token);
         if (!res || token !== fixJob.token || r.meshKey === undefined || !r.meshRes) return;
-        let fx = old && old.meshKey === r.meshKey ? old : null;
-        if (!fx) fx = { meshKey: r.meshKey, skip: GLR.createSkip(r.meshRes, res.flags) };
-        else GLR.setSkip(fx.skip, res.flags);
-        if (fx.extraRes) GLR.destroy(fx.extraRes);
-        fx.extraRes = res.extra.length ? GLR.createMesh(res.extra) : null;
-        fx.mapKey = tg.key; fx.res = res;
-        r.fix[tg.role] = fx;
-        if (r.hold && Object.keys(r.hold.fix).every((k) => r.fix[k] && r.fix[k].meshKey === r.meshKey)) dropHold(r);
-        requestRender(tg.role);
+        installFix(r, tg.role, tg.key, res);
+        if (r.hold && holdCovered(r)) dropHold(r);
+        requestRender(tg.pane || tg.role);
       }
     }
   }
@@ -639,9 +679,10 @@
   // not carry the chain; not before, so a fast link never shows it
   // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
   const SM_LINKING_MS = 250, SM_LINK_WORK = 20000;
-  // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null
+  // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null (role SV: the
+  // steps view's carried colour in the left pane, its fix-ups r.fix.SV)
   function smNeed(s, r, role, m) {
-    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L')) return null;
+    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L' && role !== 'SV')) return null;
     if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
@@ -655,7 +696,7 @@
     if (isIdentMap(m)) return null;
     if (smStretched(s)) return 'unbounded';
     const f = r && r.fix && r.fix[role];
-    const fk = (m.mode || 0) === 0 && !(m.a || 0) ? 'S' + chainSig[m.b || 0] : null;
+    const fk = role === 'SV' ? (svFixWant && svFixWant.key) : (m.mode || 0) === 0 && !(m.a || 0) ? 'S' + chainSig[m.b || 0] : null;
     if (f && f.res && f.meshKey === r.meshKey && (!fk || f.mapKey === fk) && f.res.trouble) return 'trouble';
     return null;
   }
@@ -668,9 +709,13 @@
     return null;
   }
   // the content of a mesh (everything but the view); with win false, without the meshing window (the stand-in rule)
+  // the look a mesh is built for: the steps view's (role 'SV') is the regions' own, regionLook, also while its mask
+  // draws them solid, so its carried colour and its mask share one mesh per region
+  const smLookOf = (role) => (role === 'SV' ? regionLook() : S);
   function smContent(s, role, kind, m, win = true) {
-    const pid = (GLR.PATTERNS || {})[S.pattern] ?? 1;
-    return `${s.id}|${shapeKey(s)}|${role}|${kind}|${mapKeyOf(m)}|K${SphereMesh.kOf(S.alpha)}|p${pid}|${patternCell()}|${S.lines ? 1 : 0}` + (win ? `|${winKey()}` : '');
+    const lk = smLookOf(role), pid = (GLR.PATTERNS || {})[lk.pattern] ?? 1, K = SphereMesh.kOf(lk.alpha);
+    return `${s.id}|${shapeKey(s)}|${role}|${kind}|${mapKeyOf(m)}|K${K}|p${pid}|${patternCell()}|${lk.lines ? 1 : 0}`
+      + (win ? `|${winKey()}` : '');
   }
   // the meshing window as the mesher's source view: clipWin at a nominal SM_WIN_PX px across (it is the left pane's box
   // when it was last re-centred), so the source metric depends on clipWin alone (an export's scaled views share it)
@@ -764,21 +809,25 @@
     sm.want.set(slot, key);
     if (!sm.jobs.has(key)) {
       const F = cpuMap(m), steps = smSteps(m);
+      // (the steps view's carried colour is opaque and orders its fragments by the sheet key: the mesher keeps the two
+      // layers that key puts in front)
+      const kp = role === 'SV' ? smKeyOf(m) : null, lk = smLookOf(role);
       const cfg = {
         steps, F, injective: smInjective(m), shape: JSON.parse(JSON.stringify(s)),
         left: smLeft(),
-        view: v, Kmax: SphereMesh.kOf(S.alpha),
-        pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
+        view: v, Kmax: kp ? 2 : SphereMesh.kOf(lk.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
+        pattern: { id: (GLR.PATTERNS || {})[lk.pattern] ?? 1, cell: patternCell(), lines: !!lk.lines },
         maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
       sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
     }
     smPumpLater();
   }
-  // a frame after the interaction settles requests the jobs the motion frames could not
+  // a frame after the interaction settles requests the jobs the motion frames could not (sm.kickT: its timer, 0 once
+  // that frame is asked for)
   function smKick() {
     clearTimeout(sm.kickT);
-    sm.kickT = setTimeout(() => { if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
+    sm.kickT = setTimeout(() => { sm.kickT = 0; if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
   }
   let smPumpT = 0;
   function smPumpLater() { if (!smPumpT && !sm.running) smPumpT = setTimeout(() => { smPumpT = 0; smPump(); }, 0); }
@@ -832,7 +881,7 @@
     sm.stats.built++; if (data.partial) sm.stats.partial++;
     // memory: the least recently drawn published meshes go first
     if (sm.cpuBytes > SM_CPU_BYTES) for (const x of [...sm.entries.values()].sort((a, b) => a.t - b.t)) { if (sm.cpuBytes <= SM_CPU_BYTES) break; if (x !== e) smDrop(x); }
-    requestRender(job.role === 'L' ? 'L' : 'R');
+    requestRender(job.role === 'R' ? 'R' : 'L');
   }
   // the export meshes, once the figure is drawn (or abandoned)
   function smDropExport(gen = null) { for (const e of [...sm.entries.values()]) if (e.exp && (gen == null || e.expGen === gen)) smDrop(e); }
@@ -1011,7 +1060,7 @@
     const res = polys.length ? GLR.createLines(polys, origin) : null;
     GLR.destroy(r.lineRes);
     r.lineRes = res; r.lpolys = polys; r.lorigin = origin; r.arcs = null;
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   async function runLines() {
     lineJob.timer = 0;
@@ -1148,3 +1197,10 @@
     if (r.arcs.size > 4) r.arcs.delete(r.arcs.keys().next().value);
     return a;
   }
+  // the dash of an open set's outline (spec 6.8: 5 on, 3.5 off, along the curve under map; F: map's CPU twin when the
+  // caller has one), as GLR.drawLines takes it; null for a closed set
+  const OPEN_DASH = [5, 3.5];
+  function openDash(r, map, F) { return r.open ? { dash: OPEN_DASH, arc: arcOf(r, F || cpuMap(map), mapKeyOf(map)) } : null; }
+  // whether a plane draws shape s's outline: a visible curve or region, every one with Outlines on, else the selected
+  // one alone; all: every one whatever Outlines says
+  const outlineShown = (s, all) => s.visible !== false && kindType(s) !== 'point' && (all || S.outline || s.id === selected);

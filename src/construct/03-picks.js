@@ -66,7 +66,7 @@
     const pane = A.setView(side), zc = pane.s2w(x, y), Z = [zc.re, zc.im];
     if (!(pieceDist(pc, Z) * pane.view.s <= radii(touchNow()).c)) return null;
     let pr = null;
-    try { pr = Constr.projectPiece(pc, Z, pc.c3 && c.ref ? pts3Of(find(c.ref.s), side === 'R' ? 1 : 0) : null); } catch (e) { pr = null; }
+    try { pr = Constr.projectPiece(pc, Z, pc.c3 && c.ref ? pts3Of(find(c.ref.s), planeOf(find(c.ref.s))) : null); } catch (e) { pr = null; }
     if (!pr || !isXY(pr.z)) return null;
     const t = { cls: 'curve', ref: c.ref || null, z: pr.z.slice(), t: pr.t, seed: pr.seed, pc };
     if (!c.ref) Object.assign(t, { onMake: true, label: c.label });
@@ -121,7 +121,7 @@
     }
     return out;
   }
-  // the rings still offered: after a ring's tangent is made, P stays picked with the other ring [v16.3 review user-5]
+  // the rings still offered: after a ring's tangent is made, P stays picked with the other ring
   const ringsLeft = (P) => ringsOf(P).filter((r) => !(draftC && draftC.doneK && draftC.doneK.includes(r.k)));
   // a ring at the pointer, within the point radius: the tangent from P with index k
   function ringAt(side, x, y, Pp) {
@@ -130,19 +130,19 @@
     for (const r of ringsLeft(Pp.z)) { const [sx, sy] = pane.w2sxy(r.tp[0], r.tp[1]), dd = Math.hypot(sx - x, sy - y); if (dd < bd) { bd = dd; best = r; } }
     return best ? { cls: 'ring', ref: null, z: best.tp.slice(), k: best.k, G: best.G, label: $t('a tangent from {p}', { p: pickName(Pp, side) }) } : null;
   }
-  // what a click at (x, y) takes now: {t} (t.role 'T' or 'P'; a hint, a ring) or {t?, warn} (the toast it gives, the
+  // what a click at (x, y) takes: {t} (t.role 'T' or 'P'; a hint, a ring) or {t?, warn} (the toast it gives, the
   // target it refuses). First X: T when it is on C, else P. After T: points and crossings, the tangent hint, strokes, a
   // free point; on C is refused. After P: a ring, a point or crossing on C, C's stroke; anything else is refused
   function touchTarget(side, x, y) {
     const d = draftC, P0 = d.picks[0], c1 = d.curve1;
     const pane = A.setView(side), zc = pane.s2w(x, y), Z = [zc.re, zc.im];
-    const dup = dupPick;   // ([v16.5 rail SPEC 3.2])
+    const dup = dupPick;
     const distinct = () => $t('{x} needs distinct points', { x: toolName('touch') });
     // (a display curve is no shape yet: its stroke is looked for beside the snap targets, the nearer stroke wins)
     const withMake = (t) => {
       if (!c1.make || !(t.cls === 'free' || t.cls === 'curve')) return t;
       const c = strokeOnC(side, x, y);
-      // ([v16.5 rail] C's own stroke wins over another display curve under it: at 1, the unit circle over the real axis)
+      // (C's own stroke wins over another display curve under it: at 1, the unit circle over the real axis)
       return c && (t.cls === 'free' || t.disp || pieceDist(c.pc, Z) <= pieceDist(t.pc, Z)) ? c : t;
     };
     if (!P0) { const t = withMake(pickOf(side, x, y)); return { t: Object.assign({}, t, { role: onC(t) ? 'T' : 'P' }) }; }
@@ -161,7 +161,7 @@
     if (c) return { t: Object.assign(c, { role: 'T' }) };
     return { t, warn: chipTouch() ? $t('Tap a point on {c}.', { c: curve1Name() }) : $t('Click a point on {c}.', { c: curve1Name() }) };
   }
-  // [v16.3 review user-5] after a ring's tangent, P stays picked (carried): a click it would refuse starts the next circle
+  // after a ring's tangent, P stays picked (carried): a click it would refuse starts the next circle
   // instead, as a first pick ({t, restart: true})
   function touchTargetC(side, x, y) {
     const r = touchTarget(side, x, y);
@@ -214,7 +214,7 @@
     holdRing();
     api.cm.create(pre.concat(shapes, out), { target });
     draftC = { tool: 'touch', side, picks: [], curve1: { cls: 'curve', ref: cref, z: c1.z }, hover: null, keptC: true };
-    // (a ring: P stays picked, with the other ring still offered; the second tangent is one click [v16.3 review user-5])
+    // (a ring: P stays picked, with the other ring still offered; the second tangent is one click)
     if (ring && pRef && find(pRef.s)) Object.assign(draftC, { picks: [{ cls: 'point', ref: pRef, z: Pp.z.slice(), role: 'P' }], carried: true, doneK: (d.doneK || []).concat([ring.k]) });
     A.requestRender('OL', 'OR');
     A.tourEmit('construct-added', { op: ring ? 'tangent' : 'touch' });
@@ -232,7 +232,7 @@
   }
   function finish(side) {
     const d = draftC, tool = d.tool, target = side === 'R';
-    // ([v16.5 rail] a display curve picked as C becomes one shape, made first: the picks on it are points on it)
+    // (a display curve picked as C becomes one shape, made first: the picks on it are points on it)
     const made = {};
     if (CURVE1.has(tool) && d.curve1 && d.curve1.make) made[d.curve1.make.fixed] = A.newShape(d.curve1.make.kind, JSON.parse(JSON.stringify(d.curve1.make)), target);
     const { shapes, refs } = refsOfPicks(side, made);
@@ -255,8 +255,8 @@
       let g = null;
       try { const r = pc && pc.G && isXY(P[0]) && isXY(P[1]) ? Constr.perpForm(pc.G, P[0], P[1], pc) : null; g = r && r.G ? Constr.shapeOf(r.G) : null; } catch (e) { g = null; }
       const base = g ? (g.kind === 'line' ? { a: g.a, b: g.b } : { c: g.c, r: g.r }) : { c: (P.find(isXY) || [0, 0]).slice(), r: 1 };
-      // [v16.4 segments] the chip on Inside: the arc on the side SPEC 2.2 chooses, named as an Arc
-      // ([v16.5 UX55] the Hyperbolic line tool is always Inside; Outside is the other side; the result is a Hyperbolic line)
+      // the chip on Inside: the arc on the side SPEC 2.2 chooses, named as an Arc
+      // (the Hyperbolic line tool is always Inside; Outside is the other side; the result is a Hyperbolic line)
       let seg = 0;
       const sm = effSeg(tool);
       // ([issue #70] Between z0 and z1: def.between, the segment from the first point to the second; no side to choose)
@@ -286,7 +286,7 @@
     A.requestRender('OL', 'OR');
     A.tourEmit('construct-added', { op: 'meet' });
   }
-  // two curves: both points (one for two lines), those defined now
+  // two curves: both points (one for two lines), those that exist
   function finishMeetCurves(c1, c2, side) {
     draftC = null;
     const a = find(c1.ref.s), b = find(c2.ref.s);
@@ -306,7 +306,7 @@
       }
     }
     A.requestRender('OL', 'OR');
-    // [v16.5 UX101] two parallel lines meet only at ∞: said so, not "here"
+    // two parallel lines meet only at ∞: said so, not "here"
     if (!out.length) { pickWarn(pa && pb && pa.kind === 'line' && pb.kind === 'line' ? $t('These lines are parallel: they meet only at ∞') : $t('The curves do not meet here')); A.requestRender('OL', 'OR'); return; }
     holdRing();
     api.cm.create(out, { target });
@@ -334,7 +334,7 @@
         vs.forEach((z, i) => { const id = f1.zpIds[kind] && f1.zpIds[kind][i]; if (z && id) out.push({ z, ref: { zp: f1.uid, kind, id, i, step: 0 } }); });
       }
     }
-    if (side === 'R') { const F = env().F; for (const s of st.shapes) if (s.kind === 'point' && s.visible !== false && !s.helper && !s._atInf && F) { const w = F(s.p); if (w) out.push({ z: w, ref: { img: s.id } }); } }
+    { const F = carriedF(side); if (F) for (const s of st.shapes) if (s.kind === 'point' && planeOf(s) === 0 && s.visible !== false && !s.helper && !s._atInf) { const w = F(s.p); if (w) out.push({ z: w, ref: { img: s.id } }); } }
     return out;
   }
   function globeClick(side, x, y) {
@@ -342,21 +342,21 @@
     if (!isCTool(tool)) return false;
     const gp = A.globePick(side, x, y);
     if (!gp || !gp.g) return false;
-    // ([v16.5 fix rail-5] the curve tools pick their curves in the plane: said as it is, never "Click a line or a circle"
+    // (the curve tools pick their curves in the plane: said as it is, never "Click a line or a circle"
     // on a press that is on one)
     if (tool === 'meet' || CURVE1.has(tool)) { pickWarn($t('Switch to the plane to pick the curve')); return true; }
     const R = radii(touchNow()).p;
     let best = null, bd = R;
     const consider = (P, ref, z) => { const q = A.gScreen(gp.gc, P); if (!q) return; const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = { cls: 'point', ref, z }; } };
     if (!draftC || draftC.tool !== tool || draftC.side !== side) draftC = { tool, side, picks: [], curve1: null, hover: null };
-    // ([v16.5 rail SPEC 3.2] the draft's picks that become points are targets: a press on one is refused)
+    // (the draft's picks that become points are targets: a press on one is refused)
     draftC.picks.forEach((p, i) => { if (p.cls !== 'point' && isXY(p.z)) consider(Region.Globe.lift(p.z[0], p.z[1]), { pend: i }, p.z.slice()); });
     for (const t of globeTargets(side)) consider(Region.Globe.lift(t.z[0], t.z[1]), t.ref, t.z.slice());
     if (tool === 'circle3') consider([0, 0, 1], { inf: 1 }, Constr.INF);
-    // ([v16.5 fix rail-5] a pick on a drawn curve is a point on it, as on the plane: the construction is exact on it)
+    // (a pick on a drawn curve is a point on it, as on the plane: the construction is exact on it)
     if (!best && !altNow()) best = globeCurveAt(side, gp.g, x, y, gp.gc, gp.hit);
     if (!best) { if (!gp.g.z) return true; best = { cls: 'free', z: [gp.g.z.re, gp.g.z.im], ref: null }; }
-    if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: warnTool(tool) })); return true; }   // ([v16.5 UX52])
+    if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: warnTool(tool) })); return true; }
     draftC.picks.push(best); pickOk();
     if (draftC.picks.length >= NEED[tool]) finish(side); else A.requestRender('OL', 'OR');
     return true;
@@ -374,7 +374,7 @@
     A.requestRender('OL', 'OR');
     return true;
   }
-  // [v16.5 UX15] Undo (its button, ⌘Z, the phone's Undo) while the draft has picks of its own: the last pick goes, as
+  // Undo (its button, ⌘Z, the phone's Undo) while the draft has picks of its own: the last pick goes, as
   // Backspace, never earlier work. The curve kept from the last circle (keptC) and a P carried after a tangent are no
   // picks of this draft: Undo then undoes that construction as usual. Returns the pick's name ('' when it has none), or
   // null when Undo is the app's

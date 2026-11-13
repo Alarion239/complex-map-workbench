@@ -10,7 +10,8 @@ Used twice:
 Checks merge to true only if true in every run (--checks majority: in most runs, for confirmation re-runs), except
 suite.no_errors: false whenever any run reported an error, so a unit that errored in the full run and was not re-run
 still fails the merged verdict. The merged file keeps FIRST's meta (so a full run stays full) and records the attempts
-per metric in `runs`.
+per metric in `runs`, and, per pass, the units it measured and the units that started busy (meta.passUnits,
+meta.passBusy).
 """
 import argparse
 import json
@@ -57,6 +58,10 @@ def merge(runs, names=None, checks='all'):
     if 'suite.no_errors' in out['metrics'] and out['errors']:
         out['metrics']['suite.no_errors']['value'] = False
     out['meta']['merged_from'] = [r.get('meta', {}).get('date') for r in runs]
+    # per pass: the units it measured and the units that started on a busy machine (compare_perf.py counts a unit that
+    # started busy in some pass as red only with enough passes that started quiet)
+    out['meta']['passUnits'] = [sorted({m.get('unit_id') for m in r.get('metrics', {}).values() if m.get('unit_id')}) for r in runs]
+    out['meta']['passBusy'] = [sorted({b.get('unit') for b in (r.get('meta', {}).get('busyUnits') or []) if isinstance(b, dict)}) for r in runs]
     return out
 
 

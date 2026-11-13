@@ -260,13 +260,11 @@
       }
     }
     if (keyW) {
-      const R = keyW / 2 - 12, r0k = R * 0.55, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0k)} ${f2(ky)}a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(2 * r0k)} 0a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(-2 * r0k)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0k)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
+      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
+      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
     }
     const box = kind === 'land' && raws[0].land ? raws[0].land.box : null;
@@ -304,6 +302,165 @@
       Hfig = ye + tp * 0.9;
     }
     return { items, defs: '', lines, H: Hfig, info: { film: kind, ts, m, labs: ts.map(lab), tracked, pts, marks, hidden: ptShapes.map((z, q) => ({ z, lab: ptLab[q] })).filter((x, q) => !ptSeen[q]), open: openS.length > 0, outline: kind === 'phaseGlobe' && shapes.some((s) => kindType(s) !== 'point'), hiddenZP: allZP && hiddenZP / allZP > 0.5 ? hiddenZP : 0, box, land: kind === 'land' } };
+  }
+  // the steps view's filmstrip: one frame per plane of the thread, each that plane's picture as its stage shows
+  // it (its surface, colouring and Inside regions), titled with the plane and the step into it, w_k = f_k(w_{k-1}).
+  // As on screen, every frame shows the window all the planes share (the camera). Fit, on the plane, gives each frame
+  // its own window: the box of the images in that plane of the shapes the camera shows in z, plus SV_FIT_PAD of each
+  // side, widened to the camera's aspect so the frames keep one size, with its own ticks. A plane keeps the camera's
+  // window when no shape is in view, or when the box is wider than SV_FIT_MAX cameras (an image running off to
+  // infinity, as exp sends a strip, would be a speck in it)
+  const SV_FIT_PAD = 0.1, SV_FIT_MAX = 10, SV_FILM_OVER = 1.5;
+  const sameBox = (p, q) => ['x0', 'x1', 'y0', 'y1'].every((k) => Math.abs(p[k] - q[k]) <= 1e-9 * Math.max(1, Math.abs(p[k])));
+  // the windows of the planes idx (indexes into A.svFrames()) when each is framed on its own (Fit, on the plane): the
+  // boxes, one per plane, or null when every plane keeps the camera's window; and fellBack, true when a plane keeps it
+  // because no shape is in view or its box is too wide
+  function svFitBoxes(o, idx) {
+    if (o.crop === 'screen' || A.svSurf() !== 'plane') return { boxes: null, fellBack: false };
+    // (the shapes are traced in the camera's window grown 3 times each way, as the other views trace them, so a shape
+    // running off the screen keeps its part)
+    const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
+    const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
+    let boxes = idx.map((i) => {
+      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD);
+      return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
+    });
+    const fellBack = boxes.some((b) => !b);
+    boxes = boxes.map((b) => b || cam);
+    return { boxes: boxes.every((b) => sameBox(b, cam)) ? null : boxes, fellBack };
+  }
+  // The frames are laid out as the deformation's filmstrips (figFilmPic, figFilmPhase): 8 pt between frames, a title
+  // 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the frame and at least 2 pt
+  // of room right of it for the last x label
+  async function figSvFilm(o, P, W, T) {
+    const [tp, lp] = T;
+    const frames = A.svFrames(), n = frames.length, gap = 8;
+    const cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
+    const ink = printInkFor(o, A.state().alpha);
+    // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
+    const fit = svFitBoxes(o, frames.map((f, i) => i));
+    let boxes = fit.boxes;
+    const fellBack = fit.fellBack;
+    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
+    const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
+    // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
+    const roughW = (W - gap * (cols - 1)) / cols;
+    const steps = boxes ? boxes.map((b) => stepFor(b, roughW)) : null;
+    const mL = boxes ? Math.max(...boxes.map((b, i) => tickW(b, steps[i], tp))) + 3 : 0;
+    const mR = boxes ? Math.max(2, ...boxes.map((b, i) => overR(b, steps[i], tp))) : 0;
+    // (the x tick labels' row under a frame, as the plane figure's bottom margin: a label's line, 1.05 times its point
+    // size, and its 4.2 pt gap from the frame)
+    const below = boxes ? tp * 1.05 + 4.2 : 0;
+    // (a row: its titles (tH), the frames, their tick labels, and ROW_GAP to the next row's titles; the last row keeps
+    // ROW_GAP - 2 below it, the 4 pt the frames' strokes and tick marks need)
+    const ROW_GAP = 6;
+    const pw = (W - gap * (cols - 1) - cols * (mL + mR)) / cols;
+    const raws = [];
+    for (let i = 0; i < n; i++) {
+      // (rendered at SV_FILM_OVER times the frame's width: the frames are small, and the extra pixels keep thin level
+      // lines sharp in print)
+      const r = await A.svArt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
+      if (!r) return null;
+      raws.push(r);
+    }
+    const ph = Math.min(pw * raws[0].h / raws[0].w, (P.maxH - rows * (tH + ROW_GAP + below)) / rows);
+    const items = [], lines = [];
+    let defs = '';
+    for (let i = 0; i < n; i++) {
+      const x = (i % cols) * (mL + pw + mR + gap) + mL, y = Math.floor(i / cols) * (tH + ph + below + ROW_GAP) + tH, r = raws[i];
+      if (boxes) {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[i], { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
+        const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw });
+        items.push(p.markup); defs += p.defs; lines.push(...p.lines);
+      } else {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
+        items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
+        items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+        lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' });
+      }
+      items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
+    }
+    // (ownWin: the frames' windows differ, which the caption says)
+    const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
+    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
+  }
+  // the steps view's two-plane figure: plane o.svFrom and plane o.svTo of the thread (indexes into A.svFrames(); by
+  // default z and the last plane) side by side, each as the Shown plane exports it, each headed by its name, with the
+  // arrow of the map between them named over it (A.svMapTex). A plane on the plane surface has its box and axes as in
+  // the other plane figures (Crop, Axes); on the sphere the frames are the stage's pictures, as in the filmstrip.
+  // a TeX plane or map name as plain text: w_{2} -> w₂, f_{2}\circ f_{1} -> f₂∘f₁
+  const plainName = (tex) => tex.replace(/_\{(\d+)\}/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join('')).replace(/\\circ ?/g, '∘').replace(/\\cdots/g, '⋯');
+  async function figSvTwo(o, P, W, T) {
+    const [tp, lp] = T, frames = A.svFrames(), n = frames.length;
+    const from = Math.max(0, Math.min(n - 2, o.svFrom == null ? 0 : o.svFrom | 0)), to = Math.max(from + 1, Math.min(n - 1, o.svTo == null ? n - 1 : o.svTo | 0));
+    const ids = [from, to], ink = printInkFor(o, A.state().alpha), mode = o.ink === 'bw' ? 'grey' : 'rgb';
+    const plane = A.svSurf() === 'plane';
+    const fit = svFitBoxes(o, ids);
+    const boxes = plane ? fit.boxes || ids.map(() => A.svBox()) : null;
+    const axes = plane ? o.axes || P.axes : 'none';
+    let asp;
+    if (plane) asp = boxes.map(aspect);
+    else {
+      const pr = await A.svArt(from, { wpt: 20, dpi: 72, ink, alive: o.alive });
+      if (!pr) return null;
+      asp = [pr.w / pr.h, pr.w / pr.h];
+    }
+    const steps = plane ? boxes.map((b) => stepFor(b, W / 2)) : null;
+    const names = ids.map((i) => frames[i].name), arrowTex = A.svMapTex(from, to), arrowLab = XD.tex(arrowTex, lp);
+    const arrowSpan = Math.max(axes === 'box' ? 22 : 26, arrowLab.w + 12);
+    const titles = names.map((nm) => [`\\operatorname{Re} ${nm}`, `\\operatorname{Im} ${nm}`]);
+    const ah = 4.6;
+    let mL, gut, mR, top, bottom;
+    if (axes === 'box') {
+      mL = tickW(boxes[0], steps[0], tp) + 3; gut = arrowSpan + 10 + tickW(boxes[1], steps[1], tp) + 3; mR = Math.max(2, overR(boxes[1], steps[1], tp));
+      top = lp * 1.15 + 3; bottom = tp * 1.05 + 4.2;
+    } else if (axes === 'none') {
+      mL = 3; gut = arrowSpan + 16; mR = 2; top = lp * 1.15 + 3; bottom = 3;
+    } else {
+      const nA = XD.tex(titles[0][0], lp).w, nB = XD.tex(titles[1][0], lp).w, t1 = XD.tex(titles[0][1], lp);
+      mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = ah * 0.3 + 2 + nB + 2;
+      top = Math.max(t1.a + t1.d + ah + 5, lp * 1.15 + 3); bottom = 3;
+    }
+    // (past the colour plane the To plane's pane key, as the plain still of that plane carries it: the hue ring and the line
+    // saying where the colour is carried from, in a column right of the second picture)
+    const sk = A.svKey ? A.svKey(to) : null;
+    const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
+    mR += keyW ? keyW + KEY_GAP : 0;
+    let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
+    h = Math.min(h, W * 0.62, P.maxH - top - bottom);
+    const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;
+    const xs = [x0 + mL, x0 + mL + h * asp[0] + gut];
+    const items = [], lines = [];
+    let defs = '';
+    for (const k of [0, 1]) {
+      const wpt = h * asp[k], x = xs[k];
+      const r = await A.svArt(ids[k], Object.assign({ wpt, dpi: 300, ink, alive: o.alive }, plane ? { box: boxes[k] } : {}));
+      if (!r) return null;
+      if (plane) {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[k], { mode, wpt });
+        const p = XD.panel({ x, y, w: wpt, h, box: boxes[k], step: steps[k], art: [a], curves: [], points: [], axes, minimal: P.minimal, ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: titles[k] });
+        items.push(p.markup); defs += p.defs; lines.push(...p.lines);
+      } else {
+        const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode, wpt });
+        items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
+        items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(wpt)}" height="${f2(h)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+        lines.push({ x0: x, y0: y, x1: x + wpt, y1: y + h, kind: 'frame' });
+      }
+      const nm = XD.tex(names[k], lp);
+      items.push(XD.at(nm, x, y - 3, 'start', 'base', 'title'));
+    }
+    // (cross axes: the arrow keeps clear of both real axes, so it never reads as their continuation)
+    const oys = axes === 'cross' ? boxes.map((b) => Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h))) : [];
+    const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs[0] + h * asp[0], xn: xs[1], y, h, oys, label: arrowLab, span: arrowSpan, off: axes === 'cross' ? ah * 0.3 + 2 + XD.tex(titles[0][0], lp).w + 8 : 8 });
+    items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
+    let keyBottom = 0;
+    if (keyW) {
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp);
+      items.push(...k.items);
+      keyBottom = k.bottom;
+    }
+    const ownWin = !!fit.boxes && !sameBox(boxes[0], boxes[1]);
+    return { items, defs, lines, H: Math.max(y + h + bottom, keyBottom), info: { svTwo: true, keyLine: keyW ? sk.carried.text : null, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {
@@ -367,13 +524,11 @@
       await breathe();
     }
     if (keyW) {
-      const R = keyW / 2 - 12, r0k = R * 0.55, kx = W - keyW / 2, ky = rows * rowH / 2, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0k)} ${f2(ky)}a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(2 * r0k)} 0a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(-2 * r0k)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0k)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins)
+      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
+      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
     }
     return { items, defs, lines, H: rows * rowH, info: { film: 'phase', ts, m, labs: ts.map(lab), box, bw, zp: zps, dc } };
@@ -385,13 +540,19 @@
   }
   // the paths figure on the globe: H_t at t = end on the sphere over X's outline (the app's gray line), and the paths
   // t -> H_t(z) of a few points (the point shapes, else points of the boundaries) with heads at F(z)
+  // (o.sv, the steps view's A.svPathsFig() on the sphere: the shown plane's globe, the paths those of the step that leads to
+  // it, their starts chosen in the camera's window as on the plane, and the caption the plane's own then the paths' sentence)
+  // the width (pt) at which the steps view's paths are picked for the sphere: wide enough that, of the paths picked over the
+  // whole source window, several lie wholly on the camera's side
+  const SV_PATHS_PICK_W = 600;
   async function figGlobePaths(o, P, W, T) {
     const [tp] = T;
-    const d = A.defo(), m = d.m, st = A.state();
-    const asp = Math.min(A.paneAspect('R'), 1), wpt = W * 1.2, hpt = wpt * asp;
+    const sv = o.sv || null, d = sv ? { m: sv.m } : A.defo(), m = d.m, st = A.state();
+    const asp = sv ? 1 : Math.min(A.paneAspect('R'), 1), wpt = W * 1.2, hpt = wpt * asp;
     const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
     const openS = P.dashOpen ? shapes.filter((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s) && globeCurves(s, srcWin).length) : [];
-    const r = await A.art('R', { wpt, hpt, dpi: 300, ink: printInkFor(o, st.alpha), T: m, alive: o.alive, skipLines: openS.map((s) => s.id) });
+    const artArgs = { wpt, hpt, dpi: 300, ink: printInkFor(o, st.alpha), alive: o.alive, skipLines: openS.map((s) => s.id) };
+    const r = await (sv ? A.svArt(sv.i, artArgs) : A.art('R', Object.assign({ T: m }, artArgs)));
     if (!r) return null;
     let c = (await inkBoundsA(r)) || [0, r.w - 1, 0, r.h - 1];
     const pad = Math.round(0.04 * (c[1] - c[0]));
@@ -404,11 +565,25 @@
     const a = await XD.art(cropRGB(r, c), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: iw });
     const items = [`<image x="${f2(x)}" y="${f2(y)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`];
     const proj = globeProj(r.globe, r, c, x, y, k);
-    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, A.homF(t)); return Hs.get(key); };
-    // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries)
-    const live = A.globePaths ? A.globePaths() : null;
-    let zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter((z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis >= 8 && proj(Hof(m)(z)); }) : [];
-    if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
+    const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, sv ? sv.Fat(t) : A.homF(t)); return Hs.get(key); };
+    // how many of the path's 13 samples (t = 0 to m) the camera sees
+    const nVis = (z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis; };
+    const seen = (z) => nVis(z) >= 8 && proj(Hof(m)(z));
+    // a path drawn from its ring to its end dot: every sampled point of it on the camera's side
+    const whole = (z) => nVis(z) === 13;
+    // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries; the
+    // steps view's: the points the plane's figure would keep, those mostly on the camera's side)
+    let leg = null, zs;
+    if (sv) {
+      const sb = A.screenBox('L0'), bw = SV_PATHS_PICK_W, bh = bw * (sb.y1 - sb.y0) / (sb.x1 - sb.x0);
+      leg = await A.svPathsMorph({ box: sb, w: bw, h: bh, alive: o.alive, lang: XD.lang, keep: (z) => whole(C(z.re, z.im)) });
+      if (!leg || (o.alive && !o.alive())) return null;
+      zs = leg.kept.map((q) => C(q.z[0], q.z[1]));
+    } else {
+      const live = A.globePaths ? A.globePaths() : null;
+      zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter(seen) : [];
+      if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
+    }
     const pxPt = 300 / 96 * k;
     let g = '';
     // (export review r3, editor-9) an open set's boundary, dashed (Homework); editor-3: a point shape whose path is not
@@ -433,5 +608,6 @@
     }
     g += A.pathsSvg(pathItems(zs, Hof, m, proj, true), { u: 1 });
     items.push(g, globeLabels(r.globe, r, c, x, y, k, tp - 1));
+    if (sv) return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, svPaths: true, svGlobe: true, m, kept: zs.length, sentence: leg.sentenceTex || '' } };
     return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, globePaths: true, m, kept: zs.length, pts: zs.map((z) => ({ z })), hidden, marks, open: openS.length > 0 } };
   }

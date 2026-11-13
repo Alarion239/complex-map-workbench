@@ -38,8 +38,8 @@ const EXCLUDED = {
   'sound_deform_cmd.js': 'runs inside sound_cmd.js (its failures prefixed "deformation: ")',
   'glsl_inverse_cmd.js': 'the GLSL jobs run this page (ci/glsl.js --only inverse), paired against the reference on each platform',
   // superseded
-  'ub_views_cmd.js': 'superseded by mv_views_cmd.js; it says it fails on the current app by design (#phaseBtn is gone)',
-  'ubfix_cmd.js': 'superseded in part by mv_views_cmd.js; it presses the old Phase key 4 and #phaseBtn, which are gone',
+  'ub_views_cmd.js': 'superseded by the merged-views suite; it says it fails on the current app by design (#phaseBtn is gone)',
+  'ubfix_cmd.js': 'superseded in part by the merged-views suite; it presses the old Phase key 4 and #phaseBtn, which are gone',
   'rel16_smoke_cmd.js': 'the release smoke of v16; rel1641_smoke_cmd.js carries its sections forward on the current page',
   'rel161_smoke_cmd.js': 'the release smoke of v16.1; rel1641_smoke_cmd.js carries its sections forward on the current page',
   'rel162_smoke_cmd.js': 'the release smoke of v16.2; rel1641_smoke_cmd.js carries its sections forward on the current page',
@@ -58,16 +58,37 @@ const RAW_TEX = { pages: ['mj', 'test-mj.html', 'test-nomj.html'], runs: ['en', 
 const SUITES = {
   // (pinned to the steps view in ci/suite_views.js; the second run drops the pin, so the classic view's legs of the same
   // suite run too)
-  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
-  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: '' } }] },
+  'fix163_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'ux165_rail_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  // (the seams at the device pixel ratio 1 and at the Mac screen's 2, the kit's CMW_DPR: the teeth along a seam, a staircase in the
+  // fill's edge, show at the ratio 2 on software GL when the fill reads its source point off the pixel centre.
+  // keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
+  // job log shows where along the seam the jumps stand)
+  'steps_seams_cmd.js': {
+    runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }],
+    keepShots: true,
+    logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
+  },
+  // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
+  // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
+  'steps_glide_look_cmd.js': { runs: [
+    { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Partial sum of the exponential', 'Logarithm, Everywhere', 'Sheets of the logarithm, Everywhere', 'Zeros of the zeta function'];" },
+    { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
+  ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
-  'touch_cmd.js': { pages: ['v162-test.html'] },
-  // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
-  // on lavapipe, so it runs in two halves)
-  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a-fig', '4a-vid', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
-  // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
-  // repository: work/xv16-merged-snap; v16's own build differs from it by design)
-  'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
+  'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
+  // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
+  // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
+  'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+
+  // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
+  // repository: work/xv16-merged-snap; the released build differs from it by design)
   // (its default is 7 sizes × 2 themes × 2 languages × 2 inputs, about 2 hours on a Mac GPU: here a phone and a desktop,
   // both themes and languages, each with its own input)
   'tour_audit_cmd.js': { runs: [audit('phone', [[390, 844]], ['touch'], [390]), audit('desktop', [[1440, 900]], ['mouse'], [1440])] },
@@ -75,19 +96,26 @@ const SUITES = {
     runs: [{ label: '1440' }, { label: '390-dark', preamble: 'globalThis.WALK = { w: 390, dark: true };' }],
     verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
   },
-  // ([#465] one language a run; its pages: the test page without MathJax and with the vendored one)
+  'i18n_walk_steps_cmd.js': {
+    verdict: (out) => (out && Array.isArray(out.left) ? [...out.left.map((l) => ({ name: `English left: ${l.text}`, detail: l })), ...(out.errors || []).map((e) => ({ name: 'a console error', detail: e }))] : null),
+  },
+  // (one language a run; its pages: the test page without MathJax and with the vendored one)
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
+  'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
+  'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
+  // (the steps view's twin of phone_swap's sheet, rotate, urlbar, lang and tablet legs)
+  'phone_plane_cmd.js': { runs: ['sheet', 'rotate', 'urlbar', 'lang', 'tablet'].map(part) },
   'phone_swap_cmd.js': { runs: ['swap', 'sheet', 'rotate', 'urlbar', 'views', 'deform', 'sphere', 'lang', 'tablet', 'review'].map(part) },
   // (#470: English on every size, Russian and Italian (the longest words) on the narrowest phone, the small landscape
   // phone and the smallest desktop; each the classic view and ?view=steps, both themes, every state. In gate mode a
   // violation whose key ci/layout_baseline.json lacks for its run fails the job, and so does a state that opened for the
-  // baseline and does not now; the rest go to its result's report)
+  // baseline and does not; the rest go to its result's report)
   'layout_invariants_cmd.js': {
     keepShots: true,
     // (ci/layout_ratchet.js reads the baseline from this line of a job's log: no artifact download needed)
-    // (the rows this run no longer sees: fixed, to lower the baseline with ci/layout_ratchet.js update; tiers on #499)
+    // (the rows this run does not see: fixed, to lower the baseline with ci/layout_ratchet.js update)
     note: (o) => (o.info && o.info.fixed && o.info.fixed.length ? `${o.info.fixed.length} layout row(s) fixed, lower the baseline (node ci/layout_ratchet.js update <this job's log>): ${o.info.fixed.join('; ')}` : (o.info && o.info.gate) || ''),
     logLine: (o) => 'LAYOUT-RESULT ' + JSON.stringify({ label: o.label, info: { matrix: o.info.matrix, renderer: o.info.renderer, skipped: o.info.skipped }, report: o.report.map((r) => ({ id: r.id, n: r.n })) }),
     runs: [['en', null], ['ru', ['360', '740x360', '1024']], ['it', ['360', '740x360', '1024']]].map(([l, sizes]) => ({ label: l,
@@ -96,33 +124,41 @@ const SUITES = {
 };
 
 const t = (re, measured) => ({ re, measured });
-// (tour_auto: the step advanced, i.e. a time was measured: its detail is that time, or an array that starts with it)
+// (tour_auto: the step advanced, i.e. a time is measured: its detail is that time, or an array that starts with it)
 const advanced = (d) => typeof (Array.isArray(d) ? d[0] : d) === 'number';
+// (tour_auto's Grieg check: its detail is [durMs, caps, lts], caps the [ms, text] of each caption shown: the piece had a
+// duration and every caption the check reads came, so a failure is a caption's time alone)
+const GRIEG_CAPTIONS = [/^Each note is/, /^Each step is/, /^The crack is/, /^The second lap/];
+const griegCaptionsAll = (d) => Array.isArray(d) && d[0] > 0 && Array.isArray(d[1]) && GRIEG_CAPTIONS.every((re) => d[1].some((c) => re.test(c[1])));
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
   'series_edit_cmd.js': [t(/^timing: /)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
-  'export_cmd.js': [t(/^a figure builds in under 2\.5 s/), t(/no main-thread task of 50 ms or more/), t(/^preview: it advances at the video's frame rate/),
+  'export_cmd.js': [t(/^a figure builds in under 2\.5 s/)],
+  'export_deform_classic_cmd.js': [t(/no main-thread task of 50 ms or more/), t(/^preview: it advances at the video's frame rate/),
     t(/^preview: no main-thread task/), t(/^preview: the animation frames keep time/), t(/^preview DPR 2: plays at 30 fps/), t(/^preview 60 fps Loop/),
     t(/^dark theme: a video and a filmstrip flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^video in a hidden page: made at a pace close to a visible one/, (d) => d && d.hv && d.vv && d.hv.frames === d.vv.frames)],
-  'deform_nat_cmd.js': [t(/: 60 fps while playing \(p95 under 20 ms\)$/)],
+  'export_deform_cmd.js': [t(/^Save video in the dialog: no main-thread task of 50 ms or more/),
+    t(/^glide video 1920 x 1080 at 60 fps: no main-thread task of 50 ms or more/, (d) => d && d.frames > 0 && Array.isArray(d.lt)),
+    t(/^dark theme: a video and a figure flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
+    t(/^preview: it advances at the video's frame rate/, (d) => d && typeof d.rate === 'number'), t(/^preview: no main-thread task/)],
   'deform_dirichlet_cmd.js': [t(/^timing: /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
   'tour_auto_cmd.js': [t(/^(?!Patterns:).*(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced), t(/^Patterns: moves on 3 s after/, (d) => advanced(d) && d[1] === 'edit/cards'),
-    t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, (d) => Array.isArray(d) && [/^The cut/, /^Each turn is/, /^The ending/].every((re) => d.some((c) => re.test(c[1]))))],
-  'morphfig_cmd.js': [t(/the re-choice makes no long task/)],
-  'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/), t(/^12 sines, the deformation playing: p95/)],
+    t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, griegCaptionsAll)],
+  'morphfig_classic_cmd.js': [t(/the re-choice makes no long task/)],
+  'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
+  'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
   'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   // (the export completed with both globes inverse; only its long tasks missed)
-  'p3_review_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
+  'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
     t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
-  'v15_desktop_cmd.js': [t(/^dragging a (zero|shape): p95 frame/, (d) => d && d.n > 20)],
   'zp_cmd.js': [t(/^drag at 60 fps/)],
   'zp_classic_cmd.js': [t(/^deformation plays at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
@@ -148,12 +184,12 @@ const SOFTWARE = {
   'sound_cmd.js': [s(/^deformation: (A Phase, still pointer, M|A Phase, Play|D merged plane): a voice update in every frame t moved$|^deformation: B the tone follows every frame$|^deformation: D merged plane: a hear update in every frame t moved$/,
     'every frame in which t moved had its voice update (none missed); only the number of frames is short at a few frames a second',
     (d) => d && d.missed === 0 && d.moved > 0),
-    // (v16.5, Hear the function: the Landscape is heard as the planes are, its Height voice and contour ticks retired.
+    // (Hear the function: the Landscape is heard as the planes are, with no Height voice or contour ticks.
     // Or, right after Landscape's first open of the deformation, 3 frames or fewer in the 2.6 s, too few for t to move:
     // the first frame's step is 0)
     s(/^deformation: E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved$/, 'every frame in which t moved had its hear update (none missed); only the number of frames is short',
       (d) => d && d.harp && d.per && d.per.missed === 0 && (d.per.moved > 0 || (typeof d.nFrames === 'number' && d.nFrames <= 3)))],
-  'sound_v152_cmd.js': [
+  'sound_v152_deform_classic_cmd.js': [
     s(/^deformation: the loop sings while t runs/, 'W is 0 at first and 1 at the end, and the loop sang in every frame; only the frame count is short (27, needs more than 40)',
       (d) => d && Array.isArray(d.first) && d.first[1] === 0 && Array.isArray(d.last) && d.last[1] === 1 && d.singing === d.n),
     s(/^deformation: the note steps 0 → 1 when the zero enters the loop/, 'the note steps in the frame that crosses t = 0.45; only the gap between two frames (0.14) is wider than the check\'s 0.05',
@@ -164,7 +200,7 @@ const SOFTWARE = {
   'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
     (d) => d && d.quiet === true && d.hit === true)],
   // (a 1280 x 720 Bounce of 2 s on the globe fills its preview frame by frame: more than the suite's 60 s here)
-  'export_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
+  'export_deform_classic_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
     (d) => d && d.filledMs === -1 && d.frames === d.n && typeof d.entry === 'number' && d.madVideo < 4 && d.madExact < 2 && d.range > 100)],
   'p3_accept_cmd.js': [
     s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
@@ -198,7 +234,7 @@ const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
-  // ([#465] the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
+  // (the test page as it is until MathJax has loaded, or where its CDN is blocked: no MathJax; and with MathJax
   // from vendor/, not the CDN, so the typeset page is the same on every runner)
   'mj': (dist, name) => {
     const d = path.join(dist, name);
@@ -213,8 +249,8 @@ const PAGES = {
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)
   'favicon.ico': (dist, name) => fs.writeFileSync(path.join(dist, name), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')),
-  'v162-test.html': old('d07ae97'),   // v16.2
-  'v163-test.html': old('c8221ff'),   // v16.3
+  'v162-test.html': old('d07ae97'),   // standards-ok: the snapshot's version name
+  'v163-test.html': old('c8221ff'),   // standards-ok: the snapshot's version name
   // the published page as a host serves it: a UTF-8 doctype and a viewport meta around it (the release smokes)
   'smk_pub.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>\n'
     + fs.readFileSync(path.join(dist, 'complex-map-workbench.html'), 'utf8') + '</body></html>\n'),

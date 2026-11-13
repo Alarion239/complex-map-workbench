@@ -1,24 +1,24 @@
   // ---------------------------------------------------------------- the chip (the draft chip of the plane drawn in)
-  // [review user-2, picture-4] the counter first (it says which pick is next), then the tool (its tile label on a
+  // the counter first (it says which pick is next), then the tool (its tile label on a
   // narrow pane or touch), then Esc; the chip wraps to two lines rather than cut the counter
-  // (v16.3 review user-7: the English tile is «Orthogonal», one line, as the Russian «Ортогональная»; «perpendicular»
+  // (the English tile is «Orthogonal», one line, as the Russian «Ортогональная»; «perpendicular»
   // stays the bisector's sense)
   const toolShort = (id) => ({ circle3: $t('3-pt circle'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Bisector'), perp: $t('Perpendicular'), touch: $t('Touching'), hyper: $t('Hyperbolic') }[id] || id);
-  // [v16.3 review user-12] the chip's touch form (no "Esc cancels", a ×) from its first frame when the tool was chosen
+  // the chip's touch form (no "Esc cancels", a ×) from its first frame when the tool is chosen
   // by touch, or on a coarse pointer before any pointer event over a plane
   let lastPressTouch = null;
   const coarse = () => { try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } };
   const chipTouch = () => (lastEv ? touchNow() || (lastPressTouch === true && lastPressAt > lastEvAt) : lastPressTouch != null ? lastPressTouch : coarse());
   let lastPressAt = 0, lastEvAt = 0;
-  // [v16.5 UX48] what to pick next, in one plain sentence, then the count, the tool, and on a keyboard how to back up
+  // what to pick next, in one plain sentence, then the count, the tool, and on a keyboard how to back up
   // ("⌫ undo pick · Esc" once the draft has picks of its own, else "Esc cancels"); a finger has × and Undo instead
-  // (noEsc: without that keyboard tail, for a chip that would wrap with it and fits one line without it [v16.3.1])
+  // (noEsc: without that keyboard tail, for a chip that would wrap with it and fits one line without it)
   // (noName: without the tool's name, which the pane head's chip already gives: a chip that wraps drops it before its
   // keyboard tail [#35: «3-pt circle» is longer than the retired «3 points», and at 1366 x 768 the tail went])
   function chipText(narrow, noEsc, noName) {
     const tool = A.tool();
     if (!isCTool(tool)) return '';
-    // (the tile's soft hyphen never reaches the chip: it would break the chip's line there [v16.3 review user-8])
+    // (the tile's soft hyphen never reaches the chip: it would break the chip's line there)
     const touch = chipTouch(), tn = (narrow || touch ? toolShort(tool) : toolName(tool)).replace(/­/g, '');
     const d = draftC && draftC.tool === tool ? draftC : null;
     const tail = touch || noEsc ? '' : ' · ' + (undoPickable() ? $t('⌫ undo pick · Esc') : $t('Esc cancels'));
@@ -34,7 +34,7 @@
     } else if (tool === 'touch') { what = $t('Pick the touching point on {c}, or a point off it', { c: curve1Name() }); cnt = of(1, 2); }
     else {
       const n = (d ? d.picks.length : 0) + 1, m = NEED[tool];
-      // ([v16.5 fix user-6] after the curve: a point on that curve is as good as one anywhere, and the chip says so)
+      // (after the curve: a point on that curve is as good as one anywhere, and the chip says so)
       what = (tool === 'midpoint' || tool === 'bisector') && n === 1 ? $t('Pick a point, an empty spot or a segment')
         : CURVE1.has(tool) && d && curve1Ok() ? $t('Pick a point (on {c} or anywhere)', { c: curve1Name() }) : $t('Pick a point or an empty spot');
       cnt = of(n, m);
@@ -44,7 +44,9 @@
     const cs = chipSide();
     if ((tool === 'meet' || CURVE1.has(tool)) && cs && A.globeEdit(cs)) what = $t('Switch to the plane to pick the curve');
     lastCnt = cnt.replace(/^ · /, '');
-    return what + cnt + (noName ? '' : ' · ' + tn) + tail;
+    // (a construction of several picks on a later plane says which plane it lives on)
+    const onPlane = A.leftStage() > 0 && NEED[tool] > 1 && (d ? d.side : hoverSide) === 'L' ? ' · ' + $t('on {x}', { x: 'w' + sub(A.leftStage()) }) : '';
+    return what + cnt + (noName ? '' : ' · ' + tn) + onPlane + tail;
   }
   // the head's chip for the tool in use (the sentence stays on the plane): its name and how far the picks have got
   let lastCnt = '';
@@ -61,7 +63,7 @@
   function chipSide() {
     if (!A || !isCTool(A.tool())) return null;
     const side = draftC ? draftC.side : hoverSide;
-    if (side === 'L' && (A.leftStage() > 0 || !(A.lFlat() || A.globeEdit('L')))) return null;
+    if (side === 'L' && !(A.lFlat() || A.globeEdit('L'))) return null;
     if (side === 'R' && !A.targetsEditable()) return null;
     return side;
   }
@@ -84,7 +86,7 @@
       if (el.firstElementChild && el.firstElementChild !== box) /** @type {HTMLElement} */ (el.firstElementChild).hidden = true;
       const plot = el.parentElement, pw = plot ? plot.clientWidth : 0, narrow = pw > 0 && pw < 560;
       chipNarrow[side] = narrow;
-      // ([v16.5 fix rail-9] until wave 2's D10 puts it in the pane head, a desktop's chip never sits where the picks go:
+      // (a desktop's chip never sits where the picks go:
       // it moves to the plane's foot while the pointer, a pick or the picked circle is in its band at the top and none of
       // them in the band at the foot, and back up the other way round; its size is measured when its text changes)
       if (!document.documentElement.classList.contains('ph') && chipBot[side] > 0 && draftC && draftC.side === side) {
@@ -102,16 +104,15 @@
       } else if (el.classList.contains('cm-low') && !(draftC && draftC.side === side)) el.classList.remove('cm-low');
       const txt = chipText(narrow);
       const kept = CURVE1.has(tool) && draftC && draftC.tool === tool && draftC.side === side && curve1Ok() ? curve1Name() : '';
-      // (pw, the plane's width, for every tool [v16.3.1: the one-line rule below re-measures the wrap when it changes]; it
-      // also covers the Orthogonal chip's 8 px bucket that the Whole | Inside fit was rebuilt on [v16.4]. [v16.5 check
-      // app-5] the chip's place too: at the plane's foot it is narrower, and the rule must measure it there)
+      // (pw, the plane's width, for every tool; it
+      // also covers the Orthogonal chip's 8 px bucket that the Whole | Inside fit is built on, and the chip's place too: at the plane's foot it is narrower, and the rule must measure it there)
       const tan = tool === 'touch' && tangentReady(side);
       const sig = `${txt}|${tool}|${fillMode}|${segMode}|${hyperMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${tan}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
         box.classList.toggle('cm-tch', chipTouch());
-        // (each part after the first keeps its words together: "1 of 2", "Esc cancels" never break [v16.5])
+        // (each part after the first keeps its words together: "1 of 2", "Esc cancels" never break)
         const ct = A.h('span', { class: 'cm-t' });
         // (the keyboard tail "⌫ undo pick · Esc" is one part: "Esc" never goes alone onto a line of its own)
         const tailU = $t('⌫ undo pick · Esc');
@@ -122,13 +123,13 @@
         };
         fillT(txt);
         box.append(ct);
-        // [v16.5 UX100] the curve kept for the next circle, as a token: its × un-picks only the curve
+        // the curve kept for the next circle, as a token: its × un-picks only the curve
         if (kept) box.append(A.h('span', { class: 'cm-tok' }, A.h('span', null, $t('on {c}', { c: kept })), A.h('button', { type: 'button', class: 'cm-tokx', 'aria-label': $t('Pick another curve'), title: $t('Pick another curve'), html: '×', onclick: (e) => { e.stopPropagation(); if (draftC) { draftC.curve1 = null; draftC.picks = []; draftC.carried = false; draftC.doneK = null; } A.requestRender('OL', 'OR'); } })));
-        // [v16.5 UX48] a small ? unfolds the tool's how-to inside the chip
+        // a small ? unfolds the tool's how-to inside the chip
         const how = howTo(tool);
         if (how) box.append(A.h('button', { type: 'button', class: 'cm-q' + (howOpen ? ' on' : ''), 'aria-expanded': String(howOpen), 'aria-label': $t('How to use {x}', { x: toolName(tool) }), title: $t('How to use {x}', { x: toolName(tool) }), html: '?', onclick: (e) => { e.stopPropagation(); howOpen = !howOpen; A.requestRender('OL', 'OR'); } }));
         if (tool === 'circle3') {
-          // (a narrow pane: two icons, a circle and a filled disc, with their names as labels; [v16.5 UX51] a finger: the words)
+          // (a narrow pane: two icons, a circle and a filled disc, with their names as labels; a finger: the words)
           const icons = narrow && !chipTouch();
           const seg = A.h('span', { class: 'cm-seg' + (icons ? ' cm-icons' : '') + (chipTouch() ? ' cm-touch' : ''), role: 'group', 'aria-label': $t('Curve or region') });
           for (const [v, lab] of [['none', $tx('construct', 'Curve')], ['in', $tx('construct', 'Region')]]) {
@@ -141,11 +142,11 @@
         }
         let segBox = null;
         const mkSeg = (icons, only) => {
-          // [v16.4 segments] Whole | Inside: words, or two icons (the orthogonal arc whole or inside only) on touch and when
-          // the words do not fit the chip's free width (review user-4: measured below, after the text)
+          // Whole | Inside: words, or two icons (the orthogonal arc whole or inside only) on touch and when
+          // the words do not fit the chip's free width (measured below, after the text)
           const seg = A.h('span', { class: 'cm-seg' + (icons ? ' cm-icons' : '') + (chipTouch() ? ' cm-touch' : ''), role: 'group', 'aria-label': $t('Whole or inside') });
           for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')], ['between', $tx('side', 'Between')]].filter(([v]) => !only || only.includes(v))) {
-            // ([v16.5 UX55] the same three choices as the Inspector's: Outside is the other side of the curve)
+            // (the same three choices as the Inspector's: Outside is the other side of the curve)
             const tip = v === 'in' ? $t("Inside: only the arc inside the curve (for a line, on the first point's side)") : v === 'out' ? $t("Outside: only the arc outside the curve (for a line, on the other side from the first point)") : v === 'between' ? $t('Between: only the hyperbolic segment from the first point to the second, with no tails') : $t('Whole: the whole circle');
             const b = A.h('button', { type: 'button', class: 'cm-sb' + (effSeg(tool) === v ? ' on' : ''), 'aria-pressed': String(effSeg(tool) === v), 'aria-label': lab, title: tip, onclick: (e) => { e.stopPropagation(); if (tool === 'hyper') hyperMode = v; else segMode = v; A.requestRender('OL', 'OR'); } });
             if (icons) b.innerHTML = SEG_ICON[v]; else b.textContent = lab;
@@ -153,7 +154,7 @@
           }
           return seg;
         };
-        // ([v16.5 UX51] words on touch too: the chip takes two lines rather than drop them)
+        // (words on touch too: the chip takes two lines rather than drop them)
         if (tool === 'perp') box.append(segBox = mkSeg(false));
         // ([issue #70] the Hyperbolic line tool: the whole line, or the segment between the two points)
         else if (tool === 'hyper') box.append(segBox = mkSeg(false, ['in', 'between']));
@@ -165,25 +166,25 @@
           const t = /** @type {HTMLElement} */ (box.firstElementChild), fs = parseFloat(getComputedStyle(t).fontSize) || 12;
           if (t.offsetHeight > 2.6 * fs || el.getBoundingClientRect().right > plot.getBoundingClientRect().right - 8) segBox.replaceWith(mkSeg(true));
         }
-        // a chip that wraps keeps one line without its keyboard tail ("Esc cancels", or v16.5's "⌫ undo pick ·
+        // a chip that wraps keeps one line without its keyboard tail ("Esc cancels", or "⌫ undo pick ·
         // Esc") when that is enough (the touching circle's "…, or a ring for a tangent" in X at 1440 x 900); when it is
         // not, the whole text on two lines, else (it would be cut at two) the shorter one. (after the Whole |
-        // Inside choice above, so a chip that is one line with the icons keeps its tail, as in v16.4. v16.5: before the
-        // refusal and the how-to lines below, and before rail-9 measures the chip)
+        // Inside choice above, so a chip that is one line with the icons keeps its tail; before the
+        // refusal and the how-to lines below, and before the chip's place is measured)
         const noEsc = chipText(narrow, true);
         if (noEsc !== txt) {
           const lines = () => { const lh = parseFloat(getComputedStyle(ct).lineHeight) || 16; return ct.scrollHeight / lh; };
-          const n = lines(), most = el.classList.contains('cm-low') ? 3 : 2;   // (the lines the place allows [check app-5])
+          const n = lines(), most = el.classList.contains('cm-low') ? 3 : 2;   // (the lines the place allows)
           if (n > 1.5) {
             // (#35: first without the tool's name, which the head's chip shows: the keyboard tail stays when that fits)
             fillT(chipText(narrow, false, true));
             if (lines() > 1.5) { fillT(noEsc); if (lines() > 1.5 && n < most + 0.5) fillT(txt); }
           }
         }
-        // [v16.5 UX52] a refused pick, here for 2 s; [UX48] the how-to
+        // a refused pick, here for 2 s; the how-to
         if (pickWarnMsg) box.append(A.h('span', { class: 'cm-warn', role: 'status' }, pickWarnMsg));
         if (howOpen && how) box.append(A.h('span', { class: 'cm-how' }, how));
-        // ([v16.5 fix rail-9] the chip's foot in its top place, for the band the picks keep clear of)
+        // (the chip's foot in its top place, for the band the picks keep clear of)
         if (!el.classList.contains('cm-low')) chipBot[side] = el.offsetTop + el.offsetHeight;
         chipH[side] = el.offsetHeight;
       }
@@ -191,10 +192,10 @@
   }
 
   // ---------------------------------------------------------------- the overlay: the ring, its chip, the preview
-  // [v16.5 UX101] a crossing gone to ∞ (its two lines made parallel) is not lost from the plane: a hollow marker sits at
+  // a crossing gone to ∞ (its two lines made parallel) is not lost from the plane: a hollow marker sits at
   // the plane's edge where each line leaves it, toward ∞, with "∞" beside it (its row says why)
   function drawInfMarks(pane, side, ctx, TH) {
-    const list = side === 'R' ? S().targets : S().shapes;
+    const list = listOf(side);
     for (const s of list) {
       if (s.kind !== 'point' || !s._atInf || s.visible === false || !s.def || s.def.op !== 'meet') continue;
       for (const r of s.def.args.slice(0, 2)) {
@@ -231,13 +232,13 @@
   function drawOverlay(pane, side) {
     const ctx = pane.octx, TH = A.TH();
     drawInfMarks(pane, side, ctx, TH);
-    // during a gesture only, an undefined construction shows its last good shape, dashed at 30 % [C11b]
+    // during a gesture only, an undefined construction shows its last good shape, dashed at 30 %
     if (A.dragging()) drawGhosts(pane, side, ctx);
     // a construction tool's picks and its dashed preview through the pointer
     if (draftC && draftC.side === side) drawPreview(pane, side, ctx, TH);
     // the selected shape's bound handles: small rings (a bound handle has no square)
     const sel = A.selected() && find(A.selected());
-    // [review user-9] a selected construction shows what it is built from: a ring on each defining point, its curves
+    // a selected construction shows what it is built from: a ring on each defining point, its curves
     // drawn wide and faint (so "drag those" is visible, on touch too)
     if (sel && (sel.def || sel.at) && (side === 'R') === isT(sel) && !A.dragging()) drawSources(pane, side, ctx, sel, TH);
     if (sel && sel.at && (side === 'R') === isT(sel)) {
@@ -250,7 +251,7 @@
       }
       ctx.restore();
     }
-    // [v16.5 rail SPEC 4.1] a point sliding on its curve: the rail wide and faint; pulled off it: the stretch line and the
+    // a point sliding on its curve: the rail wide and faint; pulled off it: the stretch line and the
     // ghost dot at the pointer
     if (rail && rail.side === side) drawRail(pane, ctx, TH);
     if (freeChip && freeChip.side === side) {
@@ -263,8 +264,8 @@
     if (!ring || ring.side !== side || ring.held) return;
     const [x, y] = pane.w2sxy(ring.z[0], ring.z[1]);
     ctx.save();
-    // [review picture-5] the ring sits outside every point mark (a dot reaches 5 px, a ring mark 6.25 px, the selection
-    // ring 8 px): r = 11 (13 on touch) with its halo and a faint accent fill, so a snap reads at a glance; ([v16.5 rail])
+    // the ring sits outside every point mark (a dot reaches 5 px, a ring mark 6.25 px, the selection
+    // ring 8 px): r = 11 (13 on touch) with its halo and a faint accent fill, so a snap reads at a glance;
     // a grid catch is lighter: r = 7, no fill; a point sliding on its rail has its chip only
     const grid = ring.cls === 'grid', bare = ring.cls === 'rail';
     const rr = grid ? 7 : ring.touch ? 13 : 11, acc = ring.warn ? TH.warn : TH.accent;
@@ -276,7 +277,7 @@
     if (ring.chip) drawChip(pane, ctx, TH, x, y, bare ? 11 : rr, ring.chip, ring.touch, ring.warn);
     ctx.restore();
   }
-  // the chip [review user-10, picture-6]: above and to the LEFT of the target (a point's label is placed below or to
+  // the chip: above and to the LEFT of the target (a point's label is placed below or to
   // its right first), 12 px clear of the ring, on whole pixels, inside the pane on all four sides; a finger: 48 px up
   function drawChip(pane, ctx, TH, x, y, rr, text, touch, warn) {
     ctx.font = `500 12px ${TH.ui}`;
@@ -295,7 +296,7 @@
     lastChip = { text, x: cx, y: cy, w, h: hgt, at: [x, y], pw: pane.w, ph: pane.h };
   }
   let lastChip = null;
-  // [v16.5 rail SPEC 4.1] the rail 6 px wide at 25 % of its curve's ink; the stretch line dashed 4/3, 1.5 px, accent, its
+  // the rail 6 px wide at 25 % of its curve's ink; the stretch line dashed 4/3, 1.5 px, accent, its
   // opacity from 0.35 to 1 as the pull nears the let-go; a hollow ghost dot (r = 4) at the pointer
   function drawRail(pane, ctx, TH) {
     ctx.save();
@@ -309,9 +310,9 @@
     }
     ctx.restore();
   }
-  // the defining points (rings) and curves (wide, faint) of a selected construction [user-9]
+  // the defining points (rings) and curves (wide, faint) of a selected construction
   function drawSources(pane, side, ctx, sel, TH) {
-    const plane = side === 'R' ? 1 : 0;
+    const plane = planeOfSide(side);
     const refs = sel.def ? sel.def.args : Object.values(sel.at || {});
     ctx.save();
     for (const r of refs) {
@@ -332,7 +333,7 @@
     ctx.restore();
   }
   function drawGhosts(pane, side, ctx) {
-    const list = side === 'R' ? S().targets : S().shapes;
+    const list = listOf(side);
     const box = pane.box();
     for (const s of list) {
       if (!s.cundef || !s.cHid) continue;
@@ -354,7 +355,7 @@
   }
   function drawPreview(pane, side, ctx, TH) {
     const d = draftC;
-    // [review picture-3] the colour the new shape will take, for its stroke and its fill alike
+    // the colour the new shape will take, for its stroke and its fill alike
     // (a perpendicular or touching circle on a display curve: that curve becomes the next shape, and K the one after it)
     const k = CURVE1.has(d.tool) && d.curve1 && d.curve1.make ? 1 : 0;
     const ink = A.shapeInk({ ci: A.nextCi ? A.nextCi(side === 'R', k) : ((side === 'R' ? S().targets.length : S().shapes.length) + k) % 8 });
@@ -365,7 +366,7 @@
     // the perpendicular or touching circle's curve, 4 px wide at 35 % (as Intersect's first curve), under its picks
     const ppc = CURVE1.has(d.tool) && curve1Ok() ? curve1Piece(d.curve1) : null;
     if (ppc) { ctx.lineWidth = 4; ctx.globalAlpha = 0.35; strokePiece(pane, ctx, ppc); ctx.globalAlpha = 1; ctx.lineWidth = 1.5; }
-    // [v16.3 review user-3] the touching circle's marks in dark mode: the accent (the new shape's colour is too dim on
+    // the touching circle's marks in dark mode: the accent (the new shape's colour is too dim on
     // the picked curve's glow), and a halo of the plane's colour under each pick
     const mark = d.tool === 'touch' && TH.dark ? TH.accent : color;
     for (const p of d.picks) {
@@ -373,7 +374,7 @@
       if (d.tool === 'touch') { ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.strokeStyle = color; }
       ctx.fillStyle = mark; ctx.beginPath(); ctx.arc(x, y, d.tool === 'touch' ? 4 : 3.5, 0, TAU); ctx.fill();
     }
-    // a finger hides what it picked, so each pick wears a ring and its number (UX50)
+    // a finger hides what it picked, so each pick wears a ring and its number
     if (touchNow()) {
       ctx.font = `600 11px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       d.picks.forEach((p, i) => {
@@ -394,9 +395,9 @@
     else if (ppc && ppc.G && hv && P.length === 1 && isXY(P[0])) {
       // K through P and the pointer (nothing while it is undefined: the pointer at P, or at P's mirror image)
       let r = null;
-      try { r = Constr.perpForm(ppc.G, P[0], hv, ppc); } catch (e) { r = null; }   // (the piece: the decimal rules, as the made K [v16.3 review math-3, math-4])
+      try { r = Constr.perpForm(ppc.G, P[0], hv, ppc); } catch (e) { r = null; }   // (the piece: the decimal rules, as the made K)
       if (r && r.G) {
-        // [v16.4 segments] Inside: the arc the click will make, from the same sampler
+        // Inside: the arc the click will make, from the same sampler
         const q = effSeg(d.tool) === 'in' || effSeg(d.tool) === 'between' ? previewSeg(d, ppc, r.G, P[0], hv) : null;
         if (q) strokeSeg(pane, ctx, q); else if (effSeg(d.tool) !== 'in' && effSeg(d.tool) !== 'between') strokeForm(pane, ctx, r.G);
       }
@@ -448,7 +449,7 @@
   // hover): after T, the tangent at T thin at 50 %; after P, the tangents from P and their rings (hollow, 5 px). K
   // through the pointer (after P: touching C at the pointer's nearest point on C); a snapped hint or ring at full
   // strength instead. Nothing where K is undefined
-  // [v16.3 review user-3] the hint and the rings: in dark mode in the accent at full strength; each ring 2 px wide on a
+  // the hint and the rings: in dark mode in the accent at full strength; each ring 2 px wide on a
   // halo of the plane's colour (it shows over the picked curve's glow), 6 px (8 px on touch)
   function drawTouch(pane, ctx, d, pc, hv, TH, mark) {
     const P0 = d.picks[0], ht = d.hoverT || null;
@@ -473,7 +474,7 @@
       }
       if (hv && !snapped) {
         let T = ht && ht.role === 'T' ? ht.z : null;
-        if (!T) { try { const pr = Constr.projectPiece(pc, hv, pc.c3 && d.curve1.ref ? pts3Of(find(d.curve1.ref.s), d.side === 'R' ? 1 : 0) : null); T = pr && isXY(pr.z) ? pr.z : null; } catch (e) { T = null; } }
+        if (!T) { try { const pr = Constr.projectPiece(pc, hv, pc.c3 && d.curve1.ref ? pts3Of(find(d.curve1.ref.s), planeOf(find(d.curve1.ref.s))) : null); T = pr && isXY(pr.z) ? pr.z : null; } catch (e) { T = null; } }
         if (T) { try { const r = Constr.touchForm(pc.G, T, P0.z); K = r && r.G; } catch (e) { K = null; } }
       }
     }
@@ -498,7 +499,7 @@
     }
     ctx.stroke();
   }
-  // [v16.4 segments] the arc of a perpendicular circle (Constr.segCurves' samples, cut where they leave a margin around
+  // the arc of a perpendicular circle (Constr.segCurves' samples, cut where they leave a margin around
   // the pane), and the draft's: K through P and the pointer on the side the chip's Inside chooses
   function strokeSeg(pane, ctx, q) {
     const box = pane.box(), step = 2 / pane.view.s, m = 4 * Math.hypot(pane.w, pane.h);
@@ -551,7 +552,7 @@
     const tool = A.tool();
     if (isCTool(tool) && hoverSide !== side && !draftC) { hoverSide = side; A.requestRender('OL', 'OR'); }
     if (tool === 'select' || tool === 'formula' || tool === 'curve' || tool === 'lasso' || tool === 'cgrid' || tool === 'pgrid') { if (ring) setRing(null, null); return; }
-    if ((side === 'L' && (A.leftStage() > 0 || !A.lFlat())) || (side === 'R' && !A.targetsEditable())) { if (ring) setRing(null, null); return; }
+    if ((side === 'L' && !A.lFlat()) || (side === 'R' && !A.targetsEditable())) { if (ring) setRing(null, null); return; }
     const cl = classesFor(tool, 'draw');
     let t = cl ? snapAt(side, x, y, cl) : null;
     if (isCTool(tool)) {
@@ -571,22 +572,22 @@
         draftC.hoverT = r && !r.warn && !r.restart ? r.t : null;
         A.requestRender('OL', 'OR');
         if (tt && r.warn) { setRing(side, tt, r.warn); return; }
-        if (tt && tt.ref && tt.ref.img && !A.yWhole()) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
+        if (tt && tt.ref && tt.ref.img && !carriedF(side)) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
         setRing(side, tt);
         return;
       }
       draftC.hover = t ? t.z.slice() : [z0.re, z0.im];
-      // ([v16.5 fix rail-7] one message: once the press was refused the chip says it, and the ring by the pointer only warns)
+      // (one message: once the press is refused the chip says it, and the ring by the pointer only warns)
       if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: warnTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
       if (t && tool === 'meet' && t.cls === 'point') t = snapAt(side, x, y, { points: false, cross: true, curves: true });
-      if (t && tool === 'meet' && t.cls === 'curve' && !t.ref) t = null;   // ([v16.5 rail] Intersect takes a display curve's crossings, not the curve)
-      if (t && t.ref && t.ref.img && !A.yWhole()) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
+      if (t && tool === 'meet' && t.cls === 'curve' && !t.ref) t = null;   // (Intersect takes a display curve's crossings, not the curve)
+      if (t && t.ref && t.ref.img && !carriedF(side)) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
       A.requestRender('OL', 'OR');
     }
     setRing(side, t);
   }
   function pointer(e) { lastEv = e; lastEvAt = performance.now(); }
-  // the pointer left a plane: no hover preview and no ring there [review picture-3]
+  // the pointer left a plane: no hover preview and no ring there
   function leave(side) {
     let ch = false;
     if (draftC && draftC.side === side && draftC.hover) { draftC.hover = null; draftC.hoverT = null; ch = true; }

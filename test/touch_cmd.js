@@ -19,26 +19,85 @@
 //   H screenshots (touch-*.png; copied to notes/orthogonal-circle/shots/touch/).
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/touch_cmd.js
 // For B's v16.2 page, copy notes/v16.2-candidate/dist/test.html to dist/v162-test.html first (removed afterwards).
-const ONLY = typeof __ONLY !== 'undefined' ? __ONLY : null;
+// (CMW_ONLY=A,G runs those sections alone)
+const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __ONLY !== 'undefined' ? __ONLY : null;
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
+// (waits for the page to be quiet and `cond` true, in short waits: a navigation that ends one wait ends only that one.
+// With only, just `cond`, which is also true of a page still loading)
+const calm = async (cond, ms, only = false) => {
+  for (let t = 0; t < ms; t += 1000) {
+    try { if ((await settled({ only, max: 1000, until: cond })).ok) return true; } catch (e) { await sleep(250); }
+  }
+  return false;
+};
+// (the same wait, as a check: a wait that gives up fails the suite, naming the condition)
+const must = async (cond, ms, only = false) => {
+  const r = await calm(cond, ms, only);
+  ok('waited: ' + cond, r, { ms });
+  return r;
+};
 const settle = async (ms = 300) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warning') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
-const W = (re, im, side = 'L') => ev(`__cmwW2S('${side}', ${re}, ${im})`);
+// (a world point on a pane: X is the classic left pane, Y the classic right pane; the steps view has one plane, X on
+// its first step and Y on its last)
+const W = async (re, im, side = 'L') => {
+  if (await ev(`document.documentElement.classList.contains('sv')`)) {
+    const to = side === 'R' ? await ev(`Math.max(...__cmwSteps().planes)`) : 0;
+    if ((await ev(`__cmwSteps().i`)) !== to) {
+      await ev(`__cmwSteps({ go: ${to}, now: true })`);
+      await must(`__cmwSteps().i === ${to} && !__cmwSteps().moving`, 5000);
+    }
+    side = 'L';
+  }
+  return ev(`__cmwW2S('${side}', ${re}, ${im})`);
+};
 const CI = (o) => ev(`__cmwCI(${JSON.stringify(o || null)})`);
 const ST = () => CI({ shapes: true });
 const FORMS = () => ev(`__cmwC().forms`);
 const byId = (st, id) => st.list.find((s) => s.id === id);
 const last = (st) => st.list[st.list.length - 1];
-const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
+// (the steps view's plane re-fits when a tool's chip row opens or closes: a point's screen place is read once it has
+// stopped moving)
+const planeRest = async () => {
+  if (!(await ev(`document.documentElement.classList.contains('sv')`))) return;
+  await must('!__cmwSteps().moving', 4000);
+};
+const tool = async (id) => {
+  const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`);
+  await settle(120); await planeRest();
+  return r;
+};
+// (a drag starts from a hover: the press needs the pointer to have been there a frame before, as a hand gives it)
+const dragH = async (x0, y0, x1, y1, n, dt) => {
+  await move(x0, y0);
+  await settle(150);
+  return drag(x0, y0, x1, y1, n, dt);
+};
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
-const chipT = (side = 'L') => ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`);
+// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
+// full names become the tile labels, so each suite states the label once)
+const CHIP_NAMES = [
+  ['Circle through 3 points', '3-pt circle'],
+  ['Perpendicular circle', 'Perpendicular'],
+  ['Touching circle', 'Touching'],
+  ['Окружность по трём точкам', 'По 3 точкам'],
+  ['Ортогональная окружность', 'Ортогональная'],
+  ['Касающаяся окружность', 'Касание']
+];
+const chipLabel = async (c) => {
+  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
+  return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
+};
+const chipT = async (side = 'L') =>
+  chipLabel(await ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`));
 const rowD = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .d') || {}).textContent`);
 const names = async () => { const n = await CI({ names: true }); return (id) => (n.find((x) => x.id === id) || {}).name; };
 const NS = 'tc' + (Date.now() % 1000000);
@@ -88,6 +147,7 @@ const sameForm = (a, b) => !!a && !!b && a.A === b.A && a.C === b.C && a.B[0] ==
 // a 20-frame mouse drag (select tool) along pts (screen), after a press at p0; each frame calls f()
 async function dragPath(p0, pts, f) {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p0[0], y: p0[1] });
+  await settle(150);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p0[0], y: p0[1], button: 'left', buttons: 1, clickCount: 1 });
   for (const [x, y] of pts) {
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 });
@@ -166,6 +226,8 @@ await section('A', async () => {
   // 3. the drags: T once round, P across C, P across the tangent at T (20 frames each; undone after each)
   await tool('select');
   const sc = (await W(1, 0))[0] - (await W(0, 0))[0], c0 = await W(0, 0);
+  // (the plane re-fits when the tool changes: the points' places are read again)
+  const tz = await W(1, 0), pk = await W(2, 1);
   const measure = (o) => async () => {
     const s2 = await ST(), k = byId(s2, K1.id), fm = (await FORMS())[K1.id];
     if (k.cundef || !fm) { o.und++; return; }
@@ -177,15 +239,32 @@ await section('A', async () => {
   };
   const fresh = async () => ({ und: 0, flips: 0, g: 0, inc: 0, n: 0, line: false, flip0: byId(await ST(), K1.id).def.flip });
   const oT = await fresh();
-  await dragPath(t0, Array.from({ length: 20 }, (_, i) => { const a = 2 * Math.PI * (i + 1) / 20 - 0.0001; return [c0[0] + sc * Math.cos(a), c0[1] - sc * Math.sin(a)]; }), measure(oT));
+  await dragPath(
+    tz,
+    Array.from({ length: 20 }, (_, i) => {
+      const a = 2 * Math.PI * (i + 1) / 20 - 0.0001;
+      return [c0[0] + sc * Math.cos(a), c0[1] - sc * Math.sin(a)];
+    }),
+    measure(oT)
+  );
   const tAfter = byId(await ST(), T1.id);
   await key('z', 4); await settle(250);
   const oP = await fresh(), pIn = await W(0.2, 0.3);
-  await dragPath(p0, Array.from({ length: 20 }, (_, i) => [p0[0] + (pIn[0] - p0[0]) * (i + 1) / 20, p0[1] + (pIn[1] - p0[1]) * (i + 1) / 20]), measure(oP));
+  await dragPath(
+    pk,
+    Array.from({ length: 20 }, (_, i) =>
+      [pk[0] + (pIn[0] - pk[0]) * (i + 1) / 20, pk[1] + (pIn[1] - pk[1]) * (i + 1) / 20]),
+    measure(oP)
+  );
   const pAfter = byId(await ST(), P1.id).p;
   await key('z', 4); await settle(250);
   const oL = await fresh(), pL = await W(0.4, 1.2);
-  await dragPath(p0, Array.from({ length: 20 }, (_, i) => [p0[0] + (pL[0] - p0[0]) * (i + 1) / 20, p0[1] + (pL[1] - p0[1]) * (i + 1) / 20]), measure(oL));
+  await dragPath(
+    pk,
+    Array.from({ length: 20 }, (_, i) =>
+      [pk[0] + (pL[0] - pk[0]) * (i + 1) / 20, pk[1] + (pL[1] - pk[1]) * (i + 1) / 20]),
+    measure(oL)
+  );
   const pAfterL = byId(await ST(), P1.id).p;
   await key('z', 4); await settle(250);
   const fmt = (o) => ({ und: o.und, flips: o.flips, g: f1(o.g), inc: f1(o.inc), n: o.n, line: o.line });
@@ -203,7 +282,12 @@ await section('A', async () => {
   d = (await CI()).draft;
   // (a chip that would wrap keeps one line without its keyboard tail; the rings' chip in X at 1440 does.
   // v16.5 UX48 wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
-  const a5 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
+  const a5 = await chipLabel(await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t');
+    if (!t) return null;
+    const r = document.createRange();
+    r.selectNodeContents(t);
+    return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size };
+    })()`));
   const a5base = ((d && d.rings && d.rings.length) ? 'Pick the touching point on the unit circle, or a ring for a tangent' : 'Pick the touching point on the unit circle') + ' · 2 of 2 · Touching';
   ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · ⌫ undo pick · Esc' || (a5.text === a5base.replace(/ · Touching$/, '') + ' · ⌫ undo pick · Esc' && a5.lines === 1) || (a5.text === a5base && a5.lines === 1)), [d, a5]);
   await click(t0[0] + 2, t0[1] + 2); await settle(400);
@@ -232,7 +316,7 @@ await section('A', async () => {
   // (issue #12) T, then Snap off: the tangent 7 px off the dashed line (outside the old 6 px band); by the chip's Tangent
   // line; by Enter. Each is undone again
   {
-    const tPick = async () => { await click(t0[0] + 2, t0[1] + 2); await settle(150); };
+    const tPick = async () => { await click(t0[0] + 2, t0[1] + 2); await settle(800); };
     const isTan = (s) => !!s && s !== KT && s.id !== KT.id && !!s.def && s.def.op === 'touch' && s.def.args[2].inf === 1 && s.kind === 'line';
     const snapBtn = () => ev(`(() => { const b = document.getElementById('snapBtn'); if (b) b.click(); return !!b && b.getAttribute('aria-pressed'); })()`);
     await tPick();
@@ -310,12 +394,12 @@ await section('A', async () => {
   await key('Escape'); await settle(100);
   await tool('select');
   const pz = await W(2, 0), pin = await W(0.5, 0);
-  await drag(pz[0], pz[1], pin[0], pin[1], 10, 16); await settle(300);
+  await dragH(pz[0], pz[1], pin[0], pin[1], 10, 16); await settle(300);
   st = await ST();
   info.inside = { und: byId(st, L2.id).cundef, row: await rowD(L2.id), p: byId(st, P2.id).p };
   ok('A9 a tangent\'s P dragged inside: undefined, the reason', info.inside.und && info.inside.und.code === 'inside' && info.inside.row === 'The point is inside the circle, so no line through it touches the circle', info.inside);
   await shot('touch-d1440-light-inside');
-  await drag(pin[0], pin[1], pz[0], pz[1], 10, 16); await settle(300);
+  await dragH(pin[0], pin[1], pz[0], pz[1], 10, 16); await settle(300);
   st = await ST();
   forms = await FORMS();
   ok('A9 dragged out: the line comes back, touching at the meet point', !byId(st, L2.id).cundef && !byId(st, M2.id).cundef && byId(st, M2.id).p[0] === forms[L2.id].tch.tp[0], [byId(st, L2.id).cundef, byId(st, M2.id).p]);
@@ -404,6 +488,10 @@ const SB = {
   steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0.5, cy: 0.3, s: 75 }, snap: true, nextId: 60,
 };
 
+// (a page opened by a link is read once its shapes are in: the steps view takes longer to open than the classic one)
+const shapesIn = (n, ms = 20000) => must(
+  `typeof __cmwCI === 'function' && __cmwCI({ shapes: true }).list.length >= ${n}`, ms, true);
+
 await section('B', async () => {
   await view(1440, 900, false, false);
   await load(NS + 'b', SB); await settle(900);
@@ -412,17 +500,19 @@ await section('B', async () => {
   const before = snap(st), fb = JSON.stringify(await FORMS());
   info.Bkinds = st.list.map((s) => s.id + ':' + s.kind + (s.complement ? '/out' : '') + (s.cundef ? '/undef' : ''));
   ok('B the state: a circle, a line, a disc, the outside, two lines and a touching point, all defined', info.Bkinds.join() === 'bc:circle,bt:point,bp:point,bq:point,bk:circle,bl:line,bd:disc,bo:disc/out,bn:line,ba:line,bm:point', info.Bkinds);
-  await nav(`${U}?ns=${NS}b`); await settle(1500);
+  await nav(`${U}?ns=${NS}b`); await shapesIn(11); await settle(500);
   st = await ST();
   ok('B reload: every shape and every form come back bitwise', before.join('\n') === snap(st).join('\n') && fb === JSON.stringify(await FORMS()), { before, after: snap(st) });
   const payload = await ev(`await Params.encodeLink(__cmwP().figure)`);
   info.linkLen = payload && payload.length;
-  await nav(`${U}?ns=${NS}lk#cmw=${payload}`); await settle(1800);
+  await nav(`${U}?ns=${NS}lk#cmw=${payload}`); await shapesIn(11); await settle(500);
   st = await ST();
   ok('B a link opens it in a fresh namespace', before.join('\n') === snap(st).join('\n'), snap(st));
   const has162 = fs.existsSync(path.join(DIR, '..', '..', 'dist', 'v162-test.html'));
   if (has162) {
-    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`); await settle(2200);
+    await nav(`http://localhost:${PORT}/v162-test.html?ns=${NS}old#cmw=${payload}`);
+    await shapesIn(7, 15000);
+    await settle(500);
     const old = await ev(`__cmwCI({shapes:true}).list.filter((s) => ['bk', 'bl', 'bd', 'bo', 'bn', 'ba', 'bm'].includes(s.id)).map((s) => ({ id: s.id, kind: s.kind, def: s.def || null, c: s.c, r: s.r, a: s.a, b: s.b, p: s.p }))`);
     const ev162 = await ev(`({ freed: __cmwC().freed, events: __cmwC().events })`);
     info.v162 = { old, ev162, toasts: await toasts() };
@@ -443,10 +533,10 @@ await section('C', async () => {
   const esc = (await chipT()).split(' · ').pop();
   info.ruChips = [await chipT()];
   const u = await W(Math.cos(2.2), Math.sin(2.2));
-  await click(u[0] + 2, u[1] - 2); await settle(100);
+  await click(u[0] + 2, u[1] - 2); await settle(500);
   info.ruChips.push(await chipT());
   const t0 = await W(1, 0), p0 = await W(2, 1);
-  await click(t0[0] + 3, t0[1]); await settle(100);
+  await click(t0[0] + 3, t0[1]); await settle(500);
   info.ruChips.push(await chipT());
   const hz = await W(1, -1.3);
   await move(hz[0] + 3, hz[1]); await settle(120);
@@ -459,7 +549,7 @@ await section('C', async () => {
   info.ruRow = await rowD(K.id);
   // P first: the chip after P, the ring chip
   const p2 = await W(2, 0);
-  await click(p2[0], p2[1]); await settle(120);
+  await click(p2[0], p2[1]); await settle(500);
   info.ruChips.push(await chipT());
   const d = (await CI()).draft, up = d.rings.find((r) => r.tp[1] > 0), uz = await W(up.tp[0], up.tp[1]);
   await move(uz[0] + 4, uz[1] - 3); await settle(120);
@@ -479,12 +569,14 @@ await section('C', async () => {
   await shot('touch-d1440-ru-made');
   // the reason: the tangent's P dragged inside
   await tool('select');
-  const pin = await W(0.5, 0);
-  await drag(p2[0], p2[1], pin[0], pin[1], 10, 16); await settle(300);
+  const pin = await W(0.5, 0), p2s = await W(2, 0);   // (read again: the plane re-fits when the tool changes)
+  await dragH(p2s[0], p2s[1], pin[0], pin[1], 10, 16); await settle(300);
   info.ruReason = await rowD(L.id);
   ok('C RU reason (inside)', info.ruReason === 'Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности', info.ruReason);
   await key('z', 4); await settle(300);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+    return f ? f.captionTex : null;
+    })()`);
   info.capRu = capRu;
   ok('C RU caption: «окружность, проходящая через … и касающаяся окружности … в точке …»', /окружность, проходящая через .+ и[ ~]касающаяся окружности .+ в[ ~]точке/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -596,7 +688,9 @@ await section('D', async () => {
 await section('E', async () => {
   // the six captions, EN and RU (SB: K, the line case, the disc, the outside, the tangent at T, the tangent from P)
   await view(1440, 900, false, false);
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1 }); return f ? f.captionTex : null; })()`);
+  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+    return f ? f.captionTex : null;
+    })()`);
   await load(NS + 'e1', SB); await settle(900);
   info.capEn = await cap();
   const en = info.capEn || '';
@@ -652,7 +746,7 @@ await section('F', async () => {
       await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c0[0], y: c0[1], button: 'left', buttons: 0, clickCount: 1 });
     } else {
       const p = await W(2.2, 1.6);
-      await drag(p[0], p[1], p[0] - 30, p[1] - 90, 45, 16);
+      await dragH(p[0], p[1], p[0] - 30, p[1] - 90, 45, 16);
     }
     await settle(200);
     const r = await collect();
@@ -715,18 +809,38 @@ await section('F', async () => {
 await section('G', async () => {
   // Y: a touching circle on a target circle, through z₀″ (P first), T on the target circle's stroke
   await view(1440, 900, false, false);
+  await load(
+    NS + 'g0',
+    { shapes: [], steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50 }
+  );
+  await settle(600);
+  const SV = await ev(`document.documentElement.classList.contains('sv')`);
   const SG = {
     shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }],
-    targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }],
+    // (the classic Y pane holds the target circle; the steps view's last plane holds a circle of its own)
+    ...(SV ?
+      {
+        shapes: [
+          { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
+          { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
+        ]
+      } :
+      { targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }] }),
     steps: [{ type: 'zp', params: { a: '1', zeros: '1.5-1i', poles: '' }, on: true }],
     srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50,
   };
   await load(NS + 'g', SG); await settle(900);
+  await W(0, 0, 'R');
+  // (the steps view goes to Y's plane before the tool opens: moving to it afterwards would drop the pick)
   await tool('touch');
   const tcs = await W(1.1 * Math.cos(3.6), 0.3 + 1.1 * Math.sin(3.6), 'R');
   await click(tcs[0] + 1, tcs[1]); await settle(120);
   let d = (await CI()).draft;
-  ok('G Y: the target circle is picked as the curve', d && d.side === 'R' && d.curve1 && d.curve1.s === 'tc', d);
+  ok(
+    'G Y: the target circle is picked as the curve',
+    d && d.side === (SV ? 'L' : 'R') && d.curve1 && d.curve1.s === 'tc',
+    d
+  );
   const w0 = [-1 - 1.5, -1.5 + 1];   // f₁(z) = z − 1.5 + i
   const y0 = await W(w0[0], w0[1], 'R');
   await click(y0[0] + 2, y0[1] + 2); await settle(100);

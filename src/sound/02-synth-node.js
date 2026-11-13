@@ -145,12 +145,12 @@ registerProcessor('cmw-limit', Limit);`;
     if (cue.g !== 1) for (let i = 0; i < n; i++) y[i] *= cue.g;
     const src = c.createBufferSource(); src.buffer = b;
     const T = cue.tier === 3 ? g.audition : g, tn = TIERS[cue.tier === 3 ? 0 : cue.tier];
-    // (its own gain, so that stopping a tagged group fades it first: review sound-4)
+    // (its own gain, so that stopping a tagged group fades it first)
     src.out = out(T, tn, cue.pan, cue.wet);
     src.connect(src.out);
     src.tag = cue.tag;
-    // rendering took main-thread time: a start already in the past would cut into the attack, so it starts no earlier
-    // than now + LEAD, and the click regression's log has the true start (review sound-4)
+    // rendering takes main-thread time: a start already in the past would cut into the attack, so it starts no earlier
+    // than now + LEAD, and the click regression's log has the true start
     const t1 = g.offline ? t : Math.max(t, c.currentTime + LEAD);
     if (cueHook && !g.offline) { try { cueHook(t1, cue); } catch (e) { /* the test's */ } }
     src.start(t1); g.active.add(src); src.onended = () => g.active.delete(src);
@@ -163,7 +163,7 @@ registerProcessor('cmw-limit', Limit);`;
     if (g.synth && (g.offline || prefer.worklet)) {
       if (cueHook && !g.offline) { try { cueHook(t, cue); } catch (e) { /* the test's */ } }
       g.synth.post([Object.assign({ k: 'cue', at: t }, cue)]); let e = 0; for (const p of cue.parts) e = Math.max(e, LIB.partEnd(p)); return t + e; }
-    // (#271) the main-thread render takes 30–70 ms: inside an input handler it is handed to the next task, and its start
+    // the main-thread render takes 30–70 ms: inside an input handler it is handed to the next task, and its start
     // stays no earlier than now + LEAD (fallbackCue's own rule), so the attack is not cut
     if (!g.offline && inInput()) {
       let end = 0; for (const p of cue.parts) end = Math.max(end, LIB.partEnd(p));

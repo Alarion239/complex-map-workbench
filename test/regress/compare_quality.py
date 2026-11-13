@@ -160,7 +160,7 @@ def main(argv=None):
             summary[rid] = 'INFO'
             continue
         if b is None:
-            # a scene added after the baseline was recorded: shown with its values, not compared with a baseline; but
+            # a scene the baseline does not hold: shown with its values, not compared with a baseline; but
             # a run that did not render is not new, it is broken
             news.append((rid, c))
             if not c.get('ok', False):

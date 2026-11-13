@@ -212,54 +212,91 @@
       // (a pending re-choice for a view that has come back within reach is dropped)
       if (mfCache.timer) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
+      mfAheadStart(pane, src, vkey);
       return mfCache.sel;
     }
     const want = key + '\n' + vkey;
     if (!(mfCache.job && mfCache.job.want === want)) {
       if (mfCache.job) { mfCache.job.alive = false; mfCache.job = null; }
-      // (review v16 regress-5: a bracket drag's snaps never start a selection; the release does, setHomRange's force)
-      if (brDragging()) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; }
-      else if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, src); }
+      if (!mfCache.sel && !tweens.length && !drag) { clearTimeout(mfCache.timer); mfCache.timer = 0; mfCache.want = ''; mfStartJob(pane, key, vkey, src); }
       // the 150 ms of stillness count from the last change of what is wanted, not from the last frame: a frame that
       // wants the same (a settle redraw after a scrub or a pan) must not restart the wait (it did: a scrub's settle
       // frames at +90 / +145 ms pushed the paths job, and the scene's settle, from ~150 to ~300 ms)
       else if (!(mfCache.timer && mfCache.want === want)) {
         clearTimeout(mfCache.timer);
         mfCache.want = want;
-        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (!brDragging() && k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
+        mfCache.timer = setTimeout(() => { mfCache.timer = 0; mfCache.want = ''; const k2 = mfScreenKey(pane, src); if (k2.key === key && k2.vkey === vkey && src.alive() && !(mfCache.sel && mfCache.key === key && mfViewOk(pane))) mfStartJob(pane, key, vkey, src); }, 150);
       }
     }
     if (!mfCache.sel) return null;
-    if (mfCache.key === key) return mfCache.sel;
-    // the chain or the shapes changed: the kept start points, re-traced under the current homotopy (cheap)
+    if (mfCache.key === key) { mfAheadStart(pane, src, vkey); return mfCache.sel; }
+    // the chain or the shapes changed: the kept start points, re-traced under the current homotopy, taken from the
+    // re-traces made ahead when this is a neighbouring segment's
     if (mfCache.rkey !== key) {
-      const Fc = new Map();
-      const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
-      const P = (w) => pane.w2s(w);
-      const N = Math.max(24, 24 * Math.ceil(m));
-      const kept = [];
-      for (const k of mfCache.sel.kept) { const r = pathRetrace(k, Fat, m, P, N, src.seq); if (r) kept.push(r); }
-      mfCache.rkey = key; mfCache.rsel = Object.assign({}, mfCache.sel, { kept, Tend: m });
+      const a = mfAhead.sel === mfCache.sel && mfAhead.vkey === vkey && mfAhead.akey === src.aheadKey ? mfAhead.done.get(key) : null;
+      mfCache.rkey = key; mfCache.rsel = a || genDrain(mfRetraceGen(pane, mfCache.sel, src, m));
     }
+    mfAheadStart(pane, src, vkey);
     return mfCache.rsel;
+  }
+  // the selection's kept start points re-traced under src's homotopy, one path per step of the generator
+  function* mfRetraceGen(pane, sel, src, m) {
+    const Fc = new Map();
+    const Fat = (T) => { let f = Fc.get(T); if (!f) { f = src.Fat(T); Fc.set(T, f); } return f; };
+    const P = (w) => pane.w2s(w);
+    const N = Math.max(24, 24 * Math.ceil(m));
+    const kept = [];
+    for (const k of sel.kept) { const r = pathRetrace(k, Fat, m, P, N, src.seq); if (r) kept.push(r); yield; }
+    return Object.assign({}, sel, { kept, Tend: m });
+  }
+  const genDrain = (g) => { for (;;) { const r = g.next(); if (r.done) return r.value; } };
+  // The re-traces of the segments next to the one drawn (src.near(): the steps view's, parked or dragged between two
+  // planes), made in slices off the frame for the selection and the view of the moment: a scrub that crosses a plane
+  // changes the source's segment, and re-tracing every kept path inside that frame cost a 30 to 60 ms frame on the
+  // Mountain King. A frame that crosses before they are done re-traces in the frame.
+  // (src.aheadKey: what else the near sources' homotopies depend on; made again when it changes)
+  const mfAhead = { sel: null, vkey: '', akey: '', from: '', done: new Map(), job: null };
+  function mfAheadStart(pane, src, vkey) {
+    const sel = mfCache.sel;
+    if (!src.near || !sel) return;
+    if (mfAhead.sel !== sel || mfAhead.vkey !== vkey || mfAhead.akey !== src.aheadKey) {
+      if (mfAhead.job) mfAhead.job.alive = false;
+      mfAhead.job = null; mfAhead.sel = sel; mfAhead.vkey = vkey; mfAhead.akey = src.aheadKey; mfAhead.from = ''; mfAhead.done = new Map();
+    }
+    // (once per source: its neighbours' keys are made once, not in every frame)
+    if (mfAhead.job || mfAhead.from === src.key) return;
+    mfAhead.from = src.key;
+    const done = mfAhead.done;
+    const todo = src.near().map((n) => ({ n, key: mfScreenKey(pane, n).key })).filter((q) => q.key !== mfCache.key && !done.has(q.key));
+    if (!todo.length) return;
+    const job = { alive: true };
+    mfAhead.job = job;
+    const alive = () => job.alive && mfAhead.done === done && src.alive();
+    const g = (function* () {
+      for (const q of todo) { const r = yield* mfRetraceGen(pane, sel, q.n, q.n.Tend); if (!alive()) return; done.set(q.key, r); }
+    })();
+    // (its first slice too waits for the frame to end)
+    nextMacrotask().then(() => (alive() ? runGenSliced(g, alive, 3) : null)).catch((e) => console.error('deformation paths ahead', e)).finally(() => { if (mfAhead.job === job) mfAhead.job = null; });
   }
   // The merged globe's live paths (merged-views review: the design's "one plane (or one globe)" both carry them): the
   // same selection, chosen off the frame in the deformation's own flat frame at the globe pane's size (defFitView,
   // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere
   // The globe's paths are chosen on the sphere under the camera of the moment (globeSelP); an orbit that turns more than
   // one kept start (or a quarter of them) away from the camera chooses again (epoch), after the same 150 ms of stillness.
+  // src: the deformation source (default the classic transport's); fit: the flat view the choice is made in (default
+  // the deformation's fitted frame, defFitView; the steps view passes its one camera, S.srcView)
   const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
-  function morphSelGlobe(pane, cam) {
+  function morphSelGlobe(pane, cam, src = classicSource(), fit = null) {
     if (cam) mfGlobe.cam = cam;
-    const k = mfScreenKey(pane, classicSource()).key + `|${pane.w}x${pane.h}`;
+    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}` + (fit ? `|${fit.cx},${fit.cy},${fit.s}` : '');
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
       vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
-      vp.view = defFitView(vp, false);
+      vp.view = fit ? { cx: fit.cx, cy: fit.cy, s: fit.s } : defFitView(vp, false);
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
-    const sel = morphSelScreen(mfGlobe.vp);
-    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, classicSource()).key) {
+    const sel = morphSelScreen(mfGlobe.vp, src);
+    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp, src).key) {
       const P = globeSelP(cam, pane.w, pane.h, 0.2);
       const off = sel.kept.filter((q) => !P(q.sp.z)).length;
       if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
@@ -307,6 +344,8 @@
   const PATHS = { sep: 24, dTest: 14, dS: 34, dE: 26, maxN: 18, minN: 8, area: 110, edgeShare: 0.55, figK: 0.7, figMax: 12, globeMax: 9, globeK: 1.4, shortK: 0.7, ink: 2.5, longK: 3, longShare: 0.2, longD: 2.2, stubK: 1.2, arrowMin: 60, globeFace: 0.35, sharp: 0.75, vee: 120, small: 500, fade: 150 };
   // the last frame's moving points on the merged plane, [x, y, z.re, z.im] (a test hook compares them with H_T(z))
   let mfDrawn = null;
+  // the last frame's moving points on a globe: how many (the steps view's paths hook)
+  let mfGlobeDrawn = null;
   // what the deformation's paths (src/morphpaths.js) need from the app: its functions and constants, and the state
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
@@ -318,7 +357,7 @@
       morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
       patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
       resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-      sub, syncPlaying, trans, transState, tweens, updateCalcChip,
+      sub, trans, transState, tweens, updateCalcChip,
       get S() { return S; },
       get TH() { return TH; },
       get artMode() { return artMode; },
@@ -329,6 +368,7 @@
       get figMode() { return figMode; },
       get figVec() { return figVec; },
       get mfDrawn() { return mfDrawn; }, set mfDrawn(v) { mfDrawn = v; },
+      get mfGlobeDrawn() { return mfGlobeDrawn; }, set mfGlobeDrawn(v) { mfGlobeDrawn = v; },
       get motionInT() { return motionInT; },
       get paneR() { return paneR; },
     };
@@ -350,22 +390,10 @@
   function pathTimesTex(...args) { return MP.pathTimesTex(...args); }
   function pathMarksTex(...args) { return MP.pathMarksTex(...args); }
   function morphCaption(...args) { return MP.morphCaption(...args); }
+  function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  function syncTransport(...args) { const r = MP.syncTransport(...args); phoneChain(); return r; }
-  function morphReadout(...args) { return MP.morphReadout(...args); }
-  function setText(...args) { return MP.setText(...args); }
-  function watchFader(...args) { return MP.watchFader(...args); }
+  const syncTransport = () => phoneChain();
   function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
   function wKeyOn(...args) { return MP.wKeyOn(...args); }
   function renderRight(...args) { return MP.renderRight(...args); }
 
-  // (#385) the Deformation toggle in the top bar
-  function setupMorphButton() {
-    // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
-    const mb = $('morphBtn');
-    if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
-    // a deformation is coming: the homotopy programs (one per map mode, gl.js MAP) start compiling in the background,
-    // so its first frames do not wait for them (the pointer or focus on the toggle, as prestartGlobe)
-    const prestartMorph = () => { try { if (!morph.open && GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } };
-    if (mb) { mb.addEventListener('pointerenter', prestartMorph); mb.addEventListener('focus', prestartMorph); }
-  }

@@ -2,6 +2,8 @@
 // the tool's idle hints and cursors, draft handles, the probe during a gesture, list rows that follow kind changes,
 // unit-direction half-planes, the Space-held orbit the perf units use.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p3bfix_cmd.js
+// It runs in the steps view (ci/suite_views.js: steps({ pin: true })): the X Sphere is plane z's Sphere surface
+// (Plane ▾ → Sphere), and the Landscape is that surface switch's Landscape.
 // Prints {pass, fails, results}; pass is true when every check holds.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -27,9 +29,12 @@ const cam = { pitch: 0.55, yaw: -1.0 };
 const az = -2.2;   // an azimuth that faces the camera from (yaw -1.0, pitch 0.55) (checked below: on screen)
 // (capShape runs the app's Region: open the app first, as a fresh daemon's Chrome is on about:blank)
 await load('p3bfix0' + Date.now(), { shapes: [], steps: [] });
+await settled({ until: 'typeof __cmwSteps === "function" && typeof Region === "object"', max: 30000 });
+const NOT_SV = 'the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)';
+if (!(await ev('!!(window.__cmwSteps && __cmwSteps().on)'))) return { pass: false, fails: [{ name: NOT_SV }], results: R };
 const capD = await capShape(sph(100 * DEG, az), 0.5);
 await load('p3bfix1' + Date.now(), { shapes: [Object.assign({ id: 's1', ci: 0 }, capD)], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: false, nextId: 2 });
-await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
+await ev('__cmwSteps({ go: 0, now: true, surf: "sphere" }); 1'); await settle(1500);
 await ev(`__cmwCam("L", ${JSON.stringify(cam)}); 1`); await settle(800);
 await tool('select');
 await ev(`__cmwSelect('s1'); 1`); await settle(300);
@@ -70,7 +75,7 @@ ok('C handle 10 px of arc from N: a disc with r bounded (r <= R/8 px)', c2.s && 
 
 // ---- 2. Space does not press a mouse-focused button (finding 2) ----
 await load('p3bfix2' + Date.now(), { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: true });
-await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
+await ev('__cmwSteps({ go: 0, now: true, surf: "sphere" }); 1'); await settle(1500);
 await ev(`__cmwCam("L", ${JSON.stringify(cam)}); 1`); await settle(600);
 await tool('point');
 for (const [x, y] of [[0.5, 0.5], [-0.5, 1]]) { const p = await at('L', x, y); await click(p[0], p[1]); await settle(250); }
@@ -150,7 +155,7 @@ ok('after release no probe readout stays at the press point', !/\|z\|/.test(afte
 
 // ---- 6. a slide through N: the row name and the open editor follow (finding 8) ----
 await load('p3bfix6' + Date.now(), { shapes: [{ id: 's1', ci: 0, kind: 'disc', c: [0.6, 2.2], r: 0.7 }], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: false, nextId: 2 });
-await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
+await ev('__cmwSteps({ go: 0, now: true, surf: "sphere" }); 1'); await settle(1500);
 await ev(`__cmwCam("L", ${JSON.stringify(cam)}); 1`); await settle(600);
 await tool('select');
 await ev(`__cmwSelect('s1'); 1`); await settle(300);
@@ -170,13 +175,13 @@ await M('mouseReleased', sB[0], sB[1], { button: 'left', clickCount: 1 });
 await settle(300);
 R.slide = seen;
 const nameOk = seen.every((v) => (v.kind === 'halfplane' ? /^Half-plane/.test(v.name) : /^Disc/.test(v.name)));
-// (v16.5 UX44: a number field shows 4 significant digits until it is clicked into)
+// (a number field shows 4 significant digits until it is clicked into)
 const edOk = seen.filter((v) => v.kind === 'disc' && v.ed && v.ed.length >= 2).every((v) => parseFloat(v.ed[1]) === +v.r.toPrecision(4));
 ok('during the slide the row name follows the kind', nameOk, seen.map((v) => [v.kind, v.name]));
 ok('during the slide the open editor shows the stored radius', edOk, seen.map((v) => [v.kind, v.r, v.ed]));
 
 // ---- 7. the landscape takes no drawing: cursor and hint (finding 12) ----
-await ev('__cmwSetView("L", "land"); 1'); await settle(1500);
+await ev('__cmwSteps({ surf: "land" }); 1'); await settle(1500);
 await tool('disc'); await settle(200);
 await move(5, 5); await settle(150);
 const landHint = await readL();
@@ -191,7 +196,7 @@ await tool('select');
 
 // ---- 8. the perf units' orbit: Space held turns an editable globe over a region (finding 11) ----
 await load('p3bfix8' + Date.now(), { shapes: [{ id: 's1', ci: 0, kind: 'halfplane', a: [0, 0], b: [1, 0] }], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: true, nextId: 2 });
-await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
+await ev('__cmwSteps({ go: 0, now: true, surf: "sphere" }); 1'); await settle(1500);
 const c0 = await ev('__cmwCam("L")');
 const pr = await paneR0('L');
 const x0 = pr[0] + pr[2] / 2 - 80, y0 = pr[1] + pr[3] / 2 - 30;

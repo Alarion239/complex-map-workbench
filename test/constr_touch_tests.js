@@ -2,14 +2,15 @@
 // src/constr.js). tangent-scratch/tcheck.js's 35 checks in the house style: the overlap depth g / S of K and C measured
 // exactly from the float coefficients (BigInt), incidence of T, P and the touching point, the meet rule (in the graph and
 // on the pieces), the tangents from a point, the line cases, continuity sweeps, gliders, and the plumbing (validate,
-// v16.2's validate, save and load, deletePlan, onCurveByRefs, speed).
+// the frozen copy's validate, save and load, deletePlan, onCurveByRefs, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
-// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
-const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
+// the speed limit is in reference operations measured in the same run (test/lib/speed_ref.js), so it holds on any machine
+const { unitsOf } = require('./lib/speed_ref');
+const TOUCH_UNITS = 110;
 const path = require('path');
 module.exports = function ({ K, ok }) {
-  // (v16.2's constr.js, frozen: an older build reading a saved touching circle)
+  // (a frozen copy of constr.js: it reads a saved touching circle)
   const K162 = require(path.join(require('../ci/snapshots').snapshotDir('notes/v16.2-candidate'), 'constr.js'));   // (missing: says to run ci/snapshots.js)
   const note = (t) => { if (process.argv.includes('-v')) console.log('     ' + t); };
   const INF = K.INF, isInf = K.isInf;
@@ -80,7 +81,7 @@ module.exports = function ({ K, ok }) {
       // pieces level (snapping, Intersect): Constr.meets on the pieces gives T for both indices
       const ms = K.meets(K.pieces(k)[0], pc);
       if (ms.length === 2 && ms.every((x) => x.z[0] === T[0] && x.z[1] === T[1])) pieceRule++;
-      // the v16.2 solver on the same forms
+      // the frozen copy's solver on the same forms
       const old = K162.meets2(k._g, pc.G);
       if (old[0] == null || old[1] == null) oldNone++; else oldTwo++;
     }
@@ -243,7 +244,7 @@ module.exports = function ({ K, ok }) {
     ok(byId(sc, 'k').cundef && byId(sc, 'k').cundef.code === 'coincide', 'P = T: coincide');
     const sf = touchScene({ id: 'c', kind: 'curve', pts: [[0, 0], [1, 1], [2, 0]] }, 0.2, [3, 3]); rec(sf);
     ok(!!byId(sf, 'k').cundef && (byId(sf, 'k').cundef.code === 'argUndef' || byId(sf, 'k').cundef.code === 'notCircle'), 'a freehand C: undefined', byId(sf, 'k').cundef);
-    // validate: sigs and index; the v16.2 validate frees touch and tangent, keeping the fields
+    // validate: sigs and index; the frozen copy's validate frees touch and tangent, keeping the fields
     const sv = touchScene(unit, 0.2, [2, 0.3], [{ id: 'kt', kind: 'line', a: [0, 0], b: [1, 0], def: { op: 'tangent', args: [{ s: 'c', part: 0 }, { s: 'p' }], index: 7 } },
       { id: 'kb', kind: 'line', a: [0, 0], b: [1, 0], def: { op: 'tangent', args: [{ s: 'p' }, { s: 'p' }], index: 0 } }]);
     const r1 = K.validate(sv, {});
@@ -285,12 +286,8 @@ module.exports = function ({ K, ok }) {
   // ================================================ 9. speed
   {
     const G = { A: 1 / 1.7, B: [0, 0], C: -1.7, o: [0.3, -0.2] }, T = [0.3 + 1.7 * Math.cos(0.4), -0.2 + 1.7 * Math.sin(0.4)];
-    const n = 100000; let t0 = process.hrtime.bigint();
-    for (let i = 0; i < n; i++) K.touchForm(G, T, [-1.1 + i * 1e-9, 0.6]);
-    const a = Number(process.hrtime.bigint() - t0) / n / 1000; t0 = process.hrtime.bigint();
-    for (let i = 0; i < n; i++) K.tangentForm(G, [3 + i * 1e-9, 1], i & 1);
-    const b = Number(process.hrtime.bigint() - t0) / n / 1000;
-    ok(a < 5 * SPEED && b < 5 * SPEED, 'speed: touchForm and tangentForm under 5 us', `${a.toFixed(2)} us, ${b.toFixed(2)} us`);
+    const a = unitsOf((i) => K.touchForm(G, T, [-1.1 + i * 1e-9, 0.6])), b = unitsOf((i) => K.tangentForm(G, [3 + i * 1e-9, 1], i & 1));
+    ok(a < TOUCH_UNITS && b < TOUCH_UNITS, `speed: touchForm and tangentForm under ${TOUCH_UNITS} reference operations (test/lib/speed_ref.js)`, `${a.toFixed(0)}, ${b.toFixed(0)}`);
   }
 
   // ================================================ 10. the tangent at T as a click target (issue #12)
@@ -332,9 +329,9 @@ module.exports = function ({ K, ok }) {
     ok(/e\.key === 'Enter' && !\(t && t\.tagName === 'BUTTON'\) && tangentNow\(\)/.test(body('keydown')), 'tangent target: Enter after T makes the tangent');
   }
 
-  // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)
+  // ================================================ checks
   {
-    // [math-1] a rectangle's corner a as T on side 0; b dragged across a: a is on other sides now. K is undefined
+    // a rectangle's corner a as T on side 0; b dragged across a: a is then on other sides. K is undefined
     // ('offCurve'), the touching meet is undefined, and the corner is not on side 0 by construction
     const st = { shapes: [{ id: 'r', kind: 'rect', a: [0, 0], b: [2, 1] }, { id: 'p', kind: 'point', p: [1, 2] },
       { id: 'k', kind: 'circle', c: [0, 0], r: 1, def: { op: 'touch', args: [{ s: 'r', part: 0 }, { s: 'r', h: 'a' }, { s: 'p' }], fill: 'none' } },

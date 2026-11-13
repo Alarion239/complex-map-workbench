@@ -1,266 +1,11 @@
-  // ---------------- thumbnails ----------------
-  const thumbs = new Map(); // stage k -> Pane
-  // thumbnail sizes come from a ResizeObserver: measuring each canvas after the cards were rebuilt forced a
-  // layout per thumbnail
-  const thumbSize = new WeakMap();
-  const thumbSeen = new Set();
-  let thumbRO = null;
-  function thumbDims(cv) {
-    let s = thumbSize.get(cv);
-    if (!s) {
-      if (!thumbRO && window.ResizeObserver) {
-        thumbRO = new ResizeObserver((es) => {
-          let changed = false;
-          for (const e of es) {
-            const o = thumbSize.get(e.target), w = e.contentRect.width, hh = e.contentRect.height;
-            if (!o || o[0] !== w || o[1] !== hh) { thumbSize.set(e.target, [w, hh]); changed = true; e.target.classList.add('rz'); }   // (#530: its picture is the old size's until the redraw)
-          }
-          if (changed) requestRender('T');
-        });
-      }
-      const r = cv.getBoundingClientRect(); // first sight only
-      s = [r.width, r.height];
-      thumbSize.set(cv, s);
-      if (thumbRO) { thumbRO.observe(cv); thumbSeen.add(cv); }
-    }
-    return s;
-  }
-  // thumbnails are cached by signature (stage, chain prefix, shapes, look), so rebuilding the strip is instant
-  const thumbCache = new Map();
-  let thumbShapesSig = '';
-  // v15 (DESIGN.md 2.2, 2.3): a card's picture follows the open view and is cumulative: card k shows F_k, the map up to
-  // step k. X → Y: the image of the shapes; Phase: arg F_k over the main plane's z-window (cover-fitted); Landscape:
-  // log|F_k| at the main camera, without labels; the Deformation (X → Y): step k at its own t over its grey start. The
-  // region card shows the shapes in z. Drawn exactly (the main view's programs), cached by signature, when idle.
-  function cardKind() {
-    if (S.view.main === 'phase') return 'phase';
-    if (S.view.main === 'land') return 'land';
-    return morphOn() ? 'def' : 'xy';
-  }
-  // the time of step k in the deformation: one after another, each its own t; all at once, one t
-  function cardT(k) {
-    const R = morphRange(), steps = R.steps, j = steps.indexOf(k);
-    if (S.focus === 0 && R.r && (k < R.r.a || k > R.r.b)) return 1;   // (v16: outside the bracket, in full)
-    if (j < 0) return S.focus > 0 && k < S.focus ? 1 : 0;
-    if (allAtOnce()) return Math.max(0, Math.min(1, morph.T));
-    return Math.max(0, Math.min(1, morph.T - j));
-  }
-  // the z-window of the main plane, cover-fitted to a card (the card shows the middle of what the plane shows)
-  function cardZView(pane) {
-    const v = S.srcView, mw = paneL.w || 1, mh = paneL.h || 1;
-    return { cx: v.cx, cy: v.cy, s: v.s * Math.max(pane.w / mw, pane.h / mh) };
-  }
-  // the landscape's box over the z-window (landBox() is X's, which shows w_{k-1} while a step is shown alone)
-  function cardLandBox() {
-    const v = S.srcView, hw = (paneL.w || 1) / 2 / v.s, hh = (paneL.h || 1) / 2 / v.s;
-    let w = 2 * hw, hgt = 2 * hh;
-    if (w > 2 * hgt) w = 2 * hgt; else if (hgt > 2 * w) hgt = 2 * w;
-    return { x0: v.cx - w / 2, x1: v.cx + w / 2, y0: v.cy - hgt / 2, y1: v.cy + hgt / 2 };
-  }
-  const cardMu = new Map();
-  function cardMedian(k, box) {
-    if (S.height === 'log') return 1;
-    const key = `${k}|${chainSig[k]}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}`;
-    if (cardMu.has(key)) return cardMu.get(key);
-    const F = stageF(k), vals = [];
-    for (let j = 0; j < 32; j++) for (let i = 0; i < 32; i++) {
-      const w = F(C(box.x0 + (i + 0.5) / 32 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 32 * (box.y1 - box.y0)));
-      const v = S.height === 're' ? Math.abs(w.re) : S.height === 'im' ? Math.abs(w.im) : CX.abs(w);
-      if (Number.isFinite(v)) vals.push(v);
-    }
-    vals.sort((x, y) => x - y);
-    const mu = vals.length ? Math.max(1e-6, vals[Math.floor(vals.length / 2)]) : 1;
-    if (cardMu.size > 64) cardMu.clear();
-    cardMu.set(key, mu);
-    return mu;
-  }
-  function shapeOutlines(map0) {
-    const out = [];
-    for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
-      const map = shapeMap(s, map0);   // ([#253] a later plane's shape: not in this one)
-      if (!map) continue;
-      const r = shapeGPU(s);
-      if (r.lineRes) out.push({ r, res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map, cacheKey: `${r.lineKey}|${mapKeyOf(map)}` });
-    }
-    return out;
-  }
-  function cardPhase(pane, k) {
-    pane.setView(cardZView(pane));
-    pane.begin(TH.plane);
-    GLR.begin(pane.pw, pane.ph);
-    GLR.drawColorPlot({ map: stageMap(k), view: pane.view, dpr: pane.dpr, style: S.dc === 'cauchy' ? 'enhanced' : S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null });
-    if (S.outline) {
-      const map = stageMap(0);
-      for (const o of shapeOutlines(map)) {
-        const dash = o.r.open ? { dash: [5, 3.5], arc: arcOf(o.r, stageF(0), mapKeyOf(o.map)) } : null;
-        GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 2.4 * pane.dpr }, cacheKey: o.cacheKey }, dash));
-      }
-    }
-    GLR.blit(pane.ctx);
-    pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-  }
-  // (issue #72) the programs a card's Landscape links: its heights, surface and floor (the user's function each) and the
-  // normals' pass
-  const LAND_CARD = ['landTF', 'land', 'floor', 'landNrm'];
-  function cardLand(pane, k) {
-    pane.begin(TH.plane);
-    backdrop(pane);
-    const box = cardLandBox(), lscale = S.lscale || 1;
-    const geo = GLR.landGeom(box, lscale);
-    const zoom = CAM3.dist > 0 ? cam.dist / CAM3.dist : 1;
-    // (the main camera's angles and zoom; closer than the bounding-sphere fit, so the block fills the small card)
-    const view = { yaw: cam.yaw, pitch: cam.pitch, dist: GLR.fitDist(geo.radius, CAM3.fov, pane.w, pane.h, 1.05) * zoom * 0.58, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
-    GLR.begin(pane.pw, pane.ph);
-    GLR.drawLandscape({
-      map: stageMap(k), box, cam: view, heightMode: S.height, scale: lscale, mu: cardMedian(k, box), material: landMaterial(), unitLevel: !!S.unitLevel, sectors: S.sectors || 12,
-      cells: 64, sheets: null, card: true, outlines: shapeOutlines(stageMap(0)), probe: null, bg: GLR.hexRGB(TH.landBottom), dpr: pane.dpr,
-      colors: {
-        floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
-        shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
-        minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), landBottom: GLR.hexRGB(TH.landBottom),
-        cut: GLR.hexRGB(TH.cut), probe: GLR.hexRGB(TH.probe),
-      },
-    });
-    GLR.blit(pane.ctx);
-    pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-  }
-  // the deformation: step k at its own t over its grey start (the image of the shapes at stage k − 1)
-  function cardDef(pane, k, t) {
-    // (all at once, review math-1: card k is the deformation itself up to step k, h_{k,t} ∘ … ∘ h_{1,t}, over
-    // h_{k−1,t} ∘ … ∘ h_{1,t}; so the last card is the main picture at every t)
-    // (v16: with a bracket, all at once runs from its start, stage a − 1; a card outside it shows its stage in full)
-    const R = morphRange(), out = S.focus === 0 && !!R.r && (k < R.r.a || k > R.r.b), lo0 = S.focus === 0 && R.r ? R.lo : 0;
-    const all = allAtOnce() && !out;
-    const map = out ? stageMap(k) : all ? { mode: 3, a: lo0, b: k, t } : stepActive(k) ? { mode: 1, hi: k, t } : stageMap(k);
-    const Ft = out ? stageF(k) : all ? cpuMap(map) : stepActive(k) ? ((Ht, Fp) => (z) => Ht(Fp(z)))(homF(k, t), stageF(k - 1)) : stageF(k);
-    fitPane(pane, k, [], Ft);   // (framed on the image at this t, as X → Y frames the image)
-    pane.begin(TH.plane);
-    if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
-    const ghost = () => {
-      const mm = all ? (k - 1 > lo0 ? { mode: 3, a: lo0, b: k - 1, t } : stageMap(lo0)) : stageMap(k - 1);
-      const Fg = all ? cpuMap(mm) : stageF(k - 1);
-      for (const o of shapeOutlines(mm)) GLR.drawLines(o.res, { map: mm, view: pane.view, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.8, cacheKey: o.cacheKey, dash: [4, 3], arc: arcOf(o.r, Fg, mapKeyOf(mm)) });
-    };
-    drawScene(pane, map, null, { thin: true, L: 2, under: ghost });
-    drawPoints(pane, Ft, { thin: true });
-  }
-  function renderThumb(k) {
-    const pane = thumbs.get(k);
-    if (!pane || !pane.canvas.isConnected) return;
-    pane.resize(...thumbDims(pane.canvas));
-    const card = pane.canvas.closest('.card');
-    const kind = k === 0 ? 'xy' : cardKind();
-    // (issue #72) without parallel compile every link is synchronous, seconds each on software GL (a pan over "Sheets of
-    // the logarithm" froze for a minute while the cards linked the principal branch beside the pane's All sheets), so a
-    // Landscape card never starts one: it shows its Phase picture until the pane has linked those programs. The pane's
-    // Landscape redraws the cards (frame), and the sig then asks for the relief
-    const landStand = kind === 'land' && GLR.ok && GLR.parallelCompile === false && !GLR.linked(LAND_CARD, stageMap(k));
-    const t = kind === 'def' ? cardT(k) : 0;
-    // what the picture depends on, per kind (the view, the camera, the time, the selection that shows step k + 1's cuts)
-    const vk = kind === 'phase' || landStand ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${S.dc}|${S.sectors || 12}|${S.dcGrid}|${S.outline}`
-      : kind === 'land' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${cam.yaw.toFixed(4)},${cam.pitch.toFixed(4)},${(cam.dist / CAM3.dist).toFixed(4)},${cam.tx},${cam.ty}|${S.height}|${S.lscale || 1}|${landMaterial()}|${S.dc}|${S.unitLevel}`
-      : kind === 'def' ? `t${t.toFixed(4)}|${S.homAll}` : `${selOf() === k + 1 ? 'cuts' : ''}`;
-    // (with exact images: whether the inverse program is ready, so a thumbnail drawn forward before it was is redrawn)
-    const sig = `${kind}|${k}|${chainSig[k]}|${thumbShapesSig}|${GLR.palette()}|${S.pattern}|${S.patternScale}|${S.alpha}|${S.lines}|${TH.plane}|${TH.dark}|${pane.pw}x${pane.ph}|${vk}|${S.exactImages !== false && GLR.ok && GLR.inverseStatus ? GLR.inverseStatus(S.alpha, 'flat') === 'ready' : ''}`;
-    if (card) { const tl = card.querySelector('.tlab'); if (tl) { const tt = kind === 'def' ? `t = ${I18N.num(t.toFixed(2))}` : ''; if (tl.textContent !== tt) tl.textContent = tt; } }
-    if (pane.sig === sig) { if (card) card.classList.remove('stale'); return; }
-    const hit = thumbCache.get(sig);
-    if (hit) {
-      thumbCache.delete(sig); thumbCache.set(sig, hit);   // (least recently used last)
-      pane.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      pane.ctx.drawImage(hit, 0, 0);
-      pane.sig = sig;
-      if (card) card.classList.remove('stale');
-      return;
-    }
-    thumbNotFinal = false;
-    let waiting = false;
-    if (kind === 'phase' || kind === 'land') {
-      if (!GLR.ok) { pane.begin(TH.plane); return; }
-      if (kind === 'phase' || landStand) cardPhase(pane, k); else cardLand(pane, k);
-      const glst = GLR.frameStatus ? GLR.frameStatus() : null;
-      waiting = !!(glst && glst.pending);
-    } else if (kind === 'def') {
-      if (GLR.ok) cardDef(pane, k, t); else pane.begin(TH.plane);
-      const glst = GLR.frameStatus ? GLR.frameStatus() : null;
-      waiting = !!(glst && glst.pending);
-    } else {
-      fitPane(pane, k, [], undefined, fitMs > FIT_LIVE_MS);
-      pane.begin(TH.plane);
-      if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
-      // ([#253] the scene's pending is read before the preimage passes begin their own frame, and both count: a card
-      // whose picture or preimages are still linking is drawn with a stand-in, never cached as final)
-      let prePending = false;
-      if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
-      const glst = GLR.frameStatus ? GLR.frameStatus() : null;
-      if (GLR.ok) prePending = stagePullbacks(pane, k);
-      waiting = !!(glst && glst.pending) || prePending;
-      drawPoints(pane, stageF(k), { thin: true, k });
-      // (step k + 1's cuts show on card k only while step k + 1 is selected: a card never shows a later step's marks)
-      if (selOf() === k + 1) drawCuts(pane, k, false, true);
-      if (!S.shapes.some((x) => x.visible !== false)) {
-        // above the real axis (the empty view is centered on 0) and cased in the plane color, so nothing strikes it
-        const ctx = pane.ctx;
-        ctx.font = `12px ${TH.ui}`; ctx.fillStyle = TH.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        // (only where it fits: a phone's 44 px picture showed it cut, 'lo shape', and a strip 28 px high would cut it at the top; the axes alone say it)
-        if (pane.h >= 40 && ctx.measureText($t('No shapes')).width <= pane.w - 8) haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
-      }
-    }
-    if (waiting || thumbNotFinal) { thumbNotFinal = false; return; } // drawn with a stand-in: not final, not cached
-    pane.sig = sig;
-    if (card) card.classList.remove('stale');
-    if (window.createImageBitmap) {
-      createImageBitmap(pane.canvas).then((bm) => {
-        thumbCache.set(sig, bm);
-        if (thumbCache.size > 64) { const old = thumbCache.keys().next().value; const b = thumbCache.get(old); thumbCache.delete(old); if (b && b.close) b.close(); }
-      }).catch(() => {});
-    }
-  }
-  // (issue #49) while the morph plays renderThumbs waits (it is put off past every frame), so a card with no picture
-  // of its own yet, a fresh Landscape's, stayed empty until the pause; such a card draws now, one pass at most every
-  // 200 ms and only while nothing else moves (outside Deformation, the cards' pictures do not change with t)
-  let missT = -1e9;
-  function missingCards() {
-    const now = performance.now();
-    if (now - missT < 200 || drag || tweens.length || camTweens.length || now - lastInputT < 150 || cardKind() === 'def') return;
-    const want = [...thumbs.entries()].filter(([, p]) => !p.sig && p.canvas.isConnected);
-    if (!want.length) return;
-    missT = now;
-    thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
-    for (const [, p] of want) thumbDims(p.canvas);   // (all reads before any canvas resize)
-    for (const [, p] of want) p.resize(...thumbDims(p.canvas));   // (#511: every card takes its box's size before the first is drawn)
-    for (const [k] of want) { try { renderThumb(k); } catch (e) { console.error(e); } thumbFresh(k); }
-  }
-  function renderThumbs() {
-    // wait for a quiet moment: never during drags, pans or a playing morph
-    if (drag || tweens.length || camTweens.length || (morph.playing && morph.open) || performance.now() - lastInputT < 150) {
-      // (a card held for its exact redraw shows a thin bar: a drag that changes what the cards show, or playback)
-      if ((drag && (!/^(pan[LR]|probe|panR|orbit|pan3)$/.test(drag.mode) || ((cardKind() === 'phase' || cardKind() === 'land') && drag.side !== 'R'))) || (morph.playing && morph.open && cardKind() === 'def')) for (const c of document.querySelectorAll('#pipeline .card')) c.classList.add('stale');
-      clearTimeout(thumbT);
-      thumbT = setTimeout(renderThumbs, 160);
-      return;
-    }
-    thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
-    for (const cv of thumbSeen) if (!cv.isConnected) { thumbRO.unobserve(cv); thumbSeen.delete(cv); } // cards rebuilt
-    for (const p of thumbs.values()) if (p.canvas.isConnected) thumbDims(p.canvas); // all reads before any canvas resize
-    // (#511: then every card's backing store takes its box's size, and only then are the pictures drawn one by one: a slow
-    // first picture, a program that links in seconds on software GL, left the cards after it at the canvas's default
-    // 300 x 150 until its turn. A size that changed clears the canvas, and renderThumb's signature holds the size, so it redraws)
-    for (const p of thumbs.values()) if (p.canvas.isConnected) p.resize(...thumbDims(p.canvas));
-    for (const k of thumbs.keys()) { try { renderThumb(k); } catch (e) { console.error(e); } thumbFresh(k); }
-  }
-  // (#530) a card's canvas is marked `rz` while its box has a size its picture was not drawn for: the redraw clears it
-  function thumbFresh(k) { const p = thumbs.get(k); if (p && p.canvas.isConnected && p.canvas.width === Math.round(p.w * p.dpr) && p.canvas.height === Math.round(p.h * p.dpr)) p.canvas.classList.remove('rz'); }
-
   // ---------------- render scheduling ----------------
-  const dirty = { L: false, R: false, OL: false, OR: false, T: false, P: false, G: false }; // G: the legend chip
+  const dirty = { L: false, R: false, OL: false, OR: false, P: false, G: false }; // G: the legend chip
   let rafId = 0;
   function requestRender(...which) {
     for (const w of which.length ? which : ['L', 'R']) if (w) dirty[w] = true;
     if (!rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
-  let thumbT = 0, lastInputT = 0, motionInT = 0;
+  let lastInputT = 0, motionInT = 0;
   // motionInT: the last CONTINUOUS input (a wheel, a pointer moved with a button down, a range slider's input, a held
   // key); a hover or a single click is not motion (interacting(): a ready inverse program is not held back for it)
   for (const ev of ['pointermove', 'pointerdown', 'wheel', 'keydown', 'input']) window.addEventListener(ev, (/** @type {any} */ e) => {
@@ -377,7 +122,7 @@
       morph.last = ts;
       const m = morphLen();
       // per step: eased motion, a short hold at each step boundary, a longer one at the end
-      if (!m) { morph.playing = false; setPlayIcon(); }
+      if (!m) { morph.playing = false; }
       else if (morph.hold > 0) morph.hold -= dt;
       else {
         // the current step is tracked explicitly; deriving it from floor(T) skipped a step when easing rounded T up to an integer
@@ -388,7 +133,7 @@
         else { const u = morph.u; morph.T = Math.min(before + 0.9999, before + (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)); }
       }
       if (m && morph.hold <= 0 && morph.T >= m) {
-        if (S.loop === false || matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.playing = false; morph.seg = null; setPlayIcon(); scheduleFix(); } else { morph.T = 0; morph.u = 0; morph.seg = 0; }
+        if (S.loop === false || matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.playing = false; morph.seg = null; scheduleFix(); } else { morph.T = 0; morph.u = 0; morph.seg = 0; }
       }
       dirty.R = true;
       // X's portrait, landscape or phase globe paint H_t too
@@ -399,9 +144,6 @@
       again = morph.playing;
       soundFunctionChanged('t');
       sndMotion();   // (sound: the motion bed on a play's first pass)
-      // the cards are held while it plays (renderThumbs is debounced past every frame), so their t is not the main
-      // t: they show no t until they are redrawn after the pause (review verify-1, design-13)
-      if (morph.playing && cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
     }
     // (#246) the step glide moves T while it owns it: T is still what it wrote last. Play, the scrubber, a tick, a new
     // range or focus that moved T take it back, and the glide rests where T is
@@ -419,7 +161,6 @@
         syncTransport();
         soundFunctionChanged('t');
         if (still) { glide.last = 0; scheduleFix(); } else again = true;
-        if (cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
       }
     }
     // camera tweens and inertia in 3D views
@@ -456,8 +197,6 @@
     const ov = dirty.L || dirty.R || dirty.OL || dirty.OR;
     const leg = dirty.G || dirty.R; // the legend repaints only when its key or the needle changed
     dirty.G = false;
-    // (v15: the cards follow X's z-window and camera in Phase and Landscape, and the time in the deformation)
-    if ((dirty.L && (S.view.main === 'phase' || S.view.main === 'land')) || (dirty.R && morph.open && S.view.main === 'xy')) dirty.T = true;
     if (dirty.L) { dirty.L = false; if (solo() !== 'R') try { renderLeft(); } catch (e) { console.error(e); } }
     if (dirty.R) { dirty.R = false; if (solo() !== 'L') try { renderRight(); } catch (e) { console.error(e); } }
     dirty.OL = dirty.OR = false;
@@ -467,12 +206,6 @@
     sndFrame();   // (sound: a re-pick under a still pointer waits for a frame drawn at the new layout)
     if (leg) try { drawLegend(); } catch (e) { console.error(e); }
     idleReadouts();
-    if (dirty.T) {
-      dirty.T = false;
-      clearTimeout(thumbT);
-      thumbT = setTimeout(renderThumbs, 150);
-      if (morph.playing && morph.open) missingCards();
-    }
     if (dirty.P) { dirty.P = false; renderProps(); }
     // a shape drag whose frames run over the 60 fps budget twice takes the drag-time mesh cap (baseRes)
     if (drag && (drag.mode === 'handle' || drag.mode === 'move') && !drag.capMesh && performance.now() - frameT0 + frameLag > FRAME_BUDGET_MS + 2) {
@@ -558,10 +291,9 @@
       const tw = tweens[i];
       const u = Math.min(1, (now - tw.t0) / tw.ms);
       const e = 1 - Math.pow(1 - u, 3);
-      const ls = Math.log(tw.from.s) + (Math.log(tw.to.s) - Math.log(tw.from.s)) * e;
-      tw.view.s = Math.exp(ls);
-      tw.view.cx = tw.from.cx + (tw.to.cx - tw.from.cx) * e;
-      tw.view.cy = tw.from.cy + (tw.to.cy - tw.from.cy) * e;
+      // (a zoom about the point the start and end views share, Pane.tweenAt; a plain pan when the scale stays)
+      const v = Pane.tweenAt(tw.from, tw.to, e);
+      tw.view.cx = v.cx; tw.view.cy = v.cy; tw.view.s = v.s;
       if (u >= 1) { tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
     }
     dirty.L = true; dirty.R = true;
@@ -598,7 +330,7 @@
     rebuild();
     cmChain();   // (v16: step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
-    if (structural) buildPipeline(); else updateCards();
+    if (structural) chainRebuilt();
     const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !morphOn() && !hasTargets(), tf = performance.now();
     if (fit && rightAuto && autoFit()) { if (sliced) fitRightSliced(); else fitRight(); }
     const ls = leftStage() + ':' + chainSig[leftStage()];
@@ -612,7 +344,7 @@
     updateLeds();
     refreshIntPop();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
-    requestRender('L', 'R', 'T', 'P');
+    requestRender('L', 'R', 'P');
     chainMs = performance.now() - t0;
   }
   function shapesChangedAll(structural) { shapesChanged(structural); }
@@ -623,13 +355,12 @@
     if (structural) {
       updateFocusUI();
       buildShapeList();
-      updateRegionCard();
-    } else { updateShapeList(); updateRegionCard(); }
+    } else updateShapeList();
     // (v16 [C3a]: not while a pointer gesture moves shapes, points or zeros: onUp fits Y once at the gesture's end)
     if (rightAuto && autoFit() && !(!structural && drag && /^(move|handle|zp)$/.test(drag.mode))) fitRight();
     scheduleFix();
     refreshIntPop();
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   // the right plane mode that keeps its own view, fitted to what it shows
   const autoFit = () => rImage();
@@ -691,7 +422,7 @@
     if (rightStage() !== k || chainSig[k] !== sig || !(rightAuto && autoFit()) || morphOn() || hasTargets()) return;
     paneR.setView(V.right);
     Object.assign(V.right, boxView(paneR, robustBox(xs, ys) || { x0: -2, x1: 2, y0: -2, y1: 2 }));
-    requestRender('R', 'T');
+    requestRender('R');
   }
   function fitRight(animate, withT) {
     fitJob.token++;

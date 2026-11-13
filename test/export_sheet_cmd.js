@@ -10,6 +10,7 @@ for (const [w, h, phone] of [[390, 844, true], [1440, 900, false]]) {
   await ev('__cmwExample(1); 1'); await sleep(1800);
   await key('e', 2); await sleep(2500);
   const tag = `${w}px`;
+  ok(`${tag}: the dialog opens from the steps view`, await ev('!!window.__cmwSteps && __cmwSteps().on'), null);
   if (phone) {
     ok(`${tag}: the Print settings button shows and the rows are folded`, (await shown('#xfPrintBtn')) && !(await shown('#xfSize')) && !(await shown('#xfFor')), null);
     ok(`${tag}: the folded button says aria-expanded=false (the export suite's helpers read it)`, (await ev(`document.getElementById('xfPrintBtn').getAttribute('aria-expanded')`)) === 'false', null);

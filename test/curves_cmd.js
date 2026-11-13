@@ -15,27 +15,12 @@
 //      |sin z| = 1 itself (sinh^2 y = cos^2 x); the preimage of the target Re w^2 = 1 under z^2 (r^4 cos 4 theta = 1,
 //      drawn per pixel by the preimage shader) and of the target lemniscate |w^2 - 1| = 1 under exp
 //      (z = log(1 + e^{i phi}) / 2 + k pi i).
-// (the daemon's port, as its load() opens it)
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+// (the preimage scenes of five targets, the target legend and the formula areas' renderer paths are in
+// curves_target_cmd.js: the steps view does not draw them to the same tolerance, or has no right pane to read them in.)
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const settle = async (ms = 1200) => {
-  await sleep(ms);
-  for (let i = 0; i < 40; i++) {
-    const busy = await ev(`(() => { const a = document.getElementById('leftLed'), b = document.getElementById('rightLed'); return /busy/.test((a ? a.className : '') + (b ? b.className : '')); })()`);
-    if (!busy) break;
-    await sleep(150);
-  }
-  await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-};
-const BASE = { pattern: 'solid', lines: false, unit: false, fov: false, outline: false, chev: false, alpha: 0.85, hideLeft: false, hideRight: false, solo: null, v3: true, v4: true, v5: true, nextId: 50 };
-const typeIn = async (t) => {
-  await ev(`(() => { const i = document.getElementById('formulaInput'); i.focus(); i.value = ${JSON.stringify(t)}; i.dispatchEvent(new Event('input')); return 1; })()`);
-  await sleep(120);
-  return ev(`({ prev: document.getElementById('formulaPrev').textContent, err: !!document.querySelector('#formulaPrev .err'), note: document.getElementById('formulaNote').hidden ? '' : document.getElementById('formulaNote').textContent, tag: document.getElementById('formulaPlane').textContent })`);
-};
-const addFormula = async (t) => { const r = await typeIn(t); await ev(`document.getElementById('formulaAdd').click()`); await sleep(250); return r; };
-const shapes = () => ev('__cmwShapes()');
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'curves_kit.js'), 'utf8'))({ ev, send, go, load, shot, settled, view, fs, DIR, ok, R });
+const { BASE, PORT, settle, typeIn, addFormula, shapes } = K;
 await view(1440, 900);
 
 // ------------------------------------------------------------------ 1. behaviour
@@ -187,137 +172,9 @@ await settle(1500);
 }
 
 // ------------------------------------------------------------------ 2. exact truth
-// the ink of shape/target id on pane side: pixels that change by more than 90 (sum of |dRGB|) when it is hidden
-const inkOf = async (side, id, isTarget) => {
-  const snap = `(() => { const c = document.getElementById('canvas${side}'); const s = document.createElement('canvas'); s.width = c.width; s.height = c.height; const x = s.getContext('2d', { willReadFrequently: true }); x.drawImage(c, 0, 0); return Array.from(x.getImageData(0, 0, s.width, s.height).data); })()`;
-  const geo = await ev(`(() => { const c = document.getElementById('canvas${side}'), r = c.getBoundingClientRect(); return { w: c.width, h: c.height, r: [r.left, r.top], o: __cmwW2S('${side}', 0, 0), x1: __cmwW2S('${side}', 1, 0), y1: __cmwW2S('${side}', 0, 1) }; })()`);
-  const on = await ev(snap);
-  await ev(`(() => { const S = __cmwShapes(); return 1; })()`);
-  // hide it through its row's eye button
-  const idx = await ev(`(() => { const S = __cmwShapes(); const list = ${isTarget ? 'S.targets' : 'S.shapes'}; return list.findIndex((s) => s.id === ${JSON.stringify(id)}) + ${isTarget ? 'S.shapes.length' : 0}; })()`);
-  await ev(`document.querySelectorAll('#shapeList .icon-btn.eye')[${idx}].click()`);
-  await settle(900);
-  const off = await ev(snap);
-  await ev(`document.querySelectorAll('#shapeList .icon-btn.eye')[${idx}].click()`);
-  await settle(600);
-  const W = geo.w, H = geo.h, ink = [];
-  for (let i = 0; i < W * H; i++) {
-    const d = Math.abs(on[4 * i] - off[4 * i]) + Math.abs(on[4 * i + 1] - off[4 * i + 1]) + Math.abs(on[4 * i + 2] - off[4 * i + 2]);
-    if (d > 90) ink.push([i % W + 0.5, Math.floor(i / W) + 0.5]);
-  }
-  // world -> canvas px (dpr 1: CSS px relative to the canvas)
-  const sx = geo.x1[0] - geo.o[0], sy = geo.y1[1] - geo.o[1];
-  const toPx = (re, im) => [geo.o[0] - geo.r[0] + re * sx, geo.o[1] - geo.r[1] + im * sy];
-  return { W, H, ink, toPx };
-};
-// truth: a list of world polylines (dense); score ink against it in px
-const score = (name, I, polys, margin = 8, maxFar = 0) => {
-  const pts = [];
-  for (const pl of polys) {
-    let prev = null;
-    for (const [re, im] of pl) {
-      const p = I.toPx(re, im);
-      if (!Number.isFinite(p[0] + p[1]) || Math.abs(p[0]) > 1e6 || Math.abs(p[1]) > 1e6) { prev = null; continue; }
-      if (prev) { const n = Math.ceil(Math.hypot(p[0] - prev[0], p[1] - prev[1]) / 0.25); if (n < 4000) for (let k = 1; k < n; k++) pts.push([prev[0] + (p[0] - prev[0]) * k / n, prev[1] + (p[1] - prev[1]) * k / n]); }
-      pts.push(p); prev = p;
-    }
-  }
-  const G = 4, grid = new Map(), keyOf = (x, y) => Math.floor(x / G) + ',' + Math.floor(y / G);
-  const add = (m, p) => { const k = keyOf(p[0], p[1]); let a = m.get(k); if (!a) m.set(k, (a = [])); a.push(p); };
-  for (const p of pts) if (p[0] > -20 && p[0] < I.W + 20 && p[1] > -20 && p[1] < I.H + 20) add(grid, p);
-  const near = (m, p, r) => { let d = Infinity; const gx = Math.floor(p[0] / G), gy = Math.floor(p[1] / G), k = Math.ceil(r / G); for (let i = -k; i <= k; i++) for (let j = -k; j <= k; j++) { const a = m.get((gx + i) + ',' + (gy + j)); if (a) for (const q of a) { const e = Math.hypot(q[0] - p[0], q[1] - p[1]); if (e < d) d = e; } } return d; };
-  const dist = I.ink.map((p) => near(grid, p, 12));
-  dist.sort((a, b) => a - b);
-  const far = dist.filter((d) => d > 2.5).length;
-  const inkG = new Map();
-  for (const p of I.ink) add(inkG, p);
-  let n = 0, hit = 0;
-  for (const p of pts) {
-    if (p[0] < margin || p[0] > I.W - margin || p[1] < margin || p[1] > I.H - margin) continue;
-    n++;
-    if (near(inkG, p, 4) <= 2) hit++;
-  }
-  const r = { ink: I.ink.length, spill: I.ink.length ? far / I.ink.length : null, p99: dist.length ? +dist[Math.floor(0.99 * (dist.length - 1))].toFixed(2) : null, max: dist.length ? +dist[dist.length - 1].toFixed(2) : null, recall: n ? hit / n : null, n };
-  R[name] = r;
-  ok(`${name}: ink drawn`, r.ink > 50, r);
-  r.far = far;
-  ok(`${name}: every ink pixel within 2.5 px of the true curve${maxFar ? ` (at most ${maxFar} isolated stray px)` : ''}`, far <= maxFar, r);
-  ok(`${name}: the true curve is drawn everywhere in the pane (recall >= 0.999)`, r.recall >= 0.999, r);
-  return r;
-};
-const segPts = (a, b, n = 20000) => Array.from({ length: n + 1 }, (_, k) => [a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
-const circle = (c, r, n = 4096) => [Array.from({ length: n + 1 }, (_, k) => [c[0] + r * Math.cos(2 * Math.PI * k / n), c[1] + r * Math.sin(2 * Math.PI * k / n)])];
-const SC = [
-  { name: 'exp_imag_axis', expr: 'Re z = 0', steps: [{ type: 'exp', params: {} }], rv: { cx: 0, cy: 0, s: 150 }, truth: () => circle([0, 0], 1) },
-  { name: 'cayley_real_axis', expr: 'Im z = 0', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }], rv: { cx: 0, cy: 0, s: 150 }, truth: () => circle([0, 0], 1) },
-  { name: 'cayley_real_axis_at_1', expr: 'Im z = 0', steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }], rv: { cx: 1, cy: 0, s: 6000 }, truth: () => [Array.from({ length: 20001 }, (_, k) => { const t = -0.1 + 0.2 * k / 20000; return [Math.cos(t), Math.sin(t)]; })] },
-  { name: 'sq_line_parabola', expr: 'Re z = 1', steps: [{ type: 'pown', params: { n: 2 } }], rv: { cx: -1, cy: 0, s: 60 }, truth: () => [Array.from({ length: 8001 }, (_, k) => { const v = -40 + 80 * k / 8000; return [1 - v * v / 4, v]; })] },
-  { name: 'recip_hyperbola_lemniscate', expr: 'Re z^2 = 1', steps: [{ type: 'recip', params: {} }], rv: { cx: 0, cy: 0, s: 200 }, truth: () => {
-    // r^2 = cos 2 theta, both lobes, through 0
-    const out = [];
-    for (const t0 of [-Math.PI / 4, 3 * Math.PI / 4]) out.push(Array.from({ length: 20001 }, (_, k) => { const t = t0 + Math.PI / 2 * k / 20000; const r = Math.sqrt(Math.max(0, Math.cos(2 * t))); return [r * Math.cos(t), r * Math.sin(t)]; }));
-    return out;
-  } },
-  { name: 'abs_sin_traced', expr: '|\\sin z| = 1', steps: [{ type: 'exp', params: {} }], side: 'L', srcView: { cx: 0, cy: 0, s: 60 }, rv: { cx: 0, cy: 0, s: 30 }, truth: () => {
-    const f = (sgn) => Array.from({ length: 20001 }, (_, k) => { const x = -12 + 24 * k / 20000; return [x, sgn * Math.asinh(Math.abs(Math.cos(x)))]; });
-    return [f(1), f(-1)];
-  } },
-  { name: 'pre_target_hyperbola_z2', target: 'Re w^2 = 1', steps: [{ type: 'pown', params: { n: 2 } }], side: 'L', srcView: { cx: 0, cy: 0, s: 80 }, rv: { cx: 0, cy: 0, s: 60 }, truth: () => {
-    // r^4 cos 4 theta = 1 on the four branches |4 theta - 2 k pi| < pi/2
-    const out = [];
-    for (let k = 0; k < 4; k++) out.push(Array.from({ length: 8001 }, (_, i) => { const t = k * Math.PI / 2 + (-Math.PI / 8 + 1e-6 + (Math.PI / 4 - 2e-6) * i / 8000); const r = Math.pow(Math.cos(4 * t), -0.25); return [r * Math.cos(t), r * Math.sin(t)]; }));
-    return out;
-  } },
-  { name: 'pre_target_lemniscate_exp', target: '|w^2-1| = 1', steps: [{ type: 'exp', params: {} }], side: 'L', srcView: { cx: -1, cy: 0, s: 60 }, rv: { cx: 0, cy: 0, s: 120 }, truth: () => {
-    // e^{2z} = 1 + e^{i phi}: z = log(1 + e^{i phi}) / 2 + k pi i
-    const out = [];
-    for (let k = -4; k <= 4; k++) out.push(Array.from({ length: 20001 }, (_, i) => { const ph = -Math.PI + 1e-9 + (2 * Math.PI - 2e-9) * i / 20000; const a = 1 + Math.cos(ph), b = Math.sin(ph); return [0.5 * Math.log(Math.hypot(a, b)), 0.5 * Math.atan2(b, a) + k * Math.PI]; }));
-    return out;
-  } },
-  // the preimage stroke is a crossing test, not a pole or a kink (review findings): tan(Re w) = 1 and 1/Re w = 1 add
-  // (maxFar: an isolated stray pixel is tolerated; the false pole-line stroke was a band ~4 px wide over the pane)
-  // no stroke along the pole lines of g (Re w = pi/2 + k pi; Re w = 0), and the complex-sided sin w = conj(sin w)
-  // keeps its axes at any sub-pixel offset (|A - B| had a kink that the jump test dropped)
-  { name: 'pre_target_tan_poles', maxFar: 2, target: '\\tan(\\operatorname{Re} w) = 1', steps: [{ type: 'custom', params: { expr: 'z+0.25i', cut: 180 } }], side: 'L', srcView: { cx: 1.5, cy: 0, s: 80 }, rv: { cx: 1.5, cy: 0, s: 80 },
-    truth: () => [-3, -2, -1, 0, 1, 2, 3].map((k) => segPts([Math.PI / 4 + k * Math.PI, -40], [Math.PI / 4 + k * Math.PI, 40])) },
-  { name: 'pre_target_recip_pole', maxFar: 2, target: '\\frac{1}{\\operatorname{Re} w} = 1', steps: [{ type: 'custom', params: { expr: 'z+0.25i', cut: 180 } }], side: 'L', srcView: { cx: 0.25, cy: 0, s: 80 }, rv: { cx: 0, cy: 0, s: 80 },
-    truth: () => [segPts([1, -40], [1, 40])] },
-  ...[0, 0.25, 0.5].map((off) => ({ name: `pre_target_complex_sides_${off}`, target: '\\sin w = \\overline{\\sin w}', steps: [{ type: 'pown', params: { n: 2 } }], side: 'L', srcView: { cx: 0, cy: off / 90, s: 90 }, rv: { cx: 0, cy: 0, s: 30 },
-    truth: () => {
-      // Im sin(z^2) = 0: the axes (Im z^2 = 0) and the hyperbolas x^2 - y^2 = pi/2 + k pi
-      const out = [segPts([-10, 0], [10, 0]), segPts([0, -10], [0, 10])];
-      for (let k = -8; k <= 7; k++) {
-        const c = Math.PI / 2 + k * Math.PI;
-        for (const sx of [1, -1]) out.push(Array.from({ length: 4001 }, (_, i) => { const t = -4 + 8 * i / 4000; return c > 0 ? [sx * Math.sqrt(c) * Math.cosh(t), Math.sqrt(c) * Math.sinh(t)] : [Math.sqrt(-c) * Math.sinh(t), sx * Math.sqrt(-c) * Math.cosh(t)]; }));
-      }
-      return out;
-    } })),
-];
-for (const sc of SC) {
-  const st = Object.assign({}, BASE, { steps: sc.steps.map((s) => Object.assign({ on: true }, s)), srcView: sc.srcView || { cx: 0, cy: 0, s: 60 }, rightView: sc.rv, targets: [], shapes: [] });
-  // the shapes come from the formula box as a user adds them (exact shapes or a curve formula)
-  await load('curves-' + sc.name, st);
-  await settle(1200);
-  if (sc.target) await addFormula(sc.target); else await addFormula(sc.expr);
-  await settle(1800);
-  // a pinned right view (the app may have refit after the add)
-  const s = await shapes();
-  const id = sc.target ? s.targets[0] && s.targets[0].id : s.shapes[0] && s.shapes[0].id;
-  if (!ok(`${sc.name}: the formula added a shape`, !!id, s)) continue;
-  if (!sc.side || sc.side === 'R') {
-    await ev(`(() => { const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:curves-${sc.name}')); return 1; })()`);
-  }
-  // the right view as pinned: reload with the state the app saved (the add is in it) plus the pinned view
-  await sleep(400);
-  await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
-  await nav(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
-  await settle(2500);
-  // (#363: the reload opens the saved pattern as the phase; the scoring reads the solid fill, the renderer's own)
-  await ev(`__cmwSet('pattern', ${JSON.stringify(BASE.pattern)}); 1`); await settle(800);
-  const I = await inkOf(sc.side || 'R', id, !!sc.target);
-  score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
-  await shot('curves-' + sc.name, sc.side === 'L' ? { x: 268, y: 44, width: 432, height: 570 } : { x: 706, y: 44, width: 432, height: 570 });
-}
+// (the scenes are in the kit; the five preimage scenes the steps view draws differently are in curves_target_cmd.js)
+const MOVED = ['pre_target_lemniscate_exp', 'pre_target_tan_poles', 'pre_target_complex_sides_0', 'pre_target_complex_sides_0.25', 'pre_target_complex_sides_0.5'];
+for (const sc of K.SC) if (!MOVED.includes(sc.name)) await K.runScene(sc);
 // ------------------------------------------------------------------ 3. review findings (P5)
 {
   await load('curves-p5', Object.assign({}, BASE, { shapes: [], targets: [], steps: [{ type: 'pown', params: { n: 2 }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } }));
@@ -330,27 +187,16 @@ for (const sc of SC) {
   ok("'or' of the same line adds one line", /Adds a line/.test(m['Re(z)=0 or Re(z) = 0'].note), m['Re(z)=0 or Re(z) = 0']);
   ok("'or' of the same circle adds one circle", /Adds a circle/.test(m['|z|=1 or |z|=1'].note), m['|z|=1 or |z|=1']);
   ok('a complex equation names |A − B| = 0 for its points', m['z = 1'].err && /\|A − B\| = 0/.test(m['z = 1'].prev) && m['\\sin z = 0'].err && /\|A − B\| = 0/.test(m['\\sin z = 0'].prev), [m['z = 1'], m['\\sin z = 0']]);
-  // the target legend: curve targets are drawn, not shaded; no run-time field in the saved state
+  // (the targets are added as before; the legend's check is in curves_target_cmd.js; no run-time field in the saved state)
   await addFormula('|w| = 1');
   await addFormula('Re w^2 = 1');
   await settle(1200);
-  // (v16.5 UX20: on a desktop the target note is Y's head note, "Preimage in X", and what is shaded or drawn is its
-  // tooltip: with curve targets only, it says they are drawn, and nothing is shaded)
-  R.legend = await ev(`(() => { const e = document.getElementById('rightNote'); return e && !e.hidden ? [e.textContent, e.dataset.tip || ''] : []; })()`);
-  ok('the legend of curve targets says drawn, not shaded', R.legend.some((t) => /drawn/i.test(t)) && !R.legend.some((t) => /shaded/i.test(t)), R.legend);
   await addFormula('|z^{30}-1| = 0');
   await addFormula('Re z^2 = 1');
   await settle(800);
   const saved = await ev(`localStorage.getItem('complex-map-workbench-v1:curves-p5') || ''`);
   R.savedErr = /"_err"/.test(saved) || JSON.stringify(await shapes()).includes('_err');
   ok('no run-time _err field in the saved state or __cmwShapes', !R.savedErr && saved.length > 0, R.savedErr);
-  // the inverse renderer's formula areas keep their own cap of 4 (the preimage pass's 8 is for traced targets)
-  const six = ['|z| < 1', '|z-1| < 0.5', '|z+1| < 0.5', '|z-i| < 0.5', '|z+i| < 0.5', '|z-2| < 0.3'].map((e, i) => ({ id: 'f' + i, kind: 'formula', expr: e, ci: i, visible: true }));
-  await load('curves-p5b', Object.assign({}, BASE, { shapes: six, targets: [], steps: [{ type: 'pown', params: { n: 2 }, on: true }] }));
-  await settle(2500);
-  R.sixPaths = await ev('__cmwPaths()');
-  const rp = R.sixPaths.filter((p) => p.role === 'R');
-  ok('formula areas: the first four draw inverse, the fifth and sixth forward (fifth formula shape)', rp.length === 6 && rp.slice(0, 4).every((p) => p.path === 'inverse') && rp.slice(4).every((p) => p.path === 'forward' && /fifth formula shape/.test(p.reason || '')), rp);
 }
 R.logs3 = (await logs()).filter((l) => /EXC|error/i.test(l.t));
 ok('no page errors (exact truth scenes)', !R.logs3.length, R.logs3);

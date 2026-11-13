@@ -7,7 +7,7 @@
 // - on a phone it is not on the strip: the chain sheet has the whole-map row;
 // - it is the round F alone, clear of the rail: at 1440 in en, ru and it, with 3 steps and with 12 that scroll, it is
 //   in view, pressable and overlaps nothing at rest;
-// - "+ Add function" keeps its words while the whole thread fits beside them and folds to the round + when it would not (at 1440 the
+// - "+ Add function" keeps its words only while the thread fits beside them and can still sit on the pane's centre line; else it folds to the round + (at 1440 a one-step thread is centred, so the + is round; the
 //   2-step chain shows whole in en and it, and the Playback ⋯ at the strip end leaves the + round there);
 // - at 1024 px in English, Russian and Italian the strip's controls sit on one row inside it, overlapping nothing.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -30,7 +30,7 @@ const S = () => ev('__cmwSteps()');
 const whole = () => ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); if (!f) return null; const rail = document.querySelector('#svStrip .sv-rail'), add = document.querySelector('#svStrip .sv-add'), planes = [...document.querySelectorAll('#svStrip .sv-plane')], last = planes[planes.length - 1];
   return { text: f.textContent, label: f.getAttribute('aria-label'), pressed: f.getAttribute('aria-pressed'), tab: f.tabIndex, tag: f.tagName, hidden: f.hidden, shown: getComputedStyle(f).display !== 'none',
     more: !!f.querySelector('.sv-more'), inRail: rail.contains(f), afterRail: !!(last && (last.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING)), beforeAdd: !!(f.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING),
-    chips: document.querySelectorAll('#svStrip .sv-fchip').length, h: f.getBoundingClientRect().height }; })()`);
+    chips: document.querySelectorAll('#svStrip .sv-fchip').length, h: f.getBoundingClientRect().height, w: f.getBoundingClientRect().width }; })()`);
 const insp = () => ev(`(document.getElementById('propsPanel') || document.body).textContent`);
 
 await open(1280, 800, false, 'en');
@@ -71,6 +71,13 @@ const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
   for (const [what, chain] of [['1 step', st.steps.slice(0, 1)], ['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
     await open(1440, 900, false, lang, chain);
+    if (what === '1 step') {
+      // (a one-step chain has no F chip: F is f₁ there)
+      const none = await ev(`(() => { const f = document.querySelector('#svStrip .sv-wholemap'); return { hidden: !f || f.getClientRects().length === 0, rail: document.querySelector('#svStrip .sv-rail').scrollWidth > document.querySelector('#svStrip .sv-rail').clientWidth + 1, addWords: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display !== 'none' }; })()`);
+      info[`1440 ${lang} ${what}`] = none;
+      ok(`1440 ${lang}, 1 step: no F chip, the thread does not scroll, + Add function is the round + (its words would keep the thread off centre)`, none.hidden && !none.rail && !none.addWords, none);
+      continue;
+    }
     const w = await atRest();
     info[`1440 ${lang} ${what}`] = w;
     ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, on top at its centre, clear of the rail`,
@@ -79,10 +86,11 @@ for (const lang of ['en', 'ru', 'it']) {
     if (what === '3 steps') ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
     // (the Playback ⋯ ends the strip and takes the room of "+ Add function"'s words once the thread is longer than a step or two:
     // + keeps its words on a short thread and is the round one beside a longer one; the rule never lets the words make the thread
-    // scroll; Russian's wide names scroll as they did before the chip: the rail still keeps most of its width)
+    // scroll; a two-step chain that fits with its names only beside the round + keeps them, and one that fits only with the
+    // chips' letters shows them, so it is whole either way)
     ok(`1440 ${lang}, ${what}: the Playback ⋯ ends the strip, and the words of + Add function never make the thread scroll`, w.moreLast && (w.addFolded || !w.scrolls), w);
-    if (what === '1 step') ok(`1440 ${lang}, 1 step: + Add function keeps its words beside the short thread, which does not scroll`, !w.addFolded && !w.scrolls && w.addOnTop, w);
-    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: + Add function is the round + (the words would not fit beside the thread and the Playback controls), whole and on top, the chain z … w₂ shows in en and it, and Russian's wide names scroll as before in a rail of 400 px or more`, w.addFolded && w.addOnTop && (lang === 'ru' ? w.scrolls && w.rail >= 400 : !w.scrolls), w);
+    if (what === '1 step') ok(`1440 ${lang}, 1 step: + Add function is the round + (centring the thread), which does not scroll`, w.addFolded && !w.scrolls && w.addOnTop, w);
+    if (what === '2 steps') ok(`1440 ${lang}, 2 steps: + Add function is the round + (the words would not fit beside the thread and the Playback controls), whole and on top, and the chain z … w₂ shows whole and does not scroll`, w.addFolded && w.addOnTop && !w.scrolls, w);
     else if (what === '12 steps') ok(`1440 ${lang}, 12 steps: + Add function is the round + (its words would make the thread scroll more), whole and on top`, w.addFolded && w.addOnTop, w);
   }
 }
@@ -107,10 +115,10 @@ for (const lang of ['ru', 'it']) {
   ok(`${lang}: the chip's name is translated`, f && f.label && f.label !== 'Whole map' && !/Whole map/.test(f.text), f);
 }
 
-// a phone: the chain sheet has the whole-map row, so the strip has no chip
+// a phone: F is a round 44 px chip at the end of the rail, after the last plane (the rail scrolls it in; the chain sheet has the row too)
 await open(390, 844, true, 'en');
 const fp = await whole();
-ok('phone: the strip has no F chip (the chain sheet holds the whole-map row)', fp && !fp.shown, fp);
+ok('phone: F is a 44 px button inside the rail, after the last plane, named Whole map', fp && fp.shown && fp.inRail && fp.afterRail && fp.tag === 'BUTTON' && fp.label === 'Whole map' && fp.h === 44 && fp.w === 44, fp);
 
 // room: at 1024 the strip's controls sit on one row inside it, overlapping nothing, the rail keeps room for the thread
 for (const lang of ['en', 'ru', 'it']) {

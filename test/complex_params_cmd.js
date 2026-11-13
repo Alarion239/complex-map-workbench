@@ -69,19 +69,19 @@ ok('the program key is unchanged (the value is a uniform)', key1 && (await glKey
 ok('step 2 follows: conj(1 - i) (z + 1 - i) at 0 is 2', near(await stage(2, 0, 0), [2, 0]), await stage(2, 0, 0));
 ok('typing the value is one undo step', s.hi === hi0 + 1, { hi: s.hi, was: hi0 });
 await settle(600);
-// (Y is the classic view's right pane, the image of the chain; the steps view's equivalent is its last plane)
-const yFrame = async () => {
+// (the image of the chain, which the classic view shows as Y, is the last plane of the steps view)
+const lastPlaneFrame = async () => {
   await ev(`__cmwSteps({ go: __cmwSteps().planes.length - 1, now: true })`); await settled({ until: '!__cmwSteps().moving' });
   return ev(`__cmwRenderOff('L', 320, 240, 1)`);
 };
-const restL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), restR = await yFrame();
+const restL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), restLast = await lastPlaneFrame();
 await ev('new Promise((r) => setTimeout(r, 400))');
 await load(NS + 'f', STATE(-1));
 await settle(1500);
-const freshL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), freshR = await yFrame();
+const freshL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), freshLast = await lastPlaneFrame();
 ok('rest frame after the edit = a fresh load of the same value (X)', restL === freshL, restL.length + ' vs ' + freshL.length);
-ok('rest frame after the edit = a fresh load of the same value (Y: the last plane in the steps view)', restR === freshR, restR.length + ' vs ' + freshR.length);
-ok('the picture really depends on im', freshR !== (await (async () => { await load(NS + 'g', STATE(1)); await settle(1500); return yFrame(); })()), null);
+ok('rest frame after the edit = a fresh load of the same value (the last plane, where the image of the chain is)', restLast === freshLast, restLast.length + ' vs ' + freshLast.length);
+ok('the picture really depends on im', freshLast !== (await (async () => { await load(NS + 'g', STATE(1)); await settle(1500); return lastPlaneFrame(); })()), null);
 
 // 3. undo and redo bring the imaginary part back
 await load(NS, STATE(1));

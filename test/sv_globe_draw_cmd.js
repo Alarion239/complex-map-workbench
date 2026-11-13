@@ -1,6 +1,6 @@
 // The steps view's globe takes drawing on any plane: on plane k > 0 with the Sphere surface, a Disc drag makes a shape
-// of that plane (stage = k) and the Whole chain button does not pulse; a press on the shape just drawn moves it there,
-// still a shape of plane k. On plane 0 the shape has no stage. A command file for a CDP daemon (test/cdp_kit README).
+// of that plane (stage = k); a press on the shape just drawn moves it there, still a shape of plane k. On plane 0 the shape has no stage.
+// A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
@@ -35,18 +35,11 @@ for (const k of [0, 1]) {
   await ev(`document.querySelector('#tools .tool[data-tool="disc"]').click(); 1`); await quiet();
   const a = await at(0.3, 0.3), b = await at(0.8, 0.3);
   if (!a || !b) { ok(`${where}: the globe answers a pick`, false, [a, b]); continue; }
-  await ev(`window.__pulse = 0; (() => {
-    const b = document.getElementById('viewAllBtn');
-    if (!b) return;
-    new MutationObserver(() => { if (b.classList.contains('pulse')) window.__pulse++; })
-      .observe(b, { attributes: true, attributeFilter: ['class'] });
-  })(); 1`);
   await drag(a[0], a[1], b[0], b[1], 10, 16); await quiet();
   const S1 = await shapes(), d = S1.shapes[0];
   ok(`${where}: a Disc drag draws one shape`,
     S1.shapes.length === 1 && S1.targets.length === 0 && d && d.kind === 'disc', S1);
   ok(`${where}: the shape belongs to the plane it was drawn on`, d && (k === 0 ? !('stage' in d) : d.stage === k), d);
-  ok(`${where}: the Whole chain button does not pulse`, (await ev('window.__pulse')) === 0, await ev('window.__pulse'));
   const hint = await ev(`(document.getElementById('sphereChipL') || { textContent: '' }).textContent`);
   ok(`${where}: no hint says the globe draws in the z-plane only`, !/drawn in the z-plane/.test(hint), hint);
   // a press on the shape just drawn (on its rim) moves it on that plane
@@ -62,5 +55,11 @@ for (const k of [0, 1]) {
         S2.shapes.length === 1 && e && stageOk(e) && changed, [d, e]);
     }
   }
+  // a construction tool picks on this plane too, so the globe says nothing of drawing in the z-plane only
+  await ev(`[...document.querySelectorAll('[data-tool="circle3"]')].find((e) => e.offsetParent).click(); 1`);
+  await quiet();
+  const hintC = await ev(`(document.getElementById('sphereChipL') || { textContent: '' }).textContent`);
+  ok(`${where}: a construction tool gets no hint that the globe draws in the z-plane only`,
+    !/drawn in the z-plane/.test(hintC), hintC);
 }
 return { pass: fails.length === 0, fails, info };

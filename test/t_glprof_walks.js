@@ -30,6 +30,7 @@ for (const n of sw ? sw[1].split(',').map((x) => x.trim()) : []) {
   const nm = n === 'MOUNTAIN_KING' ? king : n.replace(/^'|'$/g, '');
   ok(`steps: "${nm}" is an example`, names.includes(nm));
 }
-ok('the mountain walk opens the Landscape (landEdgeS, #395) and the deformation (#355)', /__cmwSetMain\('land'\)/.test(G.slice(G.indexOf('function mountainKing'))) && /__cmwMorph\(\{ open: true, T: 0\.5 \}\)/.test(G.slice(G.indexOf('function mountainKing'), G.indexOf('function extended'))));
+const kingWalk = G.slice(G.indexOf('function mountainKing'), G.indexOf('// --walk steps'));
+ok('the mountain walk opens the Landscape (landEdgeS, #395) and the glide (#355) in the steps view', /SC\.main\('land'\)/.test(kingWalk) && /SC\.glide\('last'\)/.test(kingWalk) && !/__cmw(SetMain|Morph)/.test(G));
 console.log(`t_glprof_walks: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -40,7 +40,7 @@ const I18N = (() => {
   let store = null;                               // tests replace localStorage here (I18N._store)
   const ls = () => store || (hasWin ? window.localStorage : null);
   function readPref() { try { const v = ls().getItem(lsk(PREF)); return isLang(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
-  // true when the setting was written and reads back (storage can be blocked: a private window, a sandboxed frame)
+  // true when the setting is written and reads back (storage can be blocked: a private window, a sandboxed frame)
   function writePref(v) {
     try {
       const s = ls();
@@ -91,15 +91,16 @@ const I18N = (() => {
       return k && hasOwn(p, k) ? String(p[k]) : m;
     });
   }
-  // ([v16.5 check app-4] Italian) a name filled in with its article after a simple preposition takes the articulated
+  // (Italian) a name filled in with its article after a simple preposition takes the articulated
   // one, as Italian writes it: "su {c}" with "la circonferenza unitaria" reads "sulla circonferenza unitaria", "a {c}"
   // with "l'asse reale" "all'asse reale". Only a value that starts with a definite article (the reference forms of the
   // unit circle and the axes, ctx 'ref'), right after a whole-word a / da / di / in / su; a template with TeX is filled
   // as it is
-  const IT_MARK = '\u0001';
+  // (a private-use character: the figure's captions pass '\u0001' and '\u0002' through as their own placeholders)
+  const IT_MARK = '\uE001';
   const IT_PRE = { a: 'a', da: 'da', di: 'de', in: 'ne', su: 'su' };
   const IT_ART = { il: 'l', lo: 'llo', la: 'lla', le: 'lle', gli: 'gli', "l'": "ll'" };
-  const IT_JOIN = /(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \u0001(il|lo|la|le|gli) |(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \u0001l['’]/g;
+  const IT_JOIN = /(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \uE001(il|lo|la|le|gli) |(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \uE001l['’]/g;
   function fillIt(s, p) {
     if (!p || hasTeX(s)) return fill(s, p);
     const out = s.replace(PH_ANY, (m, safe, plain) => {
@@ -219,7 +220,7 @@ const I18N = (() => {
   // U+00A0 in a LaTeX caption is ~
   const nbspTeX = (s) => String(s).replace(/ /g, '~');
   // a PDF text string (the info dictionary: Title, Subject) that is not plain ASCII: UTF-16BE with a BOM, as a
-  // byte string (review i18n-21). jsPDF's setDocumentProperties takes PDFDocEncoding, which has no Cyrillic.
+  // byte string. jsPDF's setDocumentProperties takes PDFDocEncoding, which has no Cyrillic.
   function pdfText(s) {
     s = String(s);
     if (/^[\x20-\x7e]*$/.test(s)) return s;
@@ -236,7 +237,7 @@ const I18N = (() => {
     ['tanh', 'th'], ['coth', 'cth'], ['sinh', 'sh'], ['cosh', 'ch'], ['tan', 'tg'], ['cot', 'ctg'], ['csc', 'cosec'],
     ['arctan', 'arctg'], ['log', 'ln'],
   ];
-  // \operatorname{Res} stays Res in Russian (DESIGN.md 6, GLOSSARY 1.4, review i18n-8): not here, not in RU_PLAIN
+  // \operatorname{Res} stays Res in Russian (DESIGN.md 6, GLOSSARY 1.4): not here, not in RU_PLAIN
   const RU_OP = { arsinh: 'arsh', arcosh: 'arch', artanh: 'arth', arcoth: 'arcth', arccot: 'arcctg', arcsinh: 'arsh', arccosh: 'arch', arctanh: 'arth', arccoth: 'arcth' };
   const RU_OP_RE = new RegExp(`\\\\operatorname\\{(${Object.keys(RU_OP).join('|')})\\}`, 'g');
   // opts.multi: the formula means the multivalued function (all sheets): \log -> Ln, \arg -> Arg in Russian. The
@@ -280,7 +281,7 @@ const I18N = (() => {
   // else the US character of the physical key (e.code): ЙЦУКЕН's Я is Z, Х is [ and Ъ is ]
   const CODE_PUNCT = { BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backquote: '`', Backslash: '\\', Minus: '-', Equal: '=' };
   // Only a letter of a non-Latin script typed without Alt/Option/AltGr falls back to the physical key: a Latin layout's
-  // å, ü, ł and a composed character (AltGr+K, Option+Z) keep their own key, as before phase 2b (review english-1)
+  // å, ü, ł and a composed character (AltGr+K, Option+Z) keep their own key
   const NONLATIN = /[^\p{Script=Latin}\P{L}]/u;
   function keyOf(e) {
     const k = (e && e.key) || '';
@@ -300,7 +301,7 @@ const I18N = (() => {
   // attributes below. "Label  K" (two spaces, then a key) translates the label and keeps the key. data-i18n="no"
   // skips an element (the wordmark, kbd); data-i18n="html" translates the element's inner HTML as one key, for
   // sentences with inline math ("Key in the <i>w</i>-plane").
-  // aria-description and data-desc carry the tool descriptions (found in the review's browser run)
+  // aria-description and data-desc carry the tool descriptions
   const ATTRS = ['title', 'aria-label', 'placeholder', 'data-tip', 'aria-roledescription', 'alt', 'aria-description', 'data-desc'];
   const SKIP = new Set(['SCRIPT', 'STYLE', 'svg', 'SVG', 'CANVAS', 'KBD', 'TEXTAREA', 'MJX-CONTAINER']);
   const hasWords = (s) => /[A-Za-z]{2,}/.test(s);
@@ -390,9 +391,9 @@ const I18N = (() => {
 
   // ---------------- the page in another language ----------------
   // Russian sets <html lang> and data-lang, and redraws the canvas text once the Cyrillic ranges of the faces have loaded (the faces
-  // are in page.html's one stylesheet in every language, #288); Italian sets <html lang> and data-lang="it" only. English does none
+  // are in page.html's one stylesheet in every language); Italian sets <html lang> and data-lang="it" only. English does none
   // of this (it does not even touch <html lang>).
-  // "CMW Comma": the comma of a number set in the mono face, from a proportional face (page.html, review ui-4)
+  // "CMW Comma": the comma of a number set in the mono face, from a proportional face (page.html)
   const FACES = ['500 12px "Roboto Flex"', '600 13px "Roboto Flex"', '400 11px "JetBrains Mono"', '400 11px "CMW Comma"'];
   let fontsHook = null;
   // the app's redraw for canvas text (rulers, legend, plot labels): canvas text does not trigger a font load, and
@@ -419,7 +420,7 @@ const I18N = (() => {
     else Promise.all(FACES.map((f) => document.fonts.load(f, f.includes('Comma') ? ',' : 'Жж').catch(() => []))).then(fire);
   }
   let applied = false;
-  // the reveal: page.html's head script hides #app in Russian until the static text is translated (review eng-1)
+  // the reveal: page.html's head script hides #app in Russian until the static text is translated
   function ready2() { if (hasWin) document.documentElement.classList.remove('i18n-wait'); }
 
   // ---------------- switching ----------------

@@ -40,8 +40,24 @@
   // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
+  // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
+  // (no re-pick, so no side flips). A full placement is a function of the view alone (the parked-frame rule), so the
+  // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
+  const labelSlots = new Map();
+  const LABEL_DEFAULT = [7, -7];   // north-east of the point
+  // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
+  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4;
+  // (the points that are gone, deleted or replaced with the chain, lose their offsets)
+  function pruneLabelSlots() {
+    if (!labelSlots.size) return;
+    const live = new Set();
+    for (const s of S.shapes) live.add(s.id);
+    for (const s of S.targets || []) live.add(s.id);
+    for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
+  }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
+    const lite = !!r.lite;
     // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
     const marks = r.marks;
     const hard = [];
@@ -101,7 +117,7 @@
       const g = groups.find((q) => Math.abs(q.x - it.x) < 2.5 && Math.abs(q.y - it.y) < 2.5);
       const word = /\s|[a-z]{3,}/i.test(it.text) && !/^[a-z][′″‴⁽]?/i.test(it.text.slice(0, 2)) ? true : !!it.word;
       if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; }
-      else groups.push({ x: it.x, y: it.y, texts: [it.text], word });
+      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id });
     }
     const placed = [];
     const th = 13;
@@ -128,26 +144,41 @@
           cands.splice(4, 0, [ax - g.x + (ux / ul - 1) * tw / 2, ay - g.y + (uy / ul + 1) * th / 2, pen]);
         }
       }
-      let best = null, bestCost = Infinity;
-      for (const [dx, dy, pen] of cands) {
+      // a candidate spot at offset (dx, dy) from the point, or null when a label, a marker or a handle is there
+      const evalCand = (dx, dy, pen) => {
         const x0 = g.x + dx, y1 = g.y + dy, y0 = y1 - th, x1 = x0 + tw;
-        if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) continue;
+        if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) return null;
         const hit = (b) => x0 < b.x1 && x1 > b.x0 && y0 < b.y1 && y1 > b.y0;
-        if (placed.some(hit) || hard.some(hit)) continue;
-        if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) continue;
+        if (placed.some(hit) || hard.some(hit)) return null;
+        if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) return null;
         // a label nearer another marker than its own reads as that marker's: allowed only as a last resort
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
-        const cost = Math.min(3, 0.5 * curveCost(x0, y0, x1, y1)) + pen + (amb ? 4 : 0);
-        if (cost < bestCost) { best = [x0, y1]; bestCost = cost; if (cost === 0) break; }
+        const cc = curveCost(x0, y0, x1, y1);
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) };
+      };
+      const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
+      let x, y;
+      if (lite && g.id !== undefined) {
+        // on the move: the last full placement's offset, drawn as it is
+        [x, y] = [g.x + (slot || LABEL_DEFAULT)[0], g.y + (slot || LABEL_DEFAULT)[1]];
+      } else {
+        // at rest: the best candidate for the view alone, so a resting picture does not depend on the path taken to it
+        let best = null, bestCost = Infinity;
+        for (const [dx, dy, pen] of cands) {
+          const e = evalCand(dx, dy, pen);
+          if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
+        }
+        if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
+        ({ x, y } = best);
+        if (g.id !== undefined) labelSlots.set(g.id, [x - g.x, y - g.y]);
       }
-      if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
-      const [x, y] = best;
       placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
       ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
+    if (!lite) pruneLabelSlots();
     if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
   // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
@@ -160,9 +191,9 @@
     const labels = [];
     // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
-    // (opt.lite: a view on the move, a glide or a scrub, places its labels with no curve to keep off: sampling every curve
-    // through the plane's map costs up to 600 evaluations a curve; the view at rest, and so the frame a glide lands in, keeps the
-    // labels off the curves)
+    // (opt.lite: a view on the move, a glide or a scrub, has no curves to keep the labels off: sampling every curve through the
+    // plane's map costs up to 600 evaluations a curve. Its labels keep their last full placement's offsets, so they do not
+    // re-pick; the full placement of the view at rest keeps the curves off)
     if (!opt.thin && !opt.lite) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
     for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
@@ -181,7 +212,7 @@
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         ctx.strokeStyle = ink.edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-        if (!opt.thin && mk !== 'helper') labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+        if (!opt.thin && mk !== 'helper') labels.push({ x, y, id: s.id, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
         continue;
       }
       ctx.fillStyle = ink.edge;
@@ -189,19 +220,20 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, opt.thin ? 2.6 : 4, 0, TAU); ctx.stroke(); ctx.fill();
       if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
+      if (!opt.thin) labels.push({ x, y, id: s.id, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, primesOf(s, opt.primes)), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
     }
-    if (labels.length) placeLabels(ctx, pane, labels);
+    if (labels.length) { labelReg(pane).lite = !!opt.lite; placeLabels(ctx, pane, labels); }
   }
   // branch cuts and poles of step k+1 live in the plane of stage k
   const offEdge = (pane, x, y, m) => x < m || y < m || x > pane.w - m || y > pane.h - m;
   function drawCuts(pane, k, editable, thin) {
     if (artMode) return [];
+    const handles = [];
+    if (editable && !thin && SV.on) drawCarriedCuts(pane, k, handles);
     const st = S.steps[k];
     const b = built[k];
-    if (!st || st.on === false || !b || b.error) return [];
+    if (!st || st.on === false || !b || b.error) return handles;
     const ctx = pane.ctx;
-    const handles = [];
     ctx.save();
     ctx.lineCap = 'round';
     for (const c of b.cuts) {
@@ -274,6 +306,305 @@
     }
     ctx.restore();
     return handles;
+  }
+  // The point z of the cut's plane (stage a) that lands on w in plane b, F = the map between them, on the branch of q0:
+  // of the exact preimages of w (the inverse branches, whatever the cut), the one nearest q0; else reached from q0 by
+  // moving the target from F(q0) to w in small steps, a Newton solve at each (the continuation keeps the drag on one
+  // branch). Off the image of F's branch (the exact preimages are then none) the continuation runs on Fc, the same map
+  // with its cut turned half a turn away (cutFree), so a drag leaves the image either way. Null where there is none
+  function cutPull(F, w, q0, a, b, Fc) {
+    const ex = exactPre(a, b, [w.re, w.im]);
+    if (ex && ex.zs.length) {
+      let best = null, bd = Infinity;
+      for (const z of ex.zs) { const d = CX.abs(CX.sub(z, q0)); if (d < bd) { bd = d; best = z; } }
+      return best;
+    }
+    const G = Fc || F, w0 = G(q0), win = stageWin(a);
+    return CX.isFin(w0) ? trackRoot(G, q0, 1, w0, w, Math.max(win.x1 - win.x0, win.y1 - win.y0), performance.now() + PRE_TRACK_MS) : null;
+  }
+  // The map from plane a to plane b of the cut handle's step j with its cut half a turn from the ray's, on the sheet that
+  // agrees with the step's own values on the counter-clockwise side of the ray about p at q0 (there it is analytic, so a
+  // pointer that leaves the image of the branch keeps a preimage). Null where the step has no sheet number to match
+  // (CUT_SIDE: the turn, in radians, from the ray to the second point tested on its counter-clockwise side)
+  const CUT_SIDE = 0.05;
+  function cutFree(j, q0, p, a, b) {
+    const st = S.steps[j - 1], bt = built[j - 1];
+    if (!st || !bt || !bt.def || !bt.def.params.some((q) => q.key === 'k') || !Number.isFinite(Number(st.params.cut))) return null;
+    const rel = CX.sub(q0, p), q1 = CX.add(p, CX.mul(rel, C(Math.cos(CUT_SIDE), Math.sin(CUT_SIDE))));
+    const w0 = bt.f(q0), w1 = bt.f(q1), k0 = Math.round(+st.params.k || 0);
+    // 1e-9 (relative): the candidate sheet must reproduce the step's own values at both samples, so a neighbouring sheet, whose values differ by far more, is rejected
+    const near = (u, v) => CX.isFin(u) && CX.isFin(v) && CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(v));
+    for (const dk of [0, 1, -1, 2, -2, 3, -3, 4, -4]) {
+      let f = null;
+      try { f = Funcs.build({ type: st.type, params: Object.assign({}, st.params, { cut: Number(st.params.cut) + 180, k: k0 + dk }) }).f; } catch (e) { f = null; }
+      if (typeof f !== 'function' || !near(f(q0), w0) || !near(f(q1), w1)) continue;
+      const fs = [];
+      for (let i = a + 1; i <= b; i++) { const g = i === j ? f : stepFn(i); if (g) fs.push(g); }
+      return (z) => { for (const g of fs) z = g(z); return z; };
+    }
+    return null;
+  }
+  // The pieces of the screen curves that lie on no earlier part of their own path: a curve that winds round a circle (the
+  // image of a cut under z^i or the logarithm) traces it many times, and a dash pattern laid over each turn from its own
+  // phase fills the turns' gaps. A segment that lies within CUT_OVERLAP_PX of an earlier one (at least CUT_TURN_PX of the
+  // path before it, with a direction within CUT_PARALLEL of it, either way round) is left out, and the pen lifts there.
+  // Returns the polylines to stroke (null points break a polyline, as in the input)
+  // (CUT_PARALLEL: the cosine of the angle between two segments that still count as one direction, 15°; CUT_JUMP: the share
+  // of the pane's longer side that a step between two samples may span before the pen lifts)
+  const CUT_OVERLAP_PX = 1.2, CUT_TURN_PX = 24, CUT_CELL_PX = 12, CUT_PARALLEL = 0.97, CUT_JUMP = 0.25;
+  // (a grid cell's number: cell coordinates are far below 2^15 on a screen)
+  const cutCellKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
+  function distinctArcs(curves) {
+    const out = [], grid = new Map();
+    for (const pts of curves) {
+      let pen = null, arc = 0, cur = null;
+      const lift = () => { if (cur && cur.length > 1) out.push(cur); cur = null; };
+      for (const q of pts) {
+        if (!q) { lift(); pen = null; continue; }
+        if (!pen) { pen = q; continue; }
+        const dx = q[0] - pen[0], dy = q[1] - pen[1], len = Math.hypot(dx, dy);
+        if (!(len > 0)) { pen = q; continue; }
+        const ux = dx / len, uy = dy / len, mx = (q[0] + pen[0]) / 2, my = (q[1] + pen[1]) / 2;
+        const cx = Math.floor(mx / CUT_CELL_PX), cy = Math.floor(my / CUT_CELL_PX);
+        let seen = false;
+        for (let i = -1; i <= 1 && !seen; i++) {
+          for (let j = -1; j <= 1 && !seen; j++) {
+            for (const g of grid.get(cutCellKey(cx + i, cy + j)) || []) {
+              if (arc - g.arc < CUT_TURN_PX || Math.abs(ux * g.ux + uy * g.uy) < CUT_PARALLEL) continue;
+              const rx = mx - g.mx, ry = my - g.my;
+              if (Math.abs(rx * g.uy - ry * g.ux) < CUT_OVERLAP_PX && Math.abs(rx * g.ux + ry * g.uy) <= g.len / 2 + CUT_OVERLAP_PX) { seen = true; break; }
+            }
+          }
+        }
+        if (seen) lift();
+        else {
+          if (!cur) cur = [pen];
+          cur.push(q);
+          const key = cutCellKey(cx, cy);
+          if (!grid.has(key)) grid.set(key, []);
+          grid.get(key).push({ mx, my, ux, uy, len, arc });
+        }
+        arc += len;
+        pen = q;
+      }
+      lift();
+    }
+    return out;
+  }
+  // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
+  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
+  function strokeCurves(pane, curves, dash) {
+    const ctx = pane.ctx;
+    ctx.setLineDash(dash || []);
+    const arcs = distinctArcs(curves.map((pts) => {
+      let pen = null;
+      return pts.flatMap((q) => {
+        if (!q || Math.abs(q[0]) > 1e5 || Math.abs(q[1]) > 1e5) { pen = null; return [null]; }
+        const jump = pen && Math.hypot(q[0] - pen[0], q[1] - pen[1]) > CUT_JUMP * Math.max(pane.w, pane.h);
+        pen = q;
+        return jump ? [null, q] : [q];
+      });
+    }));
+    for (const [wd, al, col] of [[3.5, TH.haloA, TH.halo], [1.75, 1, TH.cut]]) {
+      ctx.strokeStyle = col; ctx.globalAlpha = al; ctx.lineWidth = wd;
+      ctx.beginPath();
+      for (const pts of arcs) {
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
+  // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
+  // chord of c px along an arc that turns by t rad is off it by about c t / 8, so a pair is tested only where c t exceeds
+  // 8 CUT_FLAT, t read off the neighbouring chords: a straight bank costs no sample beyond the base set)
+  const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480, CUT_BEND = 8 * CUT_FLAT;
+  // the distance (px) of the point q from the segment a-b
+  function segDist(q, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2)) : 0;
+    return Math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy);
+  }
+  // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points (null
+  // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
+  // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
+  // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
+  // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between
+  // them is split there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
+  // the chords would cut across it
+  function cutBank(pane, c, F, side, win, proj, step = 1) {
+    const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
+    const pts = [], ws = [];
+    const at = (i) => {
+      const rr = i <= 400 ? Rm * Math.pow(i / 400, 2) : Rm * Math.pow(1e4, (i - 400) / 80);
+      const w = F(C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a)));
+      return { w, q: CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null };
+    };
+    const put = (p) => { pts.push(p.q); if (CX.isFin(p.w)) ws.push([p.w.re, p.w.im]); };
+    const split = (i0, p0, i1, p1, depth) => {
+      if (depth >= CUT_DEPTH || !p0.q || !p1.q) return;
+      const im = (i0 + i1) / 2, pm = at(im);
+      if (!pm.q || segDist(pm.q, p0.q, p1.q) <= CUT_FLAT) return;
+      split(i0, p0, im, pm, depth + 1); put(pm); split(im, pm, i1, p1, depth + 1);
+    };
+    const base = [];
+    for (let i = 0; i <= CUT_SAMPLES; i += step) base.push(at(i));
+    // (the direction of the chord k -> k + 1; null where either end is hidden or there is no such chord)
+    const dir = (k) => {
+      const p = base[k], q = base[k + 1];
+      return p && q && p.q && q.q ? Math.atan2(q.q[1] - p.q[1], q.q[0] - p.q[0]) : null;
+    };
+    const turn = (d0, d1) => (d0 == null || d1 == null ? 0 : Math.abs(Math.atan2(Math.sin(d1 - d0), Math.cos(d1 - d0))));
+    for (let k = 0; k < base.length; k++) {
+      if (k > 0 && base[k - 1].q && base[k].q) {
+        const len = Math.hypot(base[k].q[0] - base[k - 1].q[0], base[k].q[1] - base[k - 1].q[1]), d = dir(k - 1);
+        if (len * Math.max(turn(dir(k - 2), d), turn(d, dir(k))) > CUT_BEND) split((k - 1) * step, base[k - 1], k * step, base[k], 0);
+      }
+      put(base[k]);
+    }
+    return { pts, ws };
+  }
+  // The cuts' image curves with no handle, in the picture mapFor describes: mapFor(j - 1) is the map from the plane the
+  // cut of step j lives in to the picture (null: that cut has no image there); proj lifts a plane point to the screen (a
+  // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
+  // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
+  // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
+  // as drawCarriedCuts draws them. While the strokes are hidden (the tests' __cmwHideStrokes) none is drawn
+  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
+    if (artMode) return;
+    carriedCuts = [];
+    if (hideStrokes) return;
+    pane.ctx.save();
+    pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
+    for (let j = 1; j <= S.steps.length; j++) {
+      const st = S.steps[j - 1], b = built[j - 1], F = st && st.on !== false && b && !b.error ? mapFor(j - 1) : null;
+      if (!F) continue;
+      for (const c of b.cuts) {
+        if (c.kind !== 'ray') continue;
+        const win = stageWin(j - 1);
+        for (const side of [-1, 1]) {
+          const { pts, ws } = cutBank(pane, c, F, side, win, proj, step);
+          carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
+          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+        }
+      }
+    }
+    if (pre) {
+      for (let j = Math.max(pre.k + 2, pre.jMin); j <= S.steps.length; j++) {
+        const st = S.steps[j - 1], b = built[j - 1];
+        if (!st || st.on === false || !b || b.error || derivIn(pre.k, j - 1)) continue;
+        for (const c of b.cuts) {
+          if (c.kind !== 'ray') continue;
+          const tracks = cutPreTracks(pre.k, j, c);
+          const ws = tracks.map((t) => t.map((z) => (pre.H ? pre.H(z) : z)));
+          const pts = ws.map((t) => t.map((w) => (CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null)));
+          strokeCurves(pane, pts);
+          carriedCuts.push({ step: j, solid: true, pre: true, w: ws.map((t) => t.filter(CX.isFin).map((w) => [w.re, w.im])), s: pts });
+        }
+      }
+    }
+    pane.ctx.restore();
+  }
+  let carriedCuts = [];
+  // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
+  // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
+  // dashed, and for the editable cuts a handle on the solid curve (the ray's handle point carried the same way, pulled in
+  // along the ray until it is in view and clear of the branch point's image). The handle is on that bank because a drag from
+  // it into the picture, as the log's line Im w = θ − 2π moving up, stays inside the image where the pull-back exists; from
+  // the other bank the same drag would leave the image. Pushes into handles
+  function drawCarriedCuts(pane, k, handles) {
+    carriedCuts = [];
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let j = 1; j <= k; j++) {
+      const st = S.steps[j - 1], b = built[j - 1];
+      if (!st || st.on === false || !b || b.error || derivIn(j - 1, k)) continue;
+      const F = rangeF(j - 1, k);
+      for (const c of b.cuts) {
+        if (c.kind !== 'ray') continue;
+        const win = stageWin(j - 1);
+        for (const side of [-1, 1]) {
+          const { pts, ws } = cutBank(pane, c, F, side, win);
+          carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
+          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+        }
+        if (!c.editable) continue;
+        const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);
+        // (a branch point that lands at infinity, as log's: nothing to keep clear of)
+        const [ox, oy] = CX.isFin(o) ? pane.w2s(o) : [Infinity, Infinity];
+        let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
+        for (let tries = 0; tries < 14; tries++, R *= 0.7) {
+          const q = CX.add(c.p, CX.scale(d1, R)), w = F(q);
+          if (!CX.isFin(w)) continue;
+          const [x, y] = pane.w2s(w);
+          if (offEdge(pane, x, y, 24) || Math.hypot(x - ox, y - oy) < 20) continue;
+          handles.push({ x, y, step: j, p: c.p, deg: st.params.cut ?? 180, F, q, from: j - 1, to: k });
+          break;
+        }
+      }
+    }
+    drawCutPreimages(pane, k, handles);
+    ctx.restore();
+  }
+  // The exact preimages in plane k of the ray c of step j's cut (Inverse.pointPre; the samples of one branch joined to the
+  // nearest of the next): a list of curves, each a list of points of plane k. Kept per chain, cut, plane and extent, so a
+  // glide's frames carry the same curves
+  const cutPreCache = new Map();
+  function cutPreTracks(k, j, c) {
+    const win = stageWin(j - 1), Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p), tr = [];
+    const key = `${k}|${j}|${c.ang}|${c.p.re},${c.p.im}|${Rm}|${chainSig[S.steps.length]}`;
+    let tracks = cutPreCache.get(key);
+    if (tracks) return tracks;
+    for (let i = 0; i <= 240; i++) {
+      const rr = Rm * Math.pow(i / 240, 2), ex = exactPre(k, j - 1, [c.p.re + rr * Math.cos(c.ang), c.p.im + rr * Math.sin(c.ang)]);
+      if (!ex) break;
+      const free = ex.zs.slice();
+      for (const t of tr) {
+        if (t.done) continue;
+        const l = t.pts[t.pts.length - 1];
+        let bi = -1, bd = Infinity;
+        free.forEach((z, q) => { const d = CX.abs(CX.sub(z, l)); if (d < bd) { bd = d; bi = q; } });
+        if (bi >= 0) t.pts.push(free.splice(bi, 1)[0]); else t.done = true;
+      }
+      if (i === 0) for (const z of free) tr.push({ pts: [z] });
+    }
+    tracks = tr.map((t) => t.pts);
+    cutPreCache.set(key, tracks);
+    while (cutPreCache.size > 16) cutPreCache.delete(cutPreCache.keys().next().value);
+    return tracks;
+  }
+  // The cuts of the steps after plane k in plane k, steps view: each ray's exact preimage curves under the steps between
+  // (Inverse.pointPre, whatever the cut), the samples of one branch joined to the nearest of the next; a handle on the first
+  // curve in view. A chain with no exact preimages draws none
+  function drawCutPreimages(pane, k, handles) {
+    const n = S.steps.length;
+    for (let j = k + 2; j <= n; j++) {
+      const st = S.steps[j - 1], b = built[j - 1];
+      if (!st || st.on === false || !b || b.error || derivIn(k, j - 1)) continue;
+      const F2 = rangeF(k, j - 1), win = stageWin(j - 1);
+      for (const c of b.cuts) {
+        if (c.kind !== 'ray') continue;
+        const tracks = cutPreTracks(k, j, c);
+        const scr = tracks.map((t) => t.map((z) => pane.w2s(z)));
+        strokeCurves(pane, scr);
+        carriedCuts.push({ step: j, solid: true, pre: true, w: tracks.map((t) => t.map((z) => [z.re, z.im])), s: scr });
+        if (!c.editable) continue;
+        let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33, done = false;
+        for (let tries = 0; tries < 14 && !done; tries++, R *= 0.7) {
+          const ex = exactPre(k, j - 1, [c.p.re + R * Math.cos(c.ang), c.p.im + R * Math.sin(c.ang)]);
+          for (const z of ex ? ex.zs : []) {
+            const [x, y] = pane.w2s(z);
+            if (offEdge(pane, x, y, 24)) continue;
+            handles.push({ x, y, step: j, p: c.p, deg: st.params.cut ?? 180, fwd: F2, q: z, from: k, to: j - 1 });
+            done = true;
+            break;
+          }
+        }
+      }
+    }
   }
   // images of the two banks of each ray cut, in the plane of stage R (dashed)
   function drawCutBanks(pane, R) {
@@ -388,7 +719,7 @@
     for (const hd of handles) {
       const dragging = drag && drag.mode === 'cut' && drag.step === hd.step;
       const hot = hoverCut === hd.step || dragging;
-      if (dragging) {
+      if (dragging && !hd.F && !hd.fwd) {
         const [bx, by] = pane.w2s(hd.p);
         const r = 40, ang = hd.deg * DEG;
         ctx.save();
@@ -403,7 +734,7 @@
       }
       ctx.fillStyle = TH.halo; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(hd.x, hd.y, hot ? 7 : 6, 0, TAU); ctx.fill(); ctx.stroke();
-      chip(ctx, hd.x + 14, hd.y, `θ ${I18N.num(CX.fmtNum(hd.deg, 1).replace('-', '−'))}°`, TH.cut, TH.cut);
+      chip(ctx, hd.x + 14, hd.y, `θ${handles.length > 1 ? sub(hd.step) : ''} ${I18N.num(CX.fmtNum(hd.deg, 1).replace('-', '−'))}°`, TH.cut, TH.cut);
     }
   }
   // ---- zeros and poles of a 'zp' step, dragged in its input plane (notes/ui-design/zeros-poles.md) ----
@@ -508,7 +839,7 @@
     const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
     // (two columns while every value fits one, as zpFields lays them out)
     const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
-    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
       const row = el.closest('.zp-item');
       if (row) row.classList.toggle('wide1', wide);
       if (document.activeElement === el) continue;
@@ -517,19 +848,11 @@
       if (v != null && el.value !== zpShow(v)) { el.value = zpShow(v); el.classList.remove('bad'); }
     }
   }
-  // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
-  function refreshZpCard(k) {
+  // the Inspector's parameter fields of step k, rebuilt after a zero or pole is added or removed
+  function refreshZpFields(k) {
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return;
-    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p']]) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      const top = el.scrollTop;
-      el.innerHTML = '';
-      el.append(zpFields(st, k, pre));
-      el.scrollTop = top;
-    }
-    if (insp) insp.refreshParams(k);   // (the Inspector's editor)
+    if (insp) insp.refreshParams(k);
   }
   function zpSet(k, kind, i, v) {
     const st = S.steps[k - 1];
@@ -573,7 +896,7 @@
     zpSel = { k, kind, i: list.length - 1 };
     if (selected) { selected = null; buildShapeList(); }
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     return list.length - 1;
   }
   // the Inspector's Add zero / Add pole (DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
@@ -585,7 +908,7 @@
     commit();
     requestRender('OL');
     sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }));
-    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"], #pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
+    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
     if (inp) inp.scrollIntoView({ block: 'nearest' });
   }
   function zpRemove(k, kind, i) {
@@ -600,9 +923,99 @@
     else if (zpSel && zpSel.k === k && zpSel.kind === kind && zpSel.i > i) zpSel.i--;
     zpHover = null;
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     commit();
     requestRender('OL');
+  }
+  function paramField(st, k, q, pre = 'p') {
+    const val = st.params[q.key] ?? q.def;
+    // (the step in the chain at this moment: an Undo while the field is being typed puts new step objects in the chain, and the field follows them)
+    const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
+    const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
+    let input, extra = null, before = null;
+    const id = `${pre}${k}_${q.key}`;
+    if (q.type === 'choice') {
+      input = h('select', { class: 'inp', id, onchange: (e) => { upd(e.target.value); commit(); } }, ...q.choices.map(([v, l]) => h('option', { value: v }, l)));
+      input.value = val;
+    } else if (q.type === 'int' || q.type === 'angle') {
+      input = h('input', { class: 'inp', id, type: 'number', step: '1', value: val, min: q.min });
+      // an empty or unreadable field (Number('') is 0) is flagged and never applied; leaving it shows the value in use again
+      const unread = () => input.value.trim() === '' || !!(input.validity && input.validity.badInput) || !Number.isFinite(Number(input.value));
+      input.addEventListener('input', () => {
+        if (unread()) {
+          input.classList.add('bad'); input.setAttribute('aria-invalid', 'true');
+          input.setAttribute('data-tip', $t('Enter a number; {label} stays {choice}', { label: q.label, choice: st.params[q.key] ?? q.def }));
+          return;
+        }
+        const v = Number(input.value);
+        const okInt = q.type !== 'int' || (Number.isInteger(v) && (q.min == null || v >= q.min));
+        input.classList.toggle('bad', !okInt); input.setAttribute('aria-invalid', String(!okInt));
+        if (!okInt) input.setAttribute('data-tip', $t('Uses {choice}: {label} must be a whole number{choice2}', { choice: Math.max(q.min ?? -Infinity, Math.round(v)), label: q.label, choice2: q.min != null ? ` ≥ ${q.min}` : '' })); else input.removeAttribute('data-tip');
+        upd(q.type === 'int' ? Math.round(v) : v);
+      });
+      input.addEventListener('change', () => {
+        if (unread()) input.value = st.params[q.key] ?? q.def;
+        const v = Number(input.value);
+        if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
+        input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
+        commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
+      });
+      if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
+      // a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
+      // with All sheets on, the one view that draws them
+      if (q.key === 'k' && q.type === 'int') {
+        const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
+        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); tourEmit('sheet-changed', { k, sheet: v }); };
+        before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
+        extra = h('div', { class: 'sheet-ctl' },
+          n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
+          h('button', { class: 'icon-btn sh-next', type: 'button', 'aria-label': $t('Next sheet'), 'data-tip': $t('Next sheet'), onclick: (e) => { e.preventDefault(); go(1); } }, '›'),
+          h('button', { class: 'btn ghost small sh-all', type: 'button', 'data-tip': $t('Landscape draws every sheet of the map as one surface'), onclick: (e) => { e.preventDefault(); showAllSheets(); } }, $t('Show all sheets')));
+      }
+    } else {
+      // (a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
+      // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
+      const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
+      const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
+      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+      if (num) input.dataset.num = '1';
+      // (the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
+      if (q.bound) input.dataset.bound = q.bound.join(',');
+      // (a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
+      // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
+      // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
+      // (the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
+      // the text is dropped, not given by live() to the new chain's step of the same type at k)
+      let due = 0, typedOn = null;
+      const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
+      input.addEventListener('input', () => {
+        // (the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
+        if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
+        if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
+        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
+        const cost = chainCost();
+        if (q.type !== 'seq' && cost <= 8) { apply(); return; }
+        clearTimeout(due);
+        typedOn = live();
+        due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
+      });
+      input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
+      if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
+    }
+    input.dataset.pkey = q.key;
+    // (a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    if (q.say) input.setAttribute('aria-label', q.say);
+    const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
+    const sym = PSYM[q.key];
+    const labelText = sym ? sym[0] : q.label;
+    // (a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
+    // says what the field is; the symbol keeps its own span, where a step's index goes)
+    const word = paramWord(st, q);
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
+    if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
+    return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }
   // the parameter fields of a 'zp' card: a, the + zero / + pole buttons, then one field per zero and per pole
   function zpFields(st, k, pre) {
@@ -642,7 +1055,7 @@
     // (a field emptied, or holding a list '0.5, 0.5i': the card again, one field per item, so fields and handles
     // keep their indices)
     input.addEventListener('change', () => {
-      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpFields(k); syncZpFields(k); }
       else if (input.value !== zpShow(zpRaw(input))) input.value = zpShow(zpRaw(input));
       commit();
     });
@@ -669,7 +1082,7 @@
     setFocus(k);
     commit();
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
-    return cardButton(k);
+    return null;
   }
   // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
   // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger

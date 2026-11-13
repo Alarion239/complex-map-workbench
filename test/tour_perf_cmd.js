@@ -1,30 +1,33 @@
-// v16.4 (SPEC 7.7): frames with the tour running, at 1440 (mouse) and 390 (touch): a countdown filling Next while the
-// pointer hovers X; the Grieg piece playing with its captions; and how often the panes change size through a chapter
+// Frames with the tour running, at 1440 (mouse) and 390 (touch): a countdown filling Next while the pointer hovers X; the
+// Grieg piece playing with its captions; and how often the panes change size through a chapter. It runs in the steps view
+// (ci/suite_views.js: steps({ pin: true })).
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const R = {}, C = [];
 const check = (n, p, d) => C.push([n, !!p, d]);
-const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const TOUR = `typeof Tour === 'object' && typeof __qa === 'object'`;
+const running = `Tour.isActive()`;
 const frames = (ms) => ev(`await __qa.frames(${ms})`);
 for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   await view(w, h, false, mob);
-  await nav(U + `?ns=pf${w}`); await settle(1800);
+  await go(U + `?ns=pf${w}`); await settled({ until: TOUR });
+  if (!(await isSteps())) return { pass: 0, of: 1, fails: [['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)', false, null]] };
   await ev('Tour.dismissSuggestion()');
-  // the panes' size changes through Views (one chapter): a ResizeObserver on #panes
+  // the panes' size changes through Playing the chain (one chapter): a ResizeObserver on #panes
   // (each change logged with the step's title, the height and the web fonts' state: what a failure needs to be read)
   await ev(`window.__rs = 0; window.__rsLog = []; new ResizeObserver((es) => { window.__rs++; const t = document.querySelector('.tour-strip #tourTitle'); window.__rsLog.push({ h: Math.round(es[0].contentRect.height), step: t ? t.textContent.slice(0, 40) : null, sheet: !!document.querySelector('.ph-sheet:not([hidden])'), fonts: document.fonts.status, ms: Math.round(performance.now()) }); }).observe(document.querySelector('#panes')); 1`);
-  await ev(`Tour.start({ chapter: 'views', step: 1 })`); await settle(1800);
+  await ev(`Tour.start({ chapter: 'playing', step: 1 })`); await settled({ until: running });
   const r0 = await ev('window.__rs');
-  // (through the chapter's own steps only: Views ends on Phase key, 'key', since its Patterns step went, #363)
-  for (let i = 0; i < 4; i++) { const c = await ev('Tour.current()'); if (!c || c.chapter !== 'views' || c.id === 'key') break; await ev('Tour.next()'); await settle(1400); }
+  // (through the chapter's own steps only: it ends on its range step)
+  for (let i = 0; i < 4; i++) { const c = await ev('Tour.current()'); if (!c || c.chapter !== 'playing' || c.id === 'range') break; await ev('Tour.next()'); await settled(); }
   const r1 = await ev('window.__rs');
   R['resizes_' + w] = { start: r0, inChapter: r1 - r0, log: await ev('window.__rsLog') };
   // (a step that opens a phone's sheet gives the planes the room above it, once; every other change is a fault)
   const rl = R['resizes_' + w].log.slice(r0), bySheet = {};
   for (const x of rl) if (x.sheet) bySheet[x.step] = (bySheet[x.step] || 0) + 1;
   check(`${w}: the panes keep their size through the steps of a chapter, but for the one resize a step's sheet makes`, rl.every((x) => x.sheet) && Object.values(bySheet).every((n) => n <= 1) && (w === 1440 ? r1 - r0 === 0 : true), R['resizes_' + w]);
-  // a countdown running: the land step, an orbit, then frames while Next fills
-  await ev(`Tour.start({ chapter: 'views', step: 2 })`); await settle(1800);
+  // a countdown running: the plane step, a drag, then frames while Next fills
+  await ev(`Tour.start({ chapter: 'planes', step: 0 })`); await settled({ until: running });
   const a = await ev(`(() => { const b = document.querySelector('#panes').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a[0], y: a[1], button: 'left', clickCount: 1 });
   for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a[0] + 6 * i, y: a[1], button: 'left', buttons: 1 }); await sleep(16); }
@@ -33,12 +36,12 @@ for (const [w, h, mob] of [[1440, 900, false], [390, 844, true]]) {
   check(`${w}: 60 fps while the countdown fills Next (p95 under 20 ms)`, R['countdown_' + w].p95 < 20, R['countdown_' + w]);
   // the Grieg piece with captions
   await ev(`Sound.set({ on: true, events: true }, { quiet: true }); 1`);
-  await ev(`Tour.start({ chapter: 'sound', step: 0 })`); await settle(1800);
+  await ev(`Tour.start({ chapter: 'sound', step: 0 })`); await settled({ until: `${running} && !!document.querySelector('.ts-act')` });
   const b = await ev(`(() => { const r = document.querySelector('.ts-act').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-  await click(b[0], b[1]); await sleep(400);
+  await click(b[0], b[1]); await settled();
   R['song_' + w] = await frames(3000);
   check(`${w}: 60 fps while the piece plays (p95 under 20 ms)`, R['song_' + w].p95 < 20, R['song_' + w]);
-  await ev('Tour.stop()'); await settle(500);
+  await ev('Tour.stop()'); await settled({ until: `!${running}` });
 }
 await view(1440, 900, false, false);
 return { pass: C.filter((c) => c[1]).length, of: C.length, fails: C.filter((c) => !c[1]), R };

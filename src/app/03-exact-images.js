@@ -14,6 +14,8 @@
   let artGlobe = null;
   // (export review r3, video) the camera is recorded for every export render, also in the screen's light look
   let artCam = false;
+  // the art layer's coverage render of the Landscape: the relief alone, no floor plate, box or shadow
+  let artRelief = false;
   // (export review r3, editor-9) open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
   // sphere cannot dash): their lines are left out of the art layer
   let artSkip = null;
@@ -92,7 +94,7 @@
     const k = plan._ck + '|' + winKey();
     let v = invSings.get(k);
     if (!v) {
-      try { v = Inverse.accumulation(plan, clipWin); } catch (e) { v = []; }
+      try { v = Inverse.keySing(plan, clipWin); } catch (e) { v = []; }
       if (invSings.size >= 32) invSings.clear();
       invSings.set(k, v);
     }
@@ -142,6 +144,13 @@
     }
     e.box = box; e.boxCoarse = coarse;
     return box;
+  }
+  // the w-box that scissors the globe pass of a bounded shape s on inverse path p (gl.js globeScissorOf): invBox's, or the
+  // shape's own box through the identity (stage 0); null for an unbounded shape or a box that cannot be promised
+  function globeImageBox(p, s, budget) {
+    if (!shapeBounded(s)) return null;
+    if (p.plan.ops.length) return invBox(p.e, p.plan, s, budget);
+    try { return Region.bboxOf(s); } catch (err) { return null; }
   }
   // ---- the cost guard (SPEC 10.12): the GPU time of each live pane's frame against a fixed 60 Hz budget (the user's
   // rule: "60 fps is enough"; the display's refresh plays no part). When a pane's motion frames stay over it, their
@@ -287,7 +296,7 @@
       const pred = halfPred.L > 0 || halfPred.R > 0;
       if (pred && GLR.wantHalf) GLR.wantHalf();
       if (need === 1 && !pred && idle < WARM_HALF_IDLE) { scheduleWarm(Math.max(50, WARM_HALF_IDLE - idle)); return; }
-      if (GLR.warmInverse(need === 1 || pred)) requestRender('L', 'R', 'T');
+      if (GLR.warmInverse(need === 1 || pred)) requestRender('L', 'R');
     }, delay);
   }
   // the settle frame of a pane that drew half resolution in motion
@@ -322,21 +331,21 @@
     if (GLR.dropCached) for (const [res, key] of have) GLR.dropCached(res, key);
   }
   let invFailKey = '', invThrew = false;
-  let thumbNotFinal = false;   // a thumbnail drew a forward stand-in for an inverse program still compiling
   let sideDraw = false;    // renderExampleThumb: a side chain (GLR side mode) is drawing
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
   // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
   // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
-  // may be the other pane's or a card's; the quality harness reads this pane's own (a test hook)
+  // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
   let invPendN = 0;   // shapes of the frame being drawn on a live pane that waited for their inverse program
   let lastRecs = null;     // the shape records of the last packShapes (GLR.packShapes: once per scene draw)
   // SPEC 2.2: the path of area shape s under map in a view (role 'R' | 'L' | null: thumbnail; viewKind 'flat' |
   // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e}. Drawing asks
   // without o.status ('inverse' = eligible: drawInverse decides between drawn, pending and error); fix-up gating and
-  // the test hooks ask with o.status (the program's state, without starting a compile).
+  // the test hooks ask with o.status (the program's state, without starting a compile). o.stepsRest marks the steps
+  // view's plane at rest, which the exactImages switch does not turn to forward.
   function pathOf(s, map, role, viewKind = 'flat', o = {}) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
@@ -345,7 +354,7 @@
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
-    if (S.exactImages === false) return F('exact images off');
+    if (S.exactImages === false && !o.stepsRest) return F('exact images off');
     if (!(PHASE[role || 'R'] || {})[viewKind]) return F(`${role || 'R'} ${viewKind}: not in this phase`);
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan.ok) return F(plan.reason || 'no inverse');
@@ -361,12 +370,90 @@
     if (o.status) {
       const st = GLR.inverseStatus(S.alpha, viewKind), info = GLR.inverseInfo;
       // the query itself can land a compile (no GLR.onReady then): redraw the panes still showing a stand-in
-      if (st === 'ready' && invWaiting.size) { const w = [...invWaiting]; invWaiting.clear(); requestRender(...w, 'T'); }
+      if (st === 'ready' && invWaiting.size) { const w = [...invWaiting]; invWaiting.clear(); requestRender(...w); }
       if (st === 'pending' || (st === 'none' && info && info.ok)) { out.path = 'pending'; out.reason = 'compiling'; }
       else if (st === 'error') return F('inverse program failed to compile');
       else if (st === 'none') return F((info && info.reason) || 'no inverse program');
     }
     return out;
+  }
+  // The inverse path of area shape s under the glide's map H_t o F_{k-1} (mode 1, hi k): the
+  // plan of stages (a, k] with step k standing for its homotopy at t (Inverse.homBuilt), its own inverse op list
+  // (GLChain.buildInverse: another program, the op values its uniforms) and the shape's preparation. Same answer as
+  // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}. singAt(): the key's points for a plan whose
+  // ops' poles are not the homotopy's, a NEWT op (none for keySing to pull back) or an op marked glideKey (Joukowski's
+  // exact chain, whose poles are its Cayley map's): the glide's, as the carried mesh keys its sheets (svSheetKeyAt), so
+  // both draw the same point in front
+  // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
+  // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
+  const invHoms = new Map(), invHomNewt = new Map();
+  // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
+  // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
+  // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
+  // planChain sets the same step, node and j on them (they have the same a and k)
+  const invHomSkels = new Map();
+  function invHomOnce(b) {
+    if (!b || b.error || !b.def) return b;
+    const r = Inverse.stepOps(b);
+    const o = Object.assign({}, b, { __homOps: () => r });
+    if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
+    return o;
+  }
+  function invHomSkeleton(a, k) {
+    const sk = `${a}|${k}|${chainSig[nSteps()]}`;
+    let bs = invHomSkels.get(sk);
+    if (!bs) {
+      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
+      if (invHomSkels.size >= 8) invHomSkels.clear();
+      invHomSkels.set(sk, bs);
+    }
+    return bs;
+  }
+  function invHomPath(s, a, k, t, singAt) {
+    const F = (reason) => ({ path: 'forward', reason });
+    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
+    // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared; whether the
+    // step has a NEWT op at t is remembered, as finding out decomposes the step)
+    const bk = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    let hk = null, byShape = invHomNewt.get(bk);
+    if (byShape === undefined) {
+      try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
+      if (invHomNewt.size >= 4096) invHomNewt.clear();
+      invHomNewt.set(bk, byShape);
+    }
+    const ck = bk + (byShape ? `|${shapeKey(s)}|${winKey()}` : '');
+    let h = invHoms.get(ck);
+    if (!h) {
+      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      // (ops of its own for each plan: the anchor is set on them)
+      if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      let anchor = null;
+      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
+      if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
+      bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
+      let plan, inv;
+      try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
+      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
+      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
+      h = { plan, inv, preps: new Map(), sing: null };
+      if (invHoms.size >= 8) invHoms.clear();
+      invHoms.set(ck, h);
+    }
+    if (!h.plan.ok) return F(h.plan.reason);
+    const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
+    const wk = winKey() + '|' + shapeKey(s) + (own ? '|' + own.map((p) => p.re + ',' + p.im).join(';') : '');
+    let prep = h.preps.get(wk);
+    if (!prep) {
+      try {
+        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin) };
+        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v });
+      } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
+      h.preps.set(wk, prep);
+    }
+    if (!prep.ok) return F(prep.reason || 'shape not eligible');
+    return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
   }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
@@ -421,7 +508,7 @@
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
-    paneGl[role] = { pending: !!(st && st.pending), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
@@ -456,17 +543,22 @@
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
   }
+  // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
+  // them (the steps view's whole-plane region); staged: the shapes of the later planes too
+  function packRecs(extra = [], staged = false) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && (staged || !shapeStage(x))).concat(extra)).recs; }
+  // the visible area shapes, in list order
+  const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
   // the shape is (a curve, a region's edge, a grid line), thicker when it is selected on its plane (opt.domain: the source
-  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin
+  // plane; opt.plane: the stage drawn) or hovered, none of the casing when opt.thin; opt.still: the globes' lines, with neither emphasis and a grid drawn as any curve
   function shapeStroke(s, dpr, opt = {}) {
     const ink = shapeInk(s);
-    const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
+    const grid = !opt.still && (s.kind === 'cgrid' || s.kind === 'pgrid');
     const area = kindType(s) === 'area';
     let width = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
     let casingWidth = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-    if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { width += 0.75; casingWidth += 0.75; }
-    if (!opt.thin && s.id === hoverShape) { width += 0.5; casingWidth += 0.5; }
+    if (!opt.thin && !opt.still && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { width += 0.75; casingWidth += 0.75; }
+    if (!opt.thin && !opt.still && s.id === hoverShape) { width += 0.5; casingWidth += 0.5; }
     const st = { width: width * dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1 };
     if (casingWidth) st.casing = { color: GLR.hexRGB(TH.halo), alpha: TH.haloA, width: casingWidth * dpr };
     return st;
@@ -480,15 +572,22 @@
     // area shape takes its path in list order (inverse and forward passes interleave, so list order holds across paths)
     const m0 = normalizeMap(map);
     const live = (role === 'R' || role === 'L') && !offRender && !opt.thin;
+    // (opt.sm: the SphereMesh role of the steps view's region mask, 'SV', drawn in the left pane: its meshes are asked
+    // for and its paths noted under 'SV', as a live pane's, in place of the pane's role. Without it smRole is role)
+    const smRole = opt.sm || role || null, smLive = live || (!!opt.sm && !offRender);
+    // (the pane redrawn when an inverse program it waits on lands: a live pane's own role; the steps view's mask is
+    // drawn in the left pane)
+    const waitRole = live ? role : opt.sm && !offRender ? 'L' : null;
     let recs = null, gf = null, timing = false, invN = 0;
     const halfDraws0 = GLR.inverseHalfDraws || 0;
     if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
-      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
+      recs = packRecs();
       if (!sideDraw) lastRecs = recs;
-      if (live && guard) {
+      // (a region mask, opt.fills, is not a frame of the pane's picture: the cost guard neither measures nor demotes it)
+      if (live && guard && !opt.fills) {
         const info = GLR.inverseInfo;
         // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1, P2 review)
         // (no predicted floor: motion stays at full resolution unless the measured frames leave the 60 fps budget;
@@ -502,7 +601,7 @@
     // forward programs have landed). Thumbnails and gallery images only use a program that is already ready: a
     // thumbnail compile during a playing deformation stalled it, and compiled programs that no pane needed
     let invGate = null;
-    if (recs && !live && !offRender) {
+    if (recs && !smLive && !offRender) {
       const st0 = GLR.inverseStatus(S.alpha, 'flat');
       if (st0 !== 'ready') invGate = st0 === 'pending' ? 'pending' : 'forward';
     }
@@ -549,7 +648,7 @@
         if (res !== 'drawn') break;                             // drawn in the main pass, from here on
         preIds.add(s.id);
         invN++;
-        if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
+        if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); if (w.length) requestRender(...w); }
       }
     }
     GLR.begin(pane.pw, pane.ph);
@@ -560,7 +659,7 @@
     // the transform-feedback cache key includes the map mode and t, so any still frame may be cached; thumbnails
     // are kept as bitmaps, so they skip the map cache (GLR evaluates them into a scratch texture, as it does the
     // frames of a homotopy); a thumbnail never waits for a compile (a 250 ms stall
-    // right after adding a step): it is redrawn when the program is ready (renderThumb, GLR.onReady)
+    // right after adding a step): it is redrawn when the program is ready (GLR.onReady)
     const cache = opt.cache !== false && !opt.thin;
     const sync = false;
     let arcFn = null;
@@ -590,7 +689,7 @@
       // drawn in the half-resolution pre-pass: its layer is upsampled here, at the run's first shape
       if (preIds && preIds.has(s.id)) {
         if (!preDone) { GLR.compositeHalf(); preDone = true; }
-        if (live) notePath(role, s.id, 'inverse');
+        if (smLive) notePath(smRole, s.id, 'inverse');
         continue;
       }
       let lp = 'forward';
@@ -599,12 +698,12 @@
         lp = p.path;
         if (p.path === 'inverse' && invGate) {
           lp = invGate === 'pending' ? 'pending' : 'forward';
-          if (invGate === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
+          if (invGate === 'pending' && waitRole) { invWaiting.add(waitRole); invPendN++; }
         } else if (p.path === 'inverse') {
           const box = invBox(p.e, p.plan, s, live);
           const sc = box ? GLR.scissorOf(box, pane.view, pane.dpr, 4) : null;
           // an image that misses the pane draws nothing (counted as drawn)
-          if (sc && !sc[2]) { if (live) notePath(role, s.id, 'inverse'); continue; }
+          if (sc && !sc[2]) { if (smLive) notePath(smRole, s.id, 'inverse'); continue; }
           let res = 'error';
           try {
             res = GLR.drawInverse({
@@ -615,42 +714,41 @@
           } catch (err) { if (!invThrew) { invThrew = true; console.error('exact images: inverse pass failed; drawing forward', err); } }
           if (res === 'drawn') {
             invN++;
-            if (live) notePath(role, s.id, 'inverse');
+            if (smLive) notePath(smRole, s.id, 'inverse');
             // the program landed (possibly inside this very call, without GLR.onReady): redraw the other panes that drew
             // a stand-in, and the thumbnails (one drawn forward meanwhile has a stale signature)
-            if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
+            if (invWaiting.size) { const w = [...invWaiting].filter((x) => x !== waitRole); invWaiting.clear(); if (w.length) requestRender(...w); }
             continue;
           }
           lp = res === 'pending' ? 'pending' : 'forward';
-          if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
+          if (res === 'pending' && waitRole) { invWaiting.add(waitRole); invPendN++; }
           // a failed compile (silent: console only) draws forward from now on, with its fix-ups (SPEC 4.4, 10.4)
           if (res === 'error' && GLR.inverseStatus(S.alpha, 'flat') === 'error') {
             const k = (GLR.inverseInfo || {}).key || '';
             if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
           }
         }
-        if (live) notePath(role, s.id, lp);
+        if (smLive) notePath(smRole, s.id, lp);
       }
       // the dragged shape's fix-up keeps up with the drag; the pair drawn is the current mesh with its fix-up, or the
       // last complete pair while the current one's is on its way (never an unfixed mesh in motion)
       if (live && role) liveFix(s, r);
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
-      const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
-      if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
-        if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
+      const smd = (smLive || offRender) && smRole
+        ? smFor(s, r, smRole, 'flat', map, pane, 0, smLive && lp !== 'pending') : null;
+      // (n 0: nothing of it shows; but a formula area's level is only sampled, at the meshing window's feature
+      // resolution, so its empty mesh proves nothing and the GPU draws it)
+      if (smd && smd.e && (smd.e.data.n ? smRes(smd.e) : s.kind !== 'formula')) {
+        if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));
         if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
         continue;
       }
       let smOld = null, smOut = null;
       if (smd && smd.old && smRes(smd.old)) {
-        const sc = GLR.scissorOf(smd.old.guardBox, pane.view, pane.dpr, 0);
-        if (sc === null) { GLR.drawPreMapped(smd.old.res, smLook(s, pane, alpha, map)); continue; }
-        if (sc[2] > 0) {
-          smOld = sc;
-          // the pane around the guard box: up to four rects
-          smOut = [[0, 0, pane.pw, sc[1]], [0, sc[1] + sc[3], pane.pw, pane.ph - sc[1] - sc[3]], [0, sc[1], sc[0], sc[3]], [sc[0] + sc[2], sc[1], pane.pw - sc[0] - sc[2], sc[3]]].filter((q) => q[2] > 0 && q[3] > 0);
-        }
+        const so = GLR.standInOf(smd.old.guardBox, pane.view, pane.dpr);
+        if (so === 'whole') { GLR.drawPreMapped(smd.old.res, smLook(s, pane, alpha, map)); continue; }
+        if (so) { smOld = so.sc; smOut = so.around; }
       }
       const pf = pairFor(s, r, role), pm = pf.p, fx = pf.fx;
       if (!pm.meshRes) { if (smOld) GLR.drawPreMapped(smd.old.res, Object.assign(smLook(s, pane, alpha, map), { scissor: smOld })); continue; }
@@ -697,7 +795,7 @@
       const area = kindType(s) === 'area';
       const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
-      if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
+      if (area && r.open && !opt.thin) { st.dash = OPEN_DASH; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
     }
     if (GLR.flushHalf) GLR.flushHalf();
@@ -771,7 +869,7 @@
     let ch = false;
     for (const st of S.steps) if (Constr.zpRenumber(st)) ch = true;
     if (!ch) { toast($t('The zeros and poles are numbered in order already.')); return; }
-    buildPipeline(); updateFocusUI(); commit(); requestRender('L', 'R', 'OL', 'OR');
+    chainRebuilt(); commit(); requestRender('L', 'R', 'OL', 'OR');
     undoToast($t('Zeros and poles renumbered.'));
   }
   // the number the next new point takes

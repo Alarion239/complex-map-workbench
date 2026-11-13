@@ -4,8 +4,8 @@
 //   history   a comment that tells the code's history: the words, version and wave labels and changelog issue numbers
 //             of HISTORY below
 //   plan      a plan label in a comment: the labels of PLAN below
-//   asserts   a test file (test/t_*.js, test/*_cmd.js) whose diff removes more assertions (check/ok/assert calls) than
-//             it adds
+//   asserts   a test file (test/t_*.js, test/*_cmd.js) whose diff removes more assertions (check/ok/assert calls) than it
+//             adds, unless the diff creates a test file that takes them over (a split)
 // Only comments on added lines of src/, ci/, test/ and tools/ are read, and not the generated files. An added line
 // opts out with `standards-ok: <reason>` in its own comment; a test file opts out of the assertion count with the
 // same marker on any line it adds. A marker with no reason is itself a finding.
@@ -26,9 +26,13 @@ const GENERATED = /^(src\/(i18n_[a-z]+|cyr|seasong)\.js|src\/.*\.min\.js|tools\/
 const COMMENTED = /\.(js|mjs|cjs|ts|py|yml|yaml|sh|css|html)$/;
 const TEST_FILE = /^test\/(t_[^/]*\.js|[^/]*_cmd\.js)$/;
 
+// `was`, `now` and `no longer` alone describe code as it is; they count only beside a verb of change
+const CHANGED = 'replaced|removed|added|changed|moved|renamed|dropped|fixed|introduced|split|merged|deleted|rewritten|extracted|cut|clamped|capped';
 const HISTORY = [
-  [/\bwas\b/i, 'was'], [/\bused to\b/i, 'used to'], [/\bnow\b/i, 'now'], [/\bpreviously\b/i, 'previously'],
-  [/\bno longer\b/i, 'no longer'], [/\breplaces\b/i, 'replaces'], [/\binstead of the old\b/i, 'instead of the old'],
+  [new RegExp(`\\bwas (?:then |first |later )?(?:${CHANGED})\\b`, 'i'), 'was <changed>'], [/\bused to\b/i, 'used to'],
+  [/\bnow (?:\w+ )?(?:has|have|caches|stores?|keeps?|clamps?|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|returns?|lives?|goes|comes|sits)\b/i, 'now <verb>'],
+  [/\bpreviously\b/i, 'previously'], [/\bno longer (?:has|have|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|needs?|exists?|returns?|goes|comes)\b/i, 'no longer <verb>'],
+  [/\breplaces\b/i, 'replaces'], [/\binstead of the old\b/i, 'instead of the old'],
   [/\bv1\d(?:\.\d+)?(?:-beta(?:\.\d+)?)?\b/i, 'a version label'], [/\bbeta\.\d+\b/i, 'a version label'],
   [/\bwaves? \d+\b/i, 'a wave label'],
   [/\b(?:fixed|fixes|added|removed|changed|introduced) (?:in|by|after) #\d+/i, 'an issue number as a changelog'],
@@ -44,28 +48,37 @@ const MARKER = /standards-ok:(.*)$/;
 // a call that checks something: check(, ok(, assert( and assert.method(; not a definition (function check(, ok = (...))
 const ASSERT = /(?<![.\w$])(?<!function\s)(?:check|ok|assert)\s*\(|(?<![.\w$])assert\.\w+\s*\(/g;
 
-// the comment text of one added line, or '' for a line of code: `//`, `/* */`, ` * ` and `<!-- -->` anywhere outside a
-// string, and `#` in Python, YAML and shell. A string is read by quotes on this line only.
-function commentOf(line, file) {
+// the comment parts of one added line: `//`, `/* */`, ` * ` and `<!-- -->` anywhere outside a string, and `#` in Python,
+// YAML and shell. A string is read by quotes on this line only.
+function commentParts(line, file) {
   const hash = /\.(py|ya?ml|sh)$/.test(file);
   const t = line.trimStart();
-  if (/^\*(?!\/)/.test(t)) return t.slice(1);
+  if (/^\*(?!\/)/.test(t)) return [t.slice(1)];
+  const out = [];
   let q = '';
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (q) { if (c === '\\') i++; else if (c === q) q = ''; continue; }
     if (c === '\'' || c === '"' || c === '`') { if (!(c === '\'' && /\w/.test(line[i - 1] || ''))) q = c; continue; }
-    if (!hash && c === '/' && line[i + 1] === '/' && line[i - 1] !== ':') return line.slice(i + 2);
-    if (!hash && c === '/' && line[i + 1] === '*') return line.slice(i + 2);
-    if (c === '<' && line.startsWith('<!--', i)) return line.slice(i + 4);
-    if (hash && c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(i + 1);
+    if (!hash && c === '/' && line[i + 1] === '/' && line[i - 1] !== ':') return [...out, line.slice(i + 2)];
+    if (!hash && c === '/' && line[i + 1] === '*') {
+      const e = line.indexOf('*/', i + 2);
+      if (e < 0) return [...out, line.slice(i + 2)];
+      out.push(line.slice(i + 2, e));
+      i = e + 1;
+      continue;
+    }
+    if (c === '<' && line.startsWith('<!--', i)) return [...out, line.slice(i + 4)];
+    if (hash && c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return [...out, line.slice(i + 1)];
   }
-  return '';
+  return out;
 }
+const commentOf = (line, file) => commentParts(line, file).join(' ');
 
 // the assertions on one line of code: how many calls it holds
 function assertionsOf(line, file) {
-  const code = line.slice(0, line.length - commentOf(line, file).length);
+  let code = line;
+  for (const c of commentParts(line, file)) code = code.replace(c, '');
   return (code.match(ASSERT) || []).length;
 }
 
@@ -79,7 +92,7 @@ function parseDiff(text) {
     if (raw.startsWith('--- ')) { from = raw === '--- /dev/null' ? null : raw.slice(4).replace(/^a\//, ''); continue; }
     if (raw.startsWith('+++ ')) {
       const to = raw === '+++ /dev/null' ? null : raw.slice(4).replace(/^b\//, '');
-      cur = { file: to || from, deleted: !to, added: [], removed: [] };
+      cur = { file: to || from, deleted: !to, created: !from, added: [], removed: [] };
       out.push(cur);
       continue;
     }
@@ -94,7 +107,7 @@ function parseDiff(text) {
 
 // the findings of a parsed diff: [{ file, line, rule, text, why }]
 function check(files) {
-  const found = [];
+  const found = [], counted = [];
   for (const f of files) {
     if (!SCOPE.test(f.file) || GENERATED.test(f.file)) continue;
     const marked = f.added.some((a) => (MARKER.exec(commentOf(a.text, f.file)) || [])[1]?.trim());
@@ -114,9 +127,17 @@ function check(files) {
     }
     if (TEST_FILE.test(f.file) && !marked) {
       const count = (lines) => lines.reduce((s, l) => s + assertionsOf(l, f.file), 0);
-      const before = count(f.removed), after = count(f.added.map((a) => a.text));
-      if (after < before) found.push({ file: f.file, line: f.added.length ? f.added[0].n : 1, rule: 'asserts', text: '', why: `${before} assertions removed, ${after} added${f.deleted ? ' (file deleted)' : ''}` });
+      counted.push({ f, before: count(f.removed), after: count(f.added.map((a) => a.text)) });
     }
+  }
+  // assertions moved into a file the diff creates (a split) are not dropped; a gain in a file that already existed does not
+  // make up for a loss elsewhere
+  let moved = counted.filter((x) => x.f.created).reduce((s, x) => s + x.after, 0);
+  for (const { f, before: b, after: a } of counted) {
+    if (a >= b || f.created) continue;
+    const lost = b - a, covered = Math.min(lost, moved);
+    moved -= covered;
+    if (covered < lost) found.push({ file: f.file, line: f.added.length ? f.added[0].n : 1, rule: 'asserts', text: '', why: `${b} assertions removed, ${a} added${f.deleted ? ' (file deleted)' : ''}${covered ? `; ${covered} of them moved to a new file` : ''}` });
   }
   return found;
 }

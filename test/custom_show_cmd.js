@@ -6,6 +6,7 @@
 //  2. a display form: the well shows it (in w for a second step), whole, at 70 % or more; the note says so; the f(z) field
 //     holds the formula unchanged; F's line and the offer's last row use it;
 //  3. the formula edited (one character): the display form is gone (stale key), the long note is back; Undo returns it.
+// The steps are picked on the steps view's thread (a step's chip, the whole-map chip for F), each pick asserted.
 // A command file for the CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/custom_show_cmd.js
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -25,10 +26,10 @@ async function open(ns, steps) {
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}`); await settle(2200);
 }
-async function select(k) {
-  await ev(`(() => { const c = ${k === 'F' ? `document.querySelector('#pipeline .ftile')` : `document.querySelector('#pipeline .card[data-k="${k}"]')`}; if (c) c.click(); return !!c; })()`);
-  await settle(1200);
-}
+const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
+const select = async (k) => { await selectStep(k); await settle(1200); };
+// a language switch reloads the page: wait until the new page is in that language and shows the element `sel`, asserted
+const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, settled, sleep, ok });
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
@@ -82,11 +83,11 @@ ok('show: F is written with the display form', fw && fw.includes('\\prod_{j=1}^{
 let M = await marks();
 ok('show: F\'s line carries the mark, with the full-formula explanation', M.f && M.f.text === 'in short' && /each step/.test(M.f.tip) && M.f.desc === M.f.tip, M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
-  await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+  await relang(lang, '#propsPanel .iform > .shortmark');
   const mf = await marks();
   ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word && mf.f.tip === mf.f.desc && !/^Written/.test(mf.f.tip), mf);
 }
-await ev(`I18N.setPref('en'), 1`); await settle(1200);
+await relang('en', '#propsPanel .iform > .shortmark');
 
 // 3. the formula edited: the key is stale
 await select(2);
@@ -116,11 +117,11 @@ M = await marks();
 ok('offer: the last row carries the mark, once, with the explanation', M.rows.length === 1 && M.lastRow === true && M.rows[0].text === 'in short' && /each step's own field/.test(M.rows[0].tip) && M.rows[0].desc === M.rows[0].tip, M);
 ok('offer: the last row ends with the display form', (await ev(`[...document.querySelectorAll('#propsPanel .split-offer .so-tex')].pop().dataset.tex`)).includes(SHTEX), M);
 for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
-  await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+  await relang(lang, '#propsPanel .split-offer .so-row .shortmark');
   const m = await marks();
   ok(`offer: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip === m.rows[0].desc && !/^Written/.test(m.rows[0].tip), m);
 }
-await ev(`I18N.setPref('en'), 1`); await settle(1200);
+await relang('en', '#propsPanel .split-offer .so-row .shortmark');
 await ev(`(() => { const f = document.querySelector('#propsPanel input[data-pkey="expr"]'); f.focus(); f.value = f.value.replace(/\\)$/, '+0)'); f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true })); f.blur(); return 1; })()`);
 await settle(1200);
 M = await marks();

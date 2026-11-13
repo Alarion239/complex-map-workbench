@@ -254,15 +254,16 @@ const SPOT = String.raw`(() => {
   const CTL = {
     'basics/x': () => selTool(), 'basics/preimages': () => 'none', 'basics/draw': () => tool('disc'),
     // (#34's task lines: Y is panned with Select on, Targets draws a Disc, the F tile and the card d/dz are in the chain sheet on a phone, Cauchy's circle is dragged with Select)
-    'basics/y': () => selTool(), 'analysis/targets': () => tool('disc'), 'analysis/domain': () => q1('#pipeline .ftile') || q1('.ph-csteps'),
-    'branches/deriv': () => q1('#pipeline .card[data-k="2"]') || q1('.ph-csteps'), 'analysis/cauchy': () => selTool(),
+    'basics/y': () => selTool(), 'analysis/targets': () => (q1('#svStrip') ? [tool('disc'), q1('#svStrip .sv-prev')] : tool('disc')), 'analysis/domain': () => q1('#pipeline .ftile') || q1('#svStrip .sv-wholemap') || q1('.ph-csteps'),
+    'branches/deriv': () => q1('#pipeline .card[data-k="2"]') || q1('#svStrip .sv-step[data-k="2"] .sv-fchip') || q1('.ph-csteps'), 'analysis/cauchy': () => selTool(),
     'basics/shapes': () => (innerWidth < 640 ? 'none' : selTool()), 'basics/formula': () => 'none',
     // (#246: on a phone the card and the Add tile are rows of the chain sheet; while it is closed, the step lights the
     // chain bar's "N steps ▾" that opens it)
-    'basics/chain': () => q1('#pipeline .card[data-k="1"]') || q1('.ph-csteps'), 'basics/add': () => q1('#addStepBtn') || q1('.ph-csteps'),
-    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/phase': () => q1('#panes'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
+    'basics/chain': () => q1('#pipeline .card[data-k="1"]') || q1('.ph-csteps'), 'basics/add': () => q1('#addStepBtn') || q1('#svStrip .sv-add') || q1('.ph-csteps'),
+    'views/phase': () => q1('#panes'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
     'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
+    'edit/reorder': () => q1('#svStrip .sv-step[data-k="2"] .sv-more') || q1('#svStrip .sv-step[data-k="2"] .sv-fchip'),
     // (D1, issue #23: Replace… is the first item of the step's ⋯)
     'edit/inspector': () => q1('#propsPanel .insp-step .ihead .more'),
     'construct/c3': () => 'none', 'construct/follow': () => selTool(), 'construct/meet': () => tool('line'),
@@ -270,6 +271,11 @@ const SPOT = String.raw`(() => {
     'deform/range': () => 'none', 'analysis/integral': () => 'none',
     'branches/cut': () => selTool(), 'branches/inverse': () => q1('#propsPanel .insp-step .ihead .more'), 'branches/sheets': () => q1('#panes'),
     'sound/song': () => 'none', 'sound/strings': () => 'none', 'sound/loop': () => 'none',
+    // (the steps view's Planes chapter: the thread's › and ring, the colour button, the scope and surface choices, the first chip)
+    'planes/plane': () => q1('#paneL'), 'planes/thread': () => q1('#svStrip .sv-next'), 'planes/park': () => q1('#svStrip .sv-thumb'), 'planes/colour': () => q1('#svHead .sv-cp'),
+    'planes/carried': () => q1('#svStrip .sv-next'), 'planes/inside': () => q1('#svHead .sv-scope'), 'planes/surface': () => q1('#svHead .sv-surf, #svHead .sv-surf1'), 'planes/step': () => q1('#svStrip .sv-fchip'),
+    // (the Playing chapter: ▶, Loop (on a phone it is in the Playback sheet, opened by holding ▶: nothing is lit until then), the thread's rail)
+    'playing/play': () => q1('#svStrip .sv-play'), 'playing/speed': () => q1('#svStrip .sv-loop') || 'none', 'playing/range': () => q1('#svStrip .sv-rail'),
     'export/formula-tex': () => q1('#propsPanel .insp-F .ihead button[aria-label]'), 'keys/palette': () => 'none',
   };
   function ctl() {

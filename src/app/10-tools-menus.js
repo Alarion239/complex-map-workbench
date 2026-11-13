@@ -29,20 +29,20 @@
     ['segment', $t('Segment'), 'S', $t('Drag from one end to the other, or click one end and then the other.')],
     ['line', $t('Line'), 'L', $t('Drag through two points, or click one and then the other; the line extends to infinity.')],
     ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray, or click the start and then a point on the ray.')],
-    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward, or click the center and then a point on the circle.')],
+    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the centre outward, or click the centre and then a point on the circle.')],
     ['arc', $t('Arc'), 'A', $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.')],   // (v16 [C24])
     ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
-    ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],
+    ['disc', $t('Disc'), 'D', $t('Drag from the centre outward.')],
     ['rect', $tx('tool', 'Rectangle'), 'B', $t('Drag between opposite corners.')],
     ['polygon', $tx('tool', 'Polygon'), 'G', $t('Click the vertices; click the first one or press Enter to close. Backspace removes the last point.')],
     ['lasso', $t('Lasso'), 'O', $t('Hold and draw a closed region.')],
     ['halfplane', $tx('tool', 'Half-plane'), 'H', $t('Drag along the boundary; the region is to the left of the arrow.')],
-    ['annulus', $t('Annulus'), 'N', $t('Drag from the center to the outer radius.')],
+    ['annulus', $t('Annulus'), 'N', $t('Drag from the centre to the outer radius.')],
     ['sector', $t('Sector'), 'K', $t('Drag from the vertex; edit the angles in the shape list.')],
     ['formula', $t('Formula'), 'T', $t('Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.')],
     // ([v16.5 UX86] one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
     ['cgrid', $t('Line grid'), '', $t('Drag a rectangle to fill with grid lines.')],
-    ['pgrid', $t('Polar grid'), '', $t('Drag from the center to set the radius.')],
+    ['pgrid', $t('Polar grid'), '', $t('Drag from the centre to set the radius.')],
   ].concat(Construct.toolRows());   // (v16: the Construct group, construct.js)
   Object.assign(ICON, Construct.ICON);
   function buildTools() {
@@ -77,9 +77,6 @@
     draft = null;
     Construct.toolChanged();   // (v16)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    // ([#253] shapes are drawn in the plane X shows; constructions in the z-plane: Image also draws targets in the right
-    // plane at any focus)
-    if (Construct.isTool(id) && leftStage() > 0 && !targetsEditable()) setFocus(0);
     updateToolHint();
     // the right readout's idle hint names the tool (drawing a target, or the scale)
     if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
@@ -115,7 +112,7 @@
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
-    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
+    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', stage: s.stage || 0, bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
   }
   // [issue #260] an external ray (theta: '1/3') or an equipotential (r > 1) of step k's set: M for Φ_M, the Julia set of
   // z² + c for φ_c (its c, by name when it is a shared number), as a shape of the plane the step reads (stage k − 1)
@@ -153,7 +150,7 @@
   // Inspector on screen, the default ray 1/3 or level 1.1 is added)
   function dhFocusAdd(k, kind) {
     selected = null; zpSel = null;
-    setSel(k); syncSel(); buildShapeList(); requestRender('P');
+    setSel(k); buildShapeList(); requestRender('P');
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = /** @type {HTMLInputElement | null} */ (document.getElementById(`dh${k}_${kind}`));
       if (el && el.getClientRects().length) { el.focus(); el.select(); } else dhAddShape(k, kind, kind === 'dhray' ? '1/3' : '1.1');
@@ -368,9 +365,21 @@
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
+    // (a run of nudges of one shape is one undo step: a press within a moment of the last takes that press's history entry back before it commits)
+    const now = performance.now();
+    if (nudgeRun && nudgeRun.id === s.id && nudgeRun.hi === hi && now - nudgeRun.t < 1500 && hi > 0) { hist.pop(); hi = hist.length - 1; }
     commit();
+    nudgeRun = { id: s.id, hi, t: now };
+    // (and once the run stops, the shape's place is said once: the toast host is a live region)
+    clearTimeout(nudgeSayT);
+    nudgeSayT = setTimeout(() => {
+      const b = Region.bboxOf(s), name = shapeNames(isTarget(s) ? S.targets : S.shapes).get(s.id);
+      if (!selected || selected !== s.id || !name) return;
+      toast(b ? $t('Moved {name} to {x}, {y}.', { name, x: fmtR((b.x0 + b.x1) / 2, 3), y: fmtR((b.y0 + b.y1) / 2, 3) }) : $t('Moved {name}.', { name }));
+    }, 700);
     return true;
   }
+  let nudgeRun = null, nudgeSayT = 0;
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
     moveShapeTo(id, list.findIndex((x) => x.id === id) + d);
@@ -395,7 +404,7 @@
     if (dt) setTargets([]);
     if (ds) shapesChanged(true);
     if (dt) targetsChanged(true);
-    buildPipeline(); commit();
+    chainRebuilt(); commit();
     undoToast(ds && dt ? $t('Shapes and targets cleared.') : ds ? $t('Shapes cleared.') : $t('Targets cleared.'));
   }
   function buildShapeList() {
@@ -469,7 +478,7 @@
         if (kindType(s) === 'area') items.push({ label: s.complement ? $t('Use the set itself') : $t('Use complement'), run: () => { s.complement = !s.complement; changed(); commit(); } });
         items.push({ label: $t('Duplicate'), key: modK('D'), run: () => duplicateShape(s) });
         // ([v16.5 UX95] the colours by their names, not "Preset 1"–"Preset 8")
-        items.push({ label: $t('Color'), kids: [...TH.c.map((cc, i) => ({ label: colorName(i), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom color…'), run: () => pickColor(s) }] });
+        items.push({ label: $t('Colour'), kids: [...TH.c.map((cc, i) => ({ label: colorName(i), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom colour…'), run: () => pickColor(s) }] });
         items.push({ label: $t('Bring forward'), key: modK(']'), disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
         items.push({ label: $t('Send backward'), key: modK('['), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
         items.push('sep');
@@ -576,6 +585,44 @@
       if (eye) eye.disabled = !!s.undef;
     }
   }
+  // dragging horizontally on a label changes a numeric field
+  function scrubbable(label, input, step, isInt) {
+    label.classList.add('scrub');
+    label.title = (label.title ? label.title + ' · ' : '') + $t('drag to change');
+    label.style.touchAction = 'pan-y'; // a sideways touch scrubs instead of scrolling the chain
+    label.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      const x0 = e.clientX, v0 = Number(input.value) || 0;
+      let moved = 0;
+      try { label.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+      const move = (ev) => {
+        const dx = ev.clientX - x0;
+        moved = Math.max(moved, Math.abs(dx));
+        let v = v0 + Math.round(dx / (ev.shiftKey ? 12 : 4)) * step;
+        if (isInt) v = Math.round(v);
+        if (input.min !== '' && v < +input.min) v = +input.min;
+        if (String(v) !== input.value) { input.value = +v.toFixed(6); input.dispatchEvent(new Event('input')); }
+      };
+      // an ended, cancelled or lost pointer all finish the scrub once: what it applied is committed
+      const ends = ['pointerup', 'pointercancel', 'lostpointercapture'];
+      const up = () => {
+        label.removeEventListener('pointermove', move);
+        for (const t of ends) label.removeEventListener(t, up);
+        // after a real scrub, the click that follows would activate the label and focus the field, where ⌘Z is
+        // the field's own (empty) undo: swallow that one click, so the app's undo takes back the scrub
+        if (moved > 2) {
+          const swallow = (ce) => { ce.preventDefault(); ce.stopPropagation(); };
+          label.addEventListener('click', swallow, { capture: true, once: true });
+          setTimeout(() => label.removeEventListener('click', swallow, { capture: true }), 0);
+          if (document.activeElement === input) input.blur();
+        }
+        input.dispatchEvent(new Event('change'));
+      };
+      label.addEventListener('pointermove', move);
+      for (const t of ends) label.addEventListener(t, up);
+    });
+  }
   function shapeEditor(s) {
     const box = h('div', { class: 'shape-edit' });
     const target = isTarget(s);
@@ -674,8 +721,8 @@
       case 'segment': case 'line': case 'ray': box.append(ptField('a', $t('start <i>a</i>')), ptField('b', $t('end <i>b</i>'))); break;
       case 'halfplane': box.append(ptField('a', $t('from <i>a</i>')), ptField('b', $t('to <i>b</i>'))); break;
       case 'rect': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>'))); break;
-      case 'circle': case 'disc': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>'))); break;
-      case 'annulus': box.append(ptField('c', $t('center <i>c</i>')), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
+      case 'circle': case 'disc': box.append(ptField('c', $t('centre <i>c</i>')), numField('r', $t('radius <i>r</i>'))); break;
+      case 'annulus': box.append(ptField('c', $t('centre <i>c</i>')), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
       case 'sector': box.append(ptField('c', $t('vertex <i>c</i>')), numField('t1', '<i>θ</i>₁ (°)'), numField('t2', '<i>θ</i>₂ (°)'), numField('r', $t('radius (0 = ∞)'))); break;
       case 'arc': box.append(ptField('a', $tx('arc', 'start')), ptField('m', $tx('arc', 'through')), ptField('b', $tx('arc', 'end'))); break;
       case 'polygon': {
@@ -708,7 +755,7 @@
         if (s.c != null) box.append(ptField('c', '<i>c</i>'));
         break;
       }
-      case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
+      case 'pgrid': box.append(ptField('c', $t('centre <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
         const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
         inp.addEventListener('input', () => {
