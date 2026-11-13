@@ -57,7 +57,7 @@ if (grp) {
     const f = new Function('github', 'inputs', 'contains', 'fromJSON', 'format', `return ${expr[1]};`);
     return f(github, { machines: o.machines || '' }, (a, b) => a.includes(b), JSON.parse, (t, ...a) => t.replace(/\{(\d)\}/g, (_, i) => a[i]));
   };
-  const push = group('push'), main = (machines) => group('workflow_dispatch', { machines });
+  const push = group('push'), main = (mm) => group('workflow_dispatch', { machines: mm });
   ok('a push to main and the nightly run keep their own groups', push === 'refs/heads/main' && group('schedule') === 'nightly', [push, group('schedule')]);
   ok('a by-hand run on the Mac shares its branch\'s group, as before', main('mac') === push && main('') === push && main('windows-hosted') === push, [main('mac'), main('windows-hosted')]);
   for (const mm of ['windows', 'both']) ok(`a by-hand ${mm} run never sits in main's group`, main(mm) !== push && main(mm) !== group('schedule'), main(mm));
