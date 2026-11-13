@@ -291,24 +291,44 @@ await settled({ max: 15000 });   // (the song scene's frames and shader compiles
 await settled({ max: 60000, until: `!(window.__cmwSteps && __cmwSteps().on) || __cmwSteps().ready.ready` });
 const ab = await center('.ts-act');
 await ltInstall();
+// (the captions are logged in the page, with the page's clock, as they change: the tour's own timers set them, and a CDP
+// poll over a loaded machine sees them seconds late or skips one)
+await ev(`(() => { window.__caps = []; let last = null; const note = () => { const e = document.querySelector('#tourLead'), t = e ? e.textContent : null; if (t !== last) { last = t; window.__caps.push([performance.now(), t]); } }; note(); window.__capObs = new MutationObserver(note); window.__capObs.observe(document.body, { childList: true, characterData: true, subtree: true }); return 1; })()`);
 await click(ab[0], ab[1]); t0 = Date.now(); const p0 = await ev('performance.now()');
-const caps = [];
-let last = '', durMs = 0;
+let durMs = 0;
 while (Date.now() - t0 < 30000) {
-  const t = await ev(`document.querySelector('#tourLead').textContent`);
-  if (t !== last) { caps.push([Date.now() - t0, t.slice(0, 24)]); last = t; }
   // (the function's Listen along; its duration is the circle's length at the zoom, 250 px/s)
   if (!durMs) durMs = 1000 * ((await ev(`(() => { const s = __cmwSound(); return s.listenFn ? s.listenFn.dur : 0; })()`)) || 0);
   if ((await cur()) !== 'sound/song') break;
   await sleep(40);
 }
+const caps = ((await ev('window.__caps.slice()')) || []).filter((c) => c[1] != null).map((c) => [c[0] - p0, c[1].slice(0, 24)]);
+await ev('window.__capObs.disconnect(); 1');
 const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
 // (the Mountain King's F is costly, so Listen along samples it first (f181c88, "Preparing to listen along")
 // and starts seconds after the press: the fractions are counted from the playback's start, its first caption)
 const capT0 = capAt(/^Each note is/);
 // (a caption shows when the page's timer runs: a blocked main thread, the page's long tasks, runs it late by what was blocked, never early)
 const lts = await ev('(window.__lt || []).slice()');
-const capOn = (re, frac) => { const obs = capAt(re) - capT0, exp = frac * durMs, lo = p0 + capT0 + exp - 300, hi = p0 + capT0 + obs; const blocked = (lts || []).reduce((n, [x, y]) => n + Math.max(0, Math.min(y, hi) - Math.max(x, lo)), 0); return obs >= exp - 300 && obs <= exp + 300 + blocked; };
+// the judge: the caption `re` shows at `frac` of the `dur` ms playback, counted from the first caption, within CAP_TOL_MS early
+// and CAP_TOL_MS late plus the long-task time (page clock, from the press `p0`) in the window it was due in
+const CAP_TOL_MS = 300;
+const capJudge = (cs, ls, p, dur, re, frac) => {
+  const at = (r) => (cs.find((c) => r.test(c[1])) || [null])[0], t0c = at(/^Each note is/), t = at(re);
+  if (t0c == null || t == null) return false;
+  const obs = t - t0c, exp = frac * dur, lo = p + t0c + exp - CAP_TOL_MS, hi = p + t0c + obs;
+  const blocked = (ls || []).reduce((n, [x, y]) => n + Math.max(0, Math.min(y, hi) - Math.max(x, lo)), 0);
+  return obs >= exp - CAP_TOL_MS && obs <= exp + CAP_TOL_MS + blocked;
+};
+const capOn = (re, frac) => capJudge(caps, lts, p0, durMs, re, frac);
+// (its controls, on a made-up log with a 10 s piece and the press at page time 1000: on time passes; a caption 900 ms late with no long task
+// fails; the same one with a 700 ms long task over its due time passes, late only as far as the page was blocked; a caption 500 ms early
+// fails; a missing caption fails)
+const CAP_FAKE = (dt) => [[0, 'Each note is'], [2000 + dt, 'Each step is'], [2900, 'The crack is'], [5100, 'The second lap']];
+const capCtl = [capJudge(CAP_FAKE(0), [], 1000, 10000, /^Each step is/, 0.2), !capJudge(CAP_FAKE(900), [], 1000, 10000, /^Each step is/, 0.2),
+  capJudge(CAP_FAKE(900), [[3000, 3700]], 1000, 10000, /^Each step is/, 0.2), !capJudge(CAP_FAKE(-500), [], 1000, 10000, /^Each step is/, 0.2),
+  !capJudge(CAP_FAKE(0).slice(0, 2), [], 1000, 10000, /^The crack is/, 0.29)];
+check('Grieg: the caption judge passes on time and when blocked, fails late unblocked, early and missing', capCtl.every(Boolean), capCtl);
 check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from its start, late only as far as the page was blocked: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && capT0 != null && capOn(/^Each step is/, 0.2) && capOn(/^The crack is/, 0.29) && capOn(/^The second lap/, 0.51), [durMs, caps, lts]);
 const endAt = capAt(/^Every note/);
 check('Grieg: no move for the whole piece, then the result line', endAt != null && endAt > durMs - 300, [durMs, caps]);
