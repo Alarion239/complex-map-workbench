@@ -3,14 +3,16 @@
 // not become ready within the call's limit (o.limitMs, 60 s by default) is an error that says so, not a return on a page still
 // loading, whose hooks are then undefined for whatever the suite asks next.
 //   - a load of a page held HOLD_MS answers on a loaded page with its hooks;
-//   - control: the same load with a limit shorter than the hold throws, naming the limit, and describes the page;
+//   - control: the same load with a limit (DIAG_LIMIT_MS) shorter than the hold throws, naming the limit, and describes the page;
 //   - control: when the page cannot answer that read, the throw still names the limit and carries the read error;
 //   - a document whose body stops after STALL_BYTES is opened again after stallMs and the load answers on a ready page;
 //   - control: a server that stops every answer gets two more openings, and the load throws naming the limit.
 // It runs in the steps view. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const HOLD_MS = 25000, SHORT_LIMIT_MS = 3000, STALL_BYTES = 1 << 20, STALL_MS = 2000, STALL_LIMIT_MS = 12000;
+// (DIAG_LIMIT_MS: long enough for the 5 MB document to finish parsing on a loaded machine, so the page the throw describes is
+// the one held by its sheet, and shorter than HOLD_MS)
+const HOLD_MS = 25000, SHORT_LIMIT_MS = 3000, DIAG_LIMIT_MS = 15000, STALL_BYTES = 1 << 20, STALL_MS = 2000, STALL_LIMIT_MS = 12000;
 const STATE = { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } };
 const PAGE = `[document.readyState, typeof window.__cmwPaneStatus, typeof window.__cmwW2S, !!document.getElementById('canvasR')].join()`;
 await view(1440, 900, false, false);
@@ -22,9 +24,9 @@ try {
   ok('load: the page held ' + HOLD_MS + ' ms is loaded, with its hooks, when load returns', info.after.page === 'complete,function,function,true', info.after);
   let err = null;
   t0 = Date.now();
-  try { await load('kitloadlimit' + t0, STATE, '', null, { limitMs: SHORT_LIMIT_MS }); } catch (e) { err = String(e && e.message || e); }
+  try { await load('kitloadlimit' + t0, STATE, '', null, { limitMs: DIAG_LIMIT_MS }); } catch (e) { err = String(e && e.message || e); }
   info.limit = { err, ms: Date.now() - t0 };
-  ok('load: a page that is not ready within its limit throws, naming the limit', !!err && new RegExp('not ready after ' + SHORT_LIMIT_MS + ' ms').test(err), info.limit);
+  ok('load: a page that is not ready within its limit throws, naming the limit', !!err && new RegExp('not ready after ' + DIAG_LIMIT_MS + ' ms').test(err), info.limit);
   // (the held sheet keeps `load` from firing: the page is interactive, its navigation's loadEventEnd 0)
   ok('load: the throw names the page: its readyState, and its navigation timings with the load event not yet come', !!err && /"readyState":"interactive"/.test(err) && /"nav":\{[^}]*"domInteractive":[1-9]\d*[^}]*"loadEventEnd":0\}/.test(err), info.limit);
   // (control: when the page cannot answer the read, the throw still names the limit, and carries the read's own error)
