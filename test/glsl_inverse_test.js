@@ -188,6 +188,22 @@ void main() {
   o = vec4(lo, hi, hlo, hhi);
 }
 `;
+  // the members of generic NEWT op 0 (NB members) for each pixel's w, as the NEWT roots pass writes them: member m at
+  // target m >> 1, .xy for even m and .zw for odd m, IX_NR_NONE where it is not kept
+  const MAIN_MEMBERS = (NB) => `
+void main() {
+  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
+  vec2 w = uCenter + (f * uInvScale + uCenterLo);
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+  ix0_roots(w, uInv[0].x);
+  vec2 q[${NB + (NB & 1)}];
+  for (int m = 0; m < ${NB + (NB & 1)}; m++) q[m] = m < ${NB} && ix0_k[m < ${NB} ? m : 0] ? ix0_r[m < ${NB} ? m : 0] : vec2(3.0e38);
+  o = vec4(q[0], q[1]);
+${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1}
+  o${k + 1} = vec4(q[${2 * k + 2}], q[${2 * k + 3}]);
+#endif`).join('\n')}
+}
+`;
   const EXTRA_WALK = { pre: PRE, main: MAIN_WALK }, EXTRA_CLIP = { pre: PRE, main: MAIN_CLIP };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // f() (a draw) until its program leaves 'pending', for up to WAIT_MS by the clock: Windows' software renderer
@@ -230,17 +246,52 @@ void main() {
   }
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
+  // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
+  // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
+  // member its residual |H_t(z) - w| / (1 + |w|)
+  async function nrMembers(o, steps, built, planBuilt, plan, prep, st0) {
+    const NB = 2 + Inverse.NEWT_LADDER.length, G = o.grid, inv = GLChain.buildInverse(steps, planBuilt);
+    inv.nr = { j: 0, targets: Math.ceil(NB / 2), main: MAIN_MEMBERS(NB) };
+    const view = { cx: (o.win.x0 + o.win.x1) / 2, cy: (o.win.y0 + o.win.y1) / 2, s: G / (o.win.x1 - o.win.x0) };
+    const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape: o.shape, inv, view, dpr: 1, pw: G, ph: G, t: o.hom, look: { alpha: 1, alphaOwn: 1 } };
+    const reads = [];
+    const draw = gl.drawArrays;
+    gl.drawArrays = function (...a) {
+      draw.apply(this, a);
+      if (!reads.length) for (let k = 0; k < inv.nr.targets; k++) { gl.readBuffer(gl.COLOR_ATTACHMENT0 + k); const buf = new Float32Array(4 * G * G); gl.readPixels(0, 0, G, G, gl.RGBA, gl.FLOAT, buf); reads.push(buf); }
+    };
+    let r;
+    try { r = await untilCompiled(() => { const q = GLR.newtRoots(st); return q.state === 'drawn' ? 'drawn' : q.state === 'pending' ? 'pending' : q.state; }); } finally { gl.drawArrays = draw; }
+    if (r !== 'drawn') return { error: r };
+    const op = Inverse.homOps(built[0], o.hom).ops.find((q) => q.kind === 'NEWT'), Hh = built[0].hom(o.hom);
+    const out = [];
+    for (let j = 0; j < G; j++) {
+      for (let i = 0; i < G; i++) {
+        const w = [o.win.x0 + (i + 0.5) * (o.win.x1 - o.win.x0) / G, o.win.y0 + (j + 0.5) * (o.win.y1 - o.win.y0) / G];
+        const px = j * G + i, gpu = [];
+        for (let m = 0; m < NB; m++) { const b = reads[m >> 1], q = 4 * px + 2 * (m & 1); if (Math.abs(b[q]) < 1e37) gpu.push([b[q], b[q + 1], m, CX.abs(CX.sub(Hh(C(b[q], b[q + 1])), C(w[0], w[1]))) / (1 + Math.hypot(w[0], w[1]))]); }
+        out.push({ w, gpu, cpu: op.pre(C(w[0], w[1])).map((m) => [m.u.re, m.u.im, m.m]) });
+      }
+    }
+    return out;
+  }
   // ---- one case (debugging): opts.single = {steps: [[type, params]], shape, win, pts, pix, alpha} ----
   if (opts.single) {
     const o = opts.single, steps = o.steps.map(([t, p]) => St(t, p)), built = steps.map(Funcs.build);
-    const plan = Inverse.planChain(steps, built);
+    // (o.hom: the glide's frame at u = o.hom, the inverse of each step's homotopy, as the app builds it)
+    const planBuilt = o.hom == null ? built : built.map((b) => Inverse.homBuilt(b, Inverse.homOps(b, o.hom)));
+    const plan = Inverse.planChain(steps, planBuilt);
     GLR.setChain(GLChain.build(steps, built));
     const prep = Inverse.prepare(plan, { win: o.win, shape: o.shape });
     GLR.packShapes([o.shape], { debounce: false });
     const data = new Float32Array(1024 * 2 * 4);
     o.pts.forEach((w, i) => { data[4 * i] = w[0]; data[4 * i + 1] = w[1]; data[4 * i + 2] = Math.fround(o.pix); });
     const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape: o.shape, look: { alpha: o.alpha, alphaOwn: o.alpha }, extra: EXTRA_WALK };
+    // (the homotopy's functions, chainHom, come with the carried colour's program)
+    if (o.hom != null) { st.inv = GLChain.buildInverse(steps, planBuilt); st.extra = Object.assign({ carry: true }, EXTRA_WALK); st.view = { cx: 0, cy: 0, s: 1 }; st.dpr = 1; st.carry = { s: 0, T: 1, an: false }; }
+    if (o.members) return nrMembers(o, steps, built, planBuilt, plan, prep, st);
     const g = await gpuRun(st, data, NP, ROWS);
+    if (g.error) return { error: g.error };
     const B = GLR.inverseB(o.alpha), K = Math.min(B, GLR.inverseK(o.alpha));
     return o.pts.map((w, i) => ({
       gpu: Array.from({ length: ROWS }, (_, r) => Array.from(g.out.subarray(4 * (r * NP + i), 4 * (r * NP + i) + 4))),
