@@ -515,7 +515,7 @@ Settings (environment variables):
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
-| `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
+| `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72); `--walk typed` (`ci/glprof_typed.js`): typed formulas, pasted and typed, and the first glide on the plane and the globe |
 | `ci/fxc_size.js` | every program the app links over a walk of it (the default example, each example's first frame, typed formulas; glides, the globe, Landscape), sized with every call inlined, as Windows' FXC compiles it (#1545): the largest, their top functions and flagged loops; `--ref` fails on a new program over 100 KB or +20 % on one over 40 KB; `test/t_fxc_size.js` tests it |
 | `ci/glsl_inline.js` | a GLSL stage as FXC sees it: its own `#if`s resolved, the inlined size of `main`, each function's copies, the constant-bound loops that call into the chain; for `ci/fxc_size.js` and unit tests; `test/t_fxc_size.js` tests it |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
