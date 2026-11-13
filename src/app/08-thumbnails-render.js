@@ -291,10 +291,9 @@
       const tw = tweens[i];
       const u = Math.min(1, (now - tw.t0) / tw.ms);
       const e = 1 - Math.pow(1 - u, 3);
-      const ls = Math.log(tw.from.s) + (Math.log(tw.to.s) - Math.log(tw.from.s)) * e;
-      tw.view.s = Math.exp(ls);
-      tw.view.cx = tw.from.cx + (tw.to.cx - tw.from.cx) * e;
-      tw.view.cy = tw.from.cy + (tw.to.cy - tw.from.cy) * e;
+      // (a zoom about the point the start and end views share, Pane.tweenAt; a plain pan when the scale stays)
+      const v = Pane.tweenAt(tw.from, tw.to, e);
+      tw.view.cx = v.cx; tw.view.cy = v.cy; tw.view.s = v.s;
       if (u >= 1) { tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
     }
     dirty.L = true; dirty.R = true;

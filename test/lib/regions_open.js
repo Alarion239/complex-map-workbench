@@ -1,13 +1,13 @@
 // The regions suites' front (regions_phase_cmd.js, regions_phase_classic_cmd.js): a command file evaluates this file's
 // text, `eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))`, and calls the function it
-// gives with the kit's helpers: ({ U, ev, send, nav, sleep, settled }) => { DISC, STATE, openSaved, popFit }.
+// gives with the kit's helpers: ({ U, ev, send, go, sleep, settled }) => { DISC, STATE, openSaved, popFit }.
 //   DISC, STATE(o)       a unit disc under exp, and a saved state around it with the fields of o set
 //   openSaved(ns, st, lang)
 //                        the app with the saved state st written straight to its storage (not the kit's load(), which
 //                        sets a seeded pattern through the test hook): what a user's own saved work does; lang, when
 //                        given, is the page's language. It returns once the page, quiet, has the __cmwRegions hook, and
 //                        throws, naming the wait, when that does not happen within READY_MS
-(({ U, ev, send, nav, sleep, settled }) => {
+(({ U, ev, send, go, sleep, settled }) => {
   const READY_MS = 60000;   // (the longest a page may take to have the hook)
   const HOOK = `typeof __cmwRegions === 'function'`;
   const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
@@ -18,7 +18,7 @@
   const openSaved = async (ns, st, lang) => {
     await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-    await nav(`${U}/test.html?ns=${ns}${lang ? `&lang=${lang}` : ''}`);
+    await go(`${U}/test.html?ns=${ns}${lang ? `&lang=${lang}` : ''}`);
     const first = await settled({ only: true, max: READY_MS, until: HOOK });
     // (the page may load again after it first has the hook: ask again once it is quiet, so the caller reads a page that has it)
     const quiet = first && first.ok ? await settled({ floor: 800, max: READY_MS, until: HOOK }) : first;
