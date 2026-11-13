@@ -132,9 +132,10 @@ const { reloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wa
 // the language row of the open More sheet, scrolled into view (the sheet scrolls: the row starts below the fold of a phone
 // and a tap outside the viewport reaches nothing)
 const langRow = (v) => `.ph-sheet .ph-seg button[data-v="${v}"]`;
+const SCROLL_SETTLE_MS = 300;
 const tapLang = async (v) => {
   await ev(`document.querySelector(${JSON.stringify(langRow(v))}).scrollIntoView({ block: 'center' }), 1`);
-  await settle(300);
+  await settle(SCROLL_SETTLE_MS);
   await tapSel(langRow(v), 200);
 };
 // the reloaded page speaks language v (English has no lang attribute value of its own: the document's default)
