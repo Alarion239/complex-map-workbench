@@ -152,18 +152,34 @@ H.view = async (w, h, dark, mobile) => {
 // itself opens every saved pattern as the phase
 H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
-H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed(); };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
-// It answers whether the load came in time; a page that did not load says so in the suite's log.
+// It answers whether the load came in time; a page that did not load says so in the suite's log. A document whose body has stopped
+// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit.
+const GO_STALL_MS = 5000;
 H.go = async (url, ms = 15000) => {
-  const n = LOADS;
+  const n = LOADS, t0 = Date.now();
   await send('Page.navigate', { url }, S);
-  let t;
-  const ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), ms); })]);
-  clearTimeout(t);
-  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url})` });
+  let ok = false, reloads = 0;
+  while (!ok && Date.now() - t0 < ms) {
+    const left = ms - (Date.now() - t0), step = reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
+    let t;
+    ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
+    clearTimeout(t);
+    if (!ok && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
+  }
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363, as H.nav)
   return ok;
+};
+// H.nav(url): navigate and wait for the new page as H.load does for the app: its load event (H.go), then, for the app's page, its
+// start-up (the app begins after the load event: the plane list answers) and the page quiet (H.settled, at most NAV_QUIET_MS).
+// A page that is not the app's (a helper page, an old build) has no start-up to wait for. Answers whether the page came up in
+// time; a page that did not says so in the suite's log (H.go, H.settled), as a check after nav sees the page as it is.
+const NAV_QUIET_MS = 8000;
+H.nav = async (url) => {
+  const loaded = await H.go(url);
+  const r = await H.settled({ max: NAV_QUIET_MS, until: `typeof window.__cmwSteps !== 'function' || (() => { try { return Array.isArray(__cmwSteps().planes); } catch (e) { return false; } })()` });
+  return loaded && r.ok;
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
 // animation frames find the document loaded, neither pane's last GPU frame pending, compiling or awaiting its Landscape refinement (__cmwPaneStatus; not
@@ -302,6 +318,8 @@ const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_R
 // pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
 // since its start; 0 where an event has not come) and how many scripts and sheets it has, and how many planes its chain has built (null before the hook answers)
 const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
+// docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
+const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
 H.load = async (ns, st, extra, viewName, opts = {}) => {
   const origin = opts.origin || 'http://localhost:8793';
   await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);
@@ -316,8 +334,7 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
   do {
     r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, stallMs, limitMs - (Date.now() - t0))), until: ready });
     if (!r.ok && reloads < LOAD_RELOADS && Date.now() - tNav >= stallMs) {
-      const pg = await pageNow();
-      if (pg.readyState === 'loading' && pg.nav && pg.nav.responseEnd === 0) { reloads++; tNav = Date.now(); await send('Page.navigate', { url }, S); }
+      if (await docStalled()) { reloads++; tNav = Date.now(); await send('Page.navigate', { url }, S); }
     }
   } while (!r.ok && Date.now() - t0 < limitMs);
   if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${want} planes wanted; ${JSON.stringify(r)}; reloads ${reloads}; page ${JSON.stringify(await pageNow())})`);

@@ -136,7 +136,7 @@ const VIEWS = {
   'steps_sphere_cut_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
-  'shape_stroke_cmd.js': classic('the stroke rule of the classic globes\' lines and of the target outlines drawn on the canvas'),
+  'shape_stroke_cmd.js': steps({ pin: true }),
   'sv_construct_plane_cmd.js': steps(),
   'sv_all_sheets_cmd.js': steps(),
   'sv_state_cmd.js': steps(),
@@ -315,6 +315,7 @@ const VIEWS = {
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
   'reload_wait_cmd.js': steps({ pin: true }),
+  'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
   'kit_load_wait_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),

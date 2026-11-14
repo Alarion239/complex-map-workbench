@@ -1,8 +1,9 @@
-// P3 acceptance in the steps view (notes/sphere-design/SPEC.md 12.4 (f)): the globe of the plane after the map, at rest
-// on that plane, is exact. z^i(H): the hole cap empty, the annulus filled, rims exact, seen from below (the hole) and the
-// side; the Cayley images (w = 1, the image of infinity, without a notch; the lower half-plane's cover of the north
+// P3 acceptance in the steps view (notes/sphere-design/SPEC.md 12.4 (f), (h)): the globe of the plane after the map, at
+// rest on that plane, is exact. z^i(H): the hole cap empty, the annulus filled, rims exact, seen from below (the hole) and
+// the side; the Cayley images (w = 1, the image of infinity, without a notch; the lower half-plane's cover of the north
 // pole); log(H) filled up to the pole. The globe is the left pane at plane 1 on the Sphere surface; its pixels are
-// classified with the page's pick of the left pane (__cmwSphereWL).
+// classified with the page's pick of the left pane (__cmwSphereWL). At the end, (h): the plane's 300 dpi figure export
+// is exact and equals the screen, a cancelled export returns at once, and the dialog's last option wins.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the images shard (ci/browser_shards.js).
 // Prints {pass, fails, results}.
 const fails = [], R = {};
@@ -257,5 +258,102 @@ for (const [x, T, lines] of [[0.5, 1, true], [0.95, 0, false], [0.95, 1, true], 
   const held = R['held_' + x + '_' + T] = { x: await ev('__cmwSteps().x'), path: await ev('__cmwSvGlobe(0.5, 0.5).path'), lines: await ev('GLR.carriedGlobeGraticule') };
   ok(`held frame (x ${x}, colour plane ${T}): the carried mesh ${lines ? 'draws' : 'leaves out'} the graticule over its colour`, held.x === x && held.path === 'mesh' && held.lines === lines, held);
 }
+
+// ---- (h) the figure export of the plane at plane 1 of z^i(H), at 300 dpi: exact (the analytic annulus) and equal to the screen
+// scaled. The fill is read against the neutral export and the neutral screen (the shape's eye in the list hidden), as (g) reads it.
+// A cancelled export returns at once and never blocks the main thread for more than LONG_TASK_MS
+const FIG_DPI = 300, CSS_DPI = 96, MIN_EXPORT_SAMPLES = 100000, MAX_TRUTH_ERR = 1e-4, LONG_TASK_MS = 50;
+// the cancel comes CANCEL_MS after the export starts, and the export must have returned within CANCEL_SLACK_MS after it
+const CANCEL_MS = 40, CANCEL_SLACK_MS = 80;
+await load('p3sh' + Date.now(), Object.assign({ shapes: [H, REF(LOWER)], steps: [ZI], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+await ev('__cmwHideStrokes(true); __cmwSteps({ go: 1, now: true, surf: "plane", scope: "in", T: 0 }); 1'); await wait();
+// the export at FIG_DPI of the pane's plane (its plot box, the rulers left out) into the page's window[key] -> its [width, height] in px
+const exportInto = (key) => ev(`await (async () => {
+  const lk = __cmwLook('s1', 'L');
+  const img = new Image(); img.src = __cmwRenderOff('L', lk.W, lk.H, ${FIG_DPI} / ${CSS_DPI}); await img.decode();
+  const g = document.createElement('canvas'); g.width = img.width; g.height = img.height; const x = g.getContext('2d'); x.drawImage(img, 0, 0);
+  window.${key} = x.getImageData(0, 0, g.width, g.height).data;
+  return [g.width, g.height];
+})()`, 60000);
+// the screen and the export as drawn (D1, E1) and with s1 hidden (Db, Eb)
+await grab('L'); await ev('window.__p3D1 = window.__p3grab.L; 1');
+R.hSize = await exportInto('__p3E1');
+const eyeS1 = JSON.stringify('#shapeList .shape[data-id="s1"] .eye');
+await ev(`document.querySelector(${eyeS1}).click(); 1`); await wait();
+await grab('L'); await ev('window.__p3Db = window.__p3grab.L; 1');
+await exportInto('__p3Eb');
+await ev(`document.querySelector(${eyeS1}).click(); 1`); await wait();
+R.h = await ev(`(() => {
+  const lk = __cmwLook('s1', 'L'), cv = document.getElementById('canvasL');
+  const [EW, EH] = ${JSON.stringify(R.hSize)}, E1 = window.__p3E1, Eb = window.__p3Eb, D1 = window.__p3D1, Db = window.__p3Db, SW = cv.width, SH = cv.height;
+  const fill = (A, B, k) => Math.abs(A[4 * k] - B[4 * k]) + Math.abs(A[4 * k + 1] - B[4 * k + 1]) + Math.abs(A[4 * k + 2] - B[4 * k + 2]) > ${FILL_DIFF};
+  const e = Math.exp(-Math.PI), v = lk.view, rim = (a) => Math.min(Math.abs(a - 1), Math.abs(a - e)) * v.s < ${STROKE_MARGIN_PX};
+  // the export against the truth (outside STROKE_MARGIN_PX screen px of the rims, where the strokes are), at the export's px per unit
+  const se = v.s * EW / lk.W;
+  let n = 0, bad = 0, inter = 0, uni = 0;
+  for (let j = 0; j < EH; j++) for (let i = 0; i < EW; i++) {
+    const a = Math.hypot(v.cx + (i + 0.5 - EW / 2) / se, v.cy - (j + 0.5 - EH / 2) / se);
+    if (rim(a)) continue;
+    n++; if ((a > e && a < 1) !== fill(E1, Eb, j * EW + i)) bad++;
+  }
+  // the screen against the export sampled at screen pixel centres
+  const ss = v.s * lk.dpr;
+  for (let j = 0; j < SH; j++) for (let i = 0; i < SW; i++) {
+    if (rim(Math.hypot(v.cx + (i + 0.5 - SW / 2) / ss, v.cy - (j + 0.5 - SH / 2) / ss))) continue;
+    const ei = Math.min(EW - 1, Math.floor((i + 0.5) / SW * EW)), ej = Math.min(EH - 1, Math.floor((j + 0.5) / SH * EH));
+    const fs = fill(D1, Db, j * SW + i), fe = fill(E1, Eb, ej * EW + ei);
+    if (fs && fe) inter++; if (fs || fe) uni++;
+  }
+  return { EW, EH, dpi: +(EW / lk.W * ${CSS_DPI}).toFixed(2), SW, SH, W: lk.W, H: lk.H, n, bad, truthErr: bad / Math.max(1, n), inter, iou: uni ? inter / uni : 1 };
+})()`, 60000);
+ok(`(h) the export is ${FIG_DPI} dpi`, Math.abs(R.h.dpi - FIG_DPI) < 0.5, R.h);
+ok('(h) the export is exact (fill = annulus away from the strokes)', R.h.n > MIN_EXPORT_SAMPLES && R.h.truthErr <= MAX_TRUTH_ERR, R.h);
+ok(`(h) the export equals the screen scaled, IoU >= ${MIN_IOU}`, R.h.iou >= MIN_IOU && R.h.inter > MIN_INTER, R.h);
+// cancellation: a new chain (its inverse program compiles: the export waits for it), the steps view's figure cancelled after CANCEL_MS
+await load('p3shc' + Date.now(), Object.assign({ shapes: [H, { id: 's2', kind: 'disc', c: [0.4, 0.8], r: 0.3 }], steps: [ZI, { type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base));
+// (MathJax started: its own start, after the first paint, is not the export's main-thread time, #288)
+await settled({ max: 20000, until: '!!(window.MathJax && MathJax.startup && MathJax.startup.document) && __cmwFig.XD.ready()' });
+await ev('__cmwSteps({ go: 1, now: true }); 1');
+R.hc = await ev(`await (async () => {
+  const long = [];
+  const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); });
+  try { po.observe({ type: 'longtask' }); } catch (e) {}
+  let live = true; const t0 = performance.now();
+  setTimeout(() => { live = false; }, ${CANCEL_MS});
+  const res = await __cmwFig.build({ svPic: 'plane', alive: () => live });
+  const t1 = performance.now();
+  await new Promise((r) => setTimeout(r, 60));
+  po.disconnect();
+  // the full export afterwards (not cancelled): its time
+  const t2 = performance.now(); const f = await __cmwFig.build({ svPic: 'plane' }); const t3 = performance.now();
+  return { cancelled: res === null, returnedMs: Math.round(t1 - t0), longTasks: long, fullMs: Math.round(t3 - t2), fullOk: !!(f && f.svg && f.svg.length > 1000), view: f && f.view };
+})()`, 120000);
+ok('(h) a cancelled export returns null soon after the cancel', R.hc.cancelled && R.hc.returnedMs < CANCEL_MS + CANCEL_SLACK_MS, R.hc);
+ok(`(h) no main-thread task over ${LONG_TASK_MS} ms while preparing and cancelling`, (R.hc.longTasks || [null]).every((d) => d !== null && d <= LONG_TASK_MS), R.hc);
+ok('(h) the export of the shown plane completes when not cancelled', R.hc.fullOk, R.hc);
+
+// the dialog: options toggled while a figure is being made (each change cancels the one in progress): the last one wins, and no
+// main-thread task over LONG_TASK_MS meanwhile (after the first preview, whose caption typesetting is MathJax's). Its width switch is
+// Columns, 1 / 2, in the Article preset. A figure takes up to DLG_WAIT_MS to build with software rendering
+const DLG_WAIT_MS = 60000;
+const dlgReady = () => settled({ max: DLG_WAIT_MS, until: '(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()' });
+await key('e', 4);
+R.dlgFirst = (await dlgReady()).ok;
+await clickSel('#xfFor button[data-v="article"]'); await dlgReady();
+await clickSel('#xfCols button[data-v="2"]'); R.dlgFirst = R.dlgFirst && (await dlgReady()).ok;
+R.dlg = await ev(`await (async () => {
+  const long = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); });
+  try { po.observe({ type: 'longtask' }); } catch (e) {}
+  const btn = (v) => document.querySelector('#xfCols button[data-v="' + v + '"]');
+  for (const v of ['1', '2', '1', '2', '1']) { btn(v).click(); await new Promise((r) => setTimeout(r, 15)); }
+  for (const t0 = performance.now(); performance.now() - t0 < ${DLG_WAIT_MS};) { const d = __cmwFig.dialog(); if (d && d.fig && !d.building) break; await new Promise((r) => setTimeout(r, 50)); }
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  po.disconnect();
+  const d = __cmwFig.dialog(), on = document.querySelector('#xfCols [aria-checked="true"]');
+  return { long, cols: d && d.fig ? d.fig.cols : null, checked: on ? on.dataset.v : null, last: !!(d && d.fig && String(d.fig.cols) === '1' && on && on.dataset.v === '1'), building: !!(d && d.building) };
+})()`, DLG_WAIT_MS + 30000);
+await key('Escape');
+ok('(h) the dialog: the last option wins', R.dlgFirst && R.dlg.last, R.dlg);
+ok(`(h) the dialog: no main-thread task over ${LONG_TASK_MS} ms while options change`, (R.dlg.long || [null]).every((d) => d !== null && d <= LONG_TASK_MS), R.dlg);
 
 return { pass: fails.length === 0, fails, results: R };

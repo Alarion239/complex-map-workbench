@@ -6,9 +6,9 @@
 //   the left pane's last frame is not one held on the glide's first plane while the glide's pole tracks are made
 //   (UNHELD). The wait ends once two animation frames found that: the frame the idle job asked for when it ended the
 //   hold may still be queued, so a read of a picture goes through grab(), whose two equal reads are the frame at x, and
-//   a read of the glide's record (__cmwSteps().glide) waits for its u to be x too. The record is made only by the
-//   exact frames of a glide's inverse pass, not by a Landscape frame, a frame at the glide's ends or one the carried
-//   meshes draw, so the wait does not ask for it;
+//   a read of the glide's record (__cmwSteps().glide) waits for its u to be x too. The record (path 'inverse', 'mesh' or
+//   'none') is written by a frame drawn between two planes in the map's mode 1 that is not a still frame and not under
+//   a derivative step, and by no other, so the wait does not ask for it;
 // - UNHELD: an expression for settled()'s until, true when the left pane's last frame is not held on a glide's first
 //   plane for its missing pole tracks (__cmwSteps().hold, svHoldB: the idle job ends that hold once the tracks are made
 //   and asks for the frame at the thread's place). It is the wait for a read after the thread is placed directly,
