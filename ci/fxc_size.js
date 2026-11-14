@@ -4,21 +4,25 @@
 // inlined size (#238); the cloud renderers and the Mac do not show the cost. This walks a fixed set of scenes in headless
 // Chrome, takes each program's stages at linkProgram (GLR.profile(), ?glprof, names them: program, chain key, map mode)
 // and sizes each stage with every call expanded (ci/glsl_inline.js), so a program that grows is seen at merge time.
-//   node ci/fxc_size.js [--no-build] [--ref REF] [--json FILE]
+//   node ci/fxc_size.js [--no-build] [--ref REF] [--json FILE] [--pages N]
 // The scenes: the default example as the page opens, its first glide on the plane and on the globe, and its
 // Landscape; every example's first frame; and the typed formulas of TYPED, each with the same four.
 // The GL compiles nothing: each stage it is handed is a stub with the same transform-feedback output. What is measured
 // is the source the app writes, and a software renderer takes minutes to compile and draw these programs.
 // test/lib/late_links.js's KHR_parallel_shader_compile makes the app take a GPU's background-link paths.
 // --ref: the build of another commit too (ci/reference.js), walked the same way. Exit 1 when a stage of this build is
-// over NEW_KB and its program is new, or is over GROW_KB and grew by more than GROW. A program is matched by its name,
-// map mode and the chain key's first 40 characters (all GLR.profile() keeps); sources that share those are told apart
-// by the order they were first linked in.
+// over NEW_KB and its program is new, or is over GROW_KB and grew by more than GROW. A program is its name, map mode and
+// key (GLR.profile() keeps the key's first 40 characters), with the rest of an inverse program's key read from its source
+// (variantOf) and, for a chain's program, the scene that linked it (sceneOf: two chains can share those 40 characters).
+// A program only this build's walk linked, of a name and a key the reference's walk linked too, is listed apart, never
+// failed: the walk, not the code, differs. Sources that share an id are one program at the larger size of each.
+// --pages N: the browsers that walk at a time (default: one per 2 CPUs and 4 GB, at least 1).
 // Prints the largest programs with their top functions (copies × own size) and their flagged loops (the loops with a
 // constant trip bound whose body calls into the chain, which FXC can unroll); --json FILE writes every program.
 // Exit 0 pass, 1 a program over the limits, 2 a setup problem.
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference } = require('./reference');
@@ -38,8 +42,10 @@ const TYPED = [['sin(z)/z', 'z^3-2z+1', 'exp(sin(z))'], ['gamma(z)', 'log(z^2+1)
 // a step is settled when no link is pending, the steps view is ready (its programs and its warm-up draw: svReady), the
 // app's background warm-up has started every group (the deformation's, the globe's and the Landscape's programs:
 // __cmwWarm's phase 'done') and no link has started for QUIET_MS; one still linking after STEP_MS is left as it is. A
-// page's last step waits DRAIN_MS. PAGES_AT_ONCE browsers walk at a time.
-const QUIET_MS = 800, DRAIN_MS = 3000, STEP_MS = 30000, PAGES_AT_ONCE = 4;
+// page's last step waits DRAIN_MS.
+const QUIET_MS = 800, DRAIN_MS = 3000, STEP_MS = 30000;
+const GB = 1024 ** 3;
+const PAGES_AT_ONCE = Math.max(1, Math.min(Math.floor(os.cpus().length / 2), Math.floor(os.totalmem() / (4 * GB))));
 const TOP = 20;
 
 // in the page, before the app: each program's stages recorded at linkProgram (window.__fxcLinks: [vs, fs]), and the GL
@@ -76,7 +82,7 @@ const paste = (f) => `(() => { const i = document.querySelector('input[data-pkey
 const PARK = '__cmwSteps({ park: 0.5 })', PLANE_1 = '(__cmwSteps({ go: 1, now: true }), true)';
 const fourScenes = (tag) => [[`${tag}: glide`, PARK], [`${tag}: plane 1`, PLANE_1], [`${tag}: globe`, `(${SC.glideBack()}, ${SC.surface('sphere')})`],
   [`${tag}: globe glide`, PARK], [`${tag}: Landscape`, `(${SC.glideBack()}, ${SC.surface('plane')}, ${SC.main('land')})`], [`${tag}: back`, SC.main('xy')]];
-// the pages, each walked in a browser of its own (PAGES_AT_ONCE at a time): { formula (the step the page opens with;
+// the pages, each walked in a browser of its own (some at a time: walk): { formula (the step the page opens with;
 // none: the default example), steps: [label, statement] (the first: the page as it opens) }
 function pages(names) {
   const half = Math.ceil(names.length / 2), open = ['the default example', null];
@@ -127,13 +133,16 @@ async function walkPage(base, page) {
   } finally { await B.close(); }
   return out;
 }
-// one build's walk: its pages' links in the pages' order -> { renderer, ms, steps, links }
-async function walk(base, root) {
+// one build's walk, `at` pages at a time: its pages' links in the pages' order -> { renderer, ms, steps, links, memory
+// (the machine's memory in use, at the start and at its peak, sampled each second) }
+async function walk(base, root, at) {
   const t0 = Date.now(), list = pages(SC.exampleNames(root)), done = [];
+  const used = () => os.totalmem() - os.freemem(), memory = { start: used(), peak: used() };
+  const sampler = setInterval(() => { memory.peak = Math.max(memory.peak, used()); }, 1000);
   let next = 0;
   const browser = async () => { while (next < list.length) { const i = next++; done[i] = await walkPage(base, list[i]); } };
-  await Promise.all(Array.from({ length: PAGES_AT_ONCE }, browser));
-  return { renderer: done[0].renderer, ms: Date.now() - t0, steps: done.flatMap((d) => d.steps), links: done.flatMap((d) => d.links) };
+  try { await Promise.all(Array.from({ length: at }, browser)); } finally { clearInterval(sampler); }
+  return { renderer: done[0].renderer, ms: Date.now() - t0, steps: done.flatMap((d) => d.steps), links: done.flatMap((d) => d.links), memory };
 }
 
 // one stage sized: { src (characters), size (inlined), top: [[function, copies, own]...], loops }
@@ -143,43 +152,59 @@ function stage(src) {
   const top = [...r.copies].map(([fn, k]) => [fn, k, r.own.get(fn)]).sort((a, b) => b[1] * b[2] - a[1] * a[2]).slice(0, 8);
   return { src: src.length, size: r.size, top, loops: r.loops };
 }
-// a walk's links as programs: one per id (name, map mode, key, and #n for the n-th source those share), each stage
-// sized once
+// what an inverse program's key holds past GLR.profile()'s 40 characters, read from its fragment stage: the carried,
+// staged and NR-pass variants and the B class (src/gl/07-inverse-api.js, invProgKey); '' for any other program
+function variantOf(fsSrc) {
+  const b = /\bconst int IX_B = (\d+);/.exec(fsSrc);
+  if (!b) return '';
+  const on = (d) => new RegExp(`^#define ${d}\\b`, 'm').test(fsSrc);
+  return [on('IX_CARRY') && 'carry', on('IX_STAGED') && 'staged', on('IX_NR_PASS') && 'nr', `B${b[1]}`].filter(Boolean).join(',');
+}
+// the scene a step belongs to: a formula or an example (its label before the first ': ')
+const sceneOf = (step) => step.split(': ')[0];
+// a walk's links as programs, one per id (above), each stage sized once; sources sharing an id (sources > 1) are one
+// program at the larger size of each stage
 function programs(links) {
-  const rows = new Map(), sources = new Map(), sized = new Map();
+  const rows = new Map(), seen = new Set(), sized = new Map();
   const hash = (s) => crypto.createHash('sha1').update(s).digest('hex');
   const sizeOf = (src) => { const h = hash(src); if (!sized.has(h)) sized.set(h, stage(src)); return sized.get(h); };
   for (const l of links) {
-    const base = `${l.name}|m${l.mode}|${l.key}`, h = hash(l.vs + '\0' + l.fs);
-    if (!sources.has(base)) sources.set(base, []);
-    const list = sources.get(base);
-    if (!list.includes(h)) list.push(h);
-    const id = base + (list.indexOf(h) ? `#${list.indexOf(h) + 1}` : '');
-    if (rows.has(id)) { rows.get(id).links++; continue; }
-    rows.set(id, { id, name: l.name, mode: l.mode, key: l.key, inv: l.inv, scene: l.step, links: 1, vs: sizeOf(l.vs), fs: sizeOf(l.fs) });
+    const variant = variantOf(l.fs);
+    const id = `${l.name}|m${l.mode}|${l.key}${variant ? '|' + variant : ''}${l.key === 'static' ? '' : ' @ ' + sceneOf(l.step)}`;
+    const h = hash(id + '\0' + l.vs + '\0' + l.fs);
+    const row = rows.get(id);
+    if (seen.has(h)) { row.links++; continue; }
+    seen.add(h);
+    const vsSized = sizeOf(l.vs), fsSized = sizeOf(l.fs);
+    if (!row) rows.set(id, { id, name: l.name, mode: l.mode, key: l.key, variant, inv: l.inv, scene: l.step, links: 1, sources: 1, vs: vsSized, fs: fsSized });
+    else Object.assign(row, { links: row.links + 1, sources: row.sources + 1, vs: vsSized.size > row.vs.size ? vsSized : row.vs, fs: fsSized.size > row.fs.size ? fsSized : row.fs });
   }
   return [...rows.values()].sort((a, b) => big(b) - big(a));
 }
 const big = (p) => Math.max(p.vs.size, p.fs.size);
 
-// this build's stages over the limits against the reference's programs: [{ id, scene, stage, now, was (null: new) }]
+// this build's programs against the reference's -> { fails: the stages over the limits [{ id, scene, stage, now, was
+// (null: new) }], walk: the programs only this walk linked whose name and key the reference's walk linked too }
 function compare(head, ref) {
-  const old = new Map(ref.map((p) => [p.id, p]));
-  const out = [];
+  const old = new Map(ref.map((p) => [p.id, p])), names = new Set(ref.map((p) => p.name)), keys = new Set(ref.map((p) => p.key));
+  const fails = [], walkOnly = [];
   for (const p of head) {
+    if (!old.has(p.id) && names.has(p.name) && keys.has(p.key)) { walkOnly.push(p); continue; }
     for (const st of ['vs', 'fs']) {
       const now = p[st].size, was = old.has(p.id) ? old.get(p.id)[st].size : null;
-      if (was === null ? now > LIMITS.NEW_KB * KB : now > LIMITS.GROW_KB * KB && now > LIMITS.GROW * was) out.push({ id: p.id, scene: p.scene, stage: st, now, was });
+      if (was === null ? now > LIMITS.NEW_KB * KB : now > LIMITS.GROW_KB * KB && now > LIMITS.GROW * was) fails.push({ id: p.id, scene: p.scene, stage: st, now, was });
     }
   }
-  return out;
+  return { fails, walk: walkOnly };
 }
 
 const k1 = (n) => (n / KB).toFixed(1);
-const progLabel = (p) => `${p.name} m${p.mode} \`${esc(p.key)}\``;
-function report(head, ref, fails) {
+const progLabel = (p) => `${p.name} m${p.mode} \`${esc(p.key)}\`${p.variant ? ` ${p.variant}` : ''}`;
+function report(head, ref, { fails, walk: walkOnly }) {
   const L = [`### Inlined program sizes, as FXC sees them (${head.renderer || 'unknown renderer'})`, '',
-    `${head.programs.length} programs (${head.links.length} links) over ${head.steps.length} steps, ${(head.ms / 1000).toFixed(0)} s.`
+    `${head.programs.length} programs (${head.links.length} links) over ${head.steps.length} steps, ${(head.ms / 1000).toFixed(0)} s,`
+    + ` ${head.at} pages at a time; the machine's memory in use: ${(head.memory.peak / GB).toFixed(1)} GB at the peak`
+    + ` (${(head.memory.start / GB).toFixed(1)} GB at the start) of ${(os.totalmem() / GB).toFixed(1)} GB.`
     + ' KB: characters / 1024 with every call expanded; source: vs + fs as written.', '',
     '| # | program | scene | fs KB | vs KB | source KB | top functions (copies × KB) | loops |', '|---|---|---|---|---|---|---|---|'];
   head.programs.slice(0, TOP).forEach((p, i) => {
@@ -204,8 +229,10 @@ function report(head, ref, fails) {
     const old = new Map(ref.programs.map((p) => [p.id, p]));
     const moved = head.programs.filter((p) => old.has(p.id) && big(p) !== big(old.get(p.id)))
       .sort((a, b) => Math.abs(big(b) - big(old.get(b.id))) - Math.abs(big(a) - big(old.get(a.id)))).slice(0, TOP);
-    L.push('', `Against the reference ${ref.sha.slice(0, 12)}: ${head.programs.filter((p) => !old.has(p.id)).length} programs new, `
-      + `${ref.programs.filter((p) => !head.programs.some((q) => q.id === p.id)).length} gone, ${moved.length ? 'the largest changes' : 'no size changed'}:`, '');
+    const ids = new Set(head.programs.map((p) => p.id));
+    L.push('', `Against the reference ${ref.sha.slice(0, 12)}: ${head.programs.filter((p) => !old.has(p.id)).length - walkOnly.length} programs new, `
+      + `${walkOnly.length} linked by this walk only (their name and key are in the reference's walk), ${ref.programs.filter((p) => !ids.has(p.id)).length} gone`
+      + `${walkOnly.length ? ` (this walk only: ${walkOnly.map((p) => `${p.id} ${k1(big(p))} KB`).join('; ')})` : ''}; ${moved.length ? 'the largest changes' : 'no size changed'}:`, '');
     if (moved.length) {
       L.push('| program | scene | reference KB | this build KB | change |', '|---|---|---|---|---|');
       for (const p of moved) { const a = big(old.get(p.id)), b = big(p); L.push(`| ${progLabel(p)} | ${esc(p.scene)} | ${k1(a)} | ${k1(b)} | ${b >= a ? '+' : ''}${((b / a - 1) * 100).toFixed(1)} % |`); }
@@ -219,29 +246,30 @@ function report(head, ref, fails) {
 async function main() {
   const argv = process.argv.slice(2);
   const opt = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : null);
-  const REF = opt('--ref'), OUT = opt('--json');
+  const REF = opt('--ref'), OUT = opt('--json'), AT = Number(opt('--pages')) || PAGES_AT_ONCE;
   if (!argv.includes('--no-build') && run(PY, ['build.py'])) process.exit(2);
   const sides = [{ root: ROOT, dist: path.join(ROOT, 'dist') }];
   if (REF) { const R = buildReference(REF); sides.push({ root: R.dir, dist: R.dist, sha: R.sha }); }
   for (const s of sides) {
     PAGES['blank.html'](s.dist, 'blank.html');
     const { server, base } = await serve(s.dist);
-    try { Object.assign(s, await walk(base, s.root)); } finally { server.close(); }
+    try { Object.assign(s, await walk(base, s.root, AT), { at: AT }); } finally { server.close(); }
     s.programs = programs(s.links);
-    console.log(`[fxc_size] ${s.sha ? 'reference ' + s.sha.slice(0, 12) : 'this build'}: ${s.programs.length} programs, ${s.links.length} links, ${(s.ms / 1000).toFixed(0)} s`);
+    console.log(`[fxc_size] ${s.sha ? 'reference ' + s.sha.slice(0, 12) : 'this build'}: ${s.programs.length} programs, ${s.links.length} links, ${(s.ms / 1000).toFixed(0)} s,`
+      + ` ${AT} pages at a time, memory in use ${(s.memory.peak / GB).toFixed(1)} GB at the peak (${(s.memory.start / GB).toFixed(1)} GB at the start)`);
   }
   const [head, ref] = sides;
-  const fails = ref ? compare(head.programs, ref.programs) : [];
-  const md = report(head, ref, fails);
+  const verdict = ref ? compare(head.programs, ref.programs) : { fails: [], walk: [] }, { fails } = verdict;
+  const md = report(head, ref, verdict);
   summary(md);
   if (process.env.GITHUB_STEP_SUMMARY) console.log(md);
   if (OUT) {
-    const side = (s) => ({ sha: s.sha || null, renderer: s.renderer, ms: s.ms, steps: s.steps, programs: s.programs });
-    fs.writeFileSync(OUT, JSON.stringify({ when: new Date().toISOString(), limits: LIMITS, head: side(head), ref: ref ? side(ref) : null, fails }, null, 1));
+    const side = (s) => ({ sha: s.sha || null, renderer: s.renderer, ms: s.ms, at: s.at, memory: s.memory, steps: s.steps, programs: s.programs });
+    fs.writeFileSync(OUT, JSON.stringify({ when: new Date().toISOString(), limits: LIMITS, head: side(head), ref: ref ? side(ref) : null, fails, walkOnly: verdict.walk.map((p) => p.id) }, null, 1));
     console.log(`[fxc_size] wrote ${OUT}`);
   }
   process.exit(fails.length ? 1 : 0);
 }
 
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(2); });
-module.exports = { compare, LIMITS };
+module.exports = { compare, programs, LIMITS };

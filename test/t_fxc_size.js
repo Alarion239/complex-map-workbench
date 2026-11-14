@@ -6,10 +6,13 @@
 //     guarded by a uniform, nor one that calls no chain function;
 // (d) the preprocessor's rules (defined, an undefined name is 0, #undef, nesting) and its errors;
 // (e) --ref: a program whose inlined size doubled is caught, so is a new one over 100 KB; an unchanged one, a new one
-//     under 100 KB and growth under the limits are not.
+//     under 100 KB and growth under the limits are not. A program only this walk linked, of a name and a key the
+//     reference's walk linked too, is listed apart and never failed;
+// (f) the ids: the variants of an inverse program that share GLR.profile()'s 40 characters of key, and one chain key in
+//     two scenes, are told apart; sources that share an id are one program at the larger size of each stage.
 // Run: node test/t_fxc_size.js
 const { preprocess, inline } = require('../ci/glsl_inline.js');
-const { compare, LIMITS } = require('../ci/fxc_size.js');
+const { compare, programs, LIMITS } = require('../ci/fxc_size.js');
 let fails = 0, n = 0;
 const ok = (c, msg) => { n++; if (!c) { fails++; console.log('FAIL', msg); } };
 const eq = (a, b, msg) => ok(JSON.stringify(a) === JSON.stringify(b), `${msg}: ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
@@ -83,15 +86,34 @@ void main() {
 {
   const heavy = `float heavy(float x) {\n${'  x = x * 1.0001 + sin(x);\n'.repeat(1800)}  return x;\n}\n`;
   const prog = (calls) => `precision highp float;\n${heavy}void main() { float x = 1.0;${' x = heavy(x);'.repeat(calls)} gl_FragColor = vec4(x); }\n`;
-  const row = (id, size) => ({ id, scene: 'fixture', vs: { size: 100 }, fs: { size } });
+  const row = (id, size, name = id, key = id) => ({ id, name, key, scene: 'fixture', vs: { size: 100 }, fs: { size } });
   const once = inline(prog(1)).size, twice = inline(prog(2)).size;
+  const failed = (head, ref) => compare(head, ref).fails.map((f) => [f.id, f.stage, f.now, f.was]);
   ok(once > LIMITS.GROW_KB * 1024 && twice > 1.9 * once, `(e) the fixture: ${once} characters once, ${twice} twice`);
-  eq(compare([row('p', twice)], [row('p', once)]).map((f) => [f.id, f.stage, f.now, f.was]), [['p', 'fs', twice, once]], '(e) a doubled program is caught');
-  eq(compare([row('p', once)], [row('p', once)]), [], '(e) an unchanged program passes');
-  eq(compare([row('p', once), row('q', 101 * 1024)], [row('p', once)]).map((f) => f.id), ['q'], '(e) a new program over 100 KB is caught');
-  eq(compare([row('p', once), row('q', 99 * 1024)], [row('p', once)]), [], '(e) a new program under 100 KB passes');
-  eq(compare([row('p', 30 * 1024)], [row('p', 15 * 1024)]), [], '(e) growth of a program under 40 KB passes');
-  eq(compare([row('p', 1.15 * once)], [row('p', once)]), [], '(e) growth under 20 % passes');
+  eq(failed([row('p', twice)], [row('p', once)]), [['p', 'fs', twice, once]], '(e) a doubled program is caught');
+  eq(failed([row('p', once)], [row('p', once)]), [], '(e) an unchanged program passes');
+  eq(failed([row('p', once), row('q', 101 * 1024)], [row('p', once)]), [['q', 'fs', 101 * 1024, null]], '(e) a new program over 100 KB is caught');
+  eq(failed([row('p', once), row('q', 99 * 1024)], [row('p', once)]), [], '(e) a new program under 100 KB passes');
+  eq(failed([row('p', 30 * 1024)], [row('p', 15 * 1024)]), [], '(e) growth of a program under 40 KB passes');
+  eq(failed([row('p', 1.15 * once)], [row('p', once)]), [], '(e) growth under 20 % passes');
+  // (r: the name of p, the key of q, both linked by the reference's walk; s: a key that walk never linked)
+  const v = compare([row('p', once), row('r', 300 * 1024, 'p', 'q'), row('s', 300 * 1024, 'p', 's')], [row('p', once), row('q', once)]);
+  eq([v.fails.map((f) => f.id), v.walk.map((p) => p.id)], [['s'], ['r']], '(e) a program only this walk linked is listed apart; a new key fails');
+}
+
+// (f) the ids, from links as the walk records them
+{
+  const stageOf = (head) => `${head}\nvoid main() { o = vec4(0.0); }\n`;
+  const link = (step, fs, key = 'inv|["inv2",[["AFF","SIN","AFF","EXP","AFF"]]]') => ({ step, name: 'inv', mode: 0, key, inv: true, vs: 'void main() { gl_Position = vec4(0.0); }', fs });
+  const plain = stageOf('const int IX_B = 5;'), carried = stageOf('#define IX_CARRY 1\nconst int IX_B = 5;'), b3 = stageOf('const int IX_B = 3;');
+  const longer = 'const int IX_B = 3;\nfloat pad() { return 1.0; }\nvoid main() { o = vec4(pad()); }\n';
+  const P = programs([link('typed f: glide', carried), link('typed f: glide', plain), link('typed f: globe', b3), link('typed f: back', longer),
+    link('typed g: glide', plain), link('typed g: glide', plain)]);
+  const ids = P.map((p) => p.id).sort();
+  const base = 'inv|m0|inv|["inv2",[["AFF","SIN","AFF","EXP","AFF"]]]';
+  eq(ids, [`${base}|B3 @ typed f`, `${base}|B5 @ typed f`, `${base}|B5 @ typed g`, `${base}|carry,B5 @ typed f`], '(f) one id per variant and scene');
+  const f3 = P.find((p) => p.id === `${base}|B3 @ typed f`), g5 = P.find((p) => p.id === `${base}|B5 @ typed g`);
+  eq([f3.sources, f3.links, f3.fs.size, g5.sources, g5.links], [2, 2, inline(longer).size, 1, 2], '(f) two sources of one id: one program, the larger; one source linked twice: one source');
 }
 
 console.log(`${n - fails} of ${n} checks pass`);
