@@ -677,7 +677,7 @@
  "Plane {p}, {i} of {n}": "Плоскость {p}, {i} из {n}",
  "Label": "Подпись",
  "No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw": "Нет шага, ведущего к %{p}, поэтому путей t ↦ Hₜ(z) нет",
- "landscape of {h}{sheets}, colour carried from {p}": "рельеф функции %{h}%{sheets}, цвет, перенесённый из %{p}",
+ "landscape of {h}{sheets}, carried from {p}": "рельеф функции %{h}%{sheets}, перенесённый из %{p}",
  "Drawn from {p}'s targets": "Нарисовано по целям %{p}",
  "Shaded from {p}'s targets": "Закрашено по целям %{p}",
  "Shaded and drawn from {p}'s targets": "Закрашено и нарисовано по целям %{p}",
@@ -717,5 +717,9 @@
  "Nothing to fit yet": "Пока нечего вписывать",
  "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, плоскость, плоская, область, z-плоскость, фазовый портрет, раскраска области, раскраска, цвет, фаза, аргумент, модуль",
  "riemann sphere, globe, infinity, sphere": "riemann sphere, globe, infinity, sphere, сфера римана, глобус, бесконечность, сфера",
- "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы"
+ "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы",
+ "log of the modulus": "логарифм модуля",
+ "modulus": "модуль",
+ "real part": "вещественная часть",
+ "imaginary part": "мнимая часть"
 }

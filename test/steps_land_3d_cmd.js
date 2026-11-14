@@ -9,12 +9,13 @@
 //   there, within the exact-image tolerance (at most 2 % of the pane's pixels more than 32/255 apart: the rest frame's
 //   refined walls and cut rims are not drawn while moving);
 // - past T the carried points keep T's colour: plane w₂'s frame at rest is the points of w₁ carried (s = 1, u = 1);
-// - the title names the height, h(F) on every plane ("landscape of log|F|", and "|F|", "Re F", "Im F" as the Height
-//   select reads), then past T the carried colour (", colour carried from w₁"); the floor's axes name the plane drawn
+// - the title names what the height reads, which follows T: the map into T up to it ("landscape of log|f₁|", F from z into the
+//   last plane), T's own variable on T ("log|w₁|"), and past T T's variable and that the points carry it (", carried
+//   from w₁"), as the Height select reads ("|·|", "Re", "Im"); the floor's axes name the plane drawn
 //   (Re w₁, Im w₁ on w₁), and in a held frame the plane nearer the thread.
 // - a chain with a d/dz step (z², d/dz, exp), with T = w₁: planes w₂ and w₃ past T are coloured from T through the z
 //   points they share with it, as their 2D pictures are: at rest each is plane z's points carried (s = 0), titled
-//   ", colour carried from w₁"; the glides w₁ → w₂ across the d/dz and w₂ → w₃ carry plane z's points continuously
+//   ", carried from w₁"; the glides w₁ → w₂ across the d/dz and w₂ → w₃ carry plane z's points continuously
 //   (held at 1.25, 1.75, 2.5: s = 0, u the glide's, coloured), and held by either end of the d/dz glide the frame is that
 //   plane at rest. On w₃, which exp(2z) reaches from many z points at one height, the frame shows the point the 2D
 //   picture shows (its sheet key), with no fighting: no more speckled than w₂, and steady under a small camera turn.
@@ -45,6 +46,9 @@ await ev(`(() => { const f = CanvasRenderingContext2D.prototype.fillText; window
 await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
 await settled({ max: 60000 });
 const planes = await ev('__cmwSteps().planes');
+// what the title says plane i's height reads with T on the default page (z, exp, Möbius), under the height h (h(x) the
+// Height select's form of x), then past T where it is carried from
+const heightOf = (T, i, h = (x) => `log|${x}|`) => h(i > T ? `w${'₀₁₂'[T]}` : i === T ? `w${'₀₁₂'[i]}` : T === 2 && i === 0 ? 'F' : i === 0 ? 'f₁' : 'f₂') + (i > T ? `, carried from w${'₀₁₂'[T]}` : '');
 ok('the default page has three planes', Array.isArray(planes) && planes.length === 3, planes);
 info.runs = {};
 for (const T of [1, 2]) {
@@ -60,8 +64,8 @@ for (const T of [1, 2]) {
     ok(`T = ${T}, plane ${i} at rest: the Landscape`, s.main === 'land', s);
     ok(`T = ${T}, plane ${i} at rest: the Height key`, s.key, s);
     ok(`T = ${T}, plane ${i} at rest: the user's pitch`, Math.abs(s.pitch - pitch0) < 1e-9, s);
-    const nm = i === 0 ? 'z' : `w${'₀₁₂'[i]}`, want = 'landscape of log|F|' + (i > T ? ', colour carried from w₁' : '');
-    ok(`T = ${T}, plane ${i} at rest: the title names h(F)`, s.title.endsWith(want), s.title);
+    const nm = i === 0 ? 'z' : `w${'₀₁₂'[i]}`, want = 'landscape of ' + heightOf(T, i);
+    ok(`T = ${T}, plane ${i} at rest: the title names what the height reads`, s.title.endsWith(want), s.title);
     ok(`T = ${T}, plane ${i} at rest: the axes name ${nm}`, s.axes.includes('Re ' + nm) && s.axes.includes('Im ' + nm) && s.axes.length === 2, s.axes);
     ok(`T = ${T}, plane ${i} at rest: the probe finds the point under the pane's centre`, Array.isArray(s.pick) && s.pick.every(Number.isFinite), s);
   }
@@ -98,12 +102,12 @@ for (const T of [1, 2]) {
 // the title follows the Height select, on a plane before T and on one past it
 await ev(`__cmwSteps({ T: 1 }); 1`);
 info.heights = {};
-for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
+for (const [v, h] of [['abs', (x) => `|${x}|`], ['re', (x) => `Re ${x}`], ['im', (x) => `Im ${x}`]]) {
   await ev(`(document.querySelector('#heightSeg button[data-v="${v}"]') || {}).click?.(), 1`);
   for (const i of [0, 2]) {
     await rest(i);
-    const t = info.heights[v + i] = (await state()).title;
-    ok(`height ${v}, plane ${i}: the title names ${h}`, t.endsWith(`landscape of ${h}` + (i > 1 ? ', colour carried from w₁' : '')), t);
+    const t = info.heights[v + i] = (await state()).title, want = 'landscape of ' + heightOf(1, i, h);
+    ok(`height ${v}, plane ${i}: the title names ${want}`, t.endsWith(want), t);
   }
 }
 // ---- a chain with a d/dz step: the planes past it carry plane z's points in T's colour ----
@@ -123,7 +127,7 @@ for (const [v, h] of [['abs', '|F|'], ['re', 'Re F'], ['im', 'Im F']]) {
     ok(`d/dz chain, T = 1, plane ${i} at rest: the Landscape`, s.main === 'land' && s.key, s);
     if (i === 1) continue;
     ok(`d/dz chain, T = 1, plane ${i} at rest: plane z's points carried, coloured`, !!s.carry && s.carry.s === 0 && s.carry.u === 1 && !s.carry.plain, s.carry);
-    ok(`d/dz chain, T = 1, plane ${i} at rest: the title names the carried colour`, s.title.endsWith('landscape of log|F|, colour carried from w₁'), s.title);
+    ok(`d/dz chain, T = 1, plane ${i} at rest: the title names the carried height and colour`, s.title.endsWith('landscape of log|w₁|, carried from w₁'), s.title);
   }
   // no fighting on w₃ at rest: exp(2z) takes many z points to one spot of w₃ at one height, in different colours; the
   // frame shows one of them per pixel, the 2D picture's (its sheet key), so it is no more speckled than w₂'s (the share

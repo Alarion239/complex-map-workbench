@@ -60,13 +60,14 @@
   // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
   const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
-  // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
-  // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
-  // no map from w_k (then the colour plane, or past it w_k itself)
-  function svHT(k) { const P = svPlanes(), L = P[P.length - 1]; return k === 0 || !derivIn(k, L) ? L : Math.max(k, svT()); }
-  // the height map of plane k (a map spec of plane k) and its CPU twin
-  const svHeightMap = (k) => ({ mode: 0, a: k, b: svHT(k) });
-  const svHeightF = (k) => { const t = svHT(k); return k === t ? (z) => z : rangeF(k, t); };
+  // The Landscape's height follows the colour plane T, as the colour does: a point's height is h of its image in T,
+  // the same on every plane. Plane k's heights are carried by the points of plane svHeightSrc(k): k itself up to T (the
+  // map from w_k into T, the colour's), T's own points past it (as they carry T's colour), and z's points where a d/dz
+  // step between k and T leaves no map from the later plane to the earlier one's, as the colour's carry
+  const svHeightSrc = (k) => { const T = svT(), a = Math.min(k, T); return derivIn(a, Math.max(k, T)) ? 0 : a; };
+  // the height map of plane k: a map spec from plane svHeightSrc(k) into T, and its CPU twin
+  const svHeightMap = (k) => ({ mode: 0, a: svHeightSrc(k), b: svT() });
+  const svHeightF = (k) => { const s = svHeightSrc(k), T = svT(); return s === T ? (z) => z : rangeF(s, T); };
   // plane k's Landscape is plain: k is before the colour plane T with a d/dz step between them, so its 2D picture has no
   // colour (shapes only). Every plane past T is coloured from T, through the z points it shares with T when a d/dz step
   // lies between them
@@ -83,6 +84,13 @@
     const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : tex ? `f_{${s}}` : `f${sub(s)}`), q = ss.slice().reverse();
     const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
     return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
+  }
+  // the name of what the Landscape's height reads on plane k (fmt as svMapName's): the map into the colour plane up to T
+  // ("f₂", F from z into the last plane), the plane's own variable on T, and T's variable where the points carry T's
+  // heights (past T, or before it across a d/dz step)
+  function svHeightName(fmt, k = svStage()) {
+    const T = svT(), m = svColoured(k) ? svMapName(fmt, k, T) : null;
+    return m || (fmt === 'html' ? wHtml(T) : fmt === 'tex' ? (T === 0 ? 'z' : `w_{${T}}`) : svName(T));
   }
   // the longest step formula, in TeX characters, that the export's caption shows in its display: a longer one would
   // not fit the display's one line, so the caption names the map without it
@@ -125,14 +133,14 @@
     return hit.length ? hit[0].z : null;
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
-  // colour plane the colour is carried by the points, which the role says. A Landscape names its height, h(F) on every
-  // plane (svHeightF), then the carried colour past T
+  // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
+  // then past T that the points carry it and their colour from T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
     if (SV.surf === 'land' && svMain(k) === 'land') {
-      const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
-      role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+      const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
+      role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
       short = $t('landscape');
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === 0 && S.dc === 'cauchy' && cauchyPlot()) { role = $t('Cauchy integral over {name}', { name: cauchyPlot().name }); short = $t('Cauchy integral'); }
@@ -329,9 +337,9 @@
     return true;
   }
   // the plane a carry starts from: s0, unless a d/dz step lies between s0 and a plane in ts it must reach (the places,
-  // the colour plane, the planes the heights read), or All sheets draws a multivalued chain; then z's plane. Every stage
-  // is a function of z (chainRange from plane 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a
-  // step before s0 exist only as the preimages of z's points
+  // the colour plane), or All sheets draws a multivalued chain; then z's plane. Every stage is a function of z
+  // (chainRange from plane 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist
+  // only as the preimages of z's points
   const svCarryFrom = (s0, ts) => (S.sheets && multiSheet() || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
   // the longest edge a cell of the carried grid may have once placed by the glide's map, as a share of the pane's longer
   // side (svLandCarry's lim, in the plane's units): a cell stretched past it, by a pole of the map or a fold, is left
@@ -339,30 +347,68 @@
   const LAND_CELL_SPAN = 0.35;
   // The Landscape as the points of a source plane s carried (render3D's carry), from plane a's surface at u = 0 to plane
   // b's at u = 1 (b null: a's). s is min(a, T), or z's plane when a d/dz step lies in the way or All sheets draws a
-  // multivalued chain (svCarryFrom), so every point past T keeps T's colour. Each point is placed by mapOf(s) (a map spec from plane s), at its height h(F) (the
-  // stages (s, hT] blended over u into (s, hT2]: the heights of planes a and b, svHT) and in its colour (the stages
-  // (s, T]), or in no colour while the nearer plane is plain (svPlain; T is then s). key: from z's
-  // plane to a later one, the 2D carried colour's sheet key of the plane the frame goes to (svSheetKey), so where the
-  // places fold the point in front is the one the 2D picture shows; else null. vs, va, vb: the shared camera's view (S.srcView: a glide moves the picture, never the view), the same for s, a and b.
+  // multivalued chain (svCarryFrom), so every point past T keeps T's colour and height. Each point is placed by mapOf(s)
+  // (a map spec from plane s), at the height of its image in T (hmap, the stages (s, T]: the same on planes a and b and
+  // in every frame between them) and in that image's colour, or in no colour while the nearer plane is plain (svPlain;
+  // T is then s, and the height plane hT stays the colour plane). key: from z's plane to a later one, the 2D carried
+  // colour's sheet key of the plane the frame goes to (svSheetKey), so where the places fold the point in front is the
+  // one the 2D picture shows; else null. vs, va, vb: the shared camera's view (S.srcView: a glide moves the picture,
+  // never the view), the same for s, a and b.
   // rest: the plane at rest the frame is (the probe picks on its relief), else null. zmap: the same map from z's plane, the
   // map the shapes' outlines are drawn under, so the floor's lines are carried as the surface is
   function svLandCarry(mapOf, a, b, u, rest = null) {
-    const T0 = svT(), e = b == null ? a : b, hT = svHT(a), hT2 = svHT(e), plain = svPlain(u < 0.5 ? a : e);
-    const s = svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
-    const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: hT };
+    const T0 = svT(), e = b == null ? a : b, plain = svPlain(u < 0.5 ? a : e);
+    const s = svCarryFrom(Math.min(a, T0), [e, T0]), T = plain ? s : T0;
+    const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: T0 };
     const cam = S.srcView;
     const key = !plain && s === 0 && e > 0 ? svSheetKey(e) : null;
-    return { map: mapOf(s), zmap: mapOf(0), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: cam, va: cam, vb: b == null ? null : cam, rest };
+    return { map: mapOf(s), zmap: mapOf(0), s, T, hT: T0, hmap, plain, key, lim, u, a, b, vs: cam, va: cam, vb: b == null ? null : cam, rest };
   }
   // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
-  // when it is coloured from T and its heights are of that map too; else plane k's points (k at or before T) or T's
-  // (past it) carried to plane k, so the height is h(F_k) and the colour that of the 2D picture. Undefined for the rest
-  // frame
+  // when it is coloured from T; else plane k's points (k before T, plain) or T's (past it) carried to plane k, at their
+  // heights and in their colour in T. Undefined for the rest frame
   function svLandRest(k = svStage()) {
     if (!SV.on) return undefined;
     const T = svT(), to = (s) => ({ mode: 0, a: s, b: k });
-    if (k <= T) return !svPlain(k) && svHT(k) === T ? undefined : svLandCarry(to, k, null, 0, k);
+    if (k <= T) return svPlain(k) ? svLandCarry(to, k, null, 0, k) : undefined;
     return svLandCarry(to, T, k, 1, k);
+  }
+  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
+  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
+  // method from the LAND_PICK_SEEDS points of the LAND_PICK_GRID x LAND_PICK_GRID grid over plane s's box src whose images
+  // are nearest w), and p's image in the height plane (carry.hmap). Where sheets cross over w, the one whose height is
+  // highest, the one a ray from above meets first; null where no point of the box is carried to w. The grid is made on
+  // the first call
+  const LAND_PICK_GRID = 64, LAND_PICK_SEEDS = 4;
+  function svLandPickF(carry, src) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), N = LAND_PICK_GRID;
+    if (!F || !H) return () => null;
+    let pts = null;
+    const grid = () => {
+      const out = [];
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const p = C(src.x0 + (i + 0.5) / N * (src.x1 - src.x0), src.y0 + (j + 0.5) / N * (src.y1 - src.y0)), q = F(p);
+        if (CX.isFin(q)) out.push({ p, q });
+      }
+      return out;
+    };
+    const size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    return (w) => {
+      if (!pts) pts = grid();
+      const near = [];
+      for (const g of pts) {
+        const d = Math.hypot(g.q.re - w.re, g.q.im - w.im);
+        if (near.length < LAND_PICK_SEEDS || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > LAND_PICK_SEEDS) near.pop(); }
+      }
+      let best = null, top = -Infinity;
+      for (const { p } of near) {
+        const z = newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size);
+        if (!z || z.re < src.x0 || z.re > src.x1 || z.im < src.y0 || z.im > src.y1) continue;
+        const v = H(z), h = CX.isFin(v) ? landValue(v) : Infinity;
+        if (h > top) { top = h; best = v; }
+      }
+      return best;
+    };
   }
   // The Landscape between two planes a and b: the points of plane s carried by the glide's map, each at its height and
   // colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s = F_b ∘ (the map
@@ -2736,14 +2782,18 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
-    // (the levels settled, the key is unfolded again if the bar still fits beside it)
+    // (the levels settled, the key is unfolded again if the bar still fits beside it, or fits one level shorter: the key
+    // folded first for a bar a little too wide, and a narrower head, whose bar shortens anyway, would show its words, so
+    // a wider head never folds a key a narrower one shows)
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
       // (the chip's own width: its words, not the width a squeezed chip is left with)
       const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
       const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
-      if (E.bar.scrollWidth + keep + dw > room) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
+      const fits = () => E.bar.scrollWidth + keep + dw <= room;
+      if (!fits() && lvl < 5) { set(lvl + 1); if (fits()) { lvl++; svTitleTip(lvl >= 4); } else set(lvl); }
+      if (!fits()) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)

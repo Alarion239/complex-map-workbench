@@ -328,14 +328,14 @@
     return { n: nx * ny, bare, at };
   };
   // the height error of the last carried Landscape frame's far patches, on the CPU: each cell of a far patch outside the pole patches'
-  // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h = svHeightF: plane s to the height plane) averaged, the
+  // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the
   // chord's height at the cell, against L at its centre; {cells, bad: the cells whose chord is off by more than tol, worst, at:
   // the worst cell's centre and corners' mean and exact L}, per patch of c.far (of 'polar': per pole patch, each at its own
   // resolution, none left out), or null with no carry
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
-    const F = cpuMap(c.map), h = svHeightF(c.s), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
+    const F = cpuMap(c.map), h = cpuMap(c.hmap), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
     return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map(([px, py, r0, r1, N]) => {
       const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
       const out = { cells: 0, bad: 0, worst: 0, at: null }, V = new Float64Array((m + 1) * (m + 1));
@@ -364,11 +364,18 @@
     return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
   };
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
+  // or no surface there
   window.__cmwLandSurfacePx = (x, y) => {
     const pk = render3D.pick;
     if (!pk || !pk.info) return null;
     const w = pk.F(C(x, y));
-    return landWorldPx(pk, x, y, pk.info.heightOf(landValue(w)));
+    return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
+  };
+  // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
+  // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
+  window.__cmwLandHeightAt = (x, y) => {
+    const pk = render3D.pick, w = pk && pk.F ? pk.F(C(x, y)) : null;
+    return w ? [w.re, w.im] : null;
   };
   // the last Landscape frame's pane position (CSS px) of the floor point under the place (x, y) of its box (the plane the
   // frame draws, carried or at rest), null when no frame is drawn
