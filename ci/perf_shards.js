@@ -19,10 +19,10 @@ const SHARDS = [
   { id: 'image-ziH', re: '^image\\.ziH\\.', what: 'Image mode, z^i of H (dpr 1 and 2, opacities)' },
   { id: 'image-expH', re: '^image\\.(expH|disc_cube)\\.', what: 'Image mode, exp of H, the disc under z^3 (dpr 2)' },
   { id: 'image-sphere-mesh', re: '^image\\.(custom_e_z1z|expexp_H)\\.', what: 'Image mode, the SphereMesh chains' },
-  { id: 'views', re: '^(phase|landscape|sphere)\\.', what: 'Phase, Landscape and Sphere views' },
+  { id: 'views', re: '^(phase|landscape|sphere)\\.', what: 'the steps view\'s Phase, Landscape and globe' },
   { id: 'examples', re: '^(examples|gallery)', what: 'loading the examples, the gallery' },
-  { id: 'interaction', re: '^(mesh|scrub|morph|hover|cards)', what: 'meshing, scrubs, the deformation, hover, the step cards' },
-  { id: 'pointer', re: '^pointer\\.', what: 'wave 1\'s pointer and per-frame work (#63): snap, detents, gliders, the probe, targets' },
+  { id: 'interaction', re: '^(mesh|scrub|hover)', what: 'meshing, scrubs, hover' },
+  { id: 'pointer', re: '^pointer\\.', what: 'wave 1\'s pointer and per-frame work (#63): snap, detents, gliders, the probe' },
   { id: 'phone', re: '^phone\\.', what: 'the emulated phone (390 x 844 @3x, touch, CPU / 4)' },
   { id: 'steps', split: true, re: '^sv\\.', what: 'the steps view (#366): the first glide, a warm glide, the interactions, the glide at 60 fps' },
 ];
@@ -39,16 +39,13 @@ const PARTS = [
   { id: 'steps-long', of: 'steps', re: '^sv\\.long_session$', what: 'the steps view: the Mountain King scrubbed 20 times on one page' },
   { id: 'pointer-hover', of: 'pointer', re: '^pointer\\.(hover_point|hover_orth|probe_x)$', what: 'the pointer: the hovers and the probe' },
   { id: 'pointer-drag', of: 'pointer', re: '^pointer\\.(snap_drag|glider)$', what: 'the pointer: the snap drag and the glider' },
-  { id: 'pointer-morph', of: 'pointer', re: '^pointer\\.roots_morph_pan$', what: 'the pointer: panning with the deformation playing' },
   { id: 'phone-open', of: 'phone', re: '^phone\\.(open|examples)$', what: 'the emulated phone: opening the app and the examples' },
-  { id: 'phone-motion', of: 'phone', re: '^phone\\.(pan|landscape|morph)$', what: 'the emulated phone: pans, Landscape, the deformation' },
+  { id: 'phone-motion', of: 'phone', re: '^phone\\.(pan|landscape)$', what: 'the emulated phone: pans, Landscape' },
   { id: 'views-phase', of: 'views', re: '^phase\\.', what: 'Phase views' },
   { id: 'views-landscape', of: 'views', re: '^landscape\\.', what: 'Landscape view' },
-  { id: 'views-sphere', of: 'views', re: '^sphere\\.', what: 'Sphere views' },
+  { id: 'views-sphere', of: 'views', re: '^sphere\\.', what: 'the globe' },
   { id: 'interaction-mesh', of: 'interaction', re: '^(mesh|scrub)', what: 'meshing and the parameter scrubs' },
-  { id: 'interaction-morph', of: 'interaction', re: '^morph', what: 'the deformation: opening it, playing it' },
   { id: 'interaction-hover', of: 'interaction', re: '^hover', what: 'hover preimage tracking' },
-  { id: 'interaction-cards', of: 'interaction', re: '^cards', what: 'the step cards' },
 ];
 // a shard or a part by its id
 const find = (id) => SHARDS.find((s) => s.id === id) || PARTS.find((s) => s.id === id);
