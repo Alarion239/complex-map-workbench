@@ -30,6 +30,7 @@ let cutErr = null;
 try { await reloaded(before, READY); } catch (e) { cutErr = String(e && e.message || e); }
 info.cutErr = cutErr;
 ok('a probe cut off by the page-gone error is asked again', cutErr === null, cutErr);
+ok('the injected cut was consumed by the wait (none is left to leak into the next suite)', goneLeft() === 0, goneLeft());
 
 // a ready expression that throws while the page starts (a hook that is not up yet) is not true yet, and is not a failure of the wait
 const GATE_MS = 600;   // the page defines its gate this long after it starts

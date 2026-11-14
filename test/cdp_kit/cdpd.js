@@ -26,8 +26,8 @@ const LOG = [];
 // What last ended or replaced the page, for the error a call gets when the page goes under it ("Inspected target navigated
 // or closed", "Cannot find context with specified id"): the main frame navigating or starting to load, or the page
 // crashing or detaching. CAUSE_BACK_MS: how long before a call an event still explains its failure; CAUSE_WAIT_MS: how long
-// a failed call waits for the event that explains it (the error can come first).
-const CAUSE_BACK_MS = 5000, CAUSE_WAIT_MS = 500;
+// a failed call waits for the event that explains it (the error can come first), polling every CAUSE_POLL_MS.
+const CAUSE_BACK_MS = 5000, CAUSE_WAIT_MS = 500, CAUSE_POLL_MS = 10;
 const NAV_GONE = /navigated or closed|Cannot find context/;
 let CAUSE = null;
 const noteCause = (text) => { CAUSE = { at: Date.now(), text }; LOG.push({ t: 'cdp', m: text }); };
@@ -54,7 +54,7 @@ const send = (method, params = {}, sessionId) => new Promise((res, rej) => {
   // a call the page went under fails with the event that came first (or says none was seen)
   const fail = async (e) => {
     if (!NAV_GONE.test(e.message)) return rej(e);
-    while (!(CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS) && Date.now() - t0 < CAUSE_WAIT_MS) await new Promise((r) => setTimeout(r, 10));
+    while (!(CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS) && Date.now() - t0 < CAUSE_WAIT_MS) await sleep(CAUSE_POLL_MS);
     const why = CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS ? CAUSE.text : `no navigation or crash event within ${CAUSE_BACK_MS} ms before or ${CAUSE_WAIT_MS} ms after the call`;
     rej(new Error(`${e.message} [${method}: ${why}]`));
   };
@@ -238,6 +238,7 @@ const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
 // reload cuts them off (for a check that the wait asks again; it counts down to 0 by itself)
 const FAULT = { gone: 0 };
 H.injectGone = (n) => { FAULT.gone = n; };
+H.goneLeft = () => FAULT.gone;   // (how many injected cuts are still unconsumed; each command file starts with none)
 const probe = (expr) => { if (FAULT.gone > 0) { FAULT.gone--; return Promise.reject(new Error('{"code":-32000,"message":"Inspected target navigated or closed"}')); } return H.ev(expr); };
 H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {}) => {
   const t0 = Date.now();
@@ -386,7 +387,7 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
-      FAULTS.length = 0;
+      FAULTS.length = 0; FAULT.gone = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
