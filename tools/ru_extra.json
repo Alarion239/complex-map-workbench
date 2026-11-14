@@ -347,8 +347,7 @@
  "Next in {n} s": "Далее через %{n} с",
  "Next step in {n} s.": "Следующий шаг через %{n} с.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Перетаскивание вращает сферу и сдвигает фигуры; пробел вращает; ∞ — северный полюс",
- "Styles belong to the flat Phase view": "Стили относятся к плоскому виду «Фаза»",
- "Switch to Phase": "Перейти к фазе",
+ "Styles show on the Plane surface": "Стили — на поверхности «Плоскость»",
  "Style: {name}": "Стиль: %{name}",
  "The Mandelbrot set": "Множество Мандельброта",
  "Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.": "Попробуйте: приблизьте границу: после 10⁻⁵ точности видеокарты не хватает.",
@@ -540,7 +539,8 @@
  "key line\u0004colour carried from {p}": "цвет перенесён из %{p}",
  "Planes": "Плоскости",
  "Two planes": "Две плоскости",
- "Two planes is for the flat surfaces": "Две плоскости — только для плоских поверхностей",
+ "Paths is for the Plane and Sphere surfaces": "Пути — только для поверхностей «Плоскость» и «Сфера»",
+ "Two planes is for the Plane and Sphere surfaces": "Две плоскости — только для поверхностей «Плоскость» и «Сфера»",
  "from": "от",
  "to": "до",
  "From plane": "От плоскости",
@@ -714,5 +714,8 @@
  "Read as {read}. For the power {power}, write {fix}.": "Читается как %{read}. Для степени %{power} напишите %{fix}.",
  "Use {fix}": "Заменить на %{fix}",
  "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности",
- "Nothing to fit yet": "Пока нечего вписывать"
+ "Nothing to fit yet": "Пока нечего вписывать",
+ "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, плоскость, плоская, область, z-плоскость, фазовый портрет, раскраска области, раскраска, цвет, фаза, аргумент, модуль",
+ "riemann sphere, globe, infinity, sphere": "riemann sphere, globe, infinity, sphere, сфера римана, глобус, бесконечность, сфера",
+ "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы"
 }
