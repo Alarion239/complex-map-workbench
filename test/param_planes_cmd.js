@@ -22,7 +22,7 @@ async function openApp(st) {
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image', focus: 0, srcView: { cx: 0, cy: 0, s: 120 } }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}`);
-  await settled({ max: 20000, until: `typeof __cmwPre === 'function' && typeof __cmwP === 'function' && (!!document.querySelector('#pipeline .card') || (typeof __cmwSteps === 'function' && __cmwSteps().on))` });
+  await settled({ max: 20000, until: `typeof __cmwPre === 'function' && typeof __cmwP === 'function' && (!!document.querySelector('#svStrip .sv-add') || (typeof __cmwSteps === 'function' && __cmwSteps().on))` });
   if (o.focus > 0 && (await ev(`typeof __cmwSteps === 'function' && __cmwSteps().on`))) {
     await ev(`__cmwSteps({ go: ${o.focus - 1}, now: true }), 1`);
     await settled({ max: 15000, until: `!__cmwSteps().moving && __cmwSteps().stage === ${o.focus - 1}` });

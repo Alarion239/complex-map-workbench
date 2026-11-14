@@ -1,6 +1,6 @@
 'use strict';
 // The command palette (Ctrl+K, /, the + of the chain): search over functions, steps, tools, examples, settings and the
-// guide, with a live preview of the region under a candidate step (issue #20, phase 3: moved out of app.js). The app
+// guide, with a live preview of the region under a candidate step. The app
 // hands it what it needs once, Commands.init(api) at start-up (src/app/12-command-palette.js, commandsApi): its
 // functions and constants as they are, and the state it reassigns (S, built, selected, ...) as getters on api, read
 // as A.S and so on. The popover layer (popEl, closePalette) stays the app's: the palette is one of its popovers.
@@ -8,13 +8,13 @@ const Commands = (() => {
   let A = null;
   let palState = null;
   let C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape,
-    addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan,
+    addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan,
     defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
-    integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
+    integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample,
     morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
-    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
-    setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
-    stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox;
+    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme,
+    setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
+    stageF, sub, toast, toggleAlone, tourEmit, viewBox;
   const FN_INFO = {
     mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
     add: [$t('Translation; conformal on ℂ'), $t('translate shift move')],
@@ -38,7 +38,6 @@ const Commands = (() => {
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
     recurrence: [$t('z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method'), $t('recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n')],
-    // [issue #260]
     dh: [$t('The conformal map of the outside of the Mandelbrot set onto the outside of the unit disk; its external rays and equipotentials'), $t('douady hubbard mandelbrot riemann map external ray equipotential bottcher Φ phi')],
     bottcher: [$t('φ_c: the conformal map of the basin of ∞ of z² + c onto the outside of a disk; external rays of the Julia set'), $t('bottcher böttcher julia basin external ray equipotential filled julia set φ phi')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
@@ -48,7 +47,7 @@ const Commands = (() => {
     custom: [$t('Any formula in LaTeX or plain text'), $t('custom formula latex expression')],
     deriv: [$t('Derivative of the chain so far: w = (previous stage)′'), $t('derivative differentiate prime d/dz dz derivative of the chain')],
   };
-  // [issue #260] the external rays and equipotentials of the chain's first Φ_M or φ_c step (its Inspector fields)
+  // the external rays and equipotentials of the chain's first Φ_M or φ_c step (its Inspector fields)
   function dhActs() {
     const k = A.S.steps.findIndex((st) => st.on !== false && (st.type === 'dh' || st.type === 'bottcher')) + 1;
     if (!k) return [];
@@ -65,9 +64,9 @@ const Commands = (() => {
     }
     return defaultPropsCache.get(type);
   }
-  // v16.5 UX29: the palette on a phone: Cancel at the right of the search row (it had no visible way out), and the
+  // the palette on a phone: Cancel at the right of the search row (the phone's way out), and the
   // insert position a chip on its own row: a tap moves the new step's place along the chain (at the start, after f₁,
-  // …, at the end), the chip saying where. (D1, issue #23: the Replace chip, when there is one, comes first on that row,
+  // …, at the end), the chip saying where. (The Replace chip, when there is one, comes first on that row,
   // and the position chip shows only while the choice is Insert)
   function phonePalette(pop, input, opener, okey, where) {
     const head = pop.querySelector('.pal-head'), ctx = head && head.querySelector('.pal-ctx');
@@ -127,7 +126,7 @@ const Commands = (() => {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
           const formula = { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) };
-          // v15.2 (notes/formula-steps/DESIGN.md 4): a query that reads as exactly one catalog step is that step, with its
+          // a query that reads as exactly one catalog step is that step, with its
           // parameters written from the query, listed first (Enter adds it); the formula is the second choice. A query
           // of several steps keeps the formula first and offers it as those steps second.
           const sp = cb.error ? null : Funcs.splitSteps(cst, cb);
@@ -143,7 +142,7 @@ const Commands = (() => {
           } else items.push(formula);
         }
       } catch (e) {
-        // (v16.5 UX16: one new letter, "z^2 + a", is a row like any other: the formula with a new number a = 1, added
+        // (one new letter, "z^2 + a", is a row like any other: the formula with a new number a = 1, added
         // together as one undo step; the region box and the Inspector's fields already work this way)
         const nc = e.unknown && e.unknown.length === 1 ? Params.check(e.unknown[0]) : null;
         let row = null;
@@ -158,7 +157,7 @@ const Commands = (() => {
             }
           } catch (e2) { /* not a formula with that number either: the parser's message below */ }
         }
-        // (v16.5 UX23: the message, where it went wrong, and the repairs that read as a formula)
+        // (the message, where it went wrong, and the repairs that read as a formula)
         if (!row) { items.parseErr = e.message; items.parseErrPos = e.pos; for (const f of formulaFixes(q)) items.push({ kind: 'fix', group: $t('Fix the formula'), label: f.label, fixTo: f.t, run: () => null }); }
       }
     }
@@ -190,7 +189,7 @@ const Commands = (() => {
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
       for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add shape'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
-      EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (v16.5 UX03: searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
+      EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       A.S.steps.forEach((st, i) => {
         const k = i + 1, nm = defOf(st).label;
@@ -201,30 +200,19 @@ const Commands = (() => {
           if (!ql || score(plain) || score(label) || score($t('replace'))) items.push({ kind: 'cmd', group: $t('Steps'), label, key: '', run });
         }
       });
-      // the views are also found by what they are for (roots, contour integrals, …)
-      // (U8: the panes' views, with the words of the earlier single view control as aliases)
-      // (comma-separated phrases, each matched on its own: a query that starts a phrase scores 3, one that starts a
-      // word 2, so multi-word aliases such as 'phase portrait' and 'domain colouring' are found)
-      const VIEW_ALIAS = {
-        xy: $t('x to y, x -> y, split, both planes, domain and image, shapes and images, planes'),
-        lplane: $t('left plane, domain, z-plane, shapes, regions'), lsphere: $t('left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere'),
-        land: $t('left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
-        phase: $t('phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase'),
-        rplane: $t('right plane, image, image plane, map, targets, preimages, w-plane'), rsphere: $t('right sphere, riemann sphere, globe, infinity, image sphere, w-sphere'),
+      // the surfaces are also found by what they are for (comma-separated phrases, each matched on its own: a query that
+      // starts a phrase scores 3, one that starts a word 2, so multi-word aliases such as 'riemann sphere' are found)
+      const SURFACE_ALIAS = {
+        plane: $t('plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus'),
+        sphere: $t('riemann sphere, globe, infinity, sphere'),
+        land: $t('landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
       };
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
-        [$t('View: X → Y'), () => setMain('xy'), '1', VIEW_ALIAS.xy],
-        [$t('View: Phase portrait'), () => setMain('phase'), '2', VIEW_ALIAS.phase],
-        [$t('View: Landscape'), () => setMain('land'), '3', VIEW_ALIAS.land],
-        [A.S.view.main === 'phase' ? $t('Phase: Plane') : $t('X: Plane'), () => { if (lLand()) setMain('xy'); setView('L', 'plane'); }, lLand() ? '' : '⇧1', VIEW_ALIAS.lplane],
-        [A.S.view.main === 'phase' ? $t('Phase: Sphere') : $t('X: Sphere'), () => { if (lLand()) setMain('xy'); setView('L', 'sphere'); }, lLand() ? '' : '⇧2', VIEW_ALIAS.lsphere],
-        [$t('Y: Plane'), () => { setMain('xy'); setView('R', 'plane'); }, A.S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
-        [$t('Y: Sphere'), () => { setMain('xy'); setView('R', 'sphere'); }, A.S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
-        [morph.open ? $t('Deformation off') : $t('Deformation on (play the homotopy)'), () => toggleTransport(), 'M', $t('morph deformation homotopy animate animation merge')],
+        ...(svSurface() ? ['plane', 'sphere', 'land'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
         [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
         [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
-        // (v16: the bracket for the selected step, else the last; SPEC 6.5)
+        // (the bracket for the selected step, else the last; SPEC 6.5)
         ...(activeSteps().length >= 2 ? (() => {
           const k = Number.isInteger(A.S.sel) && A.S.sel >= 1 && A.S.sel <= nSteps() ? A.S.sel : nSteps(), n = nSteps();
           const al = $t('part range bracket pullback pull-back precompose push-forward inside under outer inner') + ', ' + 'part range bracket pullback pull-back precompose push-forward inside under outer inner';
@@ -236,7 +224,7 @@ const Commands = (() => {
         ...integrateRows(),
         [$t('Show the roots: a target at 0'), () => { if (A.S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
         ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, A.S.focus > 0 ? A.S.focus : A.S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
-        [$t('Fit both planes'), () => /** @type {any} */ ($('leftFit').click()) || $('rightFit').click(), 'Z'],
+        [$t('Fit view'), () => /** @type {any} */ ($('leftFit').click()) || $('rightFit').click(), 'Z'],
         [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
@@ -250,13 +238,13 @@ const Commands = (() => {
       const acts = [
         [$t('Undo'), () => $('undoBtn').click(), '⌘Z'],
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
-        [$t('Clear chain'), () => $('clearChain').click(), ''],
+        [$t('Clear chain'), () => clearChain(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
-        // ([UX54] names are kept when others are deleted: these make them tidy again)
+        // (names are kept when others are deleted: these make them tidy again)
         [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
         [$t('Renumber zeros and poles'), () => renumberZp(), '', $t('renumber, rename, numbers, names, zeros, poles, tidy'), 1],
         [$t('Open the guide'), () => openGuide(), '?', $t('help, guide, manual, documentation, docs, reference, how to')],
-        // (v16.5 UX03: the header's and the menus' commands, listed when searched, each with its key)
+        // (the header's and the menus' commands, listed when searched, each with its key)
         [$t('Export figure…'), () => Figure.open(), /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', $t('export, png, pdf, svg, picture, image, save image, download, print, video, movie'), 1],
         [$t('Copy LaTeX with guarantees'), () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); }, '', $t('latex, tex, overleaf, copy formula, guarantees'), 1],
         [$t('Copy link to this figure'), () => { copyFigureLink(); }, '', $t('link, share, url, copy link, send'), 1],
@@ -275,11 +263,11 @@ const Commands = (() => {
         ...(Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
         ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
-        ...Construct.paletteActs(),   // (v16: the four tools; Make free, Use complement)
+        ...Construct.paletteActs(),   // (the four tools; Make free, Use complement)
         ...dhActs(),
       ];
       for (const [label, run, key, alias, searched] of acts) if (!ql ? !searched : score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
-      // (v16.5 UX03: the drawing tools, with their keys, and the guide's sections, found by what they are for)
+      // (the drawing tools, with their keys, and the guide's sections, found by what they are for)
       if (ql) {
         for (const [id, label, key, , group] of TOOLS) {
           if (group === 'construct') continue;   // (Construct.paletteActs lists those)
@@ -299,7 +287,7 @@ const Commands = (() => {
     }
     return items;
   }
-  // (v16.5 UX03) the words people use for the drawing tools and the guide's sections (translated: Russian finds them too)
+  // the words people use for the drawing tools and the guide's sections (translated: Russian finds them too)
   const TOOL_ALIAS = () => ({
     select: $t('select, move, pointer, arrow, pan'), point: $t('point, dot, mark'), segment: $t('segment, line segment'), line: $t('line, straight line'),
     ray: $t('ray, half-line'), circle: $t('circle, round curve'), arc: $t('arc, circular arc'), curve: $t('freehand, pen, sketch, curve'),
@@ -316,20 +304,20 @@ const Commands = (() => {
     [$t('Sound'), $t('sound, audio, listen, hear, music')], [$t('Guarantees'), $t('guarantee, guarantees, property, conformal, injective, analytic')],
     [$t('Keys'), $t('keys, shortcuts, keyboard, hotkeys, help')],
   ];
-  // (v16.5 UX03) a guide section found in the palette: the guide opens at its heading
+  // a guide section found in the palette: the guide opens at its heading
   function openGuideAt(sec) {
     openGuide();
     const m = document.querySelector('.modal-bg .modal');
     const hd = m && [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === sec);
     if (hd) hd.scrollIntoView({ block: 'start' });
   }
-  // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
+  // parse with one more number, name = 1, as if it were already added (the palette's row and preview)
   function withNewName(name, fn) {
     if (typeof Expr.setNames !== 'function') return fn();
     Expr.setNames({ get: (n) => (n === name ? 1 : Params.read(n)), display: Params.display });
     try { return fn(); } finally { Params.install(); }
   }
-  // (v16.5 UX23) the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
+  // the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
   // or a set: close the brackets, drop a trailing operator, one operator for a doubled one, the nearest function name
   const FIX_FN = ['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'coth', 'exp', 'log', 'ln', 'sqrt', 'abs', 'arg', 'conj', 'arcsin', 'arccos', 'arctan', 'arsinh', 'arcosh', 'artanh', 'Re', 'Im'];
   function editDist(a, b) {
@@ -360,7 +348,7 @@ const Commands = (() => {
     if (named !== q) offer($t('Did you mean {f}?', { f: named }), named);
     return out.slice(0, 3);
   }
-  // (v16.5 UX82) the strongest properties of a palette row, in words, on the highlighted row only (like the F tile)
+  // the strongest properties of a palette row, in words, on the highlighted row only (like the F tile)
   function propWords(P) {
     if (!P) return '';
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective }), W = FT_WORD();
@@ -376,7 +364,7 @@ const Commands = (() => {
     const names = shapeNames();
     return list.map((x) => [intLabel(x, names), () => integrateShape(x.id), '', al + ', ' + (names.get(x.id) || '')]);
   }
-  // (D1) a row's function in words, for Replace F with …; and the Replace rows' labels
+  // a row's function in words, for Replace F with …; and the Replace rows' labels
   function fnName(it) { return it.rows ? $t('these steps') : it.type === 'custom' ? $t('this formula') : it.label; }
   function whereLabel(m, it) {
     const name = fnName(it), k = palState.target;
@@ -400,7 +388,7 @@ const Commands = (() => {
       h('div', { class: 'pal-body' }, list, preview),
       h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), $t(' to move')), h('span', { class: 'pal-enter' }, h('span', { class: 'kbd' }, 'Enter'), h('span', { class: 'pal-verb' }, $t(' to add'))), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), $t(' to insert before')), h('span', null, h('span', { class: 'kbd' }, 'Esc'), $t(' to close'))));
     const opener = anchor || document.activeElement, okey = focusKey(opener);
-    // (D1, issue #23) where a function goes: inserted, F replaced by it, or step f_k replaced by it. A chip in the search
+    // where a function goes: inserted, F replaced by it, or step f_k replaced by it. A chip in the search
     // row says which (Tab or a click changes it) and remembers the last choice; a card's "Insert a function after it"
     // always inserts, and its "Replace…" and the Inspector's title always replace that step
     const n0 = A.S.steps.length;
@@ -430,10 +418,10 @@ const Commands = (() => {
       palState.sel = 0; render();
     };
     tourEmit('palette-opened', {});
-    // (v16.4) the step catalog: the add card, {+}, the palette's Add a step
+    // the step catalog: the add card, {+}, the palette's Add a step
     if (opt.fnOnly) tourEmit('layer-opened', { kind: 'catalog' });
     const runItem = (it, before) => {
-      // (v16.5 UX23: a repair puts the repaired formula in the field and adds it as Enter would)
+      // (a repair puts the repaired formula in the field and adds it as Enter would)
       if (it.kind === 'fix') {
         input.value = it.fixTo; palState.sel = 0; render();
         const f = palState.items[0];
@@ -450,7 +438,7 @@ const Commands = (() => {
     };
     const render = () => {
       const items = paletteItems(input.value, opt.fnOnly);
-      // (D1) a search with an answer lists its best function three ways, the chosen way first: Replace F with sin z,
+      // a search with an answer lists its best function three ways, the chosen way first: Replace F with sin z,
       // Insert sin z after f₂, Replace f₂ Möbius with sin z; the other matches go the chosen way
       // (the Insert row keeps the row's own label, the chip saying where; a new number's row is not repeated)
       const i0 = modes.length > 1 && input.value.trim() ? items.findIndex((x) => x.kind === 'fn') : -1;
@@ -466,11 +454,11 @@ const Commands = (() => {
         // (four groups stay English as data: items.parseErr below looks for them)
         if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group === 'Custom formula' ? $t('Formula') : group === 'Region formulas' ? $t('Region formulas') : group === 'Curve formulas' ? $t('Curve formulas') : group === 'Calculus' ? $t('Calculus') : group)); }
         const t = h('span', { class: 'pal-tex' });
-        // (Add as n steps: the start of its own derivation, not the formula row's TeX again: review verify-4)
+        // (Add as n steps: the start of its own derivation, not the formula row's TeX again)
         if (it.rows) t.append(drvStart(it.rows));
         else if (it.tex) TeX.set(t, it.tex);
         const props = h('span', { class: 'pal-props' });
-        // (v16.5 UX82: no row of letters; the highlighted row names its strongest properties in words)
+        // (no row of letters; the highlighted row names its strongest properties in words)
         if (it.props) { const w = propWords(it.props); if (w) props.append(h('span', { class: 'pal-pw' }, w)); }
         else if (it.key) props.append(h('span', { class: 'kbd' }, it.key));
         const row = h('div', { class: 'pal-item' + (i === palState.sel ? ' sel' : ''), role: 'option', id: `pal-o${i}`, 'aria-selected': String(i === palState.sel), 'data-i': i,
@@ -478,13 +466,13 @@ const Commands = (() => {
           onclick: (e) => runItem(it, e.shiftKey) },
         t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, ...(it.labelParts ? it.labelParts() : [it.label])),
           // (on a phone the preview with its derivation is hidden: Add as n steps shows the derivation itself, small and
-          // fitted, instead of the step names, review steps-12)
+          // fitted, in place of the step names)
           it.rows && document.documentElement.classList.contains('ph') ? h('span', { class: 'pal-desc pal-drv' }, drvLine(it.rows, 'drv-line')) : it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
         list.append(row);
       });
       fitPalTex(list, items);
       // a query that looks like a formula but does not parse gets the parser's message, in grey, with the place it stopped
-      // marked; a plain word that finds commands or functions gets none (v16.5 UX23, UX03)
+      // marked; a plain word that finds commands or functions gets none
       const raw = Expr.typed(input.value.trim()), fl = /[()^\\|<>+\-*/=0-9]/.test(raw);
       if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas') && (fl || !items.some((x) => x.kind !== 'fix'))) {
         const at = Math.max(0, Math.min(raw.length, items.parseErrPos | 0));
@@ -503,7 +491,7 @@ const Commands = (() => {
         if (on && scroll) el.scrollIntoView({ block: 'nearest' });
       }
       input.setAttribute('aria-activedescendant', `pal-o${palState.sel}`);
-      // (v16.5 UX03, UX23: Enter says what it does to the highlighted row, and is grey when there is nothing to run)
+      // (Enter says what it does to the highlighted row, and is grey when there is nothing to run)
       const it = palState.items[palState.sel], en = pop.querySelector('.pal-enter'), vb = pop.querySelector('.pal-verb');
       if (en && vb) {
         const verb = !it ? '' : it.kind === 'cmd' ? $t(' to run') : it.kind === 'ex' ? $t(' to open') : it.kind === 'fix' ? $t(' to fix') : it.kind === 'fn' && (it.mode || palState.mode) !== 'insert' ? $t(' to replace') : $t(' to add');
@@ -525,7 +513,7 @@ const Commands = (() => {
       else if (e.key === 'Enter') { e.preventDefault(); const it = palState.items[palState.sel]; if (it) runItem(it, e.shiftKey); }
       else if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(opener, okey); }
       else if (e.key === 'Tab') {
-        // Tab changes where the function goes (D1); with nothing to replace, it cycles groups
+        // Tab changes where the function goes; with nothing to replace, it cycles groups
         e.preventDefault();
         if (where) { cycleWhere(e.shiftKey ? -1 : 1); return; }
         if (!n) return;
@@ -538,7 +526,7 @@ const Commands = (() => {
     });
     $('popHost').append(pop);
     A.popEl = pop;
-    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey, where);   // (v16.5 UX29)
+    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey, where);
     else if (where) pop.querySelector('.pal-ctx').replaceWith(where);
     palState.render = render;
     paintWhere();
@@ -569,7 +557,7 @@ const Commands = (() => {
       if (url) { const img = new Image(); img.onload = () => { const s = Math.min(W / img.width, Hh / img.height); ctx.drawImage(img, (W - img.width * s) / 2, (Hh - img.height * s) / 2, img.width * s, img.height * s); }; img.src = url; }
       return;
     }
-    // (v16.5 UX16: a formula with a new number is previewed with that number = 1, as it will be added)
+    // (a formula with a new number is previewed with that number = 1, as it will be added)
     const mk = () => Funcs.build({ type: it.type, params: Object.assign(Funcs.defaults(it.type), it.params || {}), on: true });
     const b = it.newName ? withNewName(it.newName, mk) : mk();
     if (!b || b.error) { ctx.fillStyle = A.TH.plane; ctx.fillRect(0, 0, W, Hh); cap.textContent = b ? b.error : ''; return; }
@@ -638,7 +626,7 @@ const Commands = (() => {
     }
     cap.innerHTML = $t('Image after adding {f}', { f: fsub((palState ? palState.at : A.S.steps.length) + 1) });
     // (Add as n steps: the derivation z ↦ z² ↦ z²+1 ↦ sin(z²+1), wrapped after a ↦ when it is long: never cut, never
-    // tiny; review steps-2, verify-3)
+    // tiny)
     if (it.rows) {
       cap.innerHTML = '';
       cap.append(drvLine(it.rows, 'pal-rows'));
@@ -647,8 +635,7 @@ const Commands = (() => {
   // a derivation as a line of its rows' formulas joined by ↦, each typeset on its own in display style (a fraction's
   // parts at the full size, its scripts one level down), a row and the ↦ after it kept together, so the line breaks
   // after a ↦. It wraps first; only a row wider than the whole box makes the line smaller, down to 85 % (the scripts
-  // stay at about 8 px), and a row wider still scrolls. Never cut, never unreadable (review steps-2, steps-12; v15.2.1
-  // verify-3: it shrank to 70 % before it wrapped, and a fraction's exponent came out at 4.6 px)
+  // stay at about 8 px), and a row wider still scrolls. Never cut, never unreadable.
   function drvLine(rows, cls, min = 0.85) {
     const line = h('span', { class: cls });
     rows.forEach((r, i) => {
@@ -687,7 +674,7 @@ const Commands = (() => {
   }
   // a search row's formula in its column (120 px; 84 px on a phone), once laid out: smaller when it is wider, down to
   // 85 %; past that without its "f(z) =" or "w =", down to 75 %; past that it ends in a fade, never a hard cut. The
-  // Add as n steps row keeps as many rows of its derivation as fit and ends in ↦ ⋯ (review verify-4: both rows showed
+  // Add as n steps row keeps as many rows of its derivation as fit and ends in ↦ ⋯ (so two rows never show
   // the same cut formula, "f(z) = sin" on the phone)
   function fitPalTex(list, items, tries = 0) {
     requestAnimationFrame(() => {
@@ -725,7 +712,7 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();

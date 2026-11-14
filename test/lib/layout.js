@@ -44,7 +44,6 @@
       { sel: '.seg > button', what: 'content', axis: 'both', why: 'a segment\'s word (and icon) in its tile' },
       { sel: '.icon-btn, .vbtn', what: 'content', axis: 'both', why: 'an icon button\'s icon (the zoom and fit buttons, the ⋯ and eye buttons)' },
       { sel: '.tool[data-tool]', what: 'content', axis: 'x', why: 'a drawing tool\'s icon over its name' },
-      { sel: '#addStepBtn', what: 'content', axis: 'both', why: 'Add function\'s + and word in its tile' },
       { sel: '.modal-bg > .modal', in: 'parent', axis: 'both', why: 'a dialog (Export, Settings, the gallery) in the viewport' },
       { sel: '.sv-nav, .sv-play', what: 'content', axis: 'both', why: 'the steps view\'s ‹ › and ▶ glyphs' },
       { sel: '.ts-btn', what: 'content', axis: 'both', why: 'the tour strip\'s Back and ✕ icons' },
@@ -156,7 +155,7 @@
 
   // a layer's stacking order: its own z-index or the nearest positioned ancestor's (auto: 0)
   const zOf = (e) => { for (let a = e; a && a !== document.documentElement; a = a.parentElement) { const z = getComputedStyle(a).zIndex; if (z !== 'auto') return +z; } return 0; };
-  // the layers open now (visible), outermost first in document order; under(e): the topmost element at e's centre is
+  // the layers currently open (visible), outermost first in document order; under(e): the topmost element at e's centre is
   // in a layer that does not hold e
   function openLayers() {
     const sel = INTENT.layers.join(', ');
@@ -345,7 +344,7 @@
   // a disabled control, a link inside a sentence
   function targetSizes(min = 24, scope = document.body) {
     const out = [];
-    // (a control under a layer that covers it is no target now, and the neighbours that count are in its own layer)
+    // (a control under a layer that covers it is no target, and the neighbours that count are in its own layer)
     const all = controls(scope).filter((e) => !disabled(e) && getComputedStyle(e).pointerEvents !== 'none' && seen(e) && !under(e));
     const inline = (e) => e.tagName === 'A' && getComputedStyle(e).display === 'inline' && /\S/.test((e.parentElement.textContent || '').replace(e.textContent, ''));
     const T = all.filter((e) => !inline(e) && !all.some((o) => o !== e && o.contains(e) && !disabled(o)))
@@ -443,10 +442,9 @@
   }
 
   // toasts (ux on #499, src/app/15-examples-guide.js placeToasts: "nothing covers the work area uninvited"). A desktop's
-  // toast goes in the chain head's free middle when it fits there on one line (data-placed="head"), else above the chain
-  // between the planes' button columns (data-placed), else where the CSS puts it. Whichever: it covers no control (the
-  // host is a layer, so noOverlap passes it over everything). Placed, its centre is the host's left (the host is
-  // translated by -50%); in the head it lies inside .pipe-head, covers no plane, and Clear chain has stepped aside. A
+  // toast goes over the plot's bottom edge (data-placed="plot", the steps view), above the chain between the planes'
+  // button columns (data-placed), or where the CSS puts it. Whichever: it covers no control (the host is a layer, so
+  // noOverlap passes it over everything). Placed, its centre is the host's left (the host is translated by -50%). A
   // phone's toasts have their own row (CSS), and are left to the other checks
   function toasts() {
     const out = [];
@@ -470,17 +468,6 @@
           if (!vis(p)) continue;
           const q = inter(b, R(p.getBoundingClientRect()));
           if (w(q) > 2 && h(q) > 2) out.push(V('toast-covers', t, p, { by: [Math.round(w(q)), Math.round(h(q))], placed: 'no' }, b));
-        }
-      }
-      if (placed === 'head') {
-        const hd = document.querySelector('.pipe-head'), hb = hd ? R(hd.getBoundingClientRect()) : null;
-        if (hb && (b.l < hb.l - 1 || b.r > hb.r + 1 || b.t < hb.t - 1 || b.b > hb.b + 1)) out.push(V('toast-place', t, hd, { head: round(hb) }, b, hb));
-        const cc = document.getElementById('clearChain');
-        if (cc && vis(cc) && seen(cc)) out.push(V('toast-place', t, cc, { clearChain: 'shown' }, b));
-        for (const p of document.querySelectorAll('.panes > .pane')) {
-          if (!vis(p)) continue;
-          const q = inter(b, R(p.getBoundingClientRect()));
-          if (w(q) > 2 && h(q) > 2) out.push(V('toast-covers', t, p, { by: [Math.round(w(q)), Math.round(h(q))] }, b));
         }
       }
     }

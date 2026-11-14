@@ -1,4 +1,4 @@
-// v16.5 wave 1 fix round (notes/ux-build/w1-fix-AS-BUILT.md): the logic of the review fixes that runs without a
+// The review fixes (notes/ux-build/w1-fix-AS-BUILT.md): the logic of them that runs without a
 // browser (the detent steps of rail-2 in constr.js), and the source checks of the rest. The browser look of the same
 // fixes: test/ux165_fix_cmd.js. Run: node test/t_ux165_fix.js
 'use strict';
@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 global.self = global;
 const C = require(path.join(__dirname, '..', 'src', 'constr.js'));
-const { source } = require('./src_text');
+const { source, fnText } = require('./src_text');
 // (a src/ file as build.py reads it: src/app.js is joined from src/app/*.js)
 const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 // (app.js with the modules moved out of it: src/soundhooks.js, the Try line and sndPlayEnded; src/morphpaths.js,
@@ -14,7 +14,7 @@ const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(pa
 const APP = R('src/app.js') + '\n' + R('src/soundhooks.js') + '\n' + R('src/morphpaths.js'), CON = R('src/construct.js'), PRM = R('src/params.js'), PAGE = R('src/page.html'), DESK = R('src/desk.css');
 let pass = 0, fail = 0;
 const ok = (c, m, x) => { if (c) pass++; else { fail++; console.log('FAIL', m, x === undefined ? '' : JSON.stringify(x)); } };
-const fnBody = (src, name) => { const i = src.indexOf(`function ${name}(`); if (i < 0) return ''; const j = src.indexOf(') {', i) + 2; let d = 0, k = j; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return src.slice(i, k + 1); };
+const fnBody = (src, name) => fnText(src, name, { indent: '', soft: true });
 
 // ---- rail-2: the angle detents never cover more than 40 % of a rail
 const MOUSE = 6, TOUCH = 10;
@@ -53,7 +53,7 @@ ok(/Constr\.angleDetent\(pc\.r \* sc, R\)/.test(DET) && /Constr\.latticeDetentR\
 ok(/add\(deg \/ 15 \/ 24, label, null, ad\.R\)/.test(DET), 'rail-2: the turn-exact parameter (k/24) is kept, so 1, i, −1, −i stay exact');
 ok(/if \(id === o\.self\) continue;/.test(DET) && /if \(!z \|\| clash\(z\)\) return;/.test(DET), 'rail-3: no detent on a co-argument of a construction built on the dragged point');
 ok(/detentAt\(side, tg, touch, ex, e, \{ self: s\.id \}\)/.test(CON) && /pend: false, self: s\.id \}/.test(CON), 'rail-3: the rail and the free drag pass the dragged point');
-// (v16.5 check app-4: inside a sentence by its 'ref' form, the same words in English and Russian, with its article in Italian)
+// (inside a sentence by its 'ref' form, the same words in English and Russian, with its article in Italian)
 ok(/const fx = fixedRef\(s\);\s*if \(fx\) return fx;/.test(fnBody(CON, 'shapeLabel')) && /if \(fixedName\(x\)\) continue;/.test(fnBody(CON, 'shapeLabel')), 'rail-4: a fixed unit circle or axis is called by that name and takes no number (X and Y)');
 ok(/fixedName: \(s\) => \(A \? fixedName\(s\) : null\)/.test(CON), 'rail-4: Construct.fixedName for the app\'s rows');
 ok(/const FIXREF = \{ unit: \(\) => \$tx\('ref', 'the unit circle'\), real: \(\) => \$tx\('ref', 'the real axis'\), imag: \(\) => \$tx\('ref', 'the imaginary axis'\) \};/.test(CON) && /return FIXREF\[ref\.disp\] \? FIXREF\[ref\.disp\]\(\)/.test(fnBody(CON, 'curveName')), 'check app-4: the unit circle and the axes in a sentence by their ref names');
@@ -72,14 +72,13 @@ ok(/function syncUnused\(\)/.test(PRM) && /syncUnused,/.test(PRM) && (APP.match(
 ok(/\.prm-list \{ flex: 0 1 auto;/.test(PRM), 'user-5: + Number sits under the list, not at the section\'s foot');
 ok(/S\.shapes\.filter\(\(s\) => kindType\(s\) === 'area'\)\.map/.test(fnBody(APP, 'patternCell')) && /if \(\(s\.def \|\| s\.fixed\) && t !== 'area'\) continue;/.test(fnBody(APP.replace(/function\* /g, 'function '), 'stageSampler')), 'user-3: a construction curve refits neither the cell nor Y');
 ok(/probeTeachUntil > now/.test(APP) && /sessionStorage\.getItem\('cmw-probe-taught'\)/.test(APP) && /\.chip\.readout:has\(> \.rteach\) \{ height: auto; white-space: normal;/.test(PAGE), 'regress-4, user-4: the hold-and-slide line once a session for 8 s, whole');
-ok(/function morphReadout\(short\)/.test(APP) && /padStart\(3, '\\u2007'\)/.test(APP) && /lab\.dataset\.short = '1'/.test(APP), 'regress-1: a short readout when the row is tight, a padded percentage');
 ok(/new ResizeObserver\(\(\) => \{ if \(!q && th\.firstElementChild\)/.test(APP), 'regress-2: a toast is placed again when the layout under it changes');
-ok(/host\.setAttribute\('data-placed', 'head'\)/.test(fnBody(APP, 'placeToasts')) && /#toastHost\[data-placed="head"\] \.toast \{/.test(DESK), 'regress-3: a desktop message sits in the chain head when it fits there');
+ok(/host\.setAttribute\('data-placed', 'plot'\)/.test(fnBody(APP, 'placeToasts')) && /#toastHost\[data-placed="plot"\] \.toast \{/.test(DESK), 'a desktop message sits over the plot, above the thread');
 ok(/run: \(\) => go\(\) \}\], drop: 'title'/.test(APP) && /Tour\.laneHide\('example'\);\s*\}/.test(fnBody(APP, 'sndPlayEnded')), 'regress-5: the Try line stays while the melody plays');
 ok(/let wOnce;/.test(APP) && /const w = wOnce !== undefined \? wOnce : focusF\(\)\(z\);/.test(APP), 'regress-6: F(z) of the probe evaluated once per move');
 ok(/if \(k === undoKey\) return;/.test(fnBody(APP, 'updateUndo')) && /if \(key === targetNoteKey\) return;/.test(fnBody(APP, 'targetNote')), 'regress-7: updateUndo and targetNote return at once when nothing changed');
 ok(/b\.x1 > 0 && b\.y1 > 0 && b\.x0 < r\.width && b\.y0 < r\.height/.test(fnBody(APP, 'mfNogo')), 'regress-8: no-go rectangles only over the plane');
-ok(/performance\.now\(\) - navKeyAt > 300 \|\| !el\.matches\(':focus-visible'\)/.test(APP) && /el !== kbdTip/.test(APP), 'regress-9: a Tab focus shows the tip, a focus the app moves does not');
+ok(/performance\.now\(\) - navKeyAt > NAV_KEY_MS \|\| !el\.matches\(':focus-visible'\)/.test(APP) && /el !== kbdTip/.test(APP), 'regress-9: a Tab focus shows the tip, a focus the app moves does not');
 ok(/const namesA = shapeNames\(A\.shapes \|\| \[\]\), namesB = shapeNames\(B\.shapes \|\| \[\]\);/.test(fnBody(APP, 'histWhat')), 'regress-10: an undo step names its shape from its own snapshot (z₆)');
 
 // ---- the Russian of this round
@@ -90,7 +89,7 @@ const RU = (() => { const t = R('src/i18n_ru.js'); const m = /^I18N\.define\('ru
 for (const v of Object.values(FIX)) if (v && v.en) ok(RU[v.en] === v.ru, 'Russian shipped: ' + v.en, RU[v.en]);
 ok(RU['Hold and slide to read F(z)'] === 'Удерживайте палец\u00a0— F(z)', 'user-4: the short Russian probe line wins');
 
-// (v16.5 check app-4) Italian joins a definite article to the simple preposition before it; English and Russian unchanged
+// Italian joins a definite article to the simple preposition before it; English and Russian unchanged
 {
   const I18N = require(path.join(__dirname, '..', 'src', 'i18n.js'));
   global.I18N = I18N;

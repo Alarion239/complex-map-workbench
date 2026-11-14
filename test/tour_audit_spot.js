@@ -260,7 +260,7 @@ const SPOT = String.raw`(() => {
     // (#246: on a phone the card and the Add tile are rows of the chain sheet; while it is closed, the step lights the
     // chain bar's "N steps ▾" that opens it)
     'basics/chain': () => q1('#pipeline .card[data-k="1"]') || q1('.ph-csteps'), 'basics/add': () => q1('#addStepBtn') || q1('#svStrip .sv-add') || q1('.ph-csteps'),
-    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/phase': () => q1('#panes'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
+    'views/phase': () => q1('#panes'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
     'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
     'edit/reorder': () => q1('#svStrip .sv-step[data-k="2"] .sv-more') || q1('#svStrip .sv-step[data-k="2"] .sv-fchip'),
@@ -274,6 +274,8 @@ const SPOT = String.raw`(() => {
     // (the steps view's Planes chapter: the thread's › and ring, the colour button, the scope and surface choices, the first chip)
     'planes/plane': () => q1('#paneL'), 'planes/thread': () => q1('#svStrip .sv-next'), 'planes/park': () => q1('#svStrip .sv-thumb'), 'planes/colour': () => q1('#svHead .sv-cp'),
     'planes/carried': () => q1('#svStrip .sv-next'), 'planes/inside': () => q1('#svHead .sv-scope'), 'planes/surface': () => q1('#svHead .sv-surf, #svHead .sv-surf1'), 'planes/step': () => q1('#svStrip .sv-fchip'),
+    // (the Playing chapter: ▶, Loop (on a phone it is in the Playback sheet, opened by holding ▶: nothing is lit until then), the thread's rail)
+    'playing/play': () => q1('#svStrip .sv-play'), 'playing/speed': () => q1('#svStrip .sv-loop') || 'none', 'playing/range': () => q1('#svStrip .sv-rail'),
     'export/formula-tex': () => q1('#propsPanel .insp-F .ihead button[aria-label]'), 'keys/palette': () => 'none',
   };
   function ctl() {

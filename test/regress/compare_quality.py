@@ -12,8 +12,8 @@ Gated per run (tolerances in quality/tolerances.json):
   golden_diff must stay <= max                        (bounded controls; absolute, against the golden PNG)
   the globes (group 'sphere'): their golden_diff is reported (info), never gated, and a globe that did not render
                                                       is a warning, not a failure (#385 follow-up: report-only)
-  opacity_min must not drop by more than tol          (mask-type runs of the SPEC 12.4 scenes)
-  color_off   must not grow by more than tol          (SPEC 12.4 scenes: interior pixels in a wrong colour)
+  opacity_min must not drop by more than tol          (where a run reports it: the fill opacity)
+  color_off   must not grow by more than tol          (where a run reports it: interior pixels in a wrong colour)
   hole_leak   must not grow                            (zi_H*: fill pixels inside the hole |w| < e^-pi)
   the run must exist, have settled, show the pinned view and raise no GL error / runner error.
 A gated metric that has a baseline value and no current value (null: nothing could be scored) FAILS.
@@ -160,7 +160,7 @@ def main(argv=None):
             summary[rid] = 'INFO'
             continue
         if b is None:
-            # a scene added after the baseline was recorded: shown with its values, not compared with a baseline; but
+            # a scene the baseline does not hold: shown with its values, not compared with a baseline; but
             # a run that did not render is not new, it is broken
             news.append((rid, c))
             if not c.get('ok', False):

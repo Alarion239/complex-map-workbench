@@ -21,7 +21,6 @@ const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) 
 const open = async (ns, w = 1440, h = 900, dark = false, view0 = null) => {
   await view(w, h, dark, w < 500);
   await nav(`${BASE}test.html?ns=${ns}${Date.now()}${view0 ? '&view=' + view0 : ''}`);
-  await settle(2400);
   await move(5, 5);
   // saved files: test.html saves through a plain download link; record them instead
   await ev(`(() => { window.__saved = []; const click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__saved.push({ name: this.download, href: this.href }); return; } return click.call(this); };
@@ -129,7 +128,7 @@ for (const p of ['article1', 'homework']) {
   }
   if (r && p === 'article1') ok('article: solid boundaries, (a) (b)', !/stroke-dasharray="3 2"/.test(await ev('window.__f.svg')) && /^\(a\) /.test(r.cap) && / \(b\) /.test(r.cap), r.cap);
 }
-await key('2'); await settle(1500);
+await ev(`__cmwSetMain('phase'); 1`); await settled({ until: `__cmwView().main === 'phase'` });
 for (const p of ['article1', 'article2']) {
   const r = await build(`phase-strip-${p}`, PRESETS[p]);
   if (r && p === 'article1') ok('phase: zeros and poles named, level lines', /Zeros \(dots\) at \$0\$/.test(r.cap) && /Poles/.test(r.cap) && /level sets/.test(r.cap), r.cap);
@@ -250,11 +249,14 @@ await ev(`(() => { const p = Storage.prototype; [p.getItem, p.setItem] = window.
 // with a real click. At 1440 and 390 px (phone), light and dark.
 if (process.env.CMW_ONLY !== '1-3') {
   R.u5 = { caps: {}, menus: {} };
-  // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it)
+  // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it.
+  // go() waits for each page's load event. On test.html it comes once MathJax's three scripts have run, one after
+  // another, each between two of the app's frames, which take 0.5 to 1.5 s each on lavapipe with this section's All
+  // sheets landscape: 3.5 s after the navigation on 4 cores, later on a slower runner. settled() then waits for quiet)
   const loadSt = async (ns, st) => {
-    await nav(`${BASE}gl-helpers.html`);
+    await go(`${BASE}gl-helpers.html`);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({ v3: true, v4: true, nextId: 50, focus: 0 }, st)))}); 1`);
-    await nav(`${BASE}test.html?ns=${ns}`); await settle(1500);
+    await go(`${BASE}test.html?ns=${ns}${USER5_CLASSIC || USER5_DEFORM ? '&view=classic' : ''}`); await settled();
   };
   // (sections 1 to 4 keep their helpers in their own block: this section's own, the same files for the preflight)
   const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
@@ -317,7 +319,10 @@ if (process.env.CMW_ONLY !== '1-3') {
   // the deformation on: the landscape draws H_t on the sheets that become F's (work/xvsh), so the clause names them
   // (both of √z's), with no Ln (the map is H_t) and never "all sheets of the Riemann surface"
   await loadSt(`u5smorph${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
-  await key('m'); await settle(2000);
+  // (it opens playing, and while it moves the All sheets landscape is refined again every frame: the page is quiet only
+  // in the hold at the end of a pass, 6 to 8 s in on a software renderer. The title is set as it opens, and a figure
+  // draws its own landscape refined in full, so the wait is for the deformation to be open)
+  await ev('__cmwMorph({ open: true }); 1'); await settled({ only: true, until: '__cmwMorph().open === true' });
   const mt = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
   const mc = await build('u5-sheets-morph-article1', { for: 'article', deform: 'frame' }, []);
   const mr = await build('u5-sheets-ru-morph-article1', { for: 'article', deform: 'frame', lang: 'ru' }, []);
@@ -334,7 +339,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   R.u5.caps.film = { en: fe && fe.cap.slice(-900), ru: fr && fr.cap.slice(-900), view: fe && fe.view };
   ok('sheets, film: the English caption has the sheets clause and no principal branch', fe && /Landscapes of \$H_t\$/.test(fe.cap) && homEN.test(fe.cap) && !/principal branch/.test(fe.cap) && /\(on every sheet\)/.test(fe.cap), fe && fe.cap.slice(0, 900));
   ok('sheets, film: the Russian caption too', fr && homRU.test(fr.cap) && !/главная ветвь/.test(fr.cap) && /\(на каждом листе\)/.test(fr.cap), fr && fr.cap.slice(0, 900));
-  await key('m'); await settle(600);
+  await ev('__cmwMorph({ open: false }); 1'); await settled({ until: '__cmwMorph().open === false' });
   // (v16.1 review user-1) the user's case: sin √z, √ bracketed; the film and the single frame
   await loadSt(`u5susr${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 }, T: 0.5 })'); await settle(2000);
