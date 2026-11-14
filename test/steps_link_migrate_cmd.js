@@ -18,6 +18,8 @@ const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.
 const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
 const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().ready.ready";
 const OPEN_MS = 30000;
+// where the app saves the state of the page with ?ns=<ns> (the bare key without a namespace)
+const storeKey = (ns) => 'complex-map-workbench-v1' + (ns ? ':' + ns : '');
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 // The page is ready when READY holds, on a document other than the one that was open (the kit's reloaded(old, ...)): a reload
 // that swaps the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
@@ -90,7 +92,7 @@ for (const [name, st, want] of CASES) {
   // the expanded pane (solo), the deformation range (homRange) and the step selected (sel)
   if (name.startsWith('right pane')) {
     // (the save is written on pagehide: poll for the saved right-pane camera, not a fixed wait)
-    const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+    const key = JSON.stringify(storeKey(ns));
     await ev('window.dispatchEvent(new Event("pagehide")); 1');
     await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && o.rightView); })()` });
     const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? o.rightView : null; })()`);
@@ -126,7 +128,7 @@ for (const [name, url] of FORMS) {
 n++;
 {
   const ns = 'lmig' + n + Date.now();
-  const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+  const key = JSON.stringify(storeKey(ns));
   const fig = { ...LINK_STATE, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, figMorph: { T: 1.5 } };
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`, true);
   const got = await ev(READ);
@@ -147,13 +149,22 @@ n++;
 const CAM_EXACT = 1e-9, CAM_TOL = 1e-6;
 const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
 const near = (a, b, tol) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < tol);
-// a figure's link opened in a fresh namespace: the cameras of the page it opens on. The page is waited for through the toast and the
-// steps view only: a Landscape still refining holds no camera
+// a figure's link opened in a fresh namespace: the cameras of the page it opens on. The page is waited for at rest (the toast, the
+// steps view, not moving) unless atRest is false: a Landscape still refining holds no camera, so its link waits for the toast and
+// the steps view only
 const OPEN_TOAST = 'Opened the figure from the link.';
-const openCams = async (state, tag) => {
+const openCams = async (state, tag, atRest = true) => {
   const old = await ev('performance.timeOrigin');
-  await go(`${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}`);
-  await reloaded(old, `document.body.innerText.includes(${JSON.stringify(OPEN_TOAST)}) && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
+  // (a raw navigation and the kit's reloaded, not go: go opens the url again when the document it is waiting for is slow to arrive, and
+  // a link opened again finds the state its own first open saved, and asks before opening it)
+  await send('Page.navigate', { url: `${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}` });
+  try {
+    if (atRest) await reloadedFigure(old, OPEN_TOAST);
+    else await reloaded(old, `document.body.innerText.includes(${JSON.stringify(OPEN_TOAST)}) && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
+  } catch (e) {
+    const page = await ev(`({ toast: (document.getElementById('toastHost') || {}).innerText, steps: typeof __cmwSteps === 'function' ? { on: __cmwSteps().on, moving: __cmwSteps().moving } : null, hash: location.hash.slice(0, 20) })`);
+    throw new Error(`${tag}: ${e.message}; the page: ${JSON.stringify(page)}`);
+  }
   return camsOf();
 };
 
@@ -198,12 +209,12 @@ n++;
   info['figCam written on the Landscape'] = out;
   ok('Landscape link: figCam is written without `of`', !!out && !('of' in out), out);
   ok('Landscape link: the camera written is the one on the view', near(out, want, CAM_TOL), { out, want });
-  const got = await openCams(fig, 'b');
+  const got = await openCams(fig, 'b', false);
   info['Landscape link opened'] = got;
   ok('Landscape link: cam is the written camera on reopening', near(got.cam, out, CAM_TOL), { out, got });
   const bare = { ...fig };
   delete bare.figCam;
-  const plain = await openCams(bare, 'c');
+  const plain = await openCams(bare, 'c', false);
   ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out, CAM_TOL), { out, plain });
   await grab('Landscape link');
 }
@@ -286,15 +297,14 @@ n++;
 n++;
 {
   const nsA = 'lmigA' + n + Date.now(), nsB = 'lmigB' + n + Date.now();
-  const STORE = 'complex-map-workbench-v1';
-  const stepsSaved = (ns) => ev(`(() => { const v = localStorage.getItem(${JSON.stringify(ns ? STORE + ':' + ns : STORE)}); return v ? JSON.parse(v).steps.length : null; })()`);
+  const stepsSaved = (ns) => ev(`(() => { const v = localStorage.getItem(${JSON.stringify(storeKey(ns))}); return v ? JSON.parse(v).steps.length : null; })()`);
   const chainTypes = () => ev('__cmwFigureState().steps.map((st) => st.type)');
   const LINK_TYPES = LINK_STATE.steps.map((st) => st.type);   // (a page with no saved figure opens a worked example, a different chain)
   const old = await ev('performance.timeOrigin');
   await go(`${BASE}/test.html?ns=${nsA}&view=steps#cmw=${linkOf(LINK_STATE, true)}`);
   await reloadedFigure(old, 'Opened the figure from the link.');
   await ev('window.dispatchEvent(new Event("pagehide")); 1');
-  await settled({ max: 15000, panes: false, until: `(() => { const v = localStorage.getItem(${JSON.stringify(STORE + ':' + nsA)}); return !!v && JSON.parse(v).steps.length === ${LINK_STATE.steps.length}; })()` });
+  await settled({ max: 15000, panes: false, until: `(() => { const v = localStorage.getItem(${JSON.stringify(storeKey(nsA))}); return !!v && JSON.parse(v).steps.length === ${LINK_STATE.steps.length}; })()` });
   const saved = { own: await stepsSaved(nsA), bare: await stepsSaved('') };
   info['?ns: where the figure is saved'] = saved;
   ok('?ns: the figure is saved under the namespace', saved.own === LINK_STATE.steps.length, saved);
