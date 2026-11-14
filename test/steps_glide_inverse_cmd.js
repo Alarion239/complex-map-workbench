@@ -238,7 +238,8 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const frameOf = async (first) => {
     await go(`${BASE}/test.html?ns=gf${Date.now()}&lang=en&view=steps`);
     await ready();
-    await ev(`__cmwAddStep('custom', { expr: ${JSON.stringify(first)} }, 0), __cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), __cmwSteps({ x: 0.5 }), 1`);
+    await ev(`__cmwAddStep('custom', { expr: ${JSON.stringify(first)} }, 0), 1`);
+    await ev("__cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), __cmwSteps({ x: 0.5 }), 1");
     let wait = await settled({ max: 60000, until: held });
     if (first !== SECOND) {
       await ev(`window.__gfG = __cmwSteps().glide, __cmwStepParam(0, 'expr', ${JSON.stringify(SECOND)}), 1`);
