@@ -3,7 +3,9 @@
 // 1440 px, in en, ru and it:
 // - mouse: › at both ends of the chain puts the ring and the shown plane's node in view, every chip and plane scrolled to
 //   is whole and found by elementFromPoint at its centre, a sideways wheel scrolls the thread, and the last plane's node
-//   is whole and on top;
+//   is whole and on top; on a desktop, a rail nobody scrolled follows the ring when its width changes and again after the thread has
+//   fitted and been let go, also after a wheel that moves nothing (the rail fits, is at its end, or the wheel is mostly vertical),
+//   and a rail the user scrolled by the wheel keeps its place (or its end) until the ring moves;
 // - keyboard: Tab from the ring visits every plane, every chip and ›, each plane and chip whole in the rail and on top
 //   once focused (#549: the focus scrolls it clear of the fade); the arrows walk the planes and stop at the last;
 // - touch (on the phone widths): a tap on › moves one plane, and a swipe along the thread goes on.
@@ -33,6 +35,7 @@ const probe = (sel, nth) => ev(`(() => {
   const inRail = !!el.closest('.sv-rail');
   return { hit: !!at && (at === el || el.contains(at)), whole: !inRail || (r.left >= rail.left - 1.5 && r.right <= rail.right + 1.5), x: Math.round(x), y: Math.round(y), at: at ? (at.id || at.className || at.tagName) : null, rl: Math.round(rail.left), rr: Math.round(rail.right), l: Math.round(r.left), r: Math.round(r.right) };
 })()`);
+const FADE_PX = 28;   // (the rail's edge fades: .sv-rail.fade-l and .fade-r in desktop.css)
 const geo = () => ev(`(() => { const rail = document.querySelector('#svStrip .sv-rail'), tr = rail.querySelector('.sv-track');
   return { rail: rail.clientWidth, track: tr.offsetWidth, scroll: Math.round(rail.scrollLeft), max: Math.round(rail.scrollWidth - rail.clientWidth), pageW: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth,
     next: document.querySelector('#svStrip .sv-next').disabled, prev: document.querySelector('#svStrip .sv-prev').disabled }; })()`);
@@ -41,7 +44,7 @@ const rest = async () => { for (let i = 0; i < 150; i++) { const s = await S(); 
 const centre = (sel) => ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const ringIn = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), t = document.querySelector('#svStrip .sv-thumb').getBoundingClientRect(), c = t.left + t.width / 2;
   const on = document.querySelector('#svStrip .sv-plane.on'), n = on ? on.querySelector('.sv-node').getBoundingClientRect() : null;
-  return { cx: Math.round(c), l: Math.round(r.left), r: Math.round(r.right), ring: c >= r.left - 0.5 && c <= r.right + 0.5, node: !n || (n.left >= r.left - 0.5 && n.right <= r.right + 0.5) }; })()`);
+  return { cx: Math.round(c), l: Math.round(r.left), r: Math.round(r.right), ring: c >= r.left - 0.5 && c <= r.right + 0.5, clear: c >= r.left + ${FADE_PX} && c <= r.right - ${FADE_PX}, node: !n || (n.left >= r.left - 0.5 && n.right <= r.right + 0.5) }; })()`);
 const touch = async (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts }, undefined);
 
 // (software rendering takes minutes a combination: the CI cut is en at the four widths, ru and it at 360 and 1440, each
@@ -102,6 +105,112 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
       for (let i = 0; i < 20 && w1 >= w0 - 50; i++) { await sleep(100); w1 = (await geo()).scroll; }
     }
     ok(`${tag}: a wheel to the left scrolls the thread (${w0} to ${w1})`, w1 < w0 - 50 || g0.track <= g0.rail + 1, { w0, w1 });
+    // (a rail the user scrolled stays where they left it when the thread or the rail changes width; the ring is brought into view
+    // again when it moves: ‹)
+    ok(`${tag}: the thread is longer than its rail, so the rail legs below run`, g0.track > g0.rail + 1, g0);
+    if (g0.track > g0.rail + 1) {
+      // (the strip's right padding changes the rail's width, which is what the page's observer watches: the wait is for that width to change)
+      const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))');
+      const resized = async (px) => {
+        const w0 = (await geo()).rail;
+        await ev(`document.querySelector('#svStrip').style.paddingRight = '${px}px'; 1`);
+        let g = await geo();
+        for (let i = 0; i < 100 && g.rail === w0; i++) { await sleep(50); g = await geo(); }
+        ok(`${tag}: the strip's padding of ${px} px changes the rail's width (${w0} to ${g.rail})`, g.rail !== w0, { w0, rail: g.rail });
+        await frames();
+        return (await geo()).scroll;
+      };
+      // (a rail nobody scrolled follows the ring when its width changes: the ring is in the rail, clear of the fades or with the rail at its end)
+      // (the follow lands within a few frames of a resize: read once it has, or after FOLLOW_POLLS polls)
+      const FOLLOW_POLLS = 60;
+      const followed = async () => {
+        let f;
+        for (let i = 0; i < FOLLOW_POLLS; i++) {
+          const r = await ringIn(), g = await geo();
+          f = { ok: r.ring && r.node && (r.clear || g.scroll >= g.max - 1), scroll: g.scroll, max: g.max, ring: r };
+          if (f.ok) break;
+          await sleep(50);
+        }
+        return f;
+      };
+      const narrowRing = async (after) => {
+        const railW0 = (await geo()).rail;
+        await ev(`document.querySelector('#svStrip').style.paddingRight = '200px'; 1`);
+        for (let i = 0; i < 100 && (await geo()).rail === railW0; i++) await sleep(50);
+        await frames();
+        const narrow = await followed(), railW1 = (await geo()).rail;
+        ok(`${tag}: a rail nobody scrolled keeps the ring in view when it gets narrower${after} (${railW0} to ${railW1})`, narrow.ok && railW1 < railW0, narrow);
+        await ev(`document.querySelector('#svStrip').style.paddingRight = ''; 1`);
+        for (let i = 0; i < 100 && (await geo()).rail !== railW0; i++) await sleep(50);
+        await frames();
+        const wide = await followed();
+        ok(`${tag}: and when it gets wide again${after} (${railW1} to ${(await geo()).rail})`, wide.ok && (await geo()).rail === railW0, wide);
+      };
+      // (a wheel over the rail, at its centre; one that moves nothing brings no scroll, so the page is given two frames to show none)
+      const wheelOver = async (deltaX, deltaY) => {
+        const [x, y] = await centre('#svStrip .sv-rail');
+        await move(x, y);
+        await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX, deltaY });
+        await frames(); await frames();
+      };
+      await ev(`__cmwSteps({ go: 0, now: true }); 1`); await rest(); await ev(`__cmwSteps({ go: ${N}, now: true }); 1`); await rest(); await frames();
+      await narrowRing('');
+      await narrowRing(' a second time');
+      // (a wheel that cannot move the rail leaves it following: the rail is at its end, with the ring on the last plane)
+      const atEnd0 = await followed();
+      ok(`${tag}: the rail is at its end with the ring on the last plane before the wheels that move nothing`, atEnd0.scroll >= atEnd0.max - 1 && atEnd0.max > 0, atEnd0);
+      await wheelOver(300, 0);
+      await narrowRing(' after a wheel at its end');
+      await wheelOver(2, 120);
+      await narrowRing(' after a mostly vertical wheel');
+      // (a rail that has fitted holds no scroll of the user's: widened until the whole thread fits and back, it follows the ring again)
+      await ev(`document.querySelector('#svStrip').style.minWidth = '${g0.track + 2200}px'; 1`);
+      for (let i = 0; i < 100 && (await geo()).max > 0; i++) await sleep(50);
+      await frames();
+      const fitted = await geo();
+      await wheelOver(300, 0);   // (a rail that fits cannot move: the wheel is not the user's scroll; to the left it would also navigate back, as a swipe does)
+      await ev(`document.querySelector('#svStrip').style.minWidth = ''; 1`);
+      for (let i = 0; i < 100 && (await geo()).max === 0; i++) await sleep(50);
+      await frames();
+      ok(`${tag}: the thread fits a rail widened enough, and overflows again when it is let go`, fitted.max === 0 && (await geo()).max > 0, fitted);
+      await narrowRing(' after the thread has fitted and a wheel on it');
+      // (a rail the user scrolled by the wheel stays where it is when the thread changes width)
+      await move(rx, ry);
+      let before = (await geo()).scroll;
+      for (let tryN = 0; tryN < 2 && (await geo()).scroll >= before - 50; tryN++) {   // (a wheel's first event after a click is sometimes not taken)
+        await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: rx, y: ry, deltaX: -300, deltaY: 0 });
+        for (let i = 0; i < 20 && (await geo()).scroll >= before - 50; i++) await sleep(100);
+      }
+      // (the wheel's scroll is animated: read it once two reads agree)
+      let k0 = (await geo()).scroll;
+      for (let i = 0; i < 40; i++) { await sleep(100); const v = (await geo()).scroll; if (v === k0) break; k0 = v; }
+      const k1 = await resized(1), k2 = await resized(200), k3 = await resized(0);
+      ok(`${tag}: a rail scrolled away from the ring keeps its place when the thread changes width (${k0}, ${k1}, ${k2}, ${k3})`, k0 < before - 50 && k1 === k0 && k2 === k0 && k3 === k0, { before, k0, k1, k2, k3 });
+      // (a rail the user scrolled to its end stays at its end when the thread changes width)
+      await wheelOver(5000, 0);
+      const atEnd = async () => { let g = await geo(); for (let i = 0; i < 40 && g.scroll < g.max - 1; i++) { await sleep(50); g = await geo(); } return g; };
+      const ends = [await atEnd()];
+      for (const pad of ['200px', '']) {   // (the rail narrower, then as it was: its range grows, then shrinks)
+        const railW = (await geo()).rail;
+        await ev(`document.querySelector('#svStrip').style.paddingRight = '${pad}'; 1`);
+        for (let i = 0; i < 100 && (await geo()).rail === railW; i++) await sleep(50);
+        ends.push(await atEnd());
+      }
+      ok(`${tag}: a rail the user scrolled to its end stays at its end when the thread changes width (${ends.map((g) => `${g.scroll}/${g.max}`).join(', ')})`, ends.every((g) => g.max > 0 && g.scroll >= g.max - 1), ends);
+      // (a scroll that is not the app's, here a scrollIntoView with the focus outside the rail, is the user's: the plane it shows stays in view
+      // through a resize, where the ring (on the last plane) would take the rail)
+      await frames(); await frames();   // (the page puts the rail back for three frames after a resize: past them)
+      await ev(`document.activeElement && document.activeElement.blur(); document.querySelector('#svStrip .sv-plane[data-i="0"]').scrollIntoView({ inline: 'start', block: 'nearest' }); 1`);
+      await frames();
+      const planeIn = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), b = document.querySelector('#svStrip .sv-plane[data-i="0"]').getBoundingClientRect(); return b.left >= r.left - 0.5 && b.right <= r.right + 0.5; })()`);
+      const shown = [await planeIn()];
+      for (const px of [200, 0]) { await resized(px); shown.push(await planeIn()); }
+      ok(`${tag}: a plane scrolled into view with the focus outside the rail stays in view through a resize (${shown.join(', ')})`, shown.every(Boolean), shown);
+      await ev(`document.querySelector('#svStrip .sv-prev').click(); 1`); await rest();
+      let back = await ringIn();
+      for (let i = 0; i < 40 && !(back.ring && back.node); i++) { await sleep(50); back = await ringIn(); }
+      ok(`${tag}: ‹ brings the ring into view again`, back.ring && back.node, back);
+    }
     }
 
     tm('mouse');
