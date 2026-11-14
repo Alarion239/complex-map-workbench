@@ -58,8 +58,13 @@
       { sel: '.sv-fchip .sv-fn', named: true, why: 'a steps-view chip\'s function name: one line, the whole name in the chip\'s label (ux on #499)' },
       { sel: '.ph-cn', named: true, why: 'the phone\'s chain name: one line, the whole name as its label or tooltip (ux on #499)' },
     ],
-    // the rows meant to be evenly spaced: sel (the row), tol (px), why
-    rows: [],
+    // the rows meant to be evenly spaced: sel (the row; its visible children, at least three, are the row's members), tol
+    // (px), why. A row of one line only (a wrapped grid has no single gap); ux confirms the list (#470)
+    rows: [
+      { sel: '.seg', tol: 1, why: 'a segmented control: its tiles touch, so every gap is the same (0)' },
+      { sel: '#svStrip .sv-track', tol: 1, why: 'the steps view\'s plane dots: one track, the dots equally apart' },
+      { sel: ':root.ph #tools', tol: 1, why: 'the phone\'s drawing tools: one rail, the buttons the same gap apart' },
+    ],
   };
 
   const vis = (e) => {
