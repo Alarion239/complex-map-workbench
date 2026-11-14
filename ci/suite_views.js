@@ -53,6 +53,7 @@ const VIEWS = {
   'steps_seams_cmd.js': steps(),
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
+  'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_head_cmd.js': steps(),
@@ -315,9 +316,14 @@ const VIEWS = {
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
+  'reload_wait_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
+  'kit_load_wait_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),
+  'kit_nav_cause_cmd.js': steps({ pin: true }),
+  'kit_reloaded_cmd.js': steps({ pin: true }),
+  'kit_load_cmd.js': steps({ pin: true }),
   'kit_fault_cmd.js': steps({ pin: true }),
   'line_slice_cmd.js': steps({ pin: true }),
   'mj_ranges_cmd.js': steps({ pin: true }),

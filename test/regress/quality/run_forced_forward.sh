@@ -1,7 +1,7 @@
 #!/bin/bash
 # The P5 forced-forward gate (P5 review): every quality scene drawn with exact images off (the forward path: SphereMesh
 # or today's GPU draw), scored like the exact run and gated against it with the SPEC targets enforced, on every metric
-# (iou, hole, spill, parity_acc, opacity_min, color_off, hole_leak), not on IoU alone.
+# (iou, hole, spill, hole_leak), not on IoU alone.
 #   test/regress/quality/run_forced_forward.sh [--no-build] [--only id1,id2]
 # Needs the exact run first (test/regress/quality/run.sh: quality/out/latest). Output: quality/out/forced-forward.
 # Exit status: 0 pass, 1 fail, 2 setup problem.

@@ -27,14 +27,10 @@
 //       (front_disc: pixels whose front member lies in the polar pattern's c0 disc: the rule matters there)
 //
 //   node test/regress/quality/verify_truth.js --selftest
-// checks the metrics of every run of the new scenes on synthetic renders: the IDEAL render (painted by the model of
-// (F): front member's pattern, c0 disc, opaque fill) must score IoU 1, holes 0, spill 0, parity 1 (on at least 1000
-// pixels where the truth can score that many), opacity 1, colour error 0, hole_leak 0; then deliberate defects must
-// move their metric: the hole painted (opaque, and one sheet at alpha 0.2 on mask20) -> hole_leak; a translucent
-// single sheet -> opacity 0.2; flipped parity -> polar parity 0; the sheet BEHIND the front painted -> parity drops;
-// the polar pattern without its c0 disc -> parity < 1 (zi_H views); a crack at 0.75 coverage -> opacity 0.75; the
-// fill 15 % darker or in the edge colour -> holes; 5 % darker -> colour error; a blank pattern render -> parity null
-// (never a perfect 1); every pixel in the excluded band -> opacity, colour and parity null.
+// checks the 'cover' metrics of every run of the new scenes on synthetic renders: the IDEAL render (the truth's inside
+// painted in a fill colour, the rest the paper) must score IoU 1, holes 0, spill 0, hole_leak 0; then deliberate
+// defects must move their metric: the hole painted -> hole_leak; the inside painted in the paper's colour -> holes;
+// the whole view painted -> spill; every pixel in the excluded band -> IoU null (never a perfect 1).
 //
 // The P2 review scenes (SPEC 13.12): artanh / arctan of the unit disc (group 'saturation') state their truth in the
 // w-plane (the strip, by the identity |tanh w| < 1 <=> |Im w| < pi/4): their pre() returns w itself, so (B) is
@@ -43,7 +39,7 @@
 // truth says inside (pixels within 1e-9 of |z| = 1 skipped); (A) counts only the pixels of that window (beyond it tanh w rounds to +-1 in float64, so no forward
 // sample can land there; the identity covers it: tanh(x +- i pi/4) has modulus 1 for every real x); (C) draws its random
 // points from the disc itself (ZREG). z^3 at s = 3e4 (group 'deep') is an ordinary scene. The polar model of (F) takes
-// the run's c0 disc (zi_H_polar85: none, as the inverse renderer draws log-polar cells to |z| -> 0 at alpha < 1).
+// the polar pattern's c0 disc |z| < cell/12.
 // Exit status 0 when every check passes, 1 otherwise.
 const path = require('path');
 const SC = require('./scenes');
@@ -311,7 +307,7 @@ MEMBERS.cube_far_deep = (w) => {
 };
 // SPEC 3.7: the accumulation sets (z^i and e^{1/z}: {0}; the others none)
 const ACCUM = { zi_H: [[0, 0]], e1z_disc: [[0, 0]], e1z_custom: [[0, 0]] };
-// the left view's box at 410 x 516 px (the meshing window clipWin of the saved state)
+// the z view's box at 410 x 516 px (the meshing window clipWin of the saved state)
 const winOf = (sc) => { const v = sc.srcView; return [v.cx - 205 / v.s, v.cx + 205 / v.s, v.cy - 258 / v.s, v.cy + 258 / v.s]; };
 // SPEC 5.1 written out again: D = log2(1 + dist(z, W) / R) + sum_p max(0, log2(rs / |z - p|)), rs = R / 8
 function keyOf(sc) {
@@ -380,7 +376,7 @@ function verify(sc) {
   const out = { scene: sc.name, base: sc.base, ok: true, notes: [] };
   const fwd = FWD[sc.base], sampler = SAMPLERS[sc.base];
   if (!fwd || !sampler) throw new Error(`no forward map / sampler for ${sc.base}`);
-  const v = sc.rightView, s = v.s, R = Math.hypot(W, H) / 2 / s + Math.hypot(v.cx, v.cy);
+  const v = sc.wView, s = v.s, R = Math.hypot(W, H) / 2 / s + Math.hypot(v.cx, v.cy);
   const map = { at: (i, j) => ({ re: v.cx + (i + 0.5 - W / 2) / s, im: v.cy - (j + 0.5 - H / 2) / s }), spx: s };
   const T = M.truthGrid(sc.truth, SC.cellOf(sc), map, W, H, { parity: null });
   const hit = new Uint8Array(W * H);
@@ -480,81 +476,38 @@ function verify(sc) {
 
 // ---- metric self-test on synthetic renders ----
 const hexc = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-const COLS = { c0: hexc('#3B6FD4'), alt: hexc('#8CABE5'), plane: hexc('#FCFDFD'), edge: hexc('#093B9B') };   // metrics.js defaults (light theme)
-const mixc = (a, b, t) => a.map((x, q) => Math.round(t * x + (1 - t) * b[q]));
-// paint a render of a run: the ideal renderer (model (F)) or one with a deliberate defect; returns the metrics
+const COLS = { c0: hexc('#3B6FD4'), plane: hexc('#FCFDFD') };   // a fill colour and the paper (metrics.js's default)
+// paint a render of a run: the ideal renderer (the truth's inside in a fill colour) or one with a deliberate defect;
+// returns the metrics
 function paint(run, defect) {
-  const sc = run.scene, v = sc.rightView, s = v.s;
+  const sc = run.scene, v = sc.wView, s = v.s;
   const map = { at: (i, j) => ({ re: v.cx + (i + 0.5 - W / 2) / s, im: v.cy - (j + 0.5 - H / 2) / s }), spx: s };
-  const T = M.truthGrid(sc.truth, run.cell, map, W, H, { parity: run.parity, sheet: run.sheet, rc: run.rc, annot: run.strict });
+  const T = M.truthGrid(sc.truth, run.cell, map, W, H, { parity: null, annot: run.strict });
   const rgba = Buffer.alloc(W * H * 4);
   const hd = sc.truth.holeDisc;
-  const mode = run.parity === 'polar' ? 'polar' : 'checker', cell = run.cell * run.state.patternScale;
-  const which = defect === 'back' ? 1 : 0, rc = defect !== 'norc' && (run.parity !== 'polar' || run.rc > 0);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
     const k = j * W + i, w = map.at(i, j);
     let col = COLS.plane;
-    if (defect !== 'band') {
-      const d = displayed(sc, w, mode, cell, s, which, rc);
-      if (d.inside && defect !== 'blank') {
-        let par = run.kind === 'pattern' ? d.par : 0;
-        if (defect === 'flip' && par >= 0) par = 1 - par;
-        col = par === 1 ? COLS.alt : par === 0 ? COLS.c0 : mixc(COLS.c0, COLS.alt, 0.5);
-        if (defect === 'alpha') col = mixc(col, COLS.plane, 0.2);
-        if (defect === 'crack' && j === Math.round(H / 2 - (0 - v.cy) * s - 0.5)) col = mixc(col, COLS.plane, 0.75);
-        if (defect === 'dark85') col = col.map((c) => Math.round(0.85 * c));
-        if (defect === 'dark95') col = col.map((c) => Math.round(0.95 * c));
-        if (defect === 'edge') col = COLS.edge;
-      }
-    }
-    if (hd && Math.hypot(w.re - hd.c[0], w.im - hd.c[1]) < hd.r) {
-      if (defect === 'leak') col = COLS.c0;
-      if (defect === 'leak20') col = mixc(COLS.c0, COLS.plane, 0.2);
-    }
+    if (defect === 'all') col = COLS.c0;
+    else if (defect !== 'band' && displayed(sc, w, 'checker', run.cell, s, 0, true).inside) col = defect === 'paper' ? COLS.plane : COLS.c0;
+    if (defect === 'leak' && hd && Math.hypot(w.re - hd.c[0], w.im - hd.c[1]) < hd.r) col = COLS.c0;
     rgba[4 * k] = col[0]; rgba[4 * k + 1] = col[1]; rgba[4 * k + 2] = col[2]; rgba[4 * k + 3] = 255;
   }
   if (defect === 'band') T.sdf.fill(0);   // every pixel in the excluded band: nothing can be scored
-  const ev = M.evaluate({ rgba, W, H, truthG: T, classify: M.makeClassifier({}, run.kind), variant: run.kind, parity: run.parity,
-    opacity: run.opacity ? M.makeOpacity({}) : null, strict: run.strict, colorErr: run.strict ? M.makeColorErr({}, run.kind) : null });
+  const ev = M.evaluate({ rgba, W, H, truthG: T, classify: M.makeClassifier({}, run.kind), variant: run.kind, parity: null, strict: run.strict });
   return Object.assign(ev.metrics, { problems: ev.problems });
 }
 function selftest() {
-  const runs = SC.runs().filter((r) => !SC.LEGACY_GROUPS.has(r.scene.group));
+  const runs = SC.runs().filter((r) => !r.sphere && !SC.LEGACY_GROUPS.has(r.scene.group));
   let bad = 0;
   const check = (id, what, ok, got) => { if (!ok) bad++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${id.padEnd(24)} ${what.padEnd(46)} ${got}`); };
-  const multi = (run) => ['zi_H', 'expH', 'e1z_disc', 'e1z_custom'].includes(run.scene.base);
   for (const run of runs) {
     const m = paint(run, null);
-    const parOk = m.parity_acc === undefined || (m.parity_acc === 1 && (m.parity_n >= 1000 || m.parity_exp < 1000));
-    const perfect = m.iou === 1 && m.hole === 0 && m.spill === 0 && parOk && (m.opacity_min == null || m.opacity_min === 1) && m.color_off === 0 && (m.hole_leak == null || m.hole_leak === 0);
-    check(run.id, 'ideal render scores perfectly', perfect, JSON.stringify({ iou: m.iou, hole: m.hole, spill: m.spill, parity: m.parity_acc, parity_n: m.parity_n, parity_exp: m.parity_exp, opacity_min: m.opacity_min, color_off: m.color_off, hole_leak: m.hole_leak }));
-    if (run.parity === 'polar') {
-      const f = paint(run, 'flip'); check(run.id, 'flipped parity -> parity 0', f.parity_acc === 0 && f.parity_n > 0, `parity ${f.parity_acc} (n ${f.parity_n})`);
-      // finding 3: the old truth ignored the app's c0 disc; a render without it must not score perfectly
-      if (m.polar_front_disc_px > 0) { const g = paint(run, 'norc'); check(run.id, `no c0 disc (${m.polar_front_disc_px} px decided by it) -> < 1`, g.parity_acc < 1, `parity ${g.parity_acc} (n ${g.parity_n})`); }
-    }
-    // finding 7: the pattern of the front sheet is scored where several sheets overlap
-    if (run.parity === 'front' && multi(run) && m.parity_exp >= 1000) { const f = paint(run, 'back'); check(run.id, 'the sheet behind the front -> parity < 0.95', f.parity_acc < 0.95 && f.parity_n >= 1000, `parity ${f.parity_acc} (n ${f.parity_n})`); }
-    if (run.parity) { const f = paint(run, 'blank'); check(run.id, 'blank render -> parity null (not 1)', f.parity_acc === null && f.problems.some((p) => /parity scored on 0/.test(p)), `parity ${f.parity_acc}; ${f.problems.join('; ')}`); }
-    if (run.scene.truth.holeDisc && run.variant === 'mask') { const f = paint(run, 'leak'); check(run.id, 'hole painted -> hole_leak = all', f.hole_leak === f.hole_leak_px, `hole_leak ${f.hole_leak}/${f.hole_leak_px}`); }
-    // finding 8: one translucent sheet in the hole of the alpha-0.2 run
-    if (run.scene.truth.holeDisc && run.variant === 'mask20') { const f = paint(run, 'leak20'); check(run.id, 'alpha-0.2 sheet in the hole -> hole_leak = all', f.hole_leak === f.hole_leak_px && f.hole_leak > 0, `hole_leak ${f.hole_leak}/${f.hole_leak_px}`); }
-    if (run.opacity && run.variant === 'mask20') { const f = paint(run, 'alpha'); check(run.id, 'one sheet at alpha 0.2 -> opacity 0.2', Math.abs(f.opacity_min - 0.2) < 0.01 && f.iou < 0.01, `opacity_min ${f.opacity_min} iou ${f.iou}`); }
-    if (run.opacity && run.scene.name === 'healed_cut') { const f = paint(run, 'crack'); check(run.id, 'crack at coverage 0.75 -> 0.75', Math.abs(f.opacity_min - 0.75) < 0.01 && f.iou === 1, `opacity_min ${f.opacity_min} iou ${f.iou} lt99 ${f.opacity_lt99}`); }
-    // finding 1: a wrong fill colour (darker, or a stroke colour) never scores as perfect
-    if (run.variant === 'mask' || run.variant === 'mask20' || run.variant === 'pattern' || run.variant === 'polar') {
-      const d85 = paint(run, 'dark85'), d95 = paint(run, 'dark95'), e = paint(run, 'edge');
-      // (healed_cut: the band around its dashed cut line, 3.7 % of the disc, allows stroke colours)
-      check(run.id, 'fill 15 % darker -> holes, colour error', d85.hole > 0.95 && d85.iou < 0.01 && d85.color_off > 0.99, `hole ${d85.hole} iou ${d85.iou} color_off ${d85.color_off} opacity ${d85.opacity_min}`);
-      check(run.id, 'fill 5 % darker -> colour error', d95.color_off > 0.99, `hole ${d95.hole} color_off ${d95.color_off} mean ${d95.color_err_mean}`);
-      check(run.id, 'fill in the edge colour -> holes', e.hole > 0.95 && e.iou < 0.01 && e.color_off > 0.99, `hole ${e.hole} iou ${e.iou} color_off ${e.color_off}`);
-    }
-    // finding 1 (3): nothing to score is unknown (null with a problem), never a perfect 1
-    if (run.variant === 'mask' || run.variant === 'pattern') {
-      const f = paint(run, 'band');
-      const nul = (k) => f[k] === undefined || f[k] === null;
-      check(run.id, 'all pixels in the band -> null metrics', nul('opacity_min') && nul('color_off') && nul('parity_acc') && f.problems.length > 0, `opacity ${f.opacity_min} color_off ${f.color_off} parity ${f.parity_acc}; ${f.problems.length} problem(s)`);
-    }
+    check(run.id, 'ideal render scores perfectly', m.iou === 1 && m.hole === 0 && m.spill === 0 && (m.hole_leak == null || m.hole_leak === 0), JSON.stringify({ iou: m.iou, hole: m.hole, spill: m.spill, hole_leak: m.hole_leak }));
+    if (run.scene.truth.holeDisc) { const f = paint(run, 'leak'); check(run.id, 'hole painted -> hole_leak = all', f.hole_leak === f.hole_leak_px, `hole_leak ${f.hole_leak}/${f.hole_leak_px}`); }
+    const p = paint(run, 'paper'); check(run.id, 'inside in the paper colour -> holes', p.hole > 0.95 && p.iou < 0.01, `hole ${p.hole} iou ${p.iou}`);
+    const a = paint(run, 'all'); check(run.id, 'the whole view painted -> spill', m.spill === 0 && (a.spill > 0 || a.iou === 1), `spill ${a.spill} iou ${a.iou}`);
+    const b = paint(run, 'band'); check(run.id, 'all pixels in the band -> IoU null', (b.iou === null || b.iou === undefined) && b.problems.length > 0, `iou ${b.iou}; ${b.problems.join('; ')}`);
   }
   console.log(bad ? `\n${bad} self-test check(s) FAILED` : `\nall metric self-tests passed (${runs.length} runs)`);
   process.exitCode = bad ? 1 : 0;

@@ -13,17 +13,23 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `nav(url)` (navigates and waits for the load event, for the app's page its start-up and quiet, and through the reload of a `#cmw=` link),
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt, rel)` (rel `{ x, y, moves }`: the release point and how many of the n moves are sent),
-   `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
+   `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state, extra, view, { limitMs, stallMs, origin })` (writes a saved state for ?ns=<ns>, opens the app and waits until it has built the saved chain; throws after `limitMs`, 60 s, naming the page's state when it is not ready, and opens a stalled document again after `stallMs`, 15 s; `origin` names another server for the pages),
    `loadView(view, ns, state, { lang })` (the same, with the app's first load in 'classic' or 'steps' whatever the pin is; with no
    view, in the pinned view), `seed(ns, state)` (only the saved state, written from the helper page), `isSteps()` (whether the page
    shows the steps view),
    `logs()` (console + exceptions
-   since the last call), `send(method, params)` (raw CDP), `sleep(ms)`.
+   since the last call; the daemon's own `cdp` entries name the navigations and crashes it saw), `forgetCause()` (forgets the last one, for a check that a failure with none says so; a call the page went under fails with `[method: the event that came first]` appended), `send(method, params)` (raw CDP), `sleep(ms)`.
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
-   alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that); `settled({ until, floor,
+   alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that; a document whose body stops arriving
+   is opened again after 5 s, at most twice); `settled({ until, floor,
    max, panes })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
    compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
    (8000), and answers `{ ok, ms, busy }`.
+   `reloaded(old, readyExpr, { limitMs })` waits for the page a reload brings: a document other than the one that began at `old` (its
+   `performance.timeOrigin`, read before the reload was asked for), loaded, with `readyExpr` true (one that throws is not true yet); a call the
+   reload cuts off is asked again, any other error is thrown, and after `limitMs` (20 s) it throws naming what is missing.
+   `injectGone(n)` makes the next `n` probes of `reloaded` fail with the page-gone error, to check that it asks again; `goneLeft()` says how
+   many are unconsumed (each command file starts with none).
    A frame held with `__cmwSteps({ x })` (a scrub not let go) keeps `__cmwSteps().moving` true on every surface, plane, Sphere
    and Landscape alike: never wait on `!__cmwSteps().moving` after a held `x`. The wait for a held frame is
    `__cmwSteps().ready.ready` (the frame's programs linked and warm) as `settled`'s `until`, with its pane checks left on.

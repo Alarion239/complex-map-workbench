@@ -31,7 +31,7 @@ const savePng = (name, rgba) => {
 };
 const cabs = (w) => Math.hypot(w.re, w.im);
 const pixelAt = (view) => (i, j) => C(view.cx + (i + 0.5 - W / 2) / view.s, view.cy - (j + 0.5 - H / 2) / view.s);
-// one render of a scene (plan, shape list, the left view's window as clipWin)
+// one render of a scene (plan, shape list, the z view's window as clipWin)
 function render(sc, view, pattern, opts = {}) {
   const plan = planOf(sc.steps);
   if (!plan.ok) throw new Error(plan.reason);
@@ -41,25 +41,47 @@ function render(sc, view, pattern, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// (g) reference renders: every run of the quality suite (scenes.js runs(): mask, pattern, polar, mask85, mask20),
-// scored exactly as run_quality.js scores the app, plus the zooms 12.1 (g) asks for that the suite does not render
+// (g) reference renders: the quality scenes (scenes.js) in every pattern and opacity this renderer draws (mask,
+// pattern, polar, mask85, mask20, polar85, polar50), scored with the quality suite's metrics, plus the zooms 12.1 (g)
+// asks for. (The quality suite itself renders the steps view, which draws regions solid: its runs score coverage
+// alone, 'cover'; the patterns and opacities of the renderer are scored here.)
 // ---------------------------------------------------------------------------------------------------------------
+// variant -> the renderer's pattern, its alpha, its pixel classifier (metrics.js)
+const VARIANTS = { mask: 'solid', pattern: 'checker', polar: 'polar', mask85: 'solid', mask20: 'solid', polar85: 'polar', polar50: 'polar' };
+const VARIANT_ALPHA = { mask85: 0.85, mask20: 0.2, polar85: 0.85, polar50: 0.5 };
+const VARIANT_CLASS = { mask: 'mask', pattern: 'pattern', polar: 'pattern', mask85: 'mask', mask20: 'mask', polar85: 'pattern', polar50: 'pattern' };
+// each scene's variants (default mask and pattern); zi_H_polar85: z^i's polar cells at alpha < 1 (P2 review)
+const VARIANTS_OF = { zi_H: ['mask', 'pattern', 'polar', 'mask85', 'mask20'], zi_H_out4: ['mask', 'pattern', 'polar'], expH: ['mask', 'pattern', 'mask85', 'mask20'],
+  e1z_disc: ['mask', 'pattern', 'mask85', 'mask20'], e1z_custom: ['mask', 'pattern', 'mask85'], atanh_D_s20: ['mask', 'mask85'], atanh_D_s10: ['mask', 'mask85'],
+  atan_D_s20: ['mask'], atan_D_s10: ['mask'], zi_H_polar85: ['polar85', 'polar50'] };
+// the runs: the scored sheet order of SPEC 5.1 (the meshing window, truth.accum) on the strict groups, the polar
+// pattern's solid disc (cell / 12)
+function refRuns() {
+  const zi = Q.SCENES.find((x) => x.name === 'zi_H');
+  const scenes = [...Q.SCENES, Object.assign({}, zi, { name: 'zi_H_polar85', note: 'z^i of the upper half-plane, polar pattern at alpha < 1' })];
+  const out = [];
+  for (const sc of scenes) for (const v of VARIANTS_OF[sc.name] || ['mask', 'pattern']) {
+    const strict = !Q.LEGACY_GROUPS.has(sc.group), kind = VARIANT_CLASS[v], cell = Q.cellOf(sc);
+    out.push({ id: `${sc.name}.${v}`, scene: sc, variant: v, kind, parity: v === 'pattern' ? (strict ? 'front' : 'checker') : /^polar/.test(v) ? 'polar' : null,
+      opacity: kind === 'mask' && strict, alpha: VARIANT_ALPHA[v] ?? 1, cell, sheet: strict ? { win: Q.boxOf(sc.srcView), P: sc.truth.accum || [] } : null, rc: v === 'polar' ? cell / 12 : 0 });
+  }
+  return out;
+}
 console.log('--- (g) reference renders (the quality suite runs)');
 // ([issue #260] a scene whose chain has no inverse plan, Φ_M's dh_disc, is drawn by the app's forward mesh: this
 // renderer has nothing to draw it with. Those runs are left out here, and they must be exactly dh_disc's)
-// (the globes, scenes.js SPHERE_SCENES, have no flat truth to score: left out here as in run_quality.js's metrics)
-const flatRuns = Q.runs().filter((r) => !r.sphere);
+const flatRuns = refRuns();
 const noPlan = flatRuns.filter((r) => !planOf(r.scene.steps).ok).map((r) => r.id);
 check('the quality runs with no inverse plan are exactly dh_disc\'s', noPlan.join() === 'dh_disc.mask,dh_disc.pattern', noPlan.join());
 const allRuns = flatRuns.filter((r) => !noPlan.includes(r.id));
 for (const [base, f, variants] of [['expH', 4, ['mask', 'pattern']], ['e1z_disc', 4, ['mask', 'pattern']], ['zi_H', 16, ['polar']]]) {
   const src = Q.SCENES.find((x) => x.name === base);
   if (!src) continue;
-  const sc = Object.assign({}, src, { name: `${base}_out${f}`, rightView: Object.assign({}, src.rightView, { s: src.rightView.s / f }) });
+  const sc = Object.assign({}, src, { name: `${base}_out${f}`, wView: Object.assign({}, src.wView, { s: src.wView.s / f }) });
   if (allRuns.some((r) => r.scene.name === sc.name && variants.includes(r.variant))) continue;
   // the scored sheet order of SPEC 5.1 (scenes.js runs(): the saved clipWin and truth.accum), as the suite's own runs
-  for (const v of variants) allRuns.push({ id: `${sc.name}.${v}`, scene: sc, variant: v, kind: Q.VARIANT_CLASS[v], parity: v === 'pattern' ? 'front' : v === 'polar' ? 'polar' : null,
-    opacity: Q.VARIANT_CLASS[v] === 'mask', alpha: 1, cell: Q.cellOf(sc), extra: true,
+  for (const v of variants) allRuns.push({ id: `${sc.name}.${v}`, scene: sc, variant: v, kind: VARIANT_CLASS[v], parity: v === 'pattern' ? 'front' : v === 'polar' ? 'polar' : null,
+    opacity: VARIANT_CLASS[v] === 'mask', alpha: 1, cell: Q.cellOf(sc), extra: true,
     sheet: { win: Q.boxOf(sc.srcView), P: sc.truth.accum || [] }, rc: v === 'polar' ? Q.cellOf(sc) / 12 : 0 });
 }
 const kept = {};
@@ -67,10 +89,10 @@ const ziScenes = new Set();
 for (const run of allRuns) {
   const sc = run.scene;
   if (QUICK && /_out4/.test(sc.name)) continue;
-  const pattern = Q.VARIANTS[run.variant];
-  const r = render(sc, sc.rightView, pattern, { alpha: run.alpha });
+  const pattern = VARIANTS[run.variant];
+  const r = render(sc, sc.wView, pattern, { alpha: run.alpha });
   savePng(run.id, r.rgba);
-  const map = { at: pixelAt(sc.rightView), spx: sc.rightView.s };
+  const map = { at: pixelAt(sc.wView), spx: sc.wView.s };
   // sheet / rc: the truth's front member under the SPEC 5.1 order and the polar pattern's solid disc (metrics.js)
   const TG = MET.truthGrid(sc.truth, run.cell, map, W, H, { parity: run.parity, sheet: run.sheet || undefined, rc: run.rc });
   const ev = MET.evaluate({ rgba: r.rgba, W, H, truthG: TG, classify: MET.makeClassifier({}, run.kind), variant: run.kind, parity: run.parity, opacity: run.opacity ? MET.makeOpacity({}) : null });
@@ -87,12 +109,12 @@ for (const run of allRuns) {
     // the front sheet's own checker parity (not its colour: the polar pattern fades to c0 within cell/12 of the origin,
     // as REGION_FS does, which the colour-based suite metric counts as a parity error) against the exact parity
     let ok = 0, tot = 0;
-    const at = pixelAt(sc.rightView);
+    const at = pixelAt(sc.wView);
     for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
       const k = j * W + i;
       if (r.stats.par[k] < 0 || TG.sdf[k] <= 2.5) continue;
       const w = at(i, j), g = [Math.atan2(w.im, w.re) * 16 / TAU, -Math.log(cabs(w)) * 16 / TAU], rr = cabs(w);
-      const da = Math.abs(g[0] - Math.round(g[0])) * TAU / 16 * rr * sc.rightView.s, dl = Math.abs(g[1] - Math.round(g[1])) * TAU / 16 * rr * sc.rightView.s;
+      const da = Math.abs(g[0] - Math.round(g[0])) * TAU / 16 * rr * sc.wView.s, dl = Math.abs(g[1] - Math.round(g[1])) * TAU / 16 * rr * sc.wView.s;
       if (Math.min(da, dl) < 1.5) continue;
       tot++; if (r.stats.par[k] === ((((Math.floor(g[0]) + Math.floor(g[1])) % 2) + 2) % 2)) ok++;
     }
@@ -189,12 +211,12 @@ console.log('--- (g) Λ rule at 32x and 64x zoom-out');
 console.log('--- (g) mask20 opacity');
 for (const name of ['expH', 'zi_H', 'e1z_disc']) {
   const sc = NEW.find((s) => s.name === name);
-  const r = render(sc, sc.rightView, 'solid', { alpha: 0.2 });
-  const at = pixelAt(sc.rightView);
+  const r = render(sc, sc.wView, 'solid', { alpha: 0.2 });
+  const at = pixelAt(sc.wView);
   let nIn = 0, minO = 1;
   for (let j = 0; j < H; j += 2) for (let i = 0; i < W; i += 2) {
     const w = at(i, j);
-    if (!(sc.truth.sdf(w) * sc.rightView.s > 3)) continue;
+    if (!(sc.truth.sdf(w) * sc.wView.s > 3)) continue;
     nIn++;
     minO = Math.min(minO, r.stats.alpha[j * W + i]);
   }
@@ -279,8 +301,8 @@ console.log('--- (h) golden emulation');
   for (const name of ['disc_cube', 'joukowski', 'annulus_log', 'poly_mobius']) {
     const sc = Q.SCENES.find((s) => s.name === name);
     for (const variant of ['mask', 'pattern']) {
-      const inv = kept[`${name}.${variant}`] ? kept[`${name}.${variant}`].r : render(sc, sc.rightView, variant === 'mask' ? 'solid' : 'checker');
-      const gd = composite(sc, sc.rightView, variant, inv);
+      const inv = kept[`${name}.${variant}`] ? kept[`${name}.${variant}`].r : render(sc, sc.wView, variant === 'mask' ? 'solid' : 'checker');
+      const gd = composite(sc, sc.wView, variant, inv);
       console.log(`${(name + '.' + variant).padEnd(22)} golden_diff ${(100 * gd.frac).toFixed(3)} % (${gd.n} px)`);
       check(`golden ${name}.${variant} <= 0.05 %`, gd.frac <= 0.0005, `${(100 * gd.frac).toFixed(3)} %`);
     }
@@ -289,7 +311,7 @@ console.log('--- (h) golden emulation');
   // checks above see which point is in front)
   {
     const sc = Q.SCENES.find((x) => x.name === 'disc_cube'), kd = kept['disc_cube.pattern'];
-    const gdr = composite(sc, sc.rightView, 'pattern', kd ? kd.r : render(sc, sc.rightView, 'checker'), true);
+    const gdr = composite(sc, sc.wView, 'pattern', kd ? kd.r : render(sc, sc.wView, 'checker'), true);
     check('the sheet order matters: reversed disc_cube.pattern > 0.1 %', gdr.frac > 0.001, `${(100 * gdr.frac).toFixed(3)} %`);
   }
   // the key is continuous across the window's sides, so two sheets whose keys are near trade places along a smooth
@@ -324,7 +346,7 @@ console.log('--- (i) spherical checker');
   const crossings = (vals) => { const out = []; for (let i = 1; i < vals.length; i++) { const a = vals[i - 1] - 0.5, b = vals[i] - 0.5; if (a * b < 0) out.push(i - 1 + a / (a - b)); } return out; };
   // log(H): latitude columns at Re w = ln tan(j pi / 16)
   {
-    const sc = Q.SCENES.find((s) => s.name === 'logH'), view = sc.rightView;
+    const sc = Q.SCENES.find((s) => s.name === 'logH'), view = sc.wView;
     const r = render(sc, view, 'sphere');
     savePng('logH.sphere', r.rgba);
     const wy = 5 * PI / 16, j = Math.round(H / 2 - (wy - view.cy) * view.s - 0.5);
@@ -347,7 +369,7 @@ console.log('--- (i) spherical checker');
   }
   // z^i(H): longitude rings at |w| = e^{-j pi/8}
   {
-    const sc = NEW.find((s) => s.name === 'zi_H'), view = sc.rightView;
+    const sc = NEW.find((s) => s.name === 'zi_H'), view = sc.wView;
     const r = render(sc, view, 'sphere');
     savePng('zi_H.sphere', r.rgba);
     const ang = -0.2, step = 0.05;                                         // a ray inside one latitude band
@@ -377,7 +399,7 @@ console.log('--- (i) spherical checker');
   }
   // Cayley(H) at w = 1 (the image of infinity): every fill pixel within 3 px is the average colour (no noise)
   {
-    const sc = Q.SCENES.find((s) => s.name === 'cayley_H'), view = sc.rightView;
+    const sc = Q.SCENES.find((s) => s.name === 'cayley_H'), view = sc.wView;
     const r = render(sc, view, 'sphere');
     savePng('cayley_H.sphere', r.rgba);
     const avg = [0, 1, 2].map((q) => (c0[q] + c1[q]) / 2);

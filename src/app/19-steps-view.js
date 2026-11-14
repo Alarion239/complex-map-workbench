@@ -932,7 +932,8 @@
     const next = (dl) => {
       if (tok !== svPoleJob) return;
       const t0 = performance.now();
-      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl ? dl.timeRemaining() : SV_POLE_BUDGET);
+      // (a callback the browser ran for its timeout, not in an idle moment, has no time remaining and still runs one slice)
+      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl && !dl.didTimeout ? dl.timeRemaining() : SV_POLE_BUDGET);
       try {
         while (left() > 0) {
           const P = svPolesLeft();
