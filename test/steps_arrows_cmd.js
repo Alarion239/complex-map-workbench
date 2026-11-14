@@ -42,4 +42,11 @@ await ev(`(() => { const f = document.createElement('input'); f.id = 'zzField'; 
 await press('ArrowRight');
 await settled({ max: 4000, until: '!__cmwSteps().moving' });
 ok('→ in a text field leaves the thread where it is', (await at()) === i0, await at());
+// the keyboard help says it: the probe's arrows are Alt / Option + the arrows (the plain ones step the chain), in each language
+for (const [lang, re] of [['en', /Alt \/ Option \+ the arrows move a probe/], ['ru', /Alt \/ Option \+ стрелки перемещают указатель/], ['it', /Alt \/ Option \+ le frecce spostano una sonda/]]) {
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
+  await settled({ max: 30000, until: idle });
+  const t = await ev(`(document.querySelector('.snd-keys') || {}).textContent || ''`);
+  ok(`${lang}: the sound help says Alt / Option + the arrows move the probe`, re.test(t), t.slice(0, 160));
+}
 return { pass: fails.length === 0, fails, info };

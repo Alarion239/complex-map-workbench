@@ -107,7 +107,7 @@ for (const [k, v] of Object.entries(RU)) {
     ok(f.length < 80 || f.indexOf(f.slice(0, 60), 1) < 0, 'repeated text in ' + k);
     // no English left: drop math, tags with their math content, placeholders, TeX; then allow key names, formats,
     // the brand, autonyms and the formula keywords shown in <i>
-    const ALLOW = new Set(['Enter', 'Esc', 'Shift', 'Delete', 'Tab', 'Ctrl', 'Alt', 'Space', 'LaTeX', 'TeX', 'PDF', 'PNG', 'SVG', 'English', 'Complex', 'Map', 'Workbench', 'Re', 'Im', 'arg', 'ln', 'tg', 'ctg', 'sh', 'ch', 'th', 'cth', 'arctg', 'arsh', 'arch', 'arth', 'cosec',
+    const ALLOW = new Set(['Enter', 'Esc', 'Shift', 'Delete', 'Tab', 'Ctrl', 'Alt', 'Option', 'Space', 'LaTeX', 'TeX', 'PDF', 'PNG', 'SVG', 'English', 'Complex', 'Map', 'Workbench', 'Re', 'Im', 'arg', 'ln', 'tg', 'ctg', 'sh', 'ch', 'th', 'cth', 'arctg', 'arsh', 'arch', 'arth', 'cosec',
       // the formula language and the math in the parser's messages (phase 2a): keywords, names, products of letters
       'and', 'or', 'not', 'ad', 'bc', 'dz', 'arcctg', 'arccot', 'acot', 'lg', 'Ln', 'Arg', 'arcth', 'arcoth', 'artanh',
       // phase 2b: key names, file formats and units, products, LaTeX names, math words (exp, const, az + b)
