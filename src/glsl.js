@@ -1632,11 +1632,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
       const rads = [];
       const n = subs.length;
       // the path at 0 < t < 1 (the deformation's sheets): its steps' paths in turn, step q on [q/n, (q+1)/n] (recPlan,
-      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits
+      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits. With
+      // full, every step in full, as _s does: chainSheetHom reaches the steps through _sh alone, so each step's sheet
+      // function has one call site there (a shader compiler inlines every call)
       subs.forEach(({ Q, sp }, q) => {
         if (!sp) {
           body += `  p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n`;
-          hbody += `  if (j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
+          hbody += `  if (full || j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
           return;
         }
         fn += sp.fn;
@@ -1645,17 +1647,17 @@ vec2 cx_binom(vec2 a, vec2 b) {
         body += sp.custom ? `  ${sp.apply()}\n` : `  { float s0 = cxs0_dig(${sp.rads[0]}, c); ${sp.apply(['s0'])} }\n`;
         if (sp.custom) {
           const hom = sp.homCall ? sp.homCall(`x - ${q}.0`) : 'p = vec4(cx_nan());';
-          hbody += `  if (j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+          hbody += `  if (full || j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
         } else {
-          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
+          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (full || j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
         }
       });
       return {
         rads, custom: true, apply: () => `p = ${P}_s(p, c);`,
-        homCall: (t) => `p = ${P}_sh(p, c, ${t});`,
+        homCall: (t, full = 'false') => `p = ${P}_sh(p, c, ${t}, ${full});`,
         fn: `${fn}vec4 ${P}_s(vec4 p, inout highp int c) {\n${body}  return p;\n}\n`,
         // (the path's function goes with chainSheetHom, into the sheet programs only: GLChain's sheetHom)
-        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
+        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t, bool full) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
         write(put) { for (const { sp } of subs) if (sp) sp.write(put); },
       };
     }
@@ -1884,8 +1886,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
       } else if (!sp) {
         sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
       } else if (sp.custom) {
-        const hom = sp.homCall ? sp.homCall('t') : 'p = vec4(cx_nan());';
-        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) ${hom}\n  else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        // (a recognized formula, which has a path: the step in full and its path through the one call of _sh)
+        const dig = `else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        sh += sp.homCall ? `  if (h == 1 || (h == 2 && t > 0.0)) ${sp.homCall('t', 'h == 1 || t >= 1.0')}\n  ${dig}` : `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) p = vec4(cx_nan());\n  ${dig}`;
       } else {
         sh += `  if (h > 0) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (h == 1 || t >= 1.0) ${sp.apply(['s0'])}\n    else if (t > 0.0) ${sp.homApply(['s0'], 't')}\n  }\n  else if (${k} > base && ${k} <= end) cxs0_dig(${sp.rads[0]}, c);\n`;
       }
