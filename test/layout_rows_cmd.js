@@ -37,5 +37,12 @@ for (const [w, h, phone] of [[1280, 800, false], [390, 844, true]]) {
     ok(`${w}: ${sel} put back is even again`, (await count()) === 0, row);
   }
 }
+// a row that wraps onto a second line has no one gap, so it is not reported however its gaps fall (the classic phone's Display sheet wraps
+// its Phase style tiles into two lines): the first declared row on this page, made to wrap with its first member 9 px off and three to a line
+{
+  const sel = (await ev(PRESENT))[0];
+  const w = await ev(`(() => { const L = __layout, row = [...document.querySelectorAll(${JSON.stringify(sel)})].find((r) => L.vis(r) && [...r.children].filter(L.vis).length >= 3); const ks = [...row.children].filter(L.vis); row.style.cssText += ';display:flex;flex-wrap:wrap;width:' + (ks[0].getBoundingClientRect().width * 3 + 11) + 'px'; ks[0].style.marginRight = '9px'; const tops = new Set(ks.map((k) => Math.round(k.getBoundingClientRect().top))); return { desc: L.desc(row), lines: tops.size, found: L.evenSpacing().filter((v) => v.el === L.desc(row)).length }; })()`);
+  ok(`${sel} made to wrap, three to a line, is not reported`, w.lines >= 2 && w.found === 0, w);
+}
 ok('the declared rows seen on the page cover the horizontal ones (.seg at 1280; the phone\'s tool rail at 390)', seen.has('.seg') && seen.has(':root.ph #tools'), [...seen]);
 return { pass: fails.length === 0, fails, info };

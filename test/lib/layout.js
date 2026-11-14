@@ -508,6 +508,8 @@
         const ks = [...row.children].filter(vis).map((k) => R(k.getBoundingClientRect()));
         if (ks.length < 3) continue;
         const hz = (ks[ks.length - 1].l - ks[0].l) >= (ks[ks.length - 1].t - ks[0].t);
+        // (a row that wraps onto a second line has no one gap: only a row of one line, or one column, is declared even)
+        if (Math.max(...ks.map((k) => k.t)) >= Math.min(...ks.map((k) => k.b)) && Math.max(...ks.map((k) => k.l)) >= Math.min(...ks.map((k) => k.r))) continue;
         ks.sort((p, q) => (hz ? p.l - q.l : p.t - q.t));
         const gaps = ks.slice(1).map((k, i) => +(hz ? k.l - ks[i].r : k.t - ks[i].b).toFixed(1));
         const spread = Math.max(...gaps) - Math.min(...gaps);
