@@ -2233,15 +2233,10 @@
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
     onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
-    rail.addEventListener('scroll', () => {
-      const E = SV.els;
-      // (the scroll event that the follow's own scroll brings is the follow's, wherever the browser landed it; a later scroll away from there, in
-      // a rail that has a range to scroll and whose range is the one measured, is the user's: a range that shrank clamps the scroll too.
-      // E.scrollMax is the rail's real range, scrollWidth - clientWidth, which trackW - railW is not when the whole map sits outside the rail)
-      if (E && E.followPending) E.followTo = rail.scrollLeft;
-      else if (E && E.followTo != null && E.scrollMax > 0 && Math.abs(rail.scrollLeft - E.followTo) > 1 && rail.scrollWidth - rail.clientWidth === E.scrollMax) E.userScrolled = true;
-      if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); }
-    }, { passive: true });
+    rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
+    // (a sideways wheel or trackpad is the user's own scroll of the thread: until the ring moves, a resize leaves the rail where it is. The rail
+    // has no touch scroll (touch-action: none), and a focus scroll is a ring move)
+    rail.addEventListener('wheel', (e) => { const E = SV.els; if (E && (e.deltaX || (e.shiftKey && e.deltaY))) E.userScrolled = true; }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
@@ -2429,7 +2424,7 @@
       const key = `${x.toFixed(3)}|${c.length}|${SV.alone}`;
       if (key !== E.followKey || !E.userScrolled) {
         E.followKey = key; E.userScrolled = false;
-        const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
+        const m = Math.min(60, E.railW / 3), s = Math.round(E.rail.scrollLeft);   // (where the rail is now, not where its last scroll event said)
         // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
         const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
         // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
@@ -2443,18 +2438,14 @@
           if (E.hold.tx == null) E.hold.tx = tx;
           if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
         } else E.hold = null;
-        const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
+        // (to the rail's real range, scrollWidth - clientWidth, which trackW - railW is not when the whole map sits outside the rail)
+        const to = Math.max(0, Math.min(E.scrollMax, Math.round(aim)));
         // (the fades follow at once: the rail's scroll event comes a frame later)
-        if (to !== s) {
-          E.rail.scrollLeft = to; E.scrollX = to; svFades();
-          // (the next frame's scroll event is the follow's: it comes before that frame's animation callbacks)
-          E.followPending = true; requestAnimationFrame(() => { if (SV.els === E) E.followPending = false; });
-        }
-        E.followTo = to;
+        if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
       }
     } else {
       // (a rail that fits has no scroll of the user's to keep: it follows the ring again when it overflows)
-      E.userScrolled = false; E.followTo = null;
+      E.userScrolled = false;
       if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
     }
   }
