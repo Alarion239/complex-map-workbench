@@ -10,7 +10,7 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
 1. Copy this folder to your own directory: `cp -R test/cdp_kit test/<you>_cdp` (never share a folder: the queue is per folder).
 2. Start the daemon in the background: `node test/<you>_cdp/cdpd.js` (Bash run_in_background). Wait for `test/<you>_cdp/q/READY`.
 3. Run a command file: `test/<you>_cdp/q.sh /path/to/cmd.js` prints the JSON result. The file is the BODY of an async
-   function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `nav(url)`,
+   function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `nav(url)` (navigates and waits for the load event, for the app's page its start-up and quiet, and through the reload of a `#cmw=` link),
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt, rel)` (rel `{ x, y, moves }`: the release point and how many of the n moves are sent),
    `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
