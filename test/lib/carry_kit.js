@@ -1,5 +1,5 @@
 // The carried-colour suites' shared page script and pixel compare: steps_carry_inregion_cmd.js, steps_carry_far_cmd.js and
-// steps_carry_chains_cmd.js (and the planes suite of #733, once it merges). The left pane's pixels come from the page's __cmwLPx; the rest is the pane's camera,
+// steps_carry_chains_cmd.js. The left pane's pixels come from the page's __cmwLPx; the rest is the pane's camera,
 // the nearest of a point's 9 pixels to a reference, the bare-paper test and the example list of src/app/15-examples-guide.js.
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
 // - lpx(pts): __cmwLPx(pts) answers { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels about
@@ -22,7 +22,7 @@
 //   with out set near the circle's outline (0.12) and where leave(z, w); poleAt(t) the key's points at t, plane w1's
 //   (z = 0) and the path's pole on the disc, -i tan(pi (1 - t) / (2 (1 + t))), there from t = 1/3 on;
 // - chainPoints(steps, box): a chain's points by its steps' inverses (steps: the page's { type, params }, of exp, sin,
-//   pown and mobius with real or imaginary parameters), as cand(w, b): the points z of box { x0, x1, y0, y1 } that the
+//   pown with n > 0 and mobius with real or imaginary parameters), as cand(w, b): the points z of box { x0, x1, y0, y1 } that the
 //   steps before plane b take to w, each as { z } (every period of exp and sin within reach, kept where the forward map
 //   gives w back within 1e-7);
 // - carryRead(env): measure(), the front point's colour on a plane against plane z's (below, at its definition).
@@ -129,13 +129,13 @@
         return out;
       },
     };
-    if (s.type === 'pown') {
-      const n = s.params.n, m = Math.abs(n);
+    if (s.type === 'pown' && s.params.n > 0) {
+      const n = s.params.n;
       return {
-        fwd: (u) => { let p = [1, 0]; for (let k = 0; k < m; k++) p = cmul(p, u); return n < 0 ? cdiv([1, 0], p) : p; },
+        fwd: (u) => { let p = [1, 0]; for (let k = 0; k < n; k++) p = cmul(p, u); return p; },
         inv: (u) => {
-          const v = n < 0 ? cdiv([1, 0], u) : u, r = Math.hypot(v[0], v[1]) ** (1 / m), a = Math.atan2(v[1], v[0]), out = [];
-          for (let k = 0; k < m; k++) out.push([r * Math.cos((a + TAU * k) / m), r * Math.sin((a + TAU * k) / m)]);
+          const r = Math.hypot(u[0], u[1]) ** (1 / n), a = Math.atan2(u[1], u[0]), out = [];
+          for (let k = 0; k < n; k++) out.push([r * Math.cos((a + TAU * k) / n), r * Math.sin((a + TAU * k) / n)]);
           return out;
         },
       };

@@ -12,8 +12,8 @@
 // region tiling's machinery (svCarryRegions, which draws while the inverse pass compiles or where it cannot), with the
 // inverse renderer taken from the page (GLR.drawInverse) for that read.
 // Control: each case read against the front point the larger Im z decides (of all the points landing at w that plane z
-// shows, the region's or not: the rule under which Strip to disk's half-plane took its colour from another copy of the
-// strip, #551) has over 1 % wrong: the check tells the two rules apart.
+// shows, the region's or not, so it can pick a copy of z outside the region) has over 1 % wrong: the check tells the
+// two rules apart.
 // - Strip to disk (exp, then (z - 1)/(z + 1); the strip |Im z| < pi/2): planes w1 and w2, Inside regions and Everywhere;
 // - exp, z^2, (z - i)/(z + i), z^3 with the disc |z - (0.3 + 0.2i)| < 1.2: planes w2, w3 and w4 Everywhere, w4 Inside regions;
 // - sin, (z - 1)/(z + 1), z^2, (z - i)/(z + i) with the disc |z| < 1.4: plane w4 Everywhere and Inside regions;
