@@ -152,6 +152,8 @@ function keepShots(file, run) {
 function failures(out) {
   if (out == null || typeof out !== 'object' || Array.isArray(out)) return null;
   if (out.__daemonError) return [{ name: 'the suite threw', detail: out.__daemonError }];
+  // (#1328) answers the kit could not give as data that the suite did not read: a page exception, a wait that ran out
+  const kit = Array.isArray(out.kitFaults) && out.kitFaults.length ? [{ name: 'the kit answered a page exception or a wait that ran out, and the suite read on', detail: out.kitFaults }] : [];
   // (a suite whose fails are names keeps each check's detail in out.info[name]: the release smokes)
   const info = out.info && typeof out.info === 'object' && !Array.isArray(out.info) ? out.info : {};
   const item = (f) => (Array.isArray(f) ? { name: String(f[0]), detail: f[2] } : typeof f === 'string' ? { name: f, detail: info[f] }
@@ -160,7 +162,8 @@ function failures(out) {
   const verdict = typeof out.pass === 'boolean' ? out.pass : typeof out.ok === 'boolean' ? out.ok
     : typeof out.pass === 'number' && typeof out.of === 'number' ? out.pass === out.of : list ? !list.length : null;
   if (verdict == null) return null;
-  if (list && list.length) return list;
+  if (list && list.length) return list.concat(kit);
+  if (verdict && kit.length) return kit;
   return verdict ? [] : [{ name: typeof out.pass === 'number' ? `${out.pass} of ${out.of} checks passed` : 'the suite says it failed', detail: out }];
 }
 // the entry of a list (TIMING, SOFTWARE, KNOWN) that a failed check matches: by name, and, when the entry has a

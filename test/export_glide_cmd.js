@@ -11,6 +11,39 @@ const DRAWN = 60;
 // a 3D frame has its picture on it when more than this share of its pixels is drawn (a globe fills about a third of its frame, so
 // this says the picture is there and not the paper alone)
 const DRAWN_MIN = 0.04;
+// the options of the glide video every check here records: 1 s per step, as the other API-made videos (export_cmd.js; #531). A
+// video renders secs x fps x steps frames and a hold shows its kept picture again, so the length is what the suite's time follows
+const VIDEO_OPT = { size: '1280x720', fps: 30, secs: 1, ends: 'once' };
+// makeVideo's evaluate wait (ms): the encode of a whole video
+const VIDEO_WAIT_MS = 600000;
+// the pane's settle limit (ms) after the thread is moved
+const SETTLE_MAX_MS = 15000;
+// the thread's position is parked to this tolerance (a step of the thread is 1)
+const POS_TOL = 1e-6;
+// the frame probe's size in px: the label does not depend on it
+const PROBE_W = 192, PROBE_H = 108;
+// the paths check parks the thread here (between the first two planes), draws the glide's frame at this width in pt, and takes the
+// frames to differ where their summed channels do by more than DRAWN
+const PATHS_PARK = 0.5, PATHS_FRAME_W = 400;
+// Paths on draws on at least this share of the frame's pixels that Paths off leaves bare (the paths of the chain below
+// cover about 0.7 % of it)
+const PATHS_MIN_SHARE = 0.002;
+// the steps view's Paths needs marked area to follow: a disc of z, then z² and a quarter turn of it (arcs)
+const PATHS_CHAIN = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0,
+  shapes: [{ id: 'd1', kind: 'disc', c: [0.3, 0.2], r: 1.4, ci: 0, visible: true }],
+  steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'affine', params: { a: 'i', b: '0' }, on: true }] };
+// a box may overshoot the figure's size by this much (SVG units) to count as inside it
+const FIT_SLACK = 0.01;
+// the hue ring is marked 1, i, -1, -i
+const RING_MARKS = 4;
+// a decoded frame, or a frame of a video, matches its exact render to this mean difference (of 255)
+const DECODED_MAD = 12;
+// the Play range the Loop, Bounce and hidden-tab checks record: the thread's second step (planes 1 to 2), one step long
+const PLAY_RANGE = [1, 2];
+// a hidden page's timers wait at least this long (ms), its animation frames do not come and document.hidden is true
+const HIDDEN_TIMER_MS = 1000;
+// a video made in a hidden page may take this many times a visible one's time, or this much longer (ms), whichever is more
+const HIDDEN_RATIO = 3, HIDDEN_SLACK_MS = 4000;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -27,11 +60,10 @@ const open = async (exN, surf) => {
 for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land']]) {
   const tag = `ex ${exN} ${surf}`;
   await open(exN, surf);
-  const vopt = { size: '1280x720', fps: 30, secs: 2, ends: 'once' };
   const v = await ev(`await (async () => { try {
     const g = __cmwFig.glide(), at0 = __cmwSteps().x;
-    const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(vopt)}, keepForCheck: true });
-    const n = __cmwFig.videoTimes(${JSON.stringify(vopt)}, g.hi - g.lo).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
+    const r = await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)}, keepForCheck: true });
+    const n = __cmwFig.videoTimes(${JSON.stringify(VIDEO_OPT)}, g.hi - g.lo).length, k = Math.floor(r.frames * 0.4), chk = await __cmwFig.videoCheck(k, 256, 144);
     return { g, at0, at1: __cmwSteps().x, ext: r.ext, codec: r.codec, frames: r.frames, expect: n, fps: r.fps, W: r.W, H: r.H, mad: chk && chk.mad, t: chk && chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 600000);
   if (!v || v.err) { fails.push({ name: `${tag}: video`, got: v }); continue; }
@@ -39,14 +71,13 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   ok(`${tag}: the glide spans the thread (${v.g && v.g.from} to ${v.g && v.g.to})`, v.g && v.g.hi > v.g.lo, v.g);
   ok(`${tag}: the frame count is videoTimes()'s`, v.frames === v.expect && v.frames > 0, v);
   ok(`${tag}: 1280 x 720 at 30 fps, H.264 or VP9`, v.W === 1280 && v.H === 720 && v.fps === 30 && /^(avc1|vp0?9|vp8)/.test(v.codec), v);
-  ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < 12, v);
+  ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < DECODED_MAD, v);
   ok(`${tag}: the thread's place is where it was`, v.at0 === v.at1, v);
   // ruling 2 (#635): the video's first frame, at rest on the first plane, shows the still export's picture of that plane:
   // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
   // being that window widened to 16:9 (both at 320 px wide, so the pixels compare the same picture)
   const fp = await ev(`await (async () => { try {
-    const mv = await __cmwFig.makeVideo({ video: { size: '1280x720', fps: 30, secs: 2, ends: 'once' }, keepForCheck: true });
-    const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(mv.frames - 1, 640, 360);
+    const chk = await __cmwFig.videoCheck(0, 640, 360), end = await __cmwFig.videoCheck(${v.frames} - 1, 640, 360);
     const f = await __cmwFig.build({});
     if (!f) return { none: 1 };
     const ld = (u) => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = u; });
@@ -81,7 +112,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     return { mad, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
-  if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
+  if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < DECODED_MAD, fp);
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place; a globe or a relief has no window of the still's to crop to, so its
@@ -120,6 +151,47 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   const paperShare = await ev(`(() => { const w = 96, h = 54, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); const d = x.getImageData(0, 0, w, h).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) + Math.abs(d[i + 2] - d[2]) > ${DRAWN}) n++; return n / (w * h); })()`);
   ok('a frame of paper alone is not a drawn picture (its drawn share is under DRAWN_MIN)', paperShare <= DRAWN_MIN, paperShare);
 }
+// the glide video's Play range, Loop, Bounce and hidden page: the video spans the Play range, Loop and Bounce take the classic
+// export's times (videoTimes), and a page that is hidden makes it at a pace close to a visible one. The range is one step, so
+// each video is a few dozen moving frames
+{
+  await open(1, 'plane');
+  const full = await ev('__cmwFig.glide()');
+  await ev(`(__cmwSteps({ range: ${JSON.stringify(PLAY_RANGE)} }), 1)`);
+  const rg = await ev('__cmwFig.glide()');
+  info['glide with a Play range'] = { full, rg };
+  ok('a Play range is the glide\'s span: its planes, not the whole thread', rg && full && rg.lo === PLAY_RANGE[0] && rg.hi === PLAY_RANGE[1] && full.lo === 0 && rg.lo > full.lo && rg.hi === full.hi && rg.from !== full.from, { full, rg });
+  const mk = (ends, hidden) => ev(`await (async () => { try {
+    const opt = Object.assign({}, ${JSON.stringify(VIDEO_OPT)}, { ends: '${ends}' }), g = __cmwFig.glide();
+    const st = window.setTimeout, raf = window.requestAnimationFrame;
+    if (${!!hidden}) {
+      for (const [k, v] of [['hidden', true], ['visibilityState', 'hidden']]) Object.defineProperty(document, k, { configurable: true, get: () => v });
+      window.setTimeout = (f, d, ...a) => st(f, Math.max(d || 0, ${HIDDEN_TIMER_MS}), ...a); window.requestAnimationFrame = () => 0;
+    }
+    const t0 = performance.now();
+    let r; try { r = await __cmwFig.makeVideo({ video: opt, keepForCheck: true }); } finally { window.setTimeout = st; window.requestAnimationFrame = raf; delete document.hidden; delete document.visibilityState; }
+    const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span);
+    const at = (x) => (typeof x === 'number' ? x : x.a), blend = T.findIndex((x) => typeof x !== 'number');
+    // the frame decoded: Loop's first cross-fade, Bounce's first frame inside the range after the far end (the return leg), else the
+    // first inside the range
+    const peak = T.lastIndexOf(span), inside = (x, i) => typeof x === 'number' && x > 0 && x < span && i > (opt.ends === 'bounce' ? peak : -1);
+    const k = blend >= 0 ? blend : T.findIndex(inside), chk = await __cmwFig.videoCheck(k);
+    return { frames: r.frames, expect: T.length, span, first: at(T[0]), last: T[T.length - 1], top: Math.max(...T.map((x) => (typeof x === 'number' ? x : Math.max(x.a, x.b)))), blends: T.filter((x) => typeof x !== 'number').length, k, peak, kt: at(T[k]), mad: chk ? chk.mad : null, t: chk ? chk.t : null, ms };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, VIDEO_WAIT_MS);
+  const once = await mk('once'), loop = await mk('loop'), bounce = await mk('bounce');
+  info['glide video once, loop, bounce'] = { once, loop, bounce };
+  ok('the video of a Play range is the range\'s: frames of videoTimes() over its one step, times within it', !once.err && once.frames === once.expect && once.span === PLAY_RANGE[1] - PLAY_RANGE[0] && once.top === once.span && once.last === once.span && once.mad != null && once.mad < DECODED_MAD && once.t === once.kt && once.t > 0 && once.t < once.span, once);
+  // (the frame decoded is the first one inside the range after the far end: Bounce's return leg, past its hold at the far end)
+  ok('Bounce goes to the far end of the range and back to its first plane, in more frames than Once, and a decoded frame of the return leg is the exact render', !bounce.err && bounce.frames === bounce.expect && bounce.expect > once.expect && bounce.top === bounce.span && bounce.last === bounce.first && bounce.blends === 0 && bounce.k > bounce.peak && bounce.mad != null && bounce.mad < DECODED_MAD && bounce.t === bounce.kt && bounce.t > 0 && bounce.t < bounce.span, bounce);
+  // (Loop's last entry is a fade of the far end into the first plane, whole: its k is 1)
+  ok('Loop cross-fades the end back to the first plane (blended frames, the last one a whole fade of the far end into it), in more frames than Once, and a decoded blended frame is the exact render', !loop.err && loop.frames === loop.expect && loop.expect > once.expect && loop.blends > 0 && !!loop.last && loop.last.a === loop.span && loop.last.b === loop.first && loop.last.k === 1 && loop.mad != null && loop.mad < DECODED_MAD && loop.t === loop.kt, loop);
+  // a hidden page, as Chrome makes one: document.hidden, timers that wait a second and animation frames that never come, so a
+  // video that waits on a timer or an animation frame per frame crawls (the encoder's dequeue event and a message channel do not)
+  const hid = await mk('once', true);
+  info['glide video in a hidden page'] = { visible: once, hidden: hid };
+  ok('a video made in a hidden page has the same frames at a pace close to a visible one', !hid.err && hid.frames === once.frames && hid.ms < Math.max(HIDDEN_RATIO * once.ms, once.ms + HIDDEN_SLACK_MS), { once, hid });
+  await ev(`(__cmwSteps({ range: null }), 1)`);
+}
 // the dialog: Video is listed, with where it goes and how long it is
 // the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane
 // (its key caption, or the line saying where the colour is carried from, and its title's plane), then svKey is read from
@@ -148,14 +220,47 @@ for (const T of ['null', 0]) {
   }
 }
 ok('past the colour plane the key says where the colour is carried from', carriedSeen > 0, { carriedSeen });
+// the glide's label words are the pane's readout: a frame's label, then the pane parked at the same place says it too. The
+// pane's spoken value is the readout followed by the Play range's words, and no range is set here, so it is the label itself
+{
+  const lb = JSON.parse(await ev(`await (async () => { try {
+    const g = __cmwFig.glide(), vopt = ${JSON.stringify(VIDEO_OPT)};
+    const r = await __cmwFig.makeVideo({ video: vopt, keepForCheck: true }), chk = await __cmwFig.videoCheck(5, ${PROBE_W}, ${PROBE_H});
+    return JSON.stringify({ lo: g.lo, hi: g.hi, t: chk && chk.t, label: chk && chk.label, frames: r.frames });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 600) }); } })()`, VIDEO_WAIT_MS));
+  ok('a glide frame reports the label it drew', !lb.err && typeof lb.label === 'string' && lb.label.length > 0, lb);
+  if (!lb.err && lb.label) {
+    const park = async (x) => {
+      await ev(`(__cmwSteps({ x: ${x} }), 1)`);
+      await settled({ until: `Math.abs(__cmwSteps().x - ${x}) < ${POS_TOL} && !!document.querySelector('[role=slider][aria-valuetext]')`, max: SETTLE_MAX_MS });
+      return ev(`document.querySelector('[role=slider][aria-valuetext]').getAttribute('aria-valuetext')`);
+    };
+    const said = await park(lb.lo + lb.t);
+    ok('the pane parked where the frame stands says the frame\'s label', said === lb.label, { said, lb });
+    // negative control: parked at the far end of the glide the pane says something else, so the equality above can fail
+    const far = await park(lb.t < (lb.hi - lb.lo) / 2 ? lb.hi : lb.lo);
+    ok('the pane parked at the other end of the glide does not say the frame\'s label', typeof far === 'string' && far !== lb.label, { far, lb });
+  }
+}
 // the still of a plane is the Phase picture (with the pane's key) on a coloured plane; past the colour plane, where the pane's
-// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture, which has no key
+// key says where the colour is carried from, the pane is not in Phase and the still is the plane picture with the pane's key line
 for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
   await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${go}, now: true }), 1)`);
   await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${go} && __cmwSteps().T === ${T}`, max: 15000 });
-  const sv = await ev(`await (async () => { const f = await __cmwFig.build({}); return f && f.view; })()`, 60000);
-  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv === want, sv);
+  const sv = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ view: f && f.view, key: f && f.info ? f.info.keyLine || null : null, cap: __cmwLegend().caption, W: f && f.W, H: f && f.H, ring: f ? f.boxes.filter((b) => b.kind === 'ring-mark').map((b) => ({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) : [] }); })()`, 60000));
+  ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv.view === want, sv);
+  // (a plain plane's still carries the pane's key: its line is the caption the pane's legend shows; a Phase still has none of its own here)
+  // (the ring's marks, drawn by the code the plain still shares, lie inside the figure on both stills)
+  ok(`T ${T}, plane ${go}: the still's ring marks lie inside the figure`, sv.ring.length === RING_MARKS && sv.ring.every((b) => b.x0 >= -FIT_SLACK && b.y0 >= -FIT_SLACK && b.x1 <= sv.W + FIT_SLACK && b.y1 <= sv.H + FIT_SLACK), sv);
+  ok(`T ${T}, plane ${go}: the still's key line ${want === 'xyL' ? 'is the pane\'s' : 'is absent'}`, want === 'xyL' ? !!sv.key && sv.key === sv.cap : !sv.key, sv);
 }
+// a short, wide pane makes a short picture: the figure is as tall as its key, whose last line is inside it
+await view(1440, 430, false);
+await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
+await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().T === 0`, max: 15000 });
+const short = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ H: f.H, view: f.view, boxes: f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => ({ k: b.kind, y1: b.y1, tex: b.tex })) }); })()`, 60000));
+ok('a short pane: the still\'s key (ring marks and lines) lies inside the figure', short.view === 'xyL' && short.boxes.length >= 5 && short.boxes.every((b) => b.y1 <= short.H + FIT_SLACK), short);
+await view(1440, 900, false);
 await open(1, 'plane');
 const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
@@ -177,5 +282,29 @@ for (const surf of ['sphere', 'land']) {
   const q = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); return { aria: b.getAttribute('aria-disabled'), sum: (document.getElementById('xfVSum') || {}).textContent }; })()`, 60000);
   ok(`${surf}: Video is enabled in the dialog, with the summary line`, q && q.aria !== 'true' && /→.*· [0-9.,]+ s/.test(q.sum || ''), q);
   await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
+}
+// the video's Paths follow the strip's: the frame the glide draws at a parked place has the pane's paths t -> H_t(z) on
+// with Paths on, and none with it off (the video's frames are the pane's picture, so the dialog has no Paths box of its own here)
+{
+  await loadView('steps', 'xglp' + Date.now() % 1e7, PATHS_CHAIN, { lang: 'en' });
+  await settled({ until: 'typeof __cmwSteps === "function" && !!document.querySelector("#svStrip")', max: 30000 });
+  const { parked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_paths_kit.js'), 'utf8'))({ ev, settled });
+  const heads = (await parked(PATHS_PARK)).heads;
+  const pr = await ev(`await (async () => {
+    const frame = async (on) => {
+      __cmwSet('morphPaths', on);
+      __cmwSteps({ park: ${PATHS_PARK} });
+      for (let i = 0; i < 6; i++) await new Promise((r) => requestAnimationFrame(r));
+      if (GLR.gpuDone) await GLR.gpuDone();
+      const r = await __cmwFig.glideArt(${PATHS_PARK}, { wpt: ${PATHS_FRAME_W}, dpi: 96, raw: true, look: 'light' });
+      return { d: r.cv.getContext('2d').getImageData(0, 0, r.cv.width, r.cv.height).data, heads: __cmwSteps().paths.heads };
+    };
+    const on = await frame(true), off = await frame(false);
+    let n = 0; for (let i = 0; i < on.d.length; i += 4) if (Math.abs(on.d[i] - off.d[i]) + Math.abs(on.d[i + 1] - off.d[i + 1]) + Math.abs(on.d[i + 2] - off.d[i + 2]) > ${DRAWN}) n++;
+    return { headsOn: on.heads, headsOff: off.heads, share: n / (on.d.length / 4) };
+  })()`, 120000);
+  info['paths on and off'] = Object.assign({ heads }, pr);
+  ok('Paths on: the pane draws paths at the parked place, and none with Paths off', heads > 0 && pr.headsOn > 0 && pr.headsOff === 0, info['paths on and off']);
+  ok(`the glide's frame draws the paths with Paths on and not with Paths off (over ${PATHS_MIN_SHARE} of its pixels differ)`, pr.share > PATHS_MIN_SHARE, info['paths on and off']);
 }
 return { pass: fails.length === 0, fails, info };

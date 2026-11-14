@@ -13,10 +13,14 @@ const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
 // read at the moment it first shows, in the wait for it)
 const READ = `(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`;
 const strip = () => ev(READ);
+// (the plane step's task line is the page's own translation of this English line, read below under each language from the table
+// the page ships, so a new wording in tools/it_table.json or tools/ru_extra.json keeps this check; the titles below are what this suite
+// is about, the task forms and the capital)
+const ZOOM = 'Drag empty space, or scroll to zoom.';
 const WANT = {
-  en: { draw: 'Draw a shape', add: 'Add a function', cauchy: 'Cauchy integral', zoom: 'Drag empty space, or scroll to zoom.' },
-  ru: { draw: 'Нарисуйте фигуру', add: 'Добавьте функцию', cauchy: 'Интеграл Коши', zoom: 'Перетащите пустое место или прокрутите колёсико.' },
-  it: { draw: 'Disegna una figura', add: 'Aggiungi una funzione', cauchy: 'Integrale di Cauchy', zoom: 'Trascina uno spazio vuoto, oppure scorri per ingrandire.' },
+  en: { draw: 'Draw a shape', add: 'Add a function', cauchy: 'Cauchy integral' },
+  ru: { draw: 'Нарисуйте фигуру', add: 'Добавьте функцию', cauchy: 'Интеграл Коши' },
+  it: { draw: 'Disegna una figura', add: 'Aggiungi una funzione', cauchy: 'Integrale di Cauchy' },
 };
 for (const lang of ['en', 'ru', 'it']) {
   await view(1440, 900, false, false);
@@ -24,7 +28,8 @@ for (const lang of ['en', 'ru', 'it']) {
   await settled({ until: `${TOUR} && I18N.lang === '${lang}'` });
   if (!(await isSteps())) return { pass: false, fails: ['the page is not in the steps view (this suite is tagged steps({ pin: true }) in ci/suite_views.js)'], info };
   await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.auto(false); 1');
-  const w = WANT[lang];
+  const w = Object.assign({}, WANT[lang], { zoom: await ev(`I18N.at(${JSON.stringify(lang)}).t(${JSON.stringify(ZOOM)})`) });
+  ok(`${lang}: the task line is ${lang === 'en' ? 'the English' : 'translated, not the English'}`, typeof w.zoom === 'string' && w.zoom.length > 0 && (lang === 'en' ? w.zoom === ZOOM : w.zoom !== ZOOM), w.zoom);
   const at = async (chapter, id) => { const step = await ev(`Tour._t.CHAPTERS.find((c) => c.id === '${chapter}').steps.findIndex((s) => s.id === '${id}')`); await ev(`window.__shown = null; Tour.start(${JSON.stringify({ chapter, step })}); 1`); await settled({ until: `Tour.isActive() && Tour.current().id === '${id}' && (() => { const g = ${READ}; if (!g.title) return false; window.__shown = window.__shown || g; return true; })()` }); return ev(`window.__shown`); };
   let g = await at('basics', 'draw');
   ok(`${lang}: Draw a shape reads as a task`, g.cur === 'draw' && g.title === w.draw, g);
