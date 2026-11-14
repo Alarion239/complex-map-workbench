@@ -109,7 +109,7 @@ for (const lang of ['en', 'ru', 'it']) {
   info[lang + 'Groups'] = gr;
   ok(`${lang} 360: the controls are in ${GROUPS} groups, each under a small-caps label`, gr.n === GROUPS && gr.labelled && gr.caps, gr);
   ok(`${lang} 360: every group, the mesh quality's included, has one left edge for its label and its rows, and one label style`, /Quality|Качество|Qualità/.test(gr.first[GROUPS - 1]) && gr.labelLefts.length === 1 && gr.rowLefts.length === 1 && gr.labelStyles === 1, gr);
-  ok(`${lang} 360: groups are ${GROUP_GAP} px apart and a group's rows ${ROW_GAP} px`, gr.gaps.every((x) => x === GROUP_GAP) && gr.rowGap.every((x) => x === ROW_GAP), gr);
+  ok(`${lang} 360: groups are ${GROUP_GAP} px apart and a group's rows ${ROW_GAP} px`, gr.gaps.every((x) => x === GROUP_GAP) && gr.rowGap.length > 0 && gr.rowGap.every((x) => x === ROW_GAP), gr);
 }
 await open(PHONE, 'en', false);
 await ev(`document.querySelector('.ph-sheet .sv-sheet-scope [data-v="in"]').click(); 1`);

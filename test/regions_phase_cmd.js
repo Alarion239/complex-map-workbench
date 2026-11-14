@@ -9,7 +9,7 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, go, sleep, settled: settled });
 await view(1440, 900, false, false);
 // ---- 1. a saved state with an old pattern opens with the phase; its grid step and grid lines stay
 for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch', 0.5, true], ['sphere', 4, false], ['solid', 1, true], ['polar', 0.25, true]]) {
@@ -26,7 +26,7 @@ for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch',
   for (let i = 0; i < 50 && !payload; i++) { await sleep(100); payload = await ev('window.__rgLink || null'); }
   ok('a link encodes', typeof payload === 'string' && /^\d\./.test(payload), payload);
   await nav(`${U}/gl-helpers.html`); await sleep(300);
-  await nav(`${U}/test.html?ns=rgph-l1-${Date.now() % 1000000}#cmw=${payload}`);
+  await go(`${U}/test.html?ns=rgph-l1-${Date.now() % 1000000}#cmw=${payload}`);
   for (let i = 0; i < 100; i++) { await sleep(200); try { if ((await ev(`typeof __cmwRegions === 'function' && !location.hash && __cmwShapes().shapes.length === 1`)) === true) break; } catch (e) { /* the page reloads */ } }
   await settle(800);
   const r = await ev('__cmwRegions()');

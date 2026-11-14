@@ -776,12 +776,12 @@ const Export = (() => {
         if (fv) { const k = wpx / effW(side); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
         if (o.T != null) { morph.T = o.T; morph.playing = false; }
         // (o.look 'light': the screen's look in the light theme, for a video; else the art layer on white paper)
-        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
+        A.artMode = o.look !== 'light'; A.printInk = A.artMode ? o.ink || null : null; A.artLand = null; A.artGlobe = null; A.artLandBox = o.landBox || null; A.artLandRound = o.landRound || null; A.artCamAsp = o.camAsp || null; A.artCam = true; A.artRelief = !!o.reliefOnly; A.artSkip = o.skipLines ? new Set(o.skipLines) : null; A.artNoLab = !!o.noGlobeLabels;
         A.TH = Object.assign({}, light); inkCache.clear();
         if (A.artMode) { A.TH.plane = '#ffffff'; A.TH.planeRGB = GLR.hexRGB('#ffffff'); }
         cv = renderOff(side, wpx, hpx, dpr);
       } finally {
-        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artCam = false; A.artRelief = false; A.artSkip = null; A.artNoLab = false;
+        A.artMode = false; A.printInk = null; A.artLandBox = null; A.artLandRound = null; A.artCamAsp = null; A.artCam = false; A.artRelief = false; A.artSkip = null; A.artNoLab = false;
         Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
         morph.T = keep.T; morph.playing = keep.playing;
         A.TH = thKeep; inkCache.clear();

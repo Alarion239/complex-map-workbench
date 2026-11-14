@@ -2,26 +2,22 @@
 // Image-quality scenes: a saved app state per scene plus the EXACT ground truth of its image.
 //
 // Ground truth is computed independently of the app (own complex helpers below, no app code): for a pixel w of the
-// right plane, pre(w) lists every candidate preimage z (all branches where the map is not injective); w is in the
+// image (the steps view's last plane), pre(w) lists every candidate preimage z (all branches where the map is not injective); w is in the
 // true image when some candidate lies in the source region (region(z), the exact level set of the shape).
 // dF(z) = |F'(z)| gives the local scale (image checker cell size in px = cell * dF * s).
 // sdf(w), when given, is the exact signed distance (w units, > 0 inside) to the true boundary; otherwise the runner
 // derives it from the truth mask with a Euclidean distance transform.
 //
-// Every scene is rendered twice: 'mask' (pattern solid) and 'pattern' (pattern checker). Bounded controls also keep
-// golden PNGs. The right view is pinned (state.rightView) so a change of the auto-fit can never move a scene.
-//
-// Scenes of exact images through infinity (notes/sphere-design/SPEC.md 12.4, phase P0) add variants (sc.variants):
-//   'polar'  pattern polar (log-polar checker); scored with truth.parityAll(w), defined where every sheet has the same
-//            parity (z^i of H), on all fill pixels whatever their number of preimages
-//   'mask85' solid at alpha 0.85, 'mask20' solid at alpha 0.2: opacity_min (metrics.js) must reach 1 where infinitely
-//            many sheets overlap
+// Every scene is rendered once, its run '<name>.mask': the steps view on its last plane, Inside regions, the colour
+// layer alone (__cmwSteps bare): the carried colour inside the regions over the plane's paper, scored for coverage
+// (the 'cover' classifier of metrics.js: the paper is the background, any other colour the fill). Bounded controls also
+// keep golden PNGs. The view of the image is pinned (sc.wView, the steps view's one camera) so a change of the
+// auto-fit can never move a scene.
 // truth.holeDisc {c, r}: a disc that must stay empty (z^i of H: |w| < e^-pi); reported as hole_leak.
 // truth.accum: the accumulation set P of SPEC 3.7 (finite pulled-back points where sheets accumulate: z^i and e^{1/z}
-//   -> {0}; exp -> {}), used with the scene's clipWin for the sheet key D of SPEC 5.1: where several members cover a
-//   pixel, the pattern shown is the FRONT member's (metrics.js 'front' / 'polar' parity modes).
+//   -> {0}; exp -> {}), the sheet key D of SPEC 5.1 that verify_truth.js checks the truth's members against.
 // truth.annotSdf(w): distance (w units) to strokes that legitimately cross the inside of the image (healed_cut: log's
-//   cut line, drawn dashed over the disc); strict runs allow stroke colours only within the band around them.
+//   cut line); strict runs allow stroke colours only within the band around them.
 
 const PI = Math.PI;
 const C = (re, im = 0) => ({ re, im });
@@ -68,7 +64,8 @@ function niceStep(raw) {
   return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
 }
 
-// nominal size of the left plane at 1440x900, dpr 1, both panels shown (the meshing window = the left view box)
+// the meshing window (clipWin) is the box of the scene's z view (srcView) at 410 x 516 px, the size its truth's
+// sheet order was recorded with
 const LEFT_W = 410, LEFT_H = 516;
 const boxOf = (v, w = LEFT_W, h = LEFT_H) => ({ x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - h / 2 / v.s, y1: v.cy + h / 2 / v.s });
 
@@ -268,8 +265,8 @@ const BASE = {
     },
   },
   exp_far_disc: {
-    // a bounded shape far from the left view's centre: the inverse path must take its members from the shape (m = 9,
-    // 10), not from a window around the view (SPEC 15 M1); the left view is zoomed out to +-80 x +-100
+    // a bounded shape far from the z view's centre: the inverse path must take its members from the shape (m = 9,
+    // 10), not from a window around the view (SPEC 15 M1); the z view is zoomed out to +-80 x +-100
     shapes: [{ kind: 'disc', c: [0, 60], r: 1 }], steps: [{ type: 'exp', params: {} }],
     srcView: { cx: 0, cy: 0, s: 205 / 80 },
     truth: {
@@ -280,7 +277,7 @@ const BASE = {
     },
   },
   ez2_disc: {
-    // custom e^{z^2} of a small disc off the axes (an outer exp over a non-affine prefix z^2), default left view
+    // custom e^{z^2} of a small disc off the axes (an outer exp over a non-affine prefix z^2), default z view
     shapes: [{ kind: 'disc', c: [3, 3], r: 0.3 }], steps: [{ type: 'custom', params: { expr: 'e^{z^2}', cut: 180 } }],
     srcView: { cx: 0, cy: 0, s: 60 },
     truth: {
@@ -353,7 +350,6 @@ BASE.cube_far_deep = {
 };
 // the image of the disc's point 3.5 + 3i (on its boundary): (3.5 + 3i)^3 = -51.625 + 83.25i
 const CUBE_W0 = { cx: -51.625, cy: 83.25 };
-// variants: the runs of the scene (default mask + pattern); see VARIANTS below
 // the same map written as a custom formula (the decomposition of a formula must give the same image)
 BASE.e1z_custom = Object.assign({}, BASE.e1z_disc, { steps: [{ type: 'custom', params: { expr: 'e^{\\frac{1}{z}}', cut: 180 } }] });
 // rational custom formulas in which z occurs more than once (SPEC 3.3 rev 3: the inverse renderer's RAT2): example 9,
@@ -473,11 +469,11 @@ BASE.dh_disc = {
     srcSdf: (z) => DH_D.r - Math.hypot(z.re - DH_D.c[0], z.im - DH_D.c[1]),
   },
 };
-const scene = (base, name, group, rightView, note, variants) => Object.assign({ name, base, group, rightView, note }, BASE[base], variants ? { variants } : {});
+const scene = (base, name, group, wView, note) => Object.assign({ name, base, group, wView, note }, BASE[base]);
 const LOGH_VIEW = { cx: -0.18, cy: PI / 2, s: 97 };   // the app's auto-fit of this scene (rounded)
 
-// The rendered scenes. 'unbounded': images of unbounded regions, cut off today somewhere (the change should fill them
-// to the view edges: their IoU / holes improve). 'bounded': controls that must not change (metrics + golden PNGs).
+// The rendered scenes. 'unbounded': images of unbounded regions, filled to the view's edges. 'bounded': controls that
+// must not change (metrics + golden PNGs).
 const SCENES = [
   scene('logH', 'logH', 'unbounded', LOGH_VIEW, 'log of the upper half-plane, default zoom'),
   scene('logH', 'logH_out4', 'unbounded', Object.assign({}, LOGH_VIEW, { s: LOGH_VIEW.s / 4 }), 'log of the upper half-plane, zoomed out 4x'),
@@ -495,69 +491,60 @@ const SCENES = [
   scene('joukowski', 'joukowski', 'bounded', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil example: exterior of a circle through 1 under (z + 1/z)/2'),
   scene('annulus_log', 'annulus_log', 'bounded', { cx: 0, cy: 0, s: 72 }, 'principal log of the annulus 0.5 < |z| < 2 (a rectangle)'),
   scene('poly_mobius', 'poly_mobius', 'bounded', { cx: 0, cy: 0, s: 200 }, 'a pentagon in the upper half-plane under the Cayley map'),
-  // exact images through infinity (SPEC 12.4, P0): today these are wrong somewhere (the z^i hole is filled, low alpha
-  // is not opaque where infinitely many sheets overlap); the inverse renderer should raise them as IMPROVED.
+  // exact images through infinity (SPEC 12.4): the z^i hole stays empty, every sheet is drawn.
   // group 'infinite': infinitely many sheets / unbounded ranges; 'bounded_far' etc. are bounded shapes whose
   // per-pixel ranges come from the shape (they must stay exact).
-  scene('zi_H', 'zi_H', 'infinite', { cx: 0, cy: 0, s: 190 }, 'z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty', ['mask', 'pattern', 'polar', 'mask85', 'mask20']),
-  scene('zi_H', 'zi_H_out4', 'infinite', { cx: 0, cy: 0, s: 190 / 4 }, 'z^i of the upper half-plane, zoomed out 4x', ['mask', 'pattern', 'polar']),
-  scene('zi_H', 'zi_H_out16', 'infinite', { cx: 0, cy: 0, s: 190 / 16 }, 'z^i of the upper half-plane, zoomed out 16x', ['mask', 'pattern']),
-  scene('expH', 'expH', 'infinite', { cx: 0, cy: 0, s: 60 }, 'exp of the upper half-plane: every w != 0, infinitely many sheets', ['mask', 'pattern', 'mask85', 'mask20']),
-  scene('expH', 'expH_out16', 'infinite', { cx: 0, cy: 0, s: 60 / 16 }, 'exp of the upper half-plane, zoomed out 16x', ['mask', 'pattern']),
-  scene('e1z_disc', 'e1z_disc', 'infinite', { cx: 0, cy: 0, s: 60 }, 'e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0', ['mask', 'pattern', 'mask85', 'mask20']),
-  scene('e1z_disc', 'e1z_disc_out16', 'infinite', { cx: 0, cy: 0, s: 60 / 16 }, 'e^{1/z} of the unit disc, zoomed out 16x', ['mask', 'pattern']),
-  scene('e1z_custom', 'e1z_custom', 'infinite', { cx: 0, cy: 0, s: 60 }, 'custom formula e^{1/z} of the unit disc', ['mask', 'pattern', 'mask85']),
-  scene('exp_far_disc', 'exp_far_disc', 'bounded_far', { cx: 0, cy: 0, s: 60 }, 'exp of |z - 60i| < 1 with the left view zoomed out to +-80 x +-100 (members m = 9, 10)'),
-  scene('ez2_disc', 'ez2_disc', 'bounded_far', { cx: 3.3, cy: -3.15, s: 22 }, 'custom e^{z^2} of |z - (3+3i)| < 0.3, default left view; right view fitted to the image'),
+  scene('zi_H', 'zi_H', 'infinite', { cx: 0, cy: 0, s: 190 }, 'z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty'),
+  scene('zi_H', 'zi_H_out4', 'infinite', { cx: 0, cy: 0, s: 190 / 4 }, 'z^i of the upper half-plane, zoomed out 4x'),
+  scene('zi_H', 'zi_H_out16', 'infinite', { cx: 0, cy: 0, s: 190 / 16 }, 'z^i of the upper half-plane, zoomed out 16x'),
+  scene('expH', 'expH', 'infinite', { cx: 0, cy: 0, s: 60 }, 'exp of the upper half-plane: every w != 0, infinitely many sheets'),
+  scene('expH', 'expH_out16', 'infinite', { cx: 0, cy: 0, s: 60 / 16 }, 'exp of the upper half-plane, zoomed out 16x'),
+  scene('e1z_disc', 'e1z_disc', 'infinite', { cx: 0, cy: 0, s: 60 }, 'e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0'),
+  scene('e1z_disc', 'e1z_disc_out16', 'infinite', { cx: 0, cy: 0, s: 60 / 16 }, 'e^{1/z} of the unit disc, zoomed out 16x'),
+  scene('e1z_custom', 'e1z_custom', 'infinite', { cx: 0, cy: 0, s: 60 }, 'custom formula e^{1/z} of the unit disc'),
+  scene('exp_far_disc', 'exp_far_disc', 'bounded_far', { cx: 0, cy: 0, s: 60 }, 'exp of |z - 60i| < 1 with the z view zoomed out to +-80 x +-100 (members m = 9, 10)'),
+  scene('ez2_disc', 'ez2_disc', 'bounded_far', { cx: 3.3, cy: -3.15, s: 22 }, 'custom e^{z^2} of |z - (3+3i)| < 0.3, default z view; the view of the image fitted to it'),
   scene('healed_cut', 'healed_cut', 'bounded_cut', { cx: -1, cy: 0.5 / 150, s: 150 }, '[log, exp] of |z + 1| < 0.6: a cut that a later step heals; the cut runs through pixel centres (0.5 px offset)'),
-  // P2 review (SPEC 13.12): saturation points at 6x and 12x zoom-out, a deep zoom, z^i's polar cells at alpha < 1
-  scene('atanh_D', 'atanh_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'artanh of the unit disc, zoomed out 6x: the strip |Im w| < pi/4 to the view edges', ['mask', 'mask85']),
-  scene('atanh_D', 'atanh_D_s10', 'saturation', { cx: 0, cy: 0, s: 10 }, 'artanh of the unit disc, zoomed out 12x (|Re w| to 20: tanh w = +-1 in float32)', ['mask', 'mask85']),
-  scene('atan_D', 'atan_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'arctan of the unit disc, zoomed out 6x: the strip |Re w| < pi/4', ['mask']),
-  scene('atan_D', 'atan_D_s10', 'saturation', { cx: 0, cy: 0, s: 10 }, 'arctan of the unit disc, zoomed out 12x', ['mask']),
-  scene('cube_far_deep', 'cube_far_deep', 'deep', Object.assign({ s: 3e4 }, CUBE_W0), 'z^3 of |z - (3+3i)| < 0.5 at s = 3e4 on the image of its boundary point 3.5 + 3i', ['mask', 'pattern']),
-  scene('zi_H', 'zi_H_polar85', 'infinite', { cx: 0, cy: 0, s: 190 }, 'z^i of the upper half-plane, polar pattern at alpha 0.85: every sheet the same parity, so the cells keep their exact colours', ['polar85', 'polar50']),
+  // saturation points at 6x and 12x zoom-out, and a deep zoom (SPEC 13.12)
+  scene('atanh_D', 'atanh_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'artanh of the unit disc, zoomed out 6x: the strip |Im w| < pi/4 to the view edges'),
+  scene('atanh_D', 'atanh_D_s10', 'saturation', { cx: 0, cy: 0, s: 10 }, 'artanh of the unit disc, zoomed out 12x (|Re w| to 20: tanh w = +-1 in float32)'),
+  scene('atan_D', 'atan_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'arctan of the unit disc, zoomed out 6x: the strip |Re w| < pi/4'),
+  scene('atan_D', 'atan_D_s10', 'saturation', { cx: 0, cy: 0, s: 10 }, 'arctan of the unit disc, zoomed out 12x'),
+  scene('cube_far_deep', 'cube_far_deep', 'deep', Object.assign({ s: 3e4 }, CUBE_W0), 'z^3 of |z - (3+3i)| < 0.5 at s = 3e4 on the image of its boundary point 3.5 + 3i'),
   // rational custom formulas (SPEC 3.3 rev 3): exact through the poles and the value at infinity
-  scene('rat9', 'rat9', 'rational', { cx: 1.4, cy: 0, s: 110 }, 'example 9: custom (z^2-1)/(z^2+1) of the square |Re z|, |Im z| < 1.5 (poles +-i inside): the hole around w = 1 stays empty', ['mask', 'pattern']),
-  scene('rat9', 'rat9_out8', 'rational', { cx: 0, cy: 0, s: 110 / 8 }, 'example 9 zoomed out 8x: the image covers a neighbourhood of infinity, filled to the view edges', ['mask', 'pattern']),
-  scene('jouk_custom', 'jouk_custom', 'rational', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil as the custom formula (z + 1/z)/2: the same image as the catalog step', ['mask', 'pattern']),
+  scene('rat9', 'rat9', 'rational', { cx: 1.4, cy: 0, s: 110 }, 'example 9: custom (z^2-1)/(z^2+1) of the square |Re z|, |Im z| < 1.5 (poles +-i inside): the hole around w = 1 stays empty'),
+  scene('rat9', 'rat9_out8', 'rational', { cx: 0, cy: 0, s: 110 / 8 }, 'example 9 zoomed out 8x: the image covers a neighbourhood of infinity, filled to the view edges'),
+  scene('jouk_custom', 'jouk_custom', 'rational', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil as the custom formula (z + 1/z)/2: the same image as the catalog step'),
   // the zeros-and-poles step: (z^2 - 1)/z by its zeros +-1 and pole 0 (RAT2, two sheets over a fold)
-  scene('zp_disc', 'zp_disc', 'rational', { cx: 0, cy: 2.19, s: 250 }, 'zeros-and-poles step, zeros +-1 and pole 0: (z^2-1)/z of the disc |z - 1.2i| < 0.8 (folded onto itself)', ['mask', 'pattern']),
+  scene('zp_disc', 'zp_disc', 'rational', { cx: 0, cy: 2.19, s: 250 }, 'zeros-and-poles step, zeros +-1 and pole 0: (z^2-1)/z of the disc |z - 1.2i| < 0.8 (folded onto itself)'),
   // Repeat × N (#6): a block of steps run three times, the inverse renderer's ops three times over (8 branches)
-  scene('quad3_disc', 'quad3_disc', 'rational', { cx: 0.25, cy: 0.5, s: 80 }, 'Repeat x 3 of [z^2, + (-0.3+0.2i)] of the disc |z - (0.2+0.1i)| < 0.8 (contains 0): degree 8, folded', ['mask', 'pattern']),
+  scene('quad3_disc', 'quad3_disc', 'rational', { cx: 0.25, cy: 0.5, s: 80 }, 'Repeat x 3 of [z^2, + (-0.3+0.2i)] of the disc |z - (0.2+0.1i)| < 0.8 (contains 0): degree 8, folded'),
   // the Douady–Hubbard map (#260): no inverse enumerator, so the image is the CPU mesh of the disc mapped forward
-  scene('dh_disc', 'dh_disc', 'conformal', { cx: 1.067, cy: 0.868, s: 400 }, 'the Douady–Hubbard map Phi_M of the disc |z - (0.6+0.9i)| < 0.3 by the 1/4 limb (|Phi_M| > 1.026 on it)', ['mask', 'pattern']),
+  scene('dh_disc', 'dh_disc', 'conformal', { cx: 1.067, cy: 0.868, s: 400 }, 'the Douady–Hubbard map Phi_M of the disc |z - (0.6+0.9i)| < 0.3 by the 1/4 limb (|Phi_M| > 1.026 on it)'),
 ];
 
 // [#385 follow-up] the globes: no flat ground truth fits a sphere, so these runs are scored by their golden diff alone
 // (paired: against the reference's render on the same machine) and only reported, never gated (compare_quality.py);
 // a change to the globe's shading or camera shows up as a pixel diff in the quality job's summary. Each pins its camera
-// (__cmwCam: the app's default pose at the suite's 1440 x 900, written out, so a change of the default camera shows too)
-// and names the canvas it draws on; state: the saved state's own keys over DISPLAY's
+// (__cmwCam on the steps view's plane, L) and stands on the globe (stand: as STAND); state: the saved state's own keys
+// over DISPLAY's
 const SPHERE_SCENES = [
-  { name: 'sphere_disc_sq', group: 'sphere', canvas: 'canvasR', cam: { side: 'R', yaw: -Math.PI / 3, pitch: Math.PI / 10, dist: 7.158 },
-    note: "the exact image of the disc |z - (0.3+0.2i)| < 0.5 under z^2 on Y's globe (pinned camera)",
+  { name: 'sphere_disc_sq', group: 'sphere', cam: { side: 'L', yaw: -Math.PI / 3, pitch: Math.PI / 10, dist: 7.158 },
+    note: 'the exact image of the disc |z - (0.3+0.2i)| < 0.5 under z^2 on the last plane\'s globe, Inside regions (pinned camera)',
     shapes: [{ kind: 'disc', c: [0.3, 0.2], r: 0.5 }], steps: [{ type: 'pown', params: { n: 2 } }], srcView: { cx: 0, cy: 0, s: 120 },
-    state: { rightMode: 'sphere', sphereMode: 'image' } },
-  { name: 'sphere_phase', group: 'sphere', canvas: 'canvasL', cam: { side: 'L', yaw: -Math.PI / 3, pitch: -2 * Math.PI / 15, dist: 5.035 },
-    note: "the Phase view on X's globe, F(z) = z (pinned camera): the sphere's shading and the phase colours",
+    stand: { plane: 'last', scope: 'in', surf: 'sphere', bare: true }, state: {} },
+  { name: 'sphere_phase', group: 'sphere', cam: { side: 'L', yaw: -Math.PI / 3, pitch: -2 * Math.PI / 15, dist: 5.035 },
+    note: 'Phase on the globe of z, F(z) = z, Everywhere (pinned camera): the sphere\'s shading and the phase colours',
     shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 120 },
-    state: { dc: 'phase', rightMode: 'sphere', sphereMode: 'color' } },
+    stand: { plane: 0, scope: 'all', surf: 'sphere', bare: true }, state: { dc: 'phase' } },
 ];
 
 // display settings shared by every scene: no coordinate net, unit circle, view outline or region outline; alpha 1
-const DISPLAY = {
-  rightMode: 'image', focus: 0, alpha: 1, lines: false, unit: false, fov: false, outline: false, chev: false,
-  patternScale: 1, meshN: 240, hideLeft: false, hideRight: false, solo: null, sheets: false, leftSphere: false,
-};
-// variant -> the app pattern it renders with; VARIANT_STATE: further state overrides; VARIANT_CLASS: the pixel
-// classifier (metrics.js): 'mask' = fill c0 only, 'pattern' = c0, its alternate color and their blends
-const VARIANTS = { mask: 'solid', pattern: 'checker', polar: 'polar', mask85: 'solid', mask20: 'solid', polar85: 'polar', polar50: 'polar' };
-const VARIANT_STATE = { mask85: { alpha: 0.85 }, mask20: { alpha: 0.2 }, polar85: { alpha: 0.85 }, polar50: { alpha: 0.5 } };
-const VARIANT_CLASS = { mask: 'mask', pattern: 'pattern', polar: 'pattern', mask85: 'mask', mask20: 'mask', polar85: 'pattern', polar50: 'pattern' };
-const DEFAULT_VARIANTS = ['mask', 'pattern'];
-// the scene groups of the original suite (recorded 2026-10-19): their runs keep exactly the metrics they had; the
-// groups added for SPEC 12.4 also report opacity on their mask-type runs
+const DISPLAY = { focus: 0, alpha: 1, lines: false, unit: false, fov: false, outline: false, chev: false, patternScale: 1, meshN: 240, sheets: false };
+// where a run stands in the steps view (__cmwSteps): the last plane, Inside regions, the colour layer alone; a globe's
+// run names its own (plane: 'last' or an index; surf)
+const STAND = { plane: 'last', scope: 'in', surf: 'plane', bare: true };
+// the scene groups scored by the original metric rules; every other group is scored strictly (metrics.js)
 const LEGACY_GROUPS = new Set(['unbounded', 'bounded']);
 
 function bboxSide(s) {
@@ -577,21 +564,19 @@ function cellOf(sc) {
   if (!size) { const b = boxOf(sc.srcView); size = Math.max(b.x1 - b.x0, b.y1 - b.y0); }
   return niceStep(size / 10);
 }
-// the saved app state of a scene variant (written to localStorage before the app opens)
-function stateOf(sc, variant) {
+// the saved app state of a scene (written to localStorage before the app opens): the steps view's one camera is the
+// view of the image (wView); the meshing window stays the box of the scene's z view
+function stateOf(sc) {
   const shapes = sc.shapes.map((s, i) => Object.assign({ id: 's' + (i + 1), ci: 0, visible: true }, JSON.parse(JSON.stringify(s))));
   const steps = sc.steps.map((st) => Object.assign({ type: st.type, params: Object.assign({}, st.params), on: true }, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
   return Object.assign({ v3: true, v4: true, v5: true, nextId: 50, targets: [] }, DISPLAY, {
-    pattern: VARIANTS[variant], shapes, steps, srcView: Object.assign({}, sc.srcView), clipWin: boxOf(sc.srcView),
-    rightView: sc.rightView ? Object.assign({}, sc.rightView) : null,
-  }, VARIANT_STATE[variant] || {});
+    pattern: 'solid', shapes, steps, srcView: Object.assign({}, sc.wView), clipWin: boxOf(sc.srcView),
+  });
 }
-// all runs: scene x variant, in a fixed order
-//   kind: the classifier ('mask' | 'pattern'); parity: 'checker' (unique preimage, planar cells) | 'front' (planar
-//   cells of the front member, any number of preimages) | 'polar' (truth.parityAll of the front member, every fill
-//   pixel) | null; opacity: report the fill opacity (mask-type runs of the new groups); strict: the metric rules of the
-//   new groups (metrics.js); sheet: the sheet order of SPEC 5.1 (the saved clipWin, truth.accum); rc: the radius of
-//   the polar pattern's solid disc around the origin (pattern cell / 12; the polar origin is 0 in every scene)
+// all runs, in a fixed order: the globes ('<name>.look'), then one run per scene ('<name>.mask')
+//   kind: the classifier ('cover', metrics.js); strict: the metric rules of the new groups (metrics.js); stand: where
+//   the run stands in the steps view (STAND). parity, opacity, sheet and rc are null / off here: only
+//   test/t_inverse_render.js's own table of renders uses them
 function runs(filter) {
   const out = [];
   for (const sc of SPHERE_SCENES) {
@@ -599,24 +584,17 @@ function runs(filter) {
     if (filter && !filter.some((f) => id === f || sc.name === f || id.startsWith(f))) continue;
     const shapes = sc.shapes.map((sh, i) => Object.assign({ id: 's' + (i + 1), ci: 0, visible: true }, JSON.parse(JSON.stringify(sh))));
     const steps = sc.steps.map((st) => ({ type: st.type, params: Object.assign({}, st.params), on: true }));
-    const state = Object.assign({ v3: true, v4: true, v5: true, nextId: 50, targets: [] }, DISPLAY, { pattern: 'checker', shapes, steps, srcView: Object.assign({}, sc.srcView) }, sc.state);
-    out.push({ id, scene: Object.assign({ truth: { desc: 'none: golden diff only (a globe)' }, rightView: null }, sc), variant: 'look', kind: null, parity: null, opacity: false, strict: false,
-      alpha: DISPLAY.alpha, golden: true, sphere: true, canvas: sc.canvas, cam: sc.cam, cell: 0, state, cellErr: false, sheet: null, rc: 0 });
+    const state = Object.assign({ v3: true, v4: true, v5: true, nextId: 50, targets: [] }, DISPLAY, { pattern: 'solid', shapes, steps, srcView: Object.assign({}, sc.srcView) }, sc.state);
+    out.push({ id, scene: Object.assign({ truth: { desc: 'none: golden diff only (a globe)' }, wView: null }, sc), variant: 'look', kind: null, parity: null, opacity: false, strict: false,
+      alpha: DISPLAY.alpha, golden: true, sphere: true, cam: sc.cam, stand: sc.stand, cell: 0, state, cellErr: false, sheet: null, rc: 0 });
   }
-  for (const sc of SCENES) for (const v of sc.variants || DEFAULT_VARIANTS) {
-    const id = `${sc.name}.${v}`;
+  for (const sc of SCENES) {
+    const id = `${sc.name}.mask`;
     if (filter && !filter.some((f) => id === f || sc.name === f || id.startsWith(f))) continue;
-    const kind = VARIANT_CLASS[v];
-    const strict = !LEGACY_GROUPS.has(sc.group);
-    const parity = v === 'pattern' ? (strict ? 'front' : 'checker') : /^polar/.test(v) ? 'polar' : null;
-    if (parity === 'polar' && typeof sc.truth.parityAll !== 'function') throw new Error(`${id}: the polar variant needs truth.parityAll`);
-    // cell_err (metrics.js): the polar runs of z^i at alpha < 1 (P2 review: the light cells reach c1)
-    const state = stateOf(sc, v), cell = cellOf(sc);
-    out.push({ id, scene: sc, variant: v, kind, parity, opacity: kind === 'mask' && strict, strict, alpha: (VARIANT_STATE[v] || {}).alpha ?? DISPLAY.alpha,
-      golden: sc.group === 'bounded', cell, state, cellErr: /^polar\d/.test(v),
-      sheet: strict ? { win: state.clipWin, P: sc.truth.accum || [] } : null, rc: v === 'polar' ? cell * state.patternScale / 12 : 0 });
+    out.push({ id, scene: sc, variant: 'mask', kind: 'cover', parity: null, opacity: false, strict: !LEGACY_GROUPS.has(sc.group), alpha: DISPLAY.alpha,
+      golden: sc.group === 'bounded', cell: cellOf(sc), state: stateOf(sc), stand: STAND, cellErr: false, sheet: null, rc: 0 });
   }
   return out;
 }
 
-module.exports = { SCENES, SPHERE_SCENES, VARIANTS, VARIANT_STATE, VARIANT_CLASS, LEGACY_GROUPS, runs, stateOf, cellOf, niceStep, boxOf, cx: { C, add, sub, mul, div, abs, cexp, clog, csqrt, casin } };
+module.exports = { SCENES, SPHERE_SCENES, STAND, LEGACY_GROUPS, runs, stateOf, cellOf, niceStep, boxOf, cx: { C, add, sub, mul, div, abs, cexp, clog, csqrt, casin } };
