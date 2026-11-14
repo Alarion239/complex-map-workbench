@@ -317,6 +317,7 @@ const VIEWS = {
   'kit_ev_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
+  'kit_load_wait_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),
   'kit_fault_cmd.js': steps({ pin: true }),
   'line_slice_cmd.js': steps({ pin: true }),
