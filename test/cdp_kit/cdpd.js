@@ -268,15 +268,21 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-// load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded and its
-// hooks are defined. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for
-// again, and one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
+// load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded, its
+// hooks are defined and the app has built the chain of the saved state: the plane list (__cmwSteps().planes, in either view)
+// holds CHAIN_PLANES planes when the state has an active step (the origin plane and a step's; a saved step shown alone leaves
+// just those two, and the app adopts the whole chain at once), and none is asked when it has none. The app starts after the
+// page's load event (software GL, a busy machine), so a read right after the load event finds an empty chain.
+// A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for again, and one not
+// ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
 // A document whose body has stopped arriving (still "loading" with its response not finished) after stallMs (LOAD_STALL_MS by
 // default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
-const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2;
+const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2, CHAIN_PLANES = 2;
+H.CHAIN_PLANES = CHAIN_PLANES;   // (for a suite that checks what load() waits for)
 // pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
-// since its start; 0 where an event has not come) and how many scripts and sheets it has
-const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
+// since its start; 0 where an event has not come), how many scripts and sheets it has, and how many planes its chain has built
+// (null before the hook answers)
+const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
 // docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
 const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
 H.load = async (ns, st, extra, viewName, opts = {}) => {
@@ -286,15 +292,17 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   const url = origin + '/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '');
   await send('Page.navigate', { url }, S);
+  const want = Array.isArray(o.steps) && o.steps.some((q) => q.on !== false) ? CHAIN_PLANES : 0;
+  const ready = `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && (() => { try { return __cmwSteps().planes.length >= ${want}; } catch (e) { return false; } })()`;
   const limitMs = opts.limitMs || LOAD_LIMIT_MS, stallMs = opts.stallMs || LOAD_STALL_MS, t0 = Date.now();
   let r, reloads = 0, tNav = t0;
   do {
-    r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, stallMs, limitMs - (Date.now() - t0))), until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+    r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, stallMs, limitMs - (Date.now() - t0))), until: ready });
     if (!r.ok && reloads < LOAD_RELOADS && Date.now() - tNav >= stallMs) {
       if (await docStalled()) { reloads++; tNav = Date.now(); await send('Page.navigate', { url }, S); }
     }
   } while (!r.ok && Date.now() - t0 < limitMs);
-  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${JSON.stringify(r)}; reloads ${reloads}; page ${JSON.stringify(await pageNow())})`);
+  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${want} planes wanted; ${JSON.stringify(r)}; reloads ${reloads}; page ${JSON.stringify(await pageNow())})`);
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
