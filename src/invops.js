@@ -1,8 +1,8 @@
 // @ts-check
 'use strict';
 // The inverse's primitive ops and the catalog's decomposition into them (notes/sphere-design/SPEC.md, sections 3.2
-// and 3.3): moved out of inverse.js (issue #20, the file-size budget), which takes these names back at the top of
-// its closure (const { ... } = InvOps), so Inverse and glsl.js's walker read them as before. A closure of its own,
+// and 3.3). Inverse takes these names at the top of
+// its closure (const { ... } = InvOps), and glsl.js's walker reads them too. A closure of its own,
 // as every module of src/ is, so that the test pages that inline the sources into one script see one name, InvOps.
 const InvOps = (() => {
   const { C } = CX;
@@ -206,9 +206,11 @@ const InvOps = (() => {
   // roots pass of a glide's next frame, which stores the root at its last grid stage, resumes the same walk: the
   // member it finds is the full walk's, bit for bit.) With back, m = 1 + i, continued back in t from the i-th of f = H(1)'s points
   // over w (back's members, mixed radix with the last op's member least significant): one step at each of
-  // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every earlier one.
+  // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every one before it in the list.
   // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
-  // one about w puts it; NEWT_DEF steps). A member is dropped when H_t(u) misses w (a central difference for H').
+  // one about w puts it; NEWT_DEF steps); or, for pole {p, res, reg} (f's one simple pole), Newton from the root the pole
+  // puts over w (poleSeed; NEWT_LAD steps), whether or not member 0 exists. A member is dropped when H_t(u) misses w (a central
+  // difference for H').
   // glsl.js's NEWT runs the same walks with chainHom. (One step per stage, as every pixel of a glide frame walks: on a
   // 41 x 41 grid of w at five t, more steps per stage change the root found only where the walk passes near a critical
   // point: nowhere for Joukowski, under 0.6 % of the points for z^2 + 1/z, z + z^3/3, cos z, ζ. The walks from t = 0
@@ -295,7 +297,7 @@ const InvOps = (() => {
     }
     return z;
   }
-  function opNewt(t, H, back, deg, anchor) {
+  function opNewt(t, H, back, deg, anchor, pole) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
@@ -330,10 +332,13 @@ const InvOps = (() => {
         },
       });
     }
+    // the start of the pole member: near a simple pole p of f, H_t(u) = (1 - t) u + t f(u) is (1 - t) p + t reg + t res / (u - p)
+    // (f = res / (u - p) + reg + O(u - p)), so a w far from that value has its root at p + t res / (w - (1 - t) p - t reg)
+    const poleSeed = (w) => (pole ? add(pole.p, div(scale(pole.res, t), sub(w, add(scale(pole.p, 1 - t), scale(pole.reg, t))))) : null);
     // (member 0's grid: H at k / NEWT_K, k = 1 ... k0)
     const k0 = newtGridK(t), grid = [null];
     for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
-    const prm = counts ? { t, back } : { t, anchor: anchor || null };
+    const prm = counts ? { t, back } : { t, anchor: anchor || null, pole: pole || null };
     return op('NEWT', prm, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
       pre: (w) => {
@@ -353,7 +358,12 @@ const InvOps = (() => {
           }
           return out;
         }
-        if (out.length) {
+        if (pole) {
+          let v = poleSeed(w);
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);
+          v = polishAt(v, w);
+          if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
+        } else if (out.length) {
           let v = sub(scale(w, 2), u);
           for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
           if (hits(v, w) && abs(sub(v, u)) > NEWT_SAME * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
@@ -780,7 +790,7 @@ const InvOps = (() => {
     return { q: out, rel: abs(rem) / (polyBound(co, r) || 1) };
   }
   // the roots of co (high-first) with each cluster (roots within 1e-3 (1 + |r|) of each other: a multiple root that
-  // polyRoots splits by about EPS^(1/m)) replaced by its mean, m times: [{r, m}]
+  // polyRoots splits by about EPS^(1/m)) each replaced by its mean, m times: [{r, m}]
   function rootClusters(co) {
     const rs = CX.polyRoots(co).filter(isFin), used = new Uint8Array(rs.length), out = [];
     for (let i = 0; i < rs.length; i++) {

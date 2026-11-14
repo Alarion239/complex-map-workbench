@@ -1,7 +1,7 @@
 // The function search can replace as well as insert. A chip in the search row says where the function
 // goes (Insert, Replace F, Replace f_k; Tab or a click changes it, and it is remembered); the best match is listed all
-// three ways; "Replace…" is the first item of a card's ⋯; the Inspector's title opens the search ready to replace its
-// step; Clear chain is a word button in the classic chain head (clear_chain_open_cmd.js clicks it) and the palette's command in the steps view. On a laptop (1366×768), a phone (412×860) and in Russian.
+// three ways; a step's ⋯ on the thread has "Replace…"; the Inspector's title opens the search ready to replace its
+// step; Clear chain is the palette's command. On a laptop (1366×768), a phone (412×860) and in Russian.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/d1_replace_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -26,7 +26,12 @@ async function openApp(st, w = 1366, h = 768, mobile = false, q = '') {
 const P = () => ev('__cmwP()');
 const types = async () => (await P()).steps.map((s) => s.type);
 const toasts = () => ev('__qa.toasts()');
-const palQ = async (q) => { await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settle(300); };
+// Ctrl+K toggles, so the palette is awaited (mounted, input in place), never re-pressed
+const openPal = async () => { await key('k', 4); await settled({ until: `!!document.querySelector('#popHost .palette') && !!document.getElementById('palInput')`, only: true }); };
+const palQ = async (q) => {
+  await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`);
+  await settled({ until: `(() => { const i = document.getElementById('palInput'); return !!i && i.value === ${JSON.stringify(q)} && !!document.querySelector('#popHost .palette .pal-item'); })()`, only: true });
+};
 const pal = () => ev(`(() => { const p = document.querySelector('#popHost .palette'); if (!p) return null; const w = p.querySelector('.pal-where'), at = p.querySelector('.pal-at'), head = p.querySelector('.pal-head');
   return { where: w ? (w.getAttribute('aria-label') || '').replace(/^Where it goes: |^Куда: /, '') : null, whereLabel: w ? w.getAttribute('aria-label') : null, at: at && !at.hidden ? at.textContent : null, verb: (p.querySelector('.pal-verb') || {}).textContent || '',
     rows: [...p.querySelectorAll('.pal-item .pal-label')].slice(0, 4).map((e) => e.textContent), headFits: head.scrollWidth <= head.clientWidth + 1, whereFits: !w || w.scrollWidth <= w.clientWidth + 1 }; })()`);
@@ -34,14 +39,14 @@ const clickMenu = (label) => ev(`(() => { const b = [...document.querySelectorAl
 
 // ======================= the laptop =======================
 await openApp({ shapes: [DISC], steps: CHAIN });
-const clr = await ev(`(() => { const b = document.getElementById('clearChain'); return { shown: !!b.getClientRects().length, text: b.textContent, more: !!document.getElementById('chainMoreBtn') }; })()`);
-// (the steps view has no chain head: its Clear chain is the palette's command; the classic head's button is clear_chain_open_cmd.js's)
-await key('k', 4); await settle(400);
+const clr = await ev(`({ head: !!document.getElementById('clearChain'), more: !!document.getElementById('chainMoreBtn') })`);
+// (the steps view has no chain head: its Clear chain is the palette's command)
+await openPal();
 await palQ('Clear chain');
 const clrRows = await ev(`[...document.querySelectorAll('.pal-item .pal-label')].map((e) => e.textContent)`);
 await key('Escape'); await settle(250);
-ok('the steps view has no chain head: Clear chain is the palette\'s command', !clr.shown && clrRows.includes('Clear chain'), { clr, clrRows });
-await key('k', 4); await settle(400);
+ok('the steps view has no chain head: Clear chain is the palette\'s command', !clr.head && !clr.more && clrRows.includes('Clear chain'), { clr, clrRows });
+await openPal();
 let p = await pal();
 // (#35: "Insert at the end", beside "Insert at the start" and "Insert after f₂", for Append to the chain)
 ok('the chip says where: Insert at the end (Insert by default)', p && /^Insert at the end/.test(p.where), p);
@@ -59,7 +64,7 @@ ok('Replace F: the toast says so', /^Replaced F with Sine\./.test(t[0] || ''), t
 await ev(`document.getElementById('undoBtn').click()`); await settle(700);
 ok('one Undo brings the chain back', (await types()).join() === 'exp,mobius', await types());
 // the choice is remembered
-await key('k', 4); await settle(400);
+await openPal();
 p = await pal();
 ok('the palette remembers Replace F', /^Replace F/.test(p.where), p);
 await key('Tab'); await settle(250);
@@ -73,11 +78,9 @@ ok('Replace f₂: f₁ stays, f₂ is Cosine', (await types()).join() === 'exp,c
 t = await toasts();
 ok('Replace f₂: the toast names both', /^Replaced f₂ \(Möbius\) with Cosine\./.test(t[0] || ''), t);
 await ev(`document.getElementById('undoBtn').click()`); await settle(700);
-// a card's ⋯: Replace… first, ready to replace that step
-await ev(`document.querySelector('#pipeline .card[data-k="1"] .more').click()`); await settle(400);
-const first = await ev(`(document.querySelector('#popHost .mi .mi-label') || {}).textContent || null`);
-ok('a card\'s ⋯ starts with Replace…', first === 'Replace…', first);
-await clickMenu('Replace…'); await settle(400);
+// a step's ⋯ on the thread: Replace…, ready to replace that step
+await ev(`document.querySelector('#svStrip .sv-step[data-k="1"] .sv-more').click()`); await settled({ until: "!!document.querySelector('#popHost .mi')", max: 8000 });
+ok('a step\'s ⋯ has Replace…', await clickMenu('Replace…'), null); await settled({ until: "!!document.querySelector('#popHost .palette')", max: 8000 });
 p = await pal();
 ok('Replace… opens the search on Replace f₁', p && /^Replace f₁/.test(p.where), p);
 await palQ('tan');
@@ -87,7 +90,7 @@ await key('Enter'); await settle(900);
 ok('Replace f₁: tan, mobius', (await types()).join() === 'tan,mobius', await types());
 await ev(`document.getElementById('undoBtn').click()`); await settle(700);
 // the Inspector's title
-await ev(`document.querySelector('#pipeline .card[data-k="2"]').click()`); await settle(600);
+await ev(`document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip').click()`); await settled({ until: "!!document.querySelector('#propsPanel .insp-step .ihead .ttl')", max: 8000 });
 const ttl = await ev(`(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .ttl'); return b ? { role: b.getAttribute('role'), text: b.textContent, after: getComputedStyle(b, '::after').content } : null; })()`);
 ok('the Inspector\'s title is a button, "Möbius ▾"', ttl && ttl.role === 'button' && ttl.text === 'Möbius' && /▾/.test(ttl.after), ttl);
 await ev(`document.querySelector('#propsPanel .insp-step .ihead .ttl').click()`); await settle(400);
@@ -96,17 +99,12 @@ ok('the title opens the search on Replace f₂', p && /^Replace f₂/.test(p.whe
 await palQ('sinh');
 await key('Enter'); await settle(900);
 ok('the title\'s replace: exp, sinh', (await types()).join() === 'exp,sinh', await types());
-// a connector's + always inserts, whatever mode is remembered
-await ev(`document.querySelector('#pipeline .conn-add').click()`); await settle(400);
-p = await pal();
-ok('a connector\'s + inserts (at the start)', p && /^Insert at the start/.test(p.where), p);
-await key('Escape'); await settle(250);
 // Clear chain
-await key('k', 4); await settle(400);
+await openPal();
 await palQ('Clear chain'); await key('Enter'); await settle(600);
-ok('Clear chain (the palette\'s command) empties the chain and hides the chain head\'s button', (await types()).length === 0 && (await ev(`document.getElementById('clearChain').hidden`)), await types());
+ok('Clear chain (the palette\'s command) empties the chain', (await types()).length === 0, await types());
 // an empty chain: no chip, the old context
-await key('k', 4); await settle(400);
+await openPal();
 p = await pal();
 ok('an empty chain: no Replace chip', p && p.where === null, p);
 await key('Escape'); await settle(250);
@@ -114,8 +112,7 @@ await grab();
 
 // ======================= a phone =======================
 await openApp({ shapes: [DISC], steps: CHAIN }, 412, 860, true);
-await ev(`document.getElementById('addStepBtn').scrollIntoView({ inline: 'center' })`); await settle(300);
-await ev(`document.getElementById('addStepBtn').click()`); await settle(700);
+await ev(`document.querySelector('#svStrip .sv-add').click()`); await settled({ until: "!!document.querySelector('#popHost .palette')", max: 8000 });
 p = await pal();
 ok('phone: the position row holds the Replace chip and the position chip', p && p.where && /^Insert/.test(p.where) && /Insert at the end/.test(p.at || ''), p);
 await ev(`document.querySelector('.pal-atrow .pal-where').click()`); await settle(300);
@@ -130,7 +127,7 @@ await grab();
 
 // ======================= Russian =======================
 await openApp({ shapes: [DISC], steps: CHAIN }, 1366, 768, false, '&lang=ru');
-await key('k', 4); await settle(400);
+await openPal();
 for (let i = 0; i < 3; i++) {
   p = await pal();
   ok(`ru: the head fits (${p && p.where})`, p && p.headFits && p.whereFits, p);

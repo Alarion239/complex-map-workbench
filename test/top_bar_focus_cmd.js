@@ -2,7 +2,7 @@
 // of the page goes Examples (leftmost on screen), then the menu's buttons (search … Help), in the order of the screen; and
 // every segment of a segmented control in the bar and the plane head is at least 24 x 24 px (WCAG 2.5.8; the segments
 // touch, so the spacing exception does not apply) without the control overflowing. 1440 px in English, 1024 px in Russian
-// and Italian. The classic view's view switch, Deformation and the heads' own segments are in top_bar_focus_classic_cmd.js.
+// and Italian.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };

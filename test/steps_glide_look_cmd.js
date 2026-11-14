@@ -183,7 +183,8 @@ async function look(c, r) {
     await ev(`__cmwExample(${ex}); 1`);
     await settled({ max: 60000 });
   }
-  await ev(`__cmwSet('morphPaths', false), __cmwSteps(${JSON.stringify({ scope: c.scope, surf: 'plane' })}), 1`);
+  // (100 % opacity: the references are the front point's colour alone; the Opacity slider's 85 % default mixes the layers behind)
+  await ev(`__cmwSet('morphPaths', false), __cmwSet('alpha', 1), __cmwSteps(${JSON.stringify({ scope: c.scope, surf: 'plane' })}), 1`);
   if (c.cover) await ev(LOG_SECTOR);
   // (the parked camera: first, before any plane past z has been shown, as a user who opens the example and scrubs)
   if (c.parked) await heldParked(c, r);
