@@ -35,7 +35,7 @@ const CONTROL = [
   ['    else dl = vec2(lxp - lxm, lyp - l) * 0.5;', '    else dl = vec2(lxp - lxm, lyp - l) * 0.5000001;'],
   ['if (k == 0) g0 = g; else if (k == 1) gx = g - g0;', 'if (k == 0) g0 = g; else if (k == 1) gx = (g - g0) * 1.0000001;'],
 ];
-const LOAD_MAX_MS = 240000, PLACE_MAX_MS = 300000, FRAMES_PAUSE_MS = 2500;
+const LOAD_MAX_MS = 240000, PLACE_MAX_MS = 300000, WANT_MAX_MS = 900000, FRAMES_PAUSE_MS = 2500;
 
 const sh = (cmd, args, cwd) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 });
@@ -209,7 +209,8 @@ const SCENES = [
   { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5] },
   // the globe
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
-  { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
+  // (want: the carried program, which a software renderer may still be linking when the panes are quiet, has drawn)
+  { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5], want: '^inv\\|B5cg' },
 ];
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
 
@@ -243,6 +244,7 @@ async function recordPlace(H, base, sc, x) {
   await H.ev(x != null ? `__cmwSteps({ x: ${x} }), 1` : '__cmwHideStrokes(false), 1');
   settled = await quiet(H, x != null ? `__cmwSteps().x === ${x}` : null, PLACE_MAX_MS) && settled;
   if (x != null && !await H.ev(`__cmwSteps().x === ${x}`)) throw new Error(`${sc.name}@${x}: the glide did not reach its place`);
+  if (sc.want) settled = await quiet(H, `Object.keys(window.__ab.rec).some((k) => new RegExp(${JSON.stringify(sc.want)}).test(k))`, WANT_MAX_MS) && settled;
   await sleep(FRAMES_PAUSE_MS);
   if (!settled) await H.ev("window.__ab.rec.unsettled = { h: '1', blank: false }, 1");
   return H.ev(`(() => { const rec = window.__ab.rec; for (const id of ['canvasL', 'canvasR']) { const cv = document.getElementById(id); if (!cv || !cv.width) continue; const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } rec[id + '|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; } return JSON.stringify(rec); })()`).then(JSON.parse);
