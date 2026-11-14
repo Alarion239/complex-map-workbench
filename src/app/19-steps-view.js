@@ -893,17 +893,26 @@
     const n = nSteps();
     for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
     for (let b = 1; b <= n; b++) {
-      if (derivIn(b - 1, b)) continue;
+      if (derivIn(b - 1, b) || svGlideEntire(b)) continue;
       const P = svPoleTracks(b, clipWin);
       if (P.k <= SV_POLE_K) return P;
     }
     return null;
   }
+  // Whether the glide into plane b moves through entire maps alone, so its map h_{b,t} after the steps before b has no
+  // pole at any t: step b is a polynomial step, whose homotopy has none (Inverse.polyHom: a root power, a zoom, or a
+  // polynomial in u inverted by every root, NEWT with deg), and each active step before b is entire. Its frames' key then takes no pole tracks (svSheetKeyAt),
+  // none are made for it (svPolesLeft), and its glide never waits for them (svTracksMissing)
+  function svGlideEntire(b) {
+    if (isDeriv(b) || !Inverse.polyHom(built[b - 1])) return false;
+    for (let k = 1; k < b; k++) if (stepActive(k) && (isDeriv(k) || !(built[k - 1] && built[k - 1].props && built[k - 1].props.entire))) return false;
+    return true;
+  }
   // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
   // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
   // (svSheetKeyAt) exist
   function svTracksMissing(b, h) {
-    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
+    if (svGlideEntire(b) || !(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
     const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
@@ -947,9 +956,9 @@
     // (this glide's tracks once they are whole; until then (a glide at once after an edit or a change of view, before
     // the idle moments made them), the plane's last whole tracks, for other windows (they find the same poles where the
     // windows overlap); with none, the poles a seed step finds at t itself: the same search, without the tracks through
-    // a cut. No tracks are made in a frame)
+    // a cut. No tracks are made in a frame. A glide through entire maps alone has no poles: none, svGlideEntire)
     const s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
-    let P = svPoleTracks(b, k.win), at = null;
+    let P = svGlideEntire(b) ? { tr: [] } : svPoleTracks(b, k.win), at = null;
     if (P.k <= SV_POLE_K) {
       svPolesWatch();
       const L = svPoleLast.get(b);
