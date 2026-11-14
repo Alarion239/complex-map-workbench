@@ -29,7 +29,7 @@ async function open(ns, steps) {
 const { selectStep } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'step_pick_kit.js'), 'utf8'))({ ev, settled, ok });
 const select = async (k) => { await selectStep(k); await settle(1200); };
 // a language switch reloads the page: wait until the new page is in that language and shows the element `sel`, asserted
-const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, settled, sleep, ok });
+const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, reloaded, ok });
 // the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
 const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];

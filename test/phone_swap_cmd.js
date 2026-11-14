@@ -128,7 +128,7 @@ async function rounds(name, n, steps, opt = {}) {
   info[name] = { warmup: { L: ratio(start.L, pre.L), R: ratio(start.R, pre.R) }, start: `L ${fmt(start.L)} | R ${fmt(start.R)}`, end: `L ${fmt(end.L)} | R ${fmt(end.R)}`, uEndOverStart: { L: ratio(end.L, start.L), R: ratio(end.R, start.R) }, worstBack: +(worst * 100).toFixed(4) + ' %', worstDrift: +(worstMid * 100).toFixed(4) + ' %', reads: reads.slice(0, 8) };
   return { start, end };
 }
-const { reloaded: pageReloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));   // (not `reloaded`: the kit's own H.reloaded is a name of every command file)
+const { pageReloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'))({ ev, fails, reloaded });
 // the language row of the open More sheet, scrolled into view (the sheet scrolls: the row starts below the fold of a phone
 // and a tap outside the viewport reaches nothing)
 const langRow = (v) => `.ph-sheet .ph-seg button[data-v="${v}"]`;
