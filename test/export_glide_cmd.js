@@ -36,6 +36,8 @@ const PATHS_CHAIN = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus:
 const FIT_SLACK = 0.01;
 // the hue ring is marked 1, i, -1, -i
 const RING_MARKS = 4;
+// a decoded frame, or a frame of a video, matches its exact render to this mean difference (of 255)
+const DECODED_MAD = 12;
 // the Play range the Loop, Bounce and hidden-tab checks record: the thread's second step (planes 1 to 2), one step long
 const PLAY_RANGE = [1, 2];
 // a hidden page's timers wait at least this long (ms), its animation frames do not come and document.hidden is true
@@ -69,7 +71,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
   ok(`${tag}: the glide spans the thread (${v.g && v.g.from} to ${v.g && v.g.to})`, v.g && v.g.hi > v.g.lo, v.g);
   ok(`${tag}: the frame count is videoTimes()'s`, v.frames === v.expect && v.frames > 0, v);
   ok(`${tag}: 1280 x 720 at 30 fps, H.264 or VP9`, v.W === 1280 && v.H === 720 && v.fps === 30 && /^(avc1|vp0?9|vp8)/.test(v.codec), v);
-  ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < 12, v);
+  ok(`${tag}: a decoded frame matches the exact render at its time`, v.mad != null && v.mad < DECODED_MAD, v);
   ok(`${tag}: the thread's place is where it was`, v.at0 === v.at1, v);
   // ruling 2 (#635): the video's first frame, at rest on the first plane, shows the still export's picture of that plane:
   // the still's panel (its art image, in the figure's pt) against the video frame cropped to the still's window, the frame
@@ -110,7 +112,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     return { mad, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
-  if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < 12, fp);
+  if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < DECODED_MAD, fp);
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place; a globe or a relief has no window of the still's to crop to, so its
@@ -170,14 +172,19 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     let r; try { r = await __cmwFig.makeVideo({ video: opt, keepForCheck: true }); } finally { window.setTimeout = st; window.requestAnimationFrame = raf; delete document.hidden; delete document.visibilityState; }
     const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span);
     const at = (x) => (typeof x === 'number' ? x : x.a), blend = T.findIndex((x) => typeof x !== 'number');
-    const moving = T.findIndex((x) => typeof x === 'number' && x > 0 && x < span), chk = await __cmwFig.videoCheck(blend >= 0 ? blend : moving);
-    return { frames: r.frames, expect: T.length, span, first: at(T[0]), last: T[T.length - 1], top: Math.max(...T.map((x) => (typeof x === 'number' ? x : Math.max(x.a, x.b)))), blends: T.filter((x) => typeof x !== 'number').length, mad: chk && chk.mad, t: chk && chk.t, ms };
+    // the frame decoded: Loop's first cross-fade, Bounce's first frame inside the range after the far end (the return leg), else the
+    // first inside the range
+    const peak = T.lastIndexOf(span), inside = (x, i) => typeof x === 'number' && x > 0 && x < span && i > (opt.ends === 'bounce' ? peak : -1);
+    const k = blend >= 0 ? blend : T.findIndex(inside), chk = await __cmwFig.videoCheck(k);
+    return { frames: r.frames, expect: T.length, span, first: at(T[0]), last: T[T.length - 1], top: Math.max(...T.map((x) => (typeof x === 'number' ? x : Math.max(x.a, x.b)))), blends: T.filter((x) => typeof x !== 'number').length, k, peak, kt: at(T[k]), mad: chk ? chk.mad : null, t: chk ? chk.t : null, ms };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, VIDEO_WAIT_MS);
   const once = await mk('once'), loop = await mk('loop'), bounce = await mk('bounce');
   info['glide video once, loop, bounce'] = { once, loop, bounce };
-  ok('the video of a Play range is the range\'s: frames of videoTimes() over its one step, times within it', !once.err && once.frames === once.expect && once.span === PLAY_RANGE[1] - PLAY_RANGE[0] && once.top === once.span && once.last === once.span && once.mad < 12 && once.t > 0 && once.t < 1, once);
-  ok('Bounce goes to the far end of the range and back to its first plane, in more frames than Once', !bounce.err && bounce.frames === bounce.expect && bounce.expect > once.expect && bounce.top === bounce.span && bounce.last === bounce.first && bounce.blends === 0 && bounce.mad < 12, bounce);
-  ok('Loop cross-fades the end back to the first plane (blended frames, the last one a fade to it), in more frames than Once', !loop.err && loop.frames === loop.expect && loop.expect > once.expect && loop.blends > 0 && loop.mad < 12, loop);
+  ok('the video of a Play range is the range\'s: frames of videoTimes() over its one step, times within it', !once.err && once.frames === once.expect && once.span === PLAY_RANGE[1] - PLAY_RANGE[0] && once.top === once.span && once.last === once.span && once.mad != null && once.mad < DECODED_MAD && once.t === once.kt && once.t > 0 && once.t < once.span, once);
+  // (the frame decoded is the first one inside the range after the far end: Bounce's return leg, past its hold at the far end)
+  ok('Bounce goes to the far end of the range and back to its first plane, in more frames than Once, and a decoded frame of the return leg is the exact render', !bounce.err && bounce.frames === bounce.expect && bounce.expect > once.expect && bounce.top === bounce.span && bounce.last === bounce.first && bounce.blends === 0 && bounce.k > bounce.peak && bounce.mad != null && bounce.mad < DECODED_MAD && bounce.t === bounce.kt && bounce.t > 0 && bounce.t < bounce.span, bounce);
+  // (Loop's last entry is a fade of the far end into the first plane, whole: its k is 1)
+  ok('Loop cross-fades the end back to the first plane (blended frames, the last one a whole fade of the far end into it), in more frames than Once, and a decoded blended frame is the exact render', !loop.err && loop.frames === loop.expect && loop.expect > once.expect && loop.blends > 0 && !!loop.last && loop.last.a === loop.span && loop.last.b === loop.first && loop.last.k === 1 && loop.mad != null && loop.mad < DECODED_MAD && loop.t === loop.kt, loop);
   // a hidden page, as Chrome makes one: document.hidden, timers that wait a second and animation frames that never come, so a
   // video that waits on a timer or an animation frame per frame crawls (the encoder's dequeue event and a message channel do not)
   const hid = await mk('once', true);
