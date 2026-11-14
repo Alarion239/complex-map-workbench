@@ -1798,10 +1798,10 @@
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
   }
-  // Inside regions between two planes: the alpha of the regions of later planes in the open frame, by the inverse pass
-  // (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's map), at the opacity they have
-  // at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA), which writes alpha alone under the
-  // caller's write mask. Nothing when none is visible or the pass cannot draw them
+  // Inside regions between two planes: the alpha of the regions of later planes (all: and of the colour's plane) in the
+  // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
+  // map), at the opacity they have at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA),
+  // which writes alpha alone under the caller's write mask. Nothing when none is visible or the pass cannot draw them
   function svStagedMask(pane, all) {
     const st = svStagedOf(all);
     if (!st) return;

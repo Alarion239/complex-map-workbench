@@ -13,7 +13,6 @@ const SAME_FRAC = 0.005;      // (steps_glide_look_cmd.js: the parked frame is t
 const VIEW_W = 1200, VIEW_H = 800;   // (the views shard's pane, as steps_glide_look_cmd.js)
 const SETTLE_MAX_MS = 60000;  // the page's start-up, an example, a rest frame and a parked frame each settle within it
 const MESH_MAX_MS = 150000;   // a SphereMesh job of the zeta regions on a software renderer
-const JOB_ASK_MS = 1500;      // a bounded wait: the parked frame's draw asks for the SphereMesh job within it, where a mask is drawn from the forward image; with the exact frame no job is asked for, so there is no event to wait on, and the job list is read once it has passed
 const CONTROL_FRAC = 0.05;    // the frames of two different u differ on more than this share of their pixels: the comparison tells frames apart
 const PARK_EPS = 1e-3;        // how near u the thread has parked
 const ST = {
@@ -36,21 +35,25 @@ const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib',
 const ready = () => settled({ max: SETTLE_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 // (at rest on plane i, its frame drawn)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: SETTLE_MAX_MS, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
-// (no SphereMesh job left to run: none is wanted by a frame, or the one asked for has been built)
-const MESH_IDLE = `(() => { const q = __cmwSphere(); return !(Array.isArray(q.jobs) ? q.jobs.length : q.jobs); })()`;
+// (no SphereMesh job left to run and none still to be asked for: no frame is due to ask for the jobs a moving frame
+// could not (kick), and every job a frame asked for has been built; settled() reads it on two animation frames, so a
+// frame the kick asked for has drawn, and asked, before it holds)
+const MESH_IDLE = `(() => { const q = __cmwSphere(); return !q.kick && !q.jobs.length; })()`;
 await view(VIEW_W, VIEW_H, false, false);
 for (const c of CASES) {
   const r = info[c.tag] = {};
   try {
     await load('mlater' + Date.now(), Object.assign({}, ST, { alpha: c.alpha }));
     await settled({ max: SETTLE_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && !!window.GLR && GLR.pendingLinks === 0' });
+    const alpha = await ev('__cmwKeys().alpha');
+    r.alpha = alpha;
+    ok(`${c.tag}: the page draws at the case's sheet opacity ${c.alpha}`, alpha === c.alpha, alpha);
     await ev(`__cmwSet('morphPaths', false), __cmwSteps(${JSON.stringify({ scope: 'in', surf: 'plane' })}), 1`);
     await rest(0);
     for (const u of c.us) {
       const held = (await hold(u)).ok, still = await grab('H' + u);
       await ev('window.__svScrubUp(), 1');
       const parked = (await settled({ max: SETTLE_MAX_MS, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < ${PARK_EPS}` })).ok;
-      await sleep(JOB_ASK_MS);
       const built = (await settled({ max: MESH_MAX_MS, until: MESH_IDLE })).ok;
       const settledP = await grab('P' + u);
       const diff = held && still && parked && built && settledP ? await compare('H' + u, 'P' + u) : null;
