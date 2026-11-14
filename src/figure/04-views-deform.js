@@ -55,54 +55,21 @@
   // a sphere's mark is labelled when its normal makes more than this with the line to the eye (the screen's labels start to show
   // above it)
   const GLOBE_LABEL_FACE = 0.05;
-  // a mark keeps this far (pt) from the globe's outline; one that would cross it is moved out from the globe's centre in steps, by
-  // at most GLOBE_LABEL_NUDGE_MAX, and left out if it still does
-  const GLOBE_LABEL_AIR = 1.5, GLOBE_LABEL_NUDGE_STEP = 0.5, GLOBE_LABEL_NUDGE_MAX = 6;
-  // the unit sphere's outline (its limb) seen from the eye as a polygon of toPt's points (the sphere's points p with p . eye = 1)
-  const GLOBE_LIMB_STEPS = 72;
-  function globeLimb(eye, toPt) {
-    const d = Math.hypot(...eye), e = eye.map((v) => v / d), rad = Math.sqrt(Math.max(0, 1 - 1 / (d * d)));
-    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-    const side = cross(e, Math.abs(e[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]), len = Math.hypot(...side), u = side.map((v) => v / len), w = cross(e, u);
-    const poly = [];
-    for (let i = 0; i < GLOBE_LIMB_STEPS; i++) {
-      const a = 2 * Math.PI * i / GLOBE_LIMB_STEPS, q = toPt(e.map((v, j) => v / d + rad * (Math.cos(a) * u[j] + Math.sin(a) * w[j])));
-      if (!q) return null;
-      poly.push(q);
-    }
-    return poly;
-  }
-  const inPolygon = (q, poly) => {
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      if ((poly[i][1] > q[1]) !== (poly[j][1] > q[1]) && q[0] < (poly[j][0] - poly[i][0]) * (q[1] - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) inside = !inside;
-    }
-    return inside;
-  };
-  // whether box b, grown by air, has some of its corners and edge midpoints inside the polygon and some outside: it crosses it
-  const crossesPolygon = (b, poly, air) => {
-    const xs = [b.x0 - air, (b.x0 + b.x1) / 2, b.x1 + air], ys = [b.y0 - air, (b.y0 + b.y1) / 2, b.y1 + air];
-    const marks = xs.flatMap((px) => ys.map((py) => inPolygon([px, py], poly)));
-    return marks.some(Boolean) && !marks.every(Boolean);
-  };
   // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera and keep clear of its
   // outline and of the other labels
   function globeLabels(g, r, c, x, y, k, tp) {
     if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
-    const limb = globeLimb(g.eye, P), centre = P([0, 0, 0]);
+    const limb = GLR.globeLimb(g.eye, P), centre = P([0, 0, 0]);
     let m = '';
     for (const [lab, p] of [['0', [0, 0, -1]], ['\\infty', [0, 0, 1]], ['1', A.lift(1, 0)], ['i', A.lift(0, 1)], ['-1', A.lift(-1, 0)], ['-i', A.lift(0, -1)]]) {
       if (face(p) <= GLOBE_LABEL_FACE) continue;
       let q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
       const it = XD.tex(lab, tp), boxAt = (at) => XD.boxOf(it, at[0], at[1], 'middle', 'mid');
-      if (limb && centre) {
-        const away = Math.hypot(q[0] - centre[0], q[1] - centre[1]) || 1, ux = (q[0] - centre[0]) / away, uy = (q[1] - centre[1]) / away;
-        for (let moved = 0; moved < GLOBE_LABEL_NUDGE_MAX && crossesPolygon(boxAt(q), limb, GLOBE_LABEL_AIR); moved += GLOBE_LABEL_NUDGE_STEP) q = [q[0] + ux * GLOBE_LABEL_NUDGE_STEP, q[1] + uy * GLOBE_LABEL_NUDGE_STEP];
-        if (crossesPolygon(boxAt(q), limb, GLOBE_LABEL_AIR)) continue;
-      }
+      q = GLR.clearOfLimb(q, boxAt, limb, centre);
+      if (!q) continue;
       const b = boxAt(q);
       if (XD.boxes.some((o2) => o2.x0 < b.x1 + 0.6 && o2.x1 > b.x0 - 0.6 && o2.y0 < b.y1 + 0.6 && o2.y1 > b.y0 - 0.6)) continue;
       m += XD.at(it, q[0], q[1], 'middle', 'mid', 'globe-label', 0.4);

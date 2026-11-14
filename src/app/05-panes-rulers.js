@@ -22,6 +22,8 @@
   // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
   // (at most this many mesh vertices and this many points of a polygon go into a fit's samples)
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
+  // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
+  const GLOBE_MARK_PX = 13;
   function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
   // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
   function* stageSampler(F0, xs, ys, k) {
@@ -1291,15 +1293,23 @@
       }
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `italic 500 13px ${TH.math}`;
+    ctx.font = `italic 500 ${GLOBE_MARK_PX}px ${TH.math}`;
     const pts = /** @type {[string, number[]][]} */ ([['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', lift(1, 0)], ['i', lift(0, 1)], ['−1', lift(-1, 0)], ['−i', lift(0, -1)]]);
+    // (a video frame fits the camera at the still's aspect, which can make the globe small against the marks' fixed size: its marks keep
+    // off the globe's outline, as the still's do)
+    const limb = artCamAsp ? GLR.globeLimb(info.eye, (p) => project(pane, info.MVP, p)) : null, centre = limb ? project(pane, info.MVP, [0, 0, 0]) : null;
     for (const [lab, p] of pts) {
       const f = facing(p);
       const u = Math.max(0, Math.min(1, (f - 0.05) / 0.25)), a = u * u * (3 - 2 * u);   // smoothstep(0.05, 0.3, n·v)
       if (a <= 0) continue;
       // poles: just beyond the globe; equator points: just above the |z| = 1 line, so the label never sits on it
-      const q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
+      let q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
+      if (limb) {
+        const half = ctx.measureText(lab).width / 2;
+        q = GLR.clearOfLimb(q, (at) => ({ x0: at[0] - half, x1: at[0] + half, y0: at[1] - GLOBE_MARK_PX / 2, y1: at[1] + GLOBE_MARK_PX / 2 }), limb, centre);
+        if (!q) continue;
+      }
       // (a video frame: the figure draws these labels at full ink; their places still keep the point labels clear)
       if (artNoLab) { labelReg(pane).marks.push([q[0], q[1], 11]); continue; }
       ctx.globalAlpha = a;
