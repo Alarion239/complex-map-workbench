@@ -28,7 +28,7 @@ const LOG = [];
 // crashing or detaching. CAUSE_BACK_MS: how long before a call an event still explains its failure; CAUSE_WAIT_MS: how long
 // a failed call waits for the event that explains it (the error can come first).
 const CAUSE_BACK_MS = 5000, CAUSE_WAIT_MS = 500;
-const GONE = /navigated or closed|Cannot find context with specified id/;
+const NAV_GONE = /navigated or closed|Cannot find context/;
 let CAUSE = null;
 const noteCause = (text) => { CAUSE = { at: Date.now(), text }; LOG.push({ t: 'cdp', m: text }); };
 rd.on('data', (d) => {
@@ -53,7 +53,7 @@ const send = (method, params = {}, sessionId) => new Promise((res, rej) => {
   const t0 = Date.now();
   // a call the page went under fails with the event that came first (or says none was seen)
   const fail = async (e) => {
-    if (!GONE.test(e.message)) return rej(e);
+    if (!NAV_GONE.test(e.message)) return rej(e);
     while (!(CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS) && Date.now() - t0 < CAUSE_WAIT_MS) await new Promise((r) => setTimeout(r, 10));
     const why = CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS ? CAUSE.text : `no navigation or crash event within ${CAUSE_BACK_MS} ms before or ${CAUSE_WAIT_MS} ms after the call`;
     rej(new Error(`${e.message} [${method}: ${why}]`));
@@ -178,7 +178,7 @@ H.go = async (url, ms = 15000) => {
 // answers is another one, for at most NAV_LINK_MS after the hash is gone), and a call the reload cuts off is asked again of the
 // new page. Answers the start-up wait's answer ({ ok, ms, busy, at }, with loaded: whether the load event came in time): when the
 // app did not start in time that answer is a kit fault (H.settled), so the suite fails unless it reads ok and handles it.
-const NAV_QUIET_MS = 8000, NAV_LINK_MS = 2000, NAV_GONE = /navigated or closed|Cannot find context/;
+const NAV_QUIET_MS = 8000, NAV_LINK_MS = 2000;
 const navCall = async (f, t0) => { for (;;) { try { return await f(); } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e)) || Date.now() - t0 > NAV_QUIET_MS) throw e; await sleep(100); } } };
 H.nav = async (url) => {
   const loaded = await H.go(url), t0 = Date.now();
