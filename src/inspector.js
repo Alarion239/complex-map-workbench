@@ -195,6 +195,7 @@ const Inspector = (() => {
       const flong = h('div', { class: 'ftex long', hidden: true }, $t('The formula is long; the field below holds it in full.'));
       // (it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
       const form = h('div', { class: 'iform', tabindex: 0, role: 'group', 'aria-label': $t('Formula') }, ftex, flong);
+      const hint = h('div', { class: 'ihint', 'aria-live': 'polite' });
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
@@ -205,8 +206,11 @@ const Inspector = (() => {
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true }) : null;
       const rep = buildRepeat(k);
-      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, rep.root, det, split, note, nums);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, rep, typing: false };
+      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, hint, err, params, rep.root, det, split, note, nums);
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, hint, err, note, nums, det, params, split, rep, typing: false };
+      // (the hint follows the field as it is typed: it goes the moment the bracket is)
+      const fx0 = params.querySelector('input[data-pkey="expr"]');
+      if (fx0) fx0.addEventListener('input', () => fillHint(E, fx0.value));
       if (split) {
         split.open = foldOpen();
         // (the tour's unfolding, below, is not the viewer's fold)
@@ -433,6 +437,65 @@ const Inspector = (() => {
       const b = A.built()[k - 1];
       return !!(b && !b.error && b.cuts && b.cuts.some((c) => c.editable));
     }
+    // z^-1/2 reads (z⁻¹)/2 by the usual precedence. A ^ followed by a number with its optional sign and then /, with no
+    // bracket after the ^, gets a quiet hint that says so and offers the bracketed power; the reading itself is unchanged.
+    // (A product, z^2*3, is 3z² as it stands, so it gets none.) The base is a name, a number or a bracketed group.
+    const POW_HINT = /\^\s*([+\-−]?)\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/g;
+    const SUP_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    // the base that ends the text: a bracketed group (its brackets balanced) or a name or number; '' when there is none
+    function baseBefore(t) {
+      t = t.trimEnd();
+      if (t.endsWith(')')) {
+        let d = 0;
+        for (let i = t.length - 1; i >= 0; i--) {
+          if (t[i] === ')') d++;
+          else if (t[i] === '(' && --d === 0) return t.slice(i);
+        }
+        return '';
+      }
+      const m = /([A-Za-z][A-Za-z0-9]*|\d+(?:\.\d+)?)$/.exec(t);
+      return m ? m[1] : '';
+    }
+    function powHint(text) {
+      POW_HINT.lastIndex = 0;
+      for (let m; (m = POW_HINT.exec(text));) {
+        const base = baseBefore(text.slice(0, m.index));
+        if (!base) continue;
+        const [, sgn, n1, n2] = m, neg = sgn === '-' || sgn === '−';
+        // (z¹ is z: the reading drops the exponent 1)
+        const sup = n1 === '1' && !neg ? '' : /^\d+$/.test(n1) ? (neg ? '⁻' : '') + [...n1].map((d) => SUP_DIGITS[+d]).join('') : '^' + (neg ? '−' : '') + n1;
+        return { read: sup ? `(${base}${sup})/${n2}` : `${base}/${n2}`, power: `${neg ? '−' : ''}${n1}/${n2}`, fix: `${base}^(${neg ? '-' : ''}${n1}/${n2})` };
+      }
+      return null;
+    }
+    // the sentence with each expression in a span that does not break and keeps the field's monospace face
+    // (private-use characters nothing else in a translation uses: Italian's own marker is U+E001)
+    const HINT_MARK = ['\uE010', '\uE011', '\uE012'];
+    function hintSentence(p) {
+      const s = $t('Read as {read}. For the power {power}, write {fix}.', { read: HINT_MARK[0], power: HINT_MARK[1], fix: HINT_MARK[2] });
+      const val = [p.read, p.power, p.fix], out = [];
+      for (const part of s.split(/([\uE010-\uE012])/)) {
+        const at = HINT_MARK.indexOf(part);
+        out.push(at < 0 ? part : h('span', { class: 'ihint-x' }, val[at]));
+      }
+      return h('span', null, ...out);
+    }
+    function fillHint(E, text) {
+      const p = text == null ? null : powHint(text), key = p ? p.fix : '';
+      if (E.hint.dataset.key === key) return;
+      E.hint.dataset.key = key;
+      E.hint.textContent = '';
+      if (!p) return;
+      const use = () => {
+        const fx = E.params.querySelector('input[data-pkey="expr"]');
+        if (!fx) return;
+        fx.value = p.fix;
+        fx.dispatchEvent(new Event('input', { bubbles: true }));
+        fx.dispatchEvent(new Event('change', { bubbles: true }));
+        fx.focus();
+      };
+      E.hint.append(hintSentence(p), ' ', h('button', { type: 'button', class: 'btn small ihint-use', onclick: use }, $t('Use {fix}', { fix: p.fix })));
+    }
     function fillStep(E) {
       const S = A.S(), k = E.k, st = S.steps[k - 1], b = A.built()[k - 1];
       if (!st) return;
@@ -449,6 +512,7 @@ const Inspector = (() => {
       const bt = off ? $t('Turn this step back on') : $t('Bypass this step');
       if (E.byp.dataset.tip !== bt) { E.byp.dataset.tip = bt; E.byp.setAttribute('aria-label', bt); }
       E.inv.disabled = !b || bad;
+      if (!E.typing) fillHint(E, st.type === 'custom' ? String(st.params.expr || '') : null);
       const errT = bad ? b.error : '';
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
