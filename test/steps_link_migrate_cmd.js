@@ -142,19 +142,27 @@ n++;
   await grab('figCam link');
 }
 
+// the two cameras a page holds, the Landscape's (cam) and the z-globe's (camL); near: whether camera a is camera b to within tol
+// (CAM_EXACT for values that pass through JSON unchanged, CAM_TOL for those the page works out, as a zoom against the fit)
+const CAM_EXACT = 1e-9, CAM_TOL = 1e-6;
+const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+const near = (a, b, tol) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < tol);
+// a figure's link opened in a fresh namespace: the cameras of the page it opens on. The page is waited for through the toast and the
+// steps view only: a Landscape still refining holds no camera
+const OPEN_TOAST = 'Opened the figure from the link.';
+const openCams = async (state, tag) => {
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}`);
+  await reloaded(old, `document.body.innerText.includes(${JSON.stringify(OPEN_TOAST)}) && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
+  return camsOf();
+};
+
 // figCam names its camera (`of`): a link saved while the steps view shows the z-globe carries camL and opens on camL; a figCam
 // without `of` (a classic-saved link, the Landscape's) moves cam only and leaves camL where it was
 n++;
 {
   const GLOBE = { ...XY, rightMode: 'image', leftSphere: true };
-  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
-  const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
-  const open = async (figCam) => {
-    const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
-    const old = await ev('performance.timeOrigin');
-    await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
-    await reloadedFigure(old, 'Opened the figure from the link.');
-  };
+  const open = (figCam) => openCams({ ...GLOBE, figCam }, 'g');
   const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
   await open(base);   // no `of`: the Landscape's camera
   const land0 = await camsOf();
@@ -162,49 +170,41 @@ n++;
   await open(sph);
   const got = await camsOf();
   const { of, ...sphCam } = sph;
-  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam), got);
-  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam) && !near(got.cam, base), got);
-  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base), land0);
-  ok('figCam without `of`: camL is untouched', !near(land0.camL, base), land0);
+  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam, CAM_EXACT), got);
+  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam, CAM_EXACT) && !near(got.cam, base, CAM_EXACT), got);
+  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base, CAM_EXACT), land0);
+  ok('figCam without `of`: camL is untouched', !near(land0.camL, base, CAM_EXACT), land0);
   const out = await ev('__cmwFigureState().figCam');
   info['figCam written on the globe'] = out;
-  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam), out);
+  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam, CAM_EXACT), out);
   await grab('figCam of');
 }
 
+// the camera the Landscape block moves to: yaw and pitch (radians) and the pan, and the zoom against the fit; the wait for the
+// Landscape to settle after the surface change
+const MOVED_CAM = { yaw: 0.9, pitch: 0.25, tx: 0.08, ty: -0.12 }, CAM_ZOOM = 1.6, LAND_SETTLE_MS = 60000;
 // a link made from the steps view's Landscape carries its moved camera and opens on it: the link is built from the figure the
 // view writes (figureState), not by hand; a link made from the same figure without figCam opens on the default camera
 n++;
 {
-  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
-  const CAM_TOL = 1e-6;
-  const near = (a, b) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < CAM_TOL);
-  const ZOOM = 1.6;
-  const moved = { yaw: 0.9, pitch: 0.25, tx: 0.08, ty: -0.12 };
-  const nsOf = (tag) => 'lmig' + n + tag + Date.now() + Math.floor(Math.random() * 1e6);
-  const open = async (state, tag) => {
-    const old = await ev('performance.timeOrigin');
-    await go(`${BASE}/test.html?ns=${nsOf(tag)}&view=steps#cmw=${linkOf(state, true)}`);
-    await reloaded(old, `document.body.innerText.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
-    return camsOf();
-  };
-  await open({ ...XY, rightMode: 'image' }, 'a');
+  await openCams({ ...XY, rightMode: 'image' }, 'a');
   await ev(`__cmwSteps({ surf: 'land' }); 1`);
-  await settled({ max: 60000 });
+  await settled({ max: LAND_SETTLE_MS });
   const base = (await camsOf()).cam;
-  await ev(`(() => { const c = __cmwCam('L'); __cmwCam('L', { yaw: ${moved.yaw}, pitch: ${moved.pitch}, dist: c.dist * ${ZOOM}, tx: ${moved.tx}, ty: ${moved.ty} }); })(), 1`);
-  const want = { ...moved, d: base.d * ZOOM };
+  await ev(`(() => { const c = __cmwCam('L'); __cmwCam('L', { yaw: ${MOVED_CAM.yaw}, pitch: ${MOVED_CAM.pitch}, dist: c.dist * ${CAM_ZOOM}, tx: ${MOVED_CAM.tx}, ty: ${MOVED_CAM.ty} }); })(), 1`);
+  const want = { ...MOVED_CAM, d: base.d * CAM_ZOOM };
   const fig = await ev('__cmwFigureState()');
   const out = fig && fig.figCam;
   info['figCam written on the Landscape'] = out;
   ok('Landscape link: figCam is written without `of`', !!out && !('of' in out), out);
-  ok('Landscape link: the camera written is the one on the view', near(out, want), { out, want });
-  const got = await open(fig, 'b');
+  ok('Landscape link: the camera written is the one on the view', near(out, want, CAM_TOL), { out, want });
+  const got = await openCams(fig, 'b');
   info['Landscape link opened'] = got;
-  ok('Landscape link: cam is the written camera on reopening', near(got.cam, out), { out, got });
-  const { figCam, ...bare } = fig;
-  const plain = await open(bare, 'c');
-  ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out), { out, plain });
+  ok('Landscape link: cam is the written camera on reopening', near(got.cam, out, CAM_TOL), { out, got });
+  const bare = { ...fig };
+  delete bare.figCam;
+  const plain = await openCams(bare, 'c');
+  ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out, CAM_TOL), { out, plain });
   await grab('Landscape link');
 }
 
