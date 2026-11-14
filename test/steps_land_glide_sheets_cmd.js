@@ -32,7 +32,7 @@ const carry = () => ev('typeof __cmwLandCarry === "function" ? JSON.stringify(__
 info.ends = {};
 for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]) {
   await rest(0);
-  ok(`the thread is held at ${x}`, (await hold(x)).ok, null);
+  { const h = await hold(x); ok(`the thread is held at ${x}`, h.ok, h); }
   await ev(rAF2);
   const c = await carry();
   await grab(tag);
@@ -43,7 +43,7 @@ for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]
   ok(`held at ${x}: the plane at rest there (<= 2 % of pixels > 32/255)`, info.ends[tag].d != null && info.ends[tag].d <= 0.02, info.ends[tag]);
 }
 await rest(0);
-ok('the thread is held at 0.5', (await hold(0.5)).ok, null);
+{ const h = await hold(0.5); ok('the thread is held at 0.5', h.ok, h); }
 await ev(rAF2);
 const heldMid = await carry();
 await grab('heldMid');

@@ -1759,9 +1759,12 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
     for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
+    // groupT(k, t, g0, gn): the time of step k in an All-at-once map at time t: t, or, for the gn steps (g0, g0 + gn] a Split
+    // made of one formula, that formula's own run of its steps in turn (step j on [j/gn, (j+1)/gn]; gn 0: no group)
+    src += 'float groupT(int k, float t, int g0, int gn) {\n  return gn > 0 && k > g0 && k <= g0 + gn ? clamp(t * float(gn) - float(k - g0 - 1), 0.0, 1.0) : t;\n}\n';
     // all at once (mode 3): every step's homotopy at the same t, H_t = h_{b,t} o ... o h_{a+1,t}, through chainHom (so
     // the step functions are not inlined a second time; a d/dz gives NaN there, an off or failed step the identity)
-    src += `vec2 chainHomAll(vec2 z, int a, int b, float t) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, t);\n  }\n  return z;\n}\n`;
+    src += `vec2 chainHomAllG(vec2 z, int a, int b, float t, int g0, int gn) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, groupT(k, t, g0, gn));\n  }\n  return z;\n}\nvec2 chainHomAll(vec2 z, int a, int b, float t) {\n  return chainHomAllG(z, a, b, t, 0, 0);\n}\n`;
     src += `bool chainIsDeriv(int k) {\n  return ${dks.length ? dks.map((k) => `k == ${k}`).join(' || ') : 'false'};\n}\n`;
     // the maps in (a, b] applied to a point (no d/dz inside)
     const raw = dks.length ? 'cxs0_raw' : 'chainRange';
