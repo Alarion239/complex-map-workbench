@@ -157,6 +157,8 @@ const TIMING = {
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
   'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
+  'p3_accept_steps_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
+    t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   // (the export completed with both globes inverse; only its long tasks missed)
   'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
     t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
