@@ -18,11 +18,22 @@ const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwStep
 const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().ready.ready";
 const OPEN_MS = 30000;
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
-// (the state is read through the hooks: a pane still refining its Landscape does not hold the wait)
+// The page is ready when READY holds, on a document other than the one that was open (the kit's reloaded(old, ...)): a reload
+// that swaps the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
+// never gets there is a failed check naming the missing part, and any other error is thrown. (The state is read through the hooks: a pane still refining its
+// Landscape does not hold the wait.)
+const untilReady = async (name, old, parked) => {
+  let err = null;
+  try { await reloaded(old, parked ? READY_PARKED : READY, { limitMs: OPEN_MS }); } catch (e) {
+    err = String((e && e.message) || e);
+    if (!/^the page did not finish reloading within/.test(err)) throw e;
+  }
+  ok(name, !err, err);
+};
 const openAt = async (url, parked) => {
+  const old = await ev('performance.timeOrigin');
   await go(url);
-  const w = await settled({ max: OPEN_MS, only: true, until: parked ? READY_PARKED : READY });
-  ok(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, w.ok, w);
+  await untilReady(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, old, parked);
 };
 // A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
 // settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
@@ -181,6 +192,7 @@ const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++
 // page does not use (the new page clears the keys at its load)
 const PROBE = 'cmw-test-probe-open';
 const probeOpen = async (st, how) => {
+  const old = await ev('performance.timeOrigin');
   // (the open is deferred past this call's reply: its reload would otherwise close the target while the call waits for it)
   await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); setTimeout(() => __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}), 0); 1`);
   // the read retries while the page reloads (the target is closed for a moment): the first read that answers is the new page's
@@ -189,7 +201,7 @@ const probeOpen = async (st, how) => {
     try { raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`); } catch (e) { raw = null; }
     if (!raw) await new Promise((r) => setTimeout(r, 500));
   }
-  await settled({ max: 30000, until: READY });
+  await untilReady('the steps view opened after the figure reload', old);
   return raw ? JSON.parse(raw) : null;
 };
 const TOASTED = (t) => `document.body.innerText.includes(${JSON.stringify(t)})`;
