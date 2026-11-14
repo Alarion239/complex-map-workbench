@@ -347,7 +347,7 @@
  "Next in {n} s": "Далее через %{n} с",
  "Next step in {n} s.": "Следующий шаг через %{n} с.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Перетаскивание вращает сферу и сдвигает фигуры; пробел вращает; ∞ — северный полюс",
- "Styles show on the Plane surface": "Стили показываются на поверхности «Плоскость»",
+ "Styles show on the Plane surface": "Стили — на поверхности «Плоскость»",
  "Style: {name}": "Стиль: %{name}",
  "The Mandelbrot set": "Множество Мандельброта",
  "Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.": "Попробуйте: приблизьте границу: после 10⁻⁵ точности видеокарты не хватает.",

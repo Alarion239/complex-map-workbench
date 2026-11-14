@@ -278,9 +278,10 @@
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
   }
   // ---------------- the Phase style button (issue #81) ----------------
-  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
-  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
-  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  // The phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever the plane is coloured; in the Landscape the button is there too, dimmed, and its menu
+  // leads to the Plane surface, where the styles are. Schematic glyphs, not a render of the user's function: they cost nothing
+  // and read in both themes.
   const STYLE_SVG = {
     enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
     phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
@@ -295,11 +296,12 @@
     setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
   }
-  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  // {show: the plane is coloured or is the Landscape, land: the Landscape (the styles are not its own), name, id}
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
   function styleItems(done) {
     if (lLand()) {
-      return Object.assign([{ label: $t('Styles show on the Plane surface'), disabled: true }, 'sep', { label: svSurfaceLabel('plane'), run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+      const note = $t('Styles show on the Plane surface');
+      return Object.assign([{ label: note, disabled: true }, 'sep', { label: svSurfaceLabel('plane'), tip: note, run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });

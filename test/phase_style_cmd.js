@@ -55,6 +55,10 @@ for (const [w, lang] of [[360, ''], [390, ''], [360, 'ru'], [390, 'ru']]) {
   const PLANE = 'Surface: Plane|Поверхность: Плоскость', planeRe = `/${PLANE}/i`;
   const focused = await ev(`!!document.activeElement && document.activeElement.classList.contains('mi') && ${planeRe}.test(document.activeElement.textContent)`);
   ok(`phone ${w} ${lang || 'en'}: its menu holds the note and a Surface: Plane item, and focus moves onto the item`, items.length === 2 && items[0].dis === true && /Styles show|Стили/.test(items[0].t) && items[1].dis === false && new RegExp(PLANE, 'i').test(items[1].t) && focused, { items, focused }); // standards-ok: the Switch to Phase item is replaced by Surface: Plane, which the next check runs
+  const note = await ev(`(() => { const l = document.querySelector('#popHost .pop.menu .mi[disabled] .mi-label'); return l ? { cut: l.scrollWidth > l.clientWidth + 1, text: l.textContent.trim() } : null; })()`);
+  ok(`phone ${w} ${lang || 'en'}: the note is whole, not cut`, !!note && note.cut === false, note);
+  const desc = await ev(`(() => { const b = document.activeElement; return b && b.getAttribute('aria-description'); })()`);
+  ok(`phone ${w} ${lang || 'en'}: the Surface: Plane item carries the note as its description`, !!note && desc === note.text, { desc, note });
   await pickItem(planeRe); await settled({ until: "__cmwSteps().surf === 'plane'", max: 8000, only: true });
   const after = await ev(`({ surf: __cmwSteps().surf, main: __cmwState().view.main })`);
   ok(`phone ${w} ${lang || 'en'}: Surface: Plane leaves the Landscape for the plane`, after.surf === 'plane' && after.main !== 'land', after);
