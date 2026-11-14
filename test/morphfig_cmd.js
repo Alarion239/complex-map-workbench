@@ -2,7 +2,8 @@
 // that leads to it, over the previous plane's image of X (gray outline) and the plane's own image. For Strip to disk (planes
 // 1 and 2) and the Joukowski map: the paths chosen for the step end on the planes' images (checked without typesetting); vectors present (a path set, a ring and an end dot per path, at most one arrowhead per
 // path), the caption names the shown plane and the paths, no inline \frac, single and double column, the same figure twice
-// is the same vectors, a dark theme leaves no dark-theme ink, and the option is off, with a reason, on plane 0. The
+// is the same vectors, a dark theme leaves no dark-theme ink, and the option is off, with a reason, on plane 0 and on the
+// Landscape (every plane, and after a d/dz). The
 // classic view's selection checks are morphfig_classic_cmd.js.
 // A command file for a CDP daemon:  <runner> test/morphfig_cmd.js
 const fails = [], R = {};
@@ -59,4 +60,22 @@ for (const c of CASES) {
 await open(1, 0);
 const p0 = await ev(`await (async () => { Figure.open(); for (let i = 0; i < 600 && !document.querySelector('#xfSvPic [data-v="paths"]'); i++) await new Promise((r) => requestAnimationFrame(r)); const b = document.querySelector('#xfSvPic [data-v="paths"]'); return b ? { off: b.getAttribute('aria-disabled') === 'true', tip: b.dataset.tip, desc: b.getAttribute('aria-description'), clicked: (b.click(), document.querySelector('#xfSvPic [aria-checked="true"]').dataset.v) } : null; })()`, 60000);
 ok('plane 0: the Paths picture is off, with its reason as its tip and description', p0 && p0.off && /^No step leads to z, so there are no paths/.test(p0.tip) && p0.desc === p0.tip && p0.clicked !== 'paths', p0);
+await key('Escape');
+await settled({ until: '!Figure.dialog()', max: 5000, panes: false });
+// the Landscape: no paths figure (a 2D figure never stands in for the 3D relief). Its reason is the button's on every plane, ahead
+// of the no-step reason (plane 0) and the d/dz one
+const LAND_WHY = 'Paths is for the Plane and Sphere surfaces';
+const landPaths = async (tag) => {
+  await ev(`(__cmwSteps({ surf: 'land' }), 1)`);
+  await settled({ until: '!__cmwSteps().moving', max: 15000 });
+  const b = await ev(`await (async () => { Figure.open(); for (let i = 0; i < 600 && !document.querySelector('#xfSvPic [data-v="paths"]'); i++) await new Promise((r) => requestAnimationFrame(r)); const b = document.querySelector('#xfSvPic [data-v="paths"]'); return b ? { off: b.getAttribute('aria-disabled') === 'true', tip: b.dataset.tip, desc: b.getAttribute('aria-description'), clicked: (b.click(), document.querySelector('#xfSvPic [aria-checked="true"]').dataset.v) } : null; })()`, 60000);
+  ok(`${tag} on the Landscape: the Paths picture is off, with the Landscape's reason as its tip and description`, b && b.off && b.tip === LAND_WHY && b.desc === b.tip && b.clicked !== 'paths', b);
+  await key('Escape');
+  await settled({ until: '!Figure.dialog()', max: 5000, panes: false });
+};
+for (const plane of [0, 1, 2]) { await open(1, plane); await landPaths(`plane ${plane}`); }
+await loadView('steps', 'mfgd' + Date.now(), { shapes: [{ id: 'd1', kind: 'disc', c: [0.3, 0.2], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'pown', params: { n: 3 }, on: true }, { type: 'deriv', params: {}, on: true }] });
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure && __cmwSteps().planes.length === 3', max: 30000 });
+await ev(`(__cmwSteps({ go: 2, now: true }), 1)`);
+await landPaths('the plane after a d/dz');
 return { pass: fails.length === 0, fails, results: R };
