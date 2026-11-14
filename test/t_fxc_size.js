@@ -1,0 +1,120 @@
+// ci/glsl_inline.js and ci/fxc_size.js's --ref check (issue #1545), on fixtures whose counts are known by hand:
+// (a) a stage's inlined size is its functions' own texts, each once per copy, from main;
+// (b) the copies of each function, with the stage's #if, #ifdef, #elif and #else resolved first: a branch the
+//     preprocessor drops is not counted;
+// (c) the loops flagged: a constant trip bound (a literal, a #define, a const) whose body reaches the chain; not one
+//     guarded by a uniform, nor one that calls no chain function;
+// (d) the preprocessor's rules (defined, an undefined name is 0, #undef, nesting) and its errors;
+// (e) --ref: a program whose inlined size doubled is caught, so is a new one over 100 KB; an unchanged one, a new one
+//     under 100 KB and growth under the limits are not. A program only this walk linked, of a name and a key the
+//     reference's walk linked too, is listed apart and never failed;
+// (f) the ids: the variants of an inverse program that share GLR.profile()'s 40 characters of key, and one chain key in
+//     two scenes, are told apart; sources that share an id are one program at the larger size of each stage.
+// Run: node test/t_fxc_size.js
+const { preprocess, inline } = require('../ci/glsl_inline.js');
+const { compare, programs, LIMITS } = require('../ci/fxc_size.js');
+let fails = 0, n = 0;
+const ok = (c, msg) => { n++; if (!c) { fails++; console.log('FAIL', msg); } };
+const eq = (a, b, msg) => ok(JSON.stringify(a) === JSON.stringify(b), `${msg}: ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
+
+// (a) three functions written out: main once, f once, g twice
+{
+  const G = 'float g(float x) { return x * 2.0; }', F = 'float f(float x) { return g(x) + g(x + 1.0); }', M = 'void main() { gl_FragColor = vec4(f(1.0)); }';
+  const r = inline(['precision highp float;', G, '// g(1.0) in a comment is no call', F, M].join('\n'));
+  eq(r.size, M.length + F.length + 2 * G.length, '(a) the inlined size is main, f and g twice');
+  eq([...r.copies], [['main', 1], ['f', 1], ['g', 2]], '(a) copies');
+}
+
+// (b), (c): the copies of a stage with conditionals and loops, counted by hand
+const STAGE = `#version 300 es
+precision highp float;
+#define N_STEPS 4
+#define USE_EXTRA 1
+const int K = 3;
+uniform int uNoUnroll;
+out vec4 o;
+vec2 cdiv(vec2 a, vec2 b) { return vec2(dot(a, b), a.y * b.x - a.x * b.y) / dot(b, b); }
+vec2 carg2(vec2 a) { return vec2(atan(a.y, a.x), 0.0); }
+vec2 cxs1_f(vec2 z) { return cdiv(z, carg2(z)) + cdiv(z, z); }
+vec2 chainRange(vec2 z, int a, int b) { return cxs1_f(cxs1_f(z)); }
+#if USE_EXTRA && N_STEPS >= 4
+vec2 extra(vec2 z) { return cdiv(z, z); }
+#else
+vec2 extra(vec2 z) { return chainRange(chainRange(chainRange(z, 0, 1), 0, 1), 0, 1); }
+#endif
+#ifdef MISSING
+vec2 never(vec2 z) { return chainRange(z, 0, 1); }
+#endif
+void main() {
+  vec2 z = gl_FragCoord.xy;
+  for (int i = 0; i < N_STEPS; i++) z = chainRange(z, 0, 1);
+  for (int i = 0; i < max(K, uNoUnroll); i++) { z = chainRange(z, 0, 1); }
+  for (int i = 1; i <= K; i++) z = extra(z);
+  /* chainRange(z, 0, 1) in a comment */
+  z = extra(z);
+  o = vec4(z, 0.0, 1.0);
+}
+`;
+{
+  const r = inline(STAGE);
+  // main: chainRange 2 (one in each of two loops), extra 2; chainRange: cxs1_f 2 each; cxs1_f: cdiv 2, carg2 1 each;
+  // extra: cdiv 1 each
+  eq([...r.copies].sort(), [['carg2', 4], ['cdiv', 10], ['chainRange', 2], ['cxs1_f', 4], ['extra', 2], ['main', 1]], '(b) copies, with #if resolved');
+  let sum = 0;
+  for (const [fn, k] of r.copies) sum += k * r.own.get(fn);
+  eq(r.size, sum, '(b) the inlined size is the sum of copies × own size');
+  eq(r.loops.map((l) => [l.fn, l.bound, l.trip, l.copies, l.chain]), [['main', 'i < N_STEPS', 4, 1, ['chainRange']]], '(c) the one loop flagged');
+  ok(r.loops[0].size > r.own.get('chainRange'), '(c) one trip holds the inlined chain');
+}
+
+// (d) the preprocessor
+{
+  const text = (src) => preprocess(src).text.split('\n').filter((l) => l.trim()).join(' ');
+  eq(text('#define A 2\n#if A >= 2 && defined(A) && !defined(B)\nyes\n#else\nno\n#endif'), 'yes', '(d) #if with defined');
+  eq(text('#if UNDEFINED\nno\n#elif 1\nyes\n#else\nno\n#endif'), 'yes', '(d) an undefined name is 0; #elif');
+  eq(text('#define A\n#undef A\n#ifdef A\nno\n#endif\n#ifndef A\nyes\n#endif'), 'yes', '(d) #undef');
+  eq(text('#if 0\n#if 1\nno\n#endif\n#elif 1\nyes\n#endif'), 'yes', '(d) an #if inside a dropped branch');
+  eq(text('#if 1\nyes\n#elif (unsupported / 2)\nno\n#endif'), 'yes', '(d) an #elif after a branch taken is not evaluated');
+  eq([...preprocess('#define N 3\n#define F(x) (x)').defines], [['N', '3'], ['F', null]], '(d) the defines');
+  const throws = (src) => { try { preprocess(src); return false; } catch (e) { return true; } };
+  ok(throws('#if 1\nx'), '(d) #if without #endif throws');
+  ok(throws('#endif'), '(d) #endif without #if throws');
+  ok(throws('#if 4 / 2\n#endif'), '(d) an #if it cannot evaluate throws');
+}
+
+// (e) --ref: the same program with its heavy function called twice instead of once
+{
+  const heavy = `float heavy(float x) {\n${'  x = x * 1.0001 + sin(x);\n'.repeat(1800)}  return x;\n}\n`;
+  const prog = (calls) => `precision highp float;\n${heavy}void main() { float x = 1.0;${' x = heavy(x);'.repeat(calls)} gl_FragColor = vec4(x); }\n`;
+  const row = (id, size, name = id, key = id) => ({ id, name, key, scene: 'fixture', vs: { size: 100 }, fs: { size } });
+  const once = inline(prog(1)).size, twice = inline(prog(2)).size;
+  const failed = (head, ref) => compare(head, ref).fails.map((f) => [f.id, f.stage, f.now, f.was]);
+  ok(once > LIMITS.GROW_KB * 1024 && twice > 1.9 * once, `(e) the fixture: ${once} characters once, ${twice} twice`);
+  eq(failed([row('p', twice)], [row('p', once)]), [['p', 'fs', twice, once]], '(e) a doubled program is caught');
+  eq(failed([row('p', once)], [row('p', once)]), [], '(e) an unchanged program passes');
+  eq(failed([row('p', once), row('q', 101 * 1024)], [row('p', once)]), [['q', 'fs', 101 * 1024, null]], '(e) a new program over 100 KB is caught');
+  eq(failed([row('p', once), row('q', 99 * 1024)], [row('p', once)]), [], '(e) a new program under 100 KB passes');
+  eq(failed([row('p', 30 * 1024)], [row('p', 15 * 1024)]), [], '(e) growth of a program under 40 KB passes');
+  eq(failed([row('p', 1.15 * once)], [row('p', once)]), [], '(e) growth under 20 % passes');
+  // (r: the name of p, the key of q, both linked by the reference's walk; s: a key that walk never linked)
+  const v = compare([row('p', once), row('r', 300 * 1024, 'p', 'q'), row('s', 300 * 1024, 'p', 's')], [row('p', once), row('q', once)]);
+  eq([v.fails.map((f) => f.id), v.walk.map((p) => p.id)], [['s'], ['r']], '(e) a program only this walk linked is listed apart; a new key fails');
+}
+
+// (f) the ids, from links as the walk records them
+{
+  const stageOf = (head) => `${head}\nvoid main() { o = vec4(0.0); }\n`;
+  const link = (step, fs, key = 'inv|["inv2",[["AFF","SIN","AFF","EXP","AFF"]]]') => ({ step, name: 'inv', mode: 0, key, inv: true, vs: 'void main() { gl_Position = vec4(0.0); }', fs });
+  const plain = stageOf('const int IX_B = 5;'), carried = stageOf('#define IX_CARRY 1\nconst int IX_B = 5;'), b3 = stageOf('const int IX_B = 3;');
+  const longer = 'const int IX_B = 3;\nfloat pad() { return 1.0; }\nvoid main() { o = vec4(pad()); }\n';
+  const P = programs([link('typed f: glide', carried), link('typed f: glide', plain), link('typed f: globe', b3), link('typed f: back', longer),
+    link('typed g: glide', plain), link('typed g: glide', plain)]);
+  const ids = P.map((p) => p.id).sort();
+  const base = 'inv|m0|inv|["inv2",[["AFF","SIN","AFF","EXP","AFF"]]]';
+  eq(ids, [`${base}|B3 @ typed f`, `${base}|B5 @ typed f`, `${base}|B5 @ typed g`, `${base}|carry,B5 @ typed f`], '(f) one id per variant and scene');
+  const f3 = P.find((p) => p.id === `${base}|B3 @ typed f`), g5 = P.find((p) => p.id === `${base}|B5 @ typed g`);
+  eq([f3.sources, f3.links, f3.fs.size, g5.sources, g5.links], [2, 2, inline(longer).size, 1, 2], '(f) two sources of one id: one program, the larger; one source linked twice: one source');
+}
+
+console.log(`${n - fails} of ${n} checks pass`);
+process.exit(fails ? 1 : 0);

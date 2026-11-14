@@ -7,6 +7,9 @@
 //   surface(s)  'plane' or 'sphere' (the view's surface switch)
 //   glide(to)   a glide to plane `to` (an index, or 'last'); glideBack() jumps to plane 0 at rest
 //   started()   the page has loaded and the view is on; moving() a glide, scrub or draw is under way; stopPlay() pauses a playing glide
+//   exampleNames(root)  the examples' English names in the order __cmwExample(i) opens them, read from the checkout at root
+const fs = require('fs');
+const path = require('path');
 const last = '__cmwSteps().planes.length - 1';
 const main = (v) => {
   if (!['phase', 'land', 'xy'].includes(v)) throw new Error(`no main plane ${v}: phase, land or xy`);
@@ -23,4 +26,6 @@ const started = () => "document.readyState === 'complete' && typeof __cmwSteps =
 const moving = () => '(() => { try { return __cmwSteps().moving; } catch (e) { return false; } })()';
 // (a page without the hooks has nothing to pause)
 const stopPlay = () => '(() => { try { __cmwSteps({ play: false }); } catch (e) { /* no hooks: nothing plays */ } return 1; })()';
-module.exports = { main, surface, glide, glideBack, started, moving, stopPlay };
+const exampleNames = (root) => [...fs.readFileSync(path.join(root, 'src', 'app', '15-examples-guide.js'), 'utf8')
+  .matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+module.exports = { main, surface, glide, glideBack, started, moving, stopPlay, exampleNames };
