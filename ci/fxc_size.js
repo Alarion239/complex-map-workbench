@@ -35,9 +35,11 @@ const KB = 1024, LIMITS = { NEW_KB: 100, GROW_KB: 40, GROW: 1.2 };
 // has one formula Newton inverts (NEWT): a second one would find the first one's inverse program under its id (#1578)
 const TYPED = [['sin(z)/z', 'z^3-2z+1', 'exp(sin(z))'], ['gamma(z)', 'log(z^2+1)'],
   ['sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)', 'z+1/z']];
-// a step is settled when no link is pending, the steps view is ready (its programs and its warm-up draw: svReady) and no
-// link has started for QUIET_MS; one still linking after STEP_MS is left as it is. A page's last step waits DRAIN_MS.
-const QUIET_MS = 800, DRAIN_MS = 3000, STEP_MS = 30000;
+// a step is settled when no link is pending, the steps view is ready (its programs and its warm-up draw: svReady), the
+// app's background warm-up has started every group (the deformation's, the globe's and the Landscape's programs:
+// __cmwWarm's phase 'done') and no link has started for QUIET_MS; one still linking after STEP_MS is left as it is. A
+// page's last step waits DRAIN_MS. PAGES_AT_ONCE browsers walk at a time.
+const QUIET_MS = 800, DRAIN_MS = 3000, STEP_MS = 30000, PAGES_AT_ONCE = 4;
 const TOP = 20;
 
 // in the page, before the app: each program's stages recorded at linkProgram (window.__fxcLinks: [vs, fs]), and the GL
@@ -70,11 +72,12 @@ const paste = (f) => `(() => { const i = document.querySelector('input[data-pkey
   i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`;
 // a chain's first glide on the plane and on the globe (parked halfway, so its programs are drawn until they have
 // linked), and its Landscape: [label, statement]
-const PARK = '__cmwSteps({ park: 0.5 })';
-const fourScenes = (tag) => [[`${tag}: glide`, PARK], [`${tag}: plane 1`, SC.glide(1)], [`${tag}: globe`, `(${SC.glideBack()}, ${SC.surface('sphere')})`],
+// (plane 1 jumped to: the programs at rest there, none of a glide's frames in between, whose timing varies)
+const PARK = '__cmwSteps({ park: 0.5 })', PLANE_1 = '(__cmwSteps({ go: 1, now: true }), true)';
+const fourScenes = (tag) => [[`${tag}: glide`, PARK], [`${tag}: plane 1`, PLANE_1], [`${tag}: globe`, `(${SC.glideBack()}, ${SC.surface('sphere')})`],
   [`${tag}: globe glide`, PARK], [`${tag}: Landscape`, `(${SC.glideBack()}, ${SC.surface('plane')}, ${SC.main('land')})`], [`${tag}: back`, SC.main('xy')]];
-// the pages, each walked in a browser of its own, all at once: { formula (the step the page opens with; none: the default
-// example), steps: [label, statement] (the first: the page as it opens) }
+// the pages, each walked in a browser of its own (PAGES_AT_ONCE at a time): { formula (the step the page opens with;
+// none: the default example), steps: [label, statement] (the first: the page as it opens) }
 function pages(names) {
   const half = Math.ceil(names.length / 2), open = ['the default example', null];
   const examples = (from, to) => names.slice(from, to).map((n, i) => [`example ${from + i} (${n})`, `__cmwExample(${from + i})`]);
@@ -92,7 +95,8 @@ async function walkPage(base, page) {
     const s0 = Date.now();
     for (let n = -1, since = s0; ;) {
       await sleep(100);
-      const s = await B.ev('({ n: __fxcLinks.length, pending: GLR.pendingLinks, ready: (() => { const r = __cmwSteps().ready; return r.ready || !r.total; })() })');
+      const s = await B.ev(`({ n: __fxcLinks.length, pending: GLR.pendingLinks, ready: (() => { const r = __cmwSteps().ready; return r.ready || !r.total; })()
+        && (typeof __cmwWarm !== 'function' || __cmwWarm().phase === 'done') })`);
       if (s.n !== n) { n = s.n; since = Date.now(); }
       if ((!s.pending && s.ready && Date.now() - since >= quiet) || Date.now() - s0 > STEP_MS) break;
     }
@@ -125,8 +129,10 @@ async function walkPage(base, page) {
 }
 // one build's walk: its pages' links in the pages' order -> { renderer, ms, steps, links }
 async function walk(base, root) {
-  const t0 = Date.now();
-  const done = await Promise.all(pages(SC.exampleNames(root)).map((p) => walkPage(base, p)));
+  const t0 = Date.now(), list = pages(SC.exampleNames(root)), done = [];
+  let next = 0;
+  const browser = async () => { while (next < list.length) { const i = next++; done[i] = await walkPage(base, list[i]); } };
+  await Promise.all(Array.from({ length: PAGES_AT_ONCE }, browser));
   return { renderer: done[0].renderer, ms: Date.now() - t0, steps: done.flatMap((d) => d.steps), links: done.flatMap((d) => d.links) };
 }
 
