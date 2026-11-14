@@ -15,7 +15,7 @@
 // map mode and the chain key's first 40 characters (all GLR.profile() keeps); sources that share those are told apart
 // by the order they were first linked in.
 // Prints the largest programs with their top functions (copies × own size) and their flagged loops (the loops with a
-// constant trip bound whose body calls into the chain, which FXC unrolls); --json FILE writes every program.
+// constant trip bound whose body calls into the chain, which FXC can unroll); --json FILE writes every program.
 // Exit 0 pass, 1 a program over the limits, 2 a setup problem.
 const crypto = require('crypto');
 const fs = require('fs');
@@ -34,9 +34,9 @@ const KB = 1024, LIMITS = { NEW_KB: 100, GROW_KB: 40, GROW: 1.2 };
 // function, and a sum of 10 terms (its globe glide was the largest program of the #1545 survey)
 const FORMULAS = ['sin(z)/z', 'z^3-2z+1', 'exp(sin(z))', 'log(z^2+1)', 'z+1/z', 'gamma(z)',
   'sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'];
-// a step is settled when no link is pending and none has started for QUIET_MS; one still linking after STEP_MS is
-// left as it is
-const QUIET_MS = 800, STEP_MS = 30000;
+// a step is settled when no link is pending, the steps view is ready (its programs and its warm-up draw: svReady) and no
+// link has started for QUIET_MS; one still linking after STEP_MS is left as it is. A page's last step waits DRAIN_MS.
+const QUIET_MS = 800, DRAIN_MS = 3000, STEP_MS = 30000;
 const TOP = 20;
 
 // in the page, before the app: each program's stages recorded at linkProgram (window.__fxcLinks: [vs, fs]), and the GL
@@ -67,24 +67,33 @@ const savedState = (expr) => ({ v3: true, v4: true, shapes: SHAPES, steps: [{ ty
 // a formula pasted into the step's field (its input, then its change: applied and committed)
 const paste = (f) => `(() => { const i = document.querySelector('input[data-pkey="expr"]'); if (!i) return false; i.value = ${JSON.stringify(f)};
   i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`;
-// a chain's first glide on the plane and on the globe, and its Landscape: [label, statement]
-const fourScenes = (tag) => [[`${tag}: glide`, SC.glide(1)], [`${tag}: globe`, `(${SC.glideBack()}, ${SC.surface('sphere')})`],
-  [`${tag}: globe glide`, SC.glide(1)], [`${tag}: Landscape`, `(${SC.glideBack()}, ${SC.surface('plane')}, ${SC.main('land')})`],
-  [`${tag}: back`, SC.main('xy')]];
+// a chain's first glide on the plane and on the globe (parked halfway, so its programs are drawn until they have
+// linked), and its Landscape: [label, statement]
+const PARK = '__cmwSteps({ park: 0.5 })';
+const fourScenes = (tag) => [[`${tag}: glide`, PARK], [`${tag}: plane 1`, SC.glide(1)], [`${tag}: globe`, `(${SC.glideBack()}, ${SC.surface('sphere')})`],
+  [`${tag}: globe glide`, PARK], [`${tag}: Landscape`, `(${SC.glideBack()}, ${SC.surface('plane')}, ${SC.main('land')})`], [`${tag}: back`, SC.main('xy')]];
+// the pages, each walked in a browser of its own, all at once: { formula (the step the page opens with; none: the default
+// example), steps: [label, statement] (the first: the page as it opens) }
+function pages(names) {
+  const half = Math.ceil(names.length / 2), open = ['the default example', null];
+  const examples = (from, to) => names.slice(from, to).map((n, i) => [`example ${from + i} (${n})`, `__cmwExample(${from + i})`]);
+  const typed = (list) => list.flatMap((f, i) => [[`typed ${f}`, i ? paste(f) : null], ...fourScenes(`typed ${f}`)]);
+  return [{ steps: [open, ...fourScenes(open[0])] }, { steps: [open, ...examples(0, half)] }, { steps: [open, ...examples(half)] },
+    { formula: FORMULAS[0], steps: typed(FORMULAS.slice(0, 4)) }, { formula: FORMULAS[4], steps: typed(FORMULAS.slice(4)) }];
+}
 
-// one build's walk -> { renderer, ms, steps: [{ label, ms, links }], links: [{ step, name, key, mode, inv, vs, fs }] }
-async function walk(base, root) {
+// one page's walk -> { renderer, steps: [{ label, ms, links }], links: [{ step, name, key, mode, inv, vs, fs }] }
+async function walkPage(base, page) {
   const B = await launch({ inject: INJECT });
-  const out = { renderer: '', ms: 0, steps: [], links: [] };
-  const t0 = Date.now();
-  let n0 = 0;   // (the links of the page read so far)
-  const settle = async (label) => {
+  const out = { renderer: '', steps: [], links: [] };
+  let n0 = 0;   // (the links read so far)
+  const settle = async (label, quiet) => {
     const s0 = Date.now();
     for (let n = -1, since = s0; ;) {
       await sleep(100);
-      const s = await B.ev('({ n: __fxcLinks.length, pending: GLR.pendingLinks })');
+      const s = await B.ev('({ n: __fxcLinks.length, pending: GLR.pendingLinks, ready: (() => { const r = __cmwSteps().ready; return r.ready || !r.total; })() })');
       if (s.n !== n) { n = s.n; since = Date.now(); }
-      if ((!s.pending && Date.now() - since >= QUIET_MS) || Date.now() - s0 > STEP_MS) break;
+      if ((!s.pending && s.ready && Date.now() - since >= quiet) || Date.now() - s0 > STEP_MS) break;
     }
     // (GLR.profile() has a record per linkProgram call, in the same order: their sizes must agree)
     const recs = await B.ev(`(() => { const p = GLR.profile(), l = __fxcLinks; return p.length !== l.length ? { p: p.length, l: l.length } : p.slice(${n0}).map((r, i) => Object.assign(r, { src: l[${n0} + i] })); })()`);
@@ -98,24 +107,26 @@ async function walk(base, root) {
     console.log(`[fxc_size] ${label}: ${recs.length} links, ${((Date.now() - s0) / 1000).toFixed(1)} s`);
   };
   try {
-    const open = async (url, label) => { await B.nav(url); n0 = 0; await B.until(APP, 120000, 100); await settle(label); };
-    await open(`${base}test.html?glprof&view=steps&ns=fxc${Date.now()}`, 'the default example');
+    const ns = `fxc${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    if (page.formula) {
+      await B.nav(`${base}blank.html`);
+      await B.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(page.formula)))}); 1`);
+    }
+    await B.nav(`${base}test.html?glprof&view=steps&ns=${ns}`);
+    await B.until(APP, 120000, 100);
     out.renderer = await B.ev("(() => { const g = document.createElement('canvas').getContext('webgl2'), x = g && g.getExtension('WEBGL_debug_renderer_info'); return x ? g.getParameter(x.UNMASKED_RENDERER_WEBGL) : ''; })()");
-    for (const [label, js] of fourScenes('the default example')) { await B.ev(js); await settle(label); }
-    const names = SC.exampleNames(root);
-    for (let i = 0; await B.ev(`__cmwExample(${i})`); i++) await settle(`example ${i} (${names[i] || '?'})`);
-    // the typed formulas: the first in the saved state the page opens with, each next one pasted over it
-    const ns = `fxct${Date.now()}`;
-    await B.nav(`${base}blank.html`);
-    await B.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(FORMULAS[0])))}); 1`);
-    for (const [i, f] of FORMULAS.entries()) {
-      if (i === 0) await open(`${base}test.html?glprof&view=steps&ns=${ns}`, `typed ${f}`);
-      else { if (!(await B.ev(paste(f)))) throw new Error(`no formula field to type ${f} into`); await settle(`typed ${f}`); }
-      for (const [label, js] of fourScenes(`typed ${f}`)) { await B.ev(js); await settle(label); }
+    for (const [i, [label, js]] of page.steps.entries()) {
+      if (js && !(await B.ev(js))) throw new Error(`${label}: the page did not take the step`);
+      await settle(label, i === page.steps.length - 1 ? DRAIN_MS : QUIET_MS);
     }
   } finally { await B.close(); }
-  out.ms = Date.now() - t0;
   return out;
+}
+// one build's walk: its pages' links in the pages' order -> { renderer, ms, steps, links }
+async function walk(base, root) {
+  const t0 = Date.now();
+  const done = await Promise.all(pages(SC.exampleNames(root)).map((p) => walkPage(base, p)));
+  return { renderer: done[0].renderer, ms: Date.now() - t0, steps: done.flatMap((d) => d.steps), links: done.flatMap((d) => d.links) };
 }
 
 // one stage sized: { src (characters), size (inlined), top: [[function, copies, own]...], loops }
@@ -158,7 +169,7 @@ function compare(head, ref) {
 }
 
 const k1 = (n) => (n / KB).toFixed(1);
-const name = (p) => `${p.name} m${p.mode} \`${esc(p.key)}\``;
+const progLabel = (p) => `${p.name} m${p.mode} \`${esc(p.key)}\``;
 function report(head, ref, fails) {
   const L = [`### Inlined program sizes, as FXC sees them (${head.renderer || 'unknown renderer'})`, '',
     `${head.programs.length} programs (${head.links.length} links) over ${head.steps.length} steps, ${(head.ms / 1000).toFixed(0)} s.`
@@ -167,7 +178,7 @@ function report(head, ref, fails) {
   head.programs.slice(0, TOP).forEach((p, i) => {
     const s = p.fs.size >= p.vs.size ? p.fs : p.vs;
     const top = s.top.slice(0, 4).map(([fn, k, own]) => `${fn} ×${k} ${k1(k * own)}`).join(', ');
-    L.push(`| ${i + 1} | ${name(p)} | ${esc(p.scene)} | ${k1(p.fs.size)} | ${k1(p.vs.size)} | ${k1(p.vs.src + p.fs.src)} | ${top} | ${p.vs.loops.length + p.fs.loops.length} |`);
+    L.push(`| ${i + 1} | ${progLabel(p)} | ${esc(p.scene)} | ${k1(p.fs.size)} | ${k1(p.vs.size)} | ${k1(p.vs.src + p.fs.src)} | ${top} | ${p.vs.loops.length + p.fs.loops.length} |`);
   });
   const loops = new Map();
   for (const p of head.programs.slice(0, TOP)) {
@@ -178,7 +189,7 @@ function report(head, ref, fails) {
     }
   }
   if (loops.size) {
-    L.push('', `Loops with a constant trip bound whose body calls into the chain, in those ${TOP} (FXC unrolls them):`, '',
+    L.push('', `Loops with a constant trip bound whose body calls into the chain, in those ${TOP} (FXC can unroll them, #414):`, '',
       '| function | bound | trips | one trip KB | calls into the chain | programs |', '|---|---|---|---|---|---|');
     for (const l of loops.values()) L.push(`| ${l.fn} | \`${esc(l.bound)}\` | ${l.trip === null ? '?' : l.trip} | ${k1(l.size)} | ${l.chain.join(', ')} | ${l.programs} |`);
   }
@@ -190,7 +201,7 @@ function report(head, ref, fails) {
       + `${ref.programs.filter((p) => !head.programs.some((q) => q.id === p.id)).length} gone, ${moved.length ? 'the largest changes' : 'no size changed'}:`, '');
     if (moved.length) {
       L.push('| program | scene | reference KB | this build KB | change |', '|---|---|---|---|---|');
-      for (const p of moved) { const a = big(old.get(p.id)), b = big(p); L.push(`| ${name(p)} | ${esc(p.scene)} | ${k1(a)} | ${k1(b)} | ${b >= a ? '+' : ''}${((b / a - 1) * 100).toFixed(1)} % |`); }
+      for (const p of moved) { const a = big(old.get(p.id)), b = big(p); L.push(`| ${progLabel(p)} | ${esc(p.scene)} | ${k1(a)} | ${k1(b)} | ${b >= a ? '+' : ''}${((b / a - 1) * 100).toFixed(1)} % |`); }
     }
     L.push('', fails.length ? `**FAIL**: ${fails.length} stages over the limits (new over ${LIMITS.NEW_KB} KB, or over ${LIMITS.GROW_KB} KB and +${Math.round((LIMITS.GROW - 1) * 100)} %):` : `PASS: no stage is new over ${LIMITS.NEW_KB} KB or grew past +${Math.round((LIMITS.GROW - 1) * 100)} % over ${LIMITS.GROW_KB} KB.`);
     for (const f of fails) L.push(`- ${f.id} ${f.stage} (${f.scene}): ${f.was === null ? 'new' : k1(f.was) + ' KB →'} ${k1(f.now)} KB`);

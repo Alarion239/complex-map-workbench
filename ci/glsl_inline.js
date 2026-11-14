@@ -13,7 +13,7 @@
 //     own     Map: function -> its own text's length
 //     copies  Map: function -> how many copies of it the expansion holds (root: 1)
 //     loops   the `for` loops with a constant trip bound (a literal, a #define or a const) whose body calls into the
-//             chain: FXC unrolls those, and the chain with them (#414). Each { fn, bound, trip (null when the bound
+//             chain: FXC can unroll those, and the chain with them (#414). Each { fn, bound, trip (null when the bound
 //             does not evaluate), copies (of fn), size (one iteration inlined), chain (the body's callees that reach
 //             the chain) }
 // A function defined more than once (an overload) is taken at its largest definition; the app's programs have none.
