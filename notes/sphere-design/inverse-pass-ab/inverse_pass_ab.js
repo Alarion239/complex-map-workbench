@@ -34,6 +34,8 @@ const ONLY = argv.includes('--only') ? new RegExp(opt('--only')) : null;
 const CONTROL = [
   ['    else dl = vec2(lxp - lxm, lyp - l) * 0.5;', '    else dl = vec2(lxp - lxm, lyp - l) * 0.5000001;'],
   ['if (k == 0) g0 = g; else if (k == 1) gx = g - g0;', 'if (k == 0) g0 = g; else if (k == 1) gx = (g - g0) * 1.0000001;'],
+  // (ixChain3's three calls, SwiftShader's)
+  ['gx = chainRange(z + dX, a, b) - g0;', 'gx = (chainRange(z + dX, a, b) - g0) * 1.0000001;'],
 ];
 const LOAD_MAX_MS = 240000, PLACE_MAX_MS = 300000, WANT_MAX_MS = 900000, FRAMES_PAUSE_MS = 2500;
 
