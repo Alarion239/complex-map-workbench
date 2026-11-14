@@ -45,7 +45,8 @@ const base = await ev('location.origin');
 await nav(`${base}/test.html?ns=${ns}&glhold`);
 let held = null, last = null;
 for (let i = 0; i < 60 && !held; i++) {
-  if (i === 0 || i === 4) await ev(`(typeof __cmwSteps === 'function' && (__cmwSteps({ T: 0, go: 99, now: true }), 1))`).catch(() => 0);
+  // (asked before the app's state is up, the hook throws: the answer's exception is noted and the loop asks again)
+  if (i === 0 || i === 4) { const r = await ev(`(typeof __cmwSteps === 'function' && (__cmwSteps({ T: 0, go: 99, now: true }), 1))`); if (r && r.__exc !== undefined) info.early = r.__exc; }
   const st = await ev(`(() => typeof GLR === 'object' && GLR.ok ? { pending: GLR.frameStatus().pending, why: __cmwSmVerdict('SV').map((v) => v.why) } : null)()`);
   if (st && st.why.includes('linking')) { const f = await blue(); if (f > 0.05) held = Object.assign(st, { blue: +f.toFixed(3) }); }
   last = st && Object.assign({}, st, { blue: +(await blue()).toFixed(3) });
