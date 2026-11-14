@@ -230,11 +230,13 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // ---- a typed formula's glide draws with its own inverse program ----
 // (the carried variants of the inverse program compile the chain in. gamma(z), then sin(z)/z typed in its place, both
 // inverted by a NEWT op with no seeds, the same inverse ops: sin(z)/z's glide frame at u = 0.5, Inside regions, against the
-// same frame on a fresh page, the left pane's pixels on a grid of its plane. At most 2 % of the points may differ by more
-// than 24 levels in a channel: the frames are one picture, whose colour lines a half-resolution pass may draw a pixel apart)
+// same frame on a fresh page, the left pane's pixels on a grid of its plane (test/lib/carry_kit.js): no point may be wrong
+// against the best of the fresh frame's 3 x 3 pixels about it)
 {
+  const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
   const SECOND = 'sin(z)/z';
   const held = "(() => { const q = __cmwSteps(), g = q.glide; return q.ready.ready && !!g && g.path === 'inverse' && Math.abs(g.u - 0.5) < 1e-9; })()";
+  let pts = null;
   const frameOf = async (first) => {
     await go(`${BASE}/test.html?ns=gf${Date.now()}&lang=en&view=steps`);
     await ready();
@@ -245,17 +247,12 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
       await ev(`window.__gfG = __cmwSteps().glide, __cmwStepParam(0, 'expr', ${JSON.stringify(SECOND)}), 1`);
       wait = await settled({ max: 60000, until: `__cmwSteps().glide !== window.__gfG && ${held}` });
     }
-    const px = await ev(`(() => {
-      const L = __cmwLPx([[0, 0]]), v = L.view, w = L.pw / (v.s * L.dpr), h = L.ph / (v.s * L.dpr), pts = [];
-      for (let i = 0; i < 24; i++) for (let j = 0; j < 16; j++) pts.push([v.cx + ((i + 0.5) / 24 - 0.5) * 0.9 * w, v.cy + ((j + 0.5) / 16 - 0.5) * 0.9 * h]);
-      return __cmwLPx(pts).px.map((p) => p && p[4]);
-    })()`);
-    return { wait, px };
+    if (!pts) pts = K.grid(await K.paneOf(), 24, 16);
+    return { wait, px: (await K.lpx(pts)).px };
   };
   const typed = await frameOf('gamma(z)'), fresh = await frameOf(SECOND);
-  let n = 0, off = 0;
-  if (Array.isArray(typed.px) && Array.isArray(fresh.px)) typed.px.forEach((p, i) => { const q = fresh.px[i]; if (!p || !q) return; n++; if ([0, 1, 2].some((c) => Math.abs(p[c] - q[c]) > 24)) off++; });
-  info['typed formula'] = { points: n, differ: off };
-  ok(`${SECOND} typed in the place of gamma(z) (the same inverse ops): its glide frame is its own, as on a fresh page`, typed.wait.ok && fresh.wait.ok && n > 300 && off <= 0.02 * n, { points: n, differ: off, wait: [typed.wait, fresh.wait] });
+  const t = K.tally(typed.px, fresh.px);
+  info['typed formula'] = { n: t.n, wrong: t.wrong, worst: t.worst };
+  ok(`${SECOND} typed in the place of gamma(z) (the same inverse ops): its glide frame is its own, as on a fresh page`, typed.wait.ok && fresh.wait.ok && t.n > 300 && t.wrong === 0, Object.assign({ wait: [typed.wait, fresh.wait] }, t));
 }
 return { pass: fails.length === 0, fails, info };
