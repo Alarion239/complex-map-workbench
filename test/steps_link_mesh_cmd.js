@@ -13,22 +13,13 @@ const DEFAULT_MESH = 240;
 const MESH_POS = 700;
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const linkOf = (s) => '1.' + b64u(zlib.deflateRawSync(Buffer.from(JSON.stringify({ v: 1, s }))));
-const NAV = /navigated or closed/;
-// A link opens in a second load (openFigure writes the state and reloads): wait for that load's toast and the steps view
-const reloaded = async () => {
-  const until = `(() => { const t = document.body && document.body.innerText || ''; return t.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
-  for (let i = 0; i < 120; i++) {
-    let r = null;
-    try { r = await ev(until); } catch (e) { if (!NAV.test(String(e && e.message || e))) throw e; }
-    if (r && r.__exc && NAV.test(String(r.__exc))) r = null;
-    if (r === true) return;
-    await sleep(250);
-  }
-  throw new Error('the figure did not open: no "Opened the figure from the link." toast');
-};
+// A link opens in a second load (openFigure writes the state and reloads): the kit's reloaded(old, ...) waits for the document
+// that load brings, with its toast and the steps view
+const READY = `(() => { const t = document.body && document.body.innerText || ''; return t.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
 const meshAfter = async (state, tag) => {
+  const old = await ev('performance.timeOrigin');
   await go(`${BASE}/test.html?ns=lmesh${tag}${Date.now()}&view=steps#cmw=${linkOf(state)}`);
-  await reloaded();
+  await reloaded(old, READY, { limitMs: 30000 });
   return ev('__cmwFigureState().meshN');
 };
 await view(1440, 900, false, false);
