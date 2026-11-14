@@ -582,7 +582,7 @@
   "note": "A preset colour in the Color submenu."
  },
  "chrome.custom_color": {
-  "en": "Custom color…",
+  "en": "Custom colour…",
   "ru": "Другой цвет…"
  },
  "chrome.bring_forward": {
@@ -1128,7 +1128,7 @@
   "note": "Test literal (example name): tests must select by id."
  },
  "chrome.custom_step_shown_as": {
-  "en": "A custom step shown as a color plot: zeros at ±1, poles at ±i.",
+  "en": "A custom step shown as a colour plot: zeros at ±1, poles at ±i.",
   "ru": "Свой шаг, показанный раскраской: нули в точках ±1, полюсы в точках ±i."
  },
  "chrome.roots_as_preimages": {
@@ -1918,7 +1918,7 @@
   "note": "Tool label: U+00AD soft hyphen at the morpheme break, so the 4-column grid wraps it (DESIGN 8.1). Invisible when not broken; screen readers ignore it."
  },
  "chrome.drag_from_center_outward": {
-  "en": "Drag from the center outward.",
+  "en": "Drag from the centre outward.",
   "ru": "Перетащите от центра наружу."
  },
  "chrome.arc": {
@@ -1943,7 +1943,7 @@
   "note": "Not «Диск». «Круг» and «Окружность» are different tools on purpose."
  },
  "chrome.drag_from_center_outward_2": {
-  "en": "Drag from the center outward.",
+  "en": "Drag from the centre outward.",
   "ru": "Перетащите от центра наружу."
  },
  "chrome.rectangle": {
@@ -1981,7 +1981,7 @@
   "ru": "Кольцо"
  },
  "chrome.drag_from_center_outer": {
-  "en": "Drag from the center to the outer radius.",
+  "en": "Drag from the centre to the outer radius.",
   "ru": "Перетащите от центра до внешнего радиуса."
  },
  "chrome.sector": {
@@ -2013,7 +2013,7 @@
   "ru": "Полярная сетка"
  },
  "chrome.drag_from_center_set": {
-  "en": "Drag from the center to set the radius.",
+  "en": "Drag from the centre to set the radius.",
   "ru": "Перетащите от центра, чтобы задать радиус."
  },
  "chrome.point_s": {
@@ -2098,7 +2098,7 @@
   "ru": "угол <i>b</i>"
  },
  "chrome.center_c": {
-  "en": "center <i>c</i>",
+  "en": "centre <i>c</i>",
   "ru": "центр <i>c</i>"
  },
  "chrome.radius_r": {
@@ -2106,7 +2106,7 @@
   "ru": "радиус <i>r</i>"
  },
  "chrome.center_c_2": {
-  "en": "center <i>c</i>",
+  "en": "centre <i>c</i>",
   "ru": "центр <i>c</i>"
  },
  "chrome.vertex_c": {
@@ -2126,7 +2126,7 @@
   "ru": "угол <i>b</i>"
  },
  "chrome.center_c_3": {
-  "en": "center <i>c</i>",
+  "en": "centre <i>c</i>",
   "ru": "центр <i>c</i>"
  },
  "chrome.radius_r_2": {

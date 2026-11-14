@@ -23,6 +23,7 @@ const Phone = (() => {
   let anim = 0;                        // the sheet's opening or closing timer
   const homes = [];                    // [el, placeholder] of the moved elements
   const els = {};
+  let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
   const MQP = '(max-width: 767px)';
   const MQL = '(orientation: landscape) and (max-height: 500px) and (max-width: 1023px) and (pointer: coarse)';
@@ -116,7 +117,7 @@ const Phone = (() => {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
       const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
       const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
-      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => open('display', { side }) });
+      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
       plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
       els['sph' + side] = sph;
       els['both' + side] = bt;
@@ -147,22 +148,10 @@ const Phone = (() => {
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
-    for (const id of ['leftTabs', 'rightTabs', 'viewSwitch']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
-    // the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1×
-    document.addEventListener('click', (e) => {
-      if (!on) return;
-      const tg = /** @type {HTMLElement} */ (e.target), b = /** @type {HTMLElement | null} */ (tg.closest && tg.closest('.tdock #speedSeg > button.on'));
-      if (!b) return;
-      const ORDER = ['1.6', '0.8', '3.2'];
-      const nx = ORDER[(ORDER.indexOf(b.dataset.v) + 1) % ORDER.length];
-      const t = /** @type {HTMLElement | null} */ (b.parentNode.querySelector(`button[data-v="${nx}"]`));
-      if (!t) return;
-      e.preventDefault(); e.stopPropagation();
-      t.click();
-    }, true);
   }
   const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
@@ -230,7 +219,6 @@ const Phone = (() => {
     park(els.crow, wrap, $('pipeline'));
     park(els.nums, els.body.chain);
     park($('pipeline'), els.body.chain);
-    park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
     for (const id of ['secFormula', 'secShapes']) { const d = /** @type {HTMLDetailsElement} */ ($(id)); if (d) d.open = true; }
     A.showPanels(true);
@@ -391,17 +379,6 @@ const Phone = (() => {
   // The planes give a message its row only while no finger is down: a plane that shrinks under a
   // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
   let fingers = 0, layoutT = 0;
-  // the sheet's bottom edge moves up to make room for the message (phone.css, a 220 ms transition): the card the app scrolled
-  // into view for the step just added is scrolled into view again once the edge has stopped. With no transition (reduced
-  // motion, or the edge already there) that is at once
-  function scrollNewCardAfterResize(sheet) {
-    void sheet.offsetHeight;   // (a style flush: it starts the transition that is to be waited for)
-    const moving = sheet.getAnimations().filter((a) => a.transitionProperty === 'bottom');
-    Promise.all(moving.map((a) => a.finished.catch(() => null))).then(() => {
-      const card = els.sheet === sheet && sheet.querySelector('#pipeline .card[aria-selected="true"]');
-      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
-  }
   function barLayout() {
     if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
     clearTimeout(layoutT);
@@ -409,9 +386,6 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
-    // a sheet gives up the message's row (phone.css): the card the app scrolled into view for the step just added (bornCards,
-    // before the message and the sheet's new edge) is scrolled into view again once the sheet has its new size
-    if (wantToast && els.sheet && c.contains('ph-sheet-on')) scrollNewCardAfterResize(els.sheet);
     syncPanes(); A.resize();
   }
   function ctx(force) {
@@ -644,6 +618,8 @@ const Phone = (() => {
     else if (k === 'edit') { const sm = els.body.edit.querySelector('.split-offer:not([hidden]) > summary'); if (sm) sm.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
+    // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -665,6 +641,7 @@ const Phone = (() => {
     // display to their home
     homeDisplay();
     els.viewOpts.replaceChildren();
+    if (k === 'display') { const o = opener && opener.isConnected ? opener : null; opener = null; if (o) o.focus({ preventScroll: true }); }
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
     rootEl.classList.remove('ph-sheet-on');
@@ -707,7 +684,7 @@ const Phone = (() => {
     const guard = () => { clearTimeout(gT); els.sheet.dataset.guard = '1'; gT = setTimeout(() => { delete els.sheet.dataset.guard; }, 400); };
     for (const ev of ['mousedown', 'click']) els.sheet.addEventListener(ev, (e) => { if (els.sheet.dataset.guard && !e.target.closest('.ph-sh')) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
-  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
+  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: A.displayTitle() || $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
 
   // ---------------- the chain row and the chain sheet ----------------
   let chainSeen = '', chainK = null;
@@ -782,13 +759,12 @@ const Phone = (() => {
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
-    const pick = A.colourPick(), kids = A.footKids(side), unit = $('unitBox'), reg = pick || (A.regionsView() ? $('regionsBox') : null);
+    const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
     const tn = A.targetNote();
     els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
-    for (const old of els.regions.querySelectorAll('.cp-pop')) old.remove();
-    if (reg) els.regions.append(reg);
-    els.regionsH.hidden = !reg || !!pick;   // (the picker names its own colouring)
+    if (reg) { A.regionsNote(); els.regions.append(reg); }
+    els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');

@@ -36,7 +36,7 @@ const PROBE = (box, why) => `(() => {
   const order = root.querySelector('.sv-order'), paths = root.querySelector('.sv-paths');
   const lines = [...root.querySelectorAll(${JSON.stringify(why)})].filter(shown);
   return {
-    orderOff: order.disabled, pathsOff: paths.disabled, orderTip: order.dataset.tip, pathsTip: paths.dataset.tip,
+    orderOff: order.getAttribute('aria-disabled') === 'true', pathsOff: paths.disabled, orderTip: order.dataset.tip, pathsTip: paths.dataset.tip,
     pathsDesc: paths.getAttribute('aria-description') || '', lines: lines.map((e) => e.textContent),
     inside: lines.every(inside),
     cut: lines.filter((e) => e.scrollHeight > e.clientHeight + 1).length,

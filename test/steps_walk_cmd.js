@@ -48,7 +48,7 @@ info.walk = [a, b];
 ok('› from the end plane: the shown plane stays plane 2 (the colour plane is the step\'s own)', a.stage === 2 && b.stage === 2 && b.planes[0] === 2 && a.win && a.win !== 'null' && a.win === b.win && !b.anim, info.walk);
 ok('› from the end plane: the colour plane follows the step shown (f₂ → f₄)', a.T === 2 && b.T === 4, info.walk);
 await press(1); await press(-1); await press(-1);
-await clickSel('#svStrip .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
+await clickSel('#svStrip .sv-alone .sv-whole'); await until("!document.querySelector('#svStrip .sv-whole')"); await quiet();
 ok('Whole chain leaves', (await alone()) === 0 && (await walk(1)) === null);
 // the phone: Whole chain is a pinned 44 px icon outside the rail; the walk is in the step's ⋯ menu
 const items = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => ({ text: b.querySelector('.mi-label').textContent.trim(), dis: b.disabled }))`);
@@ -57,9 +57,9 @@ const pressUntilShown = (re, k) => until(`(() => { const P = __cmwSteps().planes
 const WORDS = { en: [/Previous step alone/, /Next step alone/], ru: [/Предыдущий шаг отдельно/, /Следующий шаг отдельно/] };
 for (const lang of ['en', 'ru']) {
   await open(360, 740, lang, { sv: { at: 0, T: -1, scope: 'chain', surf: 'plane', speed: 1, alone: 2 } });
-  const pin = await ev(`(() => { const w = document.querySelector('#svStrip .sv-whole'); if (!w) return null; const r = w.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { w: Math.round(r.width), h: Math.round(r.height), outside: !document.querySelector('#svStrip .sv-rail').contains(w), hit: !!at && (at === w || w.contains(at)), glyph: w.textContent.trim(), label: w.getAttribute('aria-label'), pill: !!document.querySelector('#svStrip .sv-alone'), arrows: document.querySelectorAll('#svStrip .sv-awalk').length }; })()`);
+  const pin = await ev(`(() => { const w = document.querySelector('#svStrip .sv-whole'); if (!w) return null; const r = w.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { w: Math.round(r.width), h: Math.round(r.height), outside: !document.querySelector('#svStrip .sv-rail').contains(w), hit: !!at && (at === w || w.contains(at)), glyph: w.querySelector('svg') ? 'chain' : w.textContent.trim(), label: w.getAttribute('aria-label'), pill: !!document.querySelector('#svStrip .sv-alone'), arrows: document.querySelectorAll('#svStrip .sv-awalk').length }; })()`);
   info['pin-' + lang] = pin;
-  ok(`phone ${lang}: Whole chain is a pinned 44 px F icon outside the rail, not covered, with no pill and no ‹ ›`, pin && pin.w === 44 && pin.h === 44 && pin.outside && pin.hit && pin.glyph === 'F' && !pin.pill && pin.arrows === 0, pin);
+  ok(`phone ${lang}: Whole chain is a pinned 44 px chain icon outside the rail, not covered, with no pill and no ‹ ›`, pin && pin.w === 44 && pin.h === 44 && pin.outside && pin.hit && pin.glyph === 'chain' && !pin.pill && pin.arrows === 0, pin);
   // (a phone's chip has no ⋯: a long press opens the step's menu)
   await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
     c.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: 1 })); return 1; })()`);

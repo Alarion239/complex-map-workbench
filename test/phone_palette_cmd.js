@@ -9,7 +9,8 @@ const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) 
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }, { type: 'power', params: { n: '2' }, on: true }] };
-const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(900); };
+// (a page still loading has no document element yet: the poll reads that as "not yet")
+const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(900); };
 const geo = () => ev(`(() => { const sv = document.documentElement.classList.contains('sv'), c = document.querySelector(sv ? '#svStrip' : '.pipe-wrap'), p = document.querySelector('.pop.palette'), i = document.querySelector('.pal-input');
   if (!p || !c) return null; const q = p.getBoundingClientRect(), cr = c.getBoundingClientRect(), ir = i.getBoundingClientRect(), hd = document.querySelector('.top').getBoundingClientRect();
   return { pal: [Math.round(q.left), Math.round(q.top), Math.round(q.right), Math.round(q.bottom)], chain: [Math.round(cr.left), Math.round(cr.top), Math.round(cr.right), Math.round(cr.bottom)], input: [Math.round(ir.top), Math.round(ir.bottom)], head: Math.round(hd.bottom), vh: innerHeight, focus: document.activeElement === i }; })()`);
@@ -19,7 +20,7 @@ for (const [w, h, kbh] of [[390, 844, 320], [360, 640, 280], [740, 360, 150], [9
     if (v) await send('Page.navigate', { url: `${U}?ns=pps${w}-${Date.now()}${v}` });
     await waitPh();
     const tag = `${w}×${h}${v ? ' steps' : ''}`;
-    const opened = await ev(`(() => { const b = document.querySelector(document.documentElement.classList.contains('sv') ? '#svStrip .sv-add' : '#addStepBtn, .add-card'); if (!b) return 'none'; b.click(); return 'ok'; })()`);
+    const opened = await ev(`(() => { const b = document.querySelector('#svStrip .sv-add'); if (!b) return 'none'; b.click(); return 'ok'; })()`);
     if (v && opened === 'none') { info[tag] = 'the steps view has no add button yet (#469)'; continue; }
     ok(`${tag}: the add button opens the palette`, opened === 'ok', opened);
     await settle(1000);
@@ -59,8 +60,8 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
   let toast = false; for (let i = 0; i < 80; i++) { if (await ev(`!!document.querySelector('#toastHost .toast')`)) { toast = true; break; } await sleep(150); }
   ok(`${tag}: the delete message shows`, toast, 'no toast');
   await settle(500);
-  const chainTop0 = await ev(`Math.round(document.querySelector('.pipe-wrap').getBoundingClientRect().top)`);
-  await ev(`document.querySelector('#addStepBtn, .add-card').click(), 1`); await settle(900);
+  const chainTop0 = await ev(`Math.round(document.querySelector('#svStrip').getBoundingClientRect().top)`);
+  await ev(`document.querySelector('#svStrip .sv-add').click(), 1`); await settled({ until: "!!document.querySelector('.pop.palette')", max: 8000 });
   const g = await geo(); info[tag] = { g, chainTop0 };
   ok(`${tag}: the palette is there`, !!g && g.focus, g);
   if (g) ok(`${tag}: it ends at or above the chain bar, where the toast put it (${g.chain[1]})`, g.pal[3] <= g.chain[1] + 1, g);

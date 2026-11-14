@@ -7,8 +7,7 @@
 // - Write by zeros and poles keeps the repeat and F; an example keeps its repeats (Newton: twenty passes);
 // - N bound to a shared number: typing its name binds it, the number's slider runs the passes (one program), a value
 //   between whole numbers rounds, renaming renames the binding, a typed N unbinds it.
-// The classic card row's bracket has its own suite (repeat_classic_cmd); the row's looks, keys, badge and phone sheet are
-// steps_repeat_cmd's. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// The row's looks, keys, badge and phone sheet are steps_repeat_cmd's. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {}, errs = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
 const labelsOf = () => ev(`[...document.querySelectorAll('#popHost .menu .mi .mi-label')].map((e) => e.textContent)`);

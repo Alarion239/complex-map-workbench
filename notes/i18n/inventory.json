@@ -1181,7 +1181,7 @@
    "area": "chrome",
    "file": "app.js:7364",
    "kind": "menu",
-   "text": "Custom color…",
+   "text": "Custom colour…",
    "context": "app onclick() in shapeRow(); passed to items.push(arg 0); property label",
    "hazards": []
   },
@@ -2735,7 +2735,7 @@
    "area": "chrome",
    "file": "app.js:10811",
    "kind": "body",
-   "text": "A custom step shown as a color plot: zeros at ±1, poles at ±i.",
+   "text": "A custom step shown as a colour plot: zeros at ±1, poles at ±i.",
    "context": "app (anon)(); property blurb; name=A formula in LaTeX",
    "hazards": []
   },
@@ -7829,7 +7829,7 @@
    "area": "chrome",
    "file": "app.js:7120",
    "kind": "body",
-   "text": "Drag from the center outward.",
+   "text": "Drag from the centre outward.",
    "context": "app (anon)()",
    "hazards": []
   },
@@ -7889,7 +7889,7 @@
    "area": "chrome",
    "file": "app.js:7123",
    "kind": "body",
-   "text": "Drag from the center outward.",
+   "text": "Drag from the centre outward.",
    "context": "app (anon)()",
    "hazards": []
   },
@@ -7984,7 +7984,7 @@
    "area": "chrome",
    "file": "app.js:7128",
    "kind": "body",
-   "text": "Drag from the center to the outer radius.",
+   "text": "Drag from the centre to the outer radius.",
    "context": "app (anon)()",
    "hazards": []
   },
@@ -8068,7 +8068,7 @@
    "area": "chrome",
    "file": "app.js:7132",
    "kind": "body",
-   "text": "Drag from the center to set the radius.",
+   "text": "Drag from the centre to set the radius.",
    "context": "app (anon)()",
    "hazards": []
   },
@@ -8262,7 +8262,7 @@
    "area": "chrome",
    "file": "app.js:7488",
    "kind": "body",
-   "text": "center <i>c</i>",
+   "text": "centre <i>c</i>",
    "context": "app shapeEditor(); passed to ptField(arg 1)",
    "hazards": [
     "contains HTML markup"
@@ -8284,7 +8284,7 @@
    "area": "chrome",
    "file": "app.js:7489",
    "kind": "body",
-   "text": "center <i>c</i>",
+   "text": "centre <i>c</i>",
    "context": "app shapeEditor(); passed to ptField(arg 1)",
    "hazards": [
     "contains HTML markup"
@@ -8337,7 +8337,7 @@
    "area": "chrome",
    "file": "app.js:7493",
    "kind": "body",
-   "text": "center <i>c</i>",
+   "text": "centre <i>c</i>",
    "context": "app shapeEditor(); passed to ptField(arg 1)",
    "hazards": [
     "contains HTML markup"

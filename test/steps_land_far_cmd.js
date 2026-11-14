@@ -21,6 +21,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const TOL = 0.25;
+// (the inner ring's points a side: its cell counts below are those of a 256-point ring, scaled by the area of its cells)
+const FAR_N = 128;
 await view(1440, 900, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landfar${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
@@ -44,7 +46,7 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   // cells are not in the block, so the checks that read them are the glide's)
   const end = u < 0.01 || u > 0.99;
   ok(`${tag}: a carried frame from plane z`, c.carried.s === 0 && Math.abs(c.carried.u - u) < 0.004, c.carried);
-  ok(`${tag}: the far patch's inner ring has cells, none off by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err[0].cells > (end ? 1000 : 10000) && c.err[0].bad === 0, c.err && c.err[0]);
+  ok(`${tag}: the far patch's inner ring has cells, none off by more than ${TOL}${end ? '' : ' outside the pole patches'}`, !!c.err && c.err[0].cells > (end ? 1000 : 10000) * (FAR_N / 256) ** 2 && c.err[0].bad === 0, c.err && c.err[0]);
   if (!end) {
     ok(`${tag}: a pole patch about 3πi and -3πi`, at(3 * Math.PI) && at(-3 * Math.PI), c.carried);
     ok(`${tag}: counting the pole patches' discs too, cells are off by more than ${TOL}`, !!c.whole && c.whole[0].bad > 0, c.whole && c.whole[0]);
