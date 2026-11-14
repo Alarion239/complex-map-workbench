@@ -32,8 +32,8 @@ const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSt
 const { paneOf, exampleNames, grid, shown, chainPoints, carryRead } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const { measure } = carryRead({ steps, wait, hold });
-// (every page: paths off, full opacity)
-const prime = async () => { await ready(); await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1"); await wait(); };
+// (every page, once it has adopted its chain's view: paths off, full opacity)
+const prime = async () => { await ready(); await adopted(); await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1"); await wait(); };
 // the share of wrong points a case may have, and the share its control must exceed
 const MAX_WRONG = 0.01;
 // (near the region's outline in z, 5 and 9 px at these views' 52 and 90 px per unit: the outline's antialiased edge and
@@ -105,6 +105,7 @@ const strip = (z) => Math.PI / 2 - Math.abs(z[1]);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=ccc${Date.now()}`);
   await prime();
   await ev(`__cmwExample(${EX}); 1`);
+  await adopted();
   await wait();
   // (the example's line Im z = 0.8 and its point z0 = 0 with its label, on plane z and their images on w1 and w2, at
   // F(0) = 1 and 0: within 0.1 of the line, 5 px at this view's 52 px per unit, and 0.7 of the point, its label's
