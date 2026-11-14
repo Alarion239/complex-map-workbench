@@ -66,7 +66,10 @@ const atRest = () => ev(`(() => { const r = document.querySelector('#svStrip .sv
   r.scrollLeft = 0; const fb = f.getBoundingClientRect(), rb = r.getBoundingClientRect(), at = document.elementFromPoint(fb.left + fb.width / 2, fb.top + fb.height / 2);
   return { rail: Math.round(r.clientWidth), scrolls: r.scrollWidth > r.clientWidth + 1, onlyF: getComputedStyle(n).display === 'none', label: f.getAttribute('aria-label'), tip: f.dataset.tip,
     addFolded: getComputedStyle(document.querySelector('#svStrip .sv-add-t')).display === 'none', moreLast: (() => { const k = [...document.querySelector('#svStrip').children].filter((e) => e.getClientRects().length).pop(); return !!k && k.classList.contains('sv-playmore'); })(), addOnTop: (() => { const a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(), e = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2); return !!e && !!e.closest('.sv-add'); })(), clearOfRail: fb.left >= rb.right - 1, onTop: !!at && (at === f || f.contains(at)), w: Math.round(fb.width), h: Math.round(fb.height) }; })()`);
-const LABEL = { en: 'Whole map', ru: 'Вся карта', it: 'Mappa intera' };
+// (the chip's name is the page's own translation of the English key, read under each language from the table the page ships,
+// so a new wording in tools/it_table.json or tools/ru_extra.json keeps this check; ru and it must differ from the English)
+const KEY = 'Whole map';
+const labelOf = (lang) => ev(`I18N.at(${JSON.stringify(lang)}).t(${JSON.stringify(KEY)})`);
 const CHAIN12 = Array.from({ length: 12 }, () => LONG);
 for (const lang of ['en', 'ru', 'it']) {
   for (const [what, chain] of [['1 step', st.steps.slice(0, 1)], ['2 steps', st.steps.slice(0, 2)], ['3 steps', null], ['12 steps', CHAIN12]]) {
@@ -79,9 +82,11 @@ for (const lang of ['en', 'ru', 'it']) {
       continue;
     }
     const w = await atRest();
+    const label = await labelOf(lang);
+    ok(`1440 ${lang}, ${what}: the chip's name is ${lang === 'en' ? 'the English' : 'translated, not the English'}`, typeof label === 'string' && label.length > 0 && (lang === 'en' ? label === KEY : label !== KEY), label);
     info[`1440 ${lang} ${what}`] = w;
     ok(`1440 ${lang}, ${what}: the chip is the F alone with its words as its label and tip, on top at its centre, clear of the rail`,
-      w.onlyF && w.label === LABEL[lang] && w.tip === LABEL[lang] && w.clearOfRail && w.onTop, w);
+      w.onlyF && w.label === label && w.tip === label && w.clearOfRail && w.onTop, w);
     if (what === '12 steps') ok(`1440 ${lang}, 12 steps: the thread scrolls, and the chip is still pressable at rest`, w.scrolls && w.onTop, w);
     if (what === '3 steps') ok(`1440 ${lang}, 3 steps: the rail keeps its width (at least 320 px, with the chip beside it)`, w.rail >= 320, w);
     // (the Playback ⋯ ends the strip and takes the room of "+ Add function"'s words once the thread is longer than a step or two:
