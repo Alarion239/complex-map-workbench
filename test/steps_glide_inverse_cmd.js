@@ -10,7 +10,9 @@
 // - the fallback, per step: a step whose homotopy is the straight line (a non-analytic formula, added after the
 //   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
-// - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
+// - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back;
+// - a formula typed in the place of another with the same inverse ops (gamma(z), then sin(z)/z) glides with its own
+//   inverse program: its frame is the one a fresh page draws.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -224,5 +226,35 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const log = await ev('window.__nrLog.slice(0, 40)'), drawn = log.filter((e) => e[0] === 'drawn');
   info['newt roots'] = log;
   ok('Partial sums of the exponential: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
+}
+// ---- a typed formula's glide draws with its own inverse program ----
+// (the carried variants of the inverse program compile the chain in. gamma(z), then sin(z)/z typed in its place, both
+// inverted by a NEWT op with no seeds, the same inverse ops: sin(z)/z's glide frame at u = 0.5, Inside regions, against the
+// same frame on a fresh page, the left pane's pixels on a grid of its plane. At most 2 % of the points may differ by more
+// than 24 levels in a channel: the frames are one picture, whose colour lines a half-resolution pass may draw a pixel apart)
+{
+  const SECOND = 'sin(z)/z';
+  const held = "(() => { const q = __cmwSteps(), g = q.glide; return q.ready.ready && !!g && g.path === 'inverse' && Math.abs(g.u - 0.5) < 1e-9; })()";
+  const frameOf = async (first) => {
+    await go(`${BASE}/test.html?ns=gf${Date.now()}&lang=en&view=steps`);
+    await ready();
+    await ev(`__cmwAddStep('custom', { expr: ${JSON.stringify(first)} }, 0), __cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), __cmwSteps({ x: 0.5 }), 1`);
+    let wait = await settled({ max: 60000, until: held });
+    if (first !== SECOND) {
+      await ev(`window.__gfG = __cmwSteps().glide, __cmwStepParam(0, 'expr', ${JSON.stringify(SECOND)}), 1`);
+      wait = await settled({ max: 60000, until: `__cmwSteps().glide !== window.__gfG && ${held}` });
+    }
+    const px = await ev(`(() => {
+      const L = __cmwLPx([[0, 0]]), v = L.view, w = L.pw / (v.s * L.dpr), h = L.ph / (v.s * L.dpr), pts = [];
+      for (let i = 0; i < 24; i++) for (let j = 0; j < 16; j++) pts.push([v.cx + ((i + 0.5) / 24 - 0.5) * 0.9 * w, v.cy + ((j + 0.5) / 16 - 0.5) * 0.9 * h]);
+      return __cmwLPx(pts).px.map((p) => p && p[4]);
+    })()`);
+    return { wait, px };
+  };
+  const typed = await frameOf('gamma(z)'), fresh = await frameOf(SECOND);
+  let n = 0, off = 0;
+  if (Array.isArray(typed.px) && Array.isArray(fresh.px)) typed.px.forEach((p, i) => { const q = fresh.px[i]; if (!p || !q) return; n++; if ([0, 1, 2].some((c) => Math.abs(p[c] - q[c]) > 24)) off++; });
+  info['typed formula'] = { points: n, differ: off };
+  ok(`${SECOND} typed in the place of gamma(z) (the same inverse ops): its glide frame is its own, as on a fresh page`, typed.wait.ok && fresh.wait.ok && n > 300 && off <= 0.02 * n, { points: n, differ: off, wait: [typed.wait, fresh.wait] });
 }
 return { pass: fails.length === 0, fails, info };
