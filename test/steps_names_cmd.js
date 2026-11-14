@@ -34,7 +34,8 @@ for (const lang of ['en', 'ru']) {
   ok(`${lang}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   ok(`${lang}: Cayley, then cube loads`, await ev('__cmwExample(8)'), null);
   await settle(1000);
-  // (an example just loaded is adopted on the next frame, which resets T: let that pass first)
+  // (an example just loaded is adopted at the next render, which resets T: wait for that first)
+  await adopted();
   await ev('__cmwSteps({ T: 2 }); __cmwSteps({ go: 0, now: true }); 1'); await settle(1500);
   const P = await ev('__cmwP().steps.map((s) => s.type)');
   ok(`${lang}: two steps`, P.length === 2, P);
