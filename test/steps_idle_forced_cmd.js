@@ -20,8 +20,9 @@ await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now:
 await settled({ max: 30000, panes: false, until: '!__cmwSvKey().busy' });
 // (from here the idle moments are the test's own: each callback asked for is queued)
 await ev('window.__svIdleQ = [], window.requestIdleCallback = (f) => (window.__svIdleQ.push(f), 1), 1');
+const planes0 = await ev('__cmwSteps().planes.length');
 await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
-await settled({ max: 30000, panes: false, until: '__cmwSteps().planes.length === 5' });
+await settled({ max: 30000, panes: false, until: `__cmwSteps().planes.length === ${planes0 + 1}` });
 // (the callbacks run in turn, each asked for by the one before: n of them, with the deadline given)
 const run = (n, dl) => ev(`(() => { globalThis.__svPathStats = {}; const q = window.__svIdleQ; let k = 0; while (q.length && k < ${n}) { k++; q.shift()(${dl}); } const s = globalThis.__svPathStats; globalThis.__svPathStats = null; s.callbacks = k; s.busy = __cmwSvKey().busy; return s; })()`);
 const idle = await run(50, '{ timeRemaining: () => 0, didTimeout: false }');
