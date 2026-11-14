@@ -8,7 +8,7 @@
 //     globe's), per side: current is this checkout's build, any other side a commit's (ci/reference.js). Writes FILE
 //     (default ci/fxc/bundle.json): the unique programs (vertex and fragment source), their variants and the job
 //     list, the most informative first.
-//   node ci/fxc_time.js time [--bundle FILE] [--budget-min 85] [--timeout-s 900] [--only RE] [--out FILE]
+//   node ci/fxc_time.js time [--bundle FILE] [--budget-min 85] [--timeout-s 900] [--only RE] [--jobs 0,3,8] [--out FILE]
 //     links each job's program in a Chrome of its own (its program cache off, nothing else running: the link's own
 //     time, from the first shader compile to the link done, no parallel compile), kills the Chrome at the timeout,
 //     and stops opening jobs once the budget is spent. Prints a table and writes FILE (default .ci/fxc/fxc.json).
@@ -242,12 +242,13 @@ async function timeAll() {
   const B = JSON.parse(fs.readFileSync(bundleFile, 'utf8'));
   const budgetMs = Number(opt('budget-min', '85')) * 60000, timeoutMs = Number(opt('timeout-s', '900')) * 1000;
   const only = opt('only', '') ? new RegExp(opt('only', '')) : null;
+  const jobsOnly = opt('jobs', '') ? new Set(opt('jobs', '').split(',').map(Number)) : null;   // (by index in the bundle's job list)
   const progs = new Map(B.programs.map((p) => [p.id, p]));
   const t00 = Date.now(), rows = [];
   let renderer = '';
   for (const [i, j] of B.jobs.entries()) {
     const p = progs.get(j.prog), label = `${p.name} ${p.key}`;
-    if (only && !only.test(`${label} ${j.variant}`)) continue;
+    if ((only && !only.test(`${label} ${j.variant}`)) || (jobsOnly && !jobsOnly.has(i))) continue;
     const row = { i, id: j.prog, name: p.name, key: p.key, in: p.in, variant: j.variant, srcKB: j.srcKB, changed: j.changed };
     rows.push(row);
     if (Date.now() - t00 > budgetMs) { row.status = 'skipped (budget)'; console.log(`[fxc] ${i} ${label} ${j.variant}: skipped, over the ${opt('budget-min', '85')} min budget`); continue; }
