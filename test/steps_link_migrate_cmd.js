@@ -171,6 +171,42 @@ n++;
   await grab('figCam of');
 }
 
+// a link made from the steps view's Landscape carries its moved camera and opens on it: the link is built from the figure the
+// view writes (figureState), not by hand; a link made from the same figure without figCam opens on the default camera
+n++;
+{
+  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+  const CAM_TOL = 1e-6;
+  const near = (a, b) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < CAM_TOL);
+  const ZOOM = 1.6;
+  const moved = { yaw: 0.9, pitch: 0.25, tx: 0.08, ty: -0.12 };
+  const nsOf = (tag) => 'lmig' + n + tag + Date.now() + Math.floor(Math.random() * 1e6);
+  const open = async (state, tag) => {
+    const old = await ev('performance.timeOrigin');
+    await go(`${BASE}/test.html?ns=${nsOf(tag)}&view=steps#cmw=${linkOf(state, true)}`);
+    await reloaded(old, `document.body.innerText.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
+    return camsOf();
+  };
+  await open({ ...XY, rightMode: 'image' }, 'a');
+  await ev(`__cmwSteps({ surf: 'land' }); 1`);
+  await settled({ max: 60000 });
+  const base = (await camsOf()).cam;
+  await ev(`(() => { const c = __cmwCam('L'); __cmwCam('L', { yaw: ${moved.yaw}, pitch: ${moved.pitch}, dist: c.dist * ${ZOOM}, tx: ${moved.tx}, ty: ${moved.ty} }); })(), 1`);
+  const want = { ...moved, d: base.d * ZOOM };
+  const fig = await ev('__cmwFigureState()');
+  const out = fig && fig.figCam;
+  info['figCam written on the Landscape'] = out;
+  ok('Landscape link: figCam is written without `of`', !!out && !('of' in out), out);
+  ok('Landscape link: the camera written is the one on the view', near(out, want), { out, want });
+  const got = await open(fig, 'b');
+  info['Landscape link opened'] = got;
+  ok('Landscape link: cam is the written camera on reopening', near(got.cam, out), { out, got });
+  const { figCam, ...bare } = fig;
+  const plain = await open(bare, 'c');
+  ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out), { out, plain });
+  await grab('Landscape link');
+}
+
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
 n++;
 {
