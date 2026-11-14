@@ -349,7 +349,7 @@
     // the t label: bottom left, an italic t and upright digits (editor-17)
     if (v.tlabel) {
       const f2s = Math.round(0.04 * H), num = I18 ? I18.num(t.toFixed(2)) : t.toFixed(2);
-      if (kind === 'glide') vText(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s);
+      if (kind === 'glide') { plan.label = A.svGlideText(plan.gl.lo + t); vText(ctx, [[plan.label, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s); }
       else vText(ctx, [['t', true], [` = ${num}`, false]], Math.round(0.035 * H), H - Math.round(0.035 * H), f2s);
     }
     ctx.restore();
@@ -551,7 +551,7 @@
     c2.getContext('2d').drawImage(big, 0, 0, w, h);
     const a = x1.getImageData(0, 0, w, h).data, b = c2.getContext('2d').getImageData(0, 0, w, h).data;
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
-    return { t: typeof e === 'number' ? e : e.a, pic: (L.plan.picW || L.plan.W) / L.plan.W, mad: s / (w * h * 3), decoded: c1.toDataURL('image/png'), exact: c2.toDataURL('image/png') };
+    return { t: typeof e === 'number' ? e : e.a, pic: (L.plan.picW || L.plan.W) / L.plan.W, mad: s / (w * h * 3), decoded: c1.toDataURL('image/png'), exact: c2.toDataURL('image/png'), label: L.plan.label || null };
   }
   // (tests, export review r3, editor-5) the last video's window and the screen's, and a frame at the screen's t drawn by
   // the video's code at the pane's size, for a pixel comparison with a capture of the pane

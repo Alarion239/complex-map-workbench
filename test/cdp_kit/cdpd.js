@@ -126,7 +126,6 @@ H.view = async (w, h, dark, mobile) => {
 // itself opens every saved pattern as the phase
 H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
-H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed(); };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
 // It answers whether the load came in time; a page that did not load says so in the suite's log.
 H.go = async (url, ms = 15000) => {
@@ -138,6 +137,16 @@ H.go = async (url, ms = 15000) => {
   if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363, as H.nav)
   return ok;
+};
+// H.nav(url): navigate and wait for the new page as H.load does for the app: its load event (H.go), then, for the app's page, its
+// start-up (the app begins after the load event: the plane list answers) and the page quiet (H.settled, at most NAV_QUIET_MS).
+// A page that is not the app's (a helper page, an old build) has no start-up to wait for. Answers whether the page came up in
+// time; a page that did not says so in the suite's log (H.go, H.settled), as a check after nav sees the page as it is.
+const NAV_QUIET_MS = 8000;
+H.nav = async (url) => {
+  const loaded = await H.go(url);
+  const r = await H.settled({ max: NAV_QUIET_MS, until: `typeof window.__cmwSteps !== 'function' || (() => { try { return Array.isArray(__cmwSteps().planes); } catch (e) { return false; } })()` });
+  return loaded && r.ok;
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
 // animation frames find the document loaded, neither pane's last GPU frame pending, compiling or awaiting its Landscape refinement (__cmwPaneStatus; not
