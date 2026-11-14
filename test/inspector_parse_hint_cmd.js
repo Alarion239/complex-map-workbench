@@ -101,16 +101,23 @@ await chip(1); await settled();
   await typed('z^-1/2');
   const back = await hintBack();
   ok('3: and it is back when the bracket goes', back.ok, { wait: back, hint: await hint() });
-  // control for the wait: a page-side stub clears the hint after the field's input event and puts it back STUB_MS later, as a read
-  // that lands between the two finds it. The immediate read misses it, and hintBack waits it out
+  // control for the wait: a page-side stub takes the hint's content away whenever the panel shows it and holds it until the test asks
+  // for it back, so the read right after typing always lands in the gap, however slow the runner is and whether or not the panel
+  // is rebuilt meanwhile. Then the restore is scheduled STUB_MS ahead, and hintBack waits it out
   await typed('z^(-1/2)');
-  await ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); window.__hintStub = () => { const h = document.querySelector('#propsPanel .insp-step .ihint'), html = h.innerHTML, key = h.dataset.key; h.textContent = ''; delete h.dataset.key; setTimeout(() => { h.innerHTML = html; h.dataset.key = key; }, ${STUB_MS}); }; i.addEventListener('input', window.__hintStub); return 1; })()`);
+  await ev(`(() => {
+    const panel = document.getElementById('propsPanel'), held = new Map(), take = () => { for (const h of panel.querySelectorAll('.insp-step .ihint')) if (h.firstChild) held.set(h, [...h.childNodes]), h.textContent = ''; };
+    const mo = new MutationObserver(take);
+    mo.observe(panel, { childList: true, subtree: true });
+    window.__hintRestore = () => { mo.disconnect(); for (const [h, nodes] of held) if (h.isConnected) h.append(...nodes); };
+    return 1;
+  })()`);
   await typed('z^-1/2');
   const missed = await hint();
-  ok('3: control: with the hint cleared after the input event, a read right after typing misses it', missed.text === '', missed);
+  ok('3: control: with the hint held back, a read right after typing misses it', missed.text === '', missed);
+  await ev(`setTimeout(window.__hintRestore, ${STUB_MS}), 1`);
   const waited = await hintBack();
   ok('3: control: the wait finds the hint once it is back', waited.ok, { wait: waited, hint: await hint() });
-  await ev(`document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]').removeEventListener('input', window.__hintStub), 1`);
 }
 
 // ---- 4: readings ----
