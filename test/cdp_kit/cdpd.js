@@ -23,6 +23,14 @@ const wr = ch.stdio[3], rd = ch.stdio[4];
 let id = 0, buf = '';
 const pend = new Map();
 const LOG = [];
+// What last ended or replaced the page, for the error a call gets when the page goes under it ("Inspected target navigated
+// or closed", "Cannot find context with specified id"): the main frame navigating or starting to load, or the page
+// crashing or detaching. CAUSE_BACK_MS: how long before a call an event still explains its failure; CAUSE_WAIT_MS: how long
+// a failed call waits for the event that explains it (the error can come first), polling every CAUSE_POLL_MS.
+const CAUSE_BACK_MS = 5000, CAUSE_WAIT_MS = 500, CAUSE_POLL_MS = 10;
+const NAV_GONE = /navigated or closed|Cannot find context/;
+let CAUSE = null;
+const noteCause = (text) => { CAUSE = { at: Date.now(), text }; LOG.push({ t: 'cdp', m: text }); };
 rd.on('data', (d) => {
   buf += d.toString('utf8');
   let i;
@@ -32,11 +40,26 @@ rd.on('data', (d) => {
     else if (msg.method === 'Runtime.consoleAPICalled') LOG.push({ t: msg.params.type, m: msg.params.args.map((a) => a.value !== undefined ? String(a.value) : (a.description || a.type)).join(' ').slice(0, 400) });
     else if (msg.method === 'Runtime.exceptionThrown') LOG.push({ t: 'EXC', m: (msg.params.exceptionDetails.exception && msg.params.exceptionDetails.exception.description || msg.params.exceptionDetails.text).slice(0, 600) });
     else if (msg.method === 'Fetch.requestPaused') vendorAnswer(msg.params, msg.sessionId);
+    else if (msg.method === 'Page.frameNavigated' && !msg.params.frame.parentId) noteCause(`Page.frameNavigated ${msg.params.frame.url}`);
+    else if (msg.method === 'Page.frameStartedLoading' && !msg.params.parentFrameId) noteCause('Page.frameStartedLoading');
+    else if (msg.method === 'Inspector.targetCrashed' || msg.method === 'Target.targetCrashed') noteCause(msg.method);
+    else if (msg.method === 'Inspector.detached') noteCause(`Inspector.detached ${(msg.params && msg.params.reason) || ''}`.trim());
     else if (msg.method === 'Page.loadEventFired') { LOADS++; for (const w of loadWait.splice(0)) w(); }
     else if (msg.method === 'Log.entryAdded') LOG.push({ t: 'log-' + msg.params.entry.level, m: msg.params.entry.text.slice(0, 400) });
   }
 });
-const send = (method, params = {}, sessionId) => new Promise((res, rej) => { const m = { id: ++id, method, params }; if (sessionId) m.sessionId = sessionId; pend.set(m.id, { res, rej }); wr.write(JSON.stringify(m) + '\0'); });
+const send = (method, params = {}, sessionId) => new Promise((res, rej) => {
+  const m = { id: ++id, method, params }; if (sessionId) m.sessionId = sessionId;
+  const t0 = Date.now();
+  // a call the page went under fails with the event that came first (or says none was seen)
+  const fail = async (e) => {
+    if (!NAV_GONE.test(e.message)) return rej(e);
+    while (!(CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS) && Date.now() - t0 < CAUSE_WAIT_MS) await sleep(CAUSE_POLL_MS);
+    const why = CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS ? CAUSE.text : `no navigation or crash event within ${CAUSE_BACK_MS} ms before or ${CAUSE_WAIT_MS} ms after the call`;
+    rej(new Error(`${e.message} [${method}: ${why}]`));
+  };
+  pend.set(m.id, { res, rej: fail }); wr.write(JSON.stringify(m) + '\0');
+});
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // (the page's load events, for H.go: how many so far, and who waits for the next)
 let LOADS = 0;
@@ -70,6 +93,9 @@ H.holdSheet = async (ms) => {
   await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
 };
 H.send = (m, p) => send(m, p, S);
+// H.forgetCause(): the last navigation or crash is no longer what a failing call is explained by (for a check of the
+// message a call gets when no event explains its failure)
+H.forgetCause = () => { CAUSE = null; };
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
 // (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
@@ -152,7 +178,7 @@ H.go = async (url, ms = 15000) => {
 // answers is another one, for at most NAV_LINK_MS after the hash is gone), and a call the reload cuts off is asked again of the
 // new page. Answers the start-up wait's answer ({ ok, ms, busy, at }, with loaded: whether the load event came in time): when the
 // app did not start in time that answer is a kit fault (H.settled), so the suite fails unless it reads ok and handles it.
-const NAV_QUIET_MS = 8000, NAV_LINK_MS = 2000, NAV_GONE = /navigated or closed|Cannot find context/;
+const NAV_QUIET_MS = 8000, NAV_LINK_MS = 2000;
 const navCall = async (f, t0) => { for (;;) { try { return await f(); } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e)) || Date.now() - t0 > NAV_QUIET_MS) throw e; await sleep(100); } } };
 H.nav = async (url) => {
   const loaded = await H.go(url), t0 = Date.now();
@@ -318,7 +344,7 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
   const t = await send('Target.createTarget', { url: 'about:blank' });
   const a = await send('Target.attachToTarget', { targetId: t.targetId, flatten: true });
   S = a.sessionId;
-  await send('Runtime.enable', {}, S); await send('Page.enable', {}, S); await send('Log.enable', {}, S);
+  await send('Runtime.enable', {}, S); await send('Page.enable', {}, S); await send('Log.enable', {}, S); await send('Inspector.enable', {}, S);
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
