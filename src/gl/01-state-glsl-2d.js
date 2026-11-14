@@ -76,10 +76,10 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   // whenever there is a post); mode 3 (base, a] in full, (a, b] along their paths, the post; mode 2 the stages a and
   // b, each from base (homrange.js's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
   // LIB), so the walk stays a loop.
-  const WALK = (n, how) => `vec2 z = s;
+  const WALK = (n, how, t = 'uT') => `vec2 z = s;
   for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
     int how = ${how};
-    z = chainAt(k, z, uT, how);
+    z = chainAt(k, z, ${t}, how);
   }
   return z;`;
   const POST = '(uPost > uB && k > uB && k <= uPost) ? 1 : 0';
@@ -93,7 +93,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     if (k == uB) z1 = z;
   }
   return mix(z0, z1, uT);`,
-    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (groupT(k, uT, uGrp0, uGrpN) <= 0.0 ? 0 : 2) : ${POST}`, 'groupT(k, uT, uGrp0, uGrpN)'),
   ];
   const MAP_STAGE = [
     'return chainRange(s, uA, uB);',
@@ -104,7 +104,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAllG(z, uA, uB, uT, uGrp0, uGrpN));',
   ];
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
@@ -122,7 +122,7 @@ bool derivIn(int a, int b) {
   const MAP = (info, mode) => {
     const st = hasStages(info);
     return `
-const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
+const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost; uniform int uGrp0; uniform int uGrpN;
 ${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
 vec2 mapPoint(vec2 s) {
   ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}

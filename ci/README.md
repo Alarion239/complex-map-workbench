@@ -197,9 +197,9 @@ CI (they serve `test/regress/quality/run.sh` by hand). The GLSL pages `glsl` and
 
 The perf shard `phone` emulates a phone in the same headless Chrome: a 390 × 844 mobile viewport at device pixel
 ratio 3 (the app's phone layout), touch input, and the page's main thread slowed 4× (DevTools' mid-tier mobile; the
-GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, the deformation playing,
-loading examples (`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an
-approximation of a phone, not a phone.
+GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, loading examples
+(`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an approximation of a
+phone, not a phone.
 
 ## Browser suites
 
@@ -382,7 +382,7 @@ worse (reference → this change, with the rule it broke), what improved, and th
 
 ## Perf shards and their parts
 
-The perf suite's units (`node test/regress/perf/run.js --list`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`, `pointer-morph`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-morph`, `interaction-hover`, `interaction-cards`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
+The perf suite's units (`node test/regress/perf/run.js --list`; each opens the steps view and stands where it measures through `__cmwSteps`, `ci/steps_scenes.js`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-hover`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
 
 - **On GitHub's machines** (the Gate) every shard is one job, as before the parts; a by-hand run's *shards* input also takes part ids.
 - **On the GPU gate** (`gpu-gate.yml`, `--leaves`) the `steps` shard stands for its eight parts, one job each (its *leaves*): a run is about 3 minutes for `steps-first`, 4 for `steps-default` and `steps-zeta`, 5–6 for `steps-king` (`steps-globe`, about 2 on lavapipe, `steps-land`, `steps-cold` and `steps-long` are not timed yet; each unit's limit is 15 minutes), plus about a minute a job for the build and the quiet wait. The *shards* input takes shard ids, part ids and two groups: `all` (or nothing) is every shard (the wave sweep), `classic` the shards that are not split; `steps` is its eight parts. A part named beside its own whole shard is covered by it; an unknown id fails the plan. The loaded-Mac guard runs once per job, and a unit's reference and current runs are in the same job.
