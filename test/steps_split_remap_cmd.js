@@ -40,7 +40,11 @@ ok('parked: x 1.5 → 2.5', Math.abs(s1.x - 2.5) < 1e-9, [s0, s1]);
 ok('the colour plane stays the last (F)', s1.T === 5 || s1.T === -1, s1);
 await shot('ssr-after'); { const a2 = await pane(); info.parkedPx = diff(a, a2); info.parkedWhere = where(a, a2); }
 ok('parked: the frame is pixel-equal', info.parkedPx === 0, [info.parkedPx, info.parkedWhere]);
-await clickSel('#toastHost .toast button'); await until('__cmwSteps().planes.length === 4'); await quiet();
+// (Undo through the top bar's button, as the toast's Undo does: the toast goes by itself 6 s after the Split, and a page that
+// takes longer to get here has no toast to click)
+await ev("document.getElementById('undoBtn').click()");
+const undone = await until('__cmwSteps().planes.length === 4'); await quiet();
+ok('Undo: the click landed (the chain has its 3 steps again)', undone.ok, undone);
 const s2 = await sv();
 ok('Undo: 3 steps and x = 1.5 again', s2.planes.length === 4 && Math.abs(s2.x - 1.5) < 1e-9, s2);
 

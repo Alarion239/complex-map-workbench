@@ -84,7 +84,7 @@ async function rounds(name, n, steps) {
   }
   info[name] = { start: fmt(start), worstBack: +(worst * 100).toFixed(4) + ' %' };
 }
-const { reloaded, holdClick } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));
+const { pageReloaded, holdClick } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'))({ ev, fails, reloaded });
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 
@@ -120,7 +120,7 @@ for (const mk of mapsFor) {
       const old = await ev('performance.timeOrigin');
       await holdClick(LANG_RELOAD_LATE_MS);
       await tapSel(`.ph-sheet .ph-seg button[data-v="${v}"]`);
-      await reloaded(old);
+      await pageReloaded(old);
       await settle(`(document.documentElement.lang || 'en') === '${v}'`);
       await ev(`Phone.close()`);
     };
