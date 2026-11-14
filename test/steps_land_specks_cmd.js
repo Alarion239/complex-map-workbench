@@ -1,5 +1,5 @@
-// Steps view Landscape, plain plane (z², d/dz, exp; T = w₁) at rest on w₃: exp(2z) takes many points of plane z to one
-// spot, and the carried landscape's depth order must leave no 1–3 px specks along w₃'s far edge.
+// Steps view Landscape past T across a d/dz (z², d/dz, exp; T = w₁) at rest on w₃: exp(2z) takes many points of plane z to
+// one spot, each at its height in T, and the carried landscape's depth order must leave no 1–3 px specks along w₃'s far edge.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -11,6 +11,9 @@ const ns = `landspecks${Date.now()}`, step = (type, params) => ({ type, params: 
 const st0 = { v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [step('pown', { n: 2 }), step('deriv'), step('exp')], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 await loadView('steps', ns, st0);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+// (the pane's words are not drawn: where the carried relief overhangs the floor's edge, a floor tick's label is drawn over
+// it, and a glyph's counter over the surface reads as a speck; this suite reads the surface)
+await ev(`(() => { const f = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = f[k]; f[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
 await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 3, now: true }); 1`);
 await settled({ max: 60000 });
 await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
