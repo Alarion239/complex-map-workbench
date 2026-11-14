@@ -82,6 +82,7 @@ const VIEWS = {
   'steps_chain_cmd.js': steps(),
   'steps_walk_cmd.js': steps({ pin: true }),
   'steps_split_remap_cmd.js': steps({ pin: true }),
+  'steps_split_all_cmd.js': steps({ pin: true }),
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
@@ -314,6 +315,7 @@ const VIEWS = {
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
+  'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),
   'kit_fault_cmd.js': steps({ pin: true }),
