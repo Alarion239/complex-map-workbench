@@ -65,8 +65,8 @@ function glue(o = {}) {
     F: o.F || ((z) => z),
     sndF: () => ctx.F, sndFAt: () => ctx.F,
     sndFrameKey: () => 'f', sndVKey: () => 'v', sndUnhush() {}, sndTurnBells() {}, requestRender() {}, rangeParts: () => null, focusDeriv: () => false, derivIn: () => false,
-    // (the classic view, so never past the steps view's colour plane)
-    sndSvQuiet: () => false,
+    // (the classic view: no steps view, so never past its colour plane, and X drawn with leftView)
+    stepsView: () => null, sndSvQuiet: () => false,
     sndHover: null, sndHoverOff: () => calls.push(['off']), sndStopPlay() {},
     sndNear: (F, z, g, pan, budget, deadline, vs, fn, t) => { calls.push(['near', z]); },
     sndSayOnce: (m) => said.push(m), sndFmt: (w) => `${w.re.toFixed(2)}${w.im < 0 ? '−' : '+'}${Math.abs(w.im).toFixed(2)}i`,
@@ -79,7 +79,7 @@ function glue(o = {}) {
     A: { get S() { return ctx.S; }, get sndP() { return ctx.sndP; }, get paneL() { return ctx.paneL; }, get paneR() { return ctx.paneR; }, get chainSig() { return ctx.chainSig; } },
   };
   vm.createContext(ctx);
-  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText(APP, 'sndBridge'), fnText(APP, 'sndHearAt'), fnText(APP, 'sndHold'), fnText(APP, 'sndQueryAt'), fnText(APP, 'sndSampleAt'), fnText(APP, 'sndSampler'), fnText(APP, 'sndMove'),
+  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), constText('sndLeftView'), 'const sndHear = () => SND.hear;', fnText(APP, 'sndBridge'), fnText(APP, 'sndHearAt'), fnText(APP, 'sndHold'), fnText(APP, 'sndQueryAt'), fnText(APP, 'sndSampleAt'), fnText(APP, 'sndSampler'), fnText(APP, 'sndMove'),
     'globalThis.G = { sndHearAt, sndSampleAt, sndSampler, sndMove, sndQueryAt, sndOk };'].join('\n');
   vm.runInContext(code, ctx);
   // sndHover → sndHearAt (as the hooks' sndHover does once the engine has Sound.hear)

@@ -281,8 +281,10 @@ const SoundHooks = (() => {
     if (src === 'merged') return `M|${solo()}|${A.paneR.w}|${A.paneR.h}|` + (rGlobe() ? cam(camS) : `${V.right.cx}|${V.right.cy}|${V.right.s}`);
     const sv = sndSvKey();
     if (lLand() || lGlobe()) return `L|${solo()}|${sv}|` + (needle ? A.S.view.main : cam(camOf('L')));
-    const v = leftView(); return `P|${solo()}|${sv}|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
+    const v = sndLeftView(); return `P|${solo()}|${sv}|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
   }
+  // the view X's plane is drawn with: leftView, or in the steps view the camera its picture is drawn with (stepsView's view)
+  const sndLeftView = () => { const v = stepsView(); return v ? v.view : leftView(); };
   // H at transport time T: the app's own homView() with morph.T set for the call (the one place that knows how the
   // transport builds H_T; DEFORMATION.md)
   function sndFAt(T) {
@@ -358,7 +360,7 @@ const SoundHooks = (() => {
       if (src === 'merged') { if (rImage()) { A.paneR.setView(V.right); return A.paneR.s2w(x, y); } return pickSphere(A.paneR, camS, x, y); }
       if (lLand()) return pickLand(x, y);
       if (lGlobe()) return typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
-      A.paneL.setView(leftView()); return A.paneL.s2w(x, y);
+      A.paneL.setView(sndLeftView()); return A.paneL.s2w(x, y);
     } catch (e) { return null; }
   }
   function sndHoverOff() {
@@ -444,12 +446,7 @@ const SoundHooks = (() => {
     // plane, the same point
     const same = r && r.src === src && sndVKey(src, true) === r.nk;
     if (same && pane === A.paneL && (lLand() || lGlobe())) return;
-    let z = null;
-    if (pane === A.paneL) {
-      if (lLand()) z = pickLand(x, y);
-      else if (lGlobe()) z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
-      else { pane.setView(leftView()); z = pane.s2w(x, y); }
-    } else if (rImage()) { pane.setView(V.right); z = pane.s2w(x, y); } else z = pickSphere(pane, camS, x, y);
+    const z = sndPickAt(src, x, y);
     if (!z || (same && r.z.re === z.re && r.z.im === z.im)) return;
     // (the plane moved under the pointer: the rope lets go, the point is the hand's)
     snd.rope = null;
@@ -542,7 +539,7 @@ const SoundHooks = (() => {
     const bz = sndBridge(F, z, g0), zc = bz.z, g = bz.g;
     const deadline = t0 + 3;
     let budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
-    const vs = merged ? V.right.s : leftView().s;
+    const vs = merged ? V.right.s : sndLeftView().s;
     const fnMoved = (gen || dT || !!paths) && !swap, tMove = dT && !gen;
     if (snd.run && (snd.run.tp ? gen || (!fn && moved && !morph.playing) : t0 - snd.run.t > 1600)) snd.run = null;
     let act = 'seat', phi1 = snd.phi, r = null;

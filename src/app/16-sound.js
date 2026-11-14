@@ -37,12 +37,14 @@
   // readout show, the map from the plane into the colour plane, and while the view glides, plays, is scrubbed or swiped
   // or rests parked, the nearer plane's (the readout's). k and T, that plane's stage and the colour plane's; key, what
   // the probe's function is made of; past, the colour plane's name when k is past it (its colour is carried from there,
-  // by the points: no tone, TODO(#727)), else ''. Read only when asked: F, the map from plane k into the
-  // colour plane (svF), and name, its name ("F", "f₂", "f₃∘f₂", or the plane's own variable where svF is the identity)
+  // by the points: no tone, TODO(#727)), else ''. Read only when asked: view, the camera the picture is drawn with (while
+  // the thread moves or rests between two planes the one every plane shares, S.srcView, svRenderMoving's; else the plane's
+  // own, leftView); F, the map from plane k into the colour plane (svF); and name, its name ("F", "f₂", "f₃∘f₂", or the
+  // plane's own variable where svF is the identity)
   const stepsView = () => {
     if (!SV.on) return null;
     const k = leftStage(), T = svT();
-    return { key: `${k}>${T}`, k, T, past: k > T ? svName(T) : '', get F() { return svF(k); }, get name() { return svColoured(k) ? svKeyName(k) : svName(k); } };
+    return { key: `${k}>${T}`, k, T, past: k > T ? svName(T) : '', get view() { return svMoving() ? S.srcView : leftView(); }, get F() { return svF(k); }, get name() { return svColoured(k) ? svKeyName(k) : svName(k); } };
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');

@@ -84,8 +84,9 @@ const kbdFocus = () => settled({ only: true, max: 3000, until: `(() => { if (__c
 const said = (max = 5000) => settled({ only: true, max, until: `(() => { const s = __cmwSound().live; return !!s && !/Preparing to listen along/.test(s); })()` });
 // (the selected shape's editor, with its Listen along button)
 const editorOpen = () => settled({ until: `!!document.querySelector('[data-act=listen-along]')` });
-// (a pointer still on the plane's point (re, im): its own point once a re-pick let the rope go)
-const atPtr = (z) => !!z && Math.hypot(z[0] - 0.3, z[1] - 0.5) < 0.02;
+// (the probe's point z under the still pointer, at page px p, once a re-pick let the rope go: on the plane as it is drawn at
+// rest, whose camera can differ from the one the hover was read in)
+const atPtr = (z, p) => !!z && ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(), [cx, cy, s] = __cmwSteps().win; return Math.hypot(r.left + r.width / 2 + (${z[0]} - cx) * s - ${p[0]}, r.top + r.height / 2 - (${z[1]} - cy) * s - ${p[1]}); })()`).then((d) => d < 1);
 const PAST = /^No tone past the colour plane: the colour here comes from w₁\.$/;
 
 await open(1440, 900, false);
@@ -106,8 +107,8 @@ ok('at rest on w₁: the probe hears f₂, the map into the colour plane, as the
 await hl();
 await svDo({ go: 2 }); await rest(); await seated();
 let s = await snd(), L = await hl();
-R.glide = { kinds: L.map((e) => e.k), g: s.g, z: s.rest && s.rest.z, live: s.live };
-ok('a glide to w₂ under a still pointer: no branch cut, and the tone re-seats on w₂ at the pointer', noCut(L, s.live) && seat(L) && !!s.rest && near(s.g, id(s.rest.z)) && atPtr(s.rest.z), R.glide);
+R.glide = { kinds: L.map((e) => e.k), g: s.g, z: s.rest && s.rest.z, live: s.live, atPtr: await atPtr(s.rest && s.rest.z, p) };
+ok('a glide to w₂ under a still pointer: no branch cut, and the tone re-seats on w₂ at the pointer', noCut(L, s.live) && seat(L) && !!s.rest && near(s.g, id(s.rest.z)) && R.glide.atPtr, R.glide);
 await hushOver(); await move(p[0] + 6, p[1]); await settle();
 s = await snd(); L = await hl();
 R.glideMove = { kinds: L.map((e) => e.k), g: s.g, z: s.rest && s.rest.z, live: s.live };
@@ -293,8 +294,8 @@ await svDo({ go: 1, now: true });
 const b = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
 const touch = (type, x, y) => send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
 const x0 = b[0] - 40, y0 = b[1] - 30;
-// (a finger held still 800 ms, past the long press that makes it the probe; then its moves 30 ms apart, a hand's pace)
-await touch('touchStart', x0, y0); await sleep(800);
+// (a finger held still until the probe takes it, the long press: its seat; then its moves 30 ms apart, a hand's pace)
+await hl(); await touch('touchStart', x0, y0); R.phoneHold = await seated();
 for (let i = 1; i <= 12; i++) { await touch('touchMove', x0 + 5 * i, y0); await sleep(30); }
 await settle();
 R.phone = Object.assign(await heard(f2), { ptype: (await snd()).ptype });
