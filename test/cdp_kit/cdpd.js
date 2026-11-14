@@ -135,7 +135,7 @@ H.go = async (url, ms = 15000) => {
   const ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), ms); })]);
   clearTimeout(t);
   if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url})` });
-  if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363, as H.nav)
+  if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
   return ok;
 };
 // H.nav(url): navigate and wait for the new page as H.load does for the app: its load event (H.go), then, for the app's page, its
