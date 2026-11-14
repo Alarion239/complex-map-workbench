@@ -288,7 +288,7 @@
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
       alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
-      patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
+      patternScale: 1, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
       // w-plane targets, drawn in the right plane in Image mode; their preimages show in the left plane in every
       // mode (none by default); the optional Riemann sphere view of the left plane; Landscape: all sheets of a
@@ -299,7 +299,7 @@
       // the phase portrait painted in the Y plane (the Key switch in X's legend chip). landPlain: the relief paints
       // Plain whatever the style (an old landscape's default 'phase' material, kept without rewriting dc; cleared
       // when a style is picked)
-      view: Views.blank(), v6: true, wKey: false, landPlain: false,
+      view: Views.blank(), wKey: false, landPlain: false,
       // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
       // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
       cauchyShow: 'both', cauchyPlus: false,
@@ -608,7 +608,7 @@
       o.v4 = true; o.alpha = 0.85; o.meshN = 240;
       for (const sh of o.shapes) { if (!sh || typeof sh !== 'object') continue; const i = OLD_PALETTE.indexOf(sh.color); if (i >= 0) { sh.ci = i; delete sh.color; } else if (!sh.color) sh.ci = sh.ci || 0; }
     }
-    delete o.quality;
+    delete o.quality; delete o.hcap; delete o.spin; delete o.v6;
     let dropped = 0;
     const steps = [];
     for (const st of o.steps) {
@@ -689,7 +689,6 @@
     // the Morph, Preimage and Integral views of earlier builds are now parts of every view: they open as Image
     // (F′ is a d/dz step of the chain now, so the old F | F′ switch is dropped)
     st.view = Views.clean(st.view);
-    st.v6 = true;
     st.wKey = !!st.wKey;
     st.landPlain = !!st.landPlain;
     st.cauchyShow = st.cauchyShow === 'in' || st.cauchyShow === 'out' ? st.cauchyShow : 'both';
@@ -716,12 +715,12 @@
     if ('sectors' in st && ![8, 12, 16, 24].includes(st.sectors)) delete st.sectors;
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
     if ('fov' in st) st.fov = st.fov !== false;
-    for (const k of ['lines', 'unit', 'snap', 'spin', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
+    for (const k of ['lines', 'unit', 'snap', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
     // v15: the selected step or F (old saves: none, so the step shown alone or the last step)
     if (!(st.sel === 'F' || (Number.isInteger(st.sel) && st.sel >= 0 && st.sel <= st.steps.length))) st.sel = null;
     st.alpha = isNum(st.alpha) ? Math.max(0.2, Math.min(1, st.alpha)) : d0.alpha;
     st.patternScale = isNum(st.patternScale) && st.patternScale > 0 ? 2 ** Math.max(-2, Math.min(2, Math.round(Math.log2(st.patternScale)))) : 1;
-    for (const k of ['hcap', 'dcGrid']) if (!isNum(st[k]) || st[k] <= 0) st[k] = d0[k];
+    if (!isNum(st.dcGrid) || st.dcGrid <= 0) st.dcGrid = d0.dcGrid;
     const okView = (v) => v && isNum(v.cx) && isNum(v.cy) && isNum(v.s) && v.s > 0;
     if (!okView(st.srcView)) st.srcView = d0.srcView;
     if (!okView(st.rightView)) st.rightView = null;
