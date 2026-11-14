@@ -344,7 +344,8 @@
   // SPEC 2.2: the path of area shape s under map in a view (role 'R' | 'L' | null: thumbnail; viewKind 'flat' |
   // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e}. Drawing asks
   // without o.status ('inverse' = eligible: drawInverse decides between drawn, pending and error); fix-up gating and
-  // the test hooks ask with o.status (the program's state, without starting a compile).
+  // the test hooks ask with o.status (the program's state, without starting a compile). o.stepsRest marks the steps
+  // view's plane at rest, which the exactImages switch does not turn to forward.
   function pathOf(s, map, role, viewKind = 'flat', o = {}) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
@@ -353,7 +354,7 @@
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
-    if (S.exactImages === false) return F('exact images off');
+    if (S.exactImages === false && !o.stepsRest) return F('exact images off');
     if (!(PHASE[role || 'R'] || {})[viewKind]) return F(`${role || 'R'} ${viewKind}: not in this phase`);
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan.ok) return F(plan.reason || 'no inverse');

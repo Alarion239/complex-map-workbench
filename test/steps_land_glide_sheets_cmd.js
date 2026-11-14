@@ -10,23 +10,12 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1440, 900, false, false);
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); window.__ss = window.__ss || {}; window.__ss[${JSON.stringify(tag)}] = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; return [cv.width, cv.height]; })()`);
 const diff = (a, b) => ev(`(() => { const A = window.__ss[${JSON.stringify(a)}], B = window.__ss[${JSON.stringify(b)}]; if (!A || !B || A.length !== B.length) return null; let n = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { n++; const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])); if (d > 32) n32++; } return +(n32 / n).toFixed(4); })()`);
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
-async function hold(x) {
-  await ev(`(() => {
-    const rail = document.querySelector('.sv-rail'), ns = [...document.querySelectorAll('.sv-track .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-    const i = Math.floor(${x}), cx = ns[i][0] + (ns[i + 1][0] - ns[i][0]) * (${x} - i), cy = ns[0][1];
-    const ev = (type, px) => rail.dispatchEvent(new PointerEvent(type, { pointerId: 73, pointerType: 'mouse', button: 0, buttons: 1, isPrimary: true, bubbles: true, clientX: px, clientY: cy }));
-    ev('pointerdown', ns[0][0] - 2); ev('pointermove', ns[0][0] + 10); ev('pointermove', cx);
-    window.__svScrubUp = () => ev('pointerup', cx);
-    return 1;
-  })()`);
-  await settled({ max: 60000, until: `Math.abs(__cmwSvX() - ${x}) < 0.002 && __cmwSteps().moving` });
-  await ev(rAF2);
-}
 const CHAIN = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
 const open = async () => {
   const ns = 'landglidesheets' + Date.now();
@@ -43,7 +32,8 @@ const carry = () => ev('typeof __cmwLandCarry === "function" ? JSON.stringify(__
 info.ends = {};
 for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]) {
   await rest(0);
-  await hold(x);
+  { const h = await hold(x); ok(`the thread is held at ${x}`, h.ok, h); }
+  await ev(rAF2);
   const c = await carry();
   await grab(tag);
   info.ends[tag] = { u: c && c.u, sheets: c && c.sheets, d: await diff(tag, restTag) };
@@ -52,7 +42,9 @@ for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]
   ok(`held at ${x}: a carried frame that draws the sheets`, !!c && Math.abs(c.u - x) < 0.002 && c.sheets === true, c);
   ok(`held at ${x}: the plane at rest there (<= 2 % of pixels > 32/255)`, info.ends[tag].d != null && info.ends[tag].d <= 0.02, info.ends[tag]);
 }
-await rest(0); await hold(0.5);
+await rest(0);
+{ const h = await hold(0.5); ok('the thread is held at 0.5', h.ok, h); }
+await ev(rAF2);
 const heldMid = await carry();
 await grab('heldMid');
 await ev('window.__svScrubUp(), 1');
