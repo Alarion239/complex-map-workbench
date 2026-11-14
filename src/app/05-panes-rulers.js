@@ -22,6 +22,8 @@
   // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
   // (at most this many mesh vertices and this many points of a polygon go into a fit's samples)
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
+  // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
+  const GLOBE_MARK_PX = 13;
   function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
   // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
   function* stageSampler(F0, xs, ys, k) {
@@ -590,7 +592,9 @@
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
-    return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    const b = { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    // (a video frame: the window the still of that plane has, its edges rounded)
+    return artLandRound && !artMode ? artLandRound(b) : b;
   }
   // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs, va, vb, rest}: plane
   // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of
@@ -754,7 +758,7 @@
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
-    refitCam(cam, CAM3, landFitDist(geo, pane));
+    refitCam(cam, CAM3, landFitDist(geo, artCamAsp ? { w: pane.h * artCamAsp, h: pane.h } : pane));
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     // (the carried grid: over plane s's block)
     const src = carry ? landBox(carry.vs) : null;
@@ -1108,7 +1112,7 @@
     if (!over) backdrop(pane);
     // 28 degree camera fitted to the globe and its labels at this pane's aspect (spec 6.10)
     // (with the equatorial plane on, frame more of the disc; its rim fades out, so the pane never cuts it hard)
-    refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, pane.w, pane.h, 1.05));
+    refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, artCamAsp ? pane.h * artCamAsp : pane.w, pane.h, 1.05));
     // contact shadow (spec 6.10): an elliptical radial gradient, aspect 1.6 : 0.35, on the ground under the globe,
     // placed and sized from the globe's projection; it fades out as the camera drops below the ground
     const ctx = pane.ctx;
@@ -1289,15 +1293,23 @@
       }
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `italic 500 13px ${TH.math}`;
+    ctx.font = `italic 500 ${GLOBE_MARK_PX}px ${TH.math}`;
     const pts = /** @type {[string, number[]][]} */ ([['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', lift(1, 0)], ['i', lift(0, 1)], ['−1', lift(-1, 0)], ['−i', lift(0, -1)]]);
+    // (a video frame fits the camera at the still's aspect, which can make the globe small against the marks' fixed size: its marks keep
+    // off the globe's outline, as the still's do)
+    const limb = artCamAsp ? GLR.globeLimb(info.eye, (p) => project(pane, info.MVP, p)) : null, centre = limb ? project(pane, info.MVP, [0, 0, 0]) : null;
     for (const [lab, p] of pts) {
       const f = facing(p);
       const u = Math.max(0, Math.min(1, (f - 0.05) / 0.25)), a = u * u * (3 - 2 * u);   // smoothstep(0.05, 0.3, n·v)
       if (a <= 0) continue;
       // poles: just beyond the globe; equator points: just above the |z| = 1 line, so the label never sits on it
-      const q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
+      let q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
+      if (limb) {
+        const half = ctx.measureText(lab).width / 2;
+        q = GLR.clearOfLimb(q, (at) => ({ x0: at[0] - half, x1: at[0] + half, y0: at[1] - GLOBE_MARK_PX / 2, y1: at[1] + GLOBE_MARK_PX / 2 }), limb, centre);
+        if (!q) continue;
+      }
       // (a video frame: the figure draws these labels at full ink; their places still keep the point labels clear)
       if (artNoLab) { labelReg(pane).marks.push([q[0], q[1], 11]); continue; }
       ctx.globalAlpha = a;
