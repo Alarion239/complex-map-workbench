@@ -350,7 +350,14 @@
       for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
     });
   }
+  // (laying the strip out moves its controls out of the page and back, which drops the focus to the body: the control that had
+  // it takes it again, #1613)
   function layoutFootNow(side, force) {
+    const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
+    layoutFootRun(side, force);
+    if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
+  }
+  function layoutFootRun(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
     const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
