@@ -109,14 +109,14 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
     // again when it moves: ‹)
     ok(`${tag}: the thread is longer than its rail, so the rail legs below run`, g0.track > g0.rail + 1, g0);
     if (g0.track > g0.rail + 1) {
-      // (the resize is seen by the page's own observer before the scroll is read, and a frame after it: what the thread's observer does
-      // runs in the same delivery)
-      await ev(`window.__rz = 0; new ResizeObserver(() => { __rz++; }).observe(document.querySelector('#svStrip .sv-track')); 1`);
+      // (the strip's right padding changes the rail's width, which is what the page's observer watches: the wait is for that width to change)
       const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))');
       const resized = async (px) => {
-        const n = await ev('__rz');
-        await ev(`document.querySelector('#svStrip .sv-track').style.paddingRight = '${px}px'; 1`);
-        for (let i = 0; i < 100 && (await ev('__rz')) === n; i++) await sleep(50);
+        const w0 = (await geo()).rail;
+        await ev(`document.querySelector('#svStrip').style.paddingRight = '${px}px'; 1`);
+        let g = await geo();
+        for (let i = 0; i < 100 && g.rail === w0; i++) { await sleep(50); g = await geo(); }
+        ok(`${tag}: the strip's padding of ${px} px changes the rail's width (${w0} to ${g.rail})`, g.rail !== w0, { w0, rail: g.rail });
         await frames();
         return (await geo()).scroll;
       };
@@ -146,7 +146,7 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
         const wide = await followed();
         ok(`${tag}: and when it gets wide again${after} (${railW1} to ${(await geo()).rail})`, wide.ok && (await geo()).rail === railW0, wide);
       };
-      // (a wheel over the rail, at its centre now; one that moves nothing brings no scroll, so the page is given two frames to show none)
+      // (a wheel over the rail, at its centre; one that moves nothing brings no scroll, so the page is given two frames to show none)
       const wheelOver = async (deltaX, deltaY) => {
         const [x, y] = await centre('#svStrip .sv-rail');
         await move(x, y);
@@ -197,6 +197,15 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
         ends.push(await atEnd());
       }
       ok(`${tag}: a rail the user scrolled to its end stays at its end when the thread changes width (${ends.map((g) => `${g.scroll}/${g.max}`).join(', ')})`, ends.every((g) => g.max > 0 && g.scroll >= g.max - 1), ends);
+      // (a scroll that is not the app's, here a scrollIntoView with the focus outside the rail, is the user's: the plane it shows stays in view
+      // through a resize, where the ring (on the last plane) would take the rail)
+      await frames(); await frames();   // (the page puts the rail back for three frames after a resize: past them)
+      await ev(`document.activeElement && document.activeElement.blur(); document.querySelector('#svStrip .sv-plane[data-i="0"]').scrollIntoView({ inline: 'start', block: 'nearest' }); 1`);
+      await frames();
+      const planeIn = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), b = document.querySelector('#svStrip .sv-plane[data-i="0"]').getBoundingClientRect(); return b.left >= r.left - 0.5 && b.right <= r.right + 0.5; })()`);
+      const shown = [await planeIn()];
+      for (const px of [200, 0]) { await resized(px); shown.push(await planeIn()); }
+      ok(`${tag}: a plane scrolled into view with the focus outside the rail stays in view through a resize (${shown.join(', ')})`, shown.every(Boolean), shown);
       await ev(`document.querySelector('#svStrip .sv-prev').click(); 1`); await rest();
       let back = await ringIn();
       for (let i = 0; i < 40 && !(back.ring && back.node); i++) { await sleep(50); back = await ringIn(); }
