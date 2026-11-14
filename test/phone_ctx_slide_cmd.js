@@ -29,7 +29,8 @@ const barCheck = async (name, open) => { const up = await waitBar(open); ok(name
 // (the phone layout comes before the saved state's shapes are built: a selection made in between has no shape to select and
 // the bar never opens; wait for the page's own rows of s1 and s2, which is its ready signal for this suite)
 const waitPh = async () => {
-  for (let i = 0; i < 80; i++) { if (await ev(`document.documentElement.classList.contains('ph') && !!document.querySelector('#shapeList .shape[data-id="s1"]') && !!document.querySelector('#shapeList .shape[data-id="s2"]')`)) break; await sleep(250); }
+  // (a page still loading has no document element yet: the poll reads that as "not yet")
+  for (let i = 0; i < 80; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph') && !!document.querySelector('#shapeList .shape[data-id="s1"]') && !!document.querySelector('#shapeList .shape[data-id="s2"]')`)) break; await sleep(250); }
   await settle(900);
 };
 for (const [w, h] of [[390, 844], [360, 640]]) {
