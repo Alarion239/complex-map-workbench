@@ -233,11 +233,16 @@ async function recordPlace(H, base, sc, x) {
   const ns = 'iab' + Date.now();
   await H.nav(base + 'blank.html');
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(sc.state)))}); 1`);
-  await H.nav(base + `test.html?ns=${ns}${sc.view === 'steps' ? '&view=steps' : ''}`);
-  // (a page that is still busy when its time is up is recorded all the same: its transient keys leave the core)
+  // (a page that is still busy when its time is up is recorded all the same: its transient keys leave the core; one
+  // that has not started is opened once more, as a loaded machine can starve a software renderer's first links)
   const ready = sc.view === 'steps' ? "typeof __cmwSteps === 'function'" : "typeof __cmwPaneStatus === 'function'";
-  let settled = await quiet(H, ready, LOAD_MAX_MS);
-  if (!settled && !await H.ev(ready)) throw new Error(`${sc.name}: the app did not start`);
+  let settled = false;
+  for (let tries = 0; ; tries++) {
+    await H.nav(base + `test.html?ns=${ns}${sc.view === 'steps' ? '&view=steps' : ''}`);
+    settled = await quiet(H, ready, LOAD_MAX_MS);
+    if (settled || await H.ev(ready)) break;
+    if (tries) throw new Error(`${sc.name}: the app did not start`);
+  }
   // (no half-resolution passes: the cost guard's budget out of reach, whatever the machine's speed)
   await H.ev('__cmwGuardOpts({ budget: 1e9, exit: 1e9 }), 1');
   await H.ev('window.__ab.on = true, 1');
