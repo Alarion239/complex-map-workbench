@@ -2,7 +2,8 @@
 // rightMode, sphereMode, leftSphere, material and solo; the U-b `view`; a deformation range and the Deformation's time
 // figMorph; a right pane's camera rightView) opens in the steps view on its equivalent (Views.svOf through svAdopt), and
 // the links that carry such a state open the same way: #cmw=0. (plain JSON), #cmw=1. (deflate-raw), and a hash with cmw
-// after another part. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info, errs }.
+// after another part. The steps view also honours the query flags ?ns= (a page's own storage) and ?i18n-debug (the recorded lookup
+// misses). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info, errs }.
 // (the classic view's own picture is not tested here: this suite proves that the steps view shows the same thing)
 const zlib = process.mainModule.require('zlib');
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -242,6 +243,54 @@ n++;
   ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
   ok('figureState: rightView is null while the right plane is fitted (auto)', !!fs && fs.rightView === null, fs);
   await grab('figureState');
+}
+
+// ?ns=<name> gives a page its own storage: the figure a namespaced steps page saves is under its own key, not the bare one, and
+// neither another namespace nor the page without ?ns sees it
+n++;
+{
+  const nsA = 'lmigA' + n + Date.now(), nsB = 'lmigB' + n + Date.now();
+  const STORE = 'complex-map-workbench-v1';
+  const stepsSaved = (ns) => ev(`(() => { const v = localStorage.getItem(${JSON.stringify(ns ? STORE + ':' + ns : STORE)}); return v ? JSON.parse(v).steps.length : null; })()`);
+  const chainTypes = () => ev('__cmwFigureState().steps.map((st) => st.type)');
+  const LINK_TYPES = LINK_STATE.steps.map((st) => st.type);   // (a page with no saved figure opens a worked example, a different chain)
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=${nsA}&view=steps#cmw=${linkOf(LINK_STATE, true)}`);
+  await reloadedFigure(old, 'Opened the figure from the link.');
+  await ev('window.dispatchEvent(new Event("pagehide")); 1');
+  await settled({ max: 15000, panes: false, until: `(() => { const v = localStorage.getItem(${JSON.stringify(STORE + ':' + nsA)}); return !!v && JSON.parse(v).steps.length === ${LINK_STATE.steps.length}; })()` });
+  const saved = { own: await stepsSaved(nsA), bare: await stepsSaved('') };
+  info['?ns: where the figure is saved'] = saved;
+  ok('?ns: the figure is saved under the namespace', saved.own === LINK_STATE.steps.length, saved);
+  ok('?ns: nothing is saved under the bare key', saved.bare === null, saved);
+  await openAt(`${BASE}/test.html?ns=${nsB}&view=steps`);
+  const other = await chainTypes();
+  ok('?ns: another namespace opens without the figure', other.length > 0 && !eq(other, LINK_TYPES), other);
+  await openAt(`${BASE}/test.html?view=steps`);
+  const bare = await chainTypes();
+  ok('without ?ns: the page does not see the namespace\'s figure', bare.length > 0 && !eq(bare, LINK_TYPES), bare);
+  await grab('?ns');
+}
+
+// ?i18n-debug records the lookups an interface language has no entry for (I18N.missing); without it, and without ?lang=, nothing is
+// recorded. The language is the device setting (cmw-lang), Russian here, so that ?lang= is not what turns the recording on.
+n++;
+{
+  const ns = 'lmigI' + n + Date.now();
+  const PROBE = 'a sentence no language has ' + ns;
+  const probed = () => ev(`(() => { const ru = $t('Link copied.'); $t(${JSON.stringify(PROBE)}); return { debug: I18N._debug, ru: ru !== 'Link copied.', recorded: [...I18N.missing].includes(${JSON.stringify(PROBE)}) }; })()`);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev(`localStorage.setItem('cmw-lang:${ns}', 'ru'); 1`);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  const off = await probed();
+  info['?i18n-debug: without the flag'] = off;
+  ok('?i18n-debug: the steps view is in Russian from the device setting', off.ru, off);
+  ok('without ?i18n-debug: no lookup miss is recorded', !off.debug && !off.recorded, off);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps&i18n-debug`);
+  const on = await probed();
+  info['?i18n-debug: with the flag'] = on;
+  ok('?i18n-debug: a lookup miss is recorded in the steps view', on.debug && on.ru && on.recorded, on);
+  await grab('?i18n-debug');
 }
 
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);
