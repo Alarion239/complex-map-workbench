@@ -36,7 +36,15 @@ const cl = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringi
 const menu = () => ev(`[...document.querySelectorAll('#popHost .menu .mi')].map((b) => b.querySelector('.mi-label').textContent)`);
 const pick = async (label) => { const r = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((x) => x.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b || b.disabled) return false; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })); b.click(); return true; })()`); await settle(350); return r; };
 // (a menu a long press raised is deaf to a click for a moment: the pick is tried again until the state it makes is there)
-const pickUntil = async (label, cond) => { for (let i = 0; i < 20 && !(await ev(cond)); i++) { await pick(label); await settled({ until: cond, only: true, max: 400 }); } await settled({ until: cond }); };
+const RETRY_MS = 400, RETRY_STEP_MS = 50;
+const pickUntil = async (label, cond) => {
+  for (let i = 0; i < 20 && !(await ev(cond)); i++) {
+    await pick(label);
+    // (a plain poll: that the state is not there yet is expected here, and is no fault of the kit's waits)
+    for (let t = 0; t < RETRY_MS && !(await ev(cond)); t += RETRY_STEP_MS) await settle(RETRY_STEP_MS);
+  }
+  await settled({ until: cond });
+};
 const undo = async () => { await ev(`document.getElementById('undoBtn').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.getElementById('undoBtn').click(); 1`); await settle(400); await ev(`document.querySelectorAll('#toastHost .toast').forEach((x) => x.remove()); 1`); await settle(250); };   // (the Undid message takes the rail while it shows: the next step starts after it)
 const say = () => ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`);
 // (the live region is cleared and set again 30 ms later, so that the same words are read twice: on a loaded machine one read can land
@@ -264,8 +272,8 @@ for (const w of [1440, 1280, 1024, 780]) {
 }
 // ---- the phone ----
 await open(390, 844, true);
-const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
-ok('on a phone: no ⋯ on the chips, "+" is 44 px and named Add function', ph.more === 'none' && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 44 && ph.chipW >= 44 && ph.btnH >= 44 && ph.btnW >= 44, ph);
+const ph = await ev(`({ more: getComputedStyle(document.querySelector('#svStrip .sv-more')).display, moreW: document.querySelector('#svStrip .sv-more').getBoundingClientRect().width, moreH: document.querySelector('#svStrip .sv-more').getBoundingClientRect().height, add: document.querySelector('#svStrip .sv-add').getBoundingClientRect().width, addH: document.querySelector('#svStrip .sv-add').getBoundingClientRect().height, name: document.querySelector('#svStrip .sv-add').getAttribute('aria-label'), chipH: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().height, chipW: document.querySelector('#svStrip .sv-fwrap').getBoundingClientRect().width, btnH: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().height, btnW: document.querySelector('#svStrip .sv-fchip').getBoundingClientRect().width })`);
+ok('on a phone: each chip has its ⋯ as a 44 px slot, "+" is 44 px and named Add function', ph.more !== 'none' && ph.moreW === 44 && ph.moreH === 44 && ph.add === 44 && ph.addH === 44 && /Add function/.test(ph.name) && ph.chipH >= 44 && ph.chipW >= 44 && ph.btnH >= 44 && ph.btnW >= 44, ph);
 // a tall menu raised by a long press does not take the lift that ends it, on short screens too
 for (const [w, h] of [[390, 700], [740, 360], [360, 640], [360, 600]]) {
   await open(w, h, true);
@@ -296,6 +304,16 @@ await open(360, 700, true);
 await ev(`__cmwSteps({ go: 2, now: true }); 1`); await settle(700);
 const end = await ev(`(() => { const ps = [...document.querySelectorAll('#svStrip .sv-plane')], l = ps[ps.length - 1], b = l.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2), a = document.querySelector('#svStrip .sv-add').getBoundingClientRect(); return { n: ps.length, ok: l === at || l.contains(at), at: at && (at.className || at.tagName), overlap: !(a.left >= b.right || a.right <= b.left), add: a.width }; })()`);
 ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok && !end.overlap, end);
+// every step's chip and its ⋯ are 44 px targets on a phone from 320 to 390 px, in English, Russian and Italian (that they overlap nothing is steps_strip_layout's)
+for (const [w, lang] of [[320, 'en'], [360, 'en'], [360, 'ru'], [360, 'it'], [390, 'en']]) {
+  await view(w, 740, false, true);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}more${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  const t = await ev(`(() => { const R = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }, boxes = [];
+    for (const wr of document.querySelectorAll('#svStrip .sv-fwrap')) boxes.push(['chip', R(wr.querySelector('.sv-fchip'))], ['more', R(wr.querySelector('.sv-more'))]);
+    const small = boxes.filter(([, b]) => b[2] - b[0] < 44 - 0.5 || b[3] - b[1] < 44 - 0.5).map(([n, b]) => n + ' ' + Math.round(b[2] - b[0]) + 'x' + Math.round(b[3] - b[1]));
+    return { n: boxes.length, small }; })()`);
+  ok(`${w} ${lang}: every step's chip and ⋯ are 44 px targets`, t.n >= 4 && t.small.length === 0, t);
+}
 // shown alone on a 360 px phone: the step's own planes stay in view, and a long press on the disabled Add gives its reason
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-step[data-k="2"] .sv-fchip'), r = c.getBoundingClientRect();
   window.__lp = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp('pointerdown'); return 1; })()`);
@@ -303,7 +321,7 @@ await settled({ until: "!!document.querySelector('#popHost .menu .mi')", only: t
 const alone360 = await ev(`(() => { const rr = document.querySelector('#svStrip .sv-rail').getBoundingClientRect();
   const planes = [...document.querySelectorAll('#svStrip .sv-rail .sv-plane, #svStrip .sv-rail .sv-step')].map((e) => e.getBoundingClientRect());
   return { rail: [Math.round(rr.left), Math.round(rr.right)], fadeR: document.querySelector('#svStrip .sv-rail').classList.contains('fade-r'), planes: planes.map((b) => [Math.round(b.left), Math.round(b.right)]) }; })()`);
-ok('360 px, a step shown alone: the rail keeps its 126 px and its planes are in view (each centre inside it)', alone360.rail[1] - alone360.rail[0] >= 126 && alone360.planes.length > 0 && alone360.planes.every((b) => b[0] >= alone360.rail[0] - 1 && (b[0] + b[1]) / 2 <= alone360.rail[1]), alone360);
+ok('360 px, a step shown alone: the rail keeps its 126 px and each of its planes is at least half in view (the rest is a scroll away)', alone360.rail[1] - alone360.rail[0] >= 126 && alone360.planes.length > 0 && alone360.planes.every((b) => Math.min(b[1], alone360.rail[1]) - Math.max(b[0], alone360.rail[0]) >= (b[1] - b[0]) / 2 - 1), alone360);
 ok('360 px, a step shown alone: the rail fades at its end, where F and Add are scrolled to', alone360.fadeR, alone360);
 await ev(`(() => { const c = document.querySelector('#svStrip .sv-add'), r = c.getBoundingClientRect();
   window.__lp2 = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: r.left + 10, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0, buttons: type === 'pointerup' ? 0 : 1 })); __lp2('pointerdown'); return 1; })()`);

@@ -10,9 +10,12 @@ const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const ISOLATED = 60, SPREAD = 40, MAX_ISOLATED = 10;
+// (quiet: the programs and jobs are ready, no glide or play is under way and the sphere is idle; __cmwSteps().moving is also
+// true for a place parked between two planes, which is a still view, so it is not the wait)
+const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running)";
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  until: QUIET_UNTIL,
 });
 const isolated = () => ev(`(() => {
   const c = document.getElementById('canvasL'), s = document.createElement('canvas');

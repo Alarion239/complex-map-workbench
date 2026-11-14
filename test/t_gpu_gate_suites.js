@@ -45,8 +45,14 @@ ok('the suites job exists, behind the plan (its approval), for mode suites only'
 ok('it runs on the machine\'s self-hosted GPU runner', /runs-on: \[self-hosted, '\$\{\{ matrix\.machine \}\}', gpu\]/.test(sj));
 ok('the machines come from the plan', sj.includes('machine: ${{ fromJSON(needs.plan.outputs.machines) }}'));
 ok('the hardware probe runs before the suites', sj.indexOf('node ci/gpu_probe.js --require-hardware') > 0 && sj.indexOf('gpu_probe') < sj.indexOf('browser.js'));
-ok('the expression reaches ci/browser.js through the environment, quoted', /env:\n\s+SUITES: \$\{\{ inputs\.suites \}\}\n\s+run: node ci\/browser\.js --only "\$SUITES"/.test(sj), sj);
+ok('the expression reaches ci/browser.js through the environment, quoted', /env:\n\s+SUITES: \$\{\{ inputs\.suites \}\}\n\s+run: \$\{\{ matrix\.machine == .macOS. && .caffeinate -dimsu.. \|\| .. \}\}node ci\/browser\.js --only "\$SUITES"/.test(sj), sj);
 ok('the expression is never interpolated into a run line', !/run:[^\n]*\$\{\{ inputs\.suites \}\}/.test(Y));
+
+// the Mac's browser and GPU steps run awake, the other machines' commands unchanged
+const prefix = "${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}";
+for (const [j, script] of [['glprof', 'glprof'], ['suites', 'browser'], ['glsl', 'glsl'], ['quality', 'quality'], ['perf', 'perf_shard']]) {
+  ok(`${j}: ci/${script}.js runs under the Mac-only caffeinate prefix`, job(j).includes(`run: ${prefix}node ci/${script}.js `), job(j));
+}
 
 // the other jobs leave this mode out
 for (const j of ['glsl', 'quality', 'perf', 'gate']) {

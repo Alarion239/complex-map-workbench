@@ -91,12 +91,40 @@ await palType('keys'); await ev(`[...document.querySelectorAll('.pal-item')].fin
 const gk = await ev(`(() => { const m = document.querySelector('.modal'); if (!m) return null; const hd = [...m.querySelectorAll('h3')].find((x) => x.textContent === 'Keys'); const b = hd.getBoundingClientRect(), mb = (m.querySelector('.modal-body') || m).getBoundingClientRect(); return { top: b.top, mt: mb.top, mb: mb.bottom }; })()`);
 ok('Guide: Keys opens the guide at Keys', gk && gk.top >= gk.mt - 2 && gk.top < gk.mb, gk);
 await key('Escape'); await settled({ until: "!document.querySelector('.modal')", max: 8000 });
+// the steps view owns the surface: the palette offers Surface rows, and no row of the removed view switch or its keys
+const surfLabel = () => ev(`document.querySelector('.sv-surf1').getAttribute('aria-label')`);
+const seen = [];
+for (const q of ['surface', 'landscape', 'sphere', 'phase', 'plane', 'view', 'fit']) { await palType(q); seen.push(...(await palRows())); }
+ok('no row of the removed view switch: View:, X:, Y:, Phase: rows', !seen.some((r) => /^(View|X|Y|Phase): /.test(r.label)), seen.map((r) => r.label));
+ok('no palette row carries the removed keys 1 to 3 or ⇧1 to ⇧4', !seen.some((r) => /^⇧?[1-4]$/.test(r.key)), seen.filter((r) => /^⇧?[1-4]$/.test(r.key)));
+await palType('surface'); rows = await palRows();
+ok('"surface" offers Surface: Plane, Sphere and Landscape, with no key', ['Plane', 'Sphere', 'Landscape'].every((n) => rows.some((r) => r.label === 'Surface: ' + n && r.key === '')), rows.map((r) => r.label + ' [' + r.key + ']'));
+await palType('globe'); rows = await palRows();
+ok('"globe" finds Surface: Sphere', rows.some((r) => r.label === 'Surface: Sphere'), rows.map((r) => r.label));
+await palType('Surface: Sphere'); await key('Enter'); await settled({ until: "/Sphere/.test(document.querySelector('.sv-surf1').getAttribute('aria-label'))", max: 8000, only: true });
+ok('Surface: Sphere runs: the plane head names the Sphere', /Sphere/.test(await surfLabel()), await surfLabel());
+await palType('Surface: Plane'); await key('Enter'); await settled({ until: "/Plane/.test(document.querySelector('.sv-surf1').getAttribute('aria-label'))", max: 8000, only: true });
+ok('Surface: Plane runs: back to the plane', /Plane/.test(await surfLabel()), await surfLabel());
+await palType('fit'); rows = await palRows();
+ok('"fit" finds Fit view with its key Z, and no "Fit both planes"', rows.some((r) => r.label === 'Fit view' && r.key === 'Z') && !rows.some((r) => /both planes/.test(r.label)), rows.map((r) => r.label + ' [' + r.key + ']'));
+await palType('surface'); await shot2('p8-palette-surface');
+await palClose();
 // no row of letters; the highlighted row names its properties in words
 await palType('sin');
 rows = await palRows();
 ok('no A E R P M Pr I letters; the highlighted row shows its properties in words, the others none', rows.every((r) => r.letters === 0) && rows[0].sel && rows[0].wordsShown && /Entire/.test(rows[0].words) && rows.slice(1).every((r) => !r.wordsShown), rows.slice(0, 4));
 await shot2('ux82-palette-words');
 await palClose();
+await openApp('test.html', { shapes: [DISC, LINE], steps: CHAIN });
+await palType('Surface: Landscape'); await key('Enter'); await settled({ until: "/Landscape/.test(document.querySelector('.sv-surf1').getAttribute('aria-label'))", max: 8000, only: true });
+ok('Surface: Landscape runs: the plane head names the Landscape', /Landscape/.test(await surfLabel()), await surfLabel());
+// in Russian the rows are named as the plane head names the surface, and the English words still find them
+await openApp('test.html', { shapes: [DISC, LINE], steps: CHAIN }, 1366, 768, false, false, '&lang=ru');
+const ruSphere = await ev(`I18N.at('ru').t('Surface') + ': ' + I18N.at('ru').t('Sphere')`);
+await palType('globe'); rows = await palRows();
+ok('ru: "globe" finds the Sphere row, named as the head names it', rows.some((r) => r.label === ruSphere), { ruSphere, rows: rows.map((r) => r.label) });
+await key('Enter'); await settled({ until: "/Sphere|Сфера/.test(document.querySelector('.sv-surf1').getAttribute('aria-label'))", max: 8000, only: true });
+ok('ru: the plane head reads the row it ran', (await surfLabel()) === ruSphere, { head: await surfLabel(), ruSphere });
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info, shots: shots.map((s) => s.replace(/^.*\/shots\//, '')) };
