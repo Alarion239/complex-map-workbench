@@ -11,7 +11,7 @@
 //    w2 and w3), while the fill's programs link: the fill draws only with its mask, never a torn triangle whole
 //  - cracks: z^2 then its square root and z^3 then its cube root, coloured from z, Everywhere, parked half-way between z
 //    and w1, where the root's cut, carried into the picture, runs through the fill with a sheet on each side of it: along
-//    the cut's image, no pixel of the paper's grey (max - min channel under 20) between two coloured ones (max - min
+//    the cut's image, in the colour layer alone, no pixel of the paper's grey (max - min channel under 20) between two coloured ones (max - min
 //    channel over 40) 3 px either side; a control draws a one-pixel line of paper along the cut's image and the same scan
 //    must count it
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the images shard (ci/browser_shards.js).
@@ -233,16 +233,17 @@ const park = async (x, scope) => {
     await ready();
     await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
     await park(0.5, 'all');
-    // (the cut's image as the strokes draw it, read with them shown; then the frame without them, whose colour is read)
+    // (the cut's image as the strokes draw it, read with them shown)
     await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); await drawn();
     const tracks = await ev(`(window.__seamsCut = __cmwCutCurves().filter((cut) => cut.step === 2).flatMap((cut) => (cut.w.length && Array.isArray(cut.w[0][0]) ? cut.w : [cut.w])).filter((t) => t.length > 1)).length`);
     ok(`cracks: ${kase.name}: the cut's image is drawn`, tracks > 0, tracks);
-    await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
-    ok(`cracks: ${kase.name}: the frame without the strokes is drawn`, await drawn(), null);
-    // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws
-    // none, so its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
+    await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 }); await drawn();
     const cutCurves = await ev('__cmwCutCurves().length');
     ok(`cracks: ${kase.name}, strokes hidden: no cut curve is drawn`, cutCurves === 0, cutCurves);
+    // (the colour layer alone is read: a crack is a gap in the fill, and the cut's curve with its paper-coloured halo is
+    // drawn over the fill)
+    await ev('__cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
+    ok(`cracks: ${kase.name}: the colour layer alone is drawn`, await drawn(), null);
     const got = info['cracks' + kase.n] = await ev(SCAN(null));
     ok(`cracks: ${kase.name}, parked half-way: the cut's image was sampled`, got.samples > MIN_SAMPLES, got);
     ok(`cracks: ${kase.name}, parked half-way: the fill lies on both sides of the cut's image`, got.twoSided >= TWO_SIDED * got.samples, got);
@@ -250,6 +251,7 @@ const park = async (x, scope) => {
     // the control: the same scan counts a crack drawn along the cut's image
     const control = info['cracksControl' + kase.n] = await ev(SCAN(PAPER));
     ok(`cracks (control): ${kase.name}: a one-pixel line of paper along the cut's image is counted`, control.cracks >= CAUGHT * control.samples && control.samples > MIN_SAMPLES, control);
+    await ev('__cmwSteps({ bare: false }); 1');
   }
 }
 return { pass: fails.length === 0, fails, info };
