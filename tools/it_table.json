@@ -1381,6 +1381,8 @@
  "Sound is off: turn it on here, or in the ⋯ menu.": "Il suono è disattivato: attivalo qui o nel menu ⋯.",
  "Sound is off: turn it on here, or with Sound in the top bar ({x}).": "Il suono è disattivato: attivalo qui o con «Suono» nella barra superiore ({x}).",
  "Sound is on: turn it off (Shift+M)": "Suono attivo: disattivalo (Shift+M)",
+ "Sound: Off": "Suono: disattivato",
+ "Sound: On": "Suono: attivo",
  "Sound off.": "Suono disattivato.",
  "Sound on or off": "Attiva o disattiva il suono",
  "Sound on.": "Suono attivato.",
