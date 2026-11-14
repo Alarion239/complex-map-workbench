@@ -22,9 +22,12 @@ const END_MEAN = 1.5, SAT_MIN = 40, HUE_TOL = 0.06, HUE_MIN = 3;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// (quiet: the programs and jobs are ready, no glide or play is under way and the sphere is idle; __cmwSteps().moving is also
+// true for a place parked between two planes, which is a still view, so it is not the wait)
+const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running)";
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  until: QUIET_UNTIL,
 });
 // (the left pane's colour at the globe's point (x, y) of the plane, read from the canvas; null off the pane)
 const pixelAt = (x, y) => ev(`(() => {

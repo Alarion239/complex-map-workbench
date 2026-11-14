@@ -15,7 +15,8 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
+// (at rest on plane i, the idle job done: its results change the cells a frame draws, so frames compared are kept after it)
+const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000, until: '!__cmwSvKey().busy' }); await ev(rAF2); };
 const carried = async () => JSON.parse(await ev('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)'));
 // (the share of the pane's pixels that are surface in one of kept frames a and b and not in the other)
 const apart = (a, b) => ev(`(() => {

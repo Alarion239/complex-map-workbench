@@ -9,7 +9,7 @@ const open = async (ns, st, q = '') => {
   await nav(`http://localhost:${P.port}/__blank_for_storage`);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await nav(`${base}?ns=${ns}${q}`); await settle(1500);
+  await go(`${base}?ns=${ns}${q}`); await settle(1500);
 };
 const SH = [{ id: 's1', kind: 'formula', expr: '|\\Im z| < 0.8' }];
 await view(1440, 900, false);

@@ -278,9 +278,10 @@
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
   }
   // ---------------- the Phase style button (issue #81) ----------------
-  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
-  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
-  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  // The phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever the plane is coloured; in the Landscape the button is there too, dimmed, and its menu
+  // leads to the Plane surface, where the styles are. Schematic glyphs, not a render of the user's function: they cost nothing
+  // and read in both themes.
   const STYLE_SVG = {
     enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
     phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
@@ -295,11 +296,12 @@
     setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
   }
-  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  // {show: the plane is coloured or is the Landscape, land: the Landscape (the styles are not its own), name, id}
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
   function styleItems(done) {
     if (lLand()) {
-      return Object.assign([{ label: $t('Styles belong to the flat Phase view'), disabled: true }, 'sep', { label: $t('Switch to Phase'), run: () => { setMain('phase'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+      const note = $t('Styles show on the Plane surface');
+      return Object.assign([{ label: note, disabled: true }, 'sep', { label: svSurfaceLabel('plane'), tip: note, run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
@@ -480,9 +482,10 @@
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
-  // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere). Not at start-up:
-  // compiles there compete with the first scene's own (example settle times)
-  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS); } catch (e) { /* the frame links them */ } }
+  // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere), as a view no pane
+  // shows until a globe frame asks for them. Not at start-up: compiles there compete with the first scene's own
+  // (example settle times)
+  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS, true); } catch (e) { /* the frame links them */ } }
   // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
   function setView(side, surf) {
     if (side === 'L' && lLand()) return;
@@ -547,6 +550,33 @@
     updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();
   }
   // the head controls show the state
+  // The canvas stack's surface and fit keys, on each plane's .viewstack. Sphere carries the surface in aria-pressed; a key the surface cannot
+  // use stays in its place, aria-disabled, with its reason as the tooltip and as the note the key's aria-describedby names.
+  function setStackKey(btn, note, off, why, tip) {
+    if (off) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
+    btn.title = off ? why : tip;
+    note.textContent = off ? why : '';
+  }
+  function syncStackKeys() {
+    for (const side of ['left', 'right']) {
+      const L = side === 'left', sph = $(side + 'Sph');
+      if (!sph) continue;
+      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
+      sph.setAttribute('aria-pressed', String(on));
+      sph.innerHTML = MODE_ICONS.sphere;
+      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
+    }
+  }
+  // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
+  function stackSphere(side) {
+    if ($(side === 'L' ? 'leftSph' : 'rightSph').getAttribute('aria-disabled') === 'true') return;
+    if (svSphereKey() != null) return;
+    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    const sb = tabs && tabs.querySelector('button[data-mode="sphere"]'), pb = tabs && tabs.querySelector('button[data-mode="plane"]');
+    const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
+    if (t) t.click();
+  }
   function syncViewControls() {
     const main = S.view.main;
     document.documentElement.classList.toggle('view-land', main === 'land');
@@ -557,6 +587,7 @@
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
     // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
     for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
+    syncStackKeys();
   }
   // Snap (the Draw heading and the rail) and Unit circle (Display) show the state (P3)
   function syncSnapUnit() {
