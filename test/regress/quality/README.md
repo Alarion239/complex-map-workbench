@@ -6,16 +6,14 @@ plane, Inside regions. For every pixel of the plane's canvas it compares where t
 truth** computed on the CPU from the known inverse of the scene's map. It then checks the metrics against a stored
 baseline using documented tolerances.
 
-**Coverage only (#984).** The steps view paints the carried colour inside the regions (a hue per point) and draws the
-regions solid at alpha 1: it has no region patterns or opacity. Each scene therefore runs once, `<name>.mask`, scored
-for coverage (IoU, holes, spill, hole_leak) by the `cover` classifier. The variants of the classic right pane's renderer
-went with it: `pattern` (checker parity), `polar` (log-polar parity), `mask85` / `mask20` (opacity at alpha 0.85 /
-0.2) and `polar85` / `polar50` (polar cells at alpha 0.85 / 0.5; the scene `zi_H_polar85` had no other run). The
-sections below still describe their metrics where `metrics.js` keeps them; no run produces them.
+**Coverage.** The steps view paints the carried colour inside the regions (a hue per point) and draws the regions
+solid at alpha 1: it has no region patterns or opacity. Each scene runs once, `<name>.mask`, scored for coverage (IoU,
+holes, spill, hole_leak) by the `cover` classifier. `metrics.js` also defines the checker and polar parity, opacity and
+colour metrics described below; `test/t_inverse_render.js` scores the CPU reference renderer (`Inverse.renderCPU`) with
+them, and no run of this suite produces them.
 
-It is the gate for the planned change to unbounded regions: meshing on the Riemann sphere, view-dependent adaptive
-refinement, a spherical checkerboard and exact per-pixel inverse rendering. Today's cut-off images of unbounded regions
-must show up as **improvements**. Every other scene must stay as it is.
+It gates the images of unbounded regions (filled to the view's edges, through infinity), of bounded controls, and of
+the exact per-pixel inverse renderer's hard cases (infinitely many sheets, essential singularities, healed cuts).
 
 ## Run it
 
@@ -88,7 +86,7 @@ Runner options (`node run_quality.js ...`):
    - It leaves out of the score the two axes, which the plane draws over the paper after the colour (2 CSS px each side
      of the origin's column and row); the truth's annotation band (`healed_cut`'s cut line); and, outside the true
      image, the cut strokes the plane draws there (a blend of the paper and `--cut`: log's cut lines, z^i's cut circle
-     \|w\| = e^π at `zi_H_out16`), which the original suite never judged outside the image either.
+     \|w\| = e^π at `zi_H_out16`): a stroke outside the image is no spill.
 6. **Truth** (`scenes.js`, `metrics.js`). This code is independent of the app's code.
    - For a pixel centre `w`, `pre(w)` lists every candidate preimage `z`, across all branches. `w` is inside the true
      image when some candidate lies in the source region (`region(z)`, the exact level set).
@@ -100,26 +98,27 @@ Runner options (`node run_quality.js ...`):
 ## Scenes
 
 Views are written as (centre, px per unit). Every scene runs as `<name>.mask`; the column *view of the image* is `wView`.
-The *baseline today* and *variants* columns record the classic right pane's runs, when they were recorded.
 
-**Unbounded regions.** Today these are cut off somewhere. The planned change should fill them to the view edges.
+**Unbounded regions.** Their images reach the view's edges.
 
-| scene | map and region | exact truth | view of the image | baseline today |
-|---|---|---|---|---|
-| `logH` | log z (cut 180°) of the upper half-plane | 0 < Im w < π | (−0.18 + iπ/2, 97): the app's auto-fit | perfect |
-| `logH_out4` | same, zoomed out 4× | 0 < Im w < π | s = 24.25 | strip cut off at both ends; ragged left end |
-| `logH_out16` | same, zoomed out 16× | 0 < Im w < π | s = 6.06 | strip covers about 18 % of its true length |
-| `exp_strip` | e^z of the strip \|Im z\| < π/2 (formula) | Re w > 0 | (2, 40) | perfect |
-| `cayley_H` | (z − i)/(z + i) of the upper half-plane | \|w\| < 1 | (0, 190) | perfect |
-| `cayley_H_zoom1` | same, 64× zoom on w = 1, the image of ∞ | \|w\| < 1 | (1, 12160) | large wedge-shaped holes |
-| `recip_ext` | 1/z of the exterior \|z\| > 1 (complement disc) | 0 < \|w\| < 1 | (0, 180) | perfect |
-| `recip_ext_zoom0` | same, 128× zoom on w = 0, the image of ∞ | 0 < \|w\| < 1 | (0, 23040) | large wedge-shaped holes |
-| `sq_Q1` | z² of the first quadrant (sector, r = 0) | Im w > 0 | (2i, 60) | perfect |
-| `sqrt_slit` | principal √z of the slit plane (formula \|z\| > 0, cut 180°) | Re w > 0 | (1, 120) | perfect |
-| `sqrt_slit_out16` | same, zoomed out 16× | Re w > 0 | (1, 7.5) | cut off at \|w\| ≈ 25 (scalloped arc) |
-| `sin_halfstrip` | sin z of \|Re z\| < π/2, Im z > 0 (formula) | Im w > 0 | (2i, 50) | perfect |
+| scene | map and region | exact truth | view of the image |
+|---|---|---|---|
+| `logH` | log z (cut 180°) of the upper half-plane | 0 < Im w < π | (−0.18 + iπ/2, 97): the app's auto-fit |
+| `logH_out4` | same, zoomed out 4× | 0 < Im w < π | s = 24.25 |
+| `logH_out16` | same, zoomed out 16× | 0 < Im w < π | s = 6.06 |
+| `exp_strip` | e^z of the strip \|Im z\| < π/2 (formula) | Re w > 0 | (2, 40) |
+| `cayley_H` | (z − i)/(z + i) of the upper half-plane | \|w\| < 1 | (0, 190) |
+| `cayley_H_zoom1` | same, 64× zoom on w = 1, the image of ∞ | \|w\| < 1 | (1, 12160) |
+| `recip_ext` | 1/z of the exterior \|z\| > 1 (complement disc) | 0 < \|w\| < 1 | (0, 180) |
+| `recip_ext_zoom0` | same, 128× zoom on w = 0, the image of ∞ | 0 < \|w\| < 1 | (0, 23040) |
+| `sq_Q1` | z² of the first quadrant (sector, r = 0) | Im w > 0 | (2i, 60) |
+| `sqrt_slit` | principal √z of the slit plane (formula \|z\| > 0, cut 180°) | Re w > 0 | (1, 120) |
+| `sqrt_slit_out16` | same, zoomed out 16× | Re w > 0 | (1, 7.5) |
+| `sin_halfstrip` | sin z of \|Re z\| < π/2, Im z > 0 (formula) | Im w > 0 | (2i, 50) |
 
-**Bounded controls.** These must not change. They are checked by the metrics and by golden PNGs in `golden/`.
+**Bounded controls.** These must not change. They are checked by the metrics and by golden PNGs in `golden/`
+(`<name>.mask.png`, written by `run_quality.js --accept` on the Mac GPU; CI's paired run diffs them against the
+reference build's renders instead).
 
 | scene | map and region | exact truth | view of the image |
 |---|---|---|---|
@@ -128,25 +127,22 @@ The *baseline today* and *variants* columns record the classic right pane's runs
 | `annulus_log` | principal log of 0.5 < \|z\| < 2 | the rectangle log 0.5 < Re w < log 2, \|Im w\| < π | (0, 72) |
 | `poly_mobius` | a pentagon in the upper half-plane under the Cayley map | inverse Cayley of w lies in the pentagon | (0, 200) |
 
-**Exact images through infinity** (added in phase P0 of `notes/sphere-design/SPEC.md`, section 12.4). Infinitely
-many sheets, essential singularities, shapes far from the left view, an outer exp over a non-affine prefix, a cut that
-a later step heals. The per-pixel inverse renderer (P2) must raise the bad values below as IMPROVED and meet the
-targets of the spec (see *Targets*). Their truths enumerate every member of the preimage families that can lie in
+**Exact images through infinity** (`notes/sphere-design/SPEC.md`, section 12.4). Infinitely many sheets, essential
+singularities, shapes far from the left view, an outer exp over a non-affine prefix, a cut that a later step heals.
+They must meet the targets of the spec (see *Targets*). Their truths enumerate every member of the preimage families that can lie in
 the region (`scenes.js`; no sampling, no app code) and are checked independently by `verify_truth.js` (see *Verifying
-the truths*). Variants beyond mask and pattern are listed per scene.
+the truths*).
 
-| scene | map and region | exact truth | view of the image | variants |
-|---|---|---|---|---|
-| `zi_H`, `zi_H_out4`, `zi_H_out16` | z^i (complex power α = i, cut 180°, sheet 0) of the upper half-plane; left view (0, i, 60) | the open annulus e^−π < \|w\| < 1 (only members with −ln\|w\| in (−π, π] exist; z_m = e^{Arg w + 2πm − i ln\|w\|} is in H iff −ln\|w\| is in (0, π)); the disc \|w\| < e^−π must stay empty | (0, 190), s = 47.5, 11.875 | `zi_H`: mask, pattern, **polar**, **mask85**, **mask20**; `_out4`: mask, pattern, polar; `_out16`: mask, pattern |
-| `expH`, `expH_out16` | e^z of the upper half-plane; left view (0, i, 60) | w ≠ 0 (members Log w + 2πim, Im > 0 for every m ≥ 1) | (0, 60), s = 3.75 | `expH`: mask, pattern, mask85, mask20 |
-| `e1z_disc`, `e1z_disc_out16` | the chain [1/z, exp] of \|z\| < 1; left view (0, 120) | w ≠ 0 (z_m = 1/(Log w + 2πim) lies in the disc for every m ≠ 0) | (0, 60), s = 3.75 | `e1z_disc`: mask, pattern, mask85, mask20 |
-| `e1z_custom` | custom formula `e^{\frac{1}{z}}` of \|z\| < 1 | as `e1z_disc` | (0, 60) | mask, pattern, mask85 |
-| `exp_far_disc` | e^z of \|z − 60i\| < 1, the left view zoomed out to ±80 × ±100 (s = 2.5625) | some Log w + 2πim lies in the disc (m = 9 or 10; m = 7..12 enumerated) | (0, 60) | mask, pattern |
-| `ez2_disc` | custom `e^{z^2}` of \|z − (3+3i)\| < 0.3, the default left view (0, 60) | some ±√(Log w + 2πim) lies in the disc (m = 2, 3; m = −1..6 enumerated) | (3.3 − 3.15i, 22): fitted to the image | mask, pattern |
-| `healed_cut` | [log (cut 180°), exp] of \|z + 1\| < 0.6; left view (−1, 150) | the disc itself (exp(Log z) = z) | (−1 + i·0.5/150, 150): log's cut runs through pixel centres | mask, pattern |
+| scene | map and region | exact truth | view of the image |
+|---|---|---|---|
+| `zi_H`, `zi_H_out4`, `zi_H_out16` | z^i (complex power α = i, cut 180°, sheet 0) of the upper half-plane; left view (0, i, 60) | the open annulus e^−π < \|w\| < 1 (only members with −ln\|w\| in (−π, π] exist; z_m = e^{Arg w + 2πm − i ln\|w\|} is in H iff −ln\|w\| is in (0, π)); the disc \|w\| < e^−π must stay empty | (0, 190), s = 47.5, 11.875 |
+| `expH`, `expH_out16` | e^z of the upper half-plane; left view (0, i, 60) | w ≠ 0 (members Log w + 2πim, Im > 0 for every m ≥ 1) | (0, 60), s = 3.75 |
+| `e1z_disc`, `e1z_disc_out16` | the chain [1/z, exp] of \|z\| < 1; left view (0, 120) | w ≠ 0 (z_m = 1/(Log w + 2πim) lies in the disc for every m ≠ 0) | (0, 60), s = 3.75 |
+| `e1z_custom` | custom formula `e^{\frac{1}{z}}` of \|z\| < 1 | as `e1z_disc` | (0, 60) |
+| `exp_far_disc` | e^z of \|z − 60i\| < 1, the left view zoomed out to ±80 × ±100 (s = 2.5625) | some Log w + 2πim lies in the disc (m = 9 or 10; m = 7..12 enumerated) | (0, 60) |
+| `ez2_disc` | custom `e^{z^2}` of \|z − (3+3i)\| < 0.3, the default left view (0, 60) | some ±√(Log w + 2πim) lies in the disc (m = 2, 3; m = −1..6 enumerated) | (3.3 − 3.15i, 22): fitted to the image |
+| `healed_cut` | [log (cut 180°), exp] of \|z + 1\| < 0.6; left view (−1, 150) | the disc itself (exp(Log z) = z) | (−1 + i·0.5/150, 150): log's cut runs through pixel centres |
 
-Variants: **polar** = pattern `polar` (the app's log-polar checker); **mask85** / **mask20** = solid at alpha 0.85 / 0.2
-(where infinitely many sheets overlap the exact image is opaque at any alpha). Display settings otherwise as above.
 For `expH` and `e1z_*` the boundary stroke (the image of the region's boundary: the positive real ray, the curve
 e^{e^{iφ}}) runs through the inside of the image; like `disc_cube` they exclude a 2.5 px band around it (`srcSdf`).
 
@@ -193,7 +189,7 @@ Pixels within **2.5 px** of the true boundary are excluded from every count.
 
 The app draws a boundary as a 1.5 px stroke on a 3.5 px halo, so within about 2.4 px of the boundary the fill is not
 visible, whatever the fill does. With a 2 px band, halo pixels whose class flips with the boundary's sub-pixel phase
-were left in the counts. For example, `logH_out16.pattern` parity moved by 0.03.
+were left in the counts.
 
 For `disc_cube` the band also covers the image of the disc's boundary where it folds into the inside of the image, since
 the stroke is drawn there too. This uses the first-order distance `|sdf_Ω(z)|·|F'(z)|` over all preimages.
@@ -284,11 +280,9 @@ node test/regress/quality/run_quality.js --accept test/regress/quality/out/new
 ```
 
 **Targets.** `tolerances.json` `targets` holds the absolute thresholds of the spec: IoU ≥ 0.999, holes and spill ≤
-0.001 for every scene of the new groups and every old unbounded scene except `sqrt_slit_out16` (SPEC 11, P2 gate);
-`color_off` ≤ 0.001 for the new groups (the exact image shows the opaque fill colours at any alpha: SPEC 12.4, 6.1;
-added in the P0 review, not a number of the spec); `hole_leak` 0 for `zi_H*`; polar parity ≥ 0.999 for `zi_H.polar`
-and `zi_H_out4.polar`; `opacity_min` ≥ 0.99 for the mask85 runs of z^i, exp(H) and e^{1/z}, the mask20 runs of z^i,
-exp(H) and e^{1/z} (12.1 (g)), and `healed_cut.mask`. A run that a rule names but that has **no value** for the metric
+0.001 for every scene of the new groups and every old unbounded scene except `sqrt_slit_out16` (SPEC 11, P2 gate),
+the P2 review's saturation and deep-zoom scenes (`atanh_D*`, `atan_D*`, `cube_far_deep`) and `zp_disc`; `hole_leak` 0
+for `zi_H*`. A run that a rule names but that has **no value** for the metric
 (missing or null: a crashed run, nothing scored) is **NOT MET**. `compare_quality.py` prints them as `MET` / `NOT MET`
 (only the NOT MET ones without `--all`) and fails on a NOT MET target only with `--enforce-targets` (through
 `compare.py`: `--quality-enforce-targets`), to be used from the phase that must meet them (P2 for the flat image).
@@ -298,43 +292,7 @@ the tolerance are listed as `better` or `worse (in tol)`. Reported metrics are l
 own tolerance.
 
 To loosen or tighten one metric for one run or scene deliberately, add an entry to `overrides` in `tolerances.json`. For
-example, `"logH_out4.pattern": {"parity_acc": {"tol": 0.01}}`.
-
-## What the planned change should do to these numbers
-
-- **Should improve.** `logH_out4` (IoU 0.73), `logH_out16` (0.18), `cayley_H_zoom1` (0.77 / 0.71), `recip_ext_zoom0`
-  (0.81 / 0.75) and `sqrt_slit_out16` (0.61). IoU should rise and holes should fall. `logH_out4.pattern` parity (0.983)
-  should rise once its ragged end is filled correctly.
-- **Must not change.** Everything else is at IoU 1, holes 0, spill 0 and parity 1 today. The golden diffs of the bounded
-  controls must stay at or below 0.5 %. Spill must not appear anywhere: for example, triangles through ∞ crossing a
-  strip's edge would show as spill.
-- **The SPEC 12.4 scenes** start as NEW runs. Their values on the code of 2026-10-19 (app sha1 `04aa240d1958`, the
-  same as the baseline; Chrome 155.0.8059.85; strict rules, `out/latest` of the P0 review, renders bit-identical to the
-  builder's `out/p0-full`):
-
-  | run | today | target |
-  |---|---|---|
-  | `zi_H.mask` / `.pattern` / `.polar` / `.mask85` | IoU 0.9950 / 0.9946 / 0.9949 / 0.9948, holes 0.50–0.54 % (straight chords along the outer rim \|w\| = 1, upper right: the fill and its boundary stroke, whose dark pixels now count as holes), `color_off` 0.6–0.7 % | IoU ≥ 0.999, holes ≤ 0.001, colour ≤ 0.001 |
-  | `zi_H.pattern` / `_out4` / `_out16` | front-sheet checker parity **0.641** (n 81,586) / **0.526** (n 3,368) / 0.337 (n 92) | gated once recorded |
-  | `zi_H.polar` / `zi_H_out4.polar` | polar parity **0.948** (n 95,113) / **0.969** (n 3,483): sheets drawn with mangled cells in the lower half | ≥ 0.999 |
-  | `zi_H.mask85` | opacity p01 **0.85**, mean 0.935, min 0.13: mostly one sheet; `color_off` 0.39 | opacity_min ≥ 0.99 |
-  | `zi_H.mask20` | IoU **0.009**, holes 0.99, opacity mean 0.32: one sheet at alpha 0.2; `color_off` 1 | IoU ≥ 0.999, opacity ≥ 0.99 |
-  | `zi_H*` hole_leak | **0 / 112** at the default view: today's forward path keeps the hole empty (also with the left view at (0, 60), (0.5i, 30), (0, 15), (0, 240), (0.5+0.3i, 120)) | 0 |
-  | `zi_H_out4` / `_out16` | IoU 0.9940 / 1.0 (mask), holes 0.60 % / 0 | as `zi_H` |
-  | `expH.pattern` / `expH_out16.pattern` | front-sheet checker parity **0.311** / **0.373**: today's mesh puts the sheet above the left view's in front | gated once recorded |
-  | `e1z_disc.pattern`, `e1z_disc_out16.pattern`, `e1z_custom.pattern` | parity **0.500**: today's render shows plain `c0` (no checker) everywhere | gated once recorded |
-  | `expH.mask20` | IoU **0.815**, holes 0.19, opacity 0.49, `color_off` 1 | IoU ≥ 0.999, opacity ≥ 0.99 |
-  | `expH.mask85` | opacity 0.997 | ≥ 0.99 (met) |
-  | `e1z_disc.mask20` | IoU 1, opacity **0.987** everywhere | opacity ≥ 0.99 |
-  | `e1z_disc_out16.mask` | IoU 0.99994 (a few pixels near w = 0) | IoU ≥ 0.999 (met) |
-  | `expH`, `e1z_disc`, `e1z_custom` mask / mask85, `exp_far_disc`, `ez2_disc`, `healed_cut.mask` | IoU 1, holes 0, spill 0, parity 1 (far disc, e^{z²}), opacity 1, `color_off` 0 | must stay |
-  | `healed_cut.pattern` | IoU 0.9995, holes 0.05 % (13 antialiased dash ends of the cut line, a blend nearest the background) | IoU ≥ 0.999 (met) |
-
-  The spec expected today's z^i hole to be filled; on this code it is not, at any left view tried, so `hole_leak`
-  guards the change instead of showing an improvement. What today gets wrong for z^i is the polar pattern, the rim
-  chords and the opacity at alpha < 1; for every infinite-sheet scene, the sheet in front.
-- **The new spherical checkerboard** is a new pattern. These scenes use the planar `checker`. Once the new pattern exists,
-  add pattern scenes for it with a truth on the sphere.
+example, `"logH_out4.mask": {"iou": {"tol": 0.01}}`.
 
 ## Updating the baseline deliberately
 
@@ -343,7 +301,8 @@ test/regress/quality/run.sh --update-baseline
 ```
 
 This runs the suite and prints the comparison with the **old** baseline for review. It then makes this run the baseline:
-`baseline.json` and the 4 golden PNGs in `golden/` (the bounded controls' `.mask` runs). You can also accept an existing run with
+`baseline.json` and the 4 golden PNGs in `golden/` (the bounded controls' `.mask` runs; `--accept` creates the
+directory). You can also accept an existing run with
 `node test/regress/quality/run_quality.js --accept out/latest`.
 
 - A run made with `--only` updates only its runs inside the existing baseline.
@@ -361,23 +320,11 @@ Never update the baseline only to make a failing gate pass.
 After you edit `metrics.js` or a scene's truth, `node run_quality.js --reeval DIR` recomputes a run's metrics from its
 renders without a browser. Re-baseline after any change to the suite itself.
 
-## Determinism and sensitivity (measured when the baseline was recorded)
+## Sensitivity
 
-- **Determinism.** The baseline run and two more full runs produced bit-identical renders for **32/32** runs (same
-  `render_sha1`) and identical metrics. After the SPEC 12.4 scenes were added (P0), a full run of all 63 runs on the
-  unchanged code (Chrome 155.0.8059.85, `out/p0-full/`) reproduced the 32 baseline renders bit for bit with identical
-  metrics, and two runs of the 31 new runs gave identical renders and metrics. `compare_quality.py` printed `32 runs: 0 failed, 0 improved, 32 unchanged` for
-  both. Only `settle_ms` varies, by a few ms.
-- **Sensitivity check.** `node run_quality.js --override '{"meshN":80}' --out out/sens` uses a coarser mesh (80
-  instead of 240). It **fails 7 runs**:
-  - `logH.mask` holes 0 → 0.0015;
-  - `logH_out4` IoU 0.728 → 0.679 and spill 0 → 0.0049;
-  - `logH_out16` IoU 0.182 → 0.177;
-  - `cayley_H.pattern` holes → 0.00104.
-
-  The deep-zoom scenes come out as improved under this override, because fewer triangles are dropped there. The
-  bounded-control golden diffs moved only 0.00–0.18 %, below the 0.5 % gate. Geometric accuracy is gated by the
-  metrics; the golden PNGs catch visible changes to unchanged scenes.
+`node run_quality.js --override '{"meshN":80}' --out out/sens` renders every scene with a coarser mesh (80 instead of
+240) and is never accepted as a baseline: compare it with a normal run to see which runs a geometric change moves.
+Geometric accuracy is gated by the metrics; the golden PNGs catch visible changes to unchanged scenes.
 
 ## Verifying the truths (`verify_truth.js`)
 
@@ -422,22 +369,20 @@ and requires IoU 1, holes 0, spill 0 and hole_leak 0. Then deliberate defects mu
 | `metrics.js` | pixel classes, truth grid, distance transform, metrics, golden diff |
 | `pngio.js` | a dependency-free PNG encoder and decoder |
 | `tolerances.json` | the gate, and the spec's absolute targets |
-| `baseline.json` | the accepted metrics, recorded on the Mac GPU (re-recorded after #984 moved the suite to the steps view) |
-| `golden/` | golden PNGs of the bounded controls (`<name>.mask.png`), written by `--accept` |
+| `baseline.json` | the accepted metrics of the Mac GPU, written by `--accept` (`run.sh --update-baseline`) |
+| `golden/` | golden PNGs of the bounded controls (`<name>.mask.png`), written by `--accept` (it creates the directory) |
 | `../compare_quality.py` | the pass/fail comparison. Also used by `../compare.py` through `main(argv)` |
 | `../test_compare.py` | self-test of both gates on synthetic results (crashed NEW runs, missing target values, null metrics, NEW checks and limits) |
 
 ## Caveats
 
-- **The baseline belongs to one machine.** It was recorded with ANGLE on Metal, on this Mac and this Chrome. On another
-  GPU or Chrome the renders may differ by antialiasing: expect small metric changes and golden diffs. Re-baseline there
-  first.
-- **ANNOT pixels are not judged in the original scenes.** There, a regression that draws the fill in a stroke-like
-  colour, such as the edge colour or the cut colour, is not counted as a hole. It does fail the goldens for the bounded
-  controls, and the `annot` fraction rises. The SPEC 12.4 scenes count such pixels as holes and gate the fill colour
-  (`color_off`). Outside the true image ANNOT pixels are not judged in any scene (cut lines and markers are drawn
-  there, e.g. the circle \|w\| = e^π of z^i's cut at `zi_H_out16`). Colours far from every reference are UNKNOWN and
-  are counted as errors.
+- **The baseline belongs to one machine.** `baseline.json` and `golden/` are written by `--accept` from a run on the
+  Mac GPU (ANGLE on Metal). On another GPU or Chrome the renders may differ by antialiasing: expect small metric changes
+  and golden diffs. Re-baseline there first. A run the baseline has no entry for is NEW; one it scores differently fails
+  `--absolute` until it is accepted.
+- **A cover run sees no colour, only coverage.** A regression that draws the image in a wrong colour is not counted
+  while the colour is not the paper's; the bounded controls' goldens catch it. A stroke drawn outside the image in the
+  cut colour is left out (no spill).
 - **The paper is the background.** A cover run counts every colour farther than 24 RGB units from `--plane` as fill:
   a colour scheme whose carried colour comes that close to the paper would read as holes.
 - **Settling depends on a quiet period.** If the new refinement pauses for longer than 1.5 s between visible steps while

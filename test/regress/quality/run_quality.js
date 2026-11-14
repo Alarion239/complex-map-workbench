@@ -259,7 +259,7 @@ async function renderRun(B, run, opt) {
 // the pixels a 'cover' run leaves out: the axes, which the plane draws over the paper after the colour (2.5 CSS px wide
 // at the origin's column and row: 2 CSS px each side); the truth's annotation band (healed_cut's cut line); and,
 // outside the true image, the cut strokes the plane draws there (a blend of the paper and --cut within
-// metrics.COVER_BG of that line: log's cut lines, z^i's cut circle), which the original suite never judged either
+// metrics.COVER_BG of that line: log's cut lines, z^i's cut circle): a stroke outside the image is no spill
 function coverSkip(geo, colors, rgba, T, W, H) {
   const skip = new Uint8Array(W * H), d = geo.dpr, ox = (geo.o[0] - geo.rect[0]) * d, oy = (geo.o[1] - geo.rect[1]) * d;
   const hex = (h, dflt) => { const m = /^#?([0-9a-f]{6})/i.exec(String(h || '').trim()) || [0, dflt]; return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)); };

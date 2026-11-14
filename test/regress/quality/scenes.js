@@ -545,8 +545,7 @@ const DISPLAY = { focus: 0, alpha: 1, lines: false, unit: false, fov: false, out
 // where a run stands in the steps view (__cmwSteps): the last plane, Inside regions, the colour layer alone; a globe's
 // run names its own (plane: 'last' or an index; surf)
 const STAND = { plane: 'last', scope: 'in', surf: 'plane', bare: true };
-// the scene groups of the original suite (recorded 2026-10-19): their runs keep the original metric rules; the groups
-// added for SPEC 12.4 are scored strictly (metrics.js)
+// the scene groups scored by the original metric rules; every other group is scored strictly (metrics.js)
 const LEGACY_GROUPS = new Set(['unbounded', 'bounded']);
 
 function bboxSide(s) {

@@ -369,9 +369,7 @@ Retina zoom at the 14 ms line), and re-record the 8 bounded reference images wit
 - **Perf: `perf/accepted.json`.** Each entry names one metric, a cap (`max`) and the reason. `compare_perf.py` reports a
   listed FAIL as `ACCEPTED` only while the value stays at or below its cap; above the cap it FAILS again. Entries: the
   GPU memory and post-zoom settle time of the two hard essential-singularity chains drawn by the P5 SphereMesh,
-  `image.custom_e_z1z.m240` (e^{z+1/z}) and `image.expexp_H.m240` (exp(exp z)) (the second consent, same day). The
-  first consent's entries (the Phase scenes' memory with the images in a right pane, and the zoom of z^i of H at 30 %
-  opacity) went with the right pane and the region opacity, which the steps view does not have.
+  `image.custom_e_z1z.m240` (e^{z+1/z}) and `image.expexp_H.m240` (exp(exp z)) (the second consent, same day).
   Example 9's mesh cost is explicitly NOT excepted: it is fixed at the root (inverse support for rational formulas).
   Add an entry only with the user's consent.
 - **Quality: the 8 bounded goldens** (`disc_cube`, `joukowski`, `annulus_log`, `poly_mobius`, mask and pattern) were
