@@ -1482,7 +1482,7 @@
       const n = svRingNext();
       if (!n) return false;
       // (a size made whose polar mesh is not built: the job only builds it)
-      svRingJob = { key: n.key, gen: n.m !== undefined ? (function* () { return n.m; })() : svRingSize(n.g, n.q, n.v, n.w, n.h) };
+      svRingJob = { key: n.key, gen: n.m !== undefined ? { next: () => ({ done: true, value: n.m }) } : svRingSize(n.g, n.q, n.v, n.w, n.h) };
     }
     for (;;) {
       const r = svRingJob.gen.next();
