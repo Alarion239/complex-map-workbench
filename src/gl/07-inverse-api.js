@@ -617,15 +617,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
     u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
     u1i(P, 'uShStage', rec.stage);
-    // st.edge {w, a, rgb, casing {w, a, rgb}}: the boundary alone (a shape of a later plane only: the boundary draw and the
-    // grow live in the staged program), a line w device px wide at alpha a in colour rgb (default black: a mask's alpha band)
-    // over an optional casing. The widths are the full ones; the uniforms hold half widths: the line reaches w / 2 to each side
+    // st.edge {width, alpha, color, casing {width, alpha, color}} (shapeStroke's): the boundary alone (a shape of a later
+    // plane only: the boundary draw and the grow live in the staged program), a line width device px wide at alpha in
+    // color (default black: a mask's alpha band) over an optional casing. The widths are the full ones; the uniforms hold
+    // half widths: the line reaches width / 2 to each side
     const staged = rec.stage > 0;
     u1i(P, 'uEdgeOnly', staged && st.edge ? 1 : 0);
     if (staged && st.edge) {
       const e = st.edge, cs = e.casing;
-      u1f(P, 'uEdgeW', 0.5 * e.w); u1f(P, 'uEdgeA', e.a); u3(P, 'uEdgeC', e.rgb || [0, 0, 0]);
-      u1f(P, 'uEdgeCW', cs ? 0.5 * cs.w : 0); u1f(P, 'uEdgeCA', cs ? cs.a : 0); u3(P, 'uEdgeCC', cs ? cs.rgb : [0, 0, 0]);
+      u1f(P, 'uEdgeW', 0.5 * e.width); u1f(P, 'uEdgeA', e.alpha); u3(P, 'uEdgeC', e.color || [0, 0, 0]);
+      u1f(P, 'uEdgeCW', cs ? 0.5 * cs.width : 0); u1f(P, 'uEdgeCA', cs ? cs.alpha : 0); u3(P, 'uEdgeCC', cs ? cs.color : [0, 0, 0]);
     }
     u1f(P, 'uStageGrow', staged ? st.grow || 0 : 0);
     const win = st.prep.win;
