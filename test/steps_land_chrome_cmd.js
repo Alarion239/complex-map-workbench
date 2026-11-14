@@ -45,7 +45,8 @@ for (const T of [1, 2]) {
     ok(`T = ${T}, plane ${i}: the title's height is log|${x}|`, String(role).replace(/<[^>]*>/g, '').includes(`log|${x}|`), role);
     const lab = rows.map((r) => r[0].trim());
     ok(`T = ${T}, plane ${i} at rest: the readout reads |${x}|`, lab.includes(`|${x}|`), rows);
-    ok(`T = ${T}, plane ${i} at rest: the readout reads ${x} ${i === T ? 'not again (it is the plane\'s own variable)' : ''}`, lab.includes(x) === (i !== T), rows);
+    // (on T, x is the plane's own variable: its row is the point's, not repeated)
+    ok(`T = ${T}, plane ${i} at rest: the readout reads ${x} once`, lab.filter((l) => l === x).length === 1, rows);
   }
   for (const x of [0.5, 1.5]) {
     await rest(Math.floor(x));
