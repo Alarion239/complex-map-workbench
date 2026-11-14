@@ -13,42 +13,30 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // the steps view's state as the test hooks read it: the place (x, T), the colour plane's scope and surface, the chain's planes,
 // the selected step, the deformation range and whether the deformation is open
 const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.on, x: s.x, T: s.T, scope: s.scope, surf: s.surf, planes: s.planes, sel: s.sel, homRange: s.homRange, range: s.range, solo: s.solo, main: s.main, view: c.view, morphOpen: c.morph.open }; })()`;
-// the page is ready for a read when it has the steps hook and the steps view is on (the read does not need the glide to have ended)
-const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on";
+// (a place between two planes counts as moving, so a view opened there is ready once its hook has the planes: parked)
+const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
+const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().ready.ready";
+const OPEN_MS = 30000;
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
-const READY_MS = 30000, READY_POLL_MS = 4000, RELOAD_POLL_MS = 250;   // (ms: the longest a page may take to be ready; one wait inside it; the pause after a call a reload cut off)
-// The page is ready when READY holds. A reload that destroys the page during a wait ends that wait at once, with the page's error or
-// a rejected call ("Inspected target navigated or closed"), not at its limit, so the wait is asked again until READY holds, up to
-// READY_MS; a page that never gets there is a named failure.
-const untilReady = async (what) => {
-  const t0 = Date.now();
-  let r;
-  do {
-    try { r = await settled({ max: READY_POLL_MS, until: READY }); } catch (e) { r = { ok: false, error: String(e).slice(0, 120) }; await sleep(RELOAD_POLL_MS); }
-  } while (!(r && r.ok) && Date.now() - t0 < READY_MS);
-  if (!(r && r.ok)) {
-    // (which part of READY is missing: the hook, or the steps view being on)
-    const parts = await ev(`typeof __cmwSteps !== 'function' ? { hook: false, readyState: document.readyState } : { hook: true, on: __cmwSteps().on, href: location.href.slice(0, 60) }`).catch((e) => ({ error: String(e).slice(0, 80) }));
-    fails.push({ name: `${what}: the page was not ready within ${READY_MS} ms (the steps hook defined and the steps view on)`, got: { wait: r, parts } });
-  }
+// The page is ready when READY holds, on a document other than the one that was open (the kit's reloaded(old, ...)): a reload
+// that replaces the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
+// never gets there is a failed check naming the missing part. (The state is read through the hooks: a pane still refining its
+// Landscape does not hold the wait.)
+const untilReady = async (name, old, parked) => {
+  let err = null;
+  try { await reloaded(old, parked ? READY_PARKED : READY, { limitMs: OPEN_MS }); } catch (e) { err = String((e && e.message) || e); }
+  ok(name, !err, err);
 };
-const openAt = async (url) => { await go(url); await untilReady(`open ${url.replace(/^.*?\/test\.html/, 'test.html').slice(0, 80)}`); };
+const openAt = async (url, parked) => {
+  const old = await ev('performance.timeOrigin');
+  await go(url);
+  await untilReady(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, old, parked);
+};
 // A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
 // settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
-// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read. Any
-// other error still fails the suite; the deadline is 30 s.
-const NAV = /navigated or closed/;
-const reloadedFigure = async (toastText) => {
-  const until = `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
-  for (let i = 0; i < 120; i++) {
-    let r = null;
-    try { r = await ev(until); } catch (e) { if (!NAV.test(String(e && e.message || e))) throw e; }
-    if (r && r.__exc && NAV.test(String(r.__exc))) r = null;
-    if (r === true) return;
-    await sleep(250);
-  }
-  throw new Error(`the figure did not open: no "${toastText}" on the reloaded page`);
-};
+// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read: the kit's reloaded(old, ...), where old is the
+// page's document before the link was opened. Any other error still fails the suite; the deadline is 30 s.
+const reloadedFigure = (old, toastText) => reloaded(old, `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`, { limitMs: 30000 });
 const grab = async (name) => { const e = exc(await logs()); if (e.length) errs.push({ name, e: e.slice(0, 3) }); };
 // a link's payload, as the app makes it: #cmw=0.<base64url JSON> or #cmw=1.<base64url of deflate-raw JSON>
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -85,7 +73,7 @@ for (const [name, st, want] of CASES) {
   // the save is written by the classic view (a classic-era save), then the steps view opens it: the view the classic page reads is the
   // state's own, and the steps view adopts its equivalent (Views.svOf)
   await loadView('classic', ns, st);
-  await settled({ max: 15000, until: "typeof __cmwState === 'function'" });
+  await settled({ max: 15000, only: true, until: "typeof __cmwState === 'function'" });   // (the hook alone: a pane still refining does not hold it)
   const asLoaded = await ev('__cmwState().view');   // (the classic view's picture of the save)
   info[name + ' (as loaded)'] = asLoaded;
   if (name in LOADED_MAIN) { const L = LOADED_MAIN[name]; ok(name + ': the saved view is loaded as ' + L.main, asLoaded && asLoaded.main === L.main && (!L.side || asLoaded[L.side].surf === L.surf), asLoaded); }
@@ -119,8 +107,9 @@ const FORMS = [
 for (const [name, url] of FORMS) {
   n++;
   const ns = 'lmig' + n + Date.now();
+  const old = await ev('performance.timeOrigin');
   await go(url(ns));
-  await reloadedFigure('Opened the figure from the link.');
+  await reloadedFigure(old, 'Opened the figure from the link.');
   const got = await ev(READ);
   info[name] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`${name}: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
@@ -135,7 +124,7 @@ n++;
   const ns = 'lmig' + n + Date.now();
   const key = JSON.stringify('complex-map-workbench-v1:' + ns);
   const fig = { ...LINK_STATE, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, figMorph: { T: 1.5 } };
-  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`, true);
   const got = await ev(READ);
   info['link with figCam and figMorph'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`figCam link: ${k}`, eq(got[k], k === 'x' ? 1.5 : LINK_WANT[k]), { k, want: LINK_WANT[k], got });
@@ -158,8 +147,9 @@ n++;
   const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
   const open = async (figCam) => {
     const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
+    const old = await ev('performance.timeOrigin');
     await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
-    await reloadedFigure('Opened the figure from the link.');
+    await reloadedFigure(old, 'Opened the figure from the link.');
   };
   const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
   await open(base);   // no `of`: the Landscape's camera
@@ -183,8 +173,9 @@ n++;
 {
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  const old = await ev('performance.timeOrigin');
   await ev(`__cmwPOpen(${JSON.stringify(LINK_STATE)}, 'scene'); 1`);
-  await reloadedFigure('Opened the scene.');
+  await reloadedFigure(old, 'Opened the scene.');
   const got = await ev(READ);
   info['open a classic state in the page (scene)'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`scene: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
@@ -198,6 +189,7 @@ const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++
 // page does not use (the new page clears the keys at its load)
 const PROBE = 'cmw-test-probe-open';
 const probeOpen = async (st, how) => {
+  const old = await ev('performance.timeOrigin');
   // (the open is deferred past this call's reply: its reload would otherwise close the target while the call waits for it)
   await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); setTimeout(() => __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}), 0); 1`);
   // the read retries while the page reloads (the target is closed for a moment): the first read that answers is the new page's
@@ -206,7 +198,7 @@ const probeOpen = async (st, how) => {
     try { raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`); } catch (e) { raw = null; }
     if (!raw) await new Promise((r) => setTimeout(r, 500));
   }
-  await untilReady('after the figure reload');
+  await untilReady('the steps view opened after the figure reload', old);
   return raw ? JSON.parse(raw) : null;
 };
 const TOASTED = (t) => `document.body.innerText.includes(${JSON.stringify(t)})`;

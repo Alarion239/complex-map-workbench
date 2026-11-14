@@ -21,15 +21,8 @@ const C = CX.C, TAU = 2 * Math.PI;
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } else if (process.env.V) console.log('ok  ', name); }
 
-const APP = require('./src_text').source('soundhooks.js');   // (the app's sound hooks, src/soundhooks.js)
-// a function of the hooks by its name: from `function name(` to its closing brace (the glue's strings hold balanced braces)
-function fnText(name) {
-  const i = APP.indexOf(`  function ${name}(`);
-  if (i < 0) throw new Error('no function ' + name);
-  let d = 0, j = APP.indexOf('{', i);
-  for (let k = j; k < APP.length; k++) { const c = APP[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return APP.slice(i, k + 1); }
-  throw new Error('unbalanced ' + name);
-}
+const { source, fnText } = require('./src_text');
+const APP = source('soundhooks.js');   // (the app's sound hooks, src/soundhooks.js)
 // a one-line const of the hooks by its name
 function constText(name) { const m = APP.match(new RegExp(`\\n  const ${name} = [^\\n]*;\\n`)); if (!m) throw new Error('no const ' + name); return m[0]; }
 
@@ -84,7 +77,7 @@ function glue(o = {}) {
     A: { get S() { return ctx.S; }, get sndP() { return ctx.sndP; }, get paneL() { return ctx.paneL; }, get paneR() { return ctx.paneR; }, get chainSig() { return ctx.chainSig; } },
   };
   vm.createContext(ctx);
-  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText('sndBridge'), fnText('sndHearAt'), fnText('sndHold'), fnText('sndQueryAt'), fnText('sndSampleAt'), fnText('sndSampler'), fnText('sndMove'),
+  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText(APP, 'sndBridge'), fnText(APP, 'sndHearAt'), fnText(APP, 'sndHold'), fnText(APP, 'sndQueryAt'), fnText(APP, 'sndSampleAt'), fnText(APP, 'sndSampler'), fnText(APP, 'sndMove'),
     'globalThis.G = { sndHearAt, sndSampleAt, sndSampler, sndMove, sndQueryAt, sndOk };'].join('\n');
   vm.runInContext(code, ctx);
   // sndHover → sndHearAt (as the hooks' sndHover does once the engine has Sound.hear)
