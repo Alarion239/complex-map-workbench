@@ -472,8 +472,8 @@ BASE.dh_disc = {
 const scene = (base, name, group, wView, note) => Object.assign({ name, base, group, wView, note }, BASE[base]);
 const LOGH_VIEW = { cx: -0.18, cy: PI / 2, s: 97 };   // the app's auto-fit of this scene (rounded)
 
-// The rendered scenes. 'unbounded': images of unbounded regions, cut off today somewhere (the change should fill them
-// to the view edges: their IoU / holes improve). 'bounded': controls that must not change (metrics + golden PNGs).
+// The rendered scenes. 'unbounded': images of unbounded regions, filled to the view's edges. 'bounded': controls that
+// must not change (metrics + golden PNGs).
 const SCENES = [
   scene('logH', 'logH', 'unbounded', LOGH_VIEW, 'log of the upper half-plane, default zoom'),
   scene('logH', 'logH_out4', 'unbounded', Object.assign({}, LOGH_VIEW, { s: LOGH_VIEW.s / 4 }), 'log of the upper half-plane, zoomed out 4x'),
@@ -491,8 +491,7 @@ const SCENES = [
   scene('joukowski', 'joukowski', 'bounded', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil example: exterior of a circle through 1 under (z + 1/z)/2'),
   scene('annulus_log', 'annulus_log', 'bounded', { cx: 0, cy: 0, s: 72 }, 'principal log of the annulus 0.5 < |z| < 2 (a rectangle)'),
   scene('poly_mobius', 'poly_mobius', 'bounded', { cx: 0, cy: 0, s: 200 }, 'a pentagon in the upper half-plane under the Cayley map'),
-  // exact images through infinity (SPEC 12.4, P0): today these are wrong somewhere (the z^i hole is filled, low alpha
-  // is not opaque where infinitely many sheets overlap); the inverse renderer should raise them as IMPROVED.
+  // exact images through infinity (SPEC 12.4): the z^i hole stays empty, every sheet is drawn.
   // group 'infinite': infinitely many sheets / unbounded ranges; 'bounded_far' etc. are bounded shapes whose
   // per-pixel ranges come from the shape (they must stay exact).
   scene('zi_H', 'zi_H', 'infinite', { cx: 0, cy: 0, s: 190 }, 'z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty'),

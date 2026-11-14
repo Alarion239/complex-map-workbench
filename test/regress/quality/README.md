@@ -166,7 +166,8 @@ point, over the plane's paper. A pixel within **24 RGB units** of the paper (`--
 the run scores where the image is drawn, not its colour. The pixels a cover run leaves out (the axes, the annotation
 band, the cut strokes outside the image) count nowhere.
 
-The other classifiers (no run uses them now): every pixel gets a class from its rendered colour, the nearest of a set
+The other classifiers (`test/t_inverse_render.js` scores the CPU reference renderer with them; this suite's runs
+use `cover`): every pixel gets a class from its rendered colour, the nearest of a set
 of reference colours, or of a blend of two of them. The reference colours are read from the page's CSS tokens.
 
 | class | what it covers | reference colours |
@@ -213,11 +214,11 @@ A pixel is **scored** for parity when all of these hold:
 
 ### Metrics of the SPEC 12.4 scenes
 
-**Strict mode.** The runs of the SPEC 12.4 scenes (`strict: true` in `metrics.json`) are scored by stricter rules than
-the original 32 runs, which keep exactly their old metrics:
+**Strict mode.** The runs of the SPEC 12.4 and P2 review scenes (`strict: true` in `metrics.json`) are scored by
+stricter rules than those of the groups `unbounded` and `bounded`:
 
 - An **ANNOT pixel inside the true image**, outside the boundary bands, is a **hole** (`n_annot_hole` of them). A fill
-  15 % darker than `c0`, or painted in the edge colour, is nearest a stroke colour and used to be skipped, so it scored
+  15 % darker than `c0`, or painted in the edge colour, is nearest a stroke colour: counted as a hole, it cannot score
   as a perfect image. Strokes that legitimately cross the image are allowed only inside the 2.5 px band around them
   (`truth.annotSdf`: `healed_cut`'s dashed cut line, the negative real axis).
 - **Opacity and colour** are taken over **every** interior pixel outside the bands. Only stroke-coloured pixels inside

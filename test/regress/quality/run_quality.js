@@ -151,7 +151,7 @@ async function startChrome() {
   const t = await send('Target.createTarget', { url: 'about:blank' }, null);
   S = (await send('Target.attachToTarget', { targetId: t.targetId, flatten: true }, null)).sessionId;
   await send('Runtime.enable'); await send('Page.enable');
-  // (#443) the steps view pinned (test/cdp_kit/pin_view.js): the runs stand in it through its hooks (__cmwSteps)
+  // the steps view pinned (test/cdp_kit/pin_view.js): the runs stand in it through its hooks (__cmwSteps)
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
   await send('Emulation.setDeviceMetricsOverride', { width: VIEWPORT.width, height: VIEWPORT.height, deviceScaleFactor: VIEWPORT.dpr, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });

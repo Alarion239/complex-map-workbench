@@ -1,7 +1,7 @@
 // The perf and quality suites (test/regress) drive the steps view through its hooks (__cmwSteps), never the classic
 // views: no file of their code calls __cmwSetMain or __cmwMorph, writes the classic view fields (rightMode), clicks a
 // step card (#pipeline .card), reads the right pane's canvas (canvasR) or pins the classic view, and their READMEs name
-// neither canvasR nor rightMode. The perf suite lists no unit of a feature the classic removal deleted (#622: the step
+// neither canvasR nor rightMode. The perf suite lists no unit of a feature the classic removal deleted (the step
 // cards, the Deformation bar and its playback, the right pane), and ci/perf_shards.js names none.
 // Run: node test/t_regress_steps.js
 'use strict';

@@ -19,8 +19,8 @@ const SCENES = {
       srcView: { cx: 0, cy: 0, s: 52 },
     },
   },
-  // log of the upper half-plane: an unbounded region whose image (the strip 0 < Im w < pi) is today cut off at
-  // both ends; the coming change should make it reach the edges of the view at any zoom
+  // log of the upper half-plane: an unbounded region whose image (the strip 0 < Im w < pi) reaches the edges of the
+  // view at any zoom
   logUHP: {
     label: 'log of the upper half-plane (unbounded)',
     state: {

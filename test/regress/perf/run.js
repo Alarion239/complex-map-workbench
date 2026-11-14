@@ -155,7 +155,8 @@ async function openApp(state, at = AT.z) {
   await B.nav(`${BASE}test.html?ns=${ns}`);
   await B.removeInit(id);
   await B.until('typeof __cmwInfo === "function" && typeof __perf === "object" && __perf.draws > 0', 20000);
-  // MathJax typesets the cards when it arrives: wait for it (bounded), so it does not land inside a measurement
+  // MathJax typesets the page's formulas when it arrives: wait for it (bounded), so it does not land inside a
+  // measurement
   const mj = await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
   await B.until(SV.started(), 20000);
   await B.ev(at);
@@ -843,14 +844,13 @@ async function svLongSessionUnit() {
   put('sv.long_session.king.last5_p95_ms', 'info', 'ms', [med(p95.slice(-5))]);
   for (const k of Object.keys(counts[0] || {})) put(`sv.long_session.king.live_${k.toLowerCase()}s`, 'info', 'objects', [counts[0][k], counts[counts.length - 1][k]]);
 }
-// [#366 K] the steps view's own interactions, parked half-way between z and w1 (svRenderMoving's paths, not the
-// classic renders): the strip scrub (Everywhere and Inside regions), a pan of the plane with Inside regions, and an
-// orbit on the globe (Surface: Sphere, Space held). One unit per scene (each within UNIT_TIMEOUT_S on a GPU): the
-// default page, zeta and the Mountain King (by name), on a GPU only. gl_copies: GLR.blit calls per frame drawn while
-// scrubbing Everywhere, at most SV_COPIES_LIMIT (#492, #503: the grid, the colour layer and the outlines in one GL
-// frame, one copy), and while scrubbing Inside regions at most SV_COPIES_IN_LIMIT (#440's follow-up: the grid and
-// the outlines in G's masked frame, one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there
-// (refCannot)
+// the steps view's own interactions, parked half-way between z and w1 (svRenderMoving's paths): the strip scrub
+// (Everywhere and Inside regions), a pan of the plane with Inside regions, and an orbit on the globe (Surface: Sphere,
+// Space held). One unit per scene (each within UNIT_TIMEOUT_S on a GPU): the default page, zeta and the Mountain King
+// (by name), on a GPU only. gl_copies: GLR.blit calls per frame drawn while scrubbing Everywhere, at most
+// SV_COPIES_LIMIT (#492, #503: the grid, the colour layer and the outlines in one GL frame, one copy), and while
+// scrubbing Inside regions at most SV_COPIES_IN_LIMIT (#440's follow-up: the grid and the outlines in G's masked frame,
+// one copy too). The reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
 const SV_COPIES_LIMIT = 1.25, SV_COPIES_IN_LIMIT = 1.05;
 // The label pass of a frame on the move samples no curve through the map; what it costs is placing and drawing the labels
 // themselves: 0.5 ms a pass on the default scene (no zeta in it) and 1.1 to 1.7 ms on zeta's, measured on the Mac on a loaded

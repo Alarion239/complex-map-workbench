@@ -1,9 +1,7 @@
 # Regression gates: performance and image quality
 
-Two suites guard the coming meshing / refinement / inverse-rendering change. Both were recorded on the code as it
-is today (the baseline) and must keep passing afterwards: **performance must not decrease and image quality must not
-decrease**. Intended improvements (images of unbounded regions reaching the edges of the view, better-shaped meshes)
-are reported as `IMPROVED`, never as failures.
+Two suites guard the app's speed and the images it draws: a change must not make **performance or image quality
+worse**. A change for the better is reported as `IMPROVED`, never as a failure.
 
 | | perf suite | quality suite |
 |---|---|---|
@@ -68,51 +66,17 @@ cell edge. For the bounded controls it also reports a golden-PNG diff: the fract
 
 **The gate** (`quality/tolerances.json`):
 
-- IoU and parity must not drop by more than 0.002. Parity is gated only when at least 1000 pixels were scored.
+- IoU must not drop by more than 0.002.
 - Holes and spill must not grow by more than 0.001.
 - Golden diffs must stay at or below 0.5 %.
 
-Larger moves in the good direction are reported as **IMPROVED**. Today the cut-off unbounded images have these
-values, which the coming change should raise as improvements:
-
-| run | IoU |
-|---|---|
-| `logH_out4` | 0.73 |
-| `logH_out16` | 0.18 |
-| `cayley_H_zoom1` | 0.77 |
-| `recip_ext_zoom0` | 0.81 |
-| `sqrt_slit_out16` | 0.61 |
-
-Every other scene scores IoU 1, holes 0, spill 0 and parity 1. Three full runs gave bit-identical renders (32/32) and
-identical metrics.
-
-**SPEC 12.4 scenes (P0).** `zi_H` (z^i of the upper half-plane: the annulus e^−π < \|w\| < 1 at 1×, 4×, 16×), `expH`
-(1×, 16×), `e1z_disc` (1×, 16×), `e1z_custom`, `exp_far_disc`, `ez2_disc`, `healed_cut`, in the variants mask and
-pattern plus `polar` (log-polar checker), `mask85` and `mask20` (solid at alpha 0.85 / 0.2) where the spec asks for
-them: 31 runs. They are scored in **strict mode**: a stroke-coloured pixel inside the true image is a hole (outside the
-band of a stroke that legitimately crosses it, `healed_cut`'s cut line), opacity and colour are taken over every
-interior pixel, and a metric with nothing to score is null with a problem, never a perfect 1. Where several sheets
-overlap, the checker and polar truths are the pattern of the **front** sheet (SPEC 5.1's key D from the saved
-`clipWin`, the tie rule of 5.2; the polar pattern's solid c0 disc around 0 included). New metrics: front-sheet checker
-and polar parity (as `parity_acc`), `opacity_min` (gated, tol 0.01) with `opacity_p01` / `_mean` / `_lt99`,
-`color_off` (gated, tol 0.001: interior pixels more than 6 RGB units from the opaque fill colour) and `hole_leak`
-(gated: must not grow; translucent fill counts on mask runs). Their truths are independent of the app and checked by
+Larger moves in the good direction are reported as **IMPROVED**. Every run scores coverage (the `cover` classifier:
+IoU, holes, spill, hole_leak). The SPEC 12.4 scenes (`zi_H` at 1×, 4×, 16×, `expH`, `e1z_disc`, `e1z_custom`,
+`exp_far_disc`, `ez2_disc`, `healed_cut`) and the P2 review's scenes are scored in **strict mode**: a metric with
+nothing to score is null with a problem, never a perfect 1. Their truths are independent of the app and checked by
 `quality/verify_truth.js` (forward rasterisation of the region against the inverse truth, soundness of every preimage,
-agreement of the saved state's map with the app's own step functions, polar parity, the empty hole, and an own model
-of the front sheet's pattern); `--selftest` checks the metrics on synthetic renders, ideal and with defects (a darker
-or edge-coloured fill, the sheet behind the front, the polar pattern without its c0 disc, a translucent leak, a crack,
-blank renders). Today's values (details in `quality/README.md`):
-
-| run | today | spec target (P2) |
-|---|---|---|
-| `zi_H.polar`, `zi_H_out4.polar` | polar parity 0.948, 0.969 | ≥ 0.999 |
-| `zi_H.pattern`, `expH.pattern`, `e1z_disc.pattern` | front-sheet checker parity 0.641, 0.311, 0.500 (today's mesh shows another sheet in front, or no checker at all) | gated once recorded |
-| `zi_H.mask85` | opacity p01 0.85, mean 0.935 (one sheet); `color_off` 0.39 | opacity_min ≥ 0.99 |
-| `zi_H.mask20`, `expH.mask20` | IoU 0.009, 0.815; opacity mean 0.32, 0.58; `color_off` 1 | IoU ≥ 0.999, opacity ≥ 0.99 |
-| `e1z_disc.mask20` | opacity 0.987 | ≥ 0.99 |
-| `zi_H` mask / pattern / polar / mask85, `zi_H_out4` | IoU 0.994–0.995, holes 0.5–0.7 %: chords along the outer rim, the fill and its stroke (strict: the stroke's dark pixels inside the true disc are holes) | IoU ≥ 0.999, holes and `color_off` ≤ 0.001 |
-| `zi_H*` hole_leak | 0 / 112 px: today's path keeps the z^i hole empty (the spec expected it filled) | 0 |
-| the rest (exp, e^{1/z} at alpha ≥ 0.85, far disc, e^{z²}, healed cut) | IoU 1 (≥ 0.9995), holes ≈ 0, spill 0, parity 1 where one sheet, opacity 1, `color_off` ≈ 0 | must stay |
+agreement of the saved state's map with the app's own step functions, the empty hole); `--selftest` checks the
+metrics on synthetic renders, ideal and with defects. Details in `quality/README.md`.
 
 ---
 
@@ -162,8 +126,8 @@ measuring code: settle with a pending compile, compile stats, the scrub scene's 
   * (P0) wraps `shaderSource / attachShader / linkProgram / getProgramParameter / useProgram`: one record per linked
     program (link time; the time the app first saw it complete, through `COMPLETION_STATUS_KHR` or a `LINK_STATUS`
     query; whether it is an **inverse program**, i.e. its fragment shader contains the SPEC 4.1 walker `invWalk` /
-    `uInv`), and per frame the number of draws made with an inverse program. Nothing here exists before P2, so the
-    inverse fields read 0 / null on today's code.
+    `uInv`), and per frame the number of draws made with an inverse program (0 / null on a build that links no
+    inverse program).
 * **Settled** = neither LED is `busy`, no program compile is pending (`GLR.frameStatus().pending`: while a program
   compiles the app draws a stand-in or nothing, and the LEDs do not show compiles; P0 review), and there has been no
   WebGL draw and no LED change for 600 ms (longer than every debounce in the app: 200 ms `sourceViewChanged`, 160 ms
@@ -178,7 +142,7 @@ measuring code: settle with a pending compile, compile stats, the scrub scene's 
 ### Scenes and units
 
 Scenes (`scenes.js`): `default` = the first-visit example (strip |Im z| < π/2 → exp → Möbius (w−1)/(w+1)),
-`logUHP` = log of the upper half-plane (unbounded; today its image strip is cut off at both ends), `chain4` = disc +
+`logUHP` = log of the upper half-plane (unbounded: its image strip reaches the view's edges), `chain4` = disc +
 grid through z+0.3+0.2i → z² → Cayley (z−i)/(z+i) → log (a pole and a cut inside: heavy fix-ups), `scrub` = disc +
 polar grid through a disk automorphism (Möbius, scrubbable φ), `cubic` = disc through z³−1 (three preimages).
 
@@ -221,35 +185,13 @@ auto-fit cannot change what they measure.
 | `pointer.snap_drag` | on `gridCircles`, the disc dragged by its body with Snap on across the grid (anchorMove's snap search on every move): handlers, frames, latency, settle; `moved` (the disc moved) |
 | `pointer.glider` | on `gridCircles`, the glider dragged round the unit circle from 36° to 300° (railDrag's detents and dwell timer on every move): handlers, frames, latency; `on_circle` (still a glider, on the circle, moved) |
 | `pointer.probe_x` | on `default`, a sweep over the plane z with the select tool (the hover probe's readout on every move): handlers, frames, latency |
-| `swiftshader.ratio` (opt-in) | a separate runner, run only with `--swiftshader` or when `--only` names it (a full run without it lists it in `meta.optInSkipped`, and `compare_perf.py` reports its baseline metrics as SKIP, not missing; `run.sh --update-baseline` records it). Its **own** headless Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader` (CPU WebGL2): for each bounded golden scene, a pan of the image there and back (1 rep: SwiftShader frames take 50–130 ms here) with exact images on (default) and off (`__cmwSet('exactImages', false)`); `ratio` = frame p50 on / off, gated absolutely at ≤ 3 (SPEC 4.7). With exact images on it waits for a pending compile and the first inverse frame; `inverse_drawn_on` (check): when the app says the shape is inverse (the cost guard may demote it, then it says forward) the pan must have drawn with the inverse program, or the ratio would compare forward with forward. Before P2 both are forward (ratio ≈ 1, `inv_draws_on` 0); `is_swiftshader` checks the renderer string |
+| `swiftshader.ratio` (opt-in) | a separate runner, run only with `--swiftshader` or when `--only` names it (a full run without it lists it in `meta.optInSkipped`, and `compare_perf.py` reports its baseline metrics as SKIP, not missing; `run.sh --update-baseline` records it). Its **own** headless Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader` (CPU WebGL2): for each bounded golden scene, a pan of the image there and back (1 rep: SwiftShader frames take 50–130 ms here) with exact images on (default) and off (`__cmwSet('exactImages', false)`); `ratio` = frame p50 on / off, gated absolutely at ≤ 3 (SPEC 4.7). With exact images on it waits for a pending compile and the first inverse frame; `inverse_drawn_on` (check): when the app says the shape is inverse (the cost guard may demote it, then it says forward) the pan must have drawn with the inverse program, or the ratio would compare forward with forward. `is_swiftshader` checks the renderer string |
 | `examples` (extended) | per example also: programs linked, `compile_ms` (call → the last forward program seen complete; 0 when nothing new compiled), and for inverse programs (P2 on): their count, `inv_compile_ms`, `inv_first_draw_ms` (first inverse link → end of the first frame drawn with one; absolute limit 250 ms, SPEC 4.7) and `inv_after_call_ms`. A slow inverse compile outlasting the settle is waited for (≤ 5 s); an inverse program that never draws gets the whole window (a lower bound, never null: `never_drew`), the worst rep then counts instead of the median, and the metric carries `expect: true` whenever an inverse program was linked, so a null value fails |
 
 Every image / sphere unit of the list also reports `inv_draws` (info): the draws made with an inverse program during
 the unit, so a result shows which path it measured.
 
-`--quick` now also runs `image.ziH.m240.dpr2` (the costliest per-pixel inverse case of SPEC 12.5); measured 2 min 45 s
-wall for the 10 units. The other new units are in the full suite, which grows by about 2.5 min (5 image units of
-~17 s, `sphere.ziH` 19 s, `scrub.mobius_halfplane`, `gallery.open` and `hover.dim` ~11 s each). The settled shots of
-`view_moved` (P0 review) add about 4 s to each orbit unit and 8 s to `phase.default`. A full run with
-`--swiftshader` after the P0 review (`results/p0fix-full.json`, load 4–7) took 12.4 min, 0 errors, every check true.
-
-**Values on today's code** (one run of each new unit, 2026-10-19, `results/p0-newunits.json`; measured build
-`dist/test.html` sha1 `04aa240d1958`, the quality baseline's app, built from the pre-sphere sources
-(`notes/backup-pre-sphere/src`); the `src` hash in the result's meta differs only because other owners had started
-editing `src/` (`inverse.js`, `region.js`), which that build does not contain; measured while other agents loaded the machine (load 4–8), so they show that the units work,
-**not** what the baseline will be — the lead records that on a quiet machine):
-
-| unit | today |
-|---|---|
-| `image.ziH.m240` / `.dpr2` | pan R frame p50 4.7 / 5.1–5.7 ms, zoom R in p50 3.7 / 3.7–5.7 ms, settle 0 ms, 3,742 fix-up triangles, `inv_draws` 0; dpr 2 canvas 820×1032 |
-| `image.expH.m240` / `.dpr2` | pan R p50 6.9 / 6.3–7.4 ms, zoom R in p50 6.1 / 6.3–6.7 ms, 40,195 fix-up triangles |
-| `image.disc_cube.dpr2` | pan R p50 4.4–4.9 ms, zoom R in p50 3.1–4.5 ms |
-| `sphere.ziH` | orbit p50 4.6 ms, p95 7.1 ms, settle 797 ms |
-| `scrub.mobius_halfplane` | (scene changed in the P0 review; `results/p0fix-full.json`) frame p50 8.3 ms, p95 11.6 ms; φ 40° → 80° → 40° in every drag, the pole from 0.986 + 0.168i to 0.982 − 0.190i and back (`pole_crossed` true); line uploads 0 and samples 0 during the scrubs and while settling (`no_line_resample` true) |
-| `gallery.open` | 14 thumbnails in 1.16–1.18 s, settled 1.31 s, 20 programs linked, 0 inverse, jank 0 |
-| `hover.dim` | frame p50 10.7–13 ms, p95 13.3–14.5 ms; 0 programs, 0 jobs (`no_compile`, `no_job`, `dimmed` true) |
-| `swiftshader.ratio` | renderer SwiftShader (Vulkan 1.3.0, LLVM 10); pan R p50 on / off: disc_cube 88.3 / 88.0 ms, joukowski 70.8 / 73.3, annulus_log 113.7 / 115.2, poly_mobius 54.5 / 54.8; ratio 0.97–1.00 (0.85–1.10 in a 2-rep run): both forward today |
-| `examples` | `compile_ms` 0 (examples 0–1: nothing new to compile) to 210–260 ms (examples 9, 11, 12, 13: 2–9 programs); `inv_programs` 0 and the `inv_*` timings null everywhere |
+`--quick` runs `image.ziH.m240.dpr2` too (the costliest per-pixel inverse case of SPEC 12.5).
 
 ### Metrics
 

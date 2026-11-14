@@ -11,8 +11,6 @@ where it matters, its verdict per run or metric). The cases cover the review fin
   perf     a NEW check that is false fails; a NEW limit over its limit fails; a limit that expected a value (an
            inverse program was linked) and has none fails, NEW or not; a NEW limit with nothing to measure passes
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
-           [#413] the dpr-2 opacity zooms' fps and latency are reported (INFO) either way, never gated; their frame
-           times, and the same metrics of every other unit, stay gated
   busy     a FAIL of a unit that started on a busy machine is BUSY and not counted: exit 3 (invalid: machine busy)
            when nothing else failed, 1 when a clean unit failed too; merged passes (meta.passBusy / passUnits) count a
            unit that started busy as red only with 2 passes that started quiet; --busy-units lists the BUSY units
