@@ -237,10 +237,12 @@
   function svRestored() {
     if (!SV.on || !SV.ready) return;
     if (SV.alone) { SV.alone = 0; SV.back = null; }   // (#437: an undo leaves a step shown alone)
-    const ls = SV.lastSplit;
-    SV.lastSplit = null;
-    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did)
-    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.own = true; return; }
+    const ls = SV.lastSplit, lu = SV.lastUnsplit;
+    SV.lastSplit = null; SV.lastUnsplit = null;
+    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did; and the redo of
+    // that split, as the split itself)
+    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.lastUnsplit = ls; SV.own = true; return; }
+    if (lu && svGliding() && S.steps.length === lu.len) { SV.split = { k: lu.k, n: lu.n, j: lu.j, x: SV.g.x, rest: false, moving: true }; SV.lastSplit = lu; SV.own = true; return; }
     if (svLoad()) { SV.sig = null; setTimeout(svApply, 0); }
   }
   function svApply() {
@@ -447,12 +449,12 @@
   function svBetween(x = SV.g.x, span = SV.span) {
     const P = svPlanes();
     if (span && span.x1 < P.length && x > span.x0 + SV_REST_U && x < span.x1 - SV_REST_U && svAllOk(span.x0, span.x1)) {
-      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), grp = span.grp || null, map = { mode: 3, a, b, t: u, grp };
+      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), stepT = span.stepT || null, map = { mode: 3, a, b, t: u, stepT };
       // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed, each at its own time:
-      // span.grp, the steps a Split during this glide made of one formula, run as that formula's homotopy runs them)
-      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, HR.groupT(grp, k, u)));
+      // span.stepT, the times of the steps Splits during this glide made of a formula, run as that formula's homotopy runs them)
+      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, HR.stepTime(stepT, k, u)));
       const H = (z) => { let w = z; for (const f of homs) w = f(w); return w; };
-      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, grp, x0: span.x0, x1: span.x1 };
+      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, stepT, x0: span.x0, x1: span.x1 };
     }
     const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
@@ -464,10 +466,30 @@
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
   }
   // the map spec of a svBetween result g from the plane s, for a carried draw (s <= g.a): All at once, its span's steps
-  // (with the span's group) at g.u; else the step into g.b at g.u
-  function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, grp: g.grp } : { mode: 1, base: s, hi: g.b, t: g.u }; }
-  // a span's group ({ from, n }, or none) in a cache key
-  function svGrpKey(grp) { return grp ? `${grp.from}:${grp.n}` : ''; }
+  // (at the span's step times) at g.u; else the step into g.b at g.u
+  function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, stepT: g.stepT } : { mode: 1, base: s, hi: g.b, t: g.u }; }
+  // a span's step times (stepT: [a, b] by step, or none) in a cache key
+  function svStepTKey(stepT) { return stepT ? stepT.map((m, k) => `${k}:${m[0]}:${m[1]}`).filter(Boolean).join(',') : ''; }
+  // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
+  // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0])
+  function svStepTSplit(stepT, k, n) {
+    const o = [], f = (stepT && stepT[k]) || [1, 0];
+    if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
+    for (let i = 0; i < n; i++) o[k + i] = [f[0] * n, f[1] * n + i];
+    return o;
+  }
+  // the span's step times after the n steps k..k+n-1 are the formula again (an undo of their Split): a step after them
+  // moves n - 1 back, and the formula takes the time they ran in, [a, b] from their [a n, b n + i]; steps that ran
+  // otherwise (a Split made before this glide) leave it the glide's own time. Null when no step has a time of its own
+  function svStepTJoin(stepT, k, n) {
+    if (!stepT) return null;
+    const o = [], f = stepT[k];
+    stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i >= k + n) o[i - n + 1] = m; });
+    let own = !!f;
+    for (let i = 0; own && i < n; i++) { const m = stepT[k + i]; own = !!m && m[0] === f[0] && m[1] === f[1] + i; }
+    if (own && !(f[0] === n && f[1] === 0)) o[k] = [f[0] / n, f[1] / n];
+    return o.some(Boolean) ? o : null;
+  }
   // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
   const SV_CUT_THIN = 4;
   // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
@@ -524,7 +546,7 @@
     return {
       Fat: (T) => svBetween(lo + T * len).F, T: Math.max(0, Math.min(hi - lo, x - lo)) / len, Tend: (hi - lo) / len, seq: !all && hi - lo > 1,
       startId: start === 0,
-      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svGrpKey(all ? SV.span.grp : null)]),
+      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svStepTKey(all ? SV.span.stepT : null)]),
       alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
     };
   }
@@ -1173,10 +1195,10 @@
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
-  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, svGrpKey(g.grp), q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
+  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, svStepTKey(g.stepT), q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
   function* svRingSize(g, q, v, pw, ph) {
-    const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1, grp: g.grp } : null), w = clipWin;
+    const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1, stepT: g.stepT } : null), w = clipWin;
     const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s;
     const past = (z) => { const p = gq.F(z); return !p || !CX.isFin(p) || Math.abs(p.re - v.cx) > hw || Math.abs(p.im - v.cy) > hh; };
     const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
@@ -3478,7 +3500,7 @@
   function svSplitEdit(k, n) {
     const j = svPlanesOf(S.steps).indexOf(k) - 1;
     SV.split = { k, n, j, x: SV.g.x, rest: !svGliding(), moving: svGliding() };
-    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n };
+    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n }; SV.lastUnsplit = null;
     SV.own = true;   // (an edit of the chain, not another chain loaded: svChainChanged keeps the planes it shows)
   }
   function svSplitApply(sp) {
@@ -3486,33 +3508,34 @@
     SV.T = r.T; SV.alone = r.alone; SV.back = r.back;
     SV.g.max = svPlanes().length - 1;
     if (!SV.alone && sp.rest) { SV.g.set(r.x); SV.i = Math.max(0, Math.min(SV.g.max, Math.round(r.x))); }
-    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x, { from: sp.k - 1, n: sp.n });
+    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x, (st) => svStepTSplit(st, sp.k, sp.n));
   }
   // the undo of a split under way: the unit [j, j+n) of the n new steps is the formula's [j, j+1) again
   function svUnsplitApply(sp) {
     const { j, n } = sp, pl = (x) => (j < 0 || !(x >= j) ? x : x < j + n ? j + (x - j) / n : x - n + 1);
     SV.T = SV.T < 0 || SV.T < sp.k ? SV.T : SV.T < sp.k + n ? sp.k : SV.T - n + 1;
     SV.g.max = svPlanes().length - 1;
-    svRemapMotion(pl);
+    svRemapMotion(pl, (st) => svStepTJoin(st, sp.k, n));
   }
   // a glide or a play under way after the planes changed (pl: the old place on the thread -> the new one): it goes on from the
   // same place, to the same destination, with no jump. A glide keeps its ease's progress and its time; a play keeps the time
   // it has left, so the picture's speed goes on; a reduced-motion play (a plane a tick) is remapped to its planes.
-  // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; grp
-  // ({ from, n }: the steps this Split made of one formula) is carried by the span, which runs those steps as the formula's
-  // own homotopy runs them (svBetween), so the picture is the same at the same u. It lasts to the end of this glide.
-  // The span holds one group, the last Split's; after an undo it holds none (#1587)
-  function svRemapMotion(pl, grp) {
+  // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; the
+  // span's step times (stepT, retime: the old ones -> the new) run the steps a Split made of a formula as that formula's
+  // own homotopy runs them (svBetween), so the picture is the same at the same u, through any number of Splits and their
+  // undos and redos. They last to the end of this glide
+  function svRemapMotion(pl, retime) {
     const A = SV.anim, B = SV.play, x = SV.g.x, last = svPlanes().length - 1, cl = (v) => Math.max(0, Math.min(last, v));
     SV.motionKept = true;
     const aim = SV.g.moving() ? SV.g.target : null;
-    const sp = SV.span, P = svPlanes();
+    const sp = SV.span;
     let span = null, nx = cl(pl(x));
     if (sp) {
       const x0 = cl(pl(sp.x0)), x1 = cl(pl(sp.x1));
       if (x1 > x0 && svAllOk(x0, x1)) {
         span = { x0, x1 };
-        if (grp && P[x0] <= grp.from && grp.from + grp.n <= P[x1]) span.grp = grp;
+        const stepT = retime ? retime(sp.stepT || null) : sp.stepT;
+        if (stepT) span.stepT = stepT;
         nx = x0 + (x - sp.x0) / (sp.x1 - sp.x0) * (x1 - x0);
       }
     }
