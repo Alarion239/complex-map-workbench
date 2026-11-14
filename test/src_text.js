@@ -3,7 +3,7 @@
 // src/app.js, src/gl.js, src/figure.js, src/sound.js and src/construct.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines
 // around an "// @parts" line, and the parts src/<name>/NN-*.js take that line's place, joined in file name order. The
 // joined text is the old single file byte for byte. tools/src_parts.py does the same for build.py and the Python.
-//   const { appText, glText, source } = require('./src_text');
+//   const { appText, glText, source, fnText, braced } = require('./src_text');
 const fs = require('fs');
 const path = require('path');
 
@@ -51,4 +51,27 @@ function joined(file, dir) {
   return wrap.slice(0, m.index) + p.map((f) => fs.readFileSync(f, 'utf8')).join('') + wrap.slice(m.index + m[0].length);
 }
 
-module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, appText: () => source('app.js'), glText: () => source('gl.js') };
+// the text from `at` (an index of text) to the brace that closes the first one after it (braces inside strings must balance)
+function braced(text, at, what) {
+  let d = 0;
+  for (let k = text.indexOf('{', at); k < text.length; k++) { const c = text[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return text.slice(at, k + 1); }
+  throw new Error('unbalanced ' + what);
+}
+// a function of text by its name: from `function name(` to its closing brace. It is found as the app's closures nest it, behind
+// opts.indent (two spaces); { indent: '' } finds it at any depth. Its body opens at the `) {` that ends the parameters, so a
+// default `o = {}` does not start it. A name that is not there, or whose braces do not balance, throws; { soft: true } gives ''
+// for it instead, for a test that checks the text with a regex.
+function fnText(text, name, opts = {}) {
+  const i = text.indexOf(`${opts.indent === undefined ? '  ' : opts.indent}function ${name}(`);
+  try {
+    if (i < 0) throw new Error('no function ' + name);
+    const open = text.indexOf(') {', i) + 2;
+    if (open < 2) throw new Error('no body for ' + name);
+    return text.slice(i, open) + braced(text, open, name);
+  } catch (e) {
+    if (opts.soft) return '';
+    throw e;
+  }
+}
+
+module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, braced, fnText, appText: () => source('app.js'), glText: () => source('gl.js') };
