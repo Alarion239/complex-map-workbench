@@ -9,7 +9,9 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1]);
+const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { holdIdle, runIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
+const names = exampleNames();
 const ex = names.indexOf('In the Hall of the Mountain King');
 ok('the Mountain King example is found', ex >= 0, names.length);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=if${Date.now()}`);
@@ -19,14 +21,12 @@ await settled({ max: 30000, panes: false });
 await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
 await settled({ max: 30000, panes: false, until: '!__cmwSvKey().busy' });
 // (from here the idle moments are the test's own: each callback asked for is queued)
-await ev('window.__svIdleQ = [], window.requestIdleCallback = (f) => (window.__svIdleQ.push(f), 1), 1');
+await holdIdle();
 const planes0 = await ev('__cmwSteps().planes.length');
 await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
 await settled({ max: 30000, panes: false, until: `__cmwSteps().planes.length === ${planes0 + 1}` });
-// (the callbacks run in turn, each asked for by the one before: n of them, with the deadline given)
-const run = (n, dl) => ev(`(() => { globalThis.__svPathStats = {}; const q = window.__svIdleQ; let k = 0; while (q.length && k < ${n}) { k++; q.shift()(${dl}); } const s = globalThis.__svPathStats; globalThis.__svPathStats = null; s.callbacks = k; s.busy = __cmwSvKey().busy; return s; })()`);
-const idle = await run(50, '{ timeRemaining: () => 0, didTimeout: false }');
-const forced = await run(5000, '{ timeRemaining: () => 0, didTimeout: true }');
+const idle = await runIdle(50, '{ timeRemaining: () => 0, didTimeout: false }');
+const forced = await runIdle(5000, '{ timeRemaining: () => 0, didTimeout: true }');
 info.idle = idle; info.forced = forced;
 ok('an idle callback with no time remaining does no work', !(idle.poleIdle > 0) && !(idle.ringIdle > 0), idle);
 ok('a callback run for its timeout does a slice each: the job advances', forced.poleIdle > 0, forced);
