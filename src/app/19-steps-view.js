@@ -3001,6 +3001,19 @@
       svPolesWatch();
     } catch (e) { /* (the first glide starts them) */ }
   }
+  // The WebGL context was restored (GLR.onRestore): every program, mesh and texture the steps view kept went with the
+  // lost context. Its polar meshes are forgotten (their buffers are dead, so not destroyed), and so are the ring sizes
+  // and the carried meshes the idle job made, so it makes them again with their meshes and textures; the warm draw is
+  // made again, and the prestart runs again, so svReady counts the restored context's programs and reads ready once
+  // they have linked
+  function svContextRestored() {
+    svPolarRes.clear();
+    svRingSizes.clear();
+    svRingMemo = null;
+    svMeshDone = null;
+    svWarmSig = null;
+    svPrestartSoon(0);
+  }
   // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
   // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
   let svPrestartTimer = 0;
