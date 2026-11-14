@@ -1885,8 +1885,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       } else if (sp.custom) {
         // (a recognized formula, which has a path: the step in full and its path through the one call of _sh)
         const dig = `else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
-        sh += sp.homCall ? `  if (h == 1 || (h == 2 && t > 0.0)) ${sp.homCall('t', 'h == 1 || t >= 1.0')}\n  ${dig}`
-          : `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) p = vec4(cx_nan());\n  ${dig}`;
+        sh += sp.homCall ? `  if (h == 1 || (h == 2 && t > 0.0)) ${sp.homCall('t', 'h == 1 || t >= 1.0')}\n  ${dig}` : `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) p = vec4(cx_nan());\n  ${dig}`;
       } else {
         sh += `  if (h > 0) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (h == 1 || t >= 1.0) ${sp.apply(['s0'])}\n    else if (t > 0.0) ${sp.homApply(['s0'], 't')}\n  }\n  else if (${k} > base && ${k} <= end) cxs0_dig(${sp.rads[0]}, c);\n`;
       }
