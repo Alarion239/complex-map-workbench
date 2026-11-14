@@ -256,9 +256,9 @@
   }
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
-  // go to plane i: a glide along the steps in between (at once under reduced motion)
   // the rail's next follow brings the ring into view, though the ring has not moved (a press on the thread, ‹ and › at an end)
   function svFollowRing() { if (SV.els) SV.els.followKey = null; }
+  // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
     svFollowRing();
     const P = svPlanes();
@@ -2169,9 +2169,13 @@
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     rail.addEventListener('scroll', () => {
       const E = SV.els;
-      // (a scroll the follow did not make, in a rail whose scroll range is the one measured, is the user's: a range that shrank clamps the scroll too)
-      if (E && E.followTo != null && Math.abs(rail.scrollLeft - E.followTo) > 1 && rail.scrollWidth - rail.clientWidth === E.scrollMax) E.userScrolled = true;
-      if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
+      // (the scroll event that the follow's own scroll brings is the follow's, wherever the browser landed it; a later scroll away from there, in
+      // a rail that has a range to scroll and whose range is the one measured, is the user's: a range that shrank clamps the scroll too.
+      // E.scrollMax is the rail's real range, scrollWidth - clientWidth, which trackW - railW is not when the whole map sits outside the rail)
+      if (E && E.followPending) E.followTo = rail.scrollLeft;
+      else if (E && E.followTo != null && E.scrollMax > 0 && Math.abs(rail.scrollLeft - E.followTo) > 1 && rail.scrollWidth - rail.clientWidth === E.scrollMax) E.userScrolled = true;
+      if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); }
+    }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
@@ -2375,10 +2379,18 @@
         } else E.hold = null;
         const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
         // (the fades follow at once: the rail's scroll event comes a frame later)
-        if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+        if (to !== s) {
+          E.rail.scrollLeft = to; E.scrollX = to; svFades();
+          // (the next frame's scroll event is the follow's: it comes before that frame's animation callbacks)
+          E.followPending = true; requestAnimationFrame(() => { if (SV.els === E) E.followPending = false; });
+        }
         E.followTo = to;
       }
-    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
+    } else {
+      // (a rail that fits has no scroll of the user's to keep: it follows the ring again when it overflows)
+      E.userScrolled = false; E.followTo = null;
+      if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
+    }
   }
   // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
   // centres and the scroll the rail reported, no read

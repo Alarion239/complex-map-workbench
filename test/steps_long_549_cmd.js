@@ -117,14 +117,27 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
         return (await geo()).scroll;
       };
       // (a rail nobody scrolled follows the ring when it gets narrower)
+      const narrowRing = async (after) => {
+        const railW0 = (await geo()).rail;
+        await ev(`document.querySelector('#svStrip').style.paddingRight = '200px'; 1`);
+        for (let i = 0; i < 100 && (await geo()).rail === railW0; i++) await sleep(50);
+        await frames();
+        const narrow = await ringIn();
+        ok(`${tag}: a rail nobody scrolled keeps the ring in view when it gets narrower${after} (${railW0} to ${(await geo()).rail})`, narrow.ring && narrow.node && (await geo()).rail < railW0, narrow);
+        await ev(`document.querySelector('#svStrip').style.paddingRight = ''; 1`); await frames();
+      };
       await ev(`__cmwSteps({ go: 0, now: true }); 1`); await rest(); await ev(`__cmwSteps({ go: ${N}, now: true }); 1`); await rest(); await frames();
-      const railW0 = (await geo()).rail;
-      await ev(`document.querySelector('#svStrip').style.paddingRight = '200px'; 1`);
-      for (let i = 0; i < 100 && (await geo()).rail === railW0; i++) await sleep(50);
+      await narrowRing('');
+      // (a rail that has fitted holds no scroll of the user's: widened until the whole thread fits and back, it follows the ring again)
+      await ev(`document.querySelector('#svStrip').style.minWidth = '${g0.track + 2200}px'; 1`);
+      for (let i = 0; i < 100 && (await geo()).max > 0; i++) await sleep(50);
       await frames();
-      const narrow = await ringIn();
-      ok(`${tag}: a rail nobody scrolled keeps the ring in view when it gets narrower (${railW0} to ${(await geo()).rail})`, narrow.ring && narrow.node && (await geo()).rail < railW0, narrow);
-      await ev(`document.querySelector('#svStrip').style.paddingRight = ''; 1`); await frames();
+      const fitted = await geo();
+      await ev(`document.querySelector('#svStrip').style.minWidth = ''; 1`);
+      for (let i = 0; i < 100 && (await geo()).max === 0; i++) await sleep(50);
+      await frames();
+      ok(`${tag}: the thread fits a rail widened enough, and overflows again when it is let go`, fitted.max === 0 && (await geo()).max > 0, fitted);
+      await narrowRing(' after the thread has fitted');
       await ev(`document.querySelector('#svStrip .sv-rail').scrollLeft = 120; 1`);
       for (let i = 0; i < 100 && (await geo()).scroll !== 120; i++) await sleep(50);
       await frames();
