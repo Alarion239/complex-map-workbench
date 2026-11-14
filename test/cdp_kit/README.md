@@ -13,7 +13,7 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `nav(url)` (navigates and waits for the load event, for the app's page its start-up and quiet, and through the reload of a `#cmw=` link),
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt, rel)` (rel `{ x, y, moves }`: the release point and how many of the n moves are sent),
-   `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state)` (writes a saved state for ?ns=<ns> and opens the app),
+   `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state)` (writes a saved state for ?ns=<ns>, opens the app and waits until it has built the saved chain),
    `loadView(view, ns, state, { lang })` (the same, with the app's first load in 'classic' or 'steps' whatever the pin is; with no
    view, in the pinned view), `seed(ns, state)` (only the saved state, written from the helper page), `isSteps()` (whether the page
    shows the steps view),
