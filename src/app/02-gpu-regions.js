@@ -823,10 +823,11 @@
     }
     smPumpLater();
   }
-  // a frame after the interaction settles requests the jobs the motion frames could not
+  // a frame after the interaction settles requests the jobs the motion frames could not (sm.kickT: its timer, 0 once
+  // that frame is asked for)
   function smKick() {
     clearTimeout(sm.kickT);
-    sm.kickT = setTimeout(() => { if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
+    sm.kickT = setTimeout(() => { sm.kickT = 0; if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
   }
   let smPumpT = 0;
   function smPumpLater() { if (!smPumpT && !sm.running) smPumpT = setTimeout(() => { smPumpT = 0; smPump(); }, 0); }

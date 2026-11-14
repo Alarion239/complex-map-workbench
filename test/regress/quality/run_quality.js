@@ -3,10 +3,11 @@
 // Image-quality regression runner for Complex Map Workbench.
 //
 // Renders every scene of scenes.js through the real app (dist/test.html served at --base-url) in its own headless
-// Chrome (real WebGL2 via ANGLE Metal, same flags as test/cdp_kit), reads the right-plane canvas #canvasR, compares it
-// with the exact per-pixel ground truth and writes:
+// Chrome (real WebGL2 via ANGLE Metal, same flags as test/cdp_kit), in the steps view standing where the run says
+// (scenes.js STAND: the last plane, Inside regions, the colour layer alone), reads the plane's canvas #canvasL, compares
+// it with the exact per-pixel ground truth and writes:
 //   <out>/metrics.json          all metrics (input of ../compare_quality.py)
-//   <out>/renders/<id>.png      the right-plane canvas as rendered
+//   <out>/renders/<id>.png      the plane's canvas as rendered
 //   <out>/maps/<id>.png         classification map (green ok, red hole, blue spill, purple wrong checker parity,
 //                               grey: excluded 2.5 px band, yellow: strokes/annotations, pale green: not scored for parity)
 //   <out>/golden_diff/<id>.png  bounded controls: pixels that differ from the golden PNG (red)
@@ -150,8 +151,8 @@ async function startChrome() {
   const t = await send('Target.createTarget', { url: 'about:blank' }, null);
   S = (await send('Target.attachToTarget', { targetId: t.targetId, flatten: true }, null)).sessionId;
   await send('Runtime.enable'); await send('Page.enable');
-  // (#443) the classic view pinned unless a page's URL asks for ?view=steps (test/cdp_kit/pin_view.js): these scenes use the classic hooks
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: "window.__cmwPinView = 'classic';\n" + fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
+  // the steps view pinned (test/cdp_kit/pin_view.js): the runs stand in it through its hooks (__cmwSteps)
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(__dirname, '..', '..', 'cdp_kit', 'pin_view.js'), 'utf8') });
   await send('Emulation.setDeviceMetricsOverride', { width: VIEWPORT.width, height: VIEWPORT.height, deviceScaleFactor: VIEWPORT.dpr, mobile: false });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });
   const ev = async (expr, awaitPromise = false) => {
@@ -164,11 +165,11 @@ async function startChrome() {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// in-page helpers: a hash of the right canvas (read through a scratch canvas, so the app's own canvas is never read back
+// in-page helpers: a hash of the plane's canvas (read through a scratch canvas, so the app's own canvas is never read back
 // repeatedly), whether the app reports work in progress, and the final capture
 const PAGE_HELPERS = `window.__qreg = {
   snap() {
-    const c = document.getElementById(window.__qregCanvas || 'canvasR');
+    const c = document.getElementById('canvasL');
     if (!c || !c.width) return null;
     let s = window.__qregScratch;
     if (!s || s.width !== c.width || s.height !== c.height) { s = window.__qregScratch = document.createElement('canvas'); s.width = c.width; s.height = c.height; }
@@ -183,69 +184,61 @@ const PAGE_HELPERS = `window.__qreg = {
     for (let i = 0; i < u.length; i++) { h = Math.imul(h ^ u[i], 16777619) >>> 0; g = (g + u[i]) >>> 0; }
     return h.toString(16) + ':' + g.toString(16) + ':' + u.length;
   },
-  // (issue #72) the right pane's own last frame (__cmwPaneStatus), when the app has it: GLR.frameStatus() is the last
-  // begin's, which a card or the left pane may have drawn after the right one. That pane is busy while its frame waited
-  // for a program, or drew a shape with a stand-in while the shape's inverse program compiled (a gate scores the exact
-  // image, never its stand-in). ids: the programs still compiling, reported when the run does not settle
+  // (issue #72) the plane's own last frame (__cmwPaneStatus('L')): GLR.frameStatus() is the last begin's, which a
+  // thumbnail may have drawn after the plane. The plane is busy while its frame waited for a program, or drew a shape
+  // with a stand-in while the shape's inverse program compiled (a gate scores the exact image, never its stand-in).
+  // ids: the programs still compiling, reported when the run does not settle
   busy() {
-    // (a globe on X's side: that pane's light and status)
-    const side = window.__qregCanvas === 'canvasL' ? 'L' : 'R';
-    const led = document.getElementById(side === 'L' ? 'leftLed' : 'rightLed');
+    const led = document.getElementById('leftLed');
     const st = typeof GLR !== 'undefined' && GLR.frameStatus ? GLR.frameStatus() : null;
-    const ps = typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus(side) : null;
+    const ps = typeof __cmwPaneStatus === 'function' ? __cmwPaneStatus('L') : null;
     const ids = typeof GLR !== 'undefined' && GLR.pending ? GLR.pending().map((e) => e.id.split('|')[0] + (e.key === 'static' ? '' : '|' + e.id.split('|').pop())) : [];
     return { led: led ? led.className : '', pending: ps ? ps.pending || ps.exact > 0 : !!(st && st.pending), exact: ps ? ps.exact : null, own: !!ps, ids, glErr: st && st.error || '' };
   },
   capture() {
-    const c = document.getElementById(window.__qregCanvas || 'canvasR');
+    const c = document.getElementById('canvasL');
     const r = c.getBoundingClientRect();
     const d = this.snap();
     let s = ''; for (let i = 0; i < d.length; i += 0x8000) s += String.fromCharCode.apply(null, d.subarray(i, i + 0x8000));
     const geo = { w: c.width, h: c.height, rect: [r.left, r.top, r.width, r.height], dpr: devicePixelRatio };
-    if (typeof __cmwW2S === 'function') { geo.o = __cmwW2S('R', 0, 0); geo.x1 = __cmwW2S('R', 1, 0); geo.y1 = __cmwW2S('R', 0, 1); }
+    if (typeof __cmwW2S === 'function') { geo.o = __cmwW2S('L', 0, 0); geo.x1 = __cmwW2S('L', 1, 0); geo.y1 = __cmwW2S('L', 0, 1); }
     const cs = getComputedStyle(document.documentElement), colors = {};
     for (const k of ['--plane', '--c1', '--c1-alt', '--c1-edge', '--grid-minor', '--grid-medium', '--grid-major', '--axis', '--halo', '--cut', '--ink']) colors[k] = cs.getPropertyValue(k).trim();
-    let cellCheck = null, clipWin = null;
-    try {
-      // the app's own pattern-cell rule (bbox of bounded areas, else the meshing window) for a cross-check
-      const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:' + new URLSearchParams(location.search).get('ns')) || 'null');
-      if (st && typeof Region !== 'undefined' && typeof Axes !== 'undefined') {
-        let size = 0;
-        for (const sh of st.shapes) { if (Region.KINDS[sh.kind].type !== 'area') continue; const b = Region.bboxOf(sh); if (b) size = Math.max(size, b.x1 - b.x0, b.y1 - b.y0); }
-        if (!size && st.clipWin) size = Math.max(st.clipWin.x1 - st.clipWin.x0, st.clipWin.y1 - st.clipWin.y0);
-        cellCheck = Axes.niceStep(size / 10) * (st.patternScale || 1);
-      }
-      if (st && st.clipWin) clipWin = st.clipWin;
-    } catch (e) { cellCheck = null; }
+    // (the saved meshing window, recorded with the run)
+    let clipWin = null;
+    try { const st = JSON.parse(localStorage.getItem('complex-map-workbench-v1:' + new URLSearchParams(location.search).get('ns')) || 'null'); if (st && st.clipWin) clipWin = st.clipWin; } catch (e) { clipWin = null; }
     let info = null; try { info = typeof __cmwInfo === 'function' ? __cmwInfo() : null; } catch (e) { info = null; }
-    return { b64: btoa(s), geo, colors, cellCheck, clipWin, info, title: document.title };
+    return { b64: btoa(s), geo, colors, clipWin, info, title: document.title };
   },
 };`;
 
+// the page statement that stands a run in the steps view (scenes.js STAND): its plane ('last' or an index), the colour
+// plane the last one, its scope, surface and bare (the colour layer alone)
+const standAt = (st) => `(() => { const n = __cmwSteps().planes.length - 1; __cmwSteps({ go: ${st.plane === 'last' ? 'n' : Number(st.plane)}, now: true, T: n, scope: ${JSON.stringify(st.scope)}, surf: ${JSON.stringify(st.surf)}, bare: ${!!st.bare} }); return 1; })()`;
 async function renderRun(B, run, opt) {
   const ns = 'qreg-' + run.id.replace(/[^a-z0-9_-]/gi, '_');
   const key = 'complex-map-workbench-v1:' + ns;
   // the saved state is written before any app script runs (fresh profile, own namespace per scene)
   const seeded = 'qreg-seeded:' + ns;
   // (the app's chain is 188 px; the scenes keep a 272 px chain, through the test hook)
-  const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; window.__qregCanvas = ${JSON.stringify(run.canvas || 'canvasR')}; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
+  const inj = await B.send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__cmwChainH = 272; if (new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)} && !sessionStorage.getItem(${JSON.stringify(seeded)})) { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(run.state))}); sessionStorage.setItem(${JSON.stringify(seeded)}, '1'); }` });
   const t0 = Date.now();
   B.logs.length = 0;
   await B.send('Page.navigate', { url: `${opt.base}/test.html?ns=${ns}` });
-  // wait for the app, then until the right canvas stops changing and nothing is in progress
-  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false, patSet = false;
+  // wait for the app, stand where the run says, then wait until the plane's canvas stops changing and nothing is in
+  // progress
+  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false, stood = false;
   const deadline = t0 + opt.timeoutMs;
   await sleep(600);
   while (Date.now() < deadline) {
     let h = null, busy = null;
     try {
       if (!(await B.ev(`typeof window.__qreg === 'object'`))) await B.ev(PAGE_HELPERS + ' true');
-      const r = await B.ev(`({ h: __qreg.hash(), b: __qreg.busy(), ready: typeof __cmwState === 'function' })`);
+      const r = await B.ev(`({ h: __qreg.hash(), b: __qreg.busy(), ready: typeof __cmwSteps === 'function' && __cmwSteps().on })`);
       h = r.ready ? r.h : null; busy = r.b;
-      // (a globe's camera is not in the saved state: pinned here once the app is up, before the canvas may settle)
-      // (#363: the app opens a saved pattern as the phase, the user's one region fill; the scenes' patterns, solid,
-      // checker and polar, are the renderer's own and are set here through the test hook once the app is up)
-      if (r.ready && !patSet && run.state && run.state.pattern && run.state.pattern !== 'phase') { await B.ev(`__cmwSet('pattern', ${JSON.stringify(run.state.pattern)}), 1`); patSet = true; last = null; continue; }
+      // (where the run stands, and a globe's camera, are not in the saved state: set here once the app is up, before
+      // the canvas may settle; the colour plane is the last plane)
+      if (r.ready && !stood) { await B.ev(standAt(run.stand)); stood = true; last = null; continue; }
       if (r.ready && run.cam && !camSet) { const { side, ...o } = run.cam; await B.ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(o)}), 1`); camSet = true; last = null; continue; }
     } catch (e) { h = null; }
     const now = Date.now();
@@ -263,12 +256,31 @@ async function renderRun(B, run, opt) {
   return { cap, rgba, settled, settleMs, hashes, ns, logs: B.logs.slice(), busy: lastBusy };
 }
 
-// r: {rgba, cap: {geo, colors, cellCheck, info}, settled, settleMs, logs, busy}
+// the pixels a 'cover' run leaves out: the axes, which the plane draws over the paper after the colour (2.5 CSS px wide
+// at the origin's column and row: 2 CSS px each side); the truth's annotation band (healed_cut's cut line); and,
+// outside the true image, the cut strokes the plane draws there (a blend of the paper and --cut within
+// metrics.COVER_BG of that line: log's cut lines, z^i's cut circle): a stroke outside the image is no spill
+function coverSkip(geo, colors, rgba, T, W, H) {
+  const skip = new Uint8Array(W * H), d = geo.dpr, ox = (geo.o[0] - geo.rect[0]) * d, oy = (geo.o[1] - geo.rect[1]) * d;
+  const hex = (h, dflt) => { const m = /^#?([0-9a-f]{6})/i.exec(String(h || '').trim()) || [0, dflt]; return [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)); };
+  const pl = hex(colors['--plane'], 'FCFDFD'), cu = hex(colors['--cut'], 'CC3311'), e = cu.map((x, i) => x - pl[i]), L = e.reduce((a, x) => a + x * x, 0);
+  const onCut = (k) => {
+    const p = [rgba[4 * k], rgba[4 * k + 1], rgba[4 * k + 2]];
+    const t = Math.max(0, Math.min(1, p.reduce((a, x, i) => a + (x - pl[i]) * e[i], 0) / L));
+    return Math.hypot(...p.map((x, i) => pl[i] + t * e[i] - x)) <= M.COVER_BG && t > 0.05;
+  };
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const k = j * W + i;
+    if (Math.abs(i + 0.5 - ox) <= 2 * d || Math.abs(j + 0.5 - oy) <= 2 * d || (T.annot && T.annot[k] <= M.BAND) || (!T.inside[k] && onCut(k))) skip[k] = 1;
+  }
+  return skip;
+}
+// r: {rgba, cap: {geo, colors, clipWin, info}, settled, settleMs, logs, busy}
 function evalRun(run, r, outDir, writeRender = true) {
   const { cap, rgba } = r;
   const W = cap.geo.w, H = cap.geo.h;
   const out = { id: run.id, scene: run.scene.name, variant: run.variant, group: run.scene.group, golden: run.golden, note: run.scene.note, truth: run.scene.truth.desc, ok: true, problems: [] };
-  // runs added for SPEC 12.4 record how they were scored (the original mask / pattern runs keep their format)
+  // a strict run records how it was scored (its classifier)
   if (run.strict) Object.assign(out, { classifier: run.kind, parity_mode: run.parity, alpha: run.alpha, strict: true });
   if (writeRender) fs.writeFileSync(path.join(outDir, 'renders', run.id + '.png'), PNG.encode(W, H, rgba));
   if (!r.settled) {
@@ -279,16 +291,15 @@ function evalRun(run, r, outDir, writeRender = true) {
   let viewKnown = true;
   if (!cap.geo.o) {
     // no __cmwW2S hook: assume the pinned view (centered in the canvas) and say so
-    const v = run.scene.rightView, [L, T, RW, RH] = cap.geo.rect;
+    const v = run.scene.wView, [L, T, RW, RH] = cap.geo.rect;
     cap.geo.o = [L + RW / 2 - v.cx * v.s, T + RH / 2 + v.cy * v.s]; cap.geo.x1 = [cap.geo.o[0] + v.s, cap.geo.o[1]]; cap.geo.y1 = [cap.geo.o[0], cap.geo.o[1] - v.s];
     viewKnown = false;
-    out.problems.push('no __cmwW2S hook: the pinned right view is assumed, not verified');
+    out.problems.push('no __cmwW2S hook: the pinned view of the image is assumed, not verified');
   }
   const map = M.pixelMap(cap.geo);
-  const want = run.scene.rightView;
+  const want = run.scene.wView;
   const dv = Math.max(Math.abs(map.view.cx - want.cx) * want.s, Math.abs(map.view.cy - want.cy) * want.s, Math.abs(map.view.s / want.s - 1) * W);
-  if (dv > 0.5) out.problems.push(`right view differs from the pinned view by ${dv.toFixed(2)} px (got ${JSON.stringify(map.view)})`);
-  if (cap.cellCheck != null && Math.abs(cap.cellCheck / run.cell - 1) > 1e-9) out.problems.push(`pattern cell: the app's rule gives ${cap.cellCheck}, the truth uses ${run.cell}`);
+  if (dv > 0.5) out.problems.push(`the view of the image differs from the pinned view by ${dv.toFixed(2)} px (got ${JSON.stringify(map.view)})`);
   // the sheet order of the truth (SPEC 5.1) uses the saved meshing window: the app must still use it
   if (run.sheet && cap.clipWin) {
     const a = cap.clipWin, b = run.sheet.win, sz = Math.max(b.x1 - b.x0, b.y1 - b.y0);
@@ -297,7 +308,8 @@ function evalRun(run, r, outDir, writeRender = true) {
   const truthG = M.truthGrid(run.scene.truth, run.cell, map, W, H, { parity: run.parity, sheet: run.sheet, rc: run.rc, annot: run.strict });
   const classify = M.makeClassifier(cap.colors, run.kind);
   const ev = M.evaluate({ rgba, W, H, truthG, classify, variant: run.kind, parity: run.parity, opacity: run.opacity ? M.makeOpacity(cap.colors) : null,
-    strict: run.strict, colorErr: run.strict ? M.makeColorErr(cap.colors, run.kind) : null, cellColor: run.cellErr ? M.makeCellColor(cap.colors) : null });
+    strict: run.strict, colorErr: run.strict && run.kind !== 'cover' ? M.makeColorErr(cap.colors, run.kind) : null, cellColor: run.cellErr ? M.makeCellColor(cap.colors) : null,
+    skip: run.kind === 'cover' ? coverSkip(cap.geo, cap.colors, rgba, truthG, W, H) : null });
   fs.writeFileSync(path.join(outDir, 'maps', run.id + '.png'), PNG.encode(W, H, ev.map));
   out.metrics = ev.metrics;
   out.problems.push(...ev.problems);
@@ -326,7 +338,7 @@ function evalRun(run, r, outDir, writeRender = true) {
   if (exc.length) out.problems.push('page exceptions: ' + exc.slice(0, 3).join(' | '));
   if (r.busy && r.busy.glErr) out.problems.push('GL error: ' + r.busy.glErr);
   out.view_verified = viewKnown;
-  out.ok = r.settled && !(r.busy && r.busy.glErr) && !out.problems.some((p) => p.startsWith('right view'));
+  out.ok = r.settled && !(r.busy && r.busy.glErr) && !out.problems.some((p) => p.startsWith('the view of the image'));
   return out;
 }
 

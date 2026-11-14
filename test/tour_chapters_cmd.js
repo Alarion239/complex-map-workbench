@@ -20,7 +20,7 @@ ok('each chapter has its minutes and the running one is marked', menu && /min/.t
 await ev(`(() => { const b = document.querySelectorAll('.tour-menu .mi')[1]; b.click(); })()`); await settled({ until: `Tour.current().chapter !== 'basics'` });
 s = await st();
 ok('a pick starts that chapter', s.cur !== 'basics', s);
-await ev(`Tour.end && Tour.end()`); await settled({ until: `!document.querySelector('.ts-chap')` });
+await ev(`Tour.stop()`); await settled({ until: `!document.querySelector('.ts-chap')` });
 // a phone keeps its short count in the text, no chapter button
 await view(390, 844, true, true);
 await loadView(null, 'tourchapph' + Date.now(), STATE);

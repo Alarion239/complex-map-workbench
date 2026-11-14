@@ -326,7 +326,7 @@ jobs:
       - name: Shader cache (restore)
         if: runner.os == 'Windows'
         id: shaders
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
           key: glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-${{ hashFiles('src/glsl.js', 'src/gl/**', 'src/funcs.js', 'src/derivs.js', 'src/natpaths.js', 'src/sheets.js', 'src/formulasteps.js', 'src/parse.js', 'src/symbolic.js', 'src/invops.js', 'src/invpatterns.js', 'src/inverse.js', 'test/glsl_test.js', 'test/glsl_test_adv.js', 'test/glsl_inverse_test.js') }}
@@ -339,7 +339,7 @@ jobs:
           CMW_GLSL_CACHE: ${{ runner.os == 'Windows' && format('{0}/cmw-glsl-cache', runner.temp) || '' }}
       - name: Shader cache (save)
         if: always() && runner.os == 'Windows' && steps.shaders.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ runner.temp }}/cmw-glsl-cache
           key: ${{ steps.shaders.outputs.cache-primary-key }}
@@ -424,7 +424,11 @@ jobs:
     # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
     # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
     # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
-    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900).
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). The job runs on GitHub's Ubuntu 24.04
+    # image, not ubuntu-latest: the layout shards gate on the renderer their baseline was made on (ci/layout_baseline.json:
+    # this image's lavapipe, with its Vulkan and LLVM versions in the renderer's name), so on another image they fail
+    # until a new baseline is made there; and the jobs of one run must not land on two images while ubuntu-latest moves.
+    # TODO(#1507): run the job on Ubuntu 26.04 with a new layout baseline made there, and unpin it.
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     strategy:
@@ -434,7 +438,7 @@ jobs:
       max-parallel: 8
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.browser) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       CMW_ANGLE: vulkan
@@ -451,18 +455,30 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      # (#504: the image's package lists usually know the package, so it installs without refreshing them first; they are
-      # refreshed only when that fails, as before. Each part's time goes to the log)
+      # Mesa's Vulkan drivers (ci/lavapipe.sh): from Ubuntu's mirrors, or, when they cannot be reached, from an Actions
+      # cache of the package's files, or from a fallback mirror on another domain. The cache is keyed by the runner's
+      # image and the package's version in the image's lists, restored by that exact key only (files from another image
+      # are never installed), and saved after an install from a mirror, Ubuntu's or the fallback, of that version only
+      # (after a Mesa update, a download with refreshed lists installs a newer one; a pull request's run reads its own
+      # saves and main's)
+      - name: Mesa cache key
+        id: mesa-key
+        run: ci/lavapipe.sh --key >> "$GITHUB_OUTPUT"
+      - name: Mesa cache (restore)
+        id: mesa-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ runner.temp }}/cmw-lavapipe-debs
+          key: ${{ steps.mesa-key.outputs.key }}
       - name: Mesa's Vulkan drivers (lavapipe)
-        # (needrestart's scan for services to restart after the install, about 1.4 s, has nothing to restart here: off,
-        # on sudo's own line, since sudo resets the environment)
-        run: |
-          t0=$(date +%s.%N)
-          if dpkg -s mesa-vulkan-drivers >/dev/null 2>&1; then echo "mesa-vulkan-drivers: already installed"
-          elif sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers; then echo "mesa-vulkan-drivers: installed from the image's lists"
-          else sudo apt-get update -qq && sudo NEEDRESTART_SUSPEND=1 apt-get install -y -qq mesa-vulkan-drivers && echo "mesa-vulkan-drivers: installed after apt-get update"
-          fi
-          awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN { printf "Mesa step: %.1f s\n", b - a }'
+        id: mesa
+        run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"
+      - name: Mesa cache (save)
+        if: (steps.mesa.outputs.source == 'mirror' || steps.mesa.outputs.source == 'fallback') && steps.mesa.outputs.version == steps.mesa-key.outputs.version && steps.mesa-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ runner.temp }}/cmw-lavapipe-debs
+          key: ${{ steps.mesa-key.outputs.key }}
       # (ci/browser.js asks the job's first Chrome for its renderer before the first suite, and fails the job when it has
       # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
