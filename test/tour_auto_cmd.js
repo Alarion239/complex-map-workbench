@@ -115,13 +115,22 @@ if (ob) { await click(ob[0], ob[1]); await until(`(() => { const k = document.qu
 const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : '#wKeyChkR');
 check(SV ? 'key: the chip f₁ is there' : 'key: the Phase key check is there', !!kc, kc);
 if (kc) {
+  await ltInstall();
+  await ev(`window.__wheelAt = null; window.addEventListener('wheel', () => { if (window.__wheelAt == null) window.__wheelAt = performance.now(); }, true); 1`);
   await click(kc[0], kc[1]); t0 = Date.now();
   tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
-  await sleep(1000 - (Date.now() - t0));
+  // (the countdown runs on the page's clock: the wheel comes when that clock is 1 s into it, and the advance is measured on it
+  // too, late only as far as the page was blocked, as the formula step's is. A wheel that reached the page after the countdown's
+  // due moment, because the page was blocked, proves nothing and fails the check)
+  const dK = await doneAt(t0);
+  const wheelDue = dK ? dK.p + dK.left - CDMS + 1000 : 0;
+  while (dK && (await ev('performance.now()')) < wheelDue) await sleep(10);
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 });
-  at = await advancedAt(KEYSTEP, t0);
-  check('key: a wheel at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 300), at);
+  await until('window.__wheelAt != null', 3000, 10);
+  const wheelAt = await ev('window.__wheelAt');
+  const aK = await advanceFrom(KEYSTEP, dK, 300);
+  check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && wheelAt != null && wheelAt < dK.p + dK.left, [aK, dK, wheelAt]);
 }
 // (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
@@ -275,6 +284,11 @@ await goStep('sound/song');
 // (the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 await settled({ max: 15000 });   // (the song scene's frames and shader compiles are done before the press, so the playback is timed alone)
+// (and, in the steps view, until the chain is ready to glide (__cmwSteps().ready.ready): its programs linked, its carried colour's
+// warm draw made (SV_WARM_IDLE_MS after the chain changed and after the last input) and its idle jobs done (the pole tracks, the outer ring, the meshes). Without
+// a parallel compile the programs link one at a time in idle time; a link, and the warm draw, takes a second or more on a software
+// renderer, which during the playback holds back the captions' timers until two fire in one task)
+await settled({ max: 60000, until: `!(window.__cmwSteps && __cmwSteps().on) || __cmwSteps().ready.ready` });
 const ab = await center('.ts-act');
 await ltInstall();
 await click(ab[0], ab[1]); t0 = Date.now(); const p0 = await ev('performance.now()');
@@ -304,7 +318,7 @@ check('Strings: the tour holds Hear the function on', await ev(`Sound.prefs().so
 const lap = async (cx) => { const pts = []; for (let i = 0; i <= 48; i++) { const th = -Math.PI / 2 + 2 * Math.PI * i / 48; pts.push(await ev(`__cmwPlaneMenu().w2s('L', ${cx + 0.4 * Math.cos(th)}, ${0.4 * Math.sin(th)})`)); } await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pts[0][0], y: pts[0][1] }); for (const p of pts) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1] }); await sleep(30); } };
 await lap(1); await lap(-1);
 t0 = Date.now();
-check('Strings: two laps tick the task', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 1500)) != null, [await cur(), await ev('Sound.prefs()'), await ev('Sound.state().audio'), await ev('JSON.stringify(Sound.harpState())')]);
+check('Strings: two laps tick the task', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 1500)) != null, [await cur(), await ev('Sound.prefs()'), await ev('Sound.state().audio'), await ev('JSON.stringify(Sound.hear.state())')]);
 // (the pointer rests: no hover travel, so CD_MS)
 at = await advancedAt('sound/strings', t0);
 check('Strings: moves on about CD_MS after the last lap', at != null && at <= CDMS + 400, at);

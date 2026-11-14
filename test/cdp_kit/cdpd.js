@@ -23,6 +23,14 @@ const wr = ch.stdio[3], rd = ch.stdio[4];
 let id = 0, buf = '';
 const pend = new Map();
 const LOG = [];
+// What last ended or replaced the page, for the error a call gets when the page goes under it ("Inspected target navigated
+// or closed", "Cannot find context with specified id"): the main frame navigating or starting to load, or the page
+// crashing or detaching. CAUSE_BACK_MS: how long before a call an event still explains its failure; CAUSE_WAIT_MS: how long
+// a failed call waits for the event that explains it (the error can come first).
+const CAUSE_BACK_MS = 5000, CAUSE_WAIT_MS = 500;
+const GONE = /navigated or closed|Cannot find context with specified id/;
+let CAUSE = null;
+const noteCause = (text) => { CAUSE = { at: Date.now(), text }; LOG.push({ t: 'cdp', m: text }); };
 rd.on('data', (d) => {
   buf += d.toString('utf8');
   let i;
@@ -32,11 +40,26 @@ rd.on('data', (d) => {
     else if (msg.method === 'Runtime.consoleAPICalled') LOG.push({ t: msg.params.type, m: msg.params.args.map((a) => a.value !== undefined ? String(a.value) : (a.description || a.type)).join(' ').slice(0, 400) });
     else if (msg.method === 'Runtime.exceptionThrown') LOG.push({ t: 'EXC', m: (msg.params.exceptionDetails.exception && msg.params.exceptionDetails.exception.description || msg.params.exceptionDetails.text).slice(0, 600) });
     else if (msg.method === 'Fetch.requestPaused') vendorAnswer(msg.params, msg.sessionId);
+    else if (msg.method === 'Page.frameNavigated' && !msg.params.frame.parentId) noteCause(`Page.frameNavigated ${msg.params.frame.url}`);
+    else if (msg.method === 'Page.frameStartedLoading' && !msg.params.parentFrameId) noteCause('Page.frameStartedLoading');
+    else if (msg.method === 'Inspector.targetCrashed' || msg.method === 'Target.targetCrashed') noteCause(msg.method);
+    else if (msg.method === 'Inspector.detached') noteCause(`Inspector.detached ${(msg.params && msg.params.reason) || ''}`.trim());
     else if (msg.method === 'Page.loadEventFired') { LOADS++; for (const w of loadWait.splice(0)) w(); }
     else if (msg.method === 'Log.entryAdded') LOG.push({ t: 'log-' + msg.params.entry.level, m: msg.params.entry.text.slice(0, 400) });
   }
 });
-const send = (method, params = {}, sessionId) => new Promise((res, rej) => { const m = { id: ++id, method, params }; if (sessionId) m.sessionId = sessionId; pend.set(m.id, { res, rej }); wr.write(JSON.stringify(m) + '\0'); });
+const send = (method, params = {}, sessionId) => new Promise((res, rej) => {
+  const m = { id: ++id, method, params }; if (sessionId) m.sessionId = sessionId;
+  const t0 = Date.now();
+  // a call the page went under fails with the event that came first (or says none was seen)
+  const fail = async (e) => {
+    if (!GONE.test(e.message)) return rej(e);
+    while (!(CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS) && Date.now() - t0 < CAUSE_WAIT_MS) await new Promise((r) => setTimeout(r, 10));
+    const why = CAUSE && CAUSE.at >= t0 - CAUSE_BACK_MS ? CAUSE.text : `no navigation or crash event within ${CAUSE_BACK_MS} ms before or ${CAUSE_WAIT_MS} ms after the call`;
+    rej(new Error(`${e.message} [${method}: ${why}]`));
+  };
+  pend.set(m.id, { res, rej: fail }); wr.write(JSON.stringify(m) + '\0');
+});
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // (the page's load events, for H.go: how many so far, and who waits for the next)
 let LOADS = 0;
@@ -70,11 +93,32 @@ H.holdSheet = async (ms) => {
   await send('Network.enable', {}, S); await send('Network.setCacheDisabled', { cacheDisabled: ms > 0 }, S);
 };
 H.send = (m, p) => send(m, p, S);
+// H.forgetCause(): the last navigation or crash is no longer what a failing call is explained by (for a check of the
+// message a call gets when no event explains its failure)
+H.forgetCause = () => { CAUSE = null; };
 H.sleep = sleep;
 // evaluates expr in the page and returns its value. In REPL mode a returned promise is not awaited by Runtime.evaluate
 // (it comes back as {}), so a promise result is followed with Runtime.awaitPromise, within the same timeout. An object
 // result is read by value from its handle, which is released at once.
+// (#1328) an answer the kit cannot give as data: a page exception ({ __exc }) and a wait that ran out (H.settled's ok false).
+// Each is recorded as a fault of the suite, and counts as handled once the suite reads what says so (`__exc`; `ok` or `at`),
+// so a suite that checks the answer is as it was and one that reads on as if the page had answered fails at its end,
+// with the expression or the wait and the text (kitFaults in its result; ci/browser.js failures()).
+const FAULTS = [];
+const faultAnswer = (ans, key, what) => {
+  const f = { what, handled: false };
+  FAULTS.push(f);
+  const guarded = Object.assign({}, ans);
+  for (const k of key) Object.defineProperty(guarded, k, { enumerable: true, configurable: true, get() { f.handled = true; return ans[k]; } });
+  return guarded;
+};
+// faults(clear): the faults so far that the suite has not read (what the suite's result lists as kitFaults); clear forgets all
+H.faults = (clear = false) => { const u = FAULTS.filter((x) => !x.handled).map((x) => x.what); if (clear) FAULTS.length = 0; return u; };
 H.ev = async (expr, timeout = 20000) => {
+  const r = await evRaw(expr, timeout);
+  return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
+};
+const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
   const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
@@ -110,14 +154,21 @@ H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
 H.nav = async (url) => { await send('Page.navigate', { url }, S); await sleep(2500); if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed(); };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
-// It answers whether the load came in time; a page that did not load says so in the suite's log.
+// It answers whether the load came in time; a page that did not load says so in the suite's log. A document whose body has stopped
+// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit.
+const GO_STALL_MS = 5000;
 H.go = async (url, ms = 15000) => {
-  const n = LOADS;
+  const n = LOADS, t0 = Date.now();
   await send('Page.navigate', { url }, S);
-  let t;
-  const ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), ms); })]);
-  clearTimeout(t);
-  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url})` });
+  let ok = false, reloads = 0;
+  while (!ok && Date.now() - t0 < ms) {
+    const left = ms - (Date.now() - t0), step = reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
+    let t;
+    ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
+    clearTimeout(t);
+    if (!ok && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
+  }
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363, as H.nav)
   return ok;
 };
@@ -151,7 +202,34 @@ H.settled = async (o = {}) => {
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
-  return r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  const ans = r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
+  return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${o.until ? JSON.stringify(String(o.until).slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
+};
+// H.reloaded(old, readyExpr, { limitMs }): waits for the page a reload brings: a document other than the one that began at
+// old (its performance.timeOrigin, read before the reload was asked for), loaded, with readyExpr (an expression, default
+// true) true; an expression that throws (a hook of the app that is not up yet) is not true yet. A call the reload cuts off fails with the page-gone error (GONE); that error, and only that one, is the cue to
+// ask again of the new page, any other error is thrown. After limitMs (RELOAD_LIMIT_MS by default) it throws, naming
+// the parts still missing (newDocument, loaded, ready).
+const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
+// H.injectGone(n): the next n probes of H.reloaded fail with the page-gone error before they reach the page, as when the
+// reload cuts them off (for a check that the wait asks again; it counts down to 0 by itself)
+const FAULT = { gone: 0 };
+H.injectGone = (n) => { FAULT.gone = n; };
+const probe = (expr) => { if (FAULT.gone > 0) { FAULT.gone--; return Promise.reject(new Error('{"code":-32000,"message":"Inspected target navigated or closed"}')); } return H.ev(expr); };
+H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {}) => {
+  const t0 = Date.now();
+  let parts = null;
+  for (;;) {
+    try {
+      const r = await probe(`({ newDocument: performance.timeOrigin !== ${old}, loaded: document.readyState === 'complete', ready: (() => { try { return !!(${readyExpr}); } catch (e) { return false; } })() })`);
+      if (r && r.newDocument !== undefined) { parts = r; if (r.newDocument && r.loaded && r.ready) return true; }
+    } catch (e) { if (!GONE.test(String((e && e.message) || e))) throw e; }
+    if (Date.now() - t0 > limitMs) {
+      const missing = parts ? Object.keys(parts).filter((k) => !parts[k]) : ['any answer'];
+      throw new Error(`the page did not finish reloading within ${limitMs} ms (missing: ${missing.join(', ')}; ready: ${readyExpr})`);
+    }
+    await sleep(RELOAD_POLL_MS);
+  }
 };
 // After a chain was loaded (__cmwExample, a link, a state), the steps view adopts the chain's own view (scope, colour plane,
 // surface) at the left pane's next render: a view set before that render is overwritten. adopted() waits, with no sleep,
@@ -228,12 +306,38 @@ H.loadView = async (view, ns, st, o = {}) => {
 };
 // isSteps(): whether the page shows the steps view (a suite tagged for it starts with this check, so it fails under another tag)
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
-H.load = async (ns, st, extra, viewName) => {
-  await send('Page.navigate', { url: 'http://localhost:8793/gl-helpers.html' }, S); await sleep(400);
+// load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded, its
+// hooks are defined and the app has built the chain of the saved state: the plane list (__cmwSteps().planes, in either view)
+// holds a plane for a step (two or more: the origin plane and the step's; a saved step shown alone leaves just those two, and
+// the app adopts the whole chain at once), and a state with no active step asks no plane. The app starts after the page's
+// load event (software GL, a busy machine), so a read right after the load event finds an empty chain. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for
+// again, and one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
+// A document whose body has stopped arriving (still "loading" with its response not finished) after stallMs (LOAD_STALL_MS by
+// default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
+const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2;
+// pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
+// since its start; 0 where an event has not come) and how many scripts and sheets it has, and how many planes its chain has built (null before the hook answers)
+const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
+// docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
+const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
+H.load = async (ns, st, extra, viewName, opts = {}) => {
+  const origin = opts.origin || 'http://localhost:8793';
+  await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);
   const o = savedState(st);
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: 'http://localhost:8793/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '') }, S);
-  await H.settled({ max: 20000, until: `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && !!document.getElementById('canvasR')` });
+  const url = origin + '/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '');
+  await send('Page.navigate', { url }, S);
+  const want = Array.isArray(o.steps) && o.steps.some((q) => q.on !== false) ? 2 : 0;
+  const ready = `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && (() => { try { return __cmwSteps().planes.length >= ${want}; } catch (e) { return false; } })()`;
+  const limitMs = opts.limitMs || LOAD_LIMIT_MS, stallMs = opts.stallMs || LOAD_STALL_MS, t0 = Date.now();
+  let r, reloads = 0, tNav = t0;
+  do {
+    r = await H.settled({ max: Math.max(1, Math.min(LOAD_WAIT_MS, stallMs, limitMs - (Date.now() - t0))), until: ready });
+    if (!r.ok && reloads < LOAD_RELOADS && Date.now() - tNav >= stallMs) {
+      if (await docStalled()) { reloads++; tNav = Date.now(); await send('Page.navigate', { url }, S); }
+    }
+  } while (!r.ok && Date.now() - t0 < limitMs);
+  if (!r.ok) throw new Error(`H.load: ${ns}: the page is not ready after ${limitMs} ms (${want} planes wanted; ${JSON.stringify(r)}; reloads ${reloads}; page ${JSON.stringify(await pageNow())})`);
   // (#363) the app opens any saved pattern as the phase, the one region fill a user has; the suites that seed one of
   // the renderer's other patterns (solid, checker, polar, sphere, ...: the GPU and image checks) get it through the test
   // hook, as the steps view's own draws do (once the hook is defined: a slow page may still be starting)
@@ -243,13 +347,13 @@ H.load = async (ns, st, extra, viewName) => {
 };
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
-H.fs = fs; H.path = path; H.DIR = DIR;
+H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });
   const a = await send('Target.attachToTarget', { targetId: t.targetId, flatten: true });
   S = a.sessionId;
-  await send('Runtime.enable', {}, S); await send('Page.enable', {}, S); await send('Log.enable', {}, S);
+  await send('Runtime.enable', {}, S); await send('Page.enable', {}, S); await send('Log.enable', {}, S); await send('Inspector.enable', {}, S);
   if (VENDOR) { await send('Fetch.enable', { patterns: VENDOR.PATTERNS.map((urlPattern) => ({ urlPattern })) }, S); LOG.push({ t: 'info', m: 'CMW_VENDOR=1: the CDN files from vendor/' }); }
   await H.view(1440, 900, false);
   await send('Page.addScriptToEvaluateOnNewDocument', { source: fs.readFileSync(path.join(DIR, 'qa_inject.js'), 'utf8') }, S);
@@ -265,10 +369,13 @@ H.fs = fs; H.path = path; H.DIR = DIR;
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
+      FAULTS.length = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
+      const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
+      if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
       fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }
