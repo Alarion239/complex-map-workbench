@@ -18,7 +18,7 @@ const SHARDS = [
   // (export_cmd.js and export_deform_cmd.js: the fifth run's times)
   { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5', 'export_sheet_cmd.js', 'figure_wait_cmd.js'] },                                // 453 + 265
   // (#429: 4a was one 22-23 min job, the longest of a T3 run: its figures and its videos are two jobs)
-  { id: 'export-2', suites: ['export_deform_classic_cmd.js#4a-fig', 'export_deform_cmd.js#video', 'export_tex_cmd.js', 'export_cmd.js#user5-classic', 'export_cmd.js#user5-deform'] },
+  { id: 'export-2', suites: ['export_deform_classic_cmd.js#4a-fig', 'export_deform_cmd.js#video', 'export_tex_cmd.js', 'export_cmd.js#user5-classic', 'export_cmd.js#user5-deform', 'export_cmd.js#user5-deform-steps'] },
   { id: 'export-4', suites: ['export_deform_classic_cmd.js#4a-vid', 'export_deform_cmd.js#dialog', 'export_steps_cmd.js', 'export_glide_cmd.js', 'export_two_planes_cmd.js', 'export_two_planes_dialog_cmd.js'] },                                                       // + 222
   { id: 'export-3', suites: ['export_deform_classic_cmd.js#preview', 'export_deform_classic_cmd.js#4b', 'export_deform_cmd.js#preview'] },                               // 571 + 167
   // (480 + 295, with meetnear_coincide and between: 5 + 23)
