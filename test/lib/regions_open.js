@@ -5,8 +5,11 @@
 //   openSaved(ns, st, lang)
 //                        the app with the saved state st written straight to its storage (not the kit's load(), which
 //                        sets a seeded pattern through the test hook): what a user's own saved work does; lang, when
-//                        given, is the page's language
+//                        given, is the page's language. It returns once the page, quiet, has the __cmwRegions hook, and
+//                        throws, naming the wait, when that does not happen within READY_MS
 (({ U, ev, send, go, sleep, settled }) => {
+  const READY_MS = 60000;   // (the longest a page may take to have the hook)
+  const HOOK = `typeof __cmwRegions === 'function'`;
   const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
   const STATE = (o) => Object.assign({
     v3: true, v4: true, shapes: [DISC], steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0,
@@ -16,8 +19,10 @@
     await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
     await go(`${U}/test.html?ns=${ns}${lang ? `&lang=${lang}` : ''}`);
-    await settled({ only: true, max: 60000, until: `typeof __cmwRegions === 'function'` });
-    await settled({ floor: 800 });
+    const first = await settled({ only: true, max: READY_MS, until: HOOK });
+    // (the page may load again after it first has the hook: ask again once it is quiet, so the caller reads a page that has it)
+    const quiet = first && first.ok ? await settled({ floor: 800, max: READY_MS, until: HOOK }) : first;
+    if (!quiet || !quiet.ok) throw new Error(`openSaved ${ns}: the page did not have __cmwRegions and settle within ${READY_MS} ms: ${JSON.stringify(quiet)}`);
   };
   const popFit = async (lang, o) => {
     await openSaved(`rgph-fit-${lang}-${Date.now() % 1000000}`, STATE({}), lang);
