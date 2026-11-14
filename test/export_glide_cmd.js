@@ -4,6 +4,7 @@
 // parked frame of the glide matches the pane the screen draws at the same thread position; the thread's place, Play range
 // and the pane are as they were afterwards; the dialog lists Video and says where it goes and how long it is. The same on the
 // sphere and the Landscape: the glide is recorded in the screen's 3D camera at the frame's own aspect.
+// At a whole thread position a frame is that plane's picture, wherever the view is parked, and the view stays parked there.
 // A command file for a CDP daemon:  <runner> test/export_glide_cmd.js
 const fails = [], info = {};
 // a pixel of the frame is 'drawn' where it differs from the frame's own paper by more than this (summed over r, g, b)
@@ -425,5 +426,46 @@ for (const surf of ['sphere', 'land']) {
   info['paths on and off'] = Object.assign({ heads }, pr);
   ok('Paths on: the pane draws paths at the parked place, and none with Paths off', heads > 0 && pr.headsOn > 0 && pr.headsOff === 0, info['paths on and off']);
   ok(`the glide's frame draws the paths with Paths on and not with Paths off (over ${PATHS_MIN_SHARE} of its pixels differ)`, pr.share > PATHS_MIN_SHARE, info['paths on and off']);
+}
+// a frame at a whole thread position is that plane's picture wherever the view is parked (#1553): the frames at every plane drawn
+// with the view parked at that plane are the references; each is drawn again with the view parked at the last plane (the frames
+// of the other planes) and parked between the first two planes (the frames of every plane), and must match its reference to
+// SAME_PLANE_MAD. The control: the references of z and the last plane differ by more than SAME_PLANE_MAD, so the bound tells
+// planes apart (on the Landscape too, whose frames are mostly paper).
+// Afterwards the view is where it was parked
+{
+  const SAME_PLANE_MAD = 1, FRAME_PT = 240, PARK_BETWEEN = 0.5;
+  for (const surf of ['plane', 'sphere', 'land']) {
+    await open(1, surf);
+    const n = await ev('__cmwSteps().planes.length');
+    // the frame at x drawn into window.__xglRef[key] -> its mean difference (of 255) from window.__xglRef[ref], or null when ref is absent
+    const frameAt = (x, key, ref) => ev(`await (async () => {
+      const a = await __cmwFig.glideArt(${x}, { wpt: ${FRAME_PT}, hpt: ${surf === 'plane' ? 'undefined' : FRAME_PT * 9 / 16}, dpi: 96 });
+      (window.__xglRef = window.__xglRef || {})[${JSON.stringify(key)}] = a.rgb;
+      const b = ${ref ? `window.__xglRef[${JSON.stringify(ref)}]` : "null"};
+      if (!b || b.length !== a.rgb.length) return null;
+      let d = 0; for (let i = 0; i < b.length; i++) d += Math.abs(a.rgb[i] - b[i]);
+      return d / b.length;
+    })()`, 120000);
+    const parkAt = async (x) => {
+      await ev(`(__cmwSteps({ go: ${Math.round(x)}, now: true }), ${x === Math.round(x) ? 1 : `__cmwSteps({ park: ${x} })`}, 1)`);
+      await settled({ until: `!__cmwSteps().anim && Math.abs(__cmwSteps().x - ${x}) < ${POS_TOL}`, max: SETTLE_MAX_MS });
+    };
+    for (let k = 0; k < n; k++) { await parkAt(k); await frameAt(k, `${surf}${k}`); }
+    const ctl = await frameAt(n - 1, 'ctl', `${surf}0`);
+    ok(`${surf}: the reference frames of z and the last plane differ (control, mean difference over ${SAME_PLANE_MAD})`, ctl > SAME_PLANE_MAD, ctl);
+    for (const at of [n - 1, PARK_BETWEEN]) {
+      await parkAt(at);
+      for (let k = 0; k < n; k++) {
+        if (k === at) continue;
+        const where = at === PARK_BETWEEN ? `parked at ${at}` : `parked at plane ${at}`;
+        const d = await frameAt(k, 'tmp', `${surf}${k}`);
+        info[`${surf} frame at ${k}, ${where}`] = d;
+        ok(`${surf}, ${where}: the frame at plane ${k} is that plane's (mean difference under ${SAME_PLANE_MAD})`, d != null && d < SAME_PLANE_MAD, d);
+      }
+      const back = await ev('({ x: __cmwSteps().x, i: __cmwSteps().i })');
+      ok(`${surf}: the view is where it was parked (${at}) after the frames`, Math.abs(back.x - at) < POS_TOL, back);
+    }
+  }
 }
 return { pass: fails.length === 0, fails, info };

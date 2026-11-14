@@ -275,6 +275,14 @@
     draft = null; probe = null;
     requestRender('L');
   }
+  // runs draw() with the view at plane i (as svGo puts it there at once), then puts the view back where it was: on its plane, and
+  // at the place between two planes it was parked at. -> draw()'s result
+  async function svAtPlane(i, draw) {
+    const keep = { i: SV.i, x: SV.g.x, span: SV.span };
+    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U) return draw();
+    svGo(i, true);
+    try { return await draw(); } finally { svGo(keep.i, true); SV.g.set(keep.x); SV.span = keep.span; }
+  }
   function svArrive() {
     svPolesWatch();
     const i = Math.round(SV.g.x), was = SV.at;
