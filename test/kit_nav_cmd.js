@@ -3,12 +3,16 @@
 //   - the CPU is throttled (a rate scaled to this machine) so that the page's load outlasts SLOW_MS (a fixed wait would read it
 //     loading): after nav the document is complete;
 //   - the app's start is held LATE_MS after the page's load event (its DOMContentLoaded handlers run that much later, as a
-//     slow machine does): after nav the app answers, its plane list is there.
+//     slow machine does): after nav the app answers, its plane list is there;
+//   - control: an app that starts later than nav's wait makes nav answer ok false (a kit fault that the suite handles by reading it);
+//   - a #cmw= link opens in a second load (the app decodes it, drops the hash and reloads): after nav the page is that reloaded
+//     page, and a call right after it is not cut off (whether the reload lands before that call depends on how long the link takes
+//     to decode, so a nav that did not wait for it fails this only some of the time; perp_cmd and touch_cmd open links too).
 // It runs in the steps view. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const SLOW_MS = 2600, TARGET_MS = 4500, MAX_RATE = 20, LATE_MS = 4000;   // (the throttled load must take longer than SLOW_MS, or the check says nothing)
+const SLOW_MS = 2600, TARGET_MS = 4500, MAX_RATE = 20, LATE_MS = 4000, NEVER_MS = 12000;   // (the throttled load must take longer than SLOW_MS, or the check says nothing)
 const URL = (tag) => `http://localhost:${PORT}/test.html?ns=kitnav${tag}${Date.now()}&view=steps`;
 await view(1440, 900, false, false);
 // (the throttle is scaled to this machine: an unthrottled nav takes `base`, and a faster machine needs a stronger slowdown; if the
@@ -38,8 +42,29 @@ const late = await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() 
 })();` });
 try {
   const t0 = Date.now();
-  await nav(URL('late'));
-  info.late = { planes: await ev('__cmwSteps().planes.length'), ms: Date.now() - t0 };
-  ok(`nav returns once the app has started, which its page begins ${LATE_MS} ms after its load event`, typeof info.late.planes === 'number' && info.late.planes >= 1 && info.late.ms >= LATE_MS, info.late);
+  const r = await nav(URL('late'));
+  info.late = { planes: await ev('__cmwSteps().planes.length'), ms: Date.now() - t0, ok: r.ok };
+  ok(`nav returns once the app has started, which its page begins ${LATE_MS} ms after its load event`, typeof info.late.planes === 'number' && info.late.planes >= 1 && info.late.ms >= LATE_MS && r.ok === true, info.late);
 } finally { await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: late.identifier }); }
+// a link opens in a second load: nav goes through the reload, so the page it answers on is the reloaded one
+const payload = await ev('await Params.encodeLink(__cmwP().figure)');
+let linkErr = null;
+try {
+  await nav(`http://localhost:${PORT}/test.html?ns=kitnavlink${Date.now()}&view=steps#cmw=${payload}`);
+  info.link = await ev(`({ type: performance.getEntriesByType('navigation')[0].type, hash: location.hash, planes: __cmwSteps().planes.length })`);
+} catch (e) { linkErr = String((e && e.message) || e); }
+ok('nav on a #cmw= link answers on the reloaded page, and a call right after is not cut off', !linkErr && info.link && info.link.type === 'reload' && info.link.hash === '' && info.link.planes >= 1, { linkErr, link: info.link });
+// control: an app that does not start in time makes nav answer ok false (a kit fault the suite reads here; a suite that ignores it fails)
+const never = await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+  const add = document.addEventListener;
+  document.addEventListener = function (type, fn, opt) {
+    if (type !== 'DOMContentLoaded') return add.call(this, type, fn, opt);
+    return add.call(this, type, () => setTimeout(fn, ${NEVER_MS}), opt);
+  };
+})();` });
+try {
+  const r = await nav(URL('never'));
+  info.never = { ok: r.ok, loaded: r.loaded, busy: r.busy };
+  ok('nav answers ok false when the app has not started within its wait', r.ok === false && r.loaded === true, info.never);
+} finally { await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: never.identifier }); }
 return { pass: fails.length === 0, fails, info };
