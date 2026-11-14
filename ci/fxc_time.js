@@ -25,6 +25,7 @@ const crypto = require('crypto');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
+const SC = require('./steps_scenes');
 
 const argv = process.argv.slice(2);
 const MODE = argv[0];
@@ -112,7 +113,11 @@ const SHIM = `(() => {
 // the scenes: the formula pasted into the field of a custom step that opened as z^2+1 (null: the default example, as it opens), as
 // ci/glprof_typed.js's walk does, then the phases: [label, statement]
 const GO = (k) => `__cmwSteps({ go: ${k} })`;
+// (mk: the Mountain King example, opened and its first glide: the largest programs the app links, MOB carry ones)
+const MOUNTAIN_KING = 'In the Hall of the Mountain King';
+const LAST = '(() => { const n = __cmwSteps().planes.length - 1; if (n > 0) __cmwSteps({ go: n }); return true; })()';
 const SCENES = {
+  mk: { example: MOUNTAIN_KING, phases: [['open', null], ['land', SC.main('land')], ['land closed', SC.main('xy')], ['glide', LAST], ['globe', `(${GO(0)}, __cmwSteps({ surf: 'sphere' }), ${LAST})`]] },
   expsin: { edit: 'exp(sin(z))', phases: [['glide', GO(1)], ['globe', `(${GO(0)}, __cmwSteps({ surf: 'sphere' }), ${GO(1)})`]] },
   sinzz: { edit: 'sin(z)/z', phases: [['glide', GO(1)]] },
   cubic: { edit: 'z^3-2z+1', phases: [['glide', GO(1)]] },
@@ -121,7 +126,12 @@ const SCENES = {
 const isInv = (f) => /void invWalk\(|IX_NR_PASS/.test(f);
 const sha1 = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 10);
 
-async function captureScene(base, name) {
+// the index of the example called name in a tree's source (ci/glprof.js reads it the same way)
+function exampleIndex(tree, name) {
+  const src = fs.readFileSync(path.join(tree, 'src', 'app', '15-examples-guide.js'), 'utf8');
+  return [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'")).indexOf(name);
+}
+async function captureScene(base, name, tree) {
   const sc = SCENES[name];
   const H = await launch({ inject: SHIM, width: 1440, height: 900 });
   try {
@@ -145,6 +155,11 @@ async function captureScene(base, name) {
       }
     };
     let from = await quiet(240000);
+    if (sc.example) {
+      const i = exampleIndex(tree, sc.example);
+      if (i < 0) throw new Error(`no example named ${sc.example} in ${tree}`);
+      await H.ev(`__cmwExample(${i})`);
+    }
     if (sc.edit) {
       await H.until(`!!document.querySelector('input[data-pkey="expr"]')`, 30000, 100);
       await H.ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = ${JSON.stringify(sc.edit)}; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return true; })()`);
@@ -152,10 +167,11 @@ async function captureScene(base, name) {
     }
     const out = [];
     for (const [label, js] of sc.phases) {
-      await H.ev(js);
+      if (js) await H.ev(js);
       const to = await quiet(600000);
       const progs = await H.ev(`window.__progs.slice(${from}, ${to}).map((p) => ({ vs: p.vs, fs: p.fs }))`);
       const prof = await H.ev(`GLR.profile().slice(${from}, ${to}).map((r) => ({ name: r.name, mode: r.mode, inv: r.inv, key: String(r.key).slice(0, 60) }))`);
+      console.log(`[fxc] ${name} ${label}: ${progs.length} links, ${progs.filter((p) => isInv(p.fs)).length} inverse; ${prof.map((r, i) => `${r.name}${r.inv ? "*" : ""} ${((progs[i] || { fs: "" }).fs.length / 1024).toFixed(0)}`).join(", ")}`);
       progs.forEach((p, i) => { if (isInv(p.fs)) out.push({ scene: name, phase: label, ...(prof[i] || {}), vs: p.vs, fs: p.fs }); });
       from = to;
     }
@@ -169,11 +185,11 @@ async function capture() {
   if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
   const found = [];
   for (const sd of sides) {
-    const dist = sd.ref ? buildReference(sd.ref).dist : path.join(ROOT, 'dist');
+    const tree = sd.ref ? buildReference(sd.ref).dir : ROOT, dist = path.join(tree, 'dist');
     fs.writeFileSync(path.join(dist, 'blank.html'), '<!doctype html><title>b</title>');
     const S = await serve(dist);
     for (const n of names) {
-      const r = await captureScene(S.base, n);
+      const r = await captureScene(S.base, n, tree);
       console.log(`[fxc] ${sd.label} ${n}: ${r.length} inverse programs: ${r.map((x) => `${x.phase} ${x.name} ${((x.vs.length + x.fs.length) / 1024).toFixed(0)} KB`).join('; ')}`);
       for (const x of r) found.push({ side: sd.label, ...x });
     }
@@ -186,28 +202,24 @@ async function capture() {
     if (!progs.has(id)) progs.set(id, { id, name: x.name, key: x.key, mode: x.mode, srcKB: +((x.vs.length + x.fs.length) / 1024).toFixed(1), vs: x.vs, fs: x.fs, in: [] });
     progs.get(id).in.push(`${x.side}/${x.scene}/${x.phase}`);
   }
-  // the jobs, the most informative first: the scenes in the order given (expsin first), within one the small programs
-  // before the large (a timeout costs the most), each program in a, b and c
+  // the jobs, the most informative first. The first side is the reference of the variants (b, c): only its programs get
+  // them. First the Mountain King's MOB carry programs (the largest): each as the sides link it, then its b and c; then
+  // every other program as captured (the scenes in the order given, the first side's first, small before large: a
+  // timeout costs the most), then the variants of those, scene by scene
   const sceneOf = (p) => names.indexOf(p.in[0].split('/')[1]);
-  const sideOf = (p) => Math.min(...p.in.map((s) => sides.findIndex((q) => q.label === s.split('/')[0])));
-  const list = [...progs.values()].sort((p, q) => sceneOf(p) - sceneOf(q) || sideOf(p) - sideOf(q) || p.srcKB - q.srcKB);
-  const jobs = [], sources = {};
-  for (const [v, make] of VARIANTS) {
-    for (const p of list) {
-      const r = make(p.fs);
-      if (!r.n) { console.log(`[fxc] ${p.id} ${p.name}: variant ${v} changes nothing: left out`); continue; }
-      if (v !== 'a' && r.src === p.fs) continue;
-      sources[`${p.id}:${v}`] = { vs: p.vs, fs: r.src };
-      jobs.push({ prog: p.id, variant: v, srcKB: +((p.vs.length + r.src.length) / 1024).toFixed(1), changed: r.n });
-    }
+  const sideIdx = (p) => Math.min(...p.in.map((s) => sides.findIndex((q) => q.label === s.split('/')[0])));
+  const isMk = (p) => p.in.some((s) => s.split('/')[1] === 'mk') && /MOB/.test(String(p.key)) && /carry/.test(String(p.key));
+  const list = [...progs.values()].sort((p, q) => (isMk(q) - isMk(p)) || sceneOf(p) - sceneOf(q) || String(p.key).localeCompare(String(q.key)) || sideIdx(p) - sideIdx(q) || p.srcKB - q.srcKB);
+  const sources = {}, job = (p, v, r) => { sources[`${p.id}:${v}`] = { vs: p.vs, fs: r.src }; return { prog: p.id, variant: v, srcKB: +((p.vs.length + r.src.length) / 1024).toFixed(1), changed: r.n }; };
+  const variantsOf = (p) => (sideIdx(p) === 0 ? VARIANTS.slice(1).map(([v, make]) => [v, make(p.fs)]).filter(([v, r]) => { if (!r.n || r.src === p.fs) { console.log(`[fxc] ${p.id} ${p.name}: variant ${v} changes nothing: left out`); return false; } return true; }) : []);
+  const ordered = [];
+  for (const p of list.filter(isMk)) {
+    ordered.push(job(p, 'a', { src: p.fs, n: 1 }));
+    for (const [v, r] of variantsOf(p)) ordered.push(job(p, v, r));
   }
-  // (variants by program group: a program's a, b and c side by side in the table; the order of the jobs: every a first,
-  // then every b, then every c, but only for the first scenes' programs so that a short budget still compares the variants)
-  const firstScene = names[0];
-  const head = jobs.filter((j) => (progs.get(j.prog).in[0].split('/')[1] === firstScene));
-  const rest = jobs.filter((j) => !head.includes(j));
-  const byProg = (arr) => { const m = new Map(); for (const j of arr) { if (!m.has(j.prog)) m.set(j.prog, []); m.get(j.prog).push(j); } return [...m.values()].flat(); };
-  const ordered = [...byProg(head), ...rest.filter((j) => j.variant === 'a'), ...byProg(rest.filter((j) => j.variant !== 'a'))];
+  const others = list.filter((p) => !isMk(p));
+  for (const p of others) ordered.push(job(p, 'a', { src: p.fs, n: 1 }));
+  for (const [v] of VARIANTS.slice(1)) for (const p of others) { const r = variantsOf(p).find(([x]) => x === v); if (r) ordered.push(job(p, v, r[1])); }
   const outFile = path.resolve(opt('out', path.join(ROOT, 'ci', 'fxc', 'bundle.json')));
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
   fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), sides: sides.map((s) => ({ label: s.label, ref: s.ref })), programs: list.map(({ vs, fs: f, ...m }) => m), jobs: ordered, sources }));
