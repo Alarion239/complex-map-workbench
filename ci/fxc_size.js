@@ -6,7 +6,7 @@
 // and sizes each stage with every call expanded (ci/glsl_inline.js), so a program that grows is seen at merge time.
 //   node ci/fxc_size.js [--no-build] [--ref REF] [--json FILE]
 // The scenes: the default example as the page opens, its first glide on the plane and on the globe, and its
-// Landscape; every example's first frame; and the typed formulas of FORMULAS, each with the same four.
+// Landscape; every example's first frame; and the typed formulas of TYPED, each with the same four.
 // The GL compiles nothing: each stage it is handed is a stub with the same transform-feedback output. What is measured
 // is the source the app writes, and a software renderer takes minutes to compile and draw these programs.
 // test/lib/late_links.js's KHR_parallel_shader_compile makes the app take a GPU's background-link paths.
@@ -30,10 +30,11 @@ const { launch, sleep } = require('../test/regress/perf/cdp');
 // the --ref limits: a new program over NEW_KB, or growth by more than GROW of one over GROW_KB (each stage; 1 KB = 1024
 // characters). NEW_KB is the size that links in about 30 s on an Iris Xe laptop (#238: 62–76 KB took 8–29 s)
 const KB = 1024, LIMITS = { NEW_KB: 100, GROW_KB: 40, GROW: 1.2 };
-// the typed formulas: an op of each kind the exact images invert (NEWT, NEWT^3, SIN·EXP, IPOW·LOG, JOUK), a special
-// function, and a sum of 10 terms (its globe glide was the largest program of the #1545 survey)
-const FORMULAS = ['sin(z)/z', 'z^3-2z+1', 'exp(sin(z))', 'log(z^2+1)', 'z+1/z', 'gamma(z)',
-  'sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'];
+// the typed formulas, a page each list: an op of each kind the exact images invert (NEWT, NEWT^3, SIN·EXP, IPOW·LOG,
+// JOUK), a special function, and a sum of 10 terms (its globe glide was the largest program of the #1545 survey). A page
+// has one formula Newton inverts (NEWT): a second one would find the first one's inverse program under its id (#1578)
+const TYPED = [['sin(z)/z', 'z^3-2z+1', 'exp(sin(z))'], ['gamma(z)', 'log(z^2+1)'],
+  ['sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)', 'z+1/z']];
 // a step is settled when no link is pending, the steps view is ready (its programs and its warm-up draw: svReady) and no
 // link has started for QUIET_MS; one still linking after STEP_MS is left as it is. A page's last step waits DRAIN_MS.
 const QUIET_MS = 800, DRAIN_MS = 3000, STEP_MS = 30000;
@@ -79,7 +80,7 @@ function pages(names) {
   const examples = (from, to) => names.slice(from, to).map((n, i) => [`example ${from + i} (${n})`, `__cmwExample(${from + i})`]);
   const typed = (list) => list.flatMap((f, i) => [[`typed ${f}`, i ? paste(f) : null], ...fourScenes(`typed ${f}`)]);
   return [{ steps: [open, ...fourScenes(open[0])] }, { steps: [open, ...examples(0, half)] }, { steps: [open, ...examples(half)] },
-    { formula: FORMULAS[0], steps: typed(FORMULAS.slice(0, 4)) }, { formula: FORMULAS[4], steps: typed(FORMULAS.slice(4)) }];
+    ...TYPED.map((list) => ({ formula: list[0], steps: typed(list) }))];
 }
 
 // one page's walk -> { renderer, steps: [{ label, ms, links }], links: [{ step, name, key, mode, inv, vs, fs }] }
