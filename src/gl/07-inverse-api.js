@@ -138,7 +138,9 @@
   const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
   // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
   const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
-  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
+  // (the carried variants compile the current chain in, invCarrySrc: their key names it, as a forward program's does,
+  // so a chain with the same inverse ops never draws with another chain's code)
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + ':' + cur.key : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
