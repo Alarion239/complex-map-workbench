@@ -529,14 +529,6 @@
     };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
-  // the sheet key of the points of plane s carried from plane a (the globe's, svSphereMoving): the window
-  // of the camera every plane shares (S.srcView) at the pane's size, and the plan's accumulation set of the map from s
-  // to a, as smKeyOf for the forward meshes
-  function svCarryKey(pane, s, a) {
-    const v = S.srcView, hw = pane.w / 2 / v.s, hy = pane.h / 2 / v.s, R = Math.hypot(hw, hy);
-    const plan = a > s ? invPlan(s, a) : null;
-    return { win: { x0: v.cx - hw, y0: v.cy - hy, x1: v.cx + hw, y1: v.cy + hy }, R, rs: R * SV_KEY_RS, sing: plan && plan.ok ? invSing(plan) : [] };
-  }
   // The colour the points carry, by the region tiling's own machinery (the machinery that carries region patterns,
   // applied to colours): Inside regions, each visible region; Everywhere,
   // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
@@ -559,11 +551,12 @@
     if (!hom) return [SV_ALL];
     return areas.some((x) => shapeStage(x) && derivIn(0, shapeStage(x))) ? null : areas;
   }
-  // the sheet key's parameters for the image on plane b: the region tiling's own (smKeyOf: clipWin, half its diagonal
-  // R, R / 8, Inverse.keySing of the map to b; with no inverse plan to b, the window alone), the one key the inverse
-  // pass, the pre-mapped meshes and these meshes all order sheets by (Inverse.sheetKey)
-  function svSheetKey(b) {
-    const k = smKeyOf(stageMap(b));
+  // the sheet key's parameters for the image on plane b of the points of plane s (default 0, plane z): the region
+  // tiling's own (smKeyOf: clipWin, half its diagonal R, R / 8, Inverse.keySing of the map from s to b; with no inverse
+  // plan, or s = b, the window alone), the one key the inverse pass, the pre-mapped meshes, these meshes and the
+  // globe's carried mesh all order sheets by (Inverse.sheetKey)
+  function svSheetKey(b, s = 0) {
+    const k = smKeyOf({ mode: 0, a: s, b });
     if (k) return k;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [] };
@@ -1850,10 +1843,10 @@
   // the carried mesh of plane a's globe (drawSphere's st.carried; its graticule shows at x <= T, as the exact pass's): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
   // on the way from that plane to the colour plane
-  function svGlobeMesh(pane, a, T, map, x = a) {
+  function svGlobeMesh(a, T, map, x = a) {
     const src = Math.min(a, T);
     if (src > 0 && derivIn(src, T)) return null;
-    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svCarryKey(pane, src, a), graticule: x <= T });
+    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svSheetKey(a, src), graticule: x <= T });
   }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
   // homotopy), by the carried mesh where a region has no inverse plan (kept inside those regions alone when others take
@@ -1861,7 +1854,7 @@
   // neither can draw: the caller draws the regions' exact images instead
   function svGlobeRest(pane, k) {
     const T = svT(), fwd = [], inv = svGlobeCarryInv(pane, k, null, T, fwd);
-    const mesh = !inv || fwd.length ? svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
+    const mesh = !inv || fwd.length ? svGlobeMesh(k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
     if (!inv && !mesh) return null;
     if (inv && fwd.length && !mesh) return null;
     const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' };
@@ -1894,7 +1887,7 @@
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
-      ? svGlobeMesh(pane, a, T, svGlideMap(bt, src), a + u) : null;
+      ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
     const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
