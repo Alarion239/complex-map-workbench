@@ -1752,7 +1752,7 @@
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
       // carried colour's CPU mesh, which needs a frame of its own, waits)
       paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
-      after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
+      after: () => { grid(true); if (!bare) svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
     } else {
@@ -1763,8 +1763,7 @@
       if (!mask && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
-        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
+        if (!bare) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
@@ -1772,7 +1771,7 @@
         if (mask) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
-        svOutlines(pane, map, null, col);
+        if (!bare) svOutlines(pane, map, null, col);
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
