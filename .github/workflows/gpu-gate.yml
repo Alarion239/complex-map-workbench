@@ -1,9 +1,9 @@
 # The gate on our own machines with real GPUs (ci/RUNNERS.md): the paired perf suite (desktop units and the emulated
 # phone) with the suite's own tolerances, image quality and GLSL conformance on the Mac and, on request, on a Windows
-# desktop, registered as self-hosted runners with the label `gpu`. The desktop runs on request: by hand, with machines
-# windows or both (#169). Every event (a push, the nightly run, the label gpu-gate) runs the Mac alone, so nothing
-# queues for a desktop that is off. Once they are (GPU_RUNNERS), speed is gated here,
-# not in the Gate on GitHub's machines.
+# desktop, registered as self-hosted runners with the label `gpu`. The desktop runs on request: by hand, with
+# machines windows or both (#169). Every event (a push, the nightly run, the label gpu-gate) runs the Mac alone, so
+# nothing queues for a desktop that is off. Once they are (GPU_RUNNERS), speed is gated here, not in the Gate on
+# GitHub's machines.
 #
 # Off until the repository variable GPU_RUNNERS is 'true' (Settings > Secrets and variables > Actions > Variables), so
 # nothing waits in the queue for a machine that is not registered. Every run waits for an approval in the
@@ -16,10 +16,10 @@
 # issue #72; against the reference, on the Mac the sides in turn): the table in the run's summary and log, the JSON as
 # the artifact glprof-<machine>. Machines windows-hosted (mode glprof only): the same on GitHub's windows-latest, whose
 # Direct3D 11 renders on WARP but compiles with the same FXC on the CPU, against the reference: an A/B of link times
-# while the laptop is away (#378).
+# that needs no Windows GPU runner (#378).
 # By hand with mode suites and the input suites (a regular expression of suite file names, as ci/browser.js --only):
-# only those browser suites, on the chosen machines' real GPUs, at the ref the run is dispatched on (run it on two refs to compare
-# them). No perf, GLSL or quality jobs; the approval of the `gpu-runners` environment still comes first.
+# only those browser suites, on the chosen machines' real GPUs, at the ref the run is dispatched on (run it on two refs
+# to compare them). No perf, GLSL or quality jobs; the approval of the `gpu-runners` environment still comes first.
 # On the Mac every step that drives the browser (the suites, GLSL, quality, perf and link-time steps) runs under
 # `caffeinate -dimsu`, which holds the display, the system and the disks awake for as long as its command runs and
 # returns the command's exit status. A display asleep slows every frame to its own cadence, ~45-50 ms (perf runs
@@ -200,7 +200,7 @@ jobs:
       matrix:
         machine: ${{ fromJSON(needs.plan.outputs.machines) }}
     # (Windows-hosted: GitHub's windows-latest, where ANGLE's Direct3D 11 renders on WARP but compiles with the same
-    # FXC on the CPU, so a program's link time against the reference's shows on it as on the laptop, #378)
+    # FXC on the CPU, so a program's link time against the reference's shows on it as on a Windows GPU machine, #378)
     runs-on: ${{ fromJSON(matrix.machine == 'Windows-hosted' && '"windows-latest"' || format('["self-hosted","{0}","gpu"]', matrix.machine)) }}
     timeout-minutes: 300
     steps:

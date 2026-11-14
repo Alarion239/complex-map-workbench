@@ -153,11 +153,12 @@ runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inve
 
 A page whose shader code and tests are the same as the reference's is not run unless forced: the nightly run always
 is, a run by hand only with its *force* input, so a by-hand run covers every chain only with *force*. The cold cost
-of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first nightly
-runs after this change is that cost first, not a regression.
+of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first by-hand
+run with *machines* `windows` or `both` is that cost first, not a regression.
 
 **A release tag** needs a green run of every chain (`all`) on the commit's `main`, on both systems: the GPU gate's
-nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run.
+nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run. The GPU gate's nightly run
+gives no Windows result: that one comes from a run by hand with *machines* `both` and *force*.
 
 `ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
 minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's

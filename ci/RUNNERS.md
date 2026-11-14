@@ -80,8 +80,8 @@ reaches our machines.
 
 ## 3. The Windows machine
 
-The desktop, for runs on request (#169). The laptop's runner (removed on 2026-11-01) was set up with the same steps; on
-a laptop, also do the laptop points of *Power* in section 2: the lid and the battery.
+The desktop, for runs on request (#169). On a laptop, also do the laptop points of *Power* in section 2: the lid and
+the battery.
 
 1. On GitHub: *Settings → Actions → Runners → New self-hosted runner* → **Windows**, architecture **x64**. The page
    shows commands with a one-time token (valid for one hour). Keep it open.

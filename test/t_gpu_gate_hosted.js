@@ -46,6 +46,26 @@ if (m) {
 }
 fs.rmSync(dir, { recursive: true, force: true });
 
+// the plan's glsl step turns the machines into the GLSL jobs: the Mac's pages whole in one job, the Windows desktop's in ten
+// (the glsl page in eighths, adv, inverse), so both together are eleven
+const gl = /- id: glsl\n\s+shell: bash\n\s+env:\n\s+MACHINES: .*\n\s+run: \|\n([\s\S]*?)\n\n/.exec(job('plan') + '\n\n');
+ok('the glsl step is found', !!gl);
+if (gl) {
+  const jobs = (ms) => {
+    const out = path.join(os.tmpdir(), `gpu-glsl-${process.pid}`);
+    fs.writeFileSync(out, '');
+    const code = gl[1].split('\n').map((l) => l.replace(/^ {10}/, '')).join('\n').replace(/\$\{\{ github\.event_name \}\}/g, 'workflow_dispatch');
+    const r = spawnSync('bash', ['-c', code], { env: Object.assign({}, process.env, { GITHUB_OUTPUT: out, MACHINES: JSON.stringify(ms) }), encoding: 'utf8' });
+    const o = fs.readFileSync(out, 'utf8').trim();
+    fs.rmSync(out, { force: true });
+    return r.status === 0 && o.startsWith('glsl=') ? JSON.parse(o.slice(5)) : null;
+  };
+  const n = (ms, machine) => { const j = jobs(ms); return j && j.filter((x) => !machine || x.machine === machine).length; };
+  ok('glsl jobs: ["macOS"] is 1 job', n(['macOS']) === 1, jobs(['macOS']));
+  ok('glsl jobs: ["Windows"] is 10 jobs, the glsl page in eighths, adv and inverse', n(['Windows']) === 10 && jobs(['Windows']).filter((x) => x.page === 'glsl').length === 8, jobs(['Windows']));
+  ok('glsl jobs: ["Windows","macOS"] is 11 jobs, all of tier all', n(['Windows', 'macOS']) === 11 && n(['Windows', 'macOS'], 'macOS') === 1 && jobs(['Windows', 'macOS']).every((x) => x.tier === 'all'), jobs(['Windows', 'macOS']));
+}
+
 // the concurrency group (#169): a by-hand run that asks for the desktop may wait for hours, or for as long as the desktop
 // is off, so it gets a group of its own and never holds the next push to main behind it. The group's expression, evaluated
 const grp = /^ {2}group: (.*)$/m.exec(Y.slice(Y.indexOf('\nconcurrency:')));
