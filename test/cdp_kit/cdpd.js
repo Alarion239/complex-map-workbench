@@ -230,7 +230,7 @@ H.settled = async (o = {}) => {
 };
 // H.reloaded(old, readyExpr, { limitMs }): waits for the page a reload brings: a document other than the one that began at
 // old (its performance.timeOrigin, read before the reload was asked for), loaded, with readyExpr (an expression, default
-// true) true; an expression that throws (a hook of the app that is not up yet) is not true yet. A call the reload cuts off fails with the page-gone error (GONE); that error, and only that one, is the cue to
+// true) true; an expression that throws (a hook of the app that is not up yet) is not true yet. A call the reload cuts off fails with the page-gone error (NAV_GONE); that error, and only that one, is the cue to
 // ask again of the new page, any other error is thrown. After limitMs (RELOAD_LIMIT_MS by default) it throws, naming
 // the parts still missing (newDocument, loaded, ready).
 const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
@@ -246,7 +246,7 @@ H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {})
     try {
       const r = await probe(`({ newDocument: performance.timeOrigin !== ${old}, loaded: document.readyState === 'complete', ready: (() => { try { return !!(${readyExpr}); } catch (e) { return false; } })() })`);
       if (r && r.newDocument !== undefined) { parts = r; if (r.newDocument && r.loaded && r.ready) return true; }
-    } catch (e) { if (!GONE.test(String((e && e.message) || e))) throw e; }
+    } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e))) throw e; }
     if (Date.now() - t0 > limitMs) {
       const missing = parts ? Object.keys(parts).filter((k) => !parts[k]) : ['any answer'];
       throw new Error(`the page did not finish reloading within ${limitMs} ms (missing: ${missing.join(', ')}; ready: ${readyExpr})`);
