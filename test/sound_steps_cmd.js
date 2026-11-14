@@ -105,7 +105,9 @@ ok('at rest on w₁: the probe hears f₂, the map into the colour plane, as the
 
 // 2. the shown plane changes under a still pointer: a glide from w₁ to w₂, the colour plane
 await hl();
-await svDo({ go: 2 }); await rest(); await seated();
+// (read once the page is quiet after the seat: in the arrival's first frame the probe can seat under a view the steps view
+// holds for that frame only, and steps to the pointer's point when svApply gives the plane the shared camera back)
+await svDo({ go: 2 }); await rest(); await seated(); await settle();
 let s = await snd(), L = await hl();
 R.glide = { kinds: L.map((e) => e.k), g: s.g, z: s.rest && s.rest.z, live: s.live, atPtr: await atPtr(s.rest && s.rest.z, p) };
 ok('a glide to w₂ under a still pointer: no branch cut, and the tone re-seats on w₂ at the pointer', noCut(L, s.live) && seat(L) && !!s.rest && near(s.g, id(s.rest.z)) && R.glide.atPtr, R.glide);
