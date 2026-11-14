@@ -12,6 +12,9 @@
 //     links each job's program in a Chrome of its own (its program cache off, nothing else running: the link's own
 //     time, from the first shader compile to the link done, no parallel compile), kills the Chrome at the timeout,
 //     and stops opening jobs once the budget is spent. Prints a table and writes FILE (default .ci/fxc/fxc.json).
+//   node ci/fxc_time.js contend [--bundle FILE] [--targets 0,9] [--other-jobs 11,13,19,29] [--iters 64] [--budget-min 85] [--timeout-s 900] [--out FILE]
+//     one program (a job of the bundle) linked alone, while the page redraws every frame, while 2 or 4 other programs link,
+//     and with both: what slows a link in the app compared with a link alone.
 // Variants (the text of the fragment shader):
 //   a  as the app links it
 //   b  every for loop whose trip count is a literal or an IX_ constant gets "+ uZero" on its bound: a uniform nothing
@@ -288,4 +291,96 @@ async function timeAll() {
   process.exit(0);
 }
 
-(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time ...'))).catch((e) => { console.error(e); process.exit(2); });
+// ---- contention: what slows a link inside the app (a link alone is 10x faster than in the app's glide run)
+// One target program (a job of the bundle), linked in a Chrome of its own under each condition:
+//   alone                    nothing else
+//   draw                     the page redraws every animation frame: a full-page quad whose fragment shader loops
+//                            (a stand-in for the held glide's plane: on WARP drawing runs on the same cores as FXC)
+//   +N links                 N other programs of the bundle linked at the same time
+//   draw + N links           both
+// The result per run: the target's link seconds (from its first shader compile to the link done), and, with drawing,
+// the frames drawn meanwhile and their mean and longest interval, so the load can be told from its effect.
+const CONTEND_PAGE = `(() => {
+  window.__contend = (cfg) => {
+    window.__res = null;
+    (async () => {
+      const W = 1440, H = 900;
+      const c = document.createElement('canvas'); c.width = W; c.height = H; document.body.appendChild(c);
+      const gl = c.getContext('webgl2'), ext = gl.getExtension('KHR_parallel_shader_compile');
+      const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+      const prog = (vsSrc, fsSrc) => { const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(p); return p; };
+      const done = (p) => !ext || gl.getProgramParameter(p, ext.COMPLETION_STATUS_KHR);
+      const idle = (ms) => new Promise((r) => setTimeout(r, ms));
+      let frames = 0, last = 0, maxGap = 0, run = false, sumGap = 0;
+      if (cfg.draw) {
+        // a quad whose pixels each loop uN times: the cost of a frame is set by iters, and the frames drawn say what it was
+        const dp = prog('#version 300 es\\nvoid main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }',
+          '#version 300 es\\nprecision highp float; uniform float uT; uniform int uN; out vec4 o;\\nvoid main() { float v = gl_FragCoord.x * 0.001 + uT; for (int i = 0; i < uN; i++) v = sin(v * 1.3 + float(i)) + cos(v * 0.7); o = vec4(fract(v), fract(v * 3.0), fract(v * 7.0), 1.0); }');
+        while (!done(dp)) await idle(5);
+        gl.useProgram(dp); gl.uniform1i(gl.getUniformLocation(dp, 'uN'), cfg.iters); gl.viewport(0, 0, W, H);
+        const tl = gl.getUniformLocation(dp, 'uT');
+        const frame = (t) => {
+          if (run) { if (last) { const g = t - last; maxGap = Math.max(maxGap, g); sumGap += g; frames++; } last = t; }
+          window.__fc = (window.__fc || 0) + 1; gl.uniform1f(tl, t * 0.001); gl.drawArrays(gl.TRIANGLES, 0, 3); requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+        await idle(3000);
+      }
+      run = true; frames = 0; sumGap = 0; maxGap = 0; last = 0;
+      const t0 = performance.now();
+      const tp = prog(cfg.target.vs, cfg.target.fs);
+      const others = cfg.others.map((o) => prog(o.vs, o.fs));
+      while (!done(tp)) await idle(5);
+      const ok = !!gl.getProgramParameter(tp, gl.LINK_STATUS), ms = performance.now() - t0;
+      window.__res = { ms, ok, frames, frameMeanMs: frames ? sumGap / frames : 0, frameMaxMs: maxGap, othersDone: others.filter(done).length, log: ok ? '' : (gl.getProgramInfoLog(tp) || '').slice(0, 300) };
+    })().catch((e) => { window.__res = { ms: -1, ok: false, log: String(e) }; });
+    return true;
+  };
+})();`;
+
+async function contend() {
+  const bundleFile = path.resolve(opt('bundle', path.join(ROOT, 'ci', 'fxc', 'bundle.json')));
+  const B = JSON.parse(fs.readFileSync(bundleFile, 'utf8'));
+  const budgetMs = Number(opt('budget-min', '85')) * 60000, timeoutMs = Number(opt('timeout-s', '900')) * 1000;
+  const targets = opt('targets', '0,9').split(',').map(Number), otherJobs = opt('other-jobs', '11,13,19,29').split(',').map(Number);
+  const iters = Number(opt('iters', '64'));
+  const src = (i) => B.sources[`${B.jobs[i].prog}:${B.jobs[i].variant}`];
+  const nameOf = (i) => { const p = B.programs.find((q) => q.id === B.jobs[i].prog); return `${p.name} ${String(p.key).slice(0, 50)}`; };
+  const conditions = [['alone', false, 0], ['draw', true, 0], ['2 links', false, 2], ['4 links', false, 4], ['draw + 2 links', true, 2], ['draw + 4 links', true, 4]];
+  const t00 = Date.now(), rows = [];
+  let renderer = '';
+  for (const t of targets) {
+    for (const [cond, draw, n] of conditions) {
+      const row = { target: t, name: nameOf(t), srcKB: B.jobs[t].srcKB, cond };
+      rows.push(row);
+      if (Date.now() - t00 > budgetMs) { row.status = 'skipped (budget)'; continue; }
+      const others = otherJobs.filter((j) => j !== t).slice(0, n).map(src);
+      const H = await launch({ inject: CONTEND_PAGE });
+      try {
+        await H.nav('about:blank');
+        await H.until('typeof window.__contend === "function"', 20000, 100);
+        if (!renderer) renderer = await H.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'), x = g && g.getExtension('WEBGL_debug_renderer_info'); return x ? g.getParameter(x.UNMASKED_RENDERER_WEBGL) : ''; })()`);
+        await H.ev(`window.__contend(${JSON.stringify({ target: src(t), others, draw, iters })})`);
+        const t1 = Date.now();
+        let r = null;
+        while (!r && Date.now() - t1 < timeoutMs) { await sleep(500); r = await Promise.race([H.ev('window.__res').catch(() => null), sleep(2000).then(() => null)]); }
+        if (r) Object.assign(row, { s: r.ms / 1000, frames: r.frames, frameMeanMs: r.frameMeanMs, frameMaxMs: r.frameMaxMs, status: r.ok ? 'linked' : `failed: ${r.log}` }); else row.status = `timeout (${timeoutMs / 1000} s)`;
+      } finally { await H.close(); }
+      console.log(`[fxc] ${row.name} (${row.srcKB} KB) ${cond}: ${row.s == null ? '-' : row.s.toFixed(1)} s${draw ? `, ${row.frames} frames, mean ${(row.frameMeanMs || 0).toFixed(0)} ms, longest ${(row.frameMaxMs || 0).toFixed(0)} ms` : ''}, ${row.status}`);
+    }
+  }
+  const outFile = path.resolve(opt('out', path.join(ROOT, '.ci', 'fxc', 'contend.json')));
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, renderer, iters, otherJobs: otherJobs.map(nameOf), rows }, null, 1));
+  const lines = [`### What slows a link: one program under load (${renderer || 'unknown renderer'})`, '',
+    `The target's link seconds, each run in a Chrome of its own. draw: the page redraws a full-page quad (${iters} loop steps a pixel) every animation frame; N links: N other programs (${otherJobs.map(nameOf).map((s) => esc(s.slice(0, 30))).join('; ')}) linked at the same time. Frames: drawn during the link, mean and longest interval.`, '',
+    '| target | condition | link s | frames | mean frame ms | longest ms |', '|---|---|---|---|---|---|'];
+  for (const r of rows) lines.push(`| ${esc(r.name)} (${r.srcKB} KB) | ${r.cond} | ${r.s != null ? r.s.toFixed(1) : r.status} | ${r.frames == null || !/draw/.test(r.cond) ? '' : r.frames} | ${r.frameMeanMs && /draw/.test(r.cond) ? r.frameMeanMs.toFixed(0) : ''} | ${r.frameMaxMs && /draw/.test(r.cond) ? r.frameMaxMs.toFixed(0) : ''} |`);
+  lines.push('');
+  const md = lines.join('\n');
+  summary(md);
+  console.log(md);
+  process.exit(0);
+}
+
+(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend ...'))).catch((e) => { console.error(e); process.exit(2); });

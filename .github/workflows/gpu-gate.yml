@@ -80,6 +80,11 @@ on:
         description: 'Mode fxc: the program bundle (ci/fxc_time.js capture), a path in the repository'
         required: false
         default: ci/fxc/bundle.json
+      fxc:
+        description: 'Mode fxc: time (every job of the bundle, one program at a time) or contend (one program alone, with the page drawing and with other links, ci/fxc_time.js)'
+        type: choice
+        options: [time, contend]
+        default: time
       glsl:
         description: 'Mode gate: all (the GLSL and quality jobs, then perf) or skip (perf alone: on Windows a by-hand run''s GLSL tier takes about 7 hours before perf starts)'
         type: choice
@@ -259,7 +264,7 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '--require-angle d3d11' }}
-      - run: node ci/fxc_time.js time --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900
+      - run: node ci/fxc_time.js ${{ inputs.fxc || 'time' }} --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900
       - if: always()
         uses: actions/upload-artifact@v6
         with:
