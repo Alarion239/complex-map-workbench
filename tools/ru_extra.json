@@ -714,10 +714,7 @@
  "Use {fix}": "Заменить на %{fix}",
  "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности",
  "Nothing to fit yet": "Пока нечего вписывать",
- "Surface: Plane": "Поверхность: плоскость",
- "Surface: Sphere": "Поверхность: сфера",
- "Surface: Landscape": "Поверхность: рельеф",
- "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "плоскость, плоская, область, z-плоскость, фазовый портрет, раскраска области, раскраска, цвет, фаза, аргумент, модуль",
- "riemann sphere, globe, infinity, sphere": "сфера римана, глобус, бесконечность, сфера",
- "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы"
+ "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, плоскость, плоская, область, z-плоскость, фазовый портрет, раскраска области, раскраска, цвет, фаза, аргумент, модуль",
+ "riemann sphere, globe, infinity, sphere": "riemann sphere, globe, infinity, sphere, сфера римана, глобус, бесконечность, сфера",
+ "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы"
 }

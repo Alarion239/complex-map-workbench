@@ -118,6 +118,13 @@ await palClose();
 await openApp('test.html', { shapes: [DISC, LINE], steps: CHAIN });
 await palType('Surface: Landscape'); await key('Enter'); await settled({ until: "/Landscape/.test(document.querySelector('.sv-surf1').getAttribute('aria-label'))", max: 8000, only: true });
 ok('Surface: Landscape runs: the plane head names the Landscape', /Landscape/.test(await surfLabel()), await surfLabel());
+// in Russian the rows are named as the plane head names the surface, and the English words still find them
+await openApp('test.html', { shapes: [DISC, LINE], steps: CHAIN }, 1366, 768, false, false, '&lang=ru');
+const ruSphere = await ev(`I18N.at('ru').t('Surface') + ': ' + I18N.at('ru').t('Sphere')`);
+await palType('globe'); rows = await palRows();
+ok('ru: "globe" finds the Sphere row, named as the head names it', rows.some((r) => r.label === ruSphere), { ruSphere, rows: rows.map((r) => r.label) });
+await key('Enter'); await settled({ until: "/Sphere|Сфера/.test(document.querySelector('.sv-surf1').getAttribute('aria-label'))", max: 8000, only: true });
+ok('ru: the plane head reads the row it ran', (await surfLabel()) === ruSphere, { head: await surfLabel(), ruSphere });
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info, shots: shots.map((s) => s.replace(/^.*\/shots\//, '')) };

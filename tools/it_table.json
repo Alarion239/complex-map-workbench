@@ -3405,9 +3405,6 @@
  "Show the whole chain": "Mostra tutta la catena",
  "Color": "Colore",
  "after f{k}": "dopo f{k}",
- "Surface: Plane": "Superficie: Piano",
- "Surface: Sphere": "Superficie: Sfera",
- "Surface: Landscape": "Superficie: Paesaggio",
  "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, piano, piatto, dominio, piano z, ritratto di fase, colorazione del dominio, colorazione, colore, fase, argomento, modulo",
  "riemann sphere, globe, infinity, sphere": "riemann sphere, globe, infinity, sphere, sfera di riemann, globo, infinito, sfera",
  "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, paesaggio, superficie, superficie di riemann, superficie del modulo, altezza, rilievo, fogli"

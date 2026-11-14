@@ -52,9 +52,9 @@ for (const [w, lang] of [[360, ''], [390, ''], [360, 'ru'], [390, 'ru']]) {
   ok(`phone ${w} ${lang || 'en'}: in the Landscape the style chip shows, dimmed, whole`, k && /(Style|Стиль): /.test(k.text) && k.h >= 44 && k.dis === 'true' && !k.cut, k);
   await ev(`document.querySelector('.ph-style').click()`); await settle(500);
   items = await menuItems();
-  const planeRe = '/Surface: Plane|Поверхность: плоскость/';
+  const PLANE = 'Surface: Plane|Поверхность: Плоскость', planeRe = `/${PLANE}/i`;
   const focused = await ev(`!!document.activeElement && document.activeElement.classList.contains('mi') && ${planeRe}.test(document.activeElement.textContent)`);
-  ok(`phone ${w} ${lang || 'en'}: its menu holds the note and a Surface: Plane item, and focus moves onto the item`, items.length === 2 && items[0].dis === true && /Styles show|Стили/.test(items[0].t) && items[1].dis === false && new RegExp(planeRe.slice(1, -1)).test(items[1].t) && focused, { items, focused }); // standards-ok: the Switch to Phase item is replaced by Surface: Plane, which the next check runs
+  ok(`phone ${w} ${lang || 'en'}: its menu holds the note and a Surface: Plane item, and focus moves onto the item`, items.length === 2 && items[0].dis === true && /Styles show|Стили/.test(items[0].t) && items[1].dis === false && new RegExp(PLANE, 'i').test(items[1].t) && focused, { items, focused }); // standards-ok: the Switch to Phase item is replaced by Surface: Plane, which the next check runs
   await pickItem(planeRe); await settled({ until: "__cmwSteps().surf === 'plane'", max: 8000, only: true });
   const after = await ev(`({ surf: __cmwSteps().surf, main: __cmwState().view.main })`);
   ok(`phone ${w} ${lang || 'en'}: Surface: Plane leaves the Landscape for the plane`, after.surf === 'plane' && after.main !== 'land', after);

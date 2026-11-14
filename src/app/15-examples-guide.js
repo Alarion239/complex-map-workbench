@@ -299,7 +299,7 @@
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
   function styleItems(done) {
     if (lLand()) {
-      return Object.assign([{ label: $t('Styles show on the Plane surface'), disabled: true }, 'sep', { label: $t('Surface: Plane'), run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+      return Object.assign([{ label: $t('Styles show on the Plane surface'), disabled: true }, 'sep', { label: svSurfaceLabel('plane'), run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
