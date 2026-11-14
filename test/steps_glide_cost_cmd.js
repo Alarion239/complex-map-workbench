@@ -60,7 +60,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await ev('GLR.holdLinks(true), 1');
   await ev(`__cmwAddStep('exp'), 1`);
   await settled({ max: 20000, panes: false, until: '!!document.querySelector(".sv-plane")' });
-  ok('the thread is held at x = 0.5', (await hold(0.5, false)).ok, null);
+  { const h = await hold(0.5, false); ok('the thread is held at x = 0.5', h.ok, h); }
   // (the glide's frames asked for the carry's own programs: the map cache's and the cached places')
   await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
@@ -173,7 +173,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await settled({ max: 30000 });
   // (held mid-scrub by plane 1, whose plane the left pane follows; the meshes rebuilt, so a fix-up is asked for: the
   // left pane's region under zeta, seconds of CPU work)
-  ok('the thread is held at x = 0.9', (await hold(0.9, false)).ok, null);
+  { const h = await hold(0.9, false); ok('the thread is held at x = 0.9', h.ok, h); }
   await ev(`globalThis.__svPathStats = {}, __cmwSet('meshN', __cmwState().meshN), window.__heldT = performance.now(), 1`);
   await settled({ max: 20000, panes: false, until: 'performance.now() - window.__heldT > 2000' });
   const held = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
