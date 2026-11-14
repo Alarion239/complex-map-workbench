@@ -299,7 +299,7 @@
       // the phase portrait painted in the Y plane (the Key switch in X's legend chip). landPlain: the relief paints
       // Plain whatever the style (an old landscape's default 'phase' material, kept without rewriting dc; cleared
       // when a style is picked)
-      view: Views.blank(), v6: true, wKey: false, landPlain: false,
+      view: Views.blank(), wKey: false, landPlain: false,
       // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
       // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
       cauchyShow: 'both', cauchyPlus: false,
@@ -608,7 +608,7 @@
       o.v4 = true; o.alpha = 0.85; o.meshN = 240;
       for (const sh of o.shapes) { if (!sh || typeof sh !== 'object') continue; const i = OLD_PALETTE.indexOf(sh.color); if (i >= 0) { sh.ci = i; delete sh.color; } else if (!sh.color) sh.ci = sh.ci || 0; }
     }
-    delete o.quality; delete o.hcap; delete o.spin;
+    delete o.quality; delete o.hcap; delete o.spin; delete o.v6;
     let dropped = 0;
     const steps = [];
     for (const st of o.steps) {
@@ -689,7 +689,6 @@
     // the Morph, Preimage and Integral views of earlier builds are now parts of every view: they open as Image
     // (F′ is a d/dz step of the chain now, so the old F | F′ switch is dropped)
     st.view = Views.clean(st.view);
-    st.v6 = true;
     st.wKey = !!st.wKey;
     st.landPlain = !!st.landPlain;
     st.cauchyShow = st.cauchyShow === 'in' || st.cauchyShow === 'out' ? st.cauchyShow : 'both';
@@ -716,7 +715,7 @@
     if ('sectors' in st && ![8, 12, 16, 24].includes(st.sectors)) delete st.sectors;
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
     if ('fov' in st) st.fov = st.fov !== false;
-    for (const k of ['lines', 'unit', 'snap', 'spin', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
+    for (const k of ['lines', 'unit', 'snap', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
     // v15: the selected step or F (old saves: none, so the step shown alone or the last step)
     if (!(st.sel === 'F' || (Number.isInteger(st.sel) && st.sel >= 0 && st.sel <= st.steps.length))) st.sel = null;
     st.alpha = isNum(st.alpha) ? Math.max(0.2, Math.min(1, st.alpha)) : d0.alpha;
