@@ -1585,10 +1585,21 @@ const Inverse = (() => {
   // the zoom paths H_t = A_t o f o B_t (f's own ops between two AFFs: exp, the simple trig zooms, a rational map's
   // zoom, the generic zoom for t >= t0), and a recognised chain's sub-steps in turn; any other homotopy by Newton
   // (newtOps). {ok, ops} | {ok: false, reason}
+  // a polynomial step of degree 2 to NEWT_POLY_MAX, its degree known exactly: its roots are all of Newton's members
+  const isNewtPoly = (P) => !!P.polynomial && !!P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX;
+  // Inverse.polyHom(b): whether built step b is a polynomial step as isNewtPoly takes it, not a recognised chain (whose
+  // homotopy walks its sub-steps' own), so its homotopy has no pole at any t. homOps takes it as a root power (z^n as
+  // z^(1 + (n - 1) t), or its zoom about a point), a zoom of f (f conjugated by affine maps), or else the straight line
+  // or the step's own homotopy, a polynomial in u, which newtOps inverts by every root (NEWT with deg)
+  const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
   function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
-    if (t >= 1) return stepOps(b);
+    if (t >= 1) {
+      // (a polynomial step with no exact ops is inverted at t = 1 by its roots, as at t < 1: the plane at rest and the glide's frames are one picture)
+      const r = stepOps(b), P = b.props;
+      return r.ok || !(P && P.analytic && isNewtPoly(P)) ? r : newtOps(b, 1, r.reason);
+    }
     const id = b.def.id, nat = b.nat || null, nd = b.natData || null;
     const T = C(t, 0), aff = (a, c) => opAff(a, c);
     const mobOf = (M) => (isZero(M[2]) ? opAff(div(M[0], M[3]), div(M[1], M[3])) : opMob(M));
@@ -1664,7 +1675,7 @@ const Inverse = (() => {
     const P = b.props;
     if (!(P && P.analytic)) return { ok: false, reason };
     const H = (s) => (b.hom ? b.hom(s) : (z) => { const w = b.f(z); return C((1 - s) * z.re + s * w.re, (1 - s) * z.im + s * w.im); });
-    if (P.polynomial && P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
+    if (isNewtPoly(P)) return { ok: true, ops: [opNewt(t, H, null, P.deg)] };
     const own = stepOps(b), back = own.ok && newtSeedCounts(own.ops) ? own.ops : null;
     return { ok: true, ops: [opNewt(t, H, back, undefined, undefined, back ? null : simplePole(b, H))] };
   }
@@ -1718,7 +1729,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

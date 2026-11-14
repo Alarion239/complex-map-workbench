@@ -1,8 +1,19 @@
 // The steps view's frames held still and read, and the exact picture of a glide frame: what steps_glide_look_cmd.js uses
 // (steps_glide_inverse_cmd.js uses GI_REF). An expression for eval in a suite: `const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'))`.
-// - hold(x): the thread held at place x mid-glide, as a user holding it: a scrub on the rail, pressed on the first plane
-//   and not let go (window.__svScrubUp lets it go). Answers settled()'s { ok, ms, busy } once the programs are linked,
-//   the thread is within HOLD_EPS of x and the view draws the moving frames;
+// - hold(x, links = true): the thread held at place x mid-glide, as a user holding it: a scrub on the rail, pressed on
+//   the first plane and not let go (window.__svScrubUp lets it go). Answers settled()'s { ok, ms, busy } once the
+//   programs are linked (not with links false), the thread is within HOLD_EPS of x, the view draws the moving frames and
+//   the left pane's last frame is not one held on the glide's first plane while the glide's pole tracks are made
+//   (UNHELD). The wait ends once two animation frames found that: the frame the idle job asked for when it ended the
+//   hold may still be queued, so a read of a picture goes through grab(), whose two equal reads are the frame at x, and
+//   a read of the glide's record (__cmwSteps().glide) waits for its u to be x too. The record (path 'inverse', 'mesh' or
+//   'none') is written by a frame drawn between two planes in the map's mode 1 that is not a still frame and not under
+//   a derivative step, and by no other, so the wait does not ask for it;
+// - UNHELD: an expression for settled()'s until, true when the left pane's last frame is not held on a glide's first
+//   plane for its missing pole tracks (__cmwSteps().hold, svHoldB: the idle job ends that hold once the tracks are made
+//   and asks for the frame at the thread's place). It is the wait for a read after the thread is placed directly,
+//   __cmwSteps({ x }) or { park }, instead of held with hold(): on a chain with Newton members the frame there may be
+//   the first plane's held one until it is true. The same applies to a suite's own wait on a parked thread;
 // - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still);
 //   true when they did;
 // - compare(a, b): two kept frames' difference, each pixel's largest channel difference (RGB, 0..255): the share of the
@@ -22,7 +33,15 @@
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), max,
 //   over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame) sampled every step px, or
-//   null when the glide's record has no sheet key (a frame the carried mesh draws);
+//   null when the glide's record has no sheet key (a frame the carried mesh draws); timeout (ms) bounds the page call;
+// - fade(a, b, t, tag): the kept frames a and b cross-faded, (1 - t) a + t b per channel, kept as __heldPx[tag] (what a
+//   frame that blends the two planes' pictures instead of carrying the colour would show); true when both exist;
+// - judge(base, tag, o): the carried colour of the kept frame tag, held between plane z's parked frame base and a later
+//   plane, graded against the exact picture (refOf with o.tol, default JUDGE_TOL, every o.step px, default 10):
+//   { path, u, n, over, max, none, pass }, pass when at least o.minN (default JUDGE_MIN_N) pixels were compared and at
+//   most the share o.maxOver (default JUDGE_OVER) of them are more than the tolerance apart; pass is false when the
+//   glide's record has no sheet key (a frame the carried mesh draws; refOf answers null), with n 0; o.seeds: [columns,
+//   rows] of the reference's Newton seeds (window.__giSeeds), for a frame whose roots the default 8 x 6 grid misses;
 // - sameAway(a, b, tol, keep): two kept frames compared pixel by pixel away from the colour lines (a pixel where either
 //   frame's __giRange spans more than 12 levels is left out), only where keep holds (the source of a page function of
 //   the device pixel (x, y); every pixel without it): { n compared, max, over: the share of n more than tol apart }.
@@ -88,6 +107,7 @@
 };`;
   const HOLD_EPS = 0.003;   // (a rail pixel is about 0.005 of a plane at 1200 px wide)
   const DIFF_TOL = 32;      // (steps_sm_standin_cmd.js: a frame is the rest frame with at most 0.5 % of pixels > 32/255 apart)
+  const UNHELD = '!__cmwSteps().hold';
   // (links: wait for every program to have linked too; false while links are held, GLR.holdLinks)
   const hold = async (x, links = true) => {
     await ev(`(() => {
@@ -98,7 +118,7 @@
       window.__svScrubUp = () => ev('pointerup', cx);
       return 1;
     })()`);
-    return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving` });
+    return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving && ${UNHELD}` });
   };
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
@@ -143,12 +163,12 @@
   })()`);
   const GI_REF = `${RANGE}
 ${REF}`;
-  const refOf = (base, tag, tol, step = 10) => ev(`(() => {
+  const refOf = (base, tag, tol, step = 10, timeout = 20000) => ev(`(() => {
     ${GI_REF}
     const g = __cmwSteps().glide, c = document.getElementById('canvasL'), K = window.__heldPx, f = (t) => ({ W: c.width, H: c.height, d: K[t] });
     if (!g || !g.key || !K[${JSON.stringify(base)}] || !K[${JSON.stringify(tag)}]) return { path: g && g.path, u: g && g.u, ref: null };
     return { path: g.path, u: g.u, ref: __giRef(f(${JSON.stringify(base)}), f(${JSON.stringify(tag)}), ${tol}, ${step}) };
-  })()`);
+  })()`, timeout);
   // the rest renderer's grid over the colour, in a kept frame drawn with the glide's camera (__cmwSteps().glide.view):
   // renderColor strokes the major grid lines (Axes.niceStep(110 / scale) apart, the axes left out) 1 CSS px wide at
   // --dc-line, opacity --dc-line-a, over the colour. At each such line pixel whose two neighbours (2 device px off the
@@ -243,5 +263,24 @@ ${REF}`;
     }
     return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
   })()`);
-  return { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  const JUDGE_TOL = 6, JUDGE_MIN_N = 1000, JUDGE_OVER = 0.002, JUDGE_SEEDS_MS = 120000;
+  const fade = (a, b, t, tag) => ev(`(() => {
+    const K = window.__heldPx, A = K && K[${JSON.stringify(a)}], B = K && K[${JSON.stringify(b)}];
+    if (!A || !B || A.length !== B.length) return false;
+    const F = new Uint8ClampedArray(A.length);
+    for (let i = 0; i < A.length; i++) F[i] = i % 4 === 3 ? A[i] : (1 - ${t}) * A[i] + ${t} * B[i];
+    K[${JSON.stringify(tag)}] = F;
+    return true;
+  })()`);
+  const judge = async (base, tag, o = {}) => {
+    const tol = o.tol == null ? JUDGE_TOL : o.tol, minN = o.minN == null ? JUDGE_MIN_N : o.minN, maxOver = o.maxOver == null ? JUDGE_OVER : o.maxOver;
+    // (o.seeds: [columns, rows] of the Newton seeds of the reference, for a frame whose roots the default grid misses)
+    if (o.seeds) await ev(`window.__giSeeds = ${JSON.stringify(o.seeds)}, 1`);
+    const r = await refOf(base, tag, tol, o.step || 10, o.seeds ? JUDGE_SEEDS_MS : 20000);
+    if (o.seeds) await ev('delete window.__giSeeds, 1');
+    if (!r || !r.ref) return { path: r && r.path, u: r && r.u, n: 0, over: null, max: null, none: null, pass: false };
+    const q = r.ref;
+    return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, pass: q.n >= minN && q.over <= maxOver };
+  };
+  return { hold, UNHELD, grab, compare, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
