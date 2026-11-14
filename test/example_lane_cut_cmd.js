@@ -2,13 +2,13 @@
 // every example that has a lane. The lane under the plane shows the example's name and its Try line and takes the lines the
 // text needs, up to four: the text box holds all its text (no scroll height or width past its box), the lane is as tall as
 // the layout gave it (--ph-tour) and at most 82 px, and at least 25 examples had a lane (the count is the check that the
-// walk read them). A line that needs a fifth is cut, so it fails, except the known Italian one below. A command file for a
-// CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// walk read them). A line that needs a fifth is cut, so it fails (no exceptions are left: the Italian Douady–Hubbard line was
+// shortened to four, #576). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
-// (Italian wording that is Pietro's, five lines at 360 (issue #576); any other line over four fails)
+// (the lines allowed a fifth, as 'lang name': none; any line over four fails)
 const LANE_MS = 4000;   // how long the lane may take to show an example's name
-const KNOWN_FIFTH = new Set(['it La mappa di Douady–Hubbard']);
+const KNOWN_FIFTH = new Set([]);
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const PROBE = `(() => {
   const l = document.querySelector('.tour-lane[data-lane="example"]');
