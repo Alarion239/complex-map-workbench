@@ -19,6 +19,11 @@
 # By hand with mode suites and the input suites (a regular expression of suite file names, as ci/browser.js --only):
 # only those browser suites, on the Mac's real GPU, at the ref the run is dispatched on (run it on two refs to compare
 # them). No perf, GLSL or quality jobs; the approval of the `gpu-runners` environment still comes first.
+# On the Mac every step that drives the browser (the suites, GLSL, quality, perf and link-time steps) runs under
+# `caffeinate -dimsu`, which holds the display, the system and the disks awake for as long as its command runs and
+# returns the command's exit status. A display asleep slows every frame to its own cadence, ~45-50 ms (perf runs
+# 41264000039 and 41268369131; a suite 956 s against 33 s awake), and a sleeping machine loses contact with GitHub
+# about 10 minutes into a job (#1484). The prefix is empty on Windows, where the commands are unchanged.
 name: GPU gate
 
 on:
@@ -220,7 +225,7 @@ jobs:
       # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
       # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
       # (Windows-hosted: this commit and the reference, one round, the same step timeout, to fit too)
-      - run: node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
+      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -253,7 +258,15 @@ jobs:
       - shell: bash
         env:
           SUITES: ${{ inputs.suites }}
-        run: node ci/browser.js --only "$SUITES"
+        run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/browser.js --only "$SUITES"
+      # (the shots a suite keeps, e.g. steps_seams' frames, to look at)
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: browser-shots-${{ matrix.machine }}
+          path: .ci/browser/shots/
+          if-no-files-found: ignore
+          retention-days: 3
 
   glsl:
     name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
@@ -284,7 +297,7 @@ jobs:
       # 304 values there, in 10 chains near removable singularities, as every release since v14 did, so it is paired only)
       # (only the pages whose shader code or tests changed; all of them nightly and with force. The job's page, part
       # and tier come from the plan: on Windows every chain only nightly and by hand, in parts; ci/README.md, GLSL tiers)
-      - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.page && format('--only {0}', matrix.page) || '' }} --part ${{ matrix.part }} --tier ${{ matrix.tier }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
+      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.page && format('--only {0}', matrix.page) || '' }} --part ${{ matrix.part }} --tier ${{ matrix.tier }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
         env:
           # (a page whose browser used no CPU for 20 minutes is stuck: it fails then, not at the job's timeout)
           CMW_GLSL_STALL_MIN: '20'
@@ -313,7 +326,7 @@ jobs:
       - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (the Mac also against the committed baseline and goldens, which were recorded on a Mac GPU)
-      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
+      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/quality.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -343,8 +356,7 @@ jobs:
       - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
       # (--table: every metric's reference -> this change in the job log, which agents can read; the artifact they cannot)
-      # (the Mac's display asleep slows every frame to its own cadence, ~45-50 ms (runs 41264000039, 41268369131): caffeinate
-      # keeps the display, the system and the disks awake while the shard runs; run.js fails a throttled run, --raf-max)
+      # (run.js fails a throttled run, --raf-max)
       - shell: bash
         env:
           REPS: ${{ inputs.reps }}

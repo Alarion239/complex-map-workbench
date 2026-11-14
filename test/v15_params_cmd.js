@@ -33,12 +33,11 @@ const typeIn = async (sel, text) => {
   await settle(300);
   return true;
 };
-// (v15 merge: a step's fields are in the Inspector; a click on the step's card selects it there)
-// (the card in the classic chain, the chip in the steps view's thread, where a toast covers the thread until it goes)
+// (a step's fields are in the Inspector; a click on the step's chip in the thread selects it there, once a
+// toast that covers the thread has gone)
 const inStep = async (k, inner) => {
-  const steps = await ev(`document.documentElement.classList.contains('sv')`);
-  if (steps) await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
-  await clickSel(steps ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`);
+  await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
+  await clickSel(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`);
   await settle(300); return `#propsPanel .insp-step[data-k="${k}"] ${inner}`;
 };
 const bound = async () => ev(`(()=>{const p=__cmwP(); const sh=p.shapes; return {
@@ -118,7 +117,6 @@ ok('the curve follows', b.fcurve.expr === `Re z = (${A})`, b.fcurve.expr);
 ok('the radius follows (2a)', b.disc.r === 2 * A, b.disc.r);
 ok('the region formula follows', b.formula.expr === `|z - (${A})| < 0.5`, b.formula.expr);
 ok('the steps read the new value', /;a=/.test(b.sig) && b.sig.endsWith(`;a=${A}`), b.sig.slice(-30));
-const zero = await ev(`(()=>{ const z = __cmwZp(); return z ? z.params.zeros : null })()`);
 ok('the zero keeps its formula', b.zeros === 'a', b.zeros);
 ok('the drag is one undo step', b.hi === hiBeforeDrag + 1, { hi: b.hi, was: hiBeforeDrag });
 await shot('v15p-2-dragged');

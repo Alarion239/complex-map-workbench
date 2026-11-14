@@ -75,7 +75,7 @@
     }
     if (!by.size || !GLR.ok || typeof GLR.drawPreimage !== 'function') return false;
     // (one frame for every plane's pass, one blit: a pass per plane s, never a blit per plane; its pending is the
-    // caller's, since a card is cached as final only when nothing it drew is still linking)
+    // caller's)
     let pending = false;
     try {
       if (!inFrame) GLR.begin(pane.pw, pane.ph);
@@ -643,7 +643,7 @@
           list.splice(i, 1);
           zpWrite(st, kind, list);
           zpSel = { k, kind: other, i: j };
-          chainChanged(false); refreshZpCard(k); commit(); requestRender('OL');
+          chainChanged(false); refreshZpFields(k); commit(); requestRender('OL');
           return j;
         },
         hit: (x, y, r) => { if (!lFlat() || !zpStep()) return null; const m = zpHit(x, y, r); return m ? { k: m.k, kind: m.kind, i: m.i } : null; },
@@ -654,7 +654,7 @@
       cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
       // step k in the Inspector (v15: a click on its card does the same)
       inspect: (k) => inspectStep(k),
-      resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'T', 'OL'); },
+      resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },
       // the shape under the pointer: X's shapes at stage 0, Y's targets where they are edited
       shapeAt(side, x, y) {
         const target = side === 'R';
@@ -886,7 +886,7 @@
   // reassign as getters (and setters for the state they write)
   function integralsApi() {
     return {
-      C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
       rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,

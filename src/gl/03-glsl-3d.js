@@ -544,14 +544,17 @@ void main() {
   // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
   // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
   // are left out
-  const CARRY_Z = `
+  const CARRY_ZIN = `
 uniform vec4 uPolar;
-vec2 carryZ(vec2 ij) {
+vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
-  if (uPolar.w <= 0.0) return uSrc.xy + ij * f * uSrc.zw;
+  if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
   float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
   return uPolar.xy + r * vec2(cos(th), sin(th));
 }
+`;
+  const CARRY_Z = CARRY_ZIN + `
+vec2 carryZ(vec2 ij) { return carryZIn(uSrc, ij); }
 `;
   const LAND_CARRY_TF_VS = `
 uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform int uGt2; uniform float uHu;
@@ -572,14 +575,15 @@ void main() {
 `;
   // the carried All sheets' places: plane s's grid over the box uSrc (uN x uN) moved by the glide's map (mapPoint, uBase =
   // s), without a height: (place x, y, 0, finite). The sheets keep their heights at plane s, of the stages (s, hT]
-  // (LAND_SHEET_VS, uCarry 1 reads these places)
+  // (LAND_SHEET_VS, uCarry 1 reads these places). With uPolar (CARRY_Z) the grid is a pole's patch
   const LAND_CARRY_PLACE_TF_VS = `
 uniform int uN; uniform vec4 uSrc;
 out vec4 tfOut;
+` + CARRY_Z + `
 void main() {
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  vec2 z = uSrc.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uSrc.zw;
+  vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
   vec2 q = mapPoint(z);
   tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
 }
@@ -835,6 +839,7 @@ vec2 mapSheet(vec2 zc, vec2 z, int surf) {
   // left inside a cell is at a branch point, in the one sub-cell (under half a pixel) that holds it (the log log z fin).
   const LAND_SHEET_TF_VS = (ref) => SHEET_MAP + (ref ? REFINE + REFINE_BUILD : '') + `
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
+` + CARRY_ZIN + `
 ${ref ? 'uniform int uPass; uniform highp sampler2D uT1; uniform ivec2 uL; uniform int uGE; uniform int uTot; uniform int uRow0;' : ''}
 out vec4 tfOut;
 ${ref ? `vec2 zOfG(vec2 G) { return uBox.xy + G * (uBox.zw / float(16 * uM)); }
@@ -878,8 +883,8 @@ ${ref ? `  int Mq = (M + 3) / 4, q = 0, j = 0;
     ivec2 cell = qq / 2;
     cor = qq - cell * 2;
     if (combo >= uSheetK) return;
-    zc = uBox.xy + (vec2(cell) + 0.5) * d;
-    z = uBox.xy + vec2(cell + cor) * d;
+    zc = carryZIn(uBox, vec2(cell) + 0.5);
+    z = carryZIn(uBox, vec2(cell + cor));
     // (the normal from one cell's span: the slope the drawn triangles have, so a wall inside a cell shades as a wall)
     e = 0.5 * d;
   }
@@ -893,8 +898,8 @@ ${ref ? `  int Mq = (M + 3) / 4, q = 0, j = 0;
   ivec2 cell = qq / 2;
   cor = qq - cell * 2;
   if (combo >= uSheetK) return;
-  zc = uBox.xy + (vec2(cell) + 0.5) * d;
-  z = uBox.xy + vec2(cell + cor) * d;
+  zc = carryZIn(uBox, vec2(cell) + 0.5);
+  z = carryZIn(uBox, vec2(cell + cor));
   // (the normal from one cell's span: the slope the drawn triangles have, so a wall inside a cell shades as a wall)
   e = 0.5 * d;`}
   // one call site of the chain, in a loop whose trip count is not a constant (a constant one is unrolled): the corner,
@@ -970,7 +975,10 @@ uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; unif
 // the carried sheets (uCarry 1, the steps view's glide): the grid corners' places under the glide's map (uCP, over the grid
 // of the cells, uN x uN; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
 // uCLim on the plane (torn across a cut or a pole of the map) is left out
-uniform highp sampler2D uCP; uniform int uCarry; uniform vec4 uCBox; uniform float uCLim;
+// A pole's patch (uPatch 1): the same, over the grid of the patch (CARRY_Z, uPolar), whose cells carry their own heights
+// uCP and uT1 are the patch's too
+uniform highp sampler2D uCP; uniform int uCarry; uniform vec4 uCBox; uniform float uCLim; uniform int uPatch;
+` + CARRY_ZIN + `
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc; flat out int vCombo;
 vec3 nrmOf(vec4 t) { return vec3(t.zw, sqrt(max(1.0 - dot(t.zw, t.zw), 0.0))); }
@@ -1001,6 +1009,17 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     vec2 rest = 2.0 * uAspect / float(M);
     float nz = max(nrm.z, 1e-6);
     vec3 tx = vec3(dx, -nrm.x / nz * rest.x), ty = vec3(dy, -nrm.y / nz * rest.y);
+    if (uPatch == 1) {
+      // (a patch's cells are not the plane's grid: the slopes come from the cell's four corners, each at its place)
+      ivec2 o = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
+      vec3 P00 = vec3(((p00.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o, 0).x);
+      vec3 P10 = vec3(((p10.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 0), 0).x);
+      vec3 P01 = vec3(((p01.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(0, 1), 0).x);
+      vec3 P11 = vec3(((p11.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 1), 0).x);
+      tx = mix(P10 - P00, P11 - P01, f.y); ty = mix(P01 - P00, P11 - P10, f.x);
+      vZ = carryZIn(vec4(0.0), vec2(c) + f);
+      vZc = carryZIn(vec4(0.0), vec2(c) + 0.5);
+    }
     vec3 nc = cross(tx, ty);
     if (length(nc) > 1e-20) { nc = normalize(nc); vNor = nc.z < 0.0 ? -nc : nc; }
   }
@@ -1115,8 +1134,10 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
-// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster)
-uniform sampler2D uMask; uniform float uMaskOn; uniform vec4 uMaskBox;
+// mask's alpha over the box uMaskBox (row 0 at its top); outside it the surface is plain, uPlaster; with uMaskCut 1,
+// the Landscape's Inside regions, the surface is not drawn there at all)
+uniform sampler2D uMask; uniform float uMaskOn; uniform float uMaskCut; uniform vec4 uMaskBox;
+const float CUT_EDGE_INK = 0.85;     // the outline along the edge of a cut surface: its share of the colour
 float inRegions(vec2 z) {
   if (uMaskOn < 0.5) return 1.0;
   vec2 uv = (z - uMaskBox.xy) / uMaskBox.zw;
@@ -1213,8 +1234,14 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   float ds = abs(lr) / max(flr, 1e-6);                                                  // sea level |F| = 1
   a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), la * uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
   a = mix(a, vec3(1.0), la * uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
-  // (outside the carried region set: plain, under the sheet cue, the cut's banks and the rim as everywhere)
-  a = mix(toLin(uPlaster), a, inRegions(vZ));
+  // (outside the carried region set: not drawn, or plain under the sheet cue, the cut's banks and the rim as
+  // everywhere; a cut surface carries the outline of the set along its edge)
+  float inside = inRegions(vZ);
+  if (uMaskCut > 0.5) {
+    if (inside < 0.5) discard;
+    float edgePx = (inside - 0.5) / max(fwidth(inside), 1e-6);
+    a = mix(a, ml, CUT_EDGE_INK * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, edgePx)));
+  } else a = mix(toLin(uPlaster), a, inside);
 ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
   // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
@@ -1296,7 +1323,7 @@ void main() {
   vec2 w = mapF(z);
   vec3 alb = albedo(w);
   vec3 col = tiersOver(z, vec4(uFloorCol, 1.0), 1.0).rgb;
-  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint);         // phase portrait printed at 10%
+  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint); // phase portrait printed at 10%
   // contact shading under the surface: where the sheet comes close to the plate (no walls, nothing outside);
   // All sheets (uSheetK > 0): the lowest sheet over the point, from the per-cell height tiles
   float contact = 0.0;
@@ -1318,8 +1345,10 @@ void main() {
       contact = t.w > 0.5 ? exp(-(t.z - uFloorZ) / 0.12) : 0.0;
     }
   }
+  // a cut surface (uMaskCut) casts no shadow where it is not drawn
+  if (uMaskCut > 0.5) contact *= step(0.5, inRegions(z));
   lin = mix(lin, toLin(uShadow), clamp(0.7 * uShadowA * contact, 0.0, 1.0));
-  vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out
+  vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt); // the outer 12% fades out
   float a = uPlateA * smoothstep(0.0, 1.0, min(e.x, e.y));
   o = vec4(toSrgb(fogged(lin, vPos)) * a, a);
 }
@@ -1347,7 +1376,7 @@ void main() {
   // probe needle (domain point -> surface point), evaluated on the GPU; sheet: one needle and ring per sheet
   // combination (instance), each with the cuts placed opposite the probe itself
   const PROBE_VS = (sheet) => `
-uniform vec2 uProbe; uniform vec4 uBox; uniform vec2 uAspect; uniform float uFloorZ; uniform float uDpr;
+uniform vec2 uProbe; uniform float uFlat; uniform vec4 uBox; uniform vec2 uAspect; uniform float uFloorZ; uniform float uDpr;
 ${sheet ? SHEET_MAP : ''}
 ${MARK_EMIT}
 void main() {
@@ -1355,7 +1384,7 @@ void main() {
   vec2 hv = heightW(w);
   vec2 uv = (uProbe - uBox.xy) / uBox.zw;
   vec2 xy = (uv - 0.5) * 2.0 * uAspect;
-  vec3 top = vec3(xy, hv.y > 0.5 ? hv.x : uFloorZ), bot = vec3(xy, uFloorZ);
+  vec3 top = vec3(xy, hv.y > 0.5 && uFlat < 0.5 ? hv.x : uFloorZ), bot = vec3(xy, uFloorZ);
   int part = gl_VertexID / 6, k = gl_VertexID % 6;
   if (part == 0) emitLine(uMVP * vec4(bot, 1.0), uMVP * vec4(top, 1.0), k, 0.5 * uDpr);
   else if (part == 1) emitSprite(uMVP * vec4(top, 1.0), k, 2.0, 3.0 * uDpr, 0.5 * uDpr);
@@ -1382,18 +1411,18 @@ void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
 uniform int uNet;
 void sphereLines(vec3 n, out float net, out float re, out float eq) {
   float nz = clamp(n.z, -1.0, 1.0);
-  float y = 0.5 * log2(max(1.0 + nz, 1e-12) / max(1.0 - nz, 1e-12));   // log2 |z|
+  float y = 0.5 * log2(max(1.0 + nz, 1e-12) / max(1.0 - nz, 1e-12)); // log2 |z|
   float fy = fwidth(y);
   float mk = uNet == 2 ? (6.0 / PI) : (12.0 / PI);
   float th = atan(n.y, n.x) * mk;
   float fa = argWidth(n.xy) * mk;
   float fny = fwidth(n.y);
-  float mer = iso(th, fa, 1.0) * dfade(fa);                                        // meridians every 15 (30) deg
-  float par = iso(y, fy, 1.0) * dfade(fy) * step(0.5, abs(y)) * step(abs(y), uNet == 2 ? 2.5 : 3.5);  // |z| = 1/8 (1/4) ... 8 (4)
+  float mer = iso(th, fa, 1.0) * dfade(fa); // meridians every 15 (30) deg
+  float par = iso(y, fy, 1.0) * dfade(fy) * step(0.5, abs(y)) * step(abs(y), uNet == 2 ? 2.5 : 3.5); // |z| = 1/8 (1/4) ... 8 (4)
   net = max(mer, par);
-  if (uNet == 1) net = tiersOver(vec2(n.x, -n.y) / max(1.0 - nz, 1e-7), vec4(0.0), 1.0).a;   // the lifted lattice (coverage)
-  eq = iso0(y, fy, 1.5 * uDpr);                                                    // |z| = 1
-  re = iso0(n.y, fny, 1.25 * uDpr);                                                // real great circle
+  if (uNet == 1) net = tiersOver(vec2(n.x, -n.y) / max(1.0 - nz, 1e-7), vec4(0.0), 1.0).a; // the lifted lattice (coverage)
+  eq = iso0(y, fy, 1.5 * uDpr); // |z| = 1
+  re = iso0(n.y, fny, 1.25 * uDpr); // real great circle
 }
 vec3 phaseLines(vec3 base, float net, float re, float eq) {
   vec3 ink = vec3(0.0431, 0.0667, 0.0784);
@@ -1411,7 +1440,7 @@ void main() {
   float net, re, eq;
   sphereLines(n, net, re, eq);
 ${phase ? `
-  vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7)));   // S = 0, N = infinity (the conjugate lift's inverse)
+  vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7))); // S = 0, N = infinity (the conjugate lift's inverse)
   vec3 col = phaseLines(base, net, re, eq);` : `
   vec3 col = mix(uPlaneCol, uGridMaj, net);
   col = mix(col, uAxisCol, 0.7 * re);
@@ -1443,7 +1472,7 @@ void main() {
   col = mix(col, vec4(uAxisCol, 1.0), 0.5 * max(iso0(p.x, fp.x, uDpr), iso0(p.y, fp.y, uDpr)));
   col = mix(col, vec4(uAxisCol, 1.0), 0.4 * iso0(r - uR, fr, uDpr));
   float inside = clamp((uR - r) / max(fr, 1e-6) + 0.5 + 0.5 * uDpr, 0.0, 1.0);
-  col *= inside * (1.0 - smoothstep(0.45 * uR, uR, r));          // the rim fades out: no hard edge at the frame
+  col *= inside * (1.0 - smoothstep(0.45 * uR, uR, r)); // the rim fades out: no hard edge at the frame
   if (col.a <= 0.002) discard;
   o = col;
 }

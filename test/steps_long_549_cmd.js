@@ -56,7 +56,7 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
     const T0 = Date.now(), tm = (k) => { (info[tag].ms = info[tag].ms || {})[k] = Date.now() - T0; };
     try {
     await open(w, h, mobile, lang);
-    await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'fast'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+    await choose('#svStrip .sv-speed', 'fast');
     const g0 = await geo();
     info[tag] = { rail: g0.rail, track: g0.track, over: g0.track > g0.rail + 1 }; tm('open');
     ok(`${tag}: the page does not scroll sideways`, g0.pageW <= g0.vw + 1, g0);

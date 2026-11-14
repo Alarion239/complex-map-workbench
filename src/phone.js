@@ -1,5 +1,5 @@
 'use strict';
-// The phone layout (v15; notes/ui-redesign-2/phone/DESIGN.md, build notes in notes/ui-redesign-2/build/phone.md).
+// The phone layout (notes/ui-redesign-2/phone/DESIGN.md, build notes in notes/ui-redesign-2/build/phone.md).
 //
 // Below 768 px (and on a landscape phone: coarse pointer, at most 500 px tall, below 1024 px wide) the page is one
 // screen without page scroll: the view switch and More in the header, one plane with the other as a live inset (tap
@@ -15,7 +15,7 @@ const Phone = (() => {
   let A = null;
   let on = false, land = false;
   let big = 'L';                       // the large plane in X → Y; the other one is the inset
-  // "Both": X above Y, each its own half, instead of the large plane and the inset; remembered (D8)
+  // "Both": X above Y, each its own half, rather than the large plane and the inset; remembered
   const BOTH_KEY = 'cmw-ph-both' + (new URLSearchParams(location.search).get('ns') || '');
   let both = (() => { try { return localStorage.getItem(BOTH_KEY) === '1'; } catch (e) { return false; } })();
   let kind = null, full = false;       // the open sheet and its height
@@ -23,6 +23,7 @@ const Phone = (() => {
   let anim = 0;                        // the sheet's opening or closing timer
   const homes = [];                    // [el, placeholder] of the moved elements
   const els = {};
+  let opener = null;   // the control the Display sheet opened from, which gets the focus back
   const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
   const MQP = '(max-width: 767px)';
   const MQL = '(orientation: landscape) and (max-height: 500px) and (max-width: 1023px) and (pointer: coarse)';
@@ -54,7 +55,7 @@ const Phone = (() => {
     els.grab = h('button', { class: 'ph-grab', type: 'button', 'aria-label': $t('Resize the sheet') });
     els.close = h('button', { class: 'ph-x', type: 'button', 'aria-label': $t('Close'), html: I.close, onclick: () => close() });
     els.mark = h('span', { class: 'ph-mark', 'aria-hidden': 'true' });
-    // v16.5 UX24: Undo in every sheet's head, beside ×, where the sheet covers the tool row's Undo (its long press
+    // Undo in every sheet's head, beside ×, where the sheet covers the tool row's Undo (its long press
     // offers Redo, as the tool row's does)
     els.sundo = h('button', { class: 'ph-hundo', type: 'button', 'aria-label': $t('Undo'), html: I.undo });
     undoKey(els.sundo);
@@ -73,12 +74,12 @@ const Phone = (() => {
     els.shapesPane = h('div', { class: 'ph-tabpane', role: 'tabpanel', 'data-tab': 'shapes', 'aria-label': $t('Shapes') });
     els.body.tools.append(els.tabs, els.tiles, els.ctiles, els.shapesPane);
     // Display: this view's options and the unit circle, then (in the X → Y view) the regions' display, lent from
-    // page.html's #regionsHome ([v17 D5, #82]: no longer a section of the region tools)
+    // page.html's #regionsHome (not a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
     els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
-    // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
-    // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
+    // the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
+    // (in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
     els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
@@ -87,7 +88,7 @@ const Phone = (() => {
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
-    // (#246, the owner's option B) the chain bar is one row: ‹, the plane the deformation is at (the step whose plane it
+    // the chain bar is one row: ‹, the plane the deformation is at (the step whose plane it
     // is; a tap opens that step's sheet), ›, and "3 steps ▾", which opens the chain as a sheet (Numbers, the whole map,
     // z and the steps as rows, Add function); Deformation stays at the row's end. ‹ › glide the deformation from one
     // step's plane to the next (A.glide: never blocking, faster on quick presses, turning round with no jump); their
@@ -116,7 +117,7 @@ const Phone = (() => {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
       const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
       const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
-      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => open('display', { side }) });
+      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
       plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
       els['sph' + side] = sph;
       els['both' + side] = bt;
@@ -141,28 +142,16 @@ const Phone = (() => {
       if (sum) { els.badge = h('span', { class: 'ph-badge', 'aria-hidden': 'true', hidden: true }); sum.append(els.badge); }
       if (rc) new MutationObserver(() => { if (els.tabs) setTab(toolTab); syncBadge(); }).observe(rc, { childList: true, characterData: true, subtree: true });
       syncBadge(); }
-    if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });   // (v16 [C20])
+    if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });
     new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
     els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled;
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
-    for (const id of ['leftTabs', 'rightTabs', 'viewSwitch']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
-    // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
-    document.addEventListener('click', (e) => {
-      if (!on) return;
-      const tg = /** @type {HTMLElement} */ (e.target), b = /** @type {HTMLElement | null} */ (tg.closest && tg.closest('.tdock #speedSeg > button.on'));
-      if (!b) return;
-      const ORDER = ['1.6', '0.8', '3.2'];
-      const nx = ORDER[(ORDER.indexOf(b.dataset.v) + 1) % ORDER.length];
-      const t = /** @type {HTMLElement | null} */ (b.parentNode.querySelector(`button[data-v="${nx}"]`));
-      if (!t) return;
-      e.preventDefault(); e.stopPropagation();
-      t.click();
-    }, true);
   }
   const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
@@ -177,16 +166,16 @@ const Phone = (() => {
 
   // ---------------- mode ----------------
   function sync() {
-    // (a landscape phone is landscape whatever its width: 568 to 767 px wide ones, below 768, took the portrait layout, with
-    // 184 px of a 360 px height for the plane and a sheet that showed only its head; #295)
+    // (a landscape phone is landscape whatever its width: a 568 to 767 px wide one takes the landscape layout, as the portrait one gives a 360 px height
+    // only 184 px for the plane and a sheet that shows only its head)
     const l = matchMedia(MQL).matches, p = !l && matchMedia(MQP).matches;
     const want = p || l;
     if (want === on && l === land) return;
     // (a rotation: the panes are synced first, so a landscape layout's side-by-side panes get their inset back in
-    // portrait; review-phone-swap-verify verify-1)
+    // portrait)
     if (want && !on) enter(l); else if (!want && on) leave(); else { const keepIt = keepSheet(); land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); reconcile(); keepIt(); }
   }
-  // v16.5 UX68: a rotation (portrait <-> landscape) relays the sheet out: the same sheet opens again in the new layout,
+  // a rotation (portrait <-> landscape) relays the sheet out: the same sheet opens again in the new layout,
   // at the same scroll, and the field that had the focus gets it back with its caret (the Editor's fields are rebuilt
   // by the reopening: the field in the same place among the sheet's fields)
   function keepSheet() {
@@ -230,18 +219,17 @@ const Phone = (() => {
     park(els.crow, wrap, $('pipeline'));
     park(els.nums, els.body.chain);
     park($('pipeline'), els.body.chain);
-    park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
     for (const id of ['secFormula', 'secShapes']) { const d = /** @type {HTMLDetailsElement} */ ($(id)); if (d) d.open = true; }
     A.showPanels(true);
     syncPanes(); syncTools(); syncNums(); syncSnap();
     chainSeen = ''; chain();
     A.resize();
-    reconcile();   // (v15.1: the inset shows its plane's own view, the desktop's or the saved one, at its size)
+    reconcile();   // (the inset shows its plane's own view, the desktop's or the saved one, at its size)
   }
   function leave() {
     close(true);
-    // (v15.1: the desktop gets each plane's large view back; no view is drawn small while merged or held)
+    // (the desktop gets each plane's large view back; no view is drawn small while merged or held)
     for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
     rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
@@ -279,7 +267,7 @@ const Phone = (() => {
     }
   }
   function toggleSphere(side) {
-    // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it, #471)
+    // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it)
     if (A.svSphere && A.svSphere() != null) { setTimeout(syncPanes, 0); return; }
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     if (!tabs) return;
@@ -288,15 +276,15 @@ const Phone = (() => {
     if (t) t.click();
     setTimeout(syncPanes, 0);
   }
-  // The inset swaps with the large plane, and each plane keeps its own view (v15.1, build/phone-swap.md). A plane's
+  // The inset swaps with the large plane, and each plane keeps its own view (build/phone-swap.md). A plane's
   // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,
   // the same region (its centre and its units per pane width) at the inset's size; the plane that comes back large
-  // shows exactly what it showed before. Nothing is fitted (v15 fitted the new inset: for an unbounded region the fit
-  // framed the part in its own window plus a margin, so every round trip multiplied the scale). A plane the app fits
+  // shows exactly what it showed before. Nothing is fitted (fitting the new inset would, for an unbounded region, frame
+  // the part in its own window plus a margin, so every round trip would multiply the scale). A plane the app fits
   // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
   // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
   // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
-  // parks, replaces or saves the views (hold), every plane holds its large view (review-phone-swap swap-1 to swap-6).
+  // parks, swaps or saves the views (hold), every plane holds its large view.
   const keep = { L: null, R: null };
   let held = false;
   const sameView = (a, b) => !!a && !!b && a.cx === b.cx && a.cy === b.cy && a.s === b.s;
@@ -384,24 +372,13 @@ const Phone = (() => {
   // ---------------- the context bar (D3) ----------------
   // One 56 px bar above the tool row for what is selected or under way: the selected shape (name, definition, Edit,
   // Delete, ⋯), the polygon being drawn (Last, Done, Cancel), a curve being listened along (Stop). The planes give up the
-  // bar floats over the bottom of the planes, above the chain bar, and slides out from behind it (#463): nothing moves for it. The app calls Phone.ctx from its overlay renders and
+  // bar floats over the bottom of the planes, above the chain bar, and slides out from behind it: nothing moves for it. The app calls Phone.ctx from its overlay renders and
   // its selection changes; the bar is rebuilt only when what it shows changes.
   let ctxKey = '', ctxHideT = 0;
   function ctxSync() { ctx(true); }
   // The planes give a message its row only while no finger is down: a plane that shrinks under a
   // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
   let fingers = 0, layoutT = 0;
-  // the sheet's bottom edge moves up to make room for the message (phone.css, a 220 ms transition): the card the app scrolled
-  // into view for the step just added is scrolled into view again once the edge has stopped. With no transition (reduced
-  // motion, or the edge already there) that is at once
-  function scrollNewCardAfterResize(sheet) {
-    void sheet.offsetHeight;   // (a style flush: it starts the transition that is to be waited for)
-    const moving = sheet.getAnimations().filter((a) => a.transitionProperty === 'bottom');
-    Promise.all(moving.map((a) => a.finished.catch(() => null))).then(() => {
-      const card = els.sheet === sheet && sheet.querySelector('#pipeline .card[aria-selected="true"]');
-      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
-  }
   function barLayout() {
     if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
     clearTimeout(layoutT);
@@ -409,9 +386,6 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
-    // (#464) a sheet gives up the message's row (phone.css): the card the app scrolled into view for the step just added (bornCards,
-    // before the message and the sheet's new edge) is scrolled into view again once the sheet has its new size
-    if (wantToast && els.sheet && c.contains('ph-sheet-on')) scrollNewCardAfterResize(els.sheet);
     syncPanes(); A.resize();
   }
   function ctx(force) {
@@ -483,7 +457,7 @@ const Phone = (() => {
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
-    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3-pt circle')
+    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (the tile's short label, '3-pt circle')
     else if (ic.dataset.ph !== 'more') { ic.innerHTML = els.moreIc; lab.textContent = els.moreLab; }
     ic.dataset.ph = extra ? id : 'more';
     if (kind === 'tools') fillTiles();
@@ -491,7 +465,7 @@ const Phone = (() => {
   function fillTiles() {
     const tile = (b) => {
       const t = h('button', { class: 'ph-tile' + (b.classList.contains('on') ? ' on' : ''), type: 'button', 'aria-pressed': String(b.classList.contains('on')), 'data-tool': b.dataset.tool, 'aria-label': b.getAttribute('aria-label') },
-        h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.dataset.phl || b.querySelector('span').textContent));   // (v16.5 UX93: a short form, app.js)
+        h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.dataset.phl || b.querySelector('span').textContent));   // (a short form, app.js)
       t.addEventListener('click', () => {
         const id = b.dataset.tool;
         b.click();
@@ -504,7 +478,7 @@ const Phone = (() => {
     const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
-    // v16.5 UX40: the long press, taught where people look (never on the plane)
+    // the long press, taught where people look (never on the plane)
     ct.push(tip(HOLD, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.')));
     els.tiles.replaceChildren(...tiles);
     els.ctiles.replaceChildren(...ct);
@@ -561,7 +535,7 @@ const Phone = (() => {
 
   // ---------------- the sheet ----------------
   function geometry() {
-    // (v16.4: less the guided tour's strip under the header, --ph-tour, while it shows)
+    // (less the guided tour's strip under the header, --ph-tour, while it shows)
     const H = window.innerHeight - (parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-tour')) || 0);
     // (the Edit sheet's head is a 44 px strip, and the planes give 26 px of it, so the Inspector's scroller keeps the room a tour
     // step's anchor needs. On a short phone that would leave the planes under 200 px, too small to watch respond, so there the
@@ -644,6 +618,8 @@ const Phone = (() => {
     else if (k === 'edit') { const sm = els.body.edit.querySelector('.split-offer:not([hidden]) > summary'); if (sm) sm.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
+    // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -665,6 +641,7 @@ const Phone = (() => {
     // display to their home
     homeDisplay();
     els.viewOpts.replaceChildren();
+    if (k === 'display') { const o = opener && opener.isConnected ? opener : null; opener = null; if (o) o.focus({ preventScroll: true }); }
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
     rootEl.classList.remove('ph-sheet-on');
@@ -686,7 +663,7 @@ const Phone = (() => {
     let y0 = null, dy = 0, id = null, onGrab = false, tap = 0, tapT = 0;
     const down = (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } };
     head.addEventListener('pointerdown', down);
-    // (#483: the Editor's head is its 18 px bar, with the grab handle cut to it so that it no longer covers the title row; the title row,
+    // (the Editor's head is its 18 px bar, with the grab handle cut to it so that it does not cover the title row; the title row,
     // the Inspector's .ihead, drags the sheet too, wherever nothing in it can be pressed)
     els.sheet.addEventListener('pointerdown', (e) => {
       const t = /** @type {Element} */ (e.target);
@@ -707,9 +684,9 @@ const Phone = (() => {
     const guard = () => { clearTimeout(gT); els.sheet.dataset.guard = '1'; gT = setTimeout(() => { delete els.sheet.dataset.guard; }, 400); };
     for (const ev of ['mousedown', 'click']) els.sheet.addEventListener(ev, (e) => { if (els.sheet.dataset.guard && !e.target.closest('.ph-sh')) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
-  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
+  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: A.displayTitle() || $t('Display'), more: $t('Menu'), chain: $t('Function chain') });
 
-  // ---------------- the chain row and the chain sheet (#246) ----------------
+  // ---------------- the chain row and the chain sheet ----------------
   let chainSeen = '', chainK = null;
   function chain() {
     if (!on || !els.crow) return;
@@ -782,14 +759,13 @@ const Phone = (() => {
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
-    const pick = A.colourPick(), kids = A.footKids(side), unit = $('unitBox'), reg = pick || (A.regionsView() ? $('regionsBox') : null);
+    const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
     const tn = A.targetNote();
     els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
-    for (const old of els.regions.querySelectorAll('.cp-pop')) old.remove();
-    if (reg) els.regions.append(reg);
-    els.regionsH.hidden = !reg || !!pick;   // (the picker names its own colouring)
-    // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
+    if (reg) { A.regionsNote(); els.regions.append(reg); }
+    els.regionsH.hidden = !reg;
+    // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     if (mesh) els.body.display.append(mesh);
@@ -826,8 +802,8 @@ const Phone = (() => {
     pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
     pc.setAttribute('aria-haspopup', 'menu');
     const lang = A.langPref();
-    // v16.5 V02: the links, the scene files and the LaTeX are rows of this sheet (it opened a desktop menu over the
-    // plane, with a key a phone has not got); "… again" only once a figure was made
+    // the links, the scene files and the LaTeX are rows of this sheet (a desktop menu over the
+    // plane would need a key a phone has not got); "… again" only once a figure is made
     const sceneRows = [], figRows = [];
     const xs = typeof A.exportItems === 'function' ? A.exportItems() : [];
     if (xs.length) {
@@ -847,11 +823,11 @@ const Phone = (() => {
     group($t('Scene'), row(I.add || OPEN, $t('New scene'), () => { close(true); A.newScene(); }), row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true), ...sceneRows);
     group($t('Figure'), row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true), ...figRows);
     group($t('Sound'), sndRow, hearRow);
-    // ([#21] the offline page, on the live page only: A.offlinePage() is null elsewhere)
+    // (the offline page, on the live page only: A.offlinePage() is null elsewhere)
     const off = typeof A.offlinePage === 'function' ? A.offlinePage() : null;
     group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }),
       off ? row(I.download, off.label, () => { close(true); off.run(); }) : null);
-    // (#438) the steps view's Playback sheet (speed and loop): its button is the one in the header menu a phone hides, so this row presses it
+    // the steps view's Playback sheet (speed and loop): its button is the one in the header menu a phone hides, so this row presses it
     const svPb = /** @type {HTMLElement | null} */ (document.querySelector('.sv-playback'));
     const playRow = svPb ? row('', svPb.textContent, () => { close(true); setTimeout(() => svPb.click(), 0); }) : null;
     group($tx('menu group', 'Look'), playRow, seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
@@ -872,16 +848,16 @@ const Phone = (() => {
     filter();
   }
 
-  // ---------------- the on-screen keyboard (v16.5 UX69) ----------------
-  // Android Chrome lays the page out as before when its keyboard opens (only the visual viewport shrinks), so a field
-  // low in a sheet went under the keyboard and Chrome panned the whole screen to show it. While the keyboard is up (the
+  // ---------------- the on-screen keyboard ----------------
+  // Android Chrome keeps the page's layout when its keyboard opens (only the visual viewport shrinks), so a field
+  // low in a sheet would go under the keyboard and Chrome would pan the whole screen to show it. While the keyboard is up (the
   // visual viewport shorter than the window), the sheet's body gets that much room at its end (--ph-kb), and the field
   // with the focus is brought above the keyboard: by scrolling the body first (the planes stay in view, so the image
   // still changes as you type), and only when that cannot do it, by opening the sheet to its full height with the field
   // near the top of its body. The sheet goes back to its height when the keyboard goes or the focus leaves its fields.
   const TEXTY = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="color"], [type="file"]), textarea, [contenteditable="true"]';
   const kb = { grew: false, t: 0, h: 0, v: 0 };
-  // a row of symbols above the keyboard while a formula field has the focus (UX46): symbols only, never templates;
+  // a row of symbols above the keyboard while a formula field has the focus: symbols only, never templates;
   // a press keeps the focus in the field and puts the symbol at the caret
   const KEYS_H = 44, KEYS = ['z', '|', '<', '>', '≤', 'π', 'i', 'Re', 'Im', 'arg', '(', ')'];
   const keys = { el: null };
@@ -954,7 +930,7 @@ const Phone = (() => {
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', () => kbHeight()); window.visualViewport.addEventListener('scroll', () => kbHeight()); }
   }
 
-  // ---------------- Back (v16.5 UX12) ----------------
+  // ---------------- Back ----------------
   // A phone's Back (the system button or the edge gesture) closes the top layer, and the user stays in the app: a menu,
   // the palette, the coordinate pad, the tour's chapter menu, the sound settings, a dialog, a sheet (A.backLayer says
   // which, top first). While one is open, one history entry of ours sits on the page's own; Back pops it, the app
@@ -977,7 +953,7 @@ const Phone = (() => {
   }
   const backLater = () => { if (!back.t) back.t = setTimeout(backSync, 0); };
   function backInit() {
-    // (a reload while a layer was open, the language switch: the entry we stand on was ours; it is the page's now)
+    // (after a reload while a layer was open, or the language switch, the entry we stand on is the page's, not a layer's)
     try { if (history.state && history.state.cmwLayer) { const st = Object.assign({}, history.state); delete st.cmwLayer; history.replaceState(Object.keys(st).length ? st : null, ''); } } catch (e) { /* */ }
     window.addEventListener('popstate', (e) => {
       if (back.skip) { back.skip--; backLater(); return; }
@@ -1012,9 +988,9 @@ const Phone = (() => {
   return {
     init, open, close, chain, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
-    // TEMP-DEBUG-HOOK (removed before publishing)
+    // TEMP-DEBUG-HOOK
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
-    _kb: (h) => kbHeight(h),   // (v16.5: a keyboard of h px, for the browser checks; headless Chrome has none)
+    _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
     // TEMP-DEBUG-HOOK
   };
 })();

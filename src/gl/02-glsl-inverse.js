@@ -14,8 +14,12 @@
 #endif
 const float IX_LN2 = 0.6931471805599453;
 const float IX_BIG = 1e9;
-// (the sheet key's tie step, Inverse.front's TIE_D: 2^-8 octave)
-const float IX_TIE_D = 0.00390625;
+// (the sheet key's tie band, Inverse.front's TIE_D: 2^-14 octave and the same part of D; 2^-14 = 0.00006103515625)
+const float IX_TIE_D = 0.00006103515625;
+float ixTieBand(float D) { return IX_TIE_D * (1.0 + D); }
+// (the early stops' margin: the tie band and 2^-8 octave more for the error of the lower bounds: Inverse's stopBand)
+const float IX_STOP_D = 0.00390625;
+float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #if IX_LAM
 #define IX_HASLAM(L) (L).hasLam
 #else
@@ -27,6 +31,9 @@ uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
 uniform int uKsat; uniform int uKall;
+// uLastOpaque = 1: the farthest layer of the composite is opaque (alpha 1) and only the layers in front of it show
+// through, so a point covered once keeps its colour at any uAlpha
+uniform int uLastOpaque;
 // uIxTail = 1: the shape's coverage is monotone along the stop op's member lines (Inverse.prepare's tail flag): with
 // uKall and K > IX_B, a side whose members provably all cover and all lie behind the buffer ends in the tail closure
 uniform int uIxTail;
@@ -430,14 +437,13 @@ float ixDKTail() {
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
 bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  // (keys in the same step of 2^-8 octave are ties: Inverse.front's TIE_D)
-  float q1 = floor(D1 / IX_TIE_D + 0.5), q2 = floor(D2 / IX_TIE_D + 0.5);
-  if (q1 != q2) return q1 < q2;
+  // (keys within the tie band of each other are ties: Inverse.front's)
+  if (abs(D1 - D2) > ixTieBand(min(D1, D2))) return D1 < D2;
   if (t1.y != t2.y) return t1.y > t2.y;
   return t1.x > t2.x;
 }
-// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the tie band
-// (TIE_D, 2^-8: a member within it may still come in front by the tie rule) ----
+// ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the stop band
+// (a member within the tie band may still come in front by the tie rule) ----
 float ixRayBoxDist(vec2 a, vec2 v, float smax) {
   float lo = 0.0, hi = smax;
   if (!(abs(v.x) > 1e-30)) { if (a.x < uWin.x || a.x > uWin.z) lo = IX_INF; }
@@ -467,14 +473,14 @@ bool ixStopAdd(int j, vec2 p, bool goUp, vec2 umem, float dk) {
     vec2 pa = uIxStopMob.zw;
     float r = cx_abs(ixLastZ - pa);
     float LB = log2(1.0 + max(0.0, ixBoxDist(pa) - r) / uWinR) + (uIxPAccInP > 0.5 ? max(0.0, log2(uWinRs / r)) : 0.0);
-    return LB > dk + IX_TIE_D;
+    return LB > dk + ixStopBand(dk);
   }
 #endif
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
   float lb = ixLastD;
   // (the members still to come start at the next one, z_m + q: a member past the front need not be walked to stop)
   if (ixLastFin) { vec2 q = cdiv(p, uIxAB[j].xy), qd = goUp ? q : -q; lb = log2(1.0 + ixRayBoxDist(ixLastZ + qd, qd, IX_INF) / uWinR); }
-  return lb > dk + IX_TIE_D;
+  return lb > dk + ixStopBand(dk);
 }
 bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
   if (!(dk < 1e37) || uIxRK[j] != 1) return false;
@@ -493,7 +499,7 @@ bool ixStopLog(int j, vec2 S, bool goUp, float dk) {
       }
     }
   }
-  return lb > dk + IX_TIE_D;
+  return lb > dk + ixStopBand(dk);
 }
 // ---- patterns with analytic footprints (6.1, 6.2) ----
 vec2 ixDivL(vec2 a, vec2 b) { return vec2(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y) / max(dot(b, b), 1e-37); }
@@ -711,7 +717,8 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
-    float a = uAlpha * bC[i] / U;
+    bool farthest = uLastOpaque == 1 && i == nb - 1 && ixTr >= 1.0 && !ixTailInf;
+    float a = (farthest ? 1.0 : uAlpha) * bC[i] / U;
     C += T * a * ixUnpack(bCol[i]);
     T *= 1.0 - a;
   }
@@ -722,12 +729,33 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { o = vec4(0.0, 0.0, 0.0
     for (int i = 0; i < IX_B; i++) { if (i >= nb) break; mc += ixUnpack(bCol[i]); }
     mc /= float(nb);
     C += T * (1.0 - ixTr) * mc; T *= ixTr;
-    if (ixTailInf) { C += T * mc; T = 0.0; }
+    if (ixTailInf || uLastOpaque == 1) { C += T * mc; T = 0.0; }
   }
 ${globe ? `  float a = U * (1.0 - T);
   if (!(a > 0.0)) { o = vec4(0.0); return; }
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(U * C / a), P, v, 1.0)) * a, a);` : '  o = vec4(U * C, U * (1.0 - T));'}
+}
+`;
+  // the carried colour's layers (GLR.carryLayers): uL's layers 0 .. uN-1 front to back, alpha 1 where a layer covers the pixel,
+  // composited as the exact pass does: each layer at uA, the farthest opaque
+  const CARRY_LAYERS_FS = `
+uniform highp sampler2DArray uL; uniform int uN; uniform float uA;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  vec3 C = vec3(0.0);
+  float T = 1.0;
+  vec4 cur = texelFetch(uL, ivec3(p, 0), 0);
+  for (int j = 0; j < 8; j++) {
+    if (j >= uN || cur.a < 0.5) break;
+    vec4 nxt = j + 1 < uN ? texelFetch(uL, ivec3(p, j + 1), 0) : vec4(0.0);
+    float a = nxt.a < 0.5 ? 1.0 : uA;
+    C += T * a * cur.rgb;
+    T *= 1.0 - a;
+    cur = nxt;
+  }
+  o = vec4(C, 1.0 - T);
 }
 `;
   // half-resolution passes (cost guard, motion frames): the half-size target, upscaled bilinearly over the pane

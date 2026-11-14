@@ -1,12 +1,14 @@
 'use strict';
 // A 2D complex-plane pane: view transform, resizing, axes.
+// the relative difference under which two view scales count as equal, for Pane.tweenAt
+const PAN_EPS = 1e-9;
 class Pane {
   // canvas: the drawn plane; overlay (optional): a transparent canvas on top for probes and handles
   constructor(canvas, overlay) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.ocanvas = overlay || canvas;
-    // (issue #297) the overlay's context is CPU-backed (willReadFrequently): on a GPU-accelerated 2D canvas, Chrome
+    // the overlay's context is CPU-backed (willReadFrequently): on a GPU-accelerated 2D canvas, Chrome
     // kept an earlier frame's picture in the overlay after frames that only cleared it (example 7's cut handle stayed
     // over example 8, about 1 load in 3), although the app drew nothing there; a CPU-backed canvas never did. The
     // overlay holds only lines, chips and handles, cheap to draw on the CPU; the planes' own canvases stay on the GPU
@@ -46,6 +48,22 @@ class Pane {
     v.cx = z.re - (x - this.w / 2) / s;
     v.cy = z.im + (y - this.h / 2) / s;
     v.s = s;
+  }
+  // The view a tween from view a to view b is at, for the eased time e in [0, 1]: the scale moves in log space,
+  // s(e) = a.s·(b.s/a.s)^e, and the centre by the weight g(e) = (1 − a.s/s(e)) / (1 − a.s/b.s), c(e) = a.c + (b.c − a.c)·g(e).
+  // s is in pixels per world unit, so the world point p that a and b put at the same screen offset,
+  // (p − a.c)·a.s = (p − b.c)·b.s, keeps that offset (p − c(e))·s(e) all along, as a wheel zoom keeps the point under the
+  // cursor. g is written with expm1, which is accurate however far away p is because the formula never forms p. Scales
+  // within PAN_EPS of each other (|den| < PAN_EPS, den = a.s/b.s − 1 below) are the same scale: p is over 1/PAN_EPS pan lengths away and g differs
+  // from e by less than PAN_EPS/4 of the pan, so g = e, a plain eased pan, as it is for a target of scale 0 (den infinite),
+  // where the ratio would be ∞/∞. e ≤ 0 is a and e ≥ 1 is b, exactly.
+  static tweenAt(a, b, e) {
+    if (e <= 0) return { cx: a.cx, cy: a.cy, s: a.s };
+    if (e >= 1) return { cx: b.cx, cy: b.cy, s: b.s };
+    const L = Math.log(b.s / a.s);
+    const den = Math.expm1(-L);   // a.s/b.s − 1
+    const g = Math.abs(den) < PAN_EPS || !Number.isFinite(den) ? e : Math.expm1(-L * e) / den;
+    return { cx: a.cx + (b.cx - a.cx) * g, cy: a.cy + (b.cy - a.cy) * g, s: a.s * Math.exp(L * e) };
   }
   fitBox(b, margin = 0.08) {
     if (!b || !(b.x1 > b.x0) || !(b.y1 > b.y0)) return false;
@@ -271,13 +289,13 @@ const Views = (() => {
     if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
     return 'R';
   }
-  // The steps view's state (#366, behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
+  // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
   // 'all' | 'in' (Inside regions); surf: 'plane' | 'sphere' | 'land'; speed: the glide's setting, one of the four, kept per state so a shared link plays at
   // its own speed (a state without one takes the device's). alone: the step shown alone, an active step's index, a key only
   // while one is shown; at and T are then the whole chain's place (what leaving it goes back to). planes: the stages of
-  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state was
-  // never saved from the steps view): a fractional or far `at` is clamped to the planes, a T the chain no longer has
+  // the chain's planes, [0, ...active steps]. Any object to a valid one, or null when there is none (the state holds
+  // no steps view): a fractional or far `at` is clamped to the planes, a T the chain does not have
   // is -1, an unknown scope or surface is the default, an unknown speed is dropped.
   const SV_SCOPES = ['all', 'in'], SV_SURFS = ['plane', 'sphere', 'land'], SV_SPEEDS = ['fast', 'normal', 'slow', 'slower'];
   function cleanSv(v, planes) {
@@ -294,12 +312,13 @@ const Views = (() => {
     return o;
   }
   // the steps view's picture of a state that has no S.sv (concept §6): X → Y opens at the z-plane with T = the last
-  // plane, on Inside regions when it has areas; Phase the same, coloured everywhere; Landscape on the relief. A chain
-  // with no steps opens on Inside regions too (the plane is neutral until a region is drawn), but not on the relief
+  // plane, on Inside regions when it has areas; Phase the same, coloured everywhere; Landscape on the relief. An X → Y
+  // chain with no steps opens on Inside regions too (the plane is neutral until a region is drawn): not Phase, which is
+  // coloured everywhere, and not the relief
   function svOf(view, hasAreas, empty) {
     const v = clean(view), x = xOf(v);
     const surf = x.surf === 'land' ? 'land' : x.surf === 'sphere' ? 'sphere' : 'plane';
-    return { at: 0, T: -1, scope: (v.main === 'xy' && hasAreas) || (empty && v.main !== 'land') ? 'in' : 'all', surf };
+    return { at: 0, T: -1, scope: v.main === 'xy' && (hasAreas || empty) ? 'in' : 'all', surf };
   }
   return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R, SV_SPEEDS };
 })();

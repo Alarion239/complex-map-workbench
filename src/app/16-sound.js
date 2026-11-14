@@ -42,6 +42,7 @@
       render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
       updateDraftChips, zerosPolesTimed,
       get S() { return S; },
+      get stepsView() { return SV.on; },
       get TH() { return TH; },
       get built() { return built; },
       get chainSig() { return chainSig; },
@@ -66,8 +67,6 @@
   function sndInit(...args) { return SH.sndInit(...args); }
   function sndMorphStart(...args) { return SH.sndMorphStart(...args); }
   function sndMorphArrive(...args) { return SH.sndMorphArrive(...args); }
-  function sndScrub(...args) { return SH.sndScrub(...args); }
-  function sndScrubEnd(...args) { return SH.sndScrubEnd(...args); }
   function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }

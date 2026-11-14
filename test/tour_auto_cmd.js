@@ -53,9 +53,26 @@ const advanceFrom = async (id, d, tol) => {
   const exp = Math.round(lt.exp), blocked = Math.round(lt.blocked), at = d ? Math.round(p1 - d.p) : null;
   return { at, exp, blocked, ok: leftOk(d) && at != null && at >= d.left - tol && at <= exp + tol };
 };
+// an advance check on the page's clock: the moment done shows, polled from t0 (a step whose countdown is held has none until the hold
+// ends), then the advance from it. The result is advanceFrom's with the doneAt as .d; no doneAt reads as not ok
+const advanceAfter = async (id, t0, tol) => { const d = await doneAt(t0); const a = await advanceFrom(id, d, tol); a.d = d; return a; };
+// a main-thread block of ms across the countdown's due moment (d from doneAt), from 100 ms before it: as a program link makes on a
+// software GPU, so the timer fires late by the rest of the block
+const blockAtDue = (d, ms = 400) => ev(`setTimeout(() => { const t0 = performance.now(); while (performance.now() - t0 < ${ms}); }, Math.max(0, ${d ? d.p + d.left : 1000} - 100 - performance.now())); 1`);
+// an input sent when the page's clock is 1 s into the countdown (d from doneAt), whatever the runner's load: waits for that
+// moment on the page's clock, sends it with send(), and returns the page's time when the event (evName) reached the page, or null.
+// An event that reached the page after the countdown's due moment, because the page was blocked, proves nothing: the check
+// compares it with d.p + d.left
+const inputAtPlus1s = async (d, evName, send) => {
+  await ev(`window.__inAt = null; window.addEventListener(${JSON.stringify(evName)}, () => { if (window.__inAt == null) window.__inAt = performance.now(); }, true); 1`);
+  const due = d ? d.p + d.left - CDMS + 1000 : 0;
+  while (d && (await ev('performance.now()')) < due) await sleep(10);
+  await send();
+  await until('window.__inAt != null', 3000, 10);
+  return ev('window.__inAt');
+};
 const stays = async (id, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if ((await cur()) !== id) return false; await sleep(200); } return true; };
 // (a phone page polls slowly under software rendering: the phone checks allow the poll's own latency)
-const near = (v, want, tol) => v != null && Math.abs(v - want) <= tol;
 const CDMS = 1500;   // the countdown (Tour._t.CD_MS: Alexander's 1 to 2 s, #250)
 const center = (sel) => ev(`(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length && x.offsetParent !== null); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const mdrag = async (x0, y0, x1, y1) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }); for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 10, y: y0 + (y1 - y0) * i / 10, button: 'left', buttons: 1 }); await sleep(16); } await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }); };
@@ -83,21 +100,25 @@ await mdrag(x, y, x + 60, y - 30);
 let t0 = Date.now();
 let tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
 check('x: the tick within 300 ms of the pan', tk != null && tk <= 300, tk);
-let at = await advancedAt(PAN, t0);
-check('x: moves on 1500 ± 150 ms after the release', near(at, CDMS, 150), at);
+// (the advance is measured on the page's clock from the moment done shows, late only as far as the page was blocked: a 400 ms
+// block across the due moment delays it, and the check still reads it as on time)
+const dX = await doneAt(t0);
+await blockAtDue(dX);
+const aX = await advanceFrom(PAN, dX, 150);
+check('x: moves on 1500 ± 150 ms after the release', aX.ok, [aX, dX]);
+check('x: the long-task record sees the 400 ms block and the advance followed it', aX.blocked >= 350 && aX.at >= dX.left + 200, aX);
 // Draw: the disc; an input at +1 s changes nothing: the advance stays at CD_MS after the event
 await goStep('basics/draw');
 const disc = await center('#tools > .tool[data-tool="disc"]');
 await click(disc[0], disc[1]); await settle(200);
 a = await paneBox('#paneL');
+const hd = await center('header .mark');
 await mdrag(a.l + 120, a.b - 140, a.l + 170, a.b - 100);
 t0 = Date.now();
-await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
-await sleep(1000 - (Date.now() - t0));
-const hd = await center('header .mark');
-await click(hd[0], hd[1]);
-at = await advancedAt('basics/draw', t0);
-check('draw: an input at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 150), at);
+const dW = await doneAt(t0);
+const clickAt = await inputAtPlus1s(dW, 'click', () => click(hd[0], hd[1]));
+const aW = await advanceFrom('basics/draw', dW, 150);
+check('draw: an input at +1 s changes nothing: CD_MS after the event', aW.ok && clickAt != null && clickAt < dW.p + dW.left, [aW, dW, clickAt]);
 // live region: the result line once, then "Next step in 1.5 s."
 await goStep('basics/draw');
 await click(disc[0], disc[1]); await settle(200);
@@ -106,14 +127,6 @@ await sleep(150);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
-// a door (the classic views' switch; no step of the steps view's tour is a door): Choose Phase moves on 0.7 s after it
-if (!SV) {
-  await goStep('views/switch');
-  const ph = await center('#viewSwitch > [data-mode="phase"]');
-  await click(ph[0], ph[1]); t0 = Date.now();
-  at = await advancedAt('views/switch', t0);
-  check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
-}
 // the chapter's last task: Phase key's check, or the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
 // (on a desktop the Phase key check is a toggle in Y's pane head; when the head has no room it is behind the
@@ -123,13 +136,17 @@ if (ob) { await click(ob[0], ob[1]); await until(`(() => { const k = document.qu
 const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : '#wKeyChkR');
 check(SV ? 'key: the chip f₁ is there' : 'key: the Phase key check is there', !!kc, kc);
 if (kc) {
+  await ltInstall();
   await click(kc[0], kc[1]); t0 = Date.now();
   tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
-  await sleep(1000 - (Date.now() - t0));
-  await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 });
-  at = await advancedAt(KEYSTEP, t0);
-  check('key: a wheel at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 300), at);
+  // (the countdown runs on the page's clock: the wheel comes when that clock is 1 s into it, and the advance is measured on it
+  // too, late only as far as the page was blocked, as the formula step's is. A wheel that reached the page after the countdown's
+  // due moment, because the page was blocked, proves nothing and fails the check)
+  const dK = await doneAt(t0);
+  const wheelAt = await inputAtPlus1s(dK, 'wheel', () => send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 }));
+  const aK = await advanceFrom(KEYSTEP, dK, 300);
+  check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && wheelAt != null && wheelAt < dK.p + dK.left, [aK, dK, wheelAt]);
 }
 // (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
@@ -146,12 +163,14 @@ check('palette: the countdown is held by the layer', hold && hold.countdown.stat
 const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
-await sleep(200);
+// (the hold ends and the countdown runs again from its full length: it is read from the poll that sees it run)
+const dPal = await doneAt(t0);
+await until(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent === 'Next step in 1.5 s.'`, 1000, 20);
 const liveR = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: once it closes the live region says "Next step in 1.5 s."', liveR === 'Next step in 1.5 s.', liveR);
 // (keys/palette is not the chapter's last step: it moves on CD_MS after the palette closes)
-at = await advancedAt('keys/palette', t0);
-check('palette: moves on CD_MS after it closes', near(at, CDMS, 250), at);
+const aPal = await advanceFrom('keys/palette', dPal, 250);
+check('palette: moves on CD_MS after it closes', aPal.ok, [aPal, dPal]);
 } catch (e) { check('a hold: the palette left open 6 s' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // (r3 review regress-1) a set added with Enter: the app empties the field, which keeps the focus; an empty field holds
@@ -167,9 +186,8 @@ if (fi) {
   const dD = await doneAt(t0);
   const ff = await lit();
   check('formula: done by the formula field (via formula)', ff && ff.done, ff && ff.countdown);
-  // (a main-thread spike across the countdown's due moment, as a formula's program link makes on a software GPU: 400 ms from
-  // 100 ms before it is due, so the timer fires about 300 ms late)
-  await ev(`setTimeout(() => { const t0 = performance.now(); while (performance.now() - t0 < 400); }, Math.max(0, ${dD ? dD.p + dD.left : 1000} - 100 - performance.now())); 1`);
+  // (a main-thread block across the countdown's due moment: the timer fires about 300 ms late)
+  await blockAtDue(dD);
   const aD = await advanceFrom('basics/formula', dD, 250);
   check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done, late only as far as the page was blocked', aD.ok, [aD, dD, await ev('document.activeElement && document.activeElement.id')]);
   check('formula: the long-task record sees the 400 ms spike and the advance followed it', aD.blocked >= 350 && aD.at >= dD.left + 200, aD);
@@ -180,8 +198,8 @@ if (fi) {
   await type('0<'); await settle(100);
   check('formula: held while the field holds text not yet sent (5 s)', await stays('basics/formula', 5000), await lit());
   await key('Backspace'); await key('Backspace'); t0 = Date.now();
-  at = await advancedAt('basics/formula', t0);
-  check('formula: moves on CD_MS after that text is gone', near(at, CDMS, 250), at);
+  const aF2 = await advanceAfter('basics/formula', t0, 250);
+  check('formula: moves on CD_MS after that text is gone', aF2.ok, aF2);
 } else check('formula: the field is there', false);
 } catch (e) { check('a focused text field holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
@@ -190,8 +208,8 @@ await goStep(PAN);
 a = await plane(); x = a.l + 150; y = a.b - 90;
 await mdrag(x, y, x + 50, y - 20); t0 = Date.now();
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x + 50, y: y - 20, button: 'left', clickCount: 1 });
-at = await advancedAt(PAN, t0);
-check('held down: moves on CD_MS after the event all the same', near(at, CDMS, 250), at);
+const aH = await advanceAfter(PAN, t0, 250);
+check('held down: moves on CD_MS after the event all the same', aH.ok, aH);
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + 50, y: y - 20, button: 'left', clickCount: 1 });
 } catch (e) { check('a finger, here the mouse, held down' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
@@ -202,17 +220,19 @@ a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 await ev(`Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); 1`);
 check('a hidden page: no advance in 5 s', await stays(PAN, 5000), await lit());
 await ev(`delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); 1`); t0 = Date.now();
-at = await advancedAt(PAN, t0);
-check('a hidden page: CD_MS after it shows again', near(at, CDMS, 200), at);
+const aV = await advanceAfter(PAN, t0, 200);
+check('a hidden page: CD_MS after it shows again', aV.ok, aV);
 } catch (e) { check('the page hidden (frozen) holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // cancels: a press on the strip's text; Back; a step reached with Back; Move on by itself off
 await goStep(PAN);
-a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(300);
+a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
+const dT = await doneAt(Date.now());
+await until(`(() => { const l = Tour.lit(); return !!l && l.done && !l.moving; })()`, 3000, 20);
 const txt = await center('.ts-l1');
-const tText = Date.now();
 await click(txt[0], txt[1]);
-check('a laptop\'s strip text is plain: a press on it neither opens anything nor stops the advance', near(await advancedAt(PAN, tText), CDMS, 700) && !(await ev(`!!document.querySelector('#tourWhy') && document.querySelector('#tourWhy').isConnected`)));
+const aT = await advanceFrom(PAN, dT, 700);
+check('a laptop\'s strip text is plain: a press on it neither opens anything nor stops the advance', aT.ok && !(await ev(`!!document.querySelector('#tourWhy') && document.querySelector('#tourWhy').isConnected`)));
 const bk = await center('.ts-back');
 await click(bk[0], bk[1]); await settle(1200);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
@@ -221,13 +241,6 @@ await ev('Tour.auto(false)');
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 check('Move on by itself off: tick and ring, no advance in 6 s', await stays(PAN, 6000) && (await ev(`document.querySelector('.ts-next').classList.contains('ready')`)));
-// (a door too, in the classic views, which have one)
-if (!SV) {
-  await goStep('views/switch');
-  const phd = await center('#viewSwitch > [data-mode="phase"]');
-  await click(phd[0], phd[1]);
-  check('Move on by itself off: a door (Three views) ticks and stays 2 × CD_MS', await stays('views/switch', CDMS * 2) && (await lit()).done, await lit());
-}
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
@@ -253,13 +266,13 @@ const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('
 check('done: the spotlight steps aside (quiet, faded, presses reach the app)', qq.quiet && +qq.op < 0.05 && qq.hit, qq);
 } catch (e) { check("a chapter's end with a task (Phase key)" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// reduced motion: Next counts down "Next · 2", "· 1" (the seconds left of 1.5)
+// reduced motion: Next counts down "Next in 2 s", "Next in 1 s" (the seconds left of 1.5)
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120);
 const labels = [];
 for (let i = 0; i < 14; i++) { labels.push(await ev(`document.querySelector('.ts-next') && document.querySelector('.ts-next').textContent`)); await sleep(250); }
-check('reduced motion: Next reads "Next · 2", "Next · 1"', ['Next · 2', 'Next · 1'].every((l) => labels.includes(l)), labels);
+check('reduced motion: Next reads "Next in 2 s", "Next in 1 s"', ['Next in 2 s', 'Next in 1 s'].every((l) => labels.includes(l)), labels);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 await ev('Tour.stop()'); await settle(400);
 
@@ -290,6 +303,11 @@ await goStep('sound/song');
 // (the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
 await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 await settled({ max: 15000 });   // (the song scene's frames and shader compiles are done before the press, so the playback is timed alone)
+// (and, in the steps view, until the chain is ready to glide (__cmwSteps().ready.ready): its programs linked, its carried colour's
+// warm draw made (SV_WARM_IDLE_MS after the chain changed and after the last input) and its idle jobs done (the pole tracks, the outer ring, the meshes). Without
+// a parallel compile the programs link one at a time in idle time; a link, and the warm draw, takes a second or more on a software
+// renderer, which during the playback holds back the captions' timers until two fire in one task)
+await settled({ max: 60000, until: `!(window.__cmwSteps && __cmwSteps().on) || __cmwSteps().ready.ready` });
 const ab = await center('.ts-act');
 await ltInstall();
 await click(ab[0], ab[1]); t0 = Date.now(); const p0 = await ev('performance.now()');
@@ -319,10 +337,10 @@ check('Strings: the tour holds Hear the function on', await ev(`Sound.prefs().so
 const lap = async (cx) => { const pts = []; for (let i = 0; i <= 48; i++) { const th = -Math.PI / 2 + 2 * Math.PI * i / 48; pts.push(await ev(`__cmwPlaneMenu().w2s('L', ${cx + 0.4 * Math.cos(th)}, ${0.4 * Math.sin(th)})`)); } await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pts[0][0], y: pts[0][1] }); for (const p of pts) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1] }); await sleep(30); } };
 await lap(1); await lap(-1);
 t0 = Date.now();
-check('Strings: two laps tick the task', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 1500)) != null, [await cur(), await ev('Sound.prefs()'), await ev('Sound.state().audio'), await ev('JSON.stringify(Sound.harpState())')]);
+check('Strings: two laps tick the task', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 1500)) != null, [await cur(), await ev('Sound.prefs()'), await ev('Sound.state().audio'), await ev('JSON.stringify(Sound.hear.state())')]);
 // (the pointer rests: no hover travel, so CD_MS)
-at = await advancedAt('sound/strings', t0);
-check('Strings: moves on about CD_MS after the last lap', at != null && at <= CDMS + 400, at);
+const aS = await advanceAfter('sound/strings', t0, 400);
+check('Strings: moves on about CD_MS after the last lap', aS.ok, aS);
 check('A loop: Hear the function back to the user\'s (off)', await ev(`Sound.prefs().sonify === false`));
 if ((await cur()) === 'sound/strings') await ev('Tour.next()');
 await settle(1500);
@@ -330,8 +348,8 @@ const lb = await center('.ts-act');
 await click(lb[0], lb[1]); t0 = Date.now();
 const lp = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 12000, 50);
 check('A loop: Listen ends with W = 1, full: ticked', lp != null, lp);
-at = await advancedAt('sound/loop', Date.now());
-check('A loop: moves on CD_MS after listen-ended', near(at, CDMS, 250), at);
+const aL = await advanceAfter('sound/loop', Date.now(), 250);
+check('A loop: moves on CD_MS after listen-ended', aL.ok, aL);
 check('Sound settings: the last step of the chapter', (await cur()) === 'sound/settings');
 // (r3 review user-6: Sound settings shows the user's own settings, not the tour's)
 check('Sound settings: the sound given back there (off, as the user had it)', await ev(`Sound.prefs().on === false && Sound.prefs().sonify === false`), await ev('Sound.prefs()'));
@@ -358,22 +376,22 @@ await goStep(PAN);
 check('phone x: nothing advances in 3.5 s', await stays(PAN, 3500));
 a = await plane();
 await tdrag(a.r - 60, a.t + 120, a.r - 140, a.t + 170); t0 = Date.now();
-at = await advancedAt(PAN, t0);
-check('phone x: a touch pan, then 1500 ± 600 ms', near(at, CDMS, 600), at);
+const aPX = await advanceAfter(PAN, t0, 600);
+check('phone x: a touch pan, then 1500 ± 600 ms', aPX.ok, aPX);
 await goStep('basics/draw');
 const pd = await center('.ph-tile[data-tool="disc"], #tools > .tool[data-tool="disc"]');
 await tap(pd[0], pd[1]); await settle(300);
 a = await paneBox('#paneL');
 await tdrag(a.r - 160, a.t + 100, a.r - 100, a.t + 160); t0 = Date.now();
-at = await advancedAt('basics/draw', t0);
-check('phone draw: a touch disc, then 1500 ± 600 ms', near(at, CDMS, 600), at);
+const aPD = await advanceAfter('basics/draw', t0, 600);
+check('phone draw: a touch disc, then 1500 ± 600 ms', aPD.ok, aPD);
 // a finger held down does not hold it: CD_MS after the task's event
 await goStep(PAN);
 a = await plane();
 await tdrag(a.r - 60, a.t + 120, a.r - 140, a.t + 170); t0 = Date.now();
 await T('touchStart', [[a.r - 140, a.t + 170]]); await T('touchMove', [[a.r - 120, a.t + 190]]); await T('touchMove', [[a.r - 100, a.t + 210]]);
-at = await advancedAt(PAN, t0);
-check('phone: a finger held down: CD_MS after the event all the same', near(at, CDMS, 600), at);
+const aPH = await advanceAfter(PAN, t0, 600);
+check('phone: a finger held down: CD_MS after the event all the same', aPH.ok, aPH);
 await T('touchEnd', []);
 // the Why panel holds it, and a touch in X folds it (and reaches the app)
 await goStep(PAN);
@@ -435,8 +453,7 @@ if (!sa) throw new Error('no Stop button on the phone strip');
 await tap(sa[0], sa[1]); t0 = Date.now();
 const dG = await doneAt(t0);
 const aG = await advanceFrom('sound/song', dG, 600);
-at = aG.at;
-check(`RU Grieg: stopped at ${(stopAt / 1000).toFixed(1)} s counts: +CD_MS (late only as far as the page was blocked)`, aG.ok, [aG, dG, at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
+check(`RU Grieg: stopped at ${(stopAt / 1000).toFixed(1)} s counts: +CD_MS (late only as far as the page was blocked)`, aG.ok, [aG, dG, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
 await settle(1500);
 check('RU strings: on the strings step, with its Russian task', (await cur()) === 'sound/strings' && /Удерживайте палец/.test(await ev(`document.querySelector('#tourLead').textContent`)), await ev(`document.querySelector('#tourLead').textContent`));
 const rs = await center('.ts-act');
@@ -445,8 +462,8 @@ if (rs) { await tap(rs[0], rs[1]); await settle(400); }
 const tlap = async (cx) => { const pts = []; for (let i = 0; i <= 40; i++) { const th = -Math.PI / 2 + 2 * Math.PI * i / 40; pts.push(await ev(`__cmwPlaneMenu().w2s('L', ${cx + 0.4 * Math.cos(th)}, ${0.4 * Math.sin(th)})`)); } await T('touchStart', [pts[0]]); await sleep(600); for (const p of pts) { await T('touchMove', [p]); await sleep(25); } await T('touchEnd', []); };
 await tlap(1); await tlap(-1); t0 = Date.now();
 check('RU strings: hold then slide round 1 and -1 ticks it', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 1500)) != null, await lit());
-at = await advancedAt('sound/strings', t0);
-check('RU strings: then +CD_MS', near(at, CDMS, 600), at);
+const aRS = await advanceAfter('sound/strings', t0, 600);
+check('RU strings: then +CD_MS', aRS.ok, aRS);
 await ev('Tour.stop()'); await settle(300);
 check('RU: the sound back off after the tour', await ev(`Sound.prefs().on === false && Sound.prefs().sonify === false`));
 // (r3 review user-6: a change the user makes during the chapter is theirs: Hear the function turned on in the strings
@@ -467,25 +484,6 @@ await open('au4', 390, 844, false, true);
 await goStep(PAN);
 const row = await ev(`(() => { const s = document.querySelector('.tour-strip'), vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'; const x = s.querySelector('.ts-x'), n = s.querySelector('.ts-next'); return { x: vis(x) && x.getBoundingClientRect().width >= 44, chev: vis(s.querySelector('.ts-chev svg')), next: n.getAttribute('aria-label'), w: n.getBoundingClientRect().width }; })()`);
 check('phone: × End in the portrait row (44 px), a chevron after the count, Next an arrow named Next (Skip while a task is open)', row.x && row.chev && (row.next === 'Next' || row.next === 'Skip') && row.w >= 44, row);
-// user-1: the chain, the card then the lens in the sheet: ticked, nothing holds it, the sheet's × works, moves on (the classic
-// views' chain step: the steps view's tour has none)
-if (!SV) {
-  await goStep('basics/chain');
-  // (the card is a row of the chain sheet; the step lights "N steps ▾" while the sheet is closed, and a user taps it first)
-  if (!(await center('#pipeline .card[data-k="1"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settled({ max: 5000, until: `(() => { const c = document.querySelector('#pipeline .card[data-k="1"]'); return !!(c && c.getClientRects().length && c.offsetParent !== null); })()` }); } }
-  const c1 = await center('#pipeline .card[data-k="1"]');
-  await tap(c1[0], c1[1]); await settled({ max: 5000, until: `(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .alone-btn'); return !!(b && b.getClientRects().length && b.offsetParent !== null); })()` });
-  const ln = await center('#propsPanel .insp-step .ihead .alone-btn');
-  await tap(ln[0], ln[1]); t0 = Date.now();
-  const dC = await doneAt(t0);
-  await until(`Tour.lit().countdown.state === 'running'`, 3000);
-  const ch = await lit();
-  check('phone chain: the lens ticks it and nothing holds the countdown (the sheet is part of the step)', ch.done && ch.countdown.state === 'running' && !ch.countdown.held.length, ch.countdown);
-  const xb = await ev(`(() => { const e = [...document.querySelectorAll('.ph-sheet:not([hidden]) .ph-x, .ph-sheet:not([hidden]) [aria-label="Close"]')].find((x) => x.getClientRects().length); if (!e) return null; const b = e.getBoundingClientRect(); const h = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { hit: !!h && (h === e || e.contains(h)) }; })()`);
-  check('phone chain: the sheet\'s close button can be pressed (no shade over it)', !xb || xb.hit, xb);
-  const aC = await advanceFrom('basics/chain', dC, 600);
-  check('phone chain: moves on CD_MS after the lens (late only as far as the page was blocked)', aC.ok, [aC, dC]);
-}
 // user-2: Sets from formulas asks its task on a phone too, and moves on
 await goStep('basics/formula');
 const fl = await ev(`document.querySelector('#tourLead').textContent`);

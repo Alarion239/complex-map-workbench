@@ -2,9 +2,9 @@
 // The image-quality gate, paired: the quality suite (test/regress/quality) renders its scenes with the reference app
 // and with this checkout's app on the same machine, and this checkout must not score worse than the reference
 // (compare_quality.py with the reference's metrics as the baseline; the bounded controls' golden diff is taken against
-// the reference's renders). The committed baseline (test/regress/quality/baseline.json) was recorded on a Mac GPU and
+// the reference's renders). The committed baseline (test/regress/quality/baseline.json) is recorded on a Mac GPU and
 // does not carry over to other renderers (software rendering scores some scenes differently); --absolute (the
-// self-hosted Mac) also gates this run's metrics against it. That reuses the current run, whose golden diff was taken
+// self-hosted Mac) also gates this run's metrics against it. That reuses the current run, whose golden diff is taken
 // against the reference's renders: the committed golden/*.png are not diffed here, only baseline.json's metrics read.
 //   node ci/quality.js --ref <commit> [--shard i/n] [--absolute] [--force] [--no-build]
 // A run that fails is rendered again on both sides; it fails only when it fails twice (renders are not always
@@ -85,7 +85,7 @@ async function main() {
     }
     let abs = null;
     if (argv.includes('--absolute')) abs = compare(null, d('cur'), d('compare-absolute.json'));
-    // the two sides' pages: different builds must show different hashes; the same hash on a run that was not forced (the
+    // the two sides' pages: different builds must show different hashes; the same hash on a run that is not forced (the
     // app differs from the reference) means both servers served one build, and the comparison compared nothing
     const ra = appOf(d('ref')), ca = appOf(d('cur'));
     const sameBuild = ra.sha === ca.sha && ra.sha !== 'unknown';

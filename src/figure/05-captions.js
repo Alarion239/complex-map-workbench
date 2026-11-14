@@ -175,7 +175,7 @@
       return svTwoSentence(fi) + own;
     }
     // the steps view's paths figure: the shown plane's caption, then the sentence naming the paths
-    if (fi.svPaths) return captionFor(o, 'xyL', Object.assign({}, body, { info: {} })) + fi.sentence;
+    if (fi.svPaths) return captionFor(o, 'xyL', Object.assign({}, body, { info: {} })) + (fi.sentence ? ' ' + fi.sentence : '');
     if (fi.svFilm) {
       const note = fi.fellBack ? $t('Each plane is shown in its own window where it fits.') : $t('Each plane is shown in its own window.');
       const own = fi.ownWin ? ' ' + note : '';
@@ -301,6 +301,8 @@
         choice: g.rGlobe ? $t(' on the Riemann sphere, with $\\infty$ at the north pole') : '',
         choice2: list0 ? $t(': the image of %{list0} under $H_t$.', { list0: genOf() }) : '.' }) + $t(' Shown at $t=%{t}$.', { t: tnum(c.hom.T.toFixed(2)) }) + homSentence(c, map);
     }
+    // (the steps view's plane surface draws the phase portrait in the plane, not on the sphere)
+    if (view === 'xyL' && g.main === 'phase' && A.svOn() && !g.lGlobe) return $t('Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}', { choice: c.hm ? '$H_t$' : map, choice2: c.hm ? 'H_t' : c.Fname, homDef: homDef() });
     if (view === 'xyL' && g.main === 'phase') return $t('Phase portrait of %{choice} on the Riemann sphere, with $\\infty$ at the north pole: the color shows $\\arg %{choice2}$.%{homDef}', { choice: c.hm ? '$H_t$' : map, choice2: c.hm ? 'H_t' : c.Fname, homDef: homDef() });
     // X -> Y
     const i = body.info, two = i.panels.length === 2;
@@ -355,7 +357,7 @@
     }
   }
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
-  const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
+  const plainMath = XD.plain;
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
   const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // the default file name and \label: the scene, the view and the kind of figure, so two

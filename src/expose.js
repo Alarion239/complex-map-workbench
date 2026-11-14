@@ -1,4 +1,4 @@
-// The test page's globals (issue #20, phase 4; written by tools/to_esm.js): the names a classic script made global, for
+// The test page's globals (written by tools/to_esm.js): the names a classic script made global, for
 // the browser suites that reach them by name. Only in the test bundle: tools/bundle.mjs gives this file no text in the
 // published one.
 import { $, DEG, TAU, h } from './util.js';

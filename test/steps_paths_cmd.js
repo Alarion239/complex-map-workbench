@@ -69,7 +69,7 @@ ok('key P turns them on again', on.paths.on && on.paths.heads > 0 && b2.pressed 
 await ev(`__cmwSteps({ go: 0, now: true }), 1`);
 await settled({ max: 5000, until: `!__cmwSteps().moving` });
 // (the slowest glide: a software renderer's frames are far apart)
-await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'slower'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+await choose('#svStrip .sv-speed', 'slower');
 await ev(`__cmwSteps({ go: 2 }), 1`);
 // (the first frame mid-glide with paths drawn, kept where the wait found it: the glide moves on meanwhile; the panes are
 // never quiet during a glide)
@@ -85,7 +85,7 @@ ok('on a plane at rest: no run, no paths', !atRest.paths.src && atRest.paths.hea
 await open(Object.assign(chain(), { homAll: true }));
 await ev(`__cmwSteps({ go: 0, now: true }), 1`);
 await settled({ max: 5000, until: `!__cmwSteps().moving` });
-await ev(`(() => { const s = document.querySelector('#svStrip .sv-speed'); s.value = 'slower'; s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()`);
+await choose('#svStrip .sv-speed', 'slower');
 await ev(`__cmwSteps({ go: 2 }), 1`);
 await settled({ panes: false, max: 20000, until: `(() => { const s = __cmwSteps(); if (s.anim && s.paths.src && s.paths.src.T > 0.05) window.__svGlideAll = s.paths; return !!window.__svGlideAll || !s.moving; })()` });
 const glideAll = await ev(`window.__svGlideAll || null`);

@@ -35,7 +35,7 @@ async function openApp() {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
   await settle(1500);
-  for (let i = 0; i < 40 && !(await ev('typeof __cmwP === "function" && !!document.querySelector(".card")')); i++) await sleep(250);
+  await settled({ only: true, max: 10000, until: 'typeof __cmwP === "function" && !!document.querySelector("#svStrip .sv-add")' });
 }
 // every shape's lines refined and the job done (at most s seconds)
 const linesDone = async (s = 90) => {

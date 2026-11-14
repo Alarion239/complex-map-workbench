@@ -139,7 +139,7 @@ const SCENES = {
   async ux95(page, tag, dark) {
     await laptop(dark); await loadAt(page, { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 60 } });
     await clickSelX('.shape[data-id="d1"] .icon-btn.more'); await settle(250);
-    await ev(`(() => { const b = [...document.querySelectorAll('.menu .mi')].find((x) => x.textContent.trim().startsWith('Color')); if (b) b.click(); return !!b; })()`); await settle(250);
+    await ev(`(() => { const b = [...document.querySelectorAll('.menu .mi')].find((x) => x.textContent.trim().startsWith('Colour')); if (b) b.click(); return !!b; })()`); await settle(250);
     const m = await ev(`(() => { const es = [...document.querySelectorAll('.menu')].filter((x) => x.getClientRects().length); if (!es.length) return null; let x0 = 1e9, y0 = 1e9, x1 = 0, y1 = 0; for (const e of es) { const r = e.getBoundingClientRect(); x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom); } return { x: Math.max(0, x0 - 8), y: Math.max(0, y0 - 8), width: x1 - x0 + 16, height: y1 - y0 + 16 }; })()`);
     await shot(`w1p/ux95-menu-${tag}`, m || undefined);
     await key('Escape'); await key('Escape');

@@ -153,7 +153,8 @@ for (const t of TYPES) {
   const head = GLR._src.INV_HEAD(8, ''), main = GLR._src.INV_MAIN(false);
   check('INV_HEAD: ixRest on rejection and on a full buffer', /pos >= min\(IX_B, ixK\(\) \+ 2\)\) \{ ixRest\(cv\); return; \}/.test(head) && /if \(nb == IX_B\) ixRest\(bC\[IX_B - 1\]\);/.test(head));
   check('INV_HEAD: no early stop when K > B and uKall', /if \(uKall > 0 && uKsat > IX_B\) return 1e38;/.test(head));
-  check('INV_MAIN: the rest composites through ixTr, then the tail closure', /C \+= T \* \(1\.0 - ixTr\) \* mc; T \*= ixTr;/.test(main) && /if \(ixTailInf\) \{ C \+= T \* mc; T = 0\.0; \}/.test(main) && !/nCov > IX_B/.test(main));
+  check('INV_MAIN: the rest composites through ixTr, then the tail closure', /C \+= T \* \(1\.0 - ixTr\) \* mc; T \*= ixTr;/.test(main) && /if \(ixTailInf \|\| uLastOpaque == 1\) \{ C \+= T \* mc; T = 0\.0; \}/.test(main) && !/nCov > IX_B/.test(main));
+  check('INV_MAIN: with uLastOpaque the farthest buffered layer composites at alpha 1', /farthest = uLastOpaque == 1 && i == nb - 1 && ixTr >= 1\.0 && !ixTailInf;/.test(main) && /\(farthest \? 1\.0 : uAlpha\) \* bC\[i\] \/ U/.test(main));
 }
 // ---- the cost guard's hysteresis: a level is left only by a probe of the finer one (SPEC 10.12) ----
 {

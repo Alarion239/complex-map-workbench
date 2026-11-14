@@ -6,7 +6,7 @@
 //   back in base64 chunks with __rec.chunk(i, n) (no server upload: the test server is python's http.server);
 //   await __drive({ sel, path, rate, jitter, stalls, dur, down, seed }) dispatches pointer events on the element `sel`
 //   along path(u ∈ [0, 1]) → [clientX, clientY], at `rate` Hz with ±jitter·interval timing noise and occasional
-//   main-thread stalls of 20–45 ms; returns the log of event times ([performance.now() − T0, the context's time]).
+//   main-thread stalls of 20–45 ms; returns the log of event times ([performance.now() − T0, the context's time]). standards-ok: performance.now() is an API name
 (() => {
   if (!window.AudioContext || window.__rec) return;
   const REC = window.__rec = { ctx: null, src: null, node: null, chunks: [], ready: null, err: null, data: null };

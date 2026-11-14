@@ -12,10 +12,10 @@
 // development Mac's GPU does. GPUs differ in the last bits of exp, sin and cos, and a few chains near removable
 // singularities ((e^z - 1)/z, sin z / z) miss the tolerance on some (GitHub's virtual Mac GPU). With --ref the pages
 // of the reference commit (built from its own tests and sources) run on the same machine too, and this change fails
-// only where it is worse: a chain that fails more often, a new error, a check that held and no longer does.
+// only where it is worse: a chain that fails more often, a new error, a check that passes on the reference and fails here.
 // --absolute with --ref: both; --absolute glsl,inverse: both for those pages, paired only for the others (the
-// self-hosted Mac: adv fails 304 values there, in 10 chains near removable singularities, as every release since v14
-// and the reference do). --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse page
+// self-hosted Mac: adv fails 304 values there, in 10 chains near removable singularities, as the reference
+// does). --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse page
 // runs whole (its chains come from one seeded sequence). --filter TEXT: only the glsl page's chains whose name holds
 // TEXT (?filter=; to time a few chains' shaders on one platform). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
@@ -80,7 +80,7 @@ async function waitFor(B, expr, timeout) {
 function inputsOf(p) {
   const make = fs.readFileSync(path.join(ROOT, p.make), 'utf8');
   const files = [...new Set([...make.matchAll(/'([\w.]+\.js)'/g)].map((m) => m[1]))]
-    // (a split file first: after phase 4 of #20, src/gl.js is a stand-in for node, and the shaders come from src/gl/)
+    // (a split file first: src/gl.js is a stand-in for node, and the shaders come from src/gl/)
     .map((n) => (srcParts(n) ? `src/${n.replace(/\.js$/, '')}` : fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : `test/${n}`));
   return [p.make, 'ci/glsl.js', ...files, ...(/src_parts/.test(make) ? ['tools/src_parts.py'] : []), ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
 }

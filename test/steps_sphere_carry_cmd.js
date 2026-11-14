@@ -1,3 +1,4 @@
+// (Saved at 100 % opacity: a point's own colour is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's glide on the Sphere surface carries the colour with the points, as the plane does: between
 // plane z and plane w1 of z^2, coloured from w1, a point z0 of plane z keeps its colour as it moves to H_u(z0). Parked
 // at u = 0.25, 0.5 and 0.75:
@@ -21,9 +22,12 @@ const END_MEAN = 1.5, SAT_MIN = 40, HUE_TOL = 0.06, HUE_MIN = 3;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// (quiet: the programs and jobs are ready, no glide or play is under way and the sphere is idle; __cmwSteps().moving is also
+// true for a place parked between two planes, which is a still view, so it is not the wait)
+const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running)";
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  until: QUIET_UNTIL,
 });
 // (the left pane's colour at the globe's point (x, y) of the plane, read from the canvas; null off the pane)
 const pixelAt = (x, y) => ev(`(() => {
@@ -44,7 +48,7 @@ const sat = (p) => Math.max(...p) - Math.min(...p);
 await view(1200, 800, false, false);
 const ns = 'svsc' + Date.now();
 const st = {
-  v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
+  v3: true, v4: true, v5: true, v6: true, alpha: 1, nextId: 50, focus: 0, rightMode: 'image',
   shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }],
   steps: [{ type: 'pown', params: { n: 2 }, on: true }],
 };

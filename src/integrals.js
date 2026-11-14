@@ -1,12 +1,12 @@
 'use strict';
-// Integrals (issue #20, phase 3: moved out of app.js): ∫γ F dz along a shape's curve or an area's boundary, the
+// Integrals: ∫γ F dz along a shape's curve or an area's boundary, the
 // right-click menu's integral item, and the integral popover with its plot and the Cauchy plot. The
 // app hands it what it needs once, Integrals.init(api) at start-up (src/app/07-preimages-integrals.js, integralsApi):
 // its functions and constants as they are, and the state it reassigns (S, intPop, ...) as getters on api, read as A.S
 // and so on. The state the rest of the app reads too (intPop, lastPan, holdMenuT, cauchyCache) stays the app's.
 const Integrals = (() => {
   let A = null;
-  let C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+  let C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
     integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage,
     requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
     sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed;
@@ -147,7 +147,7 @@ const Integrals = (() => {
     for (const s of list) {
       if (geom.length >= 12) break;
       const g = shapeGeom(s, dense, names);
-      // an unbounded area has no closed boundary to go around: skipped unless it was picked
+      // an unbounded area has no closed boundary to go around: skipped unless it is picked
       if (!g || (!sel && !pop && kindType(s) === 'area' && !g.closed)) continue;
       geom.push(g);
     }
@@ -238,13 +238,16 @@ const Integrals = (() => {
     }
     return out;
   }
-  // the left plane's sphere view: z lifted to the globe (stereographic) and projected, null on the far side
-  function sphereProj(pane, info) {
+  // the left plane's sphere view: z lifted to the globe (stereographic) and projected, null on the far side; shell: the
+  // radius the point is drawn at, 1 the surface itself (the default, MARK_SHELL, stands a mark clear of it; a curve that is
+  // meant to lie on the surface, as the cut's, passes 1)
+  const MARK_SHELL = 1.01;
+  function sphereProj(pane, info, shell = MARK_SHELL) {
     return (z) => {
       const p = CX.isFin(z) ? liftC(z.re, z.im) : [0, 0, 1];
       const tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]];
       if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1) <= 0) return null;
-      return project(pane, info.MVP, p.map((v) => v * 1.01));
+      return project(pane, info.MVP, p.map((v) => v * shell));
     };
   }
   function strokePath(ctx, xy, close) {
@@ -346,14 +349,14 @@ const Integrals = (() => {
     return true;
   }
   // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?, piece?}]. The curve
-  // is the shape prefer (the one under the pointer) when it passes there, else the nearest (issue #13: one integral,
+  // is the shape prefer (the one under the pointer) when it passes there, else the nearest (one integral,
   // not one per curve in reach)
   function integralItems(pane, side, x, y, cx, cy, prefer) {
     const all = curvesNear(pane, side, x, y);
     if (!all.length) return [];
     const near = [all.find((n) => n.s.id === prefer) || all[0]];
     const names = shapeNames();
-    // (v16.5 V03: the label, its variable and its closed-curve test are intLabel's, shared with the palette)
+    // (the label, its variable and its closed-curve test are intLabel's, shared with the palette)
     /** @type {{ label: string, run: () => any, listen?: boolean, piece?: boolean }[]} */
     const items = near.map(({ s }) => ({ label: intLabel(s, names), run: () => openIntegralPop(s.id, cx, cy) }));
     if (SND) {
@@ -404,7 +407,7 @@ const Integrals = (() => {
     let x = A.intPop.cx + 12, y = A.intPop.cy + 12;
     if (x + pw > window.innerWidth - 12) x = Math.max(12, A.intPop.cx - pw - 12);
     if (y + ph > window.innerHeight - 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, A.intPop.cy - ph - 12));
-    // (v16.5 V03: opened from the palette, the result sits beside its curve in X, never over Y, where its image is)
+    // (opened from the palette, the result sits beside its curve in X, never over Y, where its image is)
     if (A.intPop.beside) {
       const R = $('paneR').getBoundingClientRect();
       if (R.width > 0 && R.left > pw + 24 && x + pw > R.left - 8) x = Math.max(12, Math.min(A.intPop.bx0 != null ? A.intPop.bx0 - pw - 12 : x, R.left - 8 - pw));
@@ -550,12 +553,12 @@ const Integrals = (() => {
   function integrateSelected() {
     const s = A.S.shapes.find((x) => x.id === A.selected && x.visible !== false && kindType(x) !== 'point');
     const list = s ? [s] : A.S.shapes.filter((x) => x.visible !== false && kindType(x) !== 'point' && x.kind !== 'cgrid' && x.kind !== 'pgrid');
-    if (!list.length) { toast(touchUI() ? $t('Draw a curve or a region first: hold a finger on a curve, then choose Integrate.') : $t('Draw a curve or a region first: right-click a curve to integrate along it.')); return null; }   // (v16.5 UX17: a phone's words)
-    // (v16.5 V03: with several curves and none selected, ask; never integrate along a curve chosen for you)
+    if (!list.length) { toast(touchUI() ? $t('Draw a curve or a region first: hold a finger on a curve, then choose Integrate.') : $t('Draw a curve or a region first: right-click a curve to integrate along it.')); return null; }   // (a phone's words)
+    // (with several curves and none selected, ask; never integrate along a curve chosen for you)
     if (!s && list.length > 1) { toast(touchUI() ? $t('Pick a curve to integrate along: hold a finger on it, then choose Integrate.') : $t('Pick a curve to integrate along: select it, or right-click it.')); return null; }
     return integrateShape(list[0].id);
   }
-  // what the last full plan found (see cauchyPlot): the shape, the F it was for, its memo, a pending full check
+  // what the last full plan found (see cauchyPlot): the shape, the F it belongs to, its memo, a pending full check
   const planMemo = { shape: null, sk: '', fk: '', memo: null, force: false, t: 0 };
   function cauchyPlot() {
     if (!hasCalc('cauchyNodes')) return null;
@@ -564,7 +567,7 @@ const Integrals = (() => {
     if (!g || g.bad) return null;
     const key = integ.gkey + '|' + g.s.id + '|' + A.chainSig[nSteps()] + '|' + A.S.focus;
     if (cauchyCache.key === key) return cauchyCache.val;
-    const F = focusF();
+    const F = cauchyF();
     const lens = g.comps.map((c) => { let l = 0; for (let i = 2; i + 1 < c.flat.length; i += 2) l += Math.hypot(c.flat[i] - c.flat[i - 2], c.flat[i + 1] - c.flat[i - 1]); return l; });
     const tot = lens.reduce((a, b) => a + b, 0) || 1, N = 256, parts = [];
     let n = 0;
@@ -575,7 +578,7 @@ const Integrals = (() => {
     const nodes = new Float32Array(4 * n);
     let o = 0;
     for (const p of parts) { nodes.set(p, o); o += p.length; }
-    // (#235) the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
+    // the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
     // checked against the quadrature at a few points (Calc.cauchyPlan); else the nodes above draw. At most 16 poles of
     // order 4, which the shader's uniforms hold. The search and the check cost 10 to 150 ms, so a curve dragged or an F
     // changed a little (a slider) keeps the last plan's poles, counts the winding numbers again, follows the poles by
@@ -633,7 +636,7 @@ const Integrals = (() => {
 
   function init(api) {
     A = api;
-    ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
+    ({ C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
   return { init, curvePieces, shapeGeom, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();

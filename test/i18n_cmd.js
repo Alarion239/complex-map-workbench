@@ -25,7 +25,7 @@ const loaded = async (pause, ms = 30000) => {
   await settled({ max: pause });
   for (const t0 = Date.now(); Date.now() - t0 < ms; await sleep(200)) {
     let ok = false;
-    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* navigating */ }
+    try { ok = await ev(`document.readyState === 'complete' && typeof I18N === 'object' && !!document.querySelector('#svStrip .sv-add')`); } catch (e) { /* navigating */ }
     if (ok) break;
   }
   await settle(0);
@@ -33,7 +33,7 @@ const loaded = async (pause, ms = 30000) => {
 const open = async (lang, w, dark, extra = '') => {
   const phone = w < 768;
   await view(w, phone ? 844 : 900, dark, phone);
-  await nav(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
+  await go(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
   // (until MathJax has typeset the page's formulas, at most 15 s: it starts after the first paint, 3 to 5 s on a software
   // renderer, and a formula shows its fallback until then, #288)
   for (let i = 0; i < 60 && !(await ev(`!!(window.MathJax && MathJax.startup && MathJax.startup.document) && !document.querySelector('.tex-fallback')`)); i++) await sleep(250);
@@ -130,7 +130,7 @@ for (const w of [1024, 1440]) {
 {
   const ns = 'i18n-sw-' + Date.now();
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=${ns}`); await loaded(3500);
+  await go(`${U}?ns=${ns}`); await loaded(3500);
   check('switch: starts English', (await ev('I18N.lang')) === 'en');
   await key('k', 4); await until(PAL); await type('sin'); await until(ITEMS); await key('Enter'); await until(`!document.querySelector('#popHost .palette, .pop.palette') && !!document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')`);
   // a step chosen on the thread (the Inspector's step, the thread's place), the right panel hidden
@@ -160,7 +160,7 @@ for (const w of [1024, 1440]) {
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.n === before2.n && after2.sv === before2.sv);
   // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
-  await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await loaded(3500);
+  await view(390, 844, false, true); await go(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
   const pm = await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); if (!b) return null; const m = b.parentElement, r = m.getBoundingClientRect(); return { n: m.querySelectorAll('button').length, l: r.left, r: r.right, t: r.top }; })()`);
@@ -176,9 +176,10 @@ for (const w of [1024, 1440]) {
 // deformation and З its Paths; digits 1 and 2 pick X → Y and Phase, and the steps view picks its plane by stage)
 {
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
+  await go(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
   await ev(`document.activeElement && document.activeElement.blur(), 1`);
-  const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await settled({ max: 3000 }); };
+  // (a key, then the page's quiet, at most 3 s; with quiet false, no wait: the caller waits for what the key starts)
+  const press = async (k, code, mods = 0, quiet = true) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); if (quiet) await settled({ max: 3000 }); };
   const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
   // (С is C: the colour plane, as on a Latin layout; the thread is taken to the first plane, then С sets it as the colour plane)
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
@@ -192,10 +193,13 @@ for (const w of [1024, 1440]) {
   await press('.', 'Slash'); await until(PAL); check('ЙЦУКЕН «.» on the / key → palette', await ev(PAL)); await press('Escape', 'Escape'); await until(`!${PAL}`);
   // (K and M play and pause the thread, P toggles its Paths; the thread is idle first)
   await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` });
-  // (a play on a short thread ends within a few frames: the page counts the times the Play button's label changes, and
-  // a key plays when the count goes up)
+  // (the page counts the plays that start, the times the Play button's label leaves its idle label, so a check can read
+  // that a key played whether or not the play has ended by then; a key plays when the count goes up)
   await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n !== window.__idleLabel) window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); window.__idleLabel = was; })(), 1`);
-  const playsTo = async (k, code, n) => { await press(k, code); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  // (a key that plays has no quiet wait of its own: the page is quiet only once the play has ended, 900 ms a plane at the
+  // normal speed and the arrival's frames after it, which can take more than 3 s on a software renderer; the play's start
+  // is waited for here, and its end after each check)
+  const playsTo = async (k, code, n) => { await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
   check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
   await settled({ max: 20000, until: `!__cmwSteps().moving` });
   check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
@@ -204,7 +208,10 @@ for (const w of [1024, 1440]) {
   const p0 = await ev(paths);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} !== ${JSON.stringify(p0)}` }); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} === ${JSON.stringify(p0)}` });
-  await press('у', 'KeyE', 4); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
+  // (⌘У has no quiet wait of its own: the export dialog it opens is there at once, but the page is quiet only once the
+  // dialog has built and typeset its figure, 1.6 to 2.6 s on a software renderer; the wait is for the dialog, and Escape
+  // stops the build)
+  await press('у', 'KeyE', 4, false); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
   await press('Escape', 'Escape'); await until(`!document.querySelector('.modal-bg')`);
   // a text field keeps its letters: the region formula field
   await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
@@ -215,7 +222,7 @@ for (const w of [1024, 1440]) {
 }
 // ---- 6: detection ----
 {
-  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await nav(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
+  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await go(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
   await view(1440, 900, false, false);
   await nav(U + '?ns=i18n-det'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (/^cmw-lang/.test(k)) localStorage.removeItem(k); })()`);
   const r1 = await as('ru-RU,ru,en', ''); check('a ru-RU browser gets Russian', r1.lang === 'ru' && r1.html === 'ru', r1);
