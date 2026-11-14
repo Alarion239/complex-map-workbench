@@ -8,6 +8,10 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const SETTLE_MS = 20000, LOAD_MS = 40000, GLIDE_MS = 120000, END_MS = 240000;
 const FREEZE_CLOCK_MS = 1e-9, GLIDE_CLOCK_MS = 40, FREEZE_X = 1.2, END_EPS = 1e-6, PLANE_EPS = 1e-9;
 const CH_TOL = 8, U_EPS = 1e-4, PX_EQUAL_MAX = 0, CTRL_MIN_FRAC = 0.05;
+// (the compared crop of the left pane: EDGE_PX in from its border and below its head; KEY_SKIP_PX more at the top, past the
+// colour key, whose caption names the colour plane's function; BOTTOM_SKIP_PX off the bottom: the ruler and the controls
+// over the plot's lower edge)
+const EDGE_PX = 2, KEY_SKIP_PX = 90, BOTTOM_SKIP_PX = 120;
 const fails = [], info = {};
 let pass = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got }); };
@@ -23,21 +27,19 @@ const open = async (extra = {}) => {
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
-  await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane') && __cmwSteps().planes.length > 1", 40000);
+  await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane') && __cmwSteps().planes.length > 1", LOAD_MS);
 };
 const sv = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, T: q.T, planes: q.planes, stage: q.stage, win: q.win, i: q.i, names: q.names, label: q.label, src: q.paths && q.paths.src && { Tend: q.paths.src.Tend, seq: q.paths.src.seq, startId: q.paths.src.startId } }; })()');
 const hide = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important} .tip,[role=tooltip]{display:none!important}' : ''; return 1; })()`);
 // the left pane below the colour key (whose text names the colour plane's function: it changes with the Split); bare: the
 // colour layer alone, else with the points and the paths' trails on
-const pane = async (bare = true) => { if (bare) await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 2 : r.top; return { x: Math.round(r.left) + 2, y: Math.round(t) + 90, width: Math.round(r.width) - 4, height: Math.round(r.bottom - t - 210) }; })()`); const i = await img(r); await hide(false); if (bare) await ev('__cmwSteps({ bare: false })'); return i; };
-const diff = (a, b, x0 = 0, x1 = a.w) => { if (a.w !== b.w || a.h !== b.h) return -1; let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (((j / a.ch) % a.w) >= x0 && ((j / a.ch) % a.w) < x1 && (Math.abs(a.data[j] - b.data[j]) > CH_TOL || Math.abs(a.data[j + 1] - b.data[j + 1]) > CH_TOL || Math.abs(a.data[j + 2] - b.data[j + 2]) > CH_TOL)) n++; return n; };
+const pane = async (bare = true) => { if (bare) await ev('__cmwSteps({ bare: true })'); await hide(true); await quiet(); const r = await ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + ${EDGE_PX} : r.top; return { x: Math.round(r.left) + ${EDGE_PX}, y: Math.round(t) + ${KEY_SKIP_PX}, width: Math.round(r.width) - 2 * ${EDGE_PX}, height: Math.round(r.bottom - t - ${KEY_SKIP_PX} - ${BOTTOM_SKIP_PX}) }; })()`); const i = await img(r); await hide(false); if (bare) await ev('__cmwSteps({ bare: false })'); return i; };
+const diff = (a, b) => { if (a.w !== b.w || a.h !== b.h) return -1; let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (Math.abs(a.data[j] - b.data[j]) > CH_TOL || Math.abs(a.data[j + 1] - b.data[j + 1]) > CH_TOL || Math.abs(a.data[j + 2] - b.data[j + 2]) > CH_TOL) n++; return n; };
 const where = (a, b) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1, mx = 0; for (let j = 0; j < a.data.length; j += a.ch) { const d = Math.max(Math.abs(a.data[j] - b.data[j]), Math.abs(a.data[j + 1] - b.data[j + 1]), Math.abs(a.data[j + 2] - b.data[j + 2])); if (d > CH_TOL) { const p = j / a.ch, x = p % a.w, y = Math.floor(p / a.w); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); mx = Math.max(mx, d); } } return [x0, y0, x1, y1, mx]; };
 const splitNow = async () => { await clickSel('#svStrip .sv-step[data-k="2"] .sv-fchip'); await until("!!document.querySelector('#propsPanel .split-offer .so-btn')"); await clickSel('#propsPanel .split-offer .so-btn'); await until('__cmwSteps().planes.length === 6'); };
 await open();
 const restWin = (await sv()).win;
-info.q0 = await ev('(() => { const q = __cmwSteps(); return { homAll: q.homAll, span: q.span, x: q.x, planes: q.planes, anim: q.anim }; })()');
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
-info.q1 = await ev('(() => { const q = __cmwSteps(); return { span: q.span, x: q.x, all: q.all, anim: q.anim && { from: q.anim.from, to: q.anim.to, ms: q.anim.ms } }; })()');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const x0 = (await sv()).x;
 const g0 = await pane(), o0 = await pane(false), p0 = await sv();
