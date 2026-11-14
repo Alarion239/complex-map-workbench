@@ -17,12 +17,14 @@ const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });
 for (const f of fs.readdirSync(OUT)) fs.rmSync(path.join(OUT, f), { recursive: true, force: true });
 const fails = [], R = { files: 0, figs: {} };
+// the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
+// the digit keys and the toggle button are gone
+const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const open = async (ns, w = 1440, h = 900, dark = false) => {
   await view(w, h, dark, w < 500);
   await nav(`${BASE}test.html?ns=${ns}${Date.now()}`);
-  await settle(2400);
   await move(5, 5);
   // saved files: test.html saves through a plain download link; record them instead
   await ev(`(() => { window.__saved = []; const click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__saved.push({ name: this.download, href: this.href }); return; } return click.call(this); };
@@ -85,7 +87,7 @@ const build = async (tag, opts, fmts = ['pdf', 'svg', 'png', 'tex']) => {
 if (!['4a-vid', '4b', 'preview'].includes(process.env.CMW_ONLY)) {
 await open('xrexport');
 await ev('__cmwExample(1); 1'); await settle(2200);
-await key('m'); await settle(2500);
+await morphKey();
 for (const [p, o] of Object.entries(PRESETS)) {
   const r = await build(`film-strip-${p}`, o);
   if (r && p === 'article2W') ok('filmstrip: four frames titled (a) t = 0 ... (d) t = 2', r.boxes.filter((b) => b.kind === 'title').length === 4 && /\(d\) \$t=2\$/.test(r.cap), { titles: r.boxes.filter((b) => b.kind === 'title').map((b) => b.tex), cap: r.cap });
@@ -102,7 +104,7 @@ for (const [p, o] of Object.entries(PRESETS)) {
     ok('paths: the caption names the marks', /Curves are the paths/.test(q.cap) && (/small dots at/.test(q.cap) || /\(the middle of each step\) and a bar at/.test(q.cap)) && /arrowhead at/.test(q.cap), q.cap.slice(-300));
   }
 }
-await key('m'); await settle(600);
+await morphKey();
 }
 
 if (process.env.CMW_ONLY !== 'preview') {
@@ -110,14 +112,14 @@ if (process.env.CMW_ONLY !== 'preview') {
 R.r3 = { figs: {}, videos: {}, dialog: {} };
 await open('xvr3');
 await ev('__cmwExample(1); 1'); await settle(2200);
-await key('m'); await settle(1500);
+await morphKey();
 await ev('__cmwMorph({ playing: false, T: 1.2 }); 1'); await settle(600);
 const VIEWS3 = [
-  ['plane', async () => { await key('1'); await settle(300); await ev(`__cmwSetView('R', 'plane'); 1`); }],
-  ['globe', async () => { await key('1'); await settle(300); await ev(`__cmwSetView('R', 'sphere'); 1`); }],
-  ['phase', async () => { await ev(`__cmwSetView('R', 'plane'); 1`); await key('2'); await settle(300); await ev(`__cmwSetView('L', 'plane'); 1`); }],
-  ['phaseGlobe', async () => { await key('2'); await settle(300); await ev(`__cmwSetView('L', 'sphere'); 1`); }],
-  ['land', async () => { await key('2'); await settle(300); await ev(`__cmwSetView('L', 'plane'); 1`); await key('3'); }],
+  ['plane', async () => { await mainView('xy'); await ev(`__cmwSetView('R', 'plane'); 1`); }],
+  ['globe', async () => { await mainView('xy'); await ev(`__cmwSetView('R', 'sphere'); 1`); }],
+  ['phase', async () => { await ev(`__cmwSetView('R', 'plane'); 1`); await mainView('phase'); await ev(`__cmwSetView('L', 'plane'); 1`); }],
+  ['phaseGlobe', async () => { await mainView('phase'); await ev(`__cmwSetView('L', 'sphere'); 1`); }],
+  ['land', async () => { await mainView('phase'); await ev(`__cmwSetView('L', 'plane'); 1`); await mainView('land'); }],
 ];
 const CAP3 = { plane: /^The deformation \$H_t\$ from the identity/, globe: /^The deformation \$H_t\$ on the Riemann sphere/, phase: /^Phase portraits of \$H_t\$ on \$\[/, phaseGlobe: /^Phase portraits of \$H_t\$ on the Riemann sphere/, land: /^Landscapes of \$H_t\$/ };
 // (review r3: F alone, or the chain F(z) = ..., F = f_2 o f_1, f_1(z) = ..., f_2(w_1) = ... when the caption names the steps)
@@ -162,8 +164,8 @@ const build3 = async (tag, opts) => {
 // 4a-fig: 4a's figures and the Russian captions; 4a-vid: 4a's videos, #429: each view is set up in both)
 const FIG4 = process.env.CMW_ONLY !== '4a-vid', VID4 = process.env.CMW_ONLY !== '4a-fig';
 if (process.env.CMW_ONLY !== '4b') {
-for (const [kind, go] of VIEWS3) {
-  await go(); await settle(2200);
+for (const [kind, show] of VIEWS3) {
+  await show(); await settle(2200);
   const dk = await ev('__cmwFig.defoOf()');
   ok(`${kind}: the view exports the deformation (defoOf)`, dk === kind, dk);
   if (FIG4) {
@@ -287,9 +289,9 @@ if (!['4a', '4a-fig', '4a-vid'].includes(process.env.CMW_ONLY)) {
 const dlg3 = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
 await open('xvr3dlg');
 await ev('__cmwExample(1); 1'); await settle(1800);
-await key('m'); await settle(1200);
+await morphKey();
 await ev('__cmwMorph({ playing: false, T: 1.2 }); 1');
-await key('2'); await settle(1500);
+await mainView('phase');
 await key('e', 4); await dlg3();
 let q3 = await ev(`(() => ({ fmts: [...document.querySelectorAll('#xfFmt button')].map((b) => b.dataset.v), deform: [...document.querySelectorAll('#xfDeform button')].map((b) => b.dataset.v), tex: document.getElementById('xfTex').textContent }))()`);
 ok('dialog (Phase, deformation on): PDF, PNG, SVG, Video; Filmstrip and One frame', q3.fmts.join() === 'pdf,png,svg,video' && q3.deform.join() === 'film,frame', q3);
@@ -360,11 +362,11 @@ await key('Escape'); await settle(300);
   q3 = await ev(`(() => ({ open: !!document.querySelector('.modal.xf'), fmt: (document.querySelector('#xfFmt [aria-checked="true"]') || {}).dataset.v, saved: window.__saved.length }))()`);
   ok('Save figure again after a video: the dialog opens on Video (progress and Cancel there), nothing is rendered behind it', q3.open && q3.fmt === 'video' && q3.saved === 0, q3);
   await key('Escape'); await settle(300);
-  await key('m'); await settle(800);
+  await morphKey();
   await ev('window.__saved.length = 0; 1');
   const ag = await ev(`await (async () => { try { await __cmwFig.again('save'); return { saved: window.__saved.map((s) => s.name) }; } catch (e) { return { err: String(e) }; } })()`, 120000);
   ok('Save figure again after a video, the deformation off: the last figure (SVG) is saved, no error', ag && !ag.err && ag.saved.length === 1 && /\.svg$/.test(ag.saved[0]), ag);
-  await key('m'); await settle(1200);
+  await morphKey();
   await ev('__cmwMorph({ playing: false, T: 1.2 }); 1'); await settle(600);
 }
 // (review r3, video-6, video-5) no video encoder: Video is shown disabled with the reason; H.264 refused: the name says .webm
@@ -372,9 +374,9 @@ await key('Escape'); await settle(300);
   // (a page of its own: the encoder choice is cached per page)
   await open('xvr3enc');
   await ev('__cmwExample(1); 1'); await settle(1800);
-  await key('m'); await settle(1200);
+  await morphKey();
   await ev('__cmwMorph({ playing: false, T: 1.2 }); 1');
-  await key('2'); await settle(1500);
+  await mainView('phase');
   await ev(`(() => { window.__VE = window.VideoEncoder; delete window.VideoEncoder; window.VideoEncoder = undefined; return 1; })()`);
   await key('e', 4); await dlg3();
   q3 = await ev(`(() => { const b = document.querySelector('#xfFmt [data-v="video"]'); return { dis: !!(b && b.disabled), title: b && b.title, fmt: (document.querySelector('#xfFmt [aria-checked="true"]') || {}).dataset.v }; })()`);
@@ -392,7 +394,7 @@ await key('Escape'); await settle(300);
 // (review r3, editor-5) the video As on screen against the screen itself: its window holds the screen's with the same
 // centre, and a frame at the screen's t, cropped to the screen's window, matches a capture of the pane
 {
-  await key('1'); await settle(300); await ev(`__cmwSetView('R', 'plane'); 1`); await settle(2500);
+  await mainView('xy'); await ev(`__cmwSetView('R', 'plane'); 1`); await settled({ max: 8000 });
   const rect = await ev(`(() => { const r = document.getElementById('canvasR').getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; })()`);
   const f = await shot('r3-screen-paneR', rect);
   const b64 = fs.readFileSync(f).toString('base64');
@@ -431,13 +433,13 @@ if (!['4b', '4a-vid'].includes(process.env.CMW_ONLY)) {
 await open('xvr3ru');
 // the X -> Y plane in Russian: the displayed F and the film caption in the caption language, for the LaTeX check
 await ev('__cmwExample(1); 1'); await settle(1500);
-await key('1'); await settle(600);
+await mainView('xy');
 await build3('r3-ru-xy-strip-homework', { for: 'homework', lang: 'ru', view: 'xy' });
-await key('m'); await settle(1500);
+await morphKey();
 await ev('__cmwMorph({ playing: false, T: 1.2 }); 1'); await settle(600);
 for (const [p, o] of Object.entries(P3)) await build3(`r3-ru-film-plane-${p}`, Object.assign({ lang: 'ru' }, o));
 await build3('r3-ru-xy-strip-article1', { for: 'article', lang: 'ru', view: 'xy' });
-await key('2'); await settle(1500);
+await mainView('phase');
 await build3('r3-ru-film-phase-homework', { for: 'homework', lang: 'ru' });
 } // (CMW_ONLY=4b and 4a-vid skip the Russian captions)
 
@@ -453,6 +455,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
+  const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, settled, pvState });
   const filled = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.total > 0 && s.ready === s.total); })()`;
   // (in the page: the preview's picture at timeline index k against the saved video's frame k, decoded, and against the
   // exact render at its t, all at the preview's size; mean abs difference of 255)
@@ -465,9 +468,9 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
     return { k, entry: e, frames: r.frames, n: s.n, pw: s.pw, ph: s.ph, madVideo: mad(P, D), madExact: mad(P, X), range: blank, png: pf }; }`;
   await open('xvpv');
   await ev('__cmwExample(1); 1'); await settle(1800);
-  await key('m'); await settle(1200);
+  await morphKey();
   await ev('__cmwMorph({ playing: false, T: 1.2 }); 1');
-  await key('2'); await settle(1500);
+  await mainView('phase');
   await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; s.video = { size: '1280x720', fps: 30, secs: 2, ends: 'once', paths: true, tlabel: true, look: 'light', win: 'screen' }; __cmwFig.saveSettings(s); return 1; })()`);
   // long tasks, and the animation frames (performance.now() in each callback), from the moment the dialog opens
   await ev(`(() => { window.__lt = []; window.__po = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }); window.__po.observe({ entryTypes: ['longtask'] }); window.__rf = []; window.__rfOn = true; (function f() { window.__rf.push(performance.now()); if (window.__rfOn) requestAnimationFrame(f); })(); return 1; })()`);
@@ -501,13 +504,8 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   await clickSel('#xfPvPlay'); await sleep(150);
   const p0 = await pvState(); await sleep(700); const p1 = await pvState();
   ok('preview: Pause stops it (the index and the picture stay), the button says Play', !p0.playing && p1.i === p0.i && p1.stats.draws === p0.stats.draws && p1.btn === 'Play', { p0, p1 });
-  await ev(`document.getElementById('xfPvSeek').focus(); 1`);
-  await key('ArrowRight'); await sleep(100); const k1 = await pvState();
-  // (End and Home are not in the kit's key table: raw key events)
-  const navKey = async (k, vk) => { await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: k, code: k, windowsVirtualKeyCode: vk }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: k, windowsVirtualKeyCode: vk }); };
-  await navKey('End', 35); await sleep(100); const k2 = await pvState();
-  await navKey('Home', 36); await sleep(100); const k3 = await pvState();
-  ok('preview: the scrubber takes the keyboard (Right: one frame on; End; Home), paused', k1.i === p1.i + 1 && !k1.playing && k2.i === 210 && k3.i === 0 && k3.seek[0] === 0, { p1: p1.i, k1: k1.i, k2: k2.i, k3: k3.i });
+  const { mid, k0, k1, k2, k3 } = await scrubberKeys();
+  ok('preview: the scrubber takes the keyboard (Right: one frame on; End; Home), paused', k0.i === mid && !k0.playing && k1.i === mid + 1 && !k1.playing && k2.i === 210 && k3.i === 0 && k3.seek[0] === 0, { mid, k0: k0.i, k1: k1.i, k2: k2.i, k3: k3.i });
   await ev(`document.getElementById('xfPvPlay').focus(); 1`); await key(' '); await sleep(600);
   const k4 = await pvState();
   ok('preview: Space on the button plays again', k4.playing && k4.i > 0 && k4.btn === 'Pause', k4);
@@ -544,7 +542,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   R.pv.close = { c0, c1 };
   ok('preview: closing the dialog stops it (nothing alive; no frame drawn or shown after)', c0.live === 0 && c1.live === 0 && c1.renders === c0.renders && c1.draws === c0.draws && !(await ev(`!!document.querySelector('.xf-pvcv')`)), R.pv.close);
   // Bounce on the globe (X -> Y on the sphere): a frame on the way back is the video's frame
-  await key('1'); await settle(300); await ev(`__cmwSetView('R', 'sphere'); 1`); await settle(800);
+  await mainView('xy'); await ev(`__cmwSetView('R', 'sphere'); 1`); await settled({ max: 8000 });
   await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; s.video = Object.assign({}, s.video, { size: '1280x720', fps: 30, secs: 2, ends: 'bounce' }); __cmwFig.saveSettings(s); return 1; })()`);
   await key('e', 4);
   const gb = (await settled({ until: filled, max: 60000, only: true })).at;
@@ -577,9 +575,12 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
 // scrubber quiet for a screen reader while it plays, a hidden page, a small device
 R.pv2 = {};
 if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
-  const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
+  const PV_STATE = `(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !cv.hidden, cssW: Math.round(cv.getBoundingClientRect().width || parseFloat(cv.style.width) || 0), dpr: devicePixelRatio, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
-      seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
+      seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`;
+  const pvState = () => ev(PV_STATE);
+  // click sel and read the state in the same task: a restart that begins on the click is read as it began, whatever the round trips take
+  const clickState = (sel) => ev(`(() => { document.querySelector(${JSON.stringify(sel)}).click(); return ${PV_STATE}; })()`);
   const shownE = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id && s.shown); })()`;
   const VS = `async (k) => { const d = __cmwFig.dialog(), s = d.preview.state(), o = Object.assign(d.preview.opts(), { keepForCheck: true, alive: null });
     const r = await __cmwFig.makeVideo(o); const chk = await __cmwFig.videoCheck(k, s.pw, s.ph), pf = await d.preview.frame(k);
@@ -592,7 +593,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const perfOff = () => ev(`(() => { window.__rf2On = false; const f = window.__rf2, d = []; for (let i = 1; i < f.length; i++) d.push(f[i] - f[i - 1]); d.sort((a, b) => a - b); const q = (p) => +(d[Math.min(d.length - 1, Math.floor(p * d.length))] || 0).toFixed(1); return { lt: window.__lt2.slice(), frames: d.length, med: q(0.5), p95: q(0.95), max: q(1) }; })()`);
   const rate = () => ev(`await (async () => { const d = __cmwFig.dialog(), a = d.preview.state(), t = performance.now(); await new Promise((r) => setTimeout(r, 1000)); const b = d.preview.state(); const dt = performance.now() - t; return +(((b.i - a.i + b.n) % b.n) / dt * 1000).toFixed(1); })()`);
   const setV = (v) => ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; s.video = Object.assign({ size: '1920x1080', fps: 30, secs: 3, ends: 'once', paths: true, tlabel: true, look: 'light', win: 'screen' }, ${JSON.stringify(v)}); __cmwFig.saveSettings(s); return 1; })()`);
-  const scene = async (ns, w, h) => { await open(ns, w, h); await ev('__cmwExample(1); 1'); await settle(1800); await key('m'); await settle(1200); await ev('__cmwMorph({ playing: false, T: 1.2 }); 1'); await key('2'); await settle(1500); };
+  const scene = async (ns, w, h) => { await open(ns, w, h); await ev('__cmwExample(1); 1'); await settled({ max: 8000 }); await morphKey(); await ev('__cmwMorph({ playing: false, T: 1.2 }); 1'); await mainView('phase'); };
   // the frame the preview drew first (its own record, so a long task before the next animation frame cannot move it)
   const firstShown = () => ev(`(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); if (!s || !s.id || s.first < 0) return null; const e = d.preview.entry(s.first); return { i: s.first, t: typeof e === 'number' ? e : e && e.a }; })()`);
 
@@ -651,8 +652,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   await settled({ until: shownE, max: 20000, only: true }); await sleep(500);
   await clickSel('#xfPvPlay'); await sleep(100);
   const id1 = (await pvState()).id;
-  await clickSel('#xfVEnds button[data-v="bounce"]'); await sleep(40);
-  const c0 = await pvState();
+  const c0 = await clickState('#xfVEnds button[data-v="bounce"]');
   await clickSel('#xfPvPlay'); await sleep(30);
   const c1 = await pvState();
   await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id1} && s.shown; })()`, max: 20000, only: true }); await sleep(300);
@@ -663,11 +663,11 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   // frames, not the 960 px poster, and stays paused; then Play again for (vp-6)
   await clickSel('#xfPvPlay'); await sleep(100);
   const id2 = (await pvState()).id;
-  await clickSel('#xfVEnds button[data-v="loop"]'); await sleep(40);
+  const cl = await clickState('#xfVEnds button[data-v="loop"]');
   const tp = (await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id2} && s.shown; })()`, max: 20000, only: true })).at; await sleep(200);
   const c3 = await pvState();
-  R.pv2.pausedRestart = { tp, c3: { id: c3.id, shown: c3.shown, playing: c3.playing, canvas: c3.canvas, poster: c3.poster, btn: c3.btn, pw: c3.pw } };
-  ok('preview (vp-2 residual): a restart while paused shows its own frames, not the poster, and stays paused', tp >= 0 && c3.shown && c3.canvas && !c3.poster && !c3.playing && c3.btn === 'Play', R.pv2.pausedRestart);
+  R.pv2.pausedRestart = { cl: cl.id, tp, c3: { id: c3.id, shown: c3.shown, playing: c3.playing, canvas: c3.canvas, poster: c3.poster, btn: c3.btn, pw: c3.pw } };
+  ok('preview (vp-2 residual): a restart while paused shows its own frames, not the poster, and stays paused', cl.id === 0 && tp >= 0 && c3.shown && c3.canvas && !c3.poster && !c3.playing && c3.btn === 'Play', R.pv2.pausedRestart);
   await clickSel('#xfPvPlay'); await settled({ until: `__cmwFig.dialog().preview.state().playing`, max: 5000, only: true }); await sleep(300);
   // (vp-6) the scrubber with focus stands still for a screen reader while the video plays; a key moves from the frame in view
   await ev(`document.getElementById('xfPvSeek').focus(); 1`); await sleep(150);

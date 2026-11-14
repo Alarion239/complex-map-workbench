@@ -132,7 +132,8 @@ function topNames(script) {
   return [...out];
 }
 
-// (steps: the page in the steps view, started when the view is on; the published page has no hooks, so it starts on its first card)
+// (steps: the page in the steps view, started when the view is on; the published page has no hooks, so it starts once its
+// thread is drawn)
 async function probe(base, page, scenes, top, steps = false) {
   const B = await launch({ width: 1280, height: 800, dpr: 1 });
   try {
@@ -140,13 +141,13 @@ async function probe(base, page, scenes, top, steps = false) {
     for (const n of await B.ev('Object.getOwnPropertyNames(window)')) GLOBALS0.add(n);
     await B.addInit(INIT);
     await B.nav(base + page + (steps ? '?view=steps' : ''));
-    // started: the document loaded and the view is on (the published page has no hooks: its first card), polled so the
+    // started: the document loaded and the view is on (the published page has no hooks: its thread drawn), polled so the
     // 4.9 MB published page is measured only once its app has run; then a moment to settle
     let started = false;
     for (let t = Date.now(); !started && Date.now() - t < 30000; await sleep(250)) {
-      try { started = await B.ev(steps ? SC.started() : `document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
+      try { started = await B.ev(steps ? SC.started() : `document.readyState === 'complete' && !!document.querySelector('#svStrip .sv-add, #pipeline .card')`); } catch (e) { /* still loading */ }
     }
-    if (!started) throw new Error(`${page} did not start within 30 s (${steps ? 'the steps view is not on' : 'no chain card'})`);
+    if (!started) throw new Error(`${page} did not start within 30 s (${steps ? 'the steps view is not on' : 'no chain drawn'})`);
     await sleep(3000);
     const own = (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n));
     // (a name is there when evaluating it throws no ReferenceError: a top-level `let x;` is there, undefined)
@@ -160,7 +161,6 @@ async function probe(base, page, scenes, top, steps = false) {
       for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
       // (and the view at rest: a frame draws in a quiet moment, so one page can be a moment behind the other)
       if (steps) for (let k = 0; k < 40 && await B.ev(SC.moving()); k++) await sleep(250);
-      else for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
       await sleep(1500);
       // (a toast's moment differs with the page's speed: none in the picture)
       await B.ev(`document.querySelectorAll('.toast').forEach((t) => t.remove()); 1`);

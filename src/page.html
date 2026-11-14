@@ -216,8 +216,8 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .layout > .panel.right { grid-column: 3; }
 
 /* ---------- 5.1 Header ---------- */
-/* no reading-flow here: it would take the menu's buttons (display: contents) as one item placed before the views, so Tab would go
-   Examples … Help and then the view switch and Deformation; the source order is undo, redo, the views, then the menu */
+/* no reading-flow here: it would take the menu's buttons (display: contents) as one item placed before the other items; the source order
+   is undo, redo, then the menu */
 .top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; }
 .top > * { flex: 0 0 auto; }
 .top .mark { order: 1; display: block; width: 22px; height: 22px; }
@@ -307,7 +307,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top .snd-caret .ic-slot svg { width: 11px; height: 11px; }
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
-/* room for it on tablets: below 1100 px the speaker drops its label (as the view switch and Deformation do below
+/* room for it on tablets: below 1100 px the speaker drops its label (as the bar's other words do below
    1280); from 768 to 1023 (frame f6
    of notes/ui-redesign-2/desktop) the search is its icon alone, named by its aria-label and tooltip, and a
    long example name gives way first, ending in an ellipsis, as from 1024 */
@@ -348,24 +348,10 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-fine.mono { font: var(--t-micro); }
 .plot > canvas.overlay:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .hdr-more { order: 14; display: none !important; }
-/* the views (merged-views.md): the view switch and the Deformation toggle sit between the two spacers, in the middle
-   of the bar; below 1280px they are icons (their tooltips name them) */
-.top > .vsw, .top > .defbtn, .top > .spacer2 { order: 7; }
-.top > .seg.vsw { flex: 0 0 auto; overflow: visible; }
-.vsw i { font: italic 500 13px/1 var(--f-math); }
-.vsw .arr { font: var(--t-label); }
+/* the second spacer sits in the middle of the bar */
+.top > .spacer2 { order: 7; }
 .phbtn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
 .phbtn[aria-disabled="true"]:hover { color: var(--muted); }
-/* (the view tabs' and Deformation's words: below 1024 px always; from 1024 px app.js hdrFit takes them away, after the example's name,
-   where the bar has no room for them) */
-@media (max-width: 1023px) {
-  .top > .vsw > button > span, .top > .defbtn > span { display: none; }
-  .top > .vsw > button { padding: 0 8px; }
-  .top > .defbtn { padding: 0 8px; }
-}
-.top.tabs-off > .vsw > button > span, .top.tabs-off > .defbtn > span { display: none; }
-.top.tabs-off > .vsw > button { padding: 0 8px; }
-.top.tabs-off > .defbtn { padding: 0 8px; }
 .hdr-menu { display: contents; }
 .mlabel { display: none; }
 .menu-btn { max-width: 240px; gap: 4px; padding: 0 6px 0 8px; }
@@ -490,9 +476,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .legend-chip > .key-sw { display: flex; align-items: center; gap: 6px; padding: 0 8px 6px; line-height: normal; font: var(--t-label); color: var(--ink-2); white-space: nowrap; cursor: pointer; }
 .legend-chip > .key-sw[hidden] { display: none; }
 .legend-chip > .key-sw i { font: var(--t-math-s); }
-/* P4: the Whole chain button pulses once when a drawing tool is pressed in X at a step's input plane */
-#viewAllBtn.pulse { animation: whole-pulse 0.9s var(--ease-out) 1; }
-@keyframes whole-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); border-color: var(--accent); } 100% { box-shadow: 0 0 0 8px transparent; } }
 .pane-head .icon-btn { width: 24px; height: 24px; }
 .pane-head .led { margin-left: 6px; margin-right: 4px; }
 .led { display: inline-block; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
@@ -585,6 +568,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane.no-rulers .ruler, .pane.no-rulers .ruler-corner { visibility: hidden; }
 /* a 3D stage (Landscape, Sphere, the domain globe) has no rulers: it fills the whole plate body, centred */
 .pane.no-rulers .pane-body > .plot { grid-area: 1 / 1 / 3 / 3; }
+/* (the plot grows over the rulers' row, and the stack keeps its place above it: the key under the pointer is the same key after a surface switch) */
+:root:not(.ph) .pane.no-rulers .viewstack { bottom: calc(8px + var(--ruler)); }
 .field-err { grid-column: 1 / -1; margin-top: 2px; font: 400 11px/16px var(--f-ui); color: var(--error); }
 .chip.readout .rv i, .chip.readout .rk i { font: italic 500 12px/16px var(--f-math); }
 /* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in the UI face */
@@ -633,7 +618,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 @container pane (max-width: 559px) {
   .pane .plot:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 120px; }
 }
-.options.transport > .tclose { flex: 0 0 auto; margin-left: auto; }
 /* the integral popover (a right click on a curve): values in the mono face, math in STIX, words in the UI face */
 .pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
 .int-pop .pop-title { padding: 0 4px 0 10px; }
@@ -710,43 +694,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .fader-row.compact input[type="range"] { width: 88px; }
 .fader-row.is-disabled { opacity: 0.4; cursor: default; }
 .fader-row.is-disabled input[type="range"] { cursor: default; }
-/* morph transport: spans the plot bottom from 8px left to 48px right. On a narrow plate the
-   controls wrap under the scrubber (play, scrubber, t readout first) rather than running under the view stack. */
-.options.transport, .options:has(> .transport) {
-  right: 48px; height: auto; min-height: 36px; max-width: none; padding: 4px 6px 4px 4px;
-  flex-wrap: wrap; align-content: center; column-gap: 8px; row-gap: 2px; overflow: visible;
-}
-.transport:not(.options) { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
-.options.transport > .tscrub, .transport > .tscrub { flex: 1 1 128px; min-width: 96px; }
-.options.transport > .tread { flex: 0 0 auto; }
-.options.transport > :is(.seg, select.sel, .check) { flex: 0 0 auto; }
-.icon-btn.play { width: 28px; height: 28px; color: var(--ink); }
-/* the deformation transport docked at the bottom of the view's panel, under the plot (merged-views.md): it never
-   covers the picture; on a narrow panel the scrubber takes a row of its own */
-.tdock { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 0; min-width: 0; min-height: 40px; padding: 2px 6px 2px 4px;
-  border-top: 1px solid var(--line); background: var(--panel); white-space: nowrap; font: var(--t-label); color: var(--ink-2); }
-.tdock > * { flex: 0 0 auto; }
-.tdock > .tscrub { flex: 1 1 160px; min-width: 96px; }
-.tdock .seg { height: 24px; }
-.tdock .seg > button { padding: 0 8px; }
-.tdock select.sel { height: 24px; }
-.tdock .check { min-height: 24px; gap: 6px; font: var(--t-label); padding: 0 4px; }
-.tdock > .tclose { margin-left: auto; width: 28px; height: 28px; }
-.tdock > .phbtn { height: 24px; padding: 0 8px; gap: 5px; }
-@container pane (max-width: 559px) {
-  .tdock > .tscrub { order: 9; flex-basis: 100%; }
-  .tdock > .tclose { margin-left: auto; }
-}
-.tscrub { position: relative; display: flex; align-items: center; min-width: 0; height: 36px; }
-.tscrub > input[type="range"] { flex: 1 1 auto; width: 100%; }
-.tticks { position: absolute; left: 5px; right: 5px; top: 0; height: 12px; pointer-events: none; }
-.ttick { position: absolute; top: -1px; translate: -50% 0; font: italic 500 11px/12px var(--f-math); color: var(--ink-2); white-space: nowrap; }
-@supports (width: calc(100% / sibling-count())) {
-  .ttick { width: calc(100% / sibling-count()); text-align: center; }
-  .ttick::before { content: ""; position: absolute; left: 0; top: 14px; width: 1px; height: 8px; background: var(--ink-2); }
-  .ttick:last-child::after { content: ""; position: absolute; right: 0; top: 14px; width: 1px; height: 8px; background: var(--ink-2); }
-}
-.tread { font: var(--t-readout); color: var(--ink); min-width: 92px; text-align: right; }
 
 .viewstack { position: absolute; z-index: 10; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
 .vgroup { display: flex; flex-direction: column; }
@@ -760,6 +707,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .vbtn:last-child { border-radius: 0 0 2px 2px; }
 .vbtn:hover { background: var(--well); color: var(--ink); }
 .vbtn[aria-pressed="true"] { background: var(--well); color: var(--ink); }
+.vbtn[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.vbtn[aria-disabled="true"]:hover { background: transparent; color: var(--ink-2); }
 .vbtn svg { width: 16px; height: 16px; display: block; }
 .vbtn:focus-visible { outline-offset: -2px; }
 
@@ -814,54 +763,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   display: grid; grid-template-rows: 36px minmax(0, 1fr); min-width: 0; min-height: 0;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden;
 }
-.pipe-head { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 12px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
-.pipe-head > * { flex: 0 0 auto; }
-.pipe-head h2 { font: var(--t-heading); color: var(--ink); margin: 0; }
-/* the heading is the one thing in the head that gives way: it shrinks to what is left, so no control is ever pushed out of the head, whatever the moment (the Inspector floating in narrows the head before the observer below has run); the observer then hides a heading that is cut */
-.pipe-head > h2 { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* (the one frame before the observer hides a cut heading shows an ellipsis, not a clipped letter) */
-.pipe-head .compose { flex: 0 1 auto; min-width: 0; overflow: hidden; margin-left: 8px; font-size: 13px; color: var(--ink); }
-.pipe-head .grow { flex: 1 1 auto; }
-.pipe-head .seg { margin-right: 4px; }
-.pipeline {
-  display: flex; align-items: flex-start; min-width: 0; min-height: 0;
-  /* 6px on top (not 8) so 272 = 36 head + 6 + 216 card + 12 holds with the two 1px panel borders;
-     the 8px scrollbar sits in the 12px below the cards */
-  padding: 6px 12px 12px; overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x proximity; scroll-padding-inline: 12px; overscroll-behavior-x: contain;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, var(--ink) 12px, var(--ink) calc(100% - 16px), transparent);
-  mask-image: linear-gradient(90deg, transparent 0, var(--ink) 12px, var(--ink) calc(100% - 16px), transparent);
-}
-/* the 8px strip scrollbar: Chromium only honours ::-webkit-scrollbar when scrollbar-width/-color are left at auto
-   (the global `thin` is 11px there and would eat into the cards' focus ring) */
-.pipeline { scrollbar-width: auto; scrollbar-color: auto; }
-.pipeline::-webkit-scrollbar { height: 8px; background: transparent; }
-.pipeline::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
-.pipeline::-webkit-scrollbar-thumb:hover { background: var(--faint); }
-@supports not selector(::-webkit-scrollbar) { .pipeline { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; } }
-.pipeline::after { content: ""; flex: 0 0 4px; height: 1px; }
-
-.card {
-  position: relative; flex: 0 0 240px; width: 240px; height: 216px;
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3);
-  content-visibility: auto; contain-intrinsic-size: 240px 216px;
-  scroll-snap-align: start; cursor: pointer; outline-offset: 1px;
-  transition: border-color var(--t-fast) var(--ease-out);
-}
-.card:hover { border-color: var(--line-strong); }
-/* focused: border plus an inner 1px line. An inset box-shadow would sit under the thumbnail and the property
-   strip, so the inner line is an outline drawn over the card's content. Keyboard focus swaps it for the ring. */
-.card.focus { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
-.card.focus:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* .hi comes from linked hover (a matrix row or chain-list line outlines its card); the card's own hover keeps --line-strong */
-.card.hi:not(:hover) { border-color: var(--accent); }
-.card.bad, .card.bad:hover { border-color: var(--error); }
-.card.bad.focus { outline-color: var(--error); }
-.card.dragging { border-color: var(--line-strong); box-shadow: var(--shadow-3); z-index: 2; cursor: grabbing; }
-.card-head { flex: 0 0 28px; height: 28px; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 6px; border-bottom: 1px solid var(--line); min-width: 0; }
-.card .grip { display: inline-grid; place-items: center; flex: 0 0 10px; width: 10px; height: 20px; margin-right: -1px; color: var(--faint); cursor: grab; }
-.card .grip svg { width: 12px; height: 12px; display: block; }
-.card .grip:hover { color: var(--ink-2); }
 .idx {
   position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
   min-width: 22px; height: 18px; padding: 0 3px; border-radius: var(--r-1);
@@ -869,53 +770,16 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 }
 .idx i { font: inherit; }
 .idx sub { font-style: normal; font-size: 10px; bottom: -0.3em; }
-.card.focus .idx { background: var(--accent); color: var(--accent-ink); }
-.card.off .idx::after { content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 1px; background: currentColor; }
-.card .nm { flex: 1 1 auto; min-width: 0; margin-left: 2px; font: 600 12px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card .acts { display: flex; align-items: center; flex: 0 0 auto; opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }
-.card:hover .acts, .card:focus-within .acts { opacity: 1; }
-@media (hover: none) { .card .acts { opacity: 1; } }
-.card .acts .icon-btn { width: 24px; height: 24px; }
-/* the card clips (overflow: hidden), so focus rings on its inner controls are drawn inside them */
-.card .acts .icon-btn:focus-visible, .card .icon-btn.argand:focus-visible, .card .pl:focus-visible { outline-offset: -2px; }
-.card .inp:focus, .card .inp:focus-visible { box-shadow: inset 0 0 0 1px var(--accent); }
-.card .inp.bad:focus, .card .inp[aria-invalid="true"]:focus { box-shadow: inset 0 0 0 1px var(--error); }
 /* inline-flex, not the icon-btn's grid: f and its −1 are two items that must sit on one line (f⁻¹, never f₁) */
 .icon-btn.txt { display: inline-flex; align-items: center; justify-content: center; font: italic 500 13px/1 var(--f-math); color: var(--ink-2); white-space: nowrap; }
 .icon-btn.txt i { font: inherit; }
 .icon-btn.txt sup { position: relative; top: -0.45em; margin-left: 1.5px; font: 500 10px/1 var(--f-math); font-style: normal; vertical-align: baseline; }
-.card .thumb { position: relative; flex: 0 0 88px; height: 88px; background: var(--plane); border-bottom: 1px solid var(--line); overflow: hidden; }
-.card .thumb > canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-/* a card whose box changed keeps its previous picture, unstretched and centred, until it is redrawn at the new size; the bars
-   are the card's own well colour, and the new picture swaps in place (src/app/08-thumbnails-render.js marks and clears .rz) */
-.card .thumb > canvas.rz { object-fit: contain; background: var(--well); }
-.thumb-var {
-  position: absolute; left: 6px; top: 3px; pointer-events: none;
-  font: italic 500 12px/16px var(--f-math); color: var(--ink);
-  text-shadow: 0 0 2px var(--halo), 0 0 2px var(--halo), 0 0 3px var(--halo), 0 0 4px var(--halo);
-}
-.card.off .thumb::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line-strong) 5px 6px); pointer-events: none; }
-.card.off .thumb > canvas, .card.off .ftex-row, .card.off .params, .card.off .pchips, .card.off .note, .card.off .swatches { opacity: 0.45; }
-.card .ftex-row { flex: 0 0 28px; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 8px; min-width: 0; }
-.card .ftex {
-  flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 13px; color: var(--ink);
-  -webkit-mask-image: linear-gradient(90deg, var(--ink) calc(100% - 16px), transparent);
-  mask-image: linear-gradient(90deg, var(--ink) calc(100% - 16px), transparent);
-}
-.btag { display: inline-flex; align-items: center; flex: 0 0 auto; height: 18px; padding: 0 5px; border-radius: var(--r-1); background: var(--well); font: 400 10px/1 var(--f-mono); color: var(--ink-2); white-space: nowrap; }
-.btag:empty { display: none; }
-.card .params {
-  flex: 0 1 auto; min-height: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-content: start; gap: 2px 8px; padding: 0 8px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
-}
-.card .params::-webkit-scrollbar { display: none; }
-.card .params:empty { display: none; }
 .pf { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 4px; min-width: 0; min-height: 24px; }
 .pf.wide { grid-column: 1 / -1; grid-template-columns: fit-content(50%) minmax(0, 1fr); }
 .pl { font: italic 500 13px/16px var(--f-math); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none; -webkit-user-select: none; }
 .pl.scrub { cursor: ew-resize; }
 .pl.scrub:hover, .pl.scrub.active { color: var(--accent); }
-.pf .inp, .card .inp { height: 24px; width: 100%; padding: 0 6px; }
+.pf .inp { height: 24px; width: 100%; padding: 0 6px; }
 .pf select.sel { height: 24px; width: 100%; }
 .pair { position: relative; display: flex; align-items: center; min-width: 0; }
 /* Snap says its state in a word: accent-filled when on, outlined when off */
@@ -937,7 +801,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .icon-btn.argand svg { width: 16px; height: 16px; }
 .inp.scrubbing, .inp.scrub-live { color: var(--accent); }
 /* complex field hooks: the evaluated value of a typed expression, the focus readout, and an error bubble
-   (cards never grow, so a card field's message floats below it) */
+   (a field never grows, so its message floats below it) */
 .pair > .cx-eval { position: absolute; right: 24px; top: 50%; translate: 0 -50%; font: var(--t-readout); color: var(--muted); pointer-events: none; white-space: nowrap; }
 .cx-read { display: block; height: 16px; font: 400 10px/16px var(--f-mono); color: var(--muted); white-space: nowrap; overflow: hidden; }
 .err-bubble {
@@ -967,7 +831,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .icon-btn.zp-del { position: absolute; right: 1px; top: 50%; translate: 0 -50%; width: 18px; height: 18px; color: var(--muted); }
 .icon-btn.zp-del svg { width: 12px; height: 12px; }
 .icon-btn.zp-del:hover { color: var(--error); background: var(--error-soft); }
-.card .icon-btn.zp-del:focus-visible { outline-offset: -2px; }
 .pl.zp-sym { font-style: italic; }
 .pl.zp-sym.zeros { color: var(--ink); }
 .pl.zp-sym.poles { color: var(--pole); }
@@ -975,69 +838,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .params.matrix2::before, .params.matrix2::after { content: ""; position: absolute; top: 0; height: 50px; width: 3px; border: 1px solid var(--ink-2); pointer-events: none; }
 .params.matrix2::before { left: 0; border-right: 0; }
 .params.matrix2::after { right: 0; border-left: 0; }
-/* The note yields to the parameters: two lines on a card without parameters, one line beside a
-   single row of them, and none when two rows fill the body. */
-.card .note { flex: 0 100 auto; min-height: 0; padding: 2px 8px 0; font: var(--t-label); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.card:has(.params .pf) .note { -webkit-line-clamp: 1; }
-.card .note:empty { display: none; }
-.card .err-msg { flex: 0 0 auto; margin: 2px 8px 0; padding: 3px 6px; border-radius: var(--r-1); background: var(--error-soft); color: var(--error); font: 400 11px/16px var(--f-ui); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.card .err-msg:empty { display: none; }
-.card.bad .note, .card.bad .pchips { display: none; }
-.pchips { flex: 0 0 20px; height: 20px; margin-top: auto; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-.pchip { display: grid; place-items: center; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--faint); border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
-.pchip:first-child { border-left: 0; }
-.pchip.on { color: var(--good); background: var(--good-soft); }
-/* region card */
-.card.region-card { flex-basis: 200px; width: 200px; contain-intrinsic-size: 200px 216px; }
-.region-card .note { padding: 8px 8px 0; font: var(--t-body); color: var(--ink-2); -webkit-line-clamp: 2; }
 .swatches { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
 .swatches .swatch { width: 12px; height: 12px; }
-/* connectors */
-.conn { position: relative; flex: 0 0 40px; width: 40px; height: 216px; color: var(--ink-2); --conn-y: 72px; }
-/* 30 px above the line, so the label's 18 px box and its subscript clear the + under it */
-.conn-var { position: absolute; left: 0; right: 0; top: calc(var(--conn-y) - 30px); text-align: center; font: var(--t-math-s); color: var(--ink-2); white-space: nowrap; pointer-events: none; }
-.conn-var i { font: inherit; }
-.conn-line { position: absolute; left: 0; right: 0; top: calc(var(--conn-y) - 6px); height: 12px; display: block; pointer-events: none; }
-.conn-line svg { display: block; width: 40px; height: 12px; overflow: visible; }
-.conn-f { position: absolute; left: 0; right: 0; top: calc(var(--conn-y) + 8px); text-align: center; font: italic 500 12px/16px var(--f-math); color: var(--muted); white-space: nowrap; pointer-events: none; }
-.conn-add {
-  position: absolute; left: 11px; top: calc(var(--conn-y) - 9px); width: 18px; height: 18px; padding: 0;
-  display: grid; place-items: center; border-radius: 50%;
-  background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink-2);
-  opacity: 0; transition: opacity var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
-}
-.conn-add svg { width: 12px; height: 12px; display: block; }
-.conn:hover, .conn:focus-within { color: var(--accent); }
-.conn:hover .conn-var, .conn:focus-within .conn-var { color: var(--accent); }
-.conn:hover .conn-add, .conn-add:focus-visible { opacity: 1; }
-.conn-add:hover { border-color: var(--accent); color: var(--accent); }
-@media (hover: none) { .conn-add { opacity: 1; } }
-.conn.drop { color: var(--accent); }
-.conn.drop::before { content: ""; position: absolute; left: 19px; top: 8px; bottom: 8px; width: 2px; background: var(--accent); }
-.card.off + .conn .conn-line svg *, .conn:has(+ .card.off) .conn-line svg * { stroke-dasharray: 3 2.5; }
-/* insert: width 0 to full plus opacity over --t-slow; remove: the reverse over --t-med */
-.card.entering { animation: card-in var(--t-slow) var(--ease-out); }
-.card.leaving { animation: card-in var(--t-med) var(--ease-out) reverse forwards; pointer-events: none; }
-@keyframes card-in { from { flex-basis: 0; width: 0; opacity: 0; } }
-/* add card */
-.add-card {
-  flex: 0 0 128px; width: 128px; height: 216px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  border: 1px dashed var(--line-strong); border-radius: var(--r-3); background: transparent;
-  font: var(--t-label); color: var(--ink-2); scroll-snap-align: start; text-align: center; padding: 0 8px;
-  transition: border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
-}
-.add-card svg { width: 16px; height: 16px; display: block; }
-.add-card:hover { border-color: var(--accent); color: var(--accent); }
-.add-card:hover .kbd { color: var(--accent); }
-/* compact chain */
-.pipeline.compact .card { height: 56px; flex-basis: 200px; width: 200px; contain-intrinsic-size: 200px 56px; }
-.pipeline.compact .card > :not(.card-head, .ftex-row) { display: none; }
-.pipeline.compact .card.region-card > .note { display: -webkit-box; -webkit-line-clamp: 1; padding: 4px 8px 0; font: var(--t-label); color: var(--muted); }
-.pipeline.compact .conn { height: 56px; --conn-y: 28px; }
-.pipeline.compact .conn-var { top: 0; }
-.pipeline.compact .conn-f { display: none; }
-.pipeline.compact .add-card { height: 56px; flex-direction: row; gap: 8px; white-space: nowrap; }
-.pipeline.compact .add-card .kbd { display: none; }
 
 /* ---------- 5.2 Tool keys ---------- */
 .tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
@@ -1089,12 +891,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .seg > button:focus-visible { outline-offset: -1px; }
 .seg > button:disabled { opacity: 0.4; }
 .seg > button > .mic, .seg > button > svg { width: 14px; height: 14px; flex: 0 0 14px; display: block; }
-.seg.small, .options .seg, .card .seg, .pipe-head .seg, .pop .seg { height: 26px; padding: 0 2px; }
-.seg.small::before, .options .seg::before, .card .seg::before, .pipe-head .seg::before, .pop .seg::before { top: 0; bottom: 0; }
+.seg.small, .options .seg, .pop .seg { height: 26px; padding: 0 2px; }
+.seg.small::before, .options .seg::before, .pop .seg::before { top: 0; bottom: 0; }
 /* the small controls' segments are 24 px tall, WCAG 2.5.8's minimum target (they touch, so the spacing exception
-   does not apply): a 24 px strip inside the control's 1 px border and no vertical padding; the view switch has 2 px of it */
-.top > .seg.vsw { height: 30px; }
-.seg.small > button, .options .seg > button, .card .seg > button { padding: 0 8px; }
+   does not apply): a 24 px strip inside the control's 1 px border and no vertical padding */
+.seg.small > button, .options .seg > button { padding: 0 8px; }
 .seg.modes { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: 0 1 auto; min-width: 0; }
 .seg.modes::-webkit-scrollbar { display: none; }
 
@@ -1168,7 +969,7 @@ select.sel {
   font: var(--t-label); color: var(--ink); cursor: pointer;
   transition: border-color var(--t-fast) var(--ease-out);
 }
-/* a choice parameter in a card is a select styled as a field (well, chevron, no native arrow) */
+/* a choice parameter is a select styled as a field (well, chevron, no native arrow) */
 select.inp, select.inp:focus {
   -webkit-appearance: none; appearance: none; padding-right: 20px; cursor: pointer; font: var(--t-label);
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
@@ -1208,7 +1009,6 @@ select.sel option { background: var(--surface); color: var(--ink); }
    own, right-aligned; a formula wider than the well fades out at its end (scroll to read the rest) */
 .texprev-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; margin-top: 6px; padding-right: 6px; background: var(--well); border-radius: var(--r-2); min-width: 0; }
 .texprev-row > .texprev { flex: 1 1 auto; min-width: 0; margin-top: 0; background: none; }
-.texprev-row > .btag { margin: 5px 0 5px auto; color: var(--muted); }
 .texprev.ovf { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
 .texprev .err { font: 400 11px/16px var(--f-ui); color: var(--error); white-space: normal; }
 /* what Add makes of an equation (a line, a traced curve ...) and the curve engine's notes */
@@ -1811,7 +1611,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   :root.ph .top .hdr-menu > .snd-caret { margin-left: 0; }
   :root.ph .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
   :root.ph .top .hdr-menu > .snd-caret .ic-slot { display: none; }
-  :root.ph .top > .vsw, :root.ph .top > .defbtn, :root.ph .top > .hdr-more { flex-shrink: 0; }
+  :root.ph .top > .hdr-more { flex-shrink: 0; }
   :root.ph .hdr-menu:not(:popover-open) { display: none; }
   :root.ph .hdr-menu:popover-open {
     position: fixed; inset: auto; top: calc(48px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
@@ -1852,11 +1652,9 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   /* header: mark, "Map Workbench", Undo, Redo, and a more menu */
   .top { position: sticky; top: 0; z-index: 15; gap: 4px; background: var(--bg); margin: 0 -4px; padding: 0 4px; }
-  /* the view switch and the Deformation toggle share the bar: the words give way first, so
+  /* the bar's words give way first, so
      the more menu always fits; below 430 px the mark stands alone */
   .hdiv, .top > .spacer { display: none; }
-  .top > .vsw > button { padding: 0 7px; }
-  .top > .defbtn { padding: 0 7px; }
   .hdr-more { display: inline-grid !important; }
   .top > .snd-ph:not([hidden]) { display: inline-grid; order: 13; flex-shrink: 0; }
   .top[data-snd="on"] .hdr-menu > #soundBtn { display: none !important; }
@@ -1864,7 +1662,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
   .top .hdr-menu > .snd-caret .ic-slot { display: none; }
   .snd-pop { top: calc(48px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; width: auto; max-width: none; max-height: calc(100svh - 64px); }
-  .top > .vsw, .top > .defbtn, .top > .hdr-more { flex-shrink: 0; }
+  .top > .hdr-more { flex-shrink: 0; }
   .hdr-menu:not(:popover-open) { display: none; }
   .hdr-menu:popover-open {
     position: fixed; inset: auto; top: calc(44px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
@@ -1905,7 +1703,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .options { max-width: calc(100% - 56px); }
   .options .seg > button { padding: 0 6px; }
   .options select.sel { padding-right: 20px; }
-  .options.transport, .options:has(> .transport) { right: 52px; }
   /* collapsed mode options: one 32px sliders button with a 44px hit area */
   .options.collapsed { padding: 0; min-height: 0; }
   .options.collapsed > .opts-btn { width: 32px; height: 32px; }
@@ -1919,13 +1716,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 
   /* chain: its own strip */
   .pipe-wrap { display: block; }
-  .pipe-head { flex-wrap: wrap; row-gap: 4px; padding: 6px 12px; min-height: 36px; white-space: normal; }
-  .pipe-head .compose { flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; }
-  .pipe-head .grow { display: none; }
-  .pipeline { scroll-snap-type: x mandatory; }
-  .card { flex-basis: min(240px, 78vw); width: min(240px, 78vw); }
-  .card.region-card { flex-basis: min(200px, 70vw); width: min(200px, 70vw); }
-  .pipeline.compact .card { flex-basis: min(200px, 70vw); width: min(200px, 70vw); }
 
   /* panels as disclosures */
   .panel { overflow: visible; }
@@ -2017,7 +1807,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 }
 @media (max-width: 767px) and (pointer: coarse) {
   .icon-btn { min-width: 32px; min-height: 32px; }
-  .card .acts .icon-btn, .shape-row .icon-btn, .pane-head .icon-btn { min-width: 0; min-height: 0; }
+  .shape-row .icon-btn, .pane-head .icon-btn { min-width: 0; min-height: 0; }
 }
 
 /* ======================================================================
@@ -2053,11 +1843,11 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 }
 /* until init() has translated the static text (the head script above): no English frame in Russian */
 :root.i18n-wait #app { visibility: hidden; }
-/* Russian overflow fixes (DESIGN.md 8): tool names wrap at their soft hyphens (8.1, 8.2); card and lamp names use
+/* Russian overflow fixes (DESIGN.md 8): tool names wrap at their soft hyphens (8.1, 8.2); lamp names use
    the semi-condensed width the tool labels already use (8.6, 8.7); palette rows (8.11) take two lines */
 :root[data-lang="ru"] .tools > .tool:not(.rail-tool) { height: 56px; }
 :root[data-lang="ru"] .tool > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
-:root[data-lang="ru"] .card .nm, :root[data-lang="ru"] .lampname { font-stretch: 87.5%; }
+:root[data-lang="ru"] .lampname { font-stretch: 87.5%; }
 /* phase 2b: «Конформное отображение на образ» is 3 px too wide for the guarantees panel, so a Russian lamp name may
    take two lines; «Полу­плоскость» is 3 px too wide for a tool cell at 1024 px, so Russian tool labels are 11 px (as on
    a phone) */
@@ -2102,8 +1892,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 /* the calculation chip's lines wrap rather than being cut */
 :root[data-lang="ru"] .calc-chip .ch { white-space: normal; max-width: 232px; text-wrap: pretty; }
 :root[data-lang="ru"] .calc-chip .cn { overflow-wrap: anywhere; }
-/* step names take two lines in the chain cards and the «По шагам» table */
-:root[data-lang="ru"] .card .nm { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 13px; overflow-wrap: anywhere; }
 :root[data-lang="ru"] .matrix tr > td:first-child { white-space: normal; line-height: 13px; padding-top: 3px; padding-bottom: 3px; }
 :root[data-lang="ru"] .matrix td:first-child .nm { font-stretch: 87.5%; hyphens: auto; }
 /* a hint alone in a readout may take a second line rather than be cut */
@@ -2152,8 +1940,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <div class="spacer"></div>
     <!-- the views (merged-views.md): X → Y · Phase · Landscape (1 2 3), and the Deformation toggle (M), which modifies
          the active view; app.js fills them -->
-    <div class="seg modes vsw" id="viewSwitch" role="radiogroup" aria-label="View"></div>
-    <button class="phbtn defbtn" id="morphBtn" aria-pressed="false" data-tip="Deformation  M" aria-label="Deformation"></button>
     <div class="spacer spacer2"></div>
     <!-- Desktop: display:contents, so these sit in the header row (CSS order puts Examples after the divider).
          Phone: the popover is the "more" menu. popovertargetaction="hide" closes it after a choice. -->
@@ -2254,7 +2040,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
                 <div class="vgroup"><button class="vbtn" id="leftZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="leftZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view"></button><button class="vbtn" id="leftSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the left plane"></button></div>
+                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="leftFitWhy"></button><button class="vbtn" id="leftSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the left plane"></button><button class="vbtn" id="leftSph" aria-pressed="false" aria-label="Sphere" aria-describedby="leftSphWhy"></button></div><span class="sr-only" id="leftSphWhy"></span><span class="sr-only" id="leftFitWhy"></span>
               </div>
               <div class="empty-chip draft-chip" id="draftChipL" hidden><span>Click the first vertex or press Enter to close</span></div>
               <div class="empty-chip draft-chip note-chip" id="sphereChipL" hidden><span></span></div>
@@ -2262,7 +2048,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="ruler-corner" id="cornerL"></div>
             <canvas class="ruler ruler-x" id="rulerLX" aria-hidden="true"></canvas>
           </div>
-          <div class="tdock" id="tdockL" role="toolbar" aria-label="Deformation" hidden></div>
         </div>
         <div class="gutter gutter-col" id="gutterCol" role="separator" aria-orientation="vertical" title="Drag to resize; double-click to reset"></div>
         <div class="pane" id="paneR">
@@ -2285,7 +2070,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <div class="options" id="rightFoot"></div>
               <div class="viewstack" role="toolbar" aria-label="Right plane view">
                 <div class="vgroup"><button class="vbtn" id="rightZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="rightZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view"></button><button class="vbtn" id="rightSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the right plane"></button></div>
+                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="rightFitWhy"></button><button class="vbtn" id="rightSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the right plane"></button><button class="vbtn" id="rightSph" aria-pressed="false" aria-label="Sphere" aria-describedby="rightSphWhy"></button></div><span class="sr-only" id="rightSphWhy"></span><span class="sr-only" id="rightFitWhy"></span>
               </div>
               <div class="empty-chip" id="emptyRight" hidden></div>
               <div class="empty-chip draft-chip" id="draftChipR" hidden><span>Click the first vertex or press Enter to close</span></div>
@@ -2294,19 +2079,10 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="ruler-corner" id="cornerR"></div>
             <canvas class="ruler ruler-x" id="rulerRX" aria-hidden="true"></canvas>
           </div>
-          <div class="tdock" id="tdockR" role="toolbar" aria-label="Deformation" hidden></div>
         </div>
       </div>
       <div class="gutter gutter-row" id="gutterRow" role="separator" aria-orientation="horizontal" title="Drag to resize"></div>
       <div class="pipe-wrap">
-        <div class="pipe-head">
-          <h2>Function chain</h2>
-          <div class="compose" id="composeTex"></div>
-          <div class="grow"></div>
-          <div class="seg small" id="chainMode" role="radiogroup" aria-label="Cards show"><button data-mode="cards" class="on" role="radio" aria-checked="true">Pictures</button><button data-mode="compact" role="radio" aria-checked="false">Names</button></div>
-          <button class="btn small" id="viewAllBtn" aria-pressed="true">Show F</button>
-          <button class="btn ghost small" id="clearChain">Clear chain</button>
-        </div>
         <div class="pipeline" id="pipeline"></div>
       </div>
     </section>

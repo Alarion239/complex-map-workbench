@@ -1,6 +1,6 @@
 // The steps view in saves and undo (#366 issue C): a state saved with S.sv opens on it under ?view=steps (a parked, fractional
 // `at` too), is written back by the next save, is kept by undo, is repaired when malformed, and is ignored (kept in the
-// state) by the default view. A command file for a CDP daemon:  <runner> test/sv_state_cmd.js
+// state) by the classic view. A command file for a CDP daemon:  <runner> test/sv_state_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
@@ -36,8 +36,14 @@ info.undo = st;
 ok('undo returns to the saved place', Math.abs(st.x - 1) < 1e-6 || Math.abs(st.x - 2.25) < 1e-6, st);
 // a step shown alone: a state saved with it opens on it, a save writes it back, a reload and a language switch keep it,
 // a link carries it, and leaving it goes back to the chain's place
-// (the steps view opened: its hook is there, the state read and the glide settled)
-const openSv = async (url) => { await go(url); await settled({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving", max: 30000 }); };
+// (the steps view opened: its hook is there, the state read and the glide settled; a place between two planes counts as moving, so
+// a state saved there waits for the view alone: parked)
+const OPEN_MS = 30000;
+const openSv = async (url, parked) => {
+  await go(url);
+  const w = await settled({ until: `window.__cmwSteps && __cmwSteps().on && ${parked ? '__cmwSteps().ready.ready' : '!__cmwSteps().moving'}`, max: OPEN_MS });
+  ok(`the steps view opened: ${url.replace(/^.*test\.html/, '')}`, w.ok, w);
+};
 const aloneSv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow', alone: 2 };
 await load(ns, { steps, sv: aloneSv });
 await openSv(`${base}/test.html?ns=${ns}&view=steps`);
@@ -56,14 +62,14 @@ st = await ev('__cmwSteps()');
 ok('and back again', st.on && st.planes.length === 2 && st.planes[1] === 2, st);
 await ev(`(window.__svLink = null, Params.encodeLink(JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)}))).then((p) => { window.__svLink = p; }), 1)`);
 const alonePayload = await linkMade();
-await nav(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
+await go(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
 await settled({ until: "window.__cmwSteps && __cmwSteps().on && __cmwSteps().planes.length === 2", max: 30000 });
 const ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`);
 ok('a link carries the step shown alone', ra && ra.on && ra.planes.length === 2 && ra.planes[1] === 2, ra && { on: ra.on, planes: ra.planes });
 // a saved alone that the chain no longer has (a step bypassed) opens on the whole chain
 const byp = steps.map((x, i) => (i === 1 ? Object.assign({}, x, { on: false }) : x));
 await load(ns, { steps: byp, sv: aloneSv });
-await openSv(`${base}/test.html?ns=${ns}&view=steps`);
+await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);
 st = await ev('__cmwSteps()');
 ok('a bypassed step is not shown alone: the whole chain opens', st.on && st.planes.length === 3 && Math.abs(st.x - 1.4) < 0.5, st);
 // malformed sv is repaired
@@ -78,12 +84,13 @@ const menu = await ev(`({ dev: localStorage.getItem('cmw-sv-speed'), st: (() => 
 info.menu = menu;
 ok('the speed menu writes both the state and the device', menu.dev === 'slower' && menu.st === 'slower', menu);
 await ev(`localStorage.removeItem('cmw-sv-speed')`);
-// the default view ignores it, and keeps it
+// the classic view ignores it, and keeps it
 await load(ns, { steps, sv });
+await go(`${base}/test.html?ns=${ns}&view=classic`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 await hooked(); await sleep(500);
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 st = await ev('__cmwSteps()');
-ok('without ?view=steps the steps view is off', st.on === false, st);
+ok('with ?view=classic the steps view is off', st.on === false, st);
 const kept = await saved();
 ok('and the state keeps sv', kept && Math.abs(kept.at - 1.4) < 1e-6, kept);
 // old states open on their equivalent
@@ -94,7 +101,7 @@ for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind
   info[name] = st;
   ok(`old ${name} opens on its equivalent`, st.on && st.T === 3 && st.scope === want.scope && st.surf === want.surf && st.x === 0, st);
 }
-// old links and saves open unchanged in the default view: a link made from an old state (rightMode of earlier builds) opens
+// old links and saves open unchanged in the classic view: a link made from an old state (rightMode, an old state's view field) opens
 // on its view, and nothing in the state or its saves gains an sv
 for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phase', { rightMode: 'color' }, 'phase'], ['Landscape', { rightMode: '3d', material: 'plaster' }, 'land']]) {
   await load(ns, {});
@@ -102,16 +109,16 @@ for (const [name, o, main] of [['X → Y', { rightMode: 'image' }, 'xy'], ['Phas
   await ev(`(window.__svLink = null, Params.encodeLink(${JSON.stringify(Object.assign({ v3: true, v4: true, shapes: [], steps, nextId: 50, focus: 0 }, o))}).then((p) => { window.__svLink = p; }), 1)`);
   const payload = await linkMade();
   const ns2 = ns + 'l' + main;   // (no saved state there: a link opens at once, with a saved one it asks)
-  await nav(`${base}/test.html?ns=${ns2}#cmw=${payload}`); let r = null;
+  await nav(`${base}/test.html?ns=${ns2}&view=classic#cmw=${payload}`); let r = null;
   for (let i = 0; i < 12 && !(r && r.n === 3 && r.steps !== 'nohook'); i++) {
     await sleep(1500);
-    r = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify('complex-map-workbench-v1:' + ns2)}) || 'null'); return { sv: o && 'sv' in o, main: o && o.view && o.view.main, n: o && o.steps.length, steps: typeof __cmwSteps === 'function' ? __cmwSteps().on : 'nohook' }; })()`);
+    r = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify('complex-map-workbench-v1:' + ns2)}) || 'null'); return { sv: o && 'sv' in o, main: o && o.view && o.view.main, n: o && o.steps ? o.steps.length : null, steps: typeof __cmwSteps === 'function' ? __cmwSteps().on : 'nohook' }; })()`);
   }
   info['link ' + name] = r;
-  ok(`old ${name} link opens in the default view, unchanged, with no sv`, r && r.sv === false && r.main === main && r.n === 3 && r.steps === false, r);
+  ok(`old ${name} link opens in the classic view, unchanged, with no sv`, r && r.sv === false && r.main === main && r.n === 3 && r.steps === false, r);
 }
-// old links opened under ?view=steps land on their equivalent: both link forms (1. compressed, 0. plain), a state of an
-// earlier build (rightMode) for each of X → Y (with an area: Inside regions), Phase and Landscape. No saved state at the
+// old links opened under ?view=steps land on their equivalent: both link forms (1. compressed, 0. plain), a state with the old
+// rightMode field for each of X → Y (with an area: Inside regions), Phase and Landscape. No saved state at the
 // page's namespace, so the link opens at once; the page reloads on it
 for (const form of ['1', '0']) {
   for (const [name, o, want] of [['X → Y', { rightMode: 'image', shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1', ci: 0 }] }, { scope: 'in', surf: 'plane', main: 'phase' }], ['Phase', { rightMode: 'color' }, { scope: 'all', surf: 'plane', main: 'phase' }], ['Landscape', { rightMode: '3d', material: 'plaster' }, { scope: 'all', surf: 'land', main: 'land' }]]) {

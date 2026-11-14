@@ -20,7 +20,7 @@ const open = async (w, h, mobile, flag) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${flag ? '&view=steps' : ''}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` }); await settle(500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 };
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
@@ -291,9 +291,9 @@ const nw = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r =
 ok('360 px: the × is 44×44, inside the screen, and hit-tests on itself, with the range ending on the last plane', nw.l >= 0 && nw.r <= nw.iw + 0.5 && nw.w >= 43.5 && nw.h >= 43.5 && nw.hit, nw);
 await ctl({ range: null });
 
-// ---- without the flag: no ▶ ----
+// ---- with ?view=classic: no ▶ ----
 await open(1280, 800, false, false);
-ok('without ?view=steps there is no ▶ and no band', await ev(`!document.querySelector('.sv-play') && !document.querySelector('.sv-band')`), 'classic');
+ok('with ?view=classic there is no ▶ and no band', await ev(`!document.querySelector('.sv-play') && !document.querySelector('.sv-band')`), 'classic');
 
 info.checks = 'play along the thread: ▶, the speed, loop, keys, range (Shift-drag, ring keys, clear), reduced motion, phone sheet, classic';
 return { pass: fails.length === 0, fails, info };

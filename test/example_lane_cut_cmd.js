@@ -2,12 +2,13 @@
 // every example that has a lane. The lane under the plane shows the example's name and its Try line and takes the lines the
 // text needs, up to four: the text box holds all its text (no scroll height or width past its box), the lane is as tall as
 // the layout gave it (--ph-tour) and at most 82 px, and at least 25 examples had a lane (the count is the check that the
-// walk read them). A line that needs a fifth is cut, so it fails, except the known Italian one below. A command file for a
-// CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// walk read them). A line that needs a fifth is cut, so it fails (no exceptions are left: the Italian Douady–Hubbard line was
+// shortened to four, #576). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
-// (Italian wording that is Pietro's, five lines at 360 (issue #576); any other line over four fails)
-const KNOWN_FIFTH = new Set(['it La mappa di Douady–Hubbard']);
+// (the lines allowed a fifth, as 'lang name': none; any line over four fails)
+const LANE_MS = 4000;   // how long the lane may take to show an example's name
+const KNOWN_FIFTH = new Set([]);
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const PROBE = `(() => {
   const l = document.querySelector('.tour-lane[data-lane="example"]');
@@ -28,10 +29,12 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 780], [390, 8
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
   let n = 0, grown = 0, maxLines = 2, lastName = null; const tooLong = [];
   for (let i = 0; i < 60; i++) {
-    const thrown = await ev(`(() => { try { __cmwExample(${i}); return false; } catch (e) { return true; } })()`);
-    if (thrown) break;
-    // (the lane has laid out when the page is quiet and the lane shows this example's name)
-    await settled({ until: `(() => { const l = document.querySelector('.tour-lane[data-lane="example"]'); return !l || (document.querySelector('#examplesBtn .exlabel') || {}).textContent !== ${JSON.stringify(lastName)}; })()`, max: 4000 });
+    // (__cmwExample answers whether example i exists and opened: past the last one it answers false)
+    const opened = await ev(`(() => { try { return __cmwExample(${i}); } catch (e) { return false; } })()`);
+    if (opened !== true) break;
+    // (the lane has laid out when it shows this example's name; the probe reads the page's elements, so no quiet is asked)
+    const laid = await settled({ only: true, until: `(() => { const l = document.querySelector('.tour-lane[data-lane="example"]'); return !l || (document.querySelector('#examplesBtn .exlabel') || {}).textContent !== ${JSON.stringify(lastName)}; })()`, max: LANE_MS });
+    ok(`${tag}: example ${i}: the lane shows its name`, laid.ok, laid);
     const p = await ev(PROBE);
     if (!p) continue;
     lastName = p.name;

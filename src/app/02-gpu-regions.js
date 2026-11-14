@@ -4,7 +4,7 @@
   // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
   // traces them in idle slices and asks for the redraw when one lands)
   const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
-  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
+  Region.dhAsync = { ready: () => requestRender('L', 'R') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -405,20 +405,17 @@
       if (!opt.preview) scheduleFix();   // (a drag's fix-ups wait for the release)
       soundFunctionChanged();
       if (opt.preview) {
-        // (a drag's snap: the planes and the title only, a uniform change; the cards, the transport and the fit follow
+        // (a drag's snap: the planes and the title only, a uniform change; the Inspector, the transport and the fit follow
         // at the release, setHomRange(…, {force}))
         requestRender('L', 'R');
         const t = paneTitles();
         if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
       } else {
         if (rightAuto && morphOn() && rImage()) fitRight();
-        buildDock();
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R', 'P');
         updateFocusUI();
-        updateCards();
       }
     }
-    updateBracket();
     if (!opt.preview) save();
     const g = homRangeOk();
     tourEmit('deformation-range', g ? { a: g.a, b: g.b } : { a: 1, b: nSteps() });
@@ -826,10 +823,11 @@
     }
     smPumpLater();
   }
-  // a frame after the interaction settles requests the jobs the motion frames could not
+  // a frame after the interaction settles requests the jobs the motion frames could not (sm.kickT: its timer, 0 once
+  // that frame is asked for)
   function smKick() {
     clearTimeout(sm.kickT);
-    sm.kickT = setTimeout(() => { if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
+    sm.kickT = setTimeout(() => { sm.kickT = 0; if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
   }
   let smPumpT = 0;
   function smPumpLater() { if (!smPumpT && !sm.running) smPumpT = setTimeout(() => { smPumpT = 0; smPump(); }, 0); }
@@ -1062,7 +1060,7 @@
     const res = polys.length ? GLR.createLines(polys, origin) : null;
     GLR.destroy(r.lineRes);
     r.lineRes = res; r.lpolys = polys; r.lorigin = origin; r.arcs = null;
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   async function runLines() {
     lineJob.timer = 0;
