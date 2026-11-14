@@ -851,42 +851,11 @@
     return true;
   }
 
-  // the steps view's carried colour: the grid over plane s (st.mesh {x0, y0, dx, dy, nx, ny}) moved by st.map
-  // (from plane s: its base is s), each fragment the colour plane's colour of its point, G = the stages (s, T]
-  // (st.s, st.T); triangles longer than st.lim on the plane are left out. False when the program is not ready
-  function drawCarried(st) {
-    if (!ok) return false;
-    const P = program(st.s === st.T ? 'carryId' : 'carry', st.map);
-    if (!P) return false;
-    use(P, st.map);
-    const dpr = st.dpr || 1, g = st.mesh;
-    view2D(P, st.view, dpr, null);
-    u4f(P, 'uCGrid', g.x0, g.y0, g.dx, g.dy);
-    u2i(P, 'uN', g.nx, g.ny);
-    u1f(P, 'uLim', st.lim);
-    u1i(P, 'uGs', st.s); u1i(P, 'uGt', st.T);
-    dcUniforms(P, st, dpr);
-    // (the sheet key, as drawPreMapped's: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && gl.getParameter(gl.FRAMEBUFFER_BINDING) === null ? st.key : null;
-    keyUniforms(P, k);
-    gl.disable(gl.BLEND);
-    gl.bindVertexArray(empty());
-    if (k) {
-      const dt = gl.isEnabled(gl.DEPTH_TEST);
-      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LEQUAL);
-      gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
-      gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS);
-      if (!dt) gl.disable(gl.DEPTH_TEST);
-    } else gl.drawArrays(gl.TRIANGLES, 0, 6 * g.nx * g.ny);
-    gl.bindVertexArray(null);
-    gl.enable(gl.BLEND);
-    return true;
-  }
-
-  // drawCarried on the globe, inside drawSphere's frame (sph: its camera and key light): the whole sphere of
-  // plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map, each fragment the colour plane's colour of its
-  // point, G = the stages (s, T]; triangles whose chord on the sphere is over st.lim are left out. With st.key (the
-  // default framebuffer's depth) the sheet key orders the visible side's sheets; the depth buffer is left cleared.
+  // the steps view's carried colour on the globe, inside drawSphere's frame (sph: its camera and key light): the whole
+  // sphere of plane s (st.mesh {nx, ny}: cells in phi and theta) moved by st.map (from plane s: its base is s), each
+  // fragment the colour plane's colour of its point, G = the stages (s, T] (st.s, st.T); triangles whose chord on the
+  // sphere is over st.lim are left out. With st.key (the default framebuffer's depth) the sheet key orders the visible
+  // side's sheets; the depth buffer is left cleared.
   // st.net and st.gridMajor draw the globe's graticule over the colour (drawSphere's), unless st.graticule is false. False when the program is not ready
   // whether the last carried globe drew the graticule (null before the first)
   let carriedGlobeGraticule = null;

@@ -1,5 +1,5 @@
-// The carried-colour suites' shared page script and pixel compare: steps_carry_inregion_cmd.js and steps_carry_far_cmd.js
-// (and the planes suite of #733, once it merges). The left pane's pixels come from the page's __cmwLPx; the rest is the pane's camera,
+// The carried-colour suites' shared page script and pixel compare: steps_carry_inregion_cmd.js, steps_carry_far_cmd.js
+// and steps_carry_planes_cmd.js. The left pane's pixels come from the page's __cmwLPx; the rest is the pane's camera,
 // the nearest of a point's 9 pixels to a reference, the bare-paper test and the example list of src/app/15-examples-guide.js.
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
 // - lpx(pts): __cmwLPx(pts) answers { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels about
