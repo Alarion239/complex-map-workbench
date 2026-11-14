@@ -228,6 +228,33 @@ H.settled = async (o = {}) => {
   const ans = r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
   return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${o.until ? JSON.stringify(String(o.until).slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
 };
+// H.reloaded(old, readyExpr, { limitMs }): waits for the page a reload brings: a document other than the one that began at
+// old (its performance.timeOrigin, read before the reload was asked for), loaded, with readyExpr (an expression, default
+// true) true; an expression that throws (a hook of the app that is not up yet) is not true yet. A call the reload cuts off fails with the page-gone error (NAV_GONE); that error, and only that one, is the cue to
+// ask again of the new page, any other error is thrown. After limitMs (RELOAD_LIMIT_MS by default) it throws, naming
+// the parts still missing (newDocument, loaded, ready).
+const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
+// H.injectGone(n): the next n probes of H.reloaded fail with the page-gone error before they reach the page, as when the
+// reload cuts them off (for a check that the wait asks again; it counts down to 0 by itself)
+const FAULT = { gone: 0 };
+H.injectGone = (n) => { FAULT.gone = n; };
+H.goneLeft = () => FAULT.gone;   // (how many injected cuts are still unconsumed; each command file starts with none)
+const probe = (expr) => { if (FAULT.gone > 0) { FAULT.gone--; return Promise.reject(new Error('{"code":-32000,"message":"Inspected target navigated or closed"}')); } return H.ev(expr); };
+H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {}) => {
+  const t0 = Date.now();
+  let parts = null;
+  for (;;) {
+    try {
+      const r = await probe(`({ newDocument: performance.timeOrigin !== ${old}, loaded: document.readyState === 'complete', ready: (() => { try { return !!(${readyExpr}); } catch (e) { return false; } })() })`);
+      if (r && r.newDocument !== undefined) { parts = r; if (r.newDocument && r.loaded && r.ready) return true; }
+    } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e))) throw e; }
+    if (Date.now() - t0 > limitMs) {
+      const missing = parts ? Object.keys(parts).filter((k) => !parts[k]) : ['any answer'];
+      throw new Error(`the page did not finish reloading within ${limitMs} ms (missing: ${missing.join(', ')}; ready: ${readyExpr})`);
+    }
+    await sleep(RELOAD_POLL_MS);
+  }
+};
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
   const r = await send('Page.captureScreenshot', p, S);
@@ -360,7 +387,7 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
-      FAULTS.length = 0;
+      FAULTS.length = 0; FAULT.gone = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
