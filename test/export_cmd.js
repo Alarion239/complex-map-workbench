@@ -20,8 +20,7 @@ const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) 
 // (view: 'classic' asks the page for the classic view; the suite's pin opens every other page in the steps view)
 const open = async (ns, w = 1440, h = 900, dark = false, view0 = null) => {
   await view(w, h, dark, w < 500);
-  await go(`${BASE}test.html?ns=${ns}${Date.now()}${view0 ? '&view=' + view0 : ''}`);
-  await settle(2400);
+  await nav(`${BASE}test.html?ns=${ns}${Date.now()}${view0 ? '&view=' + view0 : ''}`);
   await move(5, 5);
   // saved files: test.html saves through a plain download link; record them instead
   await ev(`(() => { window.__saved = []; const click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__saved.push({ name: this.download, href: this.href }); return; } return click.call(this); };
