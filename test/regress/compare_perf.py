@@ -16,8 +16,7 @@ value passes only when nothing was there to measure (no inverse program before P
 expected ('expect': true, e.g. an inverse program was linked) and has none FAILS.
 --paired (the CI's paired gate, ci/perf_shard.js): the baseline is the reference app measured on the same machine in
 the same run, so a check that is false there too, or a limit the reference is over too (and this change is not worse
-than 1.25 x it), is not this change's: BOTH, reported and not failed. REPORT_ONLY lists metrics whose kind is
-overridden to info (reported, never gated; #413). --tol-scale S (noisy machines: GitHub's virtual
+than 1.25 x it), is not this change's: BOTH, reported and not failed. --tol-scale S (noisy machines: GitHub's virtual
 ones) widens the timing and GPU-memory kinds' allowance over the base S-fold, and the margin of IMPROVED with it.
 A loaded machine measures nothing worth gating (run.js records the units that started busy: meta.busyUnits, one
 entry per unit with the 1-minute load). A FAIL of such a unit is BUSY: reported, never counted. When the results merge
@@ -32,7 +31,6 @@ import argparse
 import json
 import math
 import os
-import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -107,11 +105,6 @@ ENV_MARGIN = 1.05
 # the kinds whose allowance --tol-scale widens: the timings, and GPU memory (its peak depends on how far the view
 # refined during the measurement, which is timing too)
 SCALED = ENVELOPE
-# [#413] metrics reported, never gated, whatever kind run.js gives them: the fps and the latency of the wheel zooms of
-# the opacity scenes at dpr 2. Their frames sit at the 60 Hz boundary (frame p95 12-15 ms; accepted.json), so a round
-# where a few frames miss vsync halves the rAF cadence and fps swings 30 <-> 50 either way with no code change (runs
-# 41069254062 and 41074624389). They stay gated on their frame times (frame_p50 / frame_p95 / cpu_p95), which a user feels.
-REPORT_ONLY = re.compile(r'^image\.(expH|ziH)\.a(30|50)\.dpr2\.zoomR\.(in|out)\.(fps|latency_p95_ms)$')
 
 
 def _num(x):
@@ -191,9 +184,6 @@ def judge(name, base, new, partial, opt_in_skipped=(), paired=False, scale=1.0):
         return 'NEW', f"not in the baseline yet: {lt or fmt(new.get('value'), unit)} [{new.get('kind', 'info')}]"
     kind = base.get('kind', 'info')
     unit = base.get('unit', '')
-    report_only = kind != 'info' and bool(REPORT_ONLY.match(name))
-    if report_only:
-        kind = 'info'
     if new is None:
         if partial:
             return 'SKIP', 'not run (partial run)'
@@ -208,12 +198,11 @@ def judge(name, base, new, partial, opt_in_skipped=(), paired=False, scale=1.0):
             return 'BOTH', f'check failed on the reference too (value {fmt(nv)}, reference {fmt(bv)})'
         return 'FAIL', f'check failed (value {fmt(nv)}, baseline {fmt(bv)})'
     if kind == 'info':
-        note = ' (report only at the vsync boundary, #413)' if report_only else ''
         if _num(bv) and _num(nv):
             d = nv - bv
             rel = f' ({d / bv * 100:+.0f}%)' if bv else ''
-            return 'INFO', f'{fmt(bv, unit)} -> {fmt(nv, unit)}{rel}{note}'
-        return 'INFO', f'{fmt(bv, unit)} -> {fmt(nv, unit)}{note}'
+            return 'INFO', f'{fmt(bv, unit)} -> {fmt(nv, unit)}{rel}'
+        return 'INFO', f'{fmt(bv, unit)} -> {fmt(nv, unit)}'
     if kind == 'limit':
         lim = new.get('limit', base.get('limit'))
         if not _num(nv):
