@@ -706,16 +706,17 @@ ${sphere ? `
 `;
   // ---- pre-mapped triangles (SPEC 8.7, P5): SphereMesh's leaves, mapped on the CPU, drawn far to near ----
   // aPos = w - w0 (flat; uRel = view centre - w0, a float64 difference) or the conjugate lift of w (globe); aAttr the
-  // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern)
-  const PRE_VS = (sphere) => `
+  // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern); w: aW the colour
+  // plane's point of the vertex's source point, (ln |G|, arg G) * 16 / tau as vP's (vW, CARRY_FS's w option)
+  const PRE_VS = (sphere, w = false) => `
 layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
 layout(location = 2) in float aTri;
-out vec2 vG; out vec2 vP;
+${w ? 'layout(location = 3) in vec2 aW;\nout vec2 vW;\n' : ''}out vec2 vG; out vec2 vP;
 flat out float vJac;
 ${sphere ? 'out vec3 vNor; out vec3 vPos;\nuniform mat4 uMVP;' : 'uniform vec2 uRel; uniform vec2 uScale;'}
 void main() {
-  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri;
+  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri;${w ? ' vW = aW;' : ''}
 ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPos * 1.002, 1.0);' : '  gl_Position = vec4((aPos - uRel) * uScale, 0.0, 1.0);'}
 }
 `;
@@ -1236,13 +1237,15 @@ void main() {
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
-  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
+  // (w, with pre: the colour plane's point comes with the mesh, vW (PRE_VS's w option), mapped on the CPU: a stage
+  // without the chain, the stand-in while its programs link)
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, w = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;${w ? ' in vec2 vW;' : ''}
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+${key ? PRE_KEY : ''}  o = vec4(dcolor(${w ? 'preSrc(vW)' : id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
   // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =

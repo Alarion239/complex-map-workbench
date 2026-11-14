@@ -173,6 +173,8 @@
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
+    // (its stand-in while it links: each vertex's colour-plane point mapped on the CPU, setPreW, coloured the same way)
+    regionPW: { chain: false, vs: () => PRE_VS(false, true), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true, false, false, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -1106,11 +1108,14 @@ float wabs(vec2 w) {
   // mesh three times: gl_FragDepth turns early depth tests off, and exp(exp z)(H)'s settle frames jank by 20 ms.)
   // st.carry (flat only, the steps view's carried colour): each fragment the colour plane's colour of its source point
   // (regionPK), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source
-  // point itself (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
+  // point itself (graph paper's mesh), not its polar coordinates; st.carry.w: each vertex's colour-plane point comes
+  // with the mesh (setPreW), a program without the chain (regionPW), the stand-in while regionPK links; -> true when
+  // drawn, false while its program compiles
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
-    const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    if (carry && st.carry.w && !res.wBuf) return false;
+    const P = carry ? (st.carry.w ? program('regionPW') : program('regionPK', st.map)) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
@@ -1151,13 +1156,28 @@ float wabs(vec2 w) {
     if (sc) { if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST); }
     return true;
   }
+  // the carried colour's stand-in on pre-mapped mesh res: w, each vertex's colour-plane point G as (ln |G|, arg G) * 16
+  // / tau (PRE_VS's aW), 2 floats a vertex in the mesh's order, arg continuous across each triangle; key: what w was
+  // computed for (res.wKey). -> false when res has no buffers (evicted, or a lost context: upload the mesh first)
+  function setPreW(res, w, key) {
+    if (!ok || !res || !res.vao || !w || w.length < 2 * res.count) return false;
+    if (!res.wBuf) { res.wBuf = gl.createBuffer(); res.bytes += w.byteLength; if (preAll.has(res)) preBytes += w.byteLength; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, w, gl.STATIC_DRAW);
+    gl.bindVertexArray(res.vao);
+    attrib(3, 2, 8, 0, 0);
+    gl.bindVertexArray(null);
+    res.wKey = key;
+    return true;
+  }
   function destroy(res) {
     if (!res || !gl) return;
     if (res.kind === 'pre') {
       if (preAll.delete(res)) preBytes -= res.bytes;
       if (res.vao) gl.deleteVertexArray(res.vao);
       if (res.buf) gl.deleteBuffer(res.buf);
-      res.vao = res.buf = null; res.n = 0; res.count = 0;
+      if (res.wBuf) gl.deleteBuffer(res.wBuf);
+      res.vao = res.buf = res.wBuf = res.wKey = null; res.n = 0; res.count = 0;
       return;
     }
     freeCache(res);

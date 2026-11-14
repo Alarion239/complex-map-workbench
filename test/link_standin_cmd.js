@@ -122,6 +122,18 @@ await settled({ max: 20000, panes: false, until: loaded });
 const exWait = await settled({ only: true, max: 30000, until: "typeof __cmwStandIn === 'function' && !!__cmwStandIn() && !!__cmwStandIn().end" });
 info.expensive = { wait: exWait, standIn: await standIn() };
 ok('timing: an expensive series\' stand-in keeps to its CPU budget (250 ms and a slice)', exWait.ok && !!info.expensive.standIn && info.expensive.standIn.ms <= 280, info.expensive);
+// the carried colour past a colour plane other than z: z² then z + 0.2 conj(z) (no inverse plan), colour plane w₁, the
+// plane w₂ parked, Everywhere: while the links are held, the pane is coloured from the SphereMeshes' points' colours
+const ns4 = 'lsk' + Date.now();
+await seed(ns4, { steps: [{ type: 'pown', params: { n: 2 } }, { type: 'custom', params: { expr: 'z+0.2\\overline{z}', cut: 180 } }], sv: { at: 2, T: 1, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns4}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+const onW2 = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); return s.stage === 2 && s.T === 1; })()` });
+// (in colour: at least 60 % of a 16 x 10 grid of the pane's points, read in the page)
+const P4 = await K.paneOf(), pts4 = JSON.stringify(K.grid(P4, 16, 10));
+const carriedWait = await settled({ only: true, max: 30000, until: `(() => { const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
+info.carriedT1 = { onW2, wait: carriedWait, hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
+ok('the carried colour past colour plane w₁, its programs held: w₂ is drawn in colour (the frame pending)', onW2.ok && carriedWait.ok && info.carriedT1.pending === true, info.carriedT1);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };
