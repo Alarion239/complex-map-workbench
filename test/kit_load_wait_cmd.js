@@ -15,14 +15,15 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 // the one held by its sheet, and shorter than HOLD_MS)
 const HOLD_MS = 25000, SHORT_LIMIT_MS = 3000, DIAG_LIMIT_MS = 15000, STALL_BYTES = 1 << 20, STALL_MS = 2000, STALL_LIMIT_MS = 12000;
 const STATE = { shapes: [], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } };
-const PAGE = `[document.readyState, typeof window.__cmwPaneStatus, typeof window.__cmwW2S, !!document.getElementById('canvasR')].join()`;
+const PLANES = 1 + STATE.steps.length;
+const PAGE = `[document.readyState, typeof window.__cmwPaneStatus, typeof window.__cmwW2S, __cmwSteps().planes.length].join()`;
 await view(1440, 900, false, false);
 await holdSheet(HOLD_MS);
 try {
   let t0 = Date.now();
   await load('kitloadwait' + t0, STATE);
   info.after = { page: await ev(PAGE), ms: Date.now() - t0 };
-  ok('load: the page held ' + HOLD_MS + ' ms is loaded, with its hooks, when load returns', info.after.page === 'complete,function,function,true', info.after);
+  ok('load: the page held ' + HOLD_MS + ' ms is loaded, with its hooks, when load returns', info.after.page === 'complete,function,function,' + PLANES, info.after);
   let err = null;
   t0 = Date.now();
   try { await load('kitloadlimit' + t0, STATE, '', null, { limitMs: DIAG_LIMIT_MS }); } catch (e) { err = String(e && e.message || e); }
@@ -58,7 +59,7 @@ try {
     t0 = Date.now();
     await load('kitloadreload' + t0, STATE, '', null, { origin: srv.origin, stallMs: STALL_MS, limitMs: STALL_LIMIT_MS });
     info.reload = { page: await ev(PAGE), tests: srv.tests, ms: Date.now() - t0 };
-    ok('load: a document whose body stops arriving is opened again, and the load answers on a ready page', info.reload.page === 'complete,function,function,true' && srv.tests === 2, info.reload);
+    ok('load: a document whose body stops arriving is opened again, and the load answers on a ready page', info.reload.page === 'complete,function,function,' + PLANES && srv.tests === 2, info.reload);
   } catch (e) { ok('load: a document whose body stops arriving is opened again', false, String(e && e.message || e)); }
   finally { srv.closeAllConnections(); srv.close(); }
   srv = await serveDist(() => true);
