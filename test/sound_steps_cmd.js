@@ -23,6 +23,9 @@ const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // (the page quiet: two frames drawn, no pane's frame pending and no finite animation running: the kit's settled)
 const settle = (max = 10000) => settled({ max });
+// (the sound suites' page helpers, test/lib/sound_kit.js: W, the screen point of a plane point; snd, the sound's state; spy
+// and made, the cues the catalogue made)
+const { W, snd, spy, made } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'sound_kit.js'), 'utf8'))({ ev, send, move, click, settled, settle });
 logs();
 const ns = 'sndsv' + Date.now();
 // (a circle of plane w₁ round 0.8i, r 0.3: f₂ has no zero or pole inside; its points read as points of z and squared
@@ -40,16 +43,13 @@ const open = async (w, h, mobile, classic) => {
   // logged in __hl, the cues made in __made
   await ev(`Sound.set({ on: true, sonify: true, events: true, glide: false }); 1`); await settle();
   await ev(`(() => { const H = Sound.hear; window.__hl = []; for (const k of ['step', 'seat', 'cut', 'pathless', 'gap', 'query']) { const f = H[k]; H[k] = function (s) { __hl.push(k === 'gap' ? { k } : { k, phi: s.phi, ln: s.ln, src: s.src, lift: !!s.lift }); return f.apply(this, arguments); }; } return 1; })()`);
-  await ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; } return 1; })()`);
+  await spy();
 };
 const hl = () => ev(`(() => { const l = (window.__hl || []).slice(); __hl.length = 0; return l; })()`);
-const made = () => ev(`(() => { const m = (window.__made || []).slice(); __made.length = 0; return m; })()`);
 const count = (list, name) => list.filter((x) => x === name).length;
 const S = () => ev('__cmwSteps()');
 // (the thread at rest on a plane: no glide, play or scrub, and not parked)
 const rest = () => settled({ only: true, until: '!__cmwSteps().moving', max: 15000 });
-const snd = () => ev('__cmwSound()');
-const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
 // (a steps-view action through its hook, then the page quiet; a play never is, so its callers wait on the thread. The
 // Landscape's relief can take a software renderer many seconds)
 const svDo = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); 1`); if (!o.play) await settle(30000); };
@@ -164,6 +164,28 @@ await key('d'); await settle(); R.pastD = await live();
 await quiet(); await key('z'); await settle(); R.pastZ = await live();
 ok('past the colour plane: the keyboard probe\'s D and Z say where the colour comes from, not the plane\'s own zeros', PAST.test(R.pastD) && PAST.test(R.pastZ), [R.pastD, R.pastZ]);
 await key('Escape'); await settle();
+// the keyboard probe's steps past the colour plane, silent in tone, not in words: its first Alt + arrow starts it at the
+// centre and says so with the line, and each later step says its place with the line (every change of the live region
+// recorded, as a screen reader hears it)
+const ALT = 1;   // (the CDP modifier bit of Alt)
+await ev(`(() => { const el = document.getElementById('sndLive'); window.__said = []; new MutationObserver(() => __said.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true }); return 1; })()`);
+await kbdFocus();
+await key('ArrowRight', ALT); await settle();
+for (const k of ['ArrowRight', 'ArrowUp']) {
+  const n = await ev('__said.length');
+  await key(k, ALT);
+  // (the place is said 450 ms after a step: the probe's announcement)
+  R.pastKeyWait = (await settled({ only: true, max: 3000, until: `__said.slice(${n}).some((t) => /^w₂ /.test(t))` })).ok;
+}
+R.pastKeys = await ev('__said');
+const PLACE = /^w₂ .+\. No tone past the colour plane: the colour here comes from w₁\.$/;
+ok('past the colour plane, the keyboard probe: its start says the line, and each later step its place with the line', /^Probe at the centre, .* No tone past the colour plane: the colour here comes from w₁\.$/.test(R.pastKeys[0] || '') && R.pastKeys.filter((t) => PLACE.test(t)).length === 2, R.pastKeys);
+await key('Escape'); await settle();
+// the line once a visit: after a visit to w₁ the pointer's first move on w₂ says it again
+await svDo({ go: 1, now: true }); await hover(0.3, 0.5);
+await quiet(); await svDo({ go: 2, now: true }); await hover(0.35, 0.5);
+R.pastBack = await live();
+ok('past the colour plane: the line once a visit, so again on w₂ after a visit to w₁', PAST.test(R.pastBack), R.pastBack);
 await ev(`document.getElementById('overlayL').blur(); 1`);
 await quiet();
 await ev(`__cmwSelect('c1'); 1`); await editorOpen();

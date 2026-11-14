@@ -30,7 +30,7 @@
     // (sndHold)
     rope: null, hand: null, fh: null, hold: null, holdT: 0, pz: null, lifting: false, lastSrc: '', ptype: '',
     // svk, the steps view's plane last seen at the end of a frame (sndFrame): another one re-picks the probe;
-    // svSaid, the plane where "no tone past the colour plane" was said last (once a plane)
+    // svSaid, the plane where "no tone past the colour plane" was said last ('' off a past plane: once a visit)
     svk: /** @type {string | null} */ (null), svSaid: '',
   };
   // the steps view's plane as the sound reads it, null in the classic view. The probe hears what the colours and the
