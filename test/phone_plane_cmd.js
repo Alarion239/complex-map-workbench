@@ -84,7 +84,7 @@ async function rounds(name, n, steps) {
   }
   info[name] = { start: fmt(start), worstBack: +(worst * 100).toFixed(4) + ' %' };
 }
-const { reloaded: pageReloaded, holdClick } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));   // (not `reloaded`: the kit's own H.reloaded is a name of every command file)
+const { pageReloaded, holdClick } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'))({ ev, fails, reloaded });
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 
