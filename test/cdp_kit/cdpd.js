@@ -168,18 +168,31 @@ H.go = async (url, ms = 15000) => {
     if (!ok && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
   }
   if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads})` });
-  if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363, as H.nav)
+  if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
   return ok;
 };
 // H.nav(url): navigate and wait for the new page as H.load does for the app: its load event (H.go), then, for the app's page, its
 // start-up (the app begins after the load event: the plane list answers) and the page quiet (H.settled, at most NAV_QUIET_MS).
-// A page that is not the app's (a helper page, an old build) has no start-up to wait for. Answers whether the page came up in
-// time; a page that did not says so in the suite's log (H.go, H.settled), as a check after nav sees the page as it is.
-const NAV_QUIET_MS = 8000;
+// A page that is not the app's (a helper page, an old build) has no start-up to wait for. A link (#cmw=) opens in a second load:
+// the app decodes it, drops the hash and reloads, so for such a url the wait also goes through that reload (the document that
+// answers is another one, for at most NAV_LINK_MS after the hash is gone), and a call the reload cuts off is asked again of the
+// new page. Answers whether the page came up in time; a page that did not says so in the suite's log (H.go, H.settled), as a
+// check after nav sees the page as it is.
+const NAV_QUIET_MS = 8000, NAV_LINK_MS = 2000, NAV_GONE = /navigated or closed|Cannot find context/;
+const navCall = async (f, t0) => { for (;;) { try { return await f(); } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e)) || Date.now() - t0 > NAV_QUIET_MS) throw e; await sleep(100); } } };
 H.nav = async (url) => {
-  const loaded = await H.go(url);
-  const r = await H.settled({ max: NAV_QUIET_MS, until: `typeof window.__cmwSteps !== 'function' || (() => { try { return Array.isArray(__cmwSteps().planes); } catch (e) { return false; } })()` });
-  return loaded && r.ok;
+  const loaded = await H.go(url), t0 = Date.now();
+  let linkOk = true;
+  if (/[#&]cmw=/.test(url)) {
+    const first = await navCall(() => H.ev('performance.timeOrigin'), t0);
+    linkOk = (await navCall(() => H.settled({ only: true, max: NAV_QUIET_MS, until: `typeof window.__cmwPOpen !== 'function' || !/[#&]cmw=/.test(location.hash)` }), t0)).ok;
+    for (const t1 = Date.now(); Date.now() - t1 < NAV_LINK_MS; await sleep(50)) {
+      try { if (await H.ev('performance.timeOrigin') !== first) break; } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e))) throw e; break; }
+    }
+  }
+  const r = await navCall(() => H.settled({ max: NAV_QUIET_MS, until: `typeof window.__cmwSteps !== 'function' || (() => { try { return Array.isArray(__cmwSteps().planes); } catch (e) { return false; } })()` }), t0);
+  const quiet = r.ok;
+  return loaded && linkOk && quiet;
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
 // animation frames find the document loaded, neither pane's last GPU frame pending, compiling or awaiting its Landscape refinement (__cmwPaneStatus; not
