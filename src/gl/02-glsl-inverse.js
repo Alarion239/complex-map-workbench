@@ -225,14 +225,19 @@ void ixDirHalf(vec2 d, float th, vec2 dLX, vec2 dLY, float sg, out float s, out 
 // the chain's stages (a, b], G = chainRange(., a, b), at z, z + dX and, unless an, z + dY: g0 = G(z), gx = G(z + dX) - g0,
 // gy = G(z + dY) - g0 (0 with an). One chainRange call site, in a loop whose trip count is a uniform: a shader compiler
 // inlines every call, so three calls would hold three copies of the chain (the carried colour's and a later plane's
-// shape's points, ixCarryCol and ixShapePx)
+// shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources): three calls, as SwiftShader's
+// compiler (Subzero) links the loop some 20 times slower than the three copies
 void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, out vec2 g0, out vec2 gx, out vec2 gy) {
+#ifdef IX_CHAIN3_CALLS
+  g0 = chainRange(z, a, b); gx = chainRange(z + dX, a, b) - g0; gy = an ? vec2(0.0) : chainRange(z + dY, a, b) - g0;
+#else
   g0 = vec2(0.0); gx = g0; gy = g0;
   for (int k = 0; k < 3 * uIxOne; k++) {
     if (k == 2 && an) break;
     vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : z + dY, a, b);
     if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else gy = g - g0;
   }
+#endif
 }
 #endif
 // signed distance (image px, positive inside) of a candidate to the region boundary and its unit image-space normal

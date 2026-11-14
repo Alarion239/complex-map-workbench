@@ -182,7 +182,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
-    let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (extra && extra.pre || '');
+    let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (swiftShader ? '#define IX_CHAIN3_CALLS 1\n' : '') + (extra && extra.pre || '');
     if (coldNonce && !extra) {
       const tag = `uIxNonce${coldNonce++}_${Math.floor(Math.random() * 1e9)}`;
       pre += `uniform float ${tag};\n`;

@@ -392,6 +392,10 @@ for (const t of TYPES) {
     const c = copies(src);
     for (const [f, k] of Object.entries(want)) check(`${name} holds ${k} cop${k > 1 ? 'ies' : 'y'} of ${f}`, c.get(f) === k, `${c.get(f)} copies`);
   }
+  // (SwiftShader's programs, IX_CHAIN3_CALLS: ixChain3 is three calls, the chain three times, six with a staged shape)
+  const sw = (src) => copies('#define IX_CHAIN3_CALLS 1\n' + src).get('chainRange');
+  check('IX_CHAIN3_CALLS: the carried program holds 3 copies of chainRange', sw(prog(5, false, CARRY)) === 3, sw(prog(5, false, CARRY)));
+  check('IX_CHAIN3_CALLS: the staged program holds 6 copies of chainRange', sw(prog(5, false, STAGED)) === 6, sw(prog(5, false, STAGED)));
   // (the count sees a second call site: ixCarryCol calling dcolorD twice)
   const one = prog(5, false, CARRY), two = one.replace('  return dcolorD(w, wx, wy);', '  if (uGt == 99) return dcolorD(w, wx, wy);\n  return dcolorD(w, wx, wy);');
   check('a second dcolorD call site counts as a second copy', two !== one && copies(two).get('dcolorD') === 2, copies(two).get('dcolorD'));
