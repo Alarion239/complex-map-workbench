@@ -18,7 +18,7 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    view, in the pinned view), `seed(ns, state)` (only the saved state, written from the helper page), `isSteps()` (whether the page
    shows the steps view),
    `logs()` (console + exceptions
-   since the last call), `send(method, params)` (raw CDP), `sleep(ms)`.
+   since the last call; the daemon's own `cdp` entries name the navigations and crashes it saw), `forgetCause()` (forgets the last one, for a check that a failure with none says so; a call the page went under fails with `[method: the event that came first]` appended), `send(method, params)` (raw CDP), `sleep(ms)`.
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
    alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that; a document whose body stops arriving
    is opened again after 5 s, at most twice); `settled({ until, floor,
