@@ -1,9 +1,9 @@
 // gpu-gate.yml, machines windows-hosted (#378): mode glprof on GitHub's windows-latest (ANGLE's Direct3D 11 on WARP,
 // the same FXC on the CPU as the laptop), this commit against the reference. The plan's machines step, run with bash,
 // maps it and refuses it for the gates; the glprof job runs on windows-latest without --require-hardware and with the
-// reference, one round; every other machine keeps its self-hosted runner. And (#169, 2026-11-01) the Windows GPU runner
-// is gone: the default and every event run the Mac alone, windows fails at once, both runs the Mac with a warning, so
-// no job waits for a machine that is not there. Node and bash, no YAML library.
+// reference, one round; every other machine keeps its self-hosted runner. And (#169) the Windows GPU runner, a desktop,
+// is on request only: windows and both send it jobs, the default and every event run the Mac alone, so no job waits
+// for a desktop that is off. Node and bash, no YAML library.
 // Run: node test/t_gpu_gate_hosted.js
 'use strict';
 const fs = require('fs');
@@ -31,17 +31,39 @@ if (m) {
   ok('windows-hosted, glprof: the hosted machine', machines('windows-hosted', 'glprof').out === 'machines=["Windows-hosted"]', machines('windows-hosted', 'glprof'));
   const g = machines('windows-hosted', 'gate');
   ok('windows-hosted, gate: refused (the gates need our GPUs)', g.status !== 0 && /glprof only/.test(g.err), g);
-  // (#169: there is no Windows GPU runner: nothing may be sent to it, it would queue forever)
-  const w = machines('windows', 'gate');
-  ok('windows: refused at once, naming #169 (no machine would take it)', w.status !== 0 && w.out === '' && /Windows GPU runner removed \(#169\)/.test(w.err), w);
+  // (#169: the Windows desktop is on request only: only windows and both send it jobs, they would wait while it is off)
+  const quiet = (r) => r.status === 0 && !/::(error|warning)::/.test(r.err);
+  for (const mode of ['gate', 'glprof', 'suites']) {
+    const w = machines('windows', mode);
+    ok(`windows, ${mode}: the Windows desktop alone`, quiet(w) && w.out === 'machines=["Windows"]', w);
+  }
   const b = machines('both', 'gate');
-  ok('both: the Mac alone, with a warning naming #169', b.status === 0 && b.out === 'machines=["macOS"]' && /::warning::Windows GPU runner removed \(#169\)/.test(b.err), b);
+  ok('both: the Windows desktop and the Mac', quiet(b) && b.out === 'machines=["Windows","macOS"]', b);
   for (const [inp, why] of [['mac', 'mac'], ['', 'no input: a push, the nightly run, the label gpu-gate']]) {
     const r = machines(inp, 'gate');
-    ok(`${why}: the Mac alone`, r.status === 0 && r.out === 'machines=["macOS"]', r);
+    ok(`${why}: the Mac alone, no job for the desktop`, quiet(r) && r.out === 'machines=["macOS"]', r);
   }
 }
 fs.rmSync(dir, { recursive: true, force: true });
+
+// the concurrency group (#169): a by-hand run that asks for the desktop may wait for hours, or for as long as the desktop
+// is off, so it gets a group of its own and never holds the next push to main behind it. The group's expression, evaluated
+const grp = /^ {2}group: (.*)$/m.exec(Y.slice(Y.indexOf('\nconcurrency:')));
+ok('the concurrency group is found', !!grp);
+if (grp) {
+  const expr = /^gpu-gate-\$\{\{ (.*) \}\}$/.exec(grp[1]);
+  const group = (ev, o = {}) => {
+    const github = { event_name: ev, ref: o.ref || 'refs/heads/main', event: { pull_request: { number: o.pr } } };
+    const f = new Function('github', 'inputs', 'contains', 'fromJSON', 'format', `return ${expr[1]};`);
+    return f(github, { machines: o.machines || '' }, (a, b) => a.includes(b), JSON.parse, (t, ...a) => t.replace(/\{(\d)\}/g, (_, i) => a[i]));
+  };
+  const push = group('push'), main = (mm) => group('workflow_dispatch', { machines: mm });
+  ok('a push to main and the nightly run keep their own groups', push === 'refs/heads/main' && group('schedule') === 'nightly', [push, group('schedule')]);
+  ok('a by-hand run on the Mac shares its branch\'s group, as before', main('mac') === push && main('') === push && main('windows-hosted') === push, [main('mac'), main('windows-hosted')]);
+  for (const mm of ['windows', 'both']) ok(`a by-hand ${mm} run never sits in main's group`, main(mm) !== push && main(mm) !== group('schedule'), main(mm));
+  ok('a desktop run replaces the one before it on its own branch only', group('workflow_dispatch', { machines: 'windows', ref: 'refs/heads/x' }) !== main('windows') && main('windows') === main('both'));
+  ok('a pull request keeps its own group', String(group('pull_request', { pr: 725 })) === '725');
+}
 
 const gp = job('glprof');
 const runsOn = (/runs-on: (.*)/.exec(gp) || [])[1] || '';
@@ -60,8 +82,8 @@ if (names) {
   ok('d3d11 refuses SwiftShader', !N.d3d11.test('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'));
 }
 const cmd = (/- run: .*node ci\/glprof\.js (.*)/.exec(gp) || [])[1] || '';
-ok('the hosted machine measures against the reference, one round', cmd.includes(`matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
-ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf('Windows-hosted'), cmd);
+ok('the Windows machines measure against the reference, one round', cmd.includes(`startsWith(matrix.machine, 'Windows') && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference)`), cmd);
+ok('a variant still replaces the reference', cmd.indexOf("inputs.variant == 'unroll'") < cmd.indexOf("startsWith(matrix.machine, 'Windows')"), cmd);
 ok('the gates never run on the hosted machine (their jobs stay self-hosted)', ['glsl', 'quality', 'perf'].every((j) => /runs-on: \[self-hosted, '\$\{\{ matrix\.machine \}\}', gpu\]/.test(job(j))));
 
 console.log(`t_gpu_gate_hosted: ${pass} passed, ${fail} failed`);

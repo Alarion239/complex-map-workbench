@@ -1,8 +1,9 @@
 # The gate on our own machines with real GPUs (ci/RUNNERS.md): the paired perf suite (desktop units and the emulated
-# phone) with the suite's own tolerances, image quality and GLSL conformance on the Mac, registered as a self-hosted
-# runner with the label `gpu` (the Windows laptop's runner was removed on 2026-11-01, #169: Windows GPU results are
-# skipped until one is back; the Windows paths below stay for it). Once they are (GPU_RUNNERS), speed is gated here, not in the
-# Gate on GitHub's machines.
+# phone) with the suite's own tolerances, image quality and GLSL conformance on the Mac and, on request, on a Windows
+# desktop, registered as self-hosted runners with the label `gpu`. The desktop runs on request: by hand, with machines
+# windows or both (#169). Every event (a push, the nightly run, the label gpu-gate) runs the Mac alone, so nothing
+# queues for a desktop that is off. Once they are (GPU_RUNNERS), speed is gated here,
+# not in the Gate on GitHub's machines.
 #
 # Off until the repository variable GPU_RUNNERS is 'true' (Settings > Secrets and variables > Actions > Variables), so
 # nothing waits in the queue for a machine that is not registered. Every run waits for an approval in the
@@ -12,12 +13,12 @@
 # Runs: on every push to main; nightly; by hand (Actions > GPU gate > Run workflow); on a pull request from a branch of
 # this repository when it has the label `gpu-gate`. The machines' own Chrome, Python and Git are used (ci/RUNNERS.md).
 # By hand with mode glprof: no gates, only the app's shader link times on each machine, cold and warm (ci/glprof.js,
-# issue #72; on the Mac against the reference, the sides in turn): the table in the run's summary and log, the JSON as
+# issue #72; against the reference, on the Mac the sides in turn): the table in the run's summary and log, the JSON as
 # the artifact glprof-<machine>. Machines windows-hosted (mode glprof only): the same on GitHub's windows-latest, whose
 # Direct3D 11 renders on WARP but compiles with the same FXC on the CPU, against the reference: an A/B of link times
 # while the laptop is away (#378).
 # By hand with mode suites and the input suites (a regular expression of suite file names, as ci/browser.js --only):
-# only those browser suites, on the Mac's real GPU, at the ref the run is dispatched on (run it on two refs to compare
+# only those browser suites, on the chosen machines' real GPUs, at the ref the run is dispatched on (run it on two refs to compare
 # them). No perf, GLSL or quality jobs; the approval of the `gpu-runners` environment still comes first.
 # On the Mac every step that drives the browser (the suites, GLSL, quality, perf and link-time steps) runs under
 # `caffeinate -dimsu`, which holds the display, the system and the disks awake for as long as its command runs and
@@ -40,7 +41,7 @@ on:
         required: false
         default: ''
       machines:
-        description: 'Which machines (mac: the only GPU runner now, #169; windows and both: the Windows GPU runner was removed, windows fails at once, both runs the Mac; windows-hosted: mode glprof only, GitHub''s windows-latest, Direct3D 11 on WARP, against the reference)'
+        description: 'Which machines (mac: the Mac alone, the default and what every event runs; windows: the Windows desktop alone, on request, #169; both: the desktop and the Mac; windows-hosted: mode glprof only, GitHub''s windows-latest, Direct3D 11 on WARP, against the reference)'
         type: choice
         options: [mac, both, windows, windows-hosted]
         default: mac
@@ -57,7 +58,7 @@ on:
         type: boolean
         default: false
       mode:
-        description: gate (the paired gates), glprof (the app's shader link times, cold and warm, issue #72; no gate) or suites (only the browser suites named by the input suites, on the Mac; no gate)
+        description: gate (the paired gates), glprof (the app's shader link times, cold and warm, issue #72; no gate) or suites (only the browser suites named by the input suites, on the chosen machines; no gate)
         type: choice
         options: [gate, glprof, suites]
         default: gate
@@ -86,9 +87,11 @@ permissions:
 
 concurrency:
   # (the nightly run in a group of its own: one that waits for a machine never holds the next push to main behind it,
-  # as run 83 held 113 on 2026-10-28, #169). A pull request's or a by-hand run replaces the one before it on the same
-  # branch, so a newer run is never stuck behind a lost one; pushes to main and the nightly run are kept
-  group: gpu-gate-${{ github.event_name == 'schedule' && 'nightly' || github.event.pull_request.number || github.ref }}
+  # as run 83 held 113 on 2026-10-28, #169; a by-hand run that asks for the desktop in a group of its own, for the same
+  # reason: it may wait for hours, or for as long as the desktop is off). A pull request's or a by-hand run replaces
+  # the one before it on the same branch, so a newer run is never stuck behind a lost one; pushes to main and the
+  # nightly run are kept
+  group: gpu-gate-${{ github.event_name == 'schedule' && 'nightly' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["windows","both"]'), inputs.machines) && format('desktop-{0}', github.ref)) || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
 
 env:
@@ -146,7 +149,7 @@ jobs:
             const s = process.env.SUITES;
             if (!s) { console.error("::error::mode suites needs the input suites (a regular expression of suite file names, as ci/browser.js --only)"); process.exit(1); }
             try { new RegExp(s); } catch (e) { console.error("::error::the input suites is not a regular expression: " + e.message); process.exit(1); }'
-          echo "Browser suites on the Mac: \`$SUITES\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Browser suites on the chosen machines: \`$SUITES\`" >> "$GITHUB_STEP_SUMMARY"
       - id: shards
         shell: bash
         run: |
@@ -156,14 +159,12 @@ jobs:
       - id: machines
         shell: bash
         run: |
-          # (#169: the self-hosted Windows GPU runner was removed (2026-11-01), so a job for it would queue forever. The Mac
-          # is the only GPU machine: every event (a push, the nightly run, the label gpu-gate) and the default run it alone;
-          # windows fails at once, both runs the Mac and says so. Windows GPU results are skipped until a runner is back.)
+          # (#169: the Windows desktop is on request only: a job for it waits in the queue while it is off. So every event
+          # (a push, the nightly run, the label gpu-gate) and the default run the Mac alone, and only a run by hand with
+          # machines windows or both sends jobs to the desktop.)
           case "${{ inputs.machines }}" in
-            windows) echo "::error::Windows GPU runner removed (#169): no machine would take this run's jobs. Run machines mac, or windows-hosted with mode glprof."; exit 1 ;;
-            both) echo "::warning::Windows GPU runner removed (#169): machines both runs the Mac only."
-                  echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT"
-                  echo "Windows GPU runner removed (#169): the Mac only." >> "$GITHUB_STEP_SUMMARY" ;;
+            windows) echo 'machines=["Windows"]' >> "$GITHUB_OUTPUT" ;;
+            both) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
             # (GitHub's Windows machine: shader link times only, the gates need our GPUs)
             windows-hosted)
               if [ "${{ inputs.mode }}" != glprof ]; then echo "::error::machines windows-hosted runs mode glprof only"; exit 1; fi
@@ -173,24 +174,21 @@ jobs:
           esac
       # the GLSL jobs: macOS runs its pages whole (minutes). Windows (FXC on one core: the glsl page alone took over 170
       # minutes a side on the nightly run of 2026-10-29, cut off at the job's limit) runs every chain in parts, the
-      # glsl page in eighths and adv and inverse in a job each, on the nightly run and by hand; a pull request and a
-      # push to main run its core tier in one job (ci/README.md, GLSL tiers)
+      # glsl page in eighths and adv and inverse in a job each (ci/README.md, GLSL tiers)
       - id: glsl
         shell: bash
         env:
           MACHINES: ${{ steps.machines.outputs.machines }}
         run: |
           set -eu
-          case "${{ github.event_name }}" in schedule|workflow_dispatch) win=all ;; *) win=core ;; esac
           node -e '
-            const ms = JSON.parse(process.env.MACHINES), win = process.argv[1], jobs = [];
+            const ms = JSON.parse(process.env.MACHINES), jobs = [];
             for (const machine of ms) {
               if (machine !== "Windows") { jobs.push({ machine, page: "", part: "1/1", tier: "all" }); continue; }
-              if (win === "core") { jobs.push({ machine, page: "", part: "1/1", tier: "core" }); continue; }
               for (let i = 1; i <= 8; i++) jobs.push({ machine, page: "glsl", part: i + "/8", tier: "all" });
               jobs.push({ machine, page: "adv", part: "1/1", tier: "all" }, { machine, page: "inverse", part: "1/1", tier: "all" });
             }
-            console.log("glsl=" + JSON.stringify(jobs));' "$win" >> "$GITHUB_OUTPUT"
+            console.log("glsl=" + JSON.stringify(jobs));' >> "$GITHUB_OUTPUT"
 
   # (mode glprof, by hand: ci/glprof.js on each machine instead of the gates; the table goes to the run's summary)
   glprof:
@@ -221,11 +219,11 @@ jobs:
       # a SwiftShader fallback would run for hours and measure no FXC at all)
       - run: node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '--require-angle d3d11' }}
       # (on the Mac: this commit and the reference in turn, twice each, Chrome's Metal cache emptied before each cold
-      # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
+      # pass, which a fresh profile alone does not empty there (#237); Windows: this commit and the reference, below)
       # (walk and variant: #238; a variant is the second side, so the Mac's reference is left out then)
       # (with a variant: one round, a step timeout of 10 minutes, so both Windows sides fit the job's 300, #369)
-      # (Windows-hosted: this commit and the reference, one round, the same step timeout, to fit too)
-      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (matrix.machine == 'Windows-hosted' && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
+      # (Windows, the desktop and the hosted machine: this commit and the reference, one round, the same step timeout, to fit too)
+      - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glprof.js --walk ${{ inputs.walk || 'all' }} ${{ inputs.variant == 'unroll' && '--variant unroll --step-timeout 600' || (matrix.machine == 'macOS' && format('--ref {0}', needs.plan.outputs.reference) || (startsWith(matrix.machine, 'Windows') && format('--ref {0} --rounds 1 --step-timeout 600', needs.plan.outputs.reference) || '')) }} ${{ matrix.machine == 'macOS' && '--clear-metal-cache' || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -234,7 +232,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-  # (mode suites, by hand: the browser suites the regex names, on the Mac's GPU, at the dispatched ref; the summary and the log
+  # (mode suites, by hand: the browser suites the regex names, on the chosen machines' GPUs, at the dispatched ref; the summary and the log
   # carry ci/browser.js's table, and the job fails when a suite does)
   suites:
     name: Browser suites (${{ matrix.machine }} GPU)
@@ -269,7 +267,7 @@ jobs:
           retention-days: 3
 
   glsl:
-    name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }}${{ matrix.tier == 'core' && ', core' || '' }})
+    name: GLSL (${{ matrix.machine }} GPU${{ matrix.page && format(', {0} {1}', matrix.page, matrix.part) || '' }})
     needs: plan
     # (glsl skip, by hand: no GLSL and no quality jobs, the perf shards start at once; a measurement, not the full gate)
     if: inputs.mode != 'glprof' && inputs.mode != 'suites' && inputs.glsl != 'skip'
@@ -296,7 +294,7 @@ jobs:
       # (paired with the reference; on the Mac, where the tests were written, glsl and inverse also outright: adv fails
       # 304 values there, in 10 chains near removable singularities, as every release since v14 did, so it is paired only)
       # (only the pages whose shader code or tests changed; all of them nightly and with force. The job's page, part
-      # and tier come from the plan: on Windows every chain only nightly and by hand, in parts; ci/README.md, GLSL tiers)
+      # and tier come from the plan: on Windows every chain, in parts; ci/README.md, GLSL tiers)
       - run: ${{ matrix.machine == 'macOS' && 'caffeinate -dimsu ' || '' }}node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.page && format('--only {0}', matrix.page) || '' }} --part ${{ matrix.part }} --tier ${{ matrix.tier }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
         env:
           # (a page whose browser used no CPU for 20 minutes is stuck: it fails then, not at the job's timeout)
