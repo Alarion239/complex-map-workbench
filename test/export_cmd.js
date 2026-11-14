@@ -10,6 +10,7 @@
 // CMW_ONLY=1-3 runs sections 1 to 3 alone and CMW_ONLY=user5 section 6 (the CI runs these parts: ci/browser_suites.js).
 // CMW_ONLY=user5-classic and user5-deform are the parts of section 6 that only the classic views have: the Landscape's pane
 // title naming the sheets, and the Deformation's film on them; the CI runs each on the classic views (CMW_VIEW empty).
+// CMW_ONLY=user5-deform-steps is that film's steps-view leg: the thread's play (K, M or the ▶) over the Landscape's sheets.
 const BASE = process.env.CMW_BASE || 'http://localhost:8793/'; // (a daemon of your own: CMW_BASE=http://localhost:<port>/)
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -28,7 +29,7 @@ const open = async (ns, w = 1440, h = 900, dark = false, view0 = null) => {
 };
 const b64of = (expr) => `await (async () => { const b = await (${expr}); const u8 = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); })()`;
 
-const USER5_CLASSIC = process.env.CMW_ONLY === 'user5-classic', USER5_DEFORM = process.env.CMW_ONLY === 'user5-deform';
+const USER5_CLASSIC = process.env.CMW_ONLY === 'user5-classic', USER5_DEFORM = process.env.CMW_ONLY === 'user5-deform', USER5_PLAY = process.env.CMW_ONLY === 'user5-deform-steps';
 if (!/^user5/.test(process.env.CMW_ONLY || '')) { // (CMW_ONLY=user5, user5-classic, user5-deform: section 6 only)
 // 1. every view x preset x ink, in every format
 const PRESETS = {
@@ -290,7 +291,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   ];
   const disc = [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }];
   const OLD = /all sheets of the Riemann surface|все листы римановой поверхности/;
-  for (const [nm, steps, en, ru, title] of USER5_DEFORM ? [] : CASES) {
+  for (const [nm, steps, en, ru, title] of USER5_DEFORM || USER5_PLAY ? [] : CASES) {
     await loadSt(`u5s${nm}${Date.now()}`, { steps, rightMode: '3d', sheets: true, height: 'im', shapes: disc });
     const t = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
     if (USER5_CLASSIC) {
@@ -356,6 +357,36 @@ if (process.env.CMW_ONLY !== '1-3') {
   ok('sheets, whole chain in turn: the path in the step\'s own time s', we && turnEN.test(we.cap) && !/\(\\alpha-1\)t\$/.test(we.cap) && /runs the steps in turn/.test(we.cap), we && we.cap.slice(0, 1400));
   ok('sheets, whole chain in turn: Russian', wr && /\\sigma=1\+\(\\alpha-1\)s\$, где \$s\$ \(\$0\\le s\\le 1\$\)(?:~---|\s—) время соответствующего шага/.test(wr.cap) && !/\(\\alpha-1\)t\$/.test(wr.cap), wr && wr.cap.slice(0, 1400));
   await ev('__cmwMorph({ open: false })'); await settle(600);
+  } else if (USER5_PLAY) {
+  // the steps view has no Deformation transport: the thread's play is the film, and on the Landscape with All sheets it
+  // glides over the sheets (the carried sheets, GLR.drawLandscape's landCarryPlace). Playing √z from z: a frame between the
+  // planes draws both sheets, the title says so, and the play ends on w_1, the colour plane, with one surface (#791)
+  await loadSt(`u5splay${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+  await ev(`__cmwSteps({ surf: 'land', clock: 40 }); 1`); await settled({ until: '__cmwLandSheets().drawn && __cmwLandSheets().drawn.K === 2', max: 20000 });
+  const at0 = await ev('__cmwLandSheets()');
+  ok('sheets, steps play: at rest on z both sheets are drawn', at0 && at0.drawn && at0.drawn.K === 2, at0 && at0.drawn);
+  await key('m');
+  let mid = null, x = 0;
+  for (let i = 0; i < 100 && !(x > 0.25 && x < 0.9 && mid && mid.drawn); i++) { await sleep(120); x = await ev('__cmwSvX()'); mid = await ev('__cmwLandSheets()'); }
+  ok('sheets, steps play: m plays the thread (the glide is between the planes)', x > 0.25 && x < 0.9, x);
+  ok('sheets, steps play: a frame of the glide draws both sheets', !!(mid && mid.drawn && mid.drawn.K === 2), mid && mid.drawn);
+  ok('sheets, steps play: the glide\'s title says both sheets', !!(mid && /both sheets/.test(mid.title)), mid && mid.title);
+  R.u5.caps.play = { x, drawn: mid && mid.drawn, title: mid && mid.title };
+  let end = 0;
+  for (let i = 0; i < 150 && end < 0.999; i++) { await sleep(120); end = await ev('__cmwSvX()'); }
+  await settled({ until: '__cmwSvX() >= 0.999', max: 20000 });
+  const done = await ev('__cmwLandSheets()');
+  // (w_1 is the colour plane: its F is the identity, one surface and no sheets)
+  ok('sheets, steps play: it arrives on w_1, the colour plane, and the sheets are gone', end >= 0.999 && done && !done.drawn, { end, drawn: done && done.drawn });
+  // (√ then sin: the play from w_1 glides across the sin step, whose frames keep √'s two sheets (#1099); a slow clock keeps
+  // the play between the planes while the carry's program compiles)
+  await loadSt(`u5splaysin${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+  await ev(`__cmwSteps({ surf: 'land', clock: 8, x: 1 }); 1`); await settled({ until: '__cmwSvX() === 1', max: 20000 });
+  await key('m');
+  let sm = null, sx = 0;
+  for (let i = 0; i < 300 && !(sx > 1.15 && sx < 1.9 && sm && sm.drawn); i++) { await sleep(150); sx = await ev('__cmwSvX()'); sm = await ev('__cmwLandSheets()'); if (sx >= 1.9) break; }
+  ok('sheets, steps play across sin: a frame of the glide draws both sheets', !!(sx > 1.15 && sx < 1.9 && sm && sm.drawn && sm.drawn.K === 2), { x: sx, drawn: sm && sm.drawn });
+  await ev(`__cmwSteps({ play: false, clock: null }); 1`);
   } else if (!USER5_CLASSIC) {
   // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
   await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });

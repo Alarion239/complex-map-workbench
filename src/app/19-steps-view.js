@@ -3152,8 +3152,8 @@
   // ---- play along the thread (#438): ▶, Loop, the range ----
   // The speed is the steps view's setting (SV.speed, saved as S.sv.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
   // range's end (or the last plane) in a straight line, with no stop at the planes; Loop starts over at the range's start
-  // (or z). The landscape (no frames between planes) and reduced motion step a plane at a time instead (2 s under reduced
-  // motion, with the live region saying each plane).
+  // (or z), on the Landscape too (its sheets glide, svLandMoving). Reduced motion steps a plane at a time instead (2 s,
+  // with the live region saying each plane).
   const svPerPlane = () => SV_SPEEDS[SV.speed] || 900;
   // the range a…b (S.homRange: steps a…b are the band from w_{a−1} to w_b) as planes {lo, hi}, or null; the plane at or
   // before a stage
