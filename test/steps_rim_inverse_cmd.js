@@ -55,6 +55,7 @@ if (ex >= 0) {
     await go(`http://localhost:${PORT}/test.html?view=steps&ns=rim${dpr}${Date.now()}`);
     await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvFixed === "function" && !!window.GLR' });
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
     await ev("__cmwSet('alpha', 1), 1");
     await settled({ max: 20000 });
     await ev('__cmwHideStrokes(true), 1');

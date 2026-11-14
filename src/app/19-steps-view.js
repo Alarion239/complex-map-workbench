@@ -1752,7 +1752,7 @@
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
       // carried colour's CPU mesh, which needs a frame of its own, waits)
       paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
-      after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
+      after: () => { grid(true); if (!bare) svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
     })) {
       // (drawn: the frame is on the page)
     } else {
@@ -1763,8 +1763,7 @@
       if (!mask && !frame.cc) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
-        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
+        if (!bare) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
@@ -1772,7 +1771,7 @@
         if (mask) svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
-        svOutlines(pane, map, null, col);
+        if (!bare) svOutlines(pane, map, null, col);
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
@@ -3152,8 +3151,8 @@
   // ---- play along the thread (#438): ▶, Loop, the range ----
   // The speed is the steps view's setting (SV.speed, saved as S.sv.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
   // range's end (or the last plane) in a straight line, with no stop at the planes; Loop starts over at the range's start
-  // (or z). The landscape (no frames between planes) and reduced motion step a plane at a time instead (2 s under reduced
-  // motion, with the live region saying each plane).
+  // (or z), on the Landscape too (its sheets glide, svLandMoving). Reduced motion steps a plane at a time instead (2 s,
+  // with the live region saying each plane).
   const svPerPlane = () => SV_SPEEDS[SV.speed] || 900;
   // the range a…b (S.homRange: steps a…b are the band from w_{a−1} to w_b) as planes {lo, hi}, or null; the plane at or
   // before a stage
