@@ -11,6 +11,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does)
+const { inline } = require('../ci/glsl_inline.js');
 const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', constrpoc: 'ConstrPoc', constrortho: 'ConstrOrtho', constr: 'Constr', curves: 'Curves', palette: 'Palette', gl: 'GLR' };
 for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src'), { esm: 'strip' }) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { Funcs, Inverse, GLChain, GLR } = ctx;
@@ -327,54 +328,9 @@ for (const t of TYPES) {
 // of the chain (chainRange), the carried colour (dcolorD), the admission's shading (ixShadeAdm) or a formula's level
 // (ixFormLevel) puts a second copy of it in the program (FXC's compile time grows faster than the inlined size) ----
 {
-  // the text a compiler sees: #ifdef / #ifndef / #if ... #else ... #endif resolved with the text's own #defines (#if
-  // takes terms joined by &&: defined(X), !defined(X), a number, a name, a name compared with a number)
-  const preprocess = (src) => {
-    const defs = new Map(), out = [], open = [];
-    const num = (name) => +(defs.get(name) || 0);
-    const term = (t) => {
-      const m = /^(!?)defined\s*\(\s*(\w+)\s*\)$/.exec(t) || /^(\w+)\s*(>=|>|==)\s*(\d+)$/.exec(t);
-      if (m && m.length === 3) return defs.has(m[2]) !== (m[1] === '!');
-      if (m) return m[2] === '>=' ? num(m[1]) >= +m[3] : m[2] === '>' ? num(m[1]) > +m[3] : num(m[1]) === +m[3];
-      if (/^\d+$/.test(t)) return +t !== 0;
-      if (/^\w+$/.test(t)) return num(t) !== 0;
-      throw new Error(`#if term ${t}`);
-    };
-    for (const line of src.split('\n')) {
-      const m = /^\s*#\s*(ifdef|ifndef|if|elif|else|endif|define)\b\s*(.*)$/.exec(line), on = open.every((x) => x);
-      if (!m) { if (on) out.push(line); continue; }
-      const [, d, rest] = m;
-      if (d === 'elif') throw new Error('#elif');
-      if (d === 'endif') open.pop();
-      else if (d === 'else') open.push(!open.pop());
-      else if (d === 'define') { if (on) { const dm = /^(\w+)(\()?\S*\s*(.*)$/.exec(rest); defs.set(dm[1], dm[2] ? '1' : dm[3]); out.push(line); } }
-      else open.push(d === 'ifdef' ? defs.has(rest.trim()) : d === 'ifndef' ? !defs.has(rest.trim()) : rest.split('&&').every((t) => term(t.trim())));
-    }
-    return out.join('\n');
-  };
-  // copies of each function in main's full inlining: the bodies of the functions defined at the start of a line, every
-  // call site counted
-  const copies = (src) => {
-    const text = preprocess(src).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-    const body = new Map();
-    for (const m of text.matchAll(/^(?:highp |mediump |lowp )?\w+ (\w+)\([^()]*\)\s*\{/gm)) {
-      let d = 0, j = m.index + m[0].length - 1;
-      do { if (text[j] === '{') d++; else if (text[j] === '}') d--; j++; } while (d > 0);
-      body.set(m[1], text.slice(m.index + m[0].length, j));
-    }
-    const callsOf = new Map(), out = new Map();
-    const calls = (f) => {
-      if (!callsOf.has(f)) {
-        const c = new Map();
-        for (const m of body.get(f).matchAll(/\b(\w+)\s*\(/g)) if (m[1] !== f && body.has(m[1])) c.set(m[1], (c.get(m[1]) || 0) + 1);
-        callsOf.set(f, c);
-      }
-      return callsOf.get(f);
-    };
-    const visit = (f, k) => { out.set(f, (out.get(f) || 0) + k); for (const [g, c] of calls(f)) visit(g, k * c); };
-    visit('main', 1);
-    return out;
-  };
+  // copies of each function in main's full inlining, after the preprocessor (ci/glsl_inline.js, as ci/fxc_size.js sizes
+  // a program)
+  const copies = (src) => inline(src).copies;
   const steps = [St('exp'), St('mobius')], info = GLChain.build(steps, steps.map(Funcs.build));
   const CARRY = { carry: true, pre: '', main: '' }, STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
   const form = GLChain.levelGLSL('|\\Im z|<1', 'ilev0');
