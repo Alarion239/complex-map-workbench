@@ -40,6 +40,7 @@ try {
     await go(`${BASE}/test.html?ns=ll${Date.now()}&lang=en&view=steps`);
     await settled({ max: READY_MS, until: loaded });
     await ev(`__cmwExample(${ex}), 1`);
+    await adopted();
     await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
     const r0 = await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
     await ev('__cmwSteps({ park: 0 }), 1');
@@ -70,6 +71,7 @@ try {
     await go(`${BASE}/test.html?ns=llr${Date.now()}&lang=en&view=steps`);
     await settled({ max: READY_MS, until: loaded });
     await ev(`__cmwExample(${ex}), 1`);
+    await adopted();
     await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
     await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
     await ev('__cmwSteps({ T: 0 }), __cmwSteps({ park: 0 }), 1');
@@ -137,6 +139,7 @@ try {
     await go(`${BASE}/test.html?ns=lll${Date.now()}&lang=en&view=steps`);
     await settled({ max: READY_MS, until: loaded });
     await ev(`__cmwExample(${ex}), 1`);
+    await adopted();
     await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
     const r5 = await settled({ max: WARM_MS, only: true, until: `GLR.pending().some((p) => ${landLinking})` });
     await ev(`(() => {

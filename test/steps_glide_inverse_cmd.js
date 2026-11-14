@@ -105,6 +105,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   await go(`${BASE}/test.html?ns=gz${Date.now()}&lang=en&view=steps`);
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
+  await adopted();
   await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
   // (the prestart's idle warm draw lands in the GL canvas next to whichever frame is requested while it runs: the
   // frames are measured once the prestart is done)
@@ -245,6 +246,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   await go(`${BASE}/test.html?ns=gn${Date.now()}&lang=en&view=steps`);
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
+  await adopted();
   await ev(`__cmwSteps({ scope: 'in' }), 1`);
   await settled({ max: 60000, until: 'GLR.pendingLinks === 0 && !__cmwSteps().anim' });
   // (each newtRoots call: its answer and the getParameter calls made inside it)

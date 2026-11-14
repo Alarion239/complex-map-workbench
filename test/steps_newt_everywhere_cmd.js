@@ -87,6 +87,7 @@ for (const c of CASES) {
   await go(`${BASE}/test.html?ns=ne${Date.now()}&lang=en&view=steps`);
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
+  await adopted();
   await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
   await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
   await park(0); const s0 = await grab('P0');

@@ -41,6 +41,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=cfpt${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   for (const scope of ['in', 'all']) for (const x of [0.25, 0.5]) {
     const tag = `${name} ${scope} ${x}`;

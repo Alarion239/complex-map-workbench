@@ -255,6 +255,15 @@ H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {})
     await sleep(RELOAD_POLL_MS);
   }
 };
+// After a chain was loaded (__cmwExample, a link, a state), the steps view adopts the chain's own view (scope, colour plane,
+// surface) at the left pane's next render: a view set before that render is overwritten. adopted() waits, with no sleep,
+// until that has happened (__cmwSteps().adopted; polled, the page renders on its own) and throws "the chain was not adopted" if it has not by `max` ms.
+H.ADOPT_MAX_MS = 60000;
+H.adopted = async (max = H.ADOPT_MAX_MS) => {
+  const r = await H.settled({ until: '__cmwSteps().adopted', max, only: true });
+  if (!r.ok) throw new Error(`the chain was not adopted within ${max} ms (${JSON.stringify(r.busy)})`);
+  return r;
+};
 H.shot = async (name, clip) => {
   const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
   const r = await send('Page.captureScreenshot', p, S);

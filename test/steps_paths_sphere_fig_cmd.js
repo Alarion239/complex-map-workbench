@@ -11,6 +11,7 @@ const open = async (exN, plane) => {
   await go(`${base}/test-mj.html?view=steps&ns=psf${Date.now() % 1e7}${ns++}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${exN}), 1)`);
+  await adopted();
   await settled({ until: '__cmwSteps().planes.length > 0', max: 15000 });
   await ev(`(__cmwSteps({ surf: 'sphere' }), __cmwSteps({ go: ${plane}, now: true }), 1)`);
   await settled({ until: '!__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)', max: 20000 });

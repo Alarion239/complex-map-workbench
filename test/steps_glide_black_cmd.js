@@ -49,6 +49,7 @@ for (const c of CASES) {
     const ex = names.indexOf(c.example);
     ok(`${c.tag}: the example is found`, ex >= 0, names.length);
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
   }
   await settled({ max: 60000 });
   await ready();

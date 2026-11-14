@@ -14,6 +14,7 @@ await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window
 const MAX_EXAMPLES = 80;
 const names = await ev(`(() => { const out = []; for (let i = 0; i < ${MAX_EXAMPLES}; i++) { try { __cmwExample(i); } catch (e) { break; } const l = document.querySelector('#examplesBtn .exlabel'); out.push(l ? l.textContent : ''); } return out; })()`);
 await ev(`__cmwExample(${names.findIndex((n) => /^Strip to disk/.test(n))}); 1`); await settled({});
+await adopted();
 await ev(`__cmwSteps({ go: 1, now: true, surf: 'plane' }); 1`); await settled({ max: 30000 });
 const sentence = (await ev(`__cmwSvPaths().then((r) => r && r.sentence)`)) || '';
 info.sentence = sentence.slice(0, 80);

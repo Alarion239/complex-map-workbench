@@ -155,6 +155,7 @@ await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 't
 await ctl({ play: true });
 await sleep(600);
 await ev(`(__cmwExample(5), 1)`); await sleep(2500); await settle(500);
+await adopted();
 const xl = await S();
 ok('an example loaded while playing (Loop on) stops Play and shows its view from the first plane', xl.play === null && xl.i === 0 && Math.abs(xl.x - Math.round(xl.x)) < 1e-9 && !xl.moving, xl);
 await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'false' || document.querySelector('.sv-loop').click(); 1`);

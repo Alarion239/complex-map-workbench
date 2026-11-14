@@ -9,6 +9,7 @@ await view(1440, 900, false);
 const ns = 'lsi' + Date.now();
 await load(ns, {});
 await ev('(__cmwExample(15), 1)');
+await adopted();
 await ev('(__cmwSteps({ T: 0, go: 99, now: true }), 1)');
 await sleep(3000);
 // (the share of the pane in the shape's blue: the stand-in and the GPU picture both draw it)
