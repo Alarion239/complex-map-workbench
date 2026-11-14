@@ -39,7 +39,7 @@
 // truth says inside (pixels within 1e-9 of |z| = 1 skipped); (A) counts only the pixels of that window (beyond it tanh w rounds to +-1 in float64, so no forward
 // sample can land there; the identity covers it: tanh(x +- i pi/4) has modulus 1 for every real x); (C) draws its random
 // points from the disc itself (ZREG). z^3 at s = 3e4 (group 'deep') is an ordinary scene. The polar model of (F) takes
-// the run's c0 disc (zi_H_polar85: none, as the inverse renderer draws log-polar cells to |z| -> 0 at alpha < 1).
+// the polar pattern's c0 disc |z| < cell/12.
 // Exit status 0 when every check passes, 1 otherwise.
 const path = require('path');
 const SC = require('./scenes');
@@ -307,7 +307,7 @@ MEMBERS.cube_far_deep = (w) => {
 };
 // SPEC 3.7: the accumulation sets (z^i and e^{1/z}: {0}; the others none)
 const ACCUM = { zi_H: [[0, 0]], e1z_disc: [[0, 0]], e1z_custom: [[0, 0]] };
-// the left view's box at 410 x 516 px (the meshing window clipWin of the saved state)
+// the z view's box at 410 x 516 px (the meshing window clipWin of the saved state)
 const winOf = (sc) => { const v = sc.srcView; return [v.cx - 205 / v.s, v.cx + 205 / v.s, v.cy - 258 / v.s, v.cy + 258 / v.s]; };
 // SPEC 5.1 written out again: D = log2(1 + dist(z, W) / R) + sum_p max(0, log2(rs / |z - p|)), rs = R / 8
 function keyOf(sc) {

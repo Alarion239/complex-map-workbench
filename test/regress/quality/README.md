@@ -128,20 +128,20 @@ reference build's renders instead).
 | `poly_mobius` | a pentagon in the upper half-plane under the Cayley map | inverse Cayley of w lies in the pentagon | (0, 200) |
 
 **Exact images through infinity** (`notes/sphere-design/SPEC.md`, section 12.4). Infinitely many sheets, essential
-singularities, shapes far from the left view, an outer exp over a non-affine prefix, a cut that a later step heals.
+singularities, shapes far from the z view, an outer exp over a non-affine prefix, a cut that a later step heals.
 They must meet the targets of the spec (see *Targets*). Their truths enumerate every member of the preimage families that can lie in
 the region (`scenes.js`; no sampling, no app code) and are checked independently by `verify_truth.js` (see *Verifying
 the truths*).
 
 | scene | map and region | exact truth | view of the image |
 |---|---|---|---|
-| `zi_H`, `zi_H_out4`, `zi_H_out16` | z^i (complex power α = i, cut 180°, sheet 0) of the upper half-plane; left view (0, i, 60) | the open annulus e^−π < \|w\| < 1 (only members with −ln\|w\| in (−π, π] exist; z_m = e^{Arg w + 2πm − i ln\|w\|} is in H iff −ln\|w\| is in (0, π)); the disc \|w\| < e^−π must stay empty | (0, 190), s = 47.5, 11.875 |
-| `expH`, `expH_out16` | e^z of the upper half-plane; left view (0, i, 60) | w ≠ 0 (members Log w + 2πim, Im > 0 for every m ≥ 1) | (0, 60), s = 3.75 |
-| `e1z_disc`, `e1z_disc_out16` | the chain [1/z, exp] of \|z\| < 1; left view (0, 120) | w ≠ 0 (z_m = 1/(Log w + 2πim) lies in the disc for every m ≠ 0) | (0, 60), s = 3.75 |
+| `zi_H`, `zi_H_out4`, `zi_H_out16` | z^i (complex power α = i, cut 180°, sheet 0) of the upper half-plane; z view (0, i, 60) | the open annulus e^−π < \|w\| < 1 (only members with −ln\|w\| in (−π, π] exist; z_m = e^{Arg w + 2πm − i ln\|w\|} is in H iff −ln\|w\| is in (0, π)); the disc \|w\| < e^−π must stay empty | (0, 190), s = 47.5, 11.875 |
+| `expH`, `expH_out16` | e^z of the upper half-plane; z view (0, i, 60) | w ≠ 0 (members Log w + 2πim, Im > 0 for every m ≥ 1) | (0, 60), s = 3.75 |
+| `e1z_disc`, `e1z_disc_out16` | the chain [1/z, exp] of \|z\| < 1; z view (0, 120) | w ≠ 0 (z_m = 1/(Log w + 2πim) lies in the disc for every m ≠ 0) | (0, 60), s = 3.75 |
 | `e1z_custom` | custom formula `e^{\frac{1}{z}}` of \|z\| < 1 | as `e1z_disc` | (0, 60) |
-| `exp_far_disc` | e^z of \|z − 60i\| < 1, the left view zoomed out to ±80 × ±100 (s = 2.5625) | some Log w + 2πim lies in the disc (m = 9 or 10; m = 7..12 enumerated) | (0, 60) |
-| `ez2_disc` | custom `e^{z^2}` of \|z − (3+3i)\| < 0.3, the default left view (0, 60) | some ±√(Log w + 2πim) lies in the disc (m = 2, 3; m = −1..6 enumerated) | (3.3 − 3.15i, 22): fitted to the image |
-| `healed_cut` | [log (cut 180°), exp] of \|z + 1\| < 0.6; left view (−1, 150) | the disc itself (exp(Log z) = z) | (−1 + i·0.5/150, 150): log's cut runs through pixel centres |
+| `exp_far_disc` | e^z of \|z − 60i\| < 1, the z view zoomed out to ±80 × ±100 (s = 2.5625) | some Log w + 2πim lies in the disc (m = 9 or 10; m = 7..12 enumerated) | (0, 60) |
+| `ez2_disc` | custom `e^{z^2}` of \|z − (3+3i)\| < 0.3, the default z view (0, 60) | some ±√(Log w + 2πim) lies in the disc (m = 2, 3; m = −1..6 enumerated) | (3.3 − 3.15i, 22): fitted to the image |
+| `healed_cut` | [log (cut 180°), exp] of \|z + 1\| < 0.6; z view (−1, 150) | the disc itself (exp(Log z) = z) | (−1 + i·0.5/150, 150): log's cut runs through pixel centres |
 
 For `expH` and `e1z_*` the boundary stroke (the image of the region's boundary: the positive real ray, the curve
 e^{e^{iφ}}) runs through the inside of the image; like `disc_cube` they exclude a 2.5 px band around it (`srcSdf`).
@@ -202,7 +202,7 @@ the stroke is drawn there too. This uses the first-order distance `|sdf_Ω(z)|·
 | `iou` | \|fill ∩ truth\| / \|fill ∪ truth\| over the non-band, non-ANNOT pixels | higher |
 | `hole` | the fraction of truth-interior pixels outside the band that are rendered as BG | lower |
 | `spill` | the fraction of truth-exterior pixels outside the band that are rendered as FILL | lower |
-| `parity_acc` | pattern runs only. Among the scored pixels, the fraction whose checker colour (nearer `c0` = even, nearer `c1-alt` = odd) matches the truth: parity of ⌊Re z / cell⌋ + ⌊Im z / cell⌋ for the unique preimage z in the region. `cell` follows the app's rule: niceStep(size/10), where size is the largest bounded area's bbox side, or the meshing window's side when no area is bounded | higher |
+| `parity_acc` | checker renders only. Among the scored pixels, the fraction whose checker colour (nearer `c0` = even, nearer `c1-alt` = odd) matches the truth: parity of ⌊Re z / cell⌋ + ⌊Im z / cell⌋ for the unique preimage z in the region. `cell` follows the app's rule: niceStep(size/10), where size is the largest bounded area's bbox side, or the meshing window's side when no area is bounded | higher |
 | `golden_diff` | bounded controls only. The fraction of all pixels whose colour differs from the golden PNG by more than 8/255 in some channel, after a 1 px blur ([1 2 1]/4, separable) of both images | lower |
 
 A pixel is **scored** for parity when all of these hold:
@@ -230,13 +230,13 @@ stricter rules than those of the groups `unbounded` and `bounded`:
 | metric | definition | better | gated |
 |---|---|---|---|
 | `parity_acc` (checker runs) | `parity_mode: "front"`. Where several members cover a pixel, the checker shown is the **front** member's: the smallest sheet key D of SPEC 5.1 (W = the saved `clipWin`, R its half-diagonal, rs = R/8, P = `truth.accum`: {0} for z^i and e^{1/z}, none for exp), ties to the larger Im z, then the larger Re z (5.2). Scored like the original checker (cell ≥ 3 px, ≥ 1.5 px from a cell edge). With one member (far disc, e^{z²}, healed cut) this is the original rule | higher | yes |
-| `parity_acc` (polar runs) | `parity_mode: "polar"`. `truth.parityAll(w)`: under z^i every sheet z_m has the same log-polar parity, ⌊Arg w·16/2π⌋ + ⌊−ln\|w\|·16/2π⌋ mod 2 (ln\|z_m\| = Arg w + 2πm shifts the cell index by 16m). The app paints **solid c0** (parity 0) where the source point is within cell/12 of the polar origin (`REGION_FS`, kept on the inverse path by SPEC 6.2): sheets m ≤ −1 always lie there, sheet 0 when Arg w < ln(1/12). So the parity shown is that of the front member: 0 in that disc, `parityAll` outside, pixels within 1.5 px of the disc's edge not scored unless both sides show 0. Scored on every fill pixel inside whose cell is ≥ 3 px and that is ≥ 1.5 px from a cell edge (one cell is \|w\|·2π/16 wide in both directions). `polar_front_disc_px`: pixels the truth can score whose front member is in the disc (12 at `zi_H`, 0 at `zi_H_out4`; the boundary band not yet removed) | higher | yes |
+| `parity_acc` (polar renders) | `parity_mode: "polar"`. `truth.parityAll(w)`: under z^i every sheet z_m has the same log-polar parity, ⌊Arg w·16/2π⌋ + ⌊−ln\|w\|·16/2π⌋ mod 2 (ln\|z_m\| = Arg w + 2πm shifts the cell index by 16m). The app paints **solid c0** (parity 0) where the source point is within cell/12 of the polar origin (`REGION_FS`, kept on the inverse path by SPEC 6.2): sheets m ≤ −1 always lie there, sheet 0 when Arg w < ln(1/12). So the parity shown is that of the front member: 0 in that disc, `parityAll` outside, pixels within 1.5 px of the disc's edge not scored unless both sides show 0. Scored on every fill pixel inside whose cell is ≥ 3 px and that is ≥ 1.5 px from a cell edge (one cell is \|w\|·2π/16 wide in both directions). `polar_front_disc_px`: pixels the truth can score whose front member is in the disc (12 at `zi_H`, 0 at `zi_H_out4`; the boundary band not yet removed) | higher | yes |
 | `parity_excl_tie` | (both) the share of fill pixels not scored because a member behind the front has a key within **0.01 octave** (SPEC 3.10 / 5.4: the front key is exact, or within 0.01 octave where a window is truncated) and would show another parity | – | reported |
-| `opacity_min` | mask-type runs (mask, mask85, mask20): over the truth-interior pixels outside the band, the fill fraction t of the colour along plane → c0 (0 = plane, 1 = the opaque fill colour; projected and clamped to [0, 1]); the minimum | higher | yes, tol 0.01 |
+| `opacity_min` | solid renders (at any alpha): over the truth-interior pixels outside the band, the fill fraction t of the colour along plane → c0 (0 = plane, 1 = the opaque fill colour; projected and clamped to [0, 1]); the minimum | higher | yes, tol 0.01 |
 | `opacity_p01`, `opacity_mean`, `opacity_lt99` | the 1st percentile, the mean, and the fraction of those pixels below 0.99; `n_opacity` pixels scored | – | reported |
-| `color_off` | the share of interior pixels (outside the bands) whose colour is more than **6 RGB units** from the expected **opaque** fill colour: `c0` for mask-type runs, the segment `c0` – `c1-alt` for checker and polar (both checker colours and their antialiased or moiré-averaged blends). A fill 5 % darker (12 units off) moves it to 1; at alpha < 1 the exact image is opaque, so a translucent fill is off too | lower | yes, tol 0.001 |
+| `color_off` | the share of interior pixels (outside the bands) whose colour is more than **6 RGB units** from the expected **opaque** fill colour: `c0` for solid renders, the segment `c0` – `c1-alt` for checker and polar (both checker colours and their antialiased or moiré-averaged blends). A fill 5 % darker (12 units off) moves it to 1; at alpha < 1 the exact image is opaque, so a translucent fill is off too | lower | yes, tol 0.001 |
 | `color_err_mean`, `color_err_p99` | the RGB distance itself; `n_color` pixels | lower | reported |
-| `hole_leak` | `zi_H*`: pixels deeper than the band (2.5 px) inside the disc \|w\| < e^−π that render as FILL (or UNKNOWN); on mask-type runs also a **translucent** fill (a blend of c0 with the plane, opacity > 0.05: one sheet at alpha 0.2 is BG by class). `hole_leak_px`: the pixels of that disc (112 at the default view, 0 at out4 / out16 where the disc is under 2.5 px); `hole_leak_frac` | lower | yes, tol 0 (a count) |
+| `hole_leak` | `zi_H*`: pixels deeper than the band (2.5 px) inside the disc \|w\| < e^−π that render as FILL (or UNKNOWN); on solid renders also a **translucent** fill (a blend of c0 with the plane, opacity > 0.05: one sheet at alpha 0.2 is BG by class). `hole_leak_px`: the pixels of that disc (112 at the default view, 0 at out4 / out16 where the disc is under 2.5 px); `hole_leak_frac` | lower | yes, tol 0 (a count) |
 
 The truth's sheet order uses the saved `clipWin`; the runner reads the app's `clipWin` from its saved state at capture
 and adds a problem when it differs.

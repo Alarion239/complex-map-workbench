@@ -265,8 +265,8 @@ const BASE = {
     },
   },
   exp_far_disc: {
-    // a bounded shape far from the left view's centre: the inverse path must take its members from the shape (m = 9,
-    // 10), not from a window around the view (SPEC 15 M1); the left view is zoomed out to +-80 x +-100
+    // a bounded shape far from the z view's centre: the inverse path must take its members from the shape (m = 9,
+    // 10), not from a window around the view (SPEC 15 M1); the z view is zoomed out to +-80 x +-100
     shapes: [{ kind: 'disc', c: [0, 60], r: 1 }], steps: [{ type: 'exp', params: {} }],
     srcView: { cx: 0, cy: 0, s: 205 / 80 },
     truth: {
@@ -277,7 +277,7 @@ const BASE = {
     },
   },
   ez2_disc: {
-    // custom e^{z^2} of a small disc off the axes (an outer exp over a non-affine prefix z^2), default left view
+    // custom e^{z^2} of a small disc off the axes (an outer exp over a non-affine prefix z^2), default z view
     shapes: [{ kind: 'disc', c: [3, 3], r: 0.3 }], steps: [{ type: 'custom', params: { expr: 'e^{z^2}', cut: 180 } }],
     srcView: { cx: 0, cy: 0, s: 60 },
     truth: {
@@ -502,10 +502,10 @@ const SCENES = [
   scene('e1z_disc', 'e1z_disc', 'infinite', { cx: 0, cy: 0, s: 60 }, 'e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0'),
   scene('e1z_disc', 'e1z_disc_out16', 'infinite', { cx: 0, cy: 0, s: 60 / 16 }, 'e^{1/z} of the unit disc, zoomed out 16x'),
   scene('e1z_custom', 'e1z_custom', 'infinite', { cx: 0, cy: 0, s: 60 }, 'custom formula e^{1/z} of the unit disc'),
-  scene('exp_far_disc', 'exp_far_disc', 'bounded_far', { cx: 0, cy: 0, s: 60 }, 'exp of |z - 60i| < 1 with the left view zoomed out to +-80 x +-100 (members m = 9, 10)'),
+  scene('exp_far_disc', 'exp_far_disc', 'bounded_far', { cx: 0, cy: 0, s: 60 }, 'exp of |z - 60i| < 1 with the z view zoomed out to +-80 x +-100 (members m = 9, 10)'),
   scene('ez2_disc', 'ez2_disc', 'bounded_far', { cx: 3.3, cy: -3.15, s: 22 }, 'custom e^{z^2} of |z - (3+3i)| < 0.3, default z view; the view of the image fitted to it'),
   scene('healed_cut', 'healed_cut', 'bounded_cut', { cx: -1, cy: 0.5 / 150, s: 150 }, '[log, exp] of |z + 1| < 0.6: a cut that a later step heals; the cut runs through pixel centres (0.5 px offset)'),
-  // P2 review (SPEC 13.12): saturation points at 6x and 12x zoom-out, a deep zoom, z^i's polar cells at alpha < 1
+  // saturation points at 6x and 12x zoom-out, and a deep zoom (SPEC 13.12)
   scene('atanh_D', 'atanh_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'artanh of the unit disc, zoomed out 6x: the strip |Im w| < pi/4 to the view edges'),
   scene('atanh_D', 'atanh_D_s10', 'saturation', { cx: 0, cy: 0, s: 10 }, 'artanh of the unit disc, zoomed out 12x (|Re w| to 20: tanh w = +-1 in float32)'),
   scene('atan_D', 'atan_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'arctan of the unit disc, zoomed out 6x: the strip |Re w| < pi/4'),
@@ -575,7 +575,8 @@ function stateOf(sc) {
 }
 // all runs, in a fixed order: the globes ('<name>.look'), then one run per scene ('<name>.mask')
 //   kind: the classifier ('cover', metrics.js); strict: the metric rules of the new groups (metrics.js); stand: where
-//   the run stands in the steps view (STAND)
+//   the run stands in the steps view (STAND). parity, opacity, sheet and rc are null / off here: only
+//   test/t_inverse_render.js's own table of renders uses them
 function runs(filter) {
   const out = [];
   for (const sc of SPHERE_SCENES) {

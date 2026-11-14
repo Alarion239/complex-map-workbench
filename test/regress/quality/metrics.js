@@ -26,22 +26,22 @@
 //                 app paints solid c0 where the source point is within cell/12 of the polar origin (REGION_FS 'rc';
 //                 kept on the inverse path, SPEC 6.2), so the parity shown is that of the FRONT sheet (opt.sheet):
 //                 0 where the front member lies in that disc
-//   front checker pattern runs with several preimages per pixel: the planar checker parity of the front member, the
+//   front checker renders with several preimages per pixel: the planar checker parity of the front member, the
 //                 member with the smallest sheet key D of SPEC 5.1 (ties: larger Im z, then larger Re z)
 //   (both)        a pixel whose front can swap with a member of another displayed parity (keys within TIE_OCT) is
 //                 not scored (parity_excl_tie)
-//   opacity       mask-type runs: the fill fraction t of each truth-interior pixel along plane -> c0 (0 = plane,
+//   opacity       solid renders: the fill fraction t of each truth-interior pixel along plane -> c0 (0 = plane,
 //                 1 = opaque fill; clamped to [0, 1]). opacity_min is the minimum, opacity_p01 the 1st percentile,
 //                 opacity_lt99 the fraction of pixels below 0.99
 //   color_off     the fraction of truth-interior pixels whose colour is farther than COLOR_TOL (RGB units) from the
 //                 expected opaque fill colour (mask: c0; checker / polar: the segment c0 - c0-alt); color_err_mean,
 //                 color_err_p99: the RGB distance itself
-//   cell_err      parity-scored pixels of pattern runs (P2 review): the RGB distance from the colour of the TRUE cell
+//   cell_err      parity-scored pixels of checker / polar renders: the RGB distance from the colour of the TRUE cell
 //                 (c0 for parity 0, c0-alt for parity 1): cell_err_p99, cell_err_max. Catches cells pulled toward the
 //                 other colour (a translucent composite of sheets of another parity behind the front one) that
 //                 color_off (the c0 - c0-alt segment) and the parity (nearest colour) let pass
 //   hole_leak     truth.holeDisc {c, r}: pixels deeper than BAND inside that disc rendered as FILL (or UNKNOWN), and
-//                 on mask-type runs also a translucent fill (on the plane -> c0 blend, opacity > LEAK_T)
+//                 on solid renders also a translucent fill (on the plane -> c0 blend, opacity > LEAK_T)
 // STRICT mode (the SPEC 12.4 groups; the original groups keep exactly their old metrics): an ANNOT pixel inside the
 // truth, outside the bands, is a HOLE (a stroke-like colour where the fill must be: a darkened fill, the edge colour,
 // a stroke drawn away from the true boundary), except inside truth.annotSdf's band (strokes that legitimately cross
@@ -56,7 +56,7 @@ const PARITY_MIN_EDGE = 1.5; // px: pixels this close to a checker cell edge are
 const UNKNOWN_DIST = 48;   // RGB distance (0-255 units) beyond which a color is ANNOT whatever is nearest
 const COVER_BG = 24;       // 'cover': RGB distance from the paper within which a pixel is the paper
 const COLOR_TOL = 6;       // RGB distance from the expected opaque fill colour above which a pixel counts in color_off
-const LEAK_T = 0.05;       // mask-type runs: a hole pixel on the plane -> c0 blend with more fill than this leaks
+const LEAK_T = 0.05;       // solid renders: a hole pixel on the plane -> c0 blend with more fill than this leaks
 const TIE_OCT = 0.01;      // octaves: members whose sheet keys D differ by less may swap front (SPEC 3.10 / 5.4: the
                            // front key is exact, or within 0.01 octave where a window is truncated; float32 keys
                            // are good to ~1e-6 octave)
@@ -303,7 +303,7 @@ function pctl(arr, p) { if (!arr.length) return 0; const a = Float64Array.from(a
 
 // rgba: canvas pixels (W*H*4); returns {metrics, map: RGBA diagnostic image, problems: [string]}
 // parity: 'checker' | 'front' | 'polar' | null (default: 'checker' for variant 'pattern', else none);
-// opacity: a makeOpacity() function to report the fill opacity of the interior (mask-type runs);
+// opacity: a makeOpacity() function to report the fill opacity of the interior (solid renders);
 // strict: the rules of the SPEC 12.4 groups (see the header); colorErr: a makeColorErr() function (strict runs)
 // skip: pixels left out of every count (a Uint8Array, 1 = skipped; 'cover' runs: what the plane draws over the paper
 // that is neither fill nor background, the axes and the cuts)
@@ -336,7 +336,7 @@ function evaluate({ rgba, W, H, truthG, classify, variant, parity, opacity = nul
     if (skip && skip[k]) { put(k, COL.skip); continue; }
     if (T.holeIn && T.holeIn[k]) {
       leakIn++;
-      // strict mask-type runs: a translucent fill (on the plane -> c0 blend) leaks too, e.g. one sheet at alpha 0.2
+      // strict solid renders: a translucent fill (on the plane -> c0 blend) leaks too, e.g. one sheet at alpha 0.2
       const translucent = strict && opacity && (cls[k] & FILLSEG) && opacity(rgba[4 * k], rgba[4 * k + 1], rgba[4 * k + 2]) > LEAK_T;
       if (c === CL_FILL || c === CL_UNKNOWN || translucent) leakN++;
     }

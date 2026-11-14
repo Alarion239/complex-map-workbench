@@ -280,7 +280,7 @@ function evalRun(run, r, outDir, writeRender = true) {
   const { cap, rgba } = r;
   const W = cap.geo.w, H = cap.geo.h;
   const out = { id: run.id, scene: run.scene.name, variant: run.variant, group: run.scene.group, golden: run.golden, note: run.scene.note, truth: run.scene.truth.desc, ok: true, problems: [] };
-  // runs added for SPEC 12.4 record how they were scored (the original mask / pattern runs keep their format)
+  // a strict run records how it was scored (its classifier)
   if (run.strict) Object.assign(out, { classifier: run.kind, parity_mode: run.parity, alpha: run.alpha, strict: true });
   if (writeRender) fs.writeFileSync(path.join(outDir, 'renders', run.id + '.png'), PNG.encode(W, H, rgba));
   if (!r.settled) {

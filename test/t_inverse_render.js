@@ -31,7 +31,7 @@ const savePng = (name, rgba) => {
 };
 const cabs = (w) => Math.hypot(w.re, w.im);
 const pixelAt = (view) => (i, j) => C(view.cx + (i + 0.5 - W / 2) / view.s, view.cy - (j + 0.5 - H / 2) / view.s);
-// one render of a scene (plan, shape list, the left view's window as clipWin)
+// one render of a scene (plan, shape list, the z view's window as clipWin)
 function render(sc, view, pattern, opts = {}) {
   const plan = planOf(sc.steps);
   if (!plan.ok) throw new Error(plan.reason);
