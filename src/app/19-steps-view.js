@@ -3476,7 +3476,7 @@
   // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; grp
   // ({ from, n }: the steps this Split made of one formula) is carried by the span, which runs those steps as the formula's
   // own homotopy runs them (svBetween), so the picture is the same at the same u. It lasts to the end of this glide.
-  // The span holds one group: a later Split in the same glide replaces it, and an undo drops it (#1587)
+  // The span holds one group, the last Split's; after an undo it holds none (#1587)
   function svRemapMotion(pl, grp) {
     const A = SV.anim, B = SV.play, x = SV.g.x, last = svPlanes().length - 1, cl = (v) => Math.max(0, Math.min(last, v));
     SV.motionKept = true;
