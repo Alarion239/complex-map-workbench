@@ -147,8 +147,6 @@
     syncViewControls();
     fitRightTitle();
     $('paneR').classList.toggle('no-rulers', !rImage());
-    $('rightFit').hidden = !rImage();
-    $('leftFit').hidden = false;
     buildRightFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
@@ -951,12 +949,16 @@
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the Landscape's key under Plaster: the height and the contours, with no hue
+  const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
+    // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
+    if (lLand()) return '3d';
     // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
     if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
-    return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
+    return lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
@@ -1074,9 +1076,11 @@
       const nm = $t('Colour key');
       if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
-    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
-      box.dataset.kind = kind; box.dataset.pal = GLR.palette();
-      box.style.setProperty('--wheel', keyConic());
+    // (the chip's glyph is the hue wheel; the Landscape under Plaster paints no hue, so its glyph keeps the neutral ink)
+    const hueless = plasterKey(kind);
+    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette() || box.dataset.hueless !== String(hueless))) {
+      box.dataset.kind = kind; box.dataset.pal = GLR.palette(); box.dataset.hueless = String(hueless);
+      if (hueless) box.style.removeProperty('--wheel'); else box.style.setProperty('--wheel', keyConic());
     }
     if (side === 'L') {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
@@ -1100,7 +1104,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1198,15 +1202,17 @@
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
     const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
-    st.ring = !cauchyOff;
+    // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
+    const noRing = cauchyOff || plasterKey(kind);
+    st.ring = !noRing;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
-    if (!cauchyOff) for (let i = 0; i < 360; i++) {
+    if (!noRing) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
-    if (!cauchyOff) {
+    if (!noRing) {
       ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
       // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
@@ -1229,7 +1235,7 @@
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (SV.on && svCarriedFrom() && !lPhase()) {
+    if (kind === 'color' && SV.on && svCarriedFrom() && !lPhase()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
