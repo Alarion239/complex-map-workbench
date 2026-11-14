@@ -55,8 +55,8 @@
   // a sphere's mark is labelled when its normal makes more than this with the line to the eye (the screen's labels start to show
   // above it)
   const GLOBE_LABEL_FACE = 0.05;
-  // a mark keeps this far (pt) from the globe's outline and from the curves drawn on the panel; one that would cross the outline is
-  // moved out from the globe's centre in steps, by at most GLOBE_LABEL_NUDGE_MAX, and left out if it still does
+  // a mark keeps this far (pt) from the globe's outline; one that would cross it is moved out from the globe's centre in steps, by
+  // at most GLOBE_LABEL_NUDGE_MAX, and left out if it still does
   const GLOBE_LABEL_AIR = 1.5, GLOBE_LABEL_NUDGE_STEP = 0.5, GLOBE_LABEL_NUDGE_MAX = 6;
   // the unit sphere's outline (its limb) seen from the eye as a polygon of toPt's points (the sphere's points p with p . eye = 1)
   const GLOBE_LIMB_STEPS = 72;
@@ -86,8 +86,8 @@
     return marks.some(Boolean) && !marks.every(Boolean);
   };
   // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera and keep clear of its
-  // outline, of the other labels and of the curves drawn on the panel (avoid: their points, in pt)
-  function globeLabels(g, r, c, x, y, k, tp, avoid = []) {
+  // outline and of the other labels
+  function globeLabels(g, r, c, x, y, k, tp) {
     if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
@@ -105,7 +105,6 @@
       }
       const b = boxAt(q);
       if (XD.boxes.some((o2) => o2.x0 < b.x1 + 0.6 && o2.x1 > b.x0 - 0.6 && o2.y0 < b.y1 + 0.6 && o2.y1 > b.y0 - 0.6)) continue;
-      if (avoid.some((a) => a[0] > b.x0 - GLOBE_LABEL_AIR && a[0] < b.x1 + GLOBE_LABEL_AIR && a[1] > b.y0 - GLOBE_LABEL_AIR && a[1] < b.y1 + GLOBE_LABEL_AIR)) continue;
       m += XD.at(it, q[0], q[1], 'middle', 'mid', 'globe-label', 0.4);
     }
     return m;
@@ -170,11 +169,7 @@
     return (tk ? `<path d="${tk}" stroke="#000000" stroke-width="0.5" fill="none" stroke-linecap="round"/>` : '') + out;
   }
   // a polyline set in pt as a path
-  // (keep: a list that gets the points drawn, for the labels to keep clear of)
-  const ptPath = (segs, keep) => {
-    if (keep) for (const sg of segs) keep.push(...sg);
-    return segs.map((sg) => sg.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('')).join('');
-  };
+  const ptPath = (segs) => segs.map((sg) => sg.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('')).join('');
   // the points whose paths a globe shows: the point shapes and points of the areas' boundaries whose paths show for
   // the most part (their samples on the front side), kept apart at their ends; Hof(t) -> H_t
   function globePathPoints(shapes, srcWin, Hof, m, proj, minPt, max = 8) {
@@ -274,14 +269,14 @@
       items.push(`<image x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`);
       if (kind === 'land') { items.push(`<rect x="${f2(x)}" y="${f2(y)}" width="${f2(pw)}" height="${f2(ph)}" fill="none" stroke="#000000" stroke-width="0.5"/>`); lines.push({ x0: x, y0: y, x1: x + pw, y1: y + ph, kind: 'frame' }); }
       items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
-      const g = raws[i].globe, drawn = [];
+      const g = raws[i].globe;
       if (g && (kind === 'globe' || kind === 'phaseGlobe')) {
         const proj = globeProj(g, raws[i], c, x, y, k);
         if (kind === 'globe') {
           if (i === 0) tracked = globePathPoints(shapes, srcWin, Hof, m, proj, 0.18 * pw, 4);
           let pm = '';
           for (const s of openS) {
-            const d2 = ptPath(globeEdge(s, Hof(t), proj, srcWin), drawn), col = o.ink === 'bw' ? '#000000' : tonesOf(s, o).edge;
+            const d2 = ptPath(globeEdge(s, Hof(t), proj, srcWin)), col = o.ink === 'bw' ? '#000000' : tonesOf(s, o).edge;
             if (d2) pm += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="${f2(3.5 * pxPt)}" stroke-linecap="round" stroke-opacity="1"/><path d="${d2}" fill="none" stroke="${col}" stroke-width="${f2(Math.max(0.6, 1.5 * pxPt))}" stroke-dasharray="3 2"/>`;
           }
           const un = untracked();
@@ -295,14 +290,14 @@
           tracked.forEach((z, q) => {
             const sample = (a0, b0) => XD.sample((u) => proj(Hof(u)(z)), a0, b0, 48, 0.25);
             const col2 = o.ink === 'bw' ? '#000000' : PTS[q % 4][1];
-            if (t < m) pm += `<path d="${ptPath(sample(t, m), drawn)}" fill="none" stroke="#444444" stroke-width="0.7" stroke-dasharray="0 1.8" stroke-linecap="round"/>`;
-            if (t > 0) { const d2 = ptPath(sample(0, t), drawn); pm += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/><path d="${d2}" fill="none" stroke="${col2}" stroke-width="0.6" stroke-linecap="round"/>`; }
+            if (t < m) pm += `<path d="${ptPath(sample(t, m))}" fill="none" stroke="#444444" stroke-width="0.7" stroke-dasharray="0 1.8" stroke-linecap="round"/>`;
+            if (t > 0) { const d2 = ptPath(sample(0, t)); pm += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/><path d="${d2}" fill="none" stroke="${col2}" stroke-width="0.6" stroke-linecap="round"/>`; }
             const e = proj(Hof(t)(z));
             if (e) pm += XD.marker(PTS[q % 4][0], e[0], e[1], 1.9, col2, '#ffffff', 0.4);
           });
           items.push(pm);
         }
-        items.push(globeLabels(g, raws[i], c, x, y, k, tp - 1, drawn));
+        items.push(globeLabels(g, raws[i], c, x, y, k, tp - 1));
       }
     }
     if (keyW) {
@@ -630,12 +625,12 @@
       zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter(seen) : [];
       if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
     }
-    const pxPt = 300 / 96 * k, drawn = [];
+    const pxPt = 300 / 96 * k;
     let g = '';
     // (export review r3, editor-9) an open set's boundary, dashed (Homework); editor-3: a point shape whose path is not
     // drawn is marked at F(z) where it faces the camera, else named as hidden
     for (const s of openS) {
-      const d2 = ptPath(globeEdge(s, Hof(m), proj, srcWin), drawn), col = o.ink === 'bw' ? '#000000' : tonesOf(s, o).edge;
+      const d2 = ptPath(globeEdge(s, Hof(m), proj, srcWin)), col = o.ink === 'bw' ? '#000000' : tonesOf(s, o).edge;
       if (d2) g += `<path d="${d2}" fill="none" stroke="#ffffff" stroke-width="${f2(3.5 * pxPt)}" stroke-linecap="round"/><path d="${d2}" fill="none" stroke="${col}" stroke-width="${f2(Math.max(0.6, 1.5 * pxPt))}" stroke-dasharray="3 2"/>`;
     }
     // (verify-editor-3) a point shape without an arrow: F(z) marked with a square (then a triangle, ...), not a second
@@ -652,10 +647,8 @@
       marks.push({ z, lab, mk });
       g += XD.marker(PTS[mk][0], e[0], e[1], 1.9, o.ink === 'bw' ? '#000000' : PTS[mk][1], '#ffffff', 0.4);
     }
-    const pathSet = pathItems(zs, Hof, m, proj, true);
-    for (const it of pathSet) for (const run of it.runs) drawn.push(...run);
-    g += A.pathsSvg(pathSet, { u: 1 });
-    items.push(g, globeLabels(r.globe, r, c, x, y, k, tp - 1, drawn));
+    g += A.pathsSvg(pathItems(zs, Hof, m, proj, true), { u: 1 });
+    items.push(g, globeLabels(r.globe, r, c, x, y, k, tp - 1));
     if (sv) return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, svPaths: true, svGlobe: true, m, kept: zs.length, sentence: leg.sentenceTex || '' } };
     return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, globePaths: true, m, kept: zs.length, pts: zs.map((z) => ({ z })), hidden, marks, open: openS.length > 0 } };
   }
