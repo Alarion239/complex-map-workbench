@@ -820,12 +820,13 @@
   }
   // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
   // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
-  // button named by its words and titled so
+  // button named and titled in words that start with its visible label ("Re, real part"; the modulus, |·|, is symbols
+  // alone, and its words are its name)
   function heightOptions(Fn) {
     const lg = I18N.fnName('log');
     if (!SV.on) return [['log', `${lg} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]];
-    const kinds = [['log', `${lg} |·|`, $t('log of the modulus')], ['abs', '|·|', $t('modulus')], ['re', 'Re', $t('real part')], ['im', 'Im', $t('imaginary part')]];
-    return kinds.map(([v, l, words]) => [v, l, words, words]);
+    const kinds = [['log', `${lg} |·|`, lg, $t('log of the modulus')], ['abs', '|·|', '', $t('modulus')], ['re', 'Re', 'Re', $t('real part')], ['im', 'Im', 'Im', $t('imaginary part')]];
+    return kinds.map(([v, l, lead, words]) => { const name = !lead || words.startsWith(lead) ? words : `${lead}, ${words}`; return [v, l, name, name]; });
   }
   function buildFootL(f) {
     const Fn = fnText();

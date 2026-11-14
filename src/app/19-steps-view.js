@@ -2781,9 +2781,10 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
-    // (the levels settled, the key is unfolded again if the bar still fits beside it, or fits one level shorter: the key
-    // folded first for a bar a little too wide, and a narrower head, whose bar shortens anyway, would show its words, so
-    // a wider head never folds a key a narrower one shows)
+    // (the levels settled, the key is unfolded again if the bar fits beside it at this level or a shorter one: the key folds
+    // first while the bar is too wide, and a narrower head, whose bar shortens anyway, shows the key's words beside a short
+    // bar, so the key is folded only where no level of the bar fits beside its words, and a head with more room never
+    // folds a key that a head with less room shows)
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
@@ -2791,7 +2792,9 @@
       const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
       const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
       const fits = () => E.bar.scrollWidth + keep + dw <= room;
-      if (!fits() && lvl < 5) { set(lvl + 1); if (fits()) { lvl++; svTitleTip(lvl >= 4); } else set(lvl); }
+      let l2 = lvl;
+      while (!fits() && l2 < 5) set(++l2);
+      if (fits() && l2 !== lvl) { lvl = l2; svTitleTip(lvl >= 4); } else if (l2 !== lvl) set(lvl);
       if (!fits()) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a

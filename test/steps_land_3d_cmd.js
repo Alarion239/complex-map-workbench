@@ -48,7 +48,8 @@ await settled({ max: 60000 });
 const planes = await ev('__cmwSteps().planes');
 // what the title says plane i's height reads with T on the default page (z, exp, Möbius), under the height h (h(x) the
 // Height select's form of x), then past T where it is carried from
-const heightOf = (T, i, h = (x) => `log|${x}|`) => h(i > T ? `w${'₀₁₂'[T]}` : i === T ? `w${'₀₁₂'[i]}` : T === 2 && i === 0 ? 'F' : i === 0 ? 'f₁' : 'f₂') + (i > T ? `, carried from w${'₀₁₂'[T]}` : '');
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_key_kit.js'), 'utf8'));
+const heightOf = (T, i, h = (x) => `log|${x}|`) => h(K.heightOf(T, i)) + (i > T ? `, carried from ${K.PLANE[T]}` : '');
 ok('the default page has three planes', Array.isArray(planes) && planes.length === 3, planes);
 info.runs = {};
 for (const T of [1, 2]) {

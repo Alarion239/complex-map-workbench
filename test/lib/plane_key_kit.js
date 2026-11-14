@@ -38,8 +38,8 @@
     else if (i > T) ok(`${name}: the hue ring, colour carried from ${this.PLANE[T]}`, lg.kind === 'color' && lg.caption === `colour carried from ${this.PLANE[T]}`, lg);
     else ok(`${name}: the style's key, no carried line`, lg.kind === (surf === 'sphere' ? 'sphere' : 'color') && /^arg and \|/.test(lg.caption || ''), lg);
   },
-  // what the Landscape's height reads on plane i with T at plane T, on example 1's three planes: F from z into the last
-  // plane, f_T from the plane before T, T's own variable at T and past it
+  // what the Landscape's height reads on plane i with T at plane T, on a chain of three planes (example 1's, the default
+  // page's): F from z into the last plane, f_T from the plane before T, T's own variable at T and past it
   heightOf: function (T, i) { return i >= T ? this.PLANE[T] : i === 0 && T === this.PLANE.length - 1 ? 'F' : `f${'₀₁₂'[T]}`; },
   // every surface, place of T and plane: park, check the key, then `more(name, lg)` for what a suite adds
   sweep: async function (ok, info, nPl, more) {
