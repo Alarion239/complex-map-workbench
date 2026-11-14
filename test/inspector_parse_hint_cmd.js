@@ -32,6 +32,11 @@ const TOL = 8;
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
 const F1 = (expr, cut = 180) => ({ type: 'custom', params: { expr, cut }, on: true });
 const HINT = 'Read as (z⁻¹)/2. For the power −1/2, write z^(-1/2).';
+// (the hint follows the field through its input listener; the step card's own update, fillStep, leaves the hint alone while the
+// field is being typed in (E.typing: true from the first input until change or blur), so a read right after typing meets whatever
+// last wrote the hint: the check waits until the sentence is the one it expects, at most HINT_WAIT_MS)
+const HINT_WAIT_MS = 8000, STUB_MS = 300;
+const hintBack = () => settled({ only: true, max: HINT_WAIT_MS, until: `(() => { const h = document.querySelector('#propsPanel .insp-step .ihint'), t = h && h.querySelector('span'); return !!t && t.textContent === ${JSON.stringify(HINT)}; })()` });
 async function open(ns, steps, q = '&view=steps') {
   await go(`http://localhost:${PORT}/blank-${ns}.html`);
   const o = { v3: true, v4: true, shapes: SHAPES, steps, nextId: 50, focus: 0, rightMode: 'image' };
@@ -49,7 +54,7 @@ const field = () => ev(`document.querySelector('#propsPanel .insp-step input[dat
 const typed = (v) => ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
 const hideToasts = (on) => ev(`(() => { let s = document.getElementById('qaNoToast'); if (!s) { s = document.createElement('style'); s.id = 'qaNoToast'; document.head.append(s); } s.textContent = ${on} ? '#toastHost{visibility:hidden!important}' : ''; return 1; })()`);
 // a language switch reloads the page: wait until the new page is in that language and shows the element `sel`, asserted
-const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, settled, sleep, ok });
+const { relang } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'relang_kit.js'), 'utf8'))({ ev, reloaded, ok });
 // F's plane pictures, without the colour legend and the thread's strip
 const LEGEND_W = 170, STRIP_H = 100;
 const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; out.push({ x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width - ${LEGEND_W}), height: Math.round(r.height - ${STRIP_H}) }); } return out; })()`);
@@ -94,7 +99,18 @@ await chip(1); await settled();
   const h = await hint();
   ok('3: typing the bracket takes the hint away before the field is committed', h.text === '' && h.buttons.length === 0 && !h.shown, h);
   await typed('z^-1/2');
-  ok('3: and it is back when the bracket goes', (await hint()).text === HINT, await hint());
+  const back = await hintBack();
+  ok('3: and it is back when the bracket goes', back.ok, { wait: back, hint: await hint() });
+  // control for the wait: a page-side stub clears the hint after the field's input event and puts it back STUB_MS later, as a read
+  // that lands between the two finds it. The immediate read misses it, and hintBack waits it out
+  await typed('z^(-1/2)');
+  await ev(`(() => { const i = document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]'); window.__hintStub = () => { const h = document.querySelector('#propsPanel .insp-step .ihint'), html = h.innerHTML, key = h.dataset.key; h.textContent = ''; delete h.dataset.key; setTimeout(() => { h.innerHTML = html; h.dataset.key = key; }, ${STUB_MS}); }; i.addEventListener('input', window.__hintStub); return 1; })()`);
+  await typed('z^-1/2');
+  const missed = await hint();
+  ok('3: control: with the hint cleared after the input event, a read right after typing misses it', missed.text === '', missed);
+  const waited = await hintBack();
+  ok('3: control: the wait finds the hint once it is back', waited.ok, { wait: waited, hint: await hint() });
+  await ev(`document.querySelector('#propsPanel .insp-step input[data-pkey="expr"]').removeEventListener('input', window.__hintStub), 1`);
 }
 
 // ---- 4: readings ----

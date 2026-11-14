@@ -128,7 +128,7 @@ async function rounds(name, n, steps, opt = {}) {
   info[name] = { warmup: { L: ratio(start.L, pre.L), R: ratio(start.R, pre.R) }, start: `L ${fmt(start.L)} | R ${fmt(start.R)}`, end: `L ${fmt(end.L)} | R ${fmt(end.R)}`, uEndOverStart: { L: ratio(end.L, start.L), R: ratio(end.R, start.R) }, worstBack: +(worst * 100).toFixed(4) + ' %', worstDrift: +(worstMid * 100).toFixed(4) + ' %', reads: reads.slice(0, 8) };
   return { start, end };
 }
-const { reloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'));
+const { pageReloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'))({ ev, fails, reloaded });
 // the language row of the open More sheet, scrolled into view (the sheet scrolls: the row starts below the fold of a phone
 // and a tap outside the viewport reaches nothing)
 const langRow = (v) => `.ph-sheet .ph-seg button[data-v="${v}"]`;
@@ -250,7 +250,7 @@ for (const mk of mapsFor) {
       await ev(`Phone.open('more')`); await settle(400);
       const old = await ev('performance.timeOrigin');
       await tapLang(v);
-      await reloaded(old); await speaks(v); await settle(600);
+      await pageReloaded(old); await speaks(v); await settle(600);
       await ev(`Phone.close()`); await settle(400);
     };
     await swapTap();
@@ -361,7 +361,7 @@ for (const mk of mapsFor) {
         await ev(`Phone.open('more')`); await settle(400);
         const old = await ev('performance.timeOrigin');
         await tapLang(v);
-        await reloaded(old); await speaks(v); await settle(600);
+        await pageReloaded(old); await speaks(v); await settle(600);
         await ev(`Phone.close()`); await settle(400);
       };
       await fresh('rv-lang'); await userViews(); await swapTap();
