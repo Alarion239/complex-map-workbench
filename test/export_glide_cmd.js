@@ -25,6 +25,22 @@ const CONTROL_ZOOM = 1.1, CONTROL_SHIFT = 0.1;
 const CMP_W = 320;
 // a globe still's panel and the pane's canvas on the screen agree in width over height to this (css px rounding)
 const ASPECT_TOL = 0.02;
+// a mark of the still keeps this far (pt) from the globe's outline, which is sampled at this many points
+const LIMB_CLEAR = 1, LIMB_POINTS = 720;
+// (run in the page) the sphere still's marks whose box comes within LIMB_CLEAR of the globe's outline, by name. The outline is the
+// unit sphere's limb seen from the eye (the points p of the sphere with p . eye = 1) through the art layer's camera ga.globe, which
+// the still's panel shares; the panel's place in the still is im (x, y, width, height in pt)
+const LIMB_MARKS = `(f, im, ga) => {
+  const g = ga.globe, dist = Math.hypot(...g.eye), eh = g.eye.map((v) => v / dist), rad = Math.sqrt(1 - 1 / (dist * dist));
+  const cr = (p, q) => [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
+  const side = cr(eh, Math.abs(eh[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]), sl = Math.hypot(...side), u = side.map((v) => v / sl), w = cr(eh, u);
+  const limb = Array.from({ length: ${LIMB_POINTS} }, (_, i) => {
+    const a = 2 * Math.PI * i / ${LIMB_POINTS}, q = GLR.M4.apply(g.MVP, eh.map((v, j) => v / dist + rad * (Math.cos(a) * u[j] + Math.sin(a) * w[j])));
+    return [im[0] + (q[0] / q[3] * 0.5 + 0.5) * im[2], im[1] + (1 - (q[1] / q[3] * 0.5 + 0.5)) * im[3]];
+  });
+  const near = (b) => limb.some(([x, y]) => x > b.x0 - ${LIMB_CLEAR} && x < b.x1 + ${LIMB_CLEAR} && y > b.y0 - ${LIMB_CLEAR} && y < b.y1 + ${LIMB_CLEAR});
+  return f.boxes.filter((b) => b.kind === 'globe-label' && near(b)).map((b) => b.tex).join(' ');
+}`;
 // the options of the glide video every check here records: 1 s per step, as the other API-made videos (export_cmd.js; #531). A
 // video renders secs x fps x steps frames and a hold shows its kept picture again, so the length is what the suite's time follows
 const VIDEO_OPT = { size: '1280x720', fps: 30, secs: 1, ends: 'once' };
@@ -154,9 +170,10 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     if (${surf === 'sphere'}) {
       const P = CanvasRenderingContext2D.prototype, text = P.fillText, marks = ['0', '\u221e', '1', 'i', '\u22121', '\u2212i'], seen = new Set();
       P.fillText = function (t, ...a) { if (marks.includes(t)) seen.add(t); return text.call(this, t, ...a); };
-      try { await __cmwFig.glideArt(0, { wpt: im[2], hpt: im[3], dpi: 96, raw: true, look: 'light' }); } finally { P.fillText = text; }
+      let ga; try { ga = await __cmwFig.glideArt(0, { wpt: im[2], hpt: im[3], dpi: 96, raw: true, look: 'light' }); } finally { P.fillText = text; }
       const named = (b) => (b.tex.includes('infty') ? '\u221e' : b.tex.replace('-', '\u2212'));
-      labels = { still: f.boxes.filter((b) => b.kind === 'globe-label').map(named).sort().join(' '), frame: [...seen].sort().join(' ') };
+      const still = f.boxes.filter((b) => b.kind === 'globe-label');
+      labels = { still: still.map(named).sort().join(' '), frame: [...seen].sort().join(' '), onLimb: (${LIMB_MARKS})(f, im, ga) };
     }
     return { mad, three, labels, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
@@ -169,6 +186,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     // the still's shape is checked against the pane's own size, not against the figure's path that the frame also takes
     if (surf === 'sphere') ok(`${tag}: the globe still's panel has the pane's width over height (${t3 && t3.dom})`, !!t3 && t3.dom != null && Math.abs(t3.asp - t3.dom) < ASPECT_TOL, fp);
     if (surf === 'sphere') ok(`${tag}: the still names the sphere's marks that the first frame draws (${fp && fp.labels && fp.labels.frame})`, !!fp.labels && fp.labels.frame.length > 0 && fp.labels.still === fp.labels.frame, fp);
+    if (surf === 'sphere') ok(`${tag}: the still's marks keep ${LIMB_CLEAR} pt clear of the globe's outline (on it: ${fp && fp.labels && fp.labels.onLimb || 'none'})`, !!fp.labels && fp.labels.onLimb === '', fp);
     ok(`${tag}: the same comparison fails on a frame zoomed by ${CONTROL_ZOOM} and on one shifted by ${CONTROL_SHIFT} of the crop`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
   }
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
@@ -203,6 +221,20 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     if (scope) await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
     ok(`${tag}: a frame at x = ${park} matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > DRAWN_MIN) && Math.abs(s.x - park) < 1e-6, s);
   }
+}
+// a short, wide pane (a landscape phone) makes a small globe, and its marks come near its outline: the still's marks keep clear of it
+{
+  await view(740, 360, false);
+  await open(1, 'sphere');
+  const lm = await ev(`await (async () => { try {
+    const f = await __cmwFig.build({});
+    const im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+    const ga = await __cmwFig.glideArt(0, { wpt: im[2], hpt: im[3], dpi: 96, raw: true, look: 'light' });
+    return { onLimb: (${LIMB_MARKS})(f, im, ga), marks: f.boxes.filter((b) => b.kind === 'globe-label').length };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 120000);
+  info['sphere still at 740 x 360'] = lm;
+  ok(`a 740 x 360 pane: the sphere still's marks keep ${LIMB_CLEAR} pt clear of the globe's outline (on it: ${lm && lm.onLimb || 'none'})`, !!lm && !lm.err && lm.marks > 0 && lm.onLimb === '', lm);
+  await view(1440, 900, false);
 }
 // the picture check has teeth: a frame of paper alone has no drawn pixels, so it is below DRAWN_MIN
 {
