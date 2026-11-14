@@ -3048,7 +3048,7 @@
  "Tour options": "Opzioni del tour",
  "Next step in {n} s.": "Passo successivo tra {n} s.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Trascina per ruotare, trascina una figura per spostarla; Space ruota; ∞ è al polo nord",
- "Styles belong to the flat Phase view": "Gli stili appartengono alla vista Fase piana",
+ "Styles show on the Plane surface": "Gli stili si vedono sulla superficie Piano",
  "Style: {name}": "Stile: {name}",
  "The Mandelbrot set": "L'insieme di Mandelbrot",
  "Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.": "Prova: ingrandisci il bordo della regione: oltre circa 10⁻⁵ il float32 della GPU lo sfoca.",

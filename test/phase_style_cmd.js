@@ -46,13 +46,18 @@ for (const [w, lang] of [[360, ''], [390, ''], [360, 'ru'], [390, 'ru']]) {
   await ev(`document.querySelector('#dcSeg button[data-v="classic"]').click()`); await settle(500);
   ok(`phone ${w} ${lang || 'en'}: one tap sets the style`, (await dc()) === 'classic', await dc());
   await ev(`Phone.close(true)`); await settle(300);
-  await ev(`__cmwSetMain('land'); 1`); await settle(700);
+  await ev(`__cmwSteps({ surf: 'land' }); 1`); await settle(700);
   await ev(`Phone.open('display')`); await settle(800);
   const k = await ev(`(() => { const e = document.querySelector('.ph-style'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(), t = e.querySelector('.ph-rl'); return { text: t.textContent, h: r.height, dis: e.getAttribute('aria-disabled'), cut: t.scrollWidth > t.clientWidth + 1 }; })()`);
   ok(`phone ${w} ${lang || 'en'}: in the Landscape the style chip shows, dimmed, whole`, k && /(Style|Стиль): /.test(k.text) && k.h >= 44 && k.dis === 'true' && !k.cut, k);
   await ev(`document.querySelector('.ph-style').click()`); await settle(500);
   items = await menuItems();
-  ok(`phone ${w} ${lang || 'en'}: its menu only says where the styles live: one disabled note, no way to switch the view`, items.length === 1 && items[0].dis === true && /Styles belong|Стили/.test(items[0].t), items); // standards-ok: the Switch to Phase item is deleted with the view switch
+  const planeRe = '/Surface: Plane|Поверхность: плоскость/';
+  const focused = await ev(`!!document.activeElement && document.activeElement.classList.contains('mi') && ${planeRe}.test(document.activeElement.textContent)`);
+  ok(`phone ${w} ${lang || 'en'}: its menu holds the note and a Surface: Plane item, and focus moves onto the item`, items.length === 2 && items[0].dis === true && /Styles show|Стили/.test(items[0].t) && items[1].dis === false && new RegExp(planeRe.slice(1, -1)).test(items[1].t) && focused, { items, focused }); // standards-ok: the Switch to Phase item is replaced by Surface: Plane, which the next check runs
+  await pickItem(planeRe); await settled({ until: "__cmwSteps().surf === 'plane'", max: 8000, only: true });
+  const after = await ev(`({ surf: __cmwSteps().surf, main: __cmwState().view.main })`);
+  ok(`phone ${w} ${lang || 'en'}: Surface: Plane leaves the Landscape for the plane`, after.surf === 'plane' && after.main !== 'land', after);
   await ev(`Phone.close(true)`); await settle(300);
 }
 await view(1440, 900, false, false);
